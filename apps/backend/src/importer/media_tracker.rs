@@ -17,9 +17,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
-            MediaDetails, MediaSpecifics, MetadataCreator, Visibility,
+            BookSpecifics, CreateOrUpdateCollectionInput, FreeMetadataCreator,
+            ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
+            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, Visibility,
         },
         IdObject,
     },
@@ -277,11 +277,11 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     production_status: "Released".to_owned(),
                     lot,
                     source: MetadataSource::Custom,
-                    creators: details
+                    free_creators: details
                         .authors
                         .unwrap_or_default()
                         .into_iter()
-                        .map(|a| MetadataCreator {
+                        .map(|a| FreeMetadataCreator {
                             name: a,
                             role: "Author".to_owned(),
                             image: None,

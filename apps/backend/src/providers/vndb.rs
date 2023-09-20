@@ -11,7 +11,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageLot, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -176,7 +176,7 @@ impl VndbService {
             .developers
             .unwrap_or_default()
             .into_iter()
-            .map(|a| MetadataCreator {
+            .map(|a| FreeMetadataCreator {
                 name: a.name,
                 role: "Developer".to_owned(),
                 image: None,
@@ -203,7 +203,7 @@ impl VndbService {
                 .unwrap_or_else(|| "Released".to_owned()),
             title: item.title,
             description: item.description,
-            creators: creators.into_iter().unique().collect(),
+            free_creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.released.clone().and_then(|d| convert_date_to_year(&d)),
             publish_date: item.released.and_then(|d| convert_string_to_date(&d)),

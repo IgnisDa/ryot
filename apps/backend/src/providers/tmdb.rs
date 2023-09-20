@@ -16,7 +16,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics,
             PartialMetadata, ShowEpisode, ShowSeason, ShowSpecifics,
         },
@@ -259,7 +259,7 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
                         if r == *"Acting" {
-                            Some(MetadataCreator {
+                            Some(FreeMetadataCreator {
                                 name: n,
                                 role: r,
                                 image: g.profile_path,
@@ -282,7 +282,7 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let (Some(n), Some(r)) = (g.name, g.job) {
                         if r == *"Director" {
-                            Some(MetadataCreator {
+                            Some(FreeMetadataCreator {
                                 name: n,
                                 role: r,
                                 image: g.profile_path,
@@ -301,7 +301,7 @@ impl MediaProvider for TmdbMovieService {
             data.production_companies
                 .unwrap_or_default()
                 .into_iter()
-                .map(|p| MetadataCreator {
+                .map(|p| FreeMetadataCreator {
                     name: p.name,
                     role: "Production".to_owned(),
                     image: p.logo_path.map(|p| self.base.get_cover_image_url(p)),
@@ -310,7 +310,7 @@ impl MediaProvider for TmdbMovieService {
         );
         let creators = creators
             .into_iter()
-            .map(|c| MetadataCreator {
+            .map(|c| FreeMetadataCreator {
                 name: c.name,
                 role: c.role,
                 image: c.image.map(|i| self.base.get_cover_image_url(i)),
@@ -348,7 +348,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            creators,
+            free_creators: creators,
             images: image_ids
                 .into_iter()
                 .unique()
@@ -570,7 +570,7 @@ impl MediaProvider for TmdbShowService {
                             .into_iter()
                             .flat_map(|g| {
                                 if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                                    Some(MetadataCreator {
+                                    Some(FreeMetadataCreator {
                                         name: n,
                                         role: r,
                                         image: g
@@ -591,13 +591,14 @@ impl MediaProvider for TmdbShowService {
                 .production_companies
                 .unwrap_or_default()
                 .into_iter()
-                .map(|p| MetadataCreator {
+                .map(|p| FreeMetadataCreator {
                     name: p.name,
                     role: "Production".to_owned(),
                     image: p.logo_path.map(|p| self.base.get_cover_image_url(p)),
                 }),
         );
-        let author_names: HashBag<MetadataCreator> = HashBag::from_iter(author_names.into_iter());
+        let author_names: HashBag<FreeMetadataCreator> =
+            HashBag::from_iter(author_names.into_iter());
         let author_names = Vec::from_iter(author_names.set_iter())
             .into_iter()
             .sorted_by_key(|c| c.1)
@@ -614,7 +615,7 @@ impl MediaProvider for TmdbShowService {
             production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
             description: show_data.overview,
-            creators: author_names,
+            free_creators: author_names,
             genres: show_data
                 .genres
                 .into_iter()

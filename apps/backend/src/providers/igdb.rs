@@ -17,7 +17,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
             VideoGameSpecifics,
         },
@@ -313,7 +313,7 @@ where id = {id};
                 } else {
                     "Unknown"
                 };
-                MetadataCreator {
+                FreeMetadataCreator {
                     name: ic.company.name,
                     image: ic
                         .company
@@ -340,7 +340,7 @@ where id = {id};
             production_status: "Released".to_owned(),
             title: item.name.unwrap(),
             description: item.summary,
-            creators,
+            free_creators: creators,
             images,
             videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),

@@ -16,7 +16,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImage, MetadataImageLot, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
@@ -191,7 +191,7 @@ impl MediaProvider for OpenlibraryService {
                 .collect_vec()
                 .first()
                 .map(|i| self.get_author_cover_image_url(*i));
-            creators.push(MetadataCreator { name, role, image });
+            creators.push(FreeMetadataCreator { name, role, image });
         }
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
@@ -295,7 +295,7 @@ impl MediaProvider for OpenlibraryService {
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
-            creators,
+            free_creators: creators,
             genres,
             images,
             publish_year: first_release_date.map(|d| d.year()),

@@ -70,14 +70,14 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, CreatorExtraInformation, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
-            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            CreateOrUpdateCollectionInput, CreatorExtraInformation, FreeMetadataCreator,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemReviewComment,
+            ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
+            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataGroupListItem,
+            MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource,
+            MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
@@ -2473,7 +2473,7 @@ impl MiscellaneousService {
         images: Vec<MetadataImage>,
         videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
-        creators: Vec<MetadataCreator>,
+        creators: Vec<FreeMetadataCreator>,
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
@@ -2644,7 +2644,7 @@ impl MiscellaneousService {
     async fn associate_creator_with_metadata(
         &self,
         metadata_id: i32,
-        creator: MetadataCreator,
+        creator: FreeMetadataCreator,
         index: usize,
     ) -> Result<()> {
         let db_creator = if let Some(db_creator) = Creator::find()
@@ -2817,7 +2817,7 @@ impl MiscellaneousService {
             metadata.id,
             metadata.lot,
             metadata.source,
-            details.creators,
+            details.free_creators,
             details.genres,
             details.suggestions,
             details.groups,
@@ -2832,7 +2832,7 @@ impl MiscellaneousService {
         metadata_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
-        creators: Vec<MetadataCreator>,
+        creators: Vec<FreeMetadataCreator>,
         genres: Vec<String>,
         suggestions: Vec<PartialMetadata>,
         groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
@@ -3722,7 +3722,7 @@ impl MiscellaneousService {
                     details.images,
                     details.videos,
                     details.specifics,
-                    details.creators,
+                    details.free_creators,
                     details.genres,
                     details.production_status,
                     details.publish_year,
@@ -4152,7 +4152,7 @@ impl MiscellaneousService {
             .creators
             .unwrap_or_default()
             .into_iter()
-            .map(|c| MetadataCreator {
+            .map(|c| FreeMetadataCreator {
                 name: c,
                 role: "Creator".to_string(),
                 image: None,
@@ -4164,7 +4164,7 @@ impl MiscellaneousService {
             description: input.description,
             lot: input.lot,
             source: MetadataSource::Custom,
-            creators,
+            free_creators: creators,
             genres: input.genres.unwrap_or_default(),
             images,
             videos,

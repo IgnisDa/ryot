@@ -12,7 +12,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -103,7 +103,7 @@ impl MediaProvider for ITunesService {
         let description = ht.description.clone();
         let creators = Vec::from_iter(ht.artist_name.clone())
             .into_iter()
-            .map(|a| MetadataCreator {
+            .map(|a| FreeMetadataCreator {
                 name: a,
                 role: "Artist".to_owned(),
                 image: None,
@@ -172,7 +172,7 @@ impl MediaProvider for ITunesService {
             lot: MetadataLot::Podcast,
             description,
             images,
-            creators,
+            free_creators: creators,
             genres,
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {
                 episodes,

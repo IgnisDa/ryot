@@ -683,7 +683,7 @@ pub mod media {
         pub description: Option<String>,
         pub lot: MetadataLot,
         pub production_status: String,
-        pub creators: Vec<MetadataCreator>,
+        pub free_creators: Vec<FreeMetadataCreator>,
         pub genres: Vec<String>,
         pub images: Vec<MetadataImage>,
         pub videos: Vec<MetadataVideo>,
@@ -920,10 +920,7 @@ pub mod media {
         Default,
         Hash,
     )]
-    pub struct MetadataCreator {
-        // TODO: Using these details, we will fetch creators later using the API.
-        // pub identifier: String,
-        // pub source: MetadataSource,
+    pub struct FreeMetadataCreator {
         pub name: String,
         pub role: String,
         pub image: Option<String>,

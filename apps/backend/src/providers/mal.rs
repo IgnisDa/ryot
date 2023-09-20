@@ -280,7 +280,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
         suggestions,
         provider_rating: details.mean,
-        creators: vec![],
+        free_creators: vec![],
         videos: vec![],
         groups: vec![],
     };

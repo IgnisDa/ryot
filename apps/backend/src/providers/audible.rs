@@ -15,7 +15,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            AudioBookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImage, MetadataImageLot, MetadataImages, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -351,22 +351,19 @@ impl AudibleService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| MetadataCreator {
+            .map(|a| FreeMetadataCreator {
                 name: a.name,
                 role: "Author".to_owned(),
                 image: None,
             })
             .collect_vec();
-        creators.extend(
-            item.narrators
-                .unwrap_or_default()
-                .into_iter()
-                .map(|a| MetadataCreator {
-                    name: a.name,
-                    role: "Narrator".to_owned(),
-                    image: None,
-                }),
-        );
+        creators.extend(item.narrators.unwrap_or_default().into_iter().map(|a| {
+            FreeMetadataCreator {
+                name: a.name,
+                role: "Narrator".to_owned(),
+                image: None,
+            }
+        }));
         let description = item.publisher_summary.or(item.merchandising_summary);
         let rating = if let Some(r) = item.rating {
             if r.num_reviews > 0 {
@@ -385,7 +382,7 @@ impl AudibleService {
             production_status: "Released".to_owned(),
             title: item.title,
             description,
-            creators,
+            free_creators: creators,
             genres: item
                 .category_ladders
                 .unwrap_or_default()

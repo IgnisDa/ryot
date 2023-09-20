@@ -10,7 +10,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            FreeMetadataCreator, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImage, MetadataImageLot, PartialMetadata,
         },
         SearchDetails, SearchResults, StoredUrl,
@@ -126,7 +126,7 @@ impl MediaProvider for MangaUpdatesService {
                 .body_json()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            creators.push(MetadataCreator {
+            creators.push(FreeMetadataCreator {
                 name: data.name,
                 role: author.lot.unwrap(),
                 image: data.image.unwrap().url.original,
@@ -193,7 +193,7 @@ impl MediaProvider for MangaUpdatesService {
                 volumes: None,
                 url: data.url,
             }),
-            creators,
+            free_creators: creators,
             suggestions,
             provider_rating: data.bayesian_rating,
             videos: vec![],

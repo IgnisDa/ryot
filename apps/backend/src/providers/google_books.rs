@@ -12,7 +12,7 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
+            BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImage, MetadataImageLot,
         },
         SearchDetails, SearchResults, StoredUrl,
@@ -195,14 +195,14 @@ impl GoogleBooksService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| MetadataCreator {
+            .map(|a| FreeMetadataCreator {
                 name: a,
                 role: "Author".to_owned(),
                 image: None,
             })
             .collect_vec();
         if let Some(p) = item.publisher {
-            creators.push(MetadataCreator {
+            creators.push(FreeMetadataCreator {
                 name: p,
                 role: "Publisher".to_owned(),
                 image: None,
@@ -224,7 +224,7 @@ impl GoogleBooksService {
             production_status: "Released".to_owned(),
             title: item.title,
             description: item.description,
-            creators: creators.into_iter().unique().collect(),
+            free_creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             publish_date: None,
