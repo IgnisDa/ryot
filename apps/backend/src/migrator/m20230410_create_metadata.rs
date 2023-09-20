@@ -131,6 +131,8 @@ pub enum Metadata {
     IsNsfw,
     // Time when this item has been processed by the calendar indexer
     LastProcessedOnForCalendar,
+    // All the free creators (i.e. those who can not be created as a `creator`)
+    Creators,
 }
 
 #[async_trait::async_trait]
@@ -180,6 +182,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
                     .col(ColumnDef::new(Metadata::Specifics).json().not_null())
+                    .col(ColumnDef::new(Metadata::Creators).json())
                     .to_owned(),
             )
             .await?;
