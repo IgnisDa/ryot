@@ -926,6 +926,10 @@ pub mod media {
         pub image: Option<String>,
     }
 
+    // FIXME: Remove this
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct FreeMetadataCreators(pub Vec<FreeMetadataCreator>);
+
     #[derive(
         Debug, FromJsonQueryResult, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject,
     )]
