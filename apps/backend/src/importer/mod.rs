@@ -10,6 +10,7 @@ use sea_orm::{
     QueryOrder,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
@@ -239,6 +240,7 @@ impl ImporterService {
         }
     }
 
+    #[instrument(skip(self, input))]
     async fn import_media(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let mut import = match input.source {
@@ -409,7 +411,7 @@ impl ImporterService {
             .deploy_recalculate_summary_job(user_id)
             .await
             .ok();
-        tracing::trace!(
+        tracing::debug!(
             "Imported {total} media items from {source}",
             total = import.media.len(),
             source = db_import_job.source
