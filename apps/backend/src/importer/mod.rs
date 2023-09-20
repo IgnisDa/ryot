@@ -399,7 +399,7 @@ impl ImporterService {
             }
             tracing::debug!(
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
-                idx = idx,
+                idx = idx + 1,
                 total = import.media.len(),
                 lot = item.lot,
                 hist = item.seen_history.len(),
