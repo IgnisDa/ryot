@@ -8,12 +8,12 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if !manager.has_column("metadata", "creators").await? {
+        if !manager.has_column("metadata", "free_creators").await? {
             manager
                 .alter_table(
                     Table::alter()
                         .table(Metadata::Table)
-                        .add_column(ColumnDef::new(Metadata::Creators).json())
+                        .add_column(ColumnDef::new(Metadata::FreeCreators).json())
                         .to_owned(),
                 )
                 .await?;
