@@ -3170,7 +3170,7 @@ impl MiscellaneousService {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MetadataSource::Vndb => Box::new(
-                VndbService::new(&self.config.visual_novel, self.config.frontend.page_size).await,
+                VndbService::new(&self.config.visual_novels, self.config.frontend.page_size).await,
             ),
             MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
             MetadataSource::Itunes => Box::new(
