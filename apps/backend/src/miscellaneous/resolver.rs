@@ -2549,6 +2549,22 @@ impl MiscellaneousService {
                                         MediaStateChanged::EpisodeNameChanged,
                                     ));
                                 }
+                                if let (Some(pd1), Some(pd2)) =
+                                    (before_episode.publish_date, after_episode.publish_date)
+                                {
+                                    if pd1 != pd2 {
+                                        notifications.push((
+                                            format!(
+                                                "Episode release date changed from {:?} to {:?} (S{}E{})",
+                                                pd1,
+                                                pd2,
+                                                s1.season_number,
+                                                before_episode.episode_number
+                                            ),
+                                            MediaStateChanged::ReleaseDateChanged,
+                                        ));
+                                    }
+                                }
                             }
                         }
                     }
