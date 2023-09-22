@@ -1741,7 +1741,7 @@ impl MiscellaneousService {
             m_lot: MetadataLot,
             m_specifics: MediaSpecifics,
         }
-        let main_select = CalendarEvent::find()
+        let all_events = CalendarEvent::find()
             .select_only()
             .filter(
                 Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
@@ -1793,8 +1793,7 @@ impl MiscellaneousService {
                     .to(calendar_event::Column::MetadataId)
                     .into(),
             )
-            .order_by_asc(calendar_event::Column::Date);
-        let all_events = main_select
+            .order_by_asc(calendar_event::Column::Date)
             .apply_if(end_date, |q, v| {
                 q.filter(calendar_event::Column::Date.gte(v))
             })
