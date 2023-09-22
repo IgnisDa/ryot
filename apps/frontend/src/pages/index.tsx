@@ -505,19 +505,21 @@ const Page: NextPageWithLayout = () => {
 								</Button>
 							)
 						) : undefined}
-						<Link
-							passHref
-							legacyBehavior
-							href={APP_ROUTES.media.individualMediaItem.create}
-						>
-							<Button
-								variant="outline"
-								component="a"
-								leftIcon={<IconPhotoPlus />}
+						{userPreferences.data.featuresEnabled.media.enabled ? (
+							<Link
+								passHref
+								legacyBehavior
+								href={APP_ROUTES.media.individualMediaItem.create}
 							>
-								Create a media item
-							</Button>
-						</Link>
+								<Button
+									variant="outline"
+									component="a"
+									leftIcon={<IconPhotoPlus />}
+								>
+									Create a media item
+								</Button>
+							</Link>
+						) : undefined}
 					</SimpleGrid>
 				</Stack>
 			</Container>
