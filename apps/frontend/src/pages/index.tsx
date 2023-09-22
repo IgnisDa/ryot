@@ -29,6 +29,7 @@ import {
 	CollectionsDocument,
 	LatestUserSummaryDocument,
 	MetadataLot,
+	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
 import {
@@ -139,16 +140,6 @@ const Page: NextPageWithLayout = () => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const userPreferences = useUserPreferences();
-	const latestUserSummary = useQuery(
-		["userSummary"],
-		async () => {
-			const { latestUserSummary } = await gqlClient.request(
-				LatestUserSummaryDocument,
-			);
-			return latestUserSummary;
-		},
-		{ retry: false },
-	);
 	const inProgressCollection = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument, {
 			input: { name: "In Progress" },
@@ -160,9 +151,27 @@ const Page: NextPageWithLayout = () => {
 		);
 		return collectionContents;
 	});
+	const userUpcomingMedia = useQuery(["upcomingMedia"], async () => {
+		const { userUpcomingCalendarEvents } = await gqlClient.request(
+			UserUpcomingCalendarEventsDocument,
+			{ input: { nextMedia: 8 } },
+		);
+		return userUpcomingCalendarEvents;
+	});
+	const latestUserSummary = useQuery(
+		["userSummary"],
+		async () => {
+			const { latestUserSummary } = await gqlClient.request(
+				LatestUserSummaryDocument,
+			);
+			return latestUserSummary;
+		},
+		{ retry: false },
+	);
 
 	return userPreferences.data &&
 		latestUserSummary.data &&
+		userUpcomingMedia.data &&
 		inProgressCollection.data &&
 		inProgressCollection.data.results &&
 		inProgressCollection.data.details ? (
@@ -191,6 +200,7 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
+					{JSON.stringify(userUpcomingMedia.data, null, 4)}
 					{inProgressCollection.data.results.items.length > 0 ? (
 						<>
 							<Title>{inProgressCollection.data.details.name}</Title>
