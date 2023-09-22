@@ -1,5 +1,17 @@
 
 
+# Version 2.18.1 (2023-09-22)
+
+## Bug Fixes
+
+- **frontend:** display correct total events
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.18.0 (2023-09-22)
 
 
