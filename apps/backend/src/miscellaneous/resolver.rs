@@ -1732,10 +1732,10 @@ impl MiscellaneousService {
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
-            calendar_event_id: i32,
+            id: i32,
             date: NaiveDate,
             metadata_extra_information: Option<String>,
-            m_id: i32,
+            metadata_id: i32,
             m_title: String,
             m_images: Option<MetadataImages>,
             m_lot: MetadataLot,
@@ -1747,10 +1747,10 @@ impl MiscellaneousService {
                 Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
                     .eq(user_id),
             )
-            .column_as(
-                Expr::col((TempCalendarEvent::Table, calendar_event::Column::Id)),
-                "calendar_event_id",
-            )
+            .expr(Expr::col((
+                TempCalendarEvent::Table,
+                calendar_event::Column::Id,
+            )))
             .expr(Expr::col((
                 TempCalendarEvent::Table,
                 calendar_event::Column::Date,
@@ -1759,10 +1759,10 @@ impl MiscellaneousService {
                 TempCalendarEvent::Table,
                 calendar_event::Column::MetadataExtraInformation,
             )))
-            .column_as(
-                Expr::col((TempMetadata::Table, metadata::Column::Id)),
-                "m_id",
-            )
+            .expr(Expr::col((
+                TempCalendarEvent::Table,
+                calendar_event::Column::MetadataId,
+            )))
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Lot)),
                 "m_lot",
@@ -1808,9 +1808,9 @@ impl MiscellaneousService {
         let mut events = vec![];
         for evt in all_events {
             let mut calc = GraphqlCalendarEvent {
-                calendar_event_id: evt.calendar_event_id,
+                calendar_event_id: evt.id,
                 date: evt.date,
-                metadata_id: evt.m_id,
+                metadata_id: evt.metadata_id,
                 metadata_title: evt.m_title,
                 metadata_lot: evt.m_lot,
                 ..Default::default()
