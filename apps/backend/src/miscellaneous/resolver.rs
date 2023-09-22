@@ -596,6 +596,7 @@ struct GraphqlCalendarEvent {
     date: NaiveDate,
     metadata_id: i32,
     metadata_title: String,
+    metadata_image: Option<String>,
     metadata_lot: MetadataLot,
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
@@ -1746,6 +1747,7 @@ impl MiscellaneousService {
             metadata_extra_information: Option<String>,
             metadata_id: i32,
             metadata_title: String,
+            metadata_images: Option<MetadataImages>,
             metadata_lot: MetadataLot,
         }
         let main_select = CalendarEvent::find()
@@ -1778,6 +1780,10 @@ impl MiscellaneousService {
                 Expr::col((TempMetadata::Table, metadata::Column::Title)),
                 "metadata_title",
             )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Images)),
+                "metadata_images",
+            )
             .join_rev(
                 JoinType::Join,
                 UserToMetadata::belongs_to(CalendarEvent)
@@ -1806,12 +1812,22 @@ impl MiscellaneousService {
             .await?;
         let mut events = vec![];
         for evt in all_events {
+            let image = if let Some(images) = evt.metadata_images {
+                if let Some(i) = images.0.first().cloned() {
+                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             let mut calc = GraphqlCalendarEvent {
                 calendar_event_id: evt.calendar_event_id,
                 date: evt.date,
                 metadata_id: evt.metadata_id,
                 metadata_title: evt.metadata_title,
                 metadata_lot: evt.metadata_lot,
+                metadata_image: image,
                 ..Default::default()
             };
             if let Some(ex) = &evt.metadata_extra_information {

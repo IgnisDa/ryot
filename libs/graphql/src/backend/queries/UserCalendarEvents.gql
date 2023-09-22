@@ -3,6 +3,7 @@ fragment CalendarEventPart on GraphqlCalendarEvent {
     metadataId
     metadataTitle
     metadataLot
+    metadataImage
     showSeasonNumber
     showEpisodeNumber
     podcastEpisodeNumber
