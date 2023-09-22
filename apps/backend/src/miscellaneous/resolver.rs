@@ -1732,11 +1732,12 @@ impl MiscellaneousService {
         Ok(UserCreatorDetails { reviews })
     }
 
-    async fn user_calendar_events(
+    async fn get_calendar_events(
         &self,
         user_id: i32,
-        input: UserCalendarEventInput,
-    ) -> Result<Vec<GroupedCalendarEvent>> {
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             calendar_event_id: i32,
@@ -1791,10 +1792,13 @@ impl MiscellaneousService {
                     .into(),
             )
             .order_by_asc(calendar_event::Column::Date);
-        let (end_day, start_day) = get_first_and_last_day_of_month(input.year, input.month);
         let all_events = main_select
-            .filter(calendar_event::Column::Date.lte(start_day))
-            .filter(calendar_event::Column::Date.gte(end_day))
+            .apply_if(start_date, |q, v| {
+                q.filter(calendar_event::Column::Date.lte(v))
+            })
+            .apply_if(end_date, |q, v| {
+                q.filter(calendar_event::Column::Date.lte(v))
+            })
             .into_model::<CalEvent>()
             .all(&self.db)
             .await?;
@@ -1824,6 +1828,18 @@ impl MiscellaneousService {
             }
             events.push(calc);
         }
+        Ok(events)
+    }
+
+    async fn user_calendar_events(
+        &self,
+        user_id: i32,
+        input: UserCalendarEventInput,
+    ) -> Result<Vec<GroupedCalendarEvent>> {
+        let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
+        let events = self
+            .get_calendar_events(user_id, Some(start_date), Some(end_date))
+            .await?;
         let grouped_events = events
             .into_iter()
             .group_by(|event| event.date)
