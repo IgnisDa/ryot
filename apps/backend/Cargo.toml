@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.17.5"
+version = "2.18.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -22,12 +22,12 @@ async-graphql = { version = "6.0.6", features = [
 ] }
 async-graphql-axum = "6.0.6"
 async-trait = "0.1.73"
-aws-sdk-s3 = "0.30.0"
+aws-sdk-s3 = "0.31.1"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
-axum-extra = { version = "0.7.7", default-features = false, features = [
+axum-extra = { version = "0.8.0", default-features = false, features = [
     "cookie",
 ] }
-chrono = "0.4.30"
+chrono = "0.4.31"
 convert_case = "0.6.0"
 const-str = "0.5.6"
 cookie = "0.17.0"
@@ -50,7 +50,7 @@ isolang = { version = "2.3.0", features = ["list_languages"] }
 itertools = "0.11.0"
 jsonwebtoken = { version = "8.3.0", default-features = false }
 kinded = "0.3.0"
-markdown = "1.0.0-alpha.13"
+markdown = "1.0.0-alpha.14"
 mime_guess = "2.0.4"
 nanoid = "0.4.0"
 quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
@@ -61,13 +61,14 @@ rs-utils = { path = "../../libs/rs-utils" }
 rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
-schematic = { version = "0.11.4", features = [
+schematic = { version = "0.11.6", features = [
+    "json",
     "schema",
     "toml",
     "typescript",
     "yaml",
     "valid_url",
-] }
+], default-features = false }
 scraper = "0.17.1"
 sea-orm = { version = "0.12.2", features = [
     "debug-print",

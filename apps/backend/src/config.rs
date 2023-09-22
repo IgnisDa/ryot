@@ -520,7 +520,7 @@ pub struct AppConfig {
     pub video_games: VideoGameConfig,
     /// Settings related to visual novels.
     #[setting(nested)]
-    pub visual_novel: VisualNovelConfig,
+    pub visual_novels: VisualNovelConfig,
 }
 
 impl AppConfig {

@@ -390,7 +390,10 @@ const Page: NextPageWithLayout = () => {
 										{listMedia.data.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
 												key={lm.data.identifier}
-												item={lm.data}
+												item={{
+													...lm.data,
+													publishYear: lm.data.publishYear?.toString(),
+												}}
 												averageRating={lm.averageRating}
 												lot={lot}
 												href={withQuery(
@@ -457,7 +460,10 @@ const Page: NextPageWithLayout = () => {
 											<MediaSearchItem
 												idx={idx}
 												key={b.item.identifier}
-												item={b.item}
+												item={{
+													...b.item,
+													publishYear: b.item.publishYear?.toString(),
+												}}
 												maybeItemId={b.databaseId ?? undefined}
 												query={query}
 												lot={lot}

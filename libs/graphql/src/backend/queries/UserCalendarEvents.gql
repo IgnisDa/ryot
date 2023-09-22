@@ -1,14 +1,20 @@
+fragment CalendarEventPart on GraphqlCalendarEvent {
+    calendarEventId
+    metadataId
+    metadataTitle
+    metadataLot
+    metadataImage
+    date
+    showSeasonNumber
+    showEpisodeNumber
+    podcastEpisodeNumber
+}
+
 query UserCalendarEvents($input: UserCalendarEventInput!) {
   userCalendarEvents(input: $input) {
     date
     events {
-      calendarEventId
-      metadataId
-      metadataTitle
-      metadataLot
-      showSeasonNumber
-      showEpisodeNumber
-      podcastEpisodeNumber
+      ...CalendarEventPart
     }
   }
 }

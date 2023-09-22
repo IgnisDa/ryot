@@ -29,6 +29,7 @@ import {
 	CollectionsDocument,
 	LatestUserSummaryDocument,
 	MetadataLot,
+	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
 import {
@@ -45,10 +46,12 @@ import {
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
+import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "./_app";
 
@@ -139,16 +142,6 @@ const Page: NextPageWithLayout = () => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const userPreferences = useUserPreferences();
-	const latestUserSummary = useQuery(
-		["userSummary"],
-		async () => {
-			const { latestUserSummary } = await gqlClient.request(
-				LatestUserSummaryDocument,
-			);
-			return latestUserSummary;
-		},
-		{ retry: false },
-	);
 	const inProgressCollection = useQuery(["collections"], async () => {
 		const { collections } = await gqlClient.request(CollectionsDocument, {
 			input: { name: "In Progress" },
@@ -160,9 +153,27 @@ const Page: NextPageWithLayout = () => {
 		);
 		return collectionContents;
 	});
+	const upcomingMedia = useQuery(["upcomingMedia"], async () => {
+		const { userUpcomingCalendarEvents } = await gqlClient.request(
+			UserUpcomingCalendarEventsDocument,
+			{ input: { nextMedia: 8 } },
+		);
+		return userUpcomingCalendarEvents;
+	});
+	const latestUserSummary = useQuery(
+		["userSummary"],
+		async () => {
+			const { latestUserSummary } = await gqlClient.request(
+				LatestUserSummaryDocument,
+			);
+			return latestUserSummary;
+		},
+		{ retry: false },
+	);
 
 	return userPreferences.data &&
 		latestUserSummary.data &&
+		upcomingMedia.data &&
 		inProgressCollection.data &&
 		inProgressCollection.data.results &&
 		inProgressCollection.data.details ? (
@@ -191,6 +202,44 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
+					{upcomingMedia.data.length > 0 ? (
+						<>
+							<Title>Upcoming</Title>
+							<Grid>
+								{upcomingMedia.data.map((um) => (
+									<MediaItemWithoutUpdateModal
+										key={um.metadataId}
+										item={{
+											identifier: um.metadataId.toString(),
+											title: um.metadataTitle,
+											image: um.metadataImage,
+											publishYear: `${match(um.metadataLot)
+												.with(
+													MetadataLot.Show,
+													() =>
+														`S${um.showSeasonNumber}E${um.showEpisodeNumber}`,
+												)
+												.with(
+													MetadataLot.Podcast,
+													() => `EP${um.podcastEpisodeNumber}`,
+												)
+												.otherwise(() => "")} In ${+DateTime.fromISO(um.date)
+												.diff(DateTime.now())
+												.as("days")
+												.toFixed()} days`,
+										}}
+										lot={um.metadataLot}
+										href={withQuery(
+											APP_ROUTES.media.individualMediaItem.details,
+											{ id: um.metadataId },
+										)}
+										noRatingLink
+									/>
+								))}
+							</Grid>
+							<Divider />
+						</>
+					) : undefined}
 					{inProgressCollection.data.results.items.length > 0 ? (
 						<>
 							<Title>{inProgressCollection.data.details.name}</Title>
@@ -198,7 +247,10 @@ const Page: NextPageWithLayout = () => {
 								{inProgressCollection.data.results.items.map((lm) => (
 									<MediaItemWithoutUpdateModal
 										key={lm.details.identifier}
-										item={lm.details}
+										item={{
+											...lm.details,
+											publishYear: lm.details.publishYear?.toString(),
+										}}
 										lot={lm.lot}
 										href={withQuery(
 											APP_ROUTES.media.individualMediaItem.details,

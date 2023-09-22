@@ -178,13 +178,28 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     }
 
     for item in histories.iter() {
-        let (show_season_number, show_episode_number) = if let Some(e) = item.episode.as_ref() {
-            (e.season, e.number)
-        } else {
-            (None, None)
-        };
         match process_item(item) {
             Ok(mut d) => {
+                let (show_season_number, show_episode_number) =
+                    if let Some(e) = item.episode.as_ref() {
+                        (e.season, e.number)
+                    } else {
+                        (None, None)
+                    };
+                if d.lot == MetadataLot::Show
+                    && (show_season_number.is_none() || show_episode_number.is_none())
+                {
+                    failed_items.push(ImportFailedItem {
+                        lot: d.lot,
+                        step: ImportFailStep::ItemDetailsFromSource,
+                        identifier: "".to_owned(),
+                        error: Some(
+                            "Item is a show but does not have a season or episode number"
+                                .to_owned(),
+                        ),
+                    });
+                    continue;
+                }
                 d.seen_history.push(ImportOrExportMediaItemSeen {
                     ended_on: item.watched_at,
                     show_season_number,
@@ -192,7 +207,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     ..Default::default()
                 });
                 if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
-                    a.seen_history = d.seen_history;
+                    a.seen_history.extend(d.seen_history);
                 } else {
                     media_items.push(d)
                 }
@@ -216,7 +231,7 @@ fn process_item(
         (d.ids.trakt, d.ids.tmdb, MetadataLot::Show)
     } else {
         return Err(ImportFailedItem {
-            lot: MetadataLot::Book,
+            lot: MetadataLot::VideoGame,
             step: ImportFailStep::ItemDetailsFromSource,
             identifier: "".to_owned(),
             error: Some("Item is neither a movie or a show".to_owned()),
