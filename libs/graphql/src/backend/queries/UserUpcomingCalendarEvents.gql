@@ -1,0 +1,5 @@
+query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
+  userUpcomingCalendarEvents(input: $input) {
+    ...CalendarEventPart
+  }
+}

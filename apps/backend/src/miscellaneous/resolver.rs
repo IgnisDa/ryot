@@ -8,8 +8,10 @@ use std::{
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
-use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
+use async_graphql::{
+    Context, Enum, Error, InputObject, Object, OneofObject, Result, SimpleObject, Union,
+};
+use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{
     time::{Duration as CookieDuration, OffsetDateTime},
     Cookie, SameSite,
@@ -594,6 +596,7 @@ struct GraphqlCalendarEvent {
     date: NaiveDate,
     metadata_id: i32,
     metadata_title: String,
+    metadata_image: Option<String>,
     metadata_lot: MetadataLot,
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
@@ -610,6 +613,14 @@ struct GroupedCalendarEvent {
 struct UserCalendarEventInput {
     year: i32,
     month: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+enum UserUpcomingCalendarEventInput {
+    /// The number of media to select
+    NextMedia(u64),
+    /// The number of days to select
+    NextDays(u64),
 }
 
 fn create_cookie(
@@ -848,6 +859,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_calendar_events(user_id, input).await
+    }
+
+    /// Get upcoming calendar events for the given filter.
+    async fn user_upcoming_calendar_events(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserUpcomingCalendarEventInput,
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_upcoming_calendar_events(user_id, input).await
     }
 
     /// Get paginated list of creators.
@@ -1711,11 +1733,13 @@ impl MiscellaneousService {
         Ok(UserCreatorDetails { reviews })
     }
 
-    async fn user_calendar_events(
+    async fn get_calendar_events(
         &self,
         user_id: i32,
-        input: UserCalendarEventInput,
-    ) -> Result<Vec<GroupedCalendarEvent>> {
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+        media_limit: Option<u64>,
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             calendar_event_id: i32,
@@ -1723,6 +1747,7 @@ impl MiscellaneousService {
             metadata_extra_information: Option<String>,
             metadata_id: i32,
             metadata_title: String,
+            metadata_images: Option<MetadataImages>,
             metadata_lot: MetadataLot,
         }
         let main_select = CalendarEvent::find()
@@ -1755,6 +1780,10 @@ impl MiscellaneousService {
                 Expr::col((TempMetadata::Table, metadata::Column::Title)),
                 "metadata_title",
             )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Images)),
+                "metadata_images",
+            )
             .join_rev(
                 JoinType::Join,
                 UserToMetadata::belongs_to(CalendarEvent)
@@ -1770,21 +1799,35 @@ impl MiscellaneousService {
                     .into(),
             )
             .order_by_asc(calendar_event::Column::Date);
-        let (end_day, start_day) = get_first_and_last_day_of_month(input.year, input.month);
         let all_events = main_select
-            .filter(calendar_event::Column::Date.lte(start_day))
-            .filter(calendar_event::Column::Date.gte(end_day))
+            .apply_if(end_date, |q, v| {
+                q.filter(calendar_event::Column::Date.gte(v))
+            })
+            .apply_if(start_date, |q, v| {
+                q.filter(calendar_event::Column::Date.lte(v))
+            })
+            .limit(media_limit)
             .into_model::<CalEvent>()
             .all(&self.db)
             .await?;
         let mut events = vec![];
         for evt in all_events {
+            let image = if let Some(images) = evt.metadata_images {
+                if let Some(i) = images.0.first().cloned() {
+                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             let mut calc = GraphqlCalendarEvent {
                 calendar_event_id: evt.calendar_event_id,
                 date: evt.date,
                 metadata_id: evt.metadata_id,
                 metadata_title: evt.metadata_title,
                 metadata_lot: evt.metadata_lot,
+                metadata_image: image,
                 ..Default::default()
             };
             if let Some(ex) = &evt.metadata_extra_information {
@@ -1803,6 +1846,18 @@ impl MiscellaneousService {
             }
             events.push(calc);
         }
+        Ok(events)
+    }
+
+    async fn user_calendar_events(
+        &self,
+        user_id: i32,
+        input: UserCalendarEventInput,
+    ) -> Result<Vec<GroupedCalendarEvent>> {
+        let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
+        let events = self
+            .get_calendar_events(user_id, Some(start_date), Some(end_date), None)
+            .await?;
         let grouped_events = events
             .into_iter()
             .group_by(|event| event.date)
@@ -1813,6 +1868,24 @@ impl MiscellaneousService {
             })
             .collect();
         Ok(grouped_events)
+    }
+
+    async fn user_upcoming_calendar_events(
+        &self,
+        user_id: i32,
+        input: UserUpcomingCalendarEventInput,
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
+        let from_date = Utc::now().date_naive();
+        let (media_limit, to_date) = match input {
+            UserUpcomingCalendarEventInput::NextMedia(l) => (Some(l), None),
+            UserUpcomingCalendarEventInput::NextDays(d) => {
+                (None, from_date.checked_add_days(Days::new(d)))
+            }
+        };
+        let events = self
+            .get_calendar_events(user_id, to_date, Some(from_date), media_limit)
+            .await?;
+        Ok(events)
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
@@ -2549,6 +2622,22 @@ impl MiscellaneousService {
                                         MediaStateChanged::EpisodeNameChanged,
                                     ));
                                 }
+                                if let (Some(pd1), Some(pd2)) =
+                                    (before_episode.publish_date, after_episode.publish_date)
+                                {
+                                    if pd1 != pd2 {
+                                        notifications.push((
+                                            format!(
+                                                "Episode release date changed from {:?} to {:?} (S{}E{})",
+                                                pd1,
+                                                pd2,
+                                                s1.season_number,
+                                                before_episode.episode_number
+                                            ),
+                                            MediaStateChanged::ReleaseDateChanged,
+                                        ));
+                                    }
+                                }
                             }
                         }
                     }
@@ -3170,7 +3259,7 @@ impl MiscellaneousService {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MetadataSource::Vndb => Box::new(
-                VndbService::new(&self.config.visual_novel, self.config.frontend.page_size).await,
+                VndbService::new(&self.config.visual_novels, self.config.frontend.page_size).await,
             ),
             MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
             MetadataSource::Itunes => Box::new(

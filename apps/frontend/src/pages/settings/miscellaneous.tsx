@@ -169,6 +169,7 @@ const Page: NextPageWithLayout = () => {
 							Clean and regenerate
 						</Button>
 					</>
+					<Divider />
 					<>
 						<Box>
 							<Title order={4}>Synchronize integrations progress</Title>

@@ -349,5 +349,5 @@ export interface AppConfig {
 	/** Settings related to video games. */
 	video_games: VideoGameConfig;
 	/** Settings related to visual novels. */
-	visual_novel: VisualNovelConfig;
+	visual_novels: VisualNovelConfig;
 }
