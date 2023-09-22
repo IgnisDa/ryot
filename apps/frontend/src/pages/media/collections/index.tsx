@@ -72,7 +72,10 @@ const Page: NextPageWithLayout = () => {
 								<MediaItemWithoutUpdateModal
 									noRatingLink
 									key={lm.details.identifier}
-									item={lm.details}
+									item={{
+										...lm.details,
+										publishYear: lm.details.publishYear?.toString(),
+									}}
 									lot={lm.lot}
 									href={withQuery(
 										APP_ROUTES.media.individualMediaItem.details,

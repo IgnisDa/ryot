@@ -330,7 +330,7 @@ type Item = {
 	identifier: string;
 	title: string;
 	image?: string | null;
-	publishYear?: number | null;
+	publishYear?: string | null;
 };
 
 const useStyles = createStyles({
