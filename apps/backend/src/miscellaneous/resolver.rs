@@ -11,7 +11,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
     Context, Enum, Error, InputObject, Object, OneofObject, Result, SimpleObject, Union,
 };
-use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{
     time::{Duration as CookieDuration, OffsetDateTime},
     Cookie, SameSite,
@@ -617,9 +617,9 @@ struct UserCalendarEventInput {
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 enum UserUpcomingCalendarEventInput {
     /// The number of media to select
-    NextMedia(i32),
+    NextMedia(u64),
     /// The number of days to select
-    NextDays(i32),
+    NextDays(u64),
 }
 
 fn create_cookie(
@@ -1737,6 +1737,7 @@ impl MiscellaneousService {
         user_id: i32,
         start_date: Option<NaiveDate>,
         end_date: Option<NaiveDate>,
+        media_limit: Option<u64>,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
@@ -1799,6 +1800,7 @@ impl MiscellaneousService {
             .apply_if(start_date, |q, v| {
                 q.filter(calendar_event::Column::Date.lte(v))
             })
+            .limit(media_limit)
             .into_model::<CalEvent>()
             .all(&self.db)
             .await?;
@@ -1838,7 +1840,7 @@ impl MiscellaneousService {
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
         let events = self
-            .get_calendar_events(user_id, Some(start_date), Some(end_date))
+            .get_calendar_events(user_id, Some(start_date), Some(end_date), None)
             .await?;
         let grouped_events = events
             .into_iter()
@@ -1857,8 +1859,17 @@ impl MiscellaneousService {
         user_id: i32,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        dbg!(&input);
-        todo!()
+        let from_date = Utc::now().date_naive();
+        let (media_limit, to_date) = match input {
+            UserUpcomingCalendarEventInput::NextMedia(l) => (Some(l), None),
+            UserUpcomingCalendarEventInput::NextDays(d) => {
+                (None, from_date.checked_add_days(Days::new(d)))
+            }
+        };
+        let events = self
+            .get_calendar_events(user_id, to_date, Some(from_date), media_limit)
+            .await?;
+        Ok(events)
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
