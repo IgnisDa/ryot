@@ -8,7 +8,9 @@ use std::{
 use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject, Union};
+use async_graphql::{
+    Context, Enum, Error, InputObject, Object, OneofObject, Result, SimpleObject, Union,
+};
 use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{
     time::{Duration as CookieDuration, OffsetDateTime},
@@ -612,6 +614,14 @@ struct UserCalendarEventInput {
     month: u32,
 }
 
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+enum UserUpcomingCalendarEventInput {
+    /// The number of media to select
+    NextMedia(i32),
+    /// The number of days to select
+    NextDays(i32),
+}
+
 fn create_cookie(
     ctx: &Context<'_>,
     api_key: &str,
@@ -848,6 +858,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_calendar_events(user_id, input).await
+    }
+
+    /// Get upcoming calendar events for the given filter.
+    async fn user_upcoming_calendar_events(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserUpcomingCalendarEventInput,
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_upcoming_calendar_events(user_id, input).await
     }
 
     /// Get paginated list of creators.
@@ -1813,6 +1834,15 @@ impl MiscellaneousService {
             })
             .collect();
         Ok(grouped_events)
+    }
+
+    async fn user_upcoming_calendar_events(
+        &self,
+        user_id: i32,
+        input: UserUpcomingCalendarEventInput,
+    ) -> Result<Vec<GraphqlCalendarEvent>> {
+        dbg!(&input);
+        todo!()
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
