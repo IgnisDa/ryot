@@ -1635,29 +1635,19 @@ impl MiscellaneousService {
             .cloned();
         let next_episode = history.first().and_then(|h| {
             if let Some(s) = &media_details.show_specifics {
-                let all_episodes = s
-                    .seasons
-                    .iter()
-                    .flat_map(|s| s.episodes.iter().map(|e| (e, s.season_number)))
-                    .collect_vec();
-                let current = all_episodes.iter().position(|s| {
-                    s.0.episode_number == h.show_information.as_ref().unwrap().episode
-                        && s.1 == h.show_information.as_ref().unwrap().season
-                });
-                current.and_then(|i| {
-                    all_episodes.get(i + 1).map(|ep| UserMediaNextEpisode {
-                        season_number: Some(ep.1),
-                        episode_number: Some(ep.0.episode_number),
-                    })
+                let current = s.get_episode(
+                    h.show_information.as_ref().unwrap().season,
+                    h.show_information.as_ref().unwrap().episode,
+                );
+                current.map(|(s, e)| UserMediaNextEpisode {
+                    season_number: Some(s.season_number),
+                    episode_number: Some(e.episode_number),
                 })
             } else if let Some(p) = &media_details.podcast_specifics {
-                let current = p
-                    .episodes
-                    .iter()
-                    .position(|p| p.number == h.podcast_information.as_ref().unwrap().episode);
+                let current = p.get_episode(h.podcast_information.as_ref().unwrap().episode);
                 current.map(|i| UserMediaNextEpisode {
                     season_number: None,
-                    episode_number: p.episodes.get(i + 1).map(|e| e.number),
+                    episode_number: Some(i.number),
                 })
             } else {
                 None
@@ -2374,10 +2364,7 @@ impl MiscellaneousService {
                             input.show_episode_number,
                             meta.specifics,
                         ) {
-                            let mut is_there = false;
-                            if spec.get_episode(season, episode).is_some() {
-                                is_there = true;
-                            }
+                            let is_there = spec.get_episode(season, episode).is_some();
                             if !is_there {
                                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
@@ -2396,13 +2383,7 @@ impl MiscellaneousService {
                         if let (Some(episode), MediaSpecifics::Podcast(spec)) =
                             (input.podcast_episode_number, meta.specifics)
                         {
-                            let mut is_there = false;
-                            for e in spec.episodes.iter() {
-                                if e.number == episode {
-                                    is_there = true;
-                                    break;
-                                }
-                            }
+                            let is_there = spec.get_episode(episode).is_some();
                             if !is_there {
                                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
@@ -3948,27 +3929,7 @@ impl MiscellaneousService {
                         ls.media.books.pages += pg;
                     }
                 }
-                MediaSpecifics::Podcast(item) => {
-                    unique_podcasts.insert(seen.metadata_id);
-                    for episode in item.episodes {
-                        match seen.extra_information.to_owned() {
-                            None => continue,
-                            Some(sei) => match sei {
-                                SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
-                                    unreachable!()
-                                }
-                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
-                                    if s.episode == episode.number {
-                                        if let Some(r) = episode.runtime {
-                                            ls.media.podcasts.runtime += r;
-                                        }
-                                        unique_podcast_episodes.insert((s.episode, episode.id));
-                                    }
-                                }
-                            },
-                        }
-                    }
-                }
+
                 MediaSpecifics::Movie(item) => {
                     ls.media.movies.watched += 1;
                     if let Some(r) = item.runtime {
@@ -3991,6 +3952,22 @@ impl MiscellaneousService {
                             }
                         }
                     };
+                }
+                MediaSpecifics::Podcast(item) => {
+                    unique_podcasts.insert(seen.metadata_id);
+                    match seen.extra_information.to_owned().unwrap() {
+                        SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
+                            unreachable!()
+                        }
+                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
+                            if let Some(episode) = item.get_episode(s.episode) {
+                                if let Some(r) = episode.runtime {
+                                    ls.media.podcasts.runtime += r;
+                                }
+                                unique_podcast_episodes.insert((s.episode, episode.id.clone()));
+                            }
+                        }
+                    }
                 }
                 MediaSpecifics::VideoGame(_item) => {
                     unique_video_games.insert(seen.metadata_id);
@@ -5770,17 +5747,9 @@ impl MiscellaneousService {
                     }
                     SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
                         if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
-                            if let Some(ep) = podcast_info
-                                .episodes
-                                .iter()
-                                .find(|e| e.number == podcast.episode)
-                            {
-                                if let Some(episode) =
-                                    podcast_info.episodes.iter().find(|e| e.number == ep.number)
-                                {
-                                    if episode.publish_date != cal_event.date {
-                                        need_to_delete = true;
-                                    }
+                            if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                                if ep.publish_date != cal_event.date {
+                                    need_to_delete = true;
                                 }
                             }
                         }
