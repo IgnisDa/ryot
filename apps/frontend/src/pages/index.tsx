@@ -46,6 +46,7 @@ import {
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
+import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -212,7 +213,7 @@ const Page: NextPageWithLayout = () => {
 											identifier: um.metadataId.toString(),
 											title: um.metadataTitle,
 											image: um.metadataImage,
-											publishYear: match(um.metadataLot)
+											publishYear: `${match(um.metadataLot)
 												.with(
 													MetadataLot.Show,
 													() =>
@@ -222,7 +223,10 @@ const Page: NextPageWithLayout = () => {
 													MetadataLot.Podcast,
 													() => `EP${um.podcastEpisodeNumber}`,
 												)
-												.otherwise(() => undefined),
+												.otherwise(() => "")} In ${+DateTime.fromISO(um.date)
+												.diff(DateTime.now())
+												.as("days")
+												.toFixed()} days`,
 										}}
 										lot={um.metadataLot}
 										href={withQuery(
