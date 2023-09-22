@@ -1793,10 +1793,10 @@ impl MiscellaneousService {
             )
             .order_by_asc(calendar_event::Column::Date);
         let all_events = main_select
-            .apply_if(start_date, |q, v| {
-                q.filter(calendar_event::Column::Date.lte(v))
-            })
             .apply_if(end_date, |q, v| {
+                q.filter(calendar_event::Column::Date.gte(v))
+            })
+            .apply_if(start_date, |q, v| {
                 q.filter(calendar_event::Column::Date.lte(v))
             })
             .into_model::<CalEvent>()
