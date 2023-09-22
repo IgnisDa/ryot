@@ -243,7 +243,8 @@ pub mod media {
             where
                 E: de::Error,
             {
-                NaiveDate::parse_from_str(v, "%Y-%m-%d").map_err(|_| E::custom("Could not convert timestamp"))
+                NaiveDate::parse_from_str(v, "%Y-%m-%d")
+                    .map_err(|_| E::custom("Could not convert timestamp"))
             }
         }
 
@@ -265,6 +266,24 @@ pub mod media {
     #[graphql(input_name = "ShowSpecificsInput")]
     pub struct ShowSpecifics {
         pub seasons: Vec<ShowSeason>,
+    }
+
+    impl ShowSpecifics {
+        pub fn get_episode(
+            &self,
+            season_number: i32,
+            episode_number: i32,
+        ) -> Option<(&ShowSeason, &ShowEpisode)> {
+            self.seasons
+                .iter()
+                .find(|s| s.season_number == season_number)
+                .and_then(|s| {
+                    s.episodes
+                        .iter()
+                        .find(|e| e.episode_number == episode_number)
+                        .map(|e| (s, e))
+                })
+        }
     }
 
     #[derive(

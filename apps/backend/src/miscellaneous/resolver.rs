@@ -2361,13 +2361,8 @@ impl MiscellaneousService {
                             meta.specifics,
                         ) {
                             let mut is_there = false;
-                            for s in spec.seasons.iter() {
-                                for e in s.episodes.iter() {
-                                    if s.season_number == season && e.episode_number == episode {
-                                        is_there = true;
-                                        break;
-                                    }
-                                }
+                            if spec.get_episode(season, episode).is_some() {
+                                is_there = true;
                             }
                             if !is_there {
                                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -3968,26 +3963,20 @@ impl MiscellaneousService {
                 }
                 MediaSpecifics::Show(item) => {
                     unique_shows.insert(seen.metadata_id);
-                    for season in item.seasons {
-                        for episode in season.episodes {
-                            match seen.extra_information.to_owned().unwrap() {
-                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
-                                    unreachable!()
+                    match seen.extra_information.to_owned().unwrap() {
+                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
+                            unreachable!()
+                        }
+                        SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                            if let Some((season, episode)) = item.get_episode(s.season, s.episode) {
+                                if let Some(r) = episode.runtime {
+                                    ls.media.shows.runtime += r;
                                 }
-                                SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                                    if s.season == season.season_number
-                                        && s.episode == episode.episode_number
-                                    {
-                                        if let Some(r) = episode.runtime {
-                                            ls.media.shows.runtime += r;
-                                        }
-                                        ls.media.shows.watched_episodes += 1;
-                                        unique_show_seasons.insert((s.season, season.id));
-                                    }
-                                }
+                                ls.media.shows.watched_episodes += 1;
+                                unique_show_seasons.insert((s.season, season.id));
                             }
                         }
-                    }
+                    };
                 }
                 MediaSpecifics::VideoGame(_item) => {
                     unique_video_games.insert(seen.metadata_id);
@@ -5757,26 +5746,10 @@ impl MiscellaneousService {
                 match info {
                     SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
                         if let MediaSpecifics::Show(show_info) = meta.specifics {
-                            if let Some((se, ep)) = show_info
-                                .seasons
-                                .iter()
-                                .flat_map(|s| {
-                                    s.episodes
-                                        .iter()
-                                        .map(|e| (s.season_number, e.episode_number))
-                                })
-                                .find(|(s, e)| s == &show.season && e == &show.episode)
+                            if let Some((_, ep)) = show_info.get_episode(show.season, show.episode)
                             {
-                                if let Some(season) =
-                                    show_info.seasons.iter().find(|s| s.season_number == se)
-                                {
-                                    if let Some(episode) =
-                                        season.episodes.iter().find(|e| e.episode_number == ep)
-                                    {
-                                        if episode.publish_date.unwrap() != cal_event.date {
-                                            need_to_delete = true;
-                                        }
-                                    }
+                                if ep.publish_date.unwrap() != cal_event.date {
+                                    need_to_delete = true;
                                 }
                             }
                         }
