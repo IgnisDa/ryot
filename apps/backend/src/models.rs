@@ -190,6 +190,12 @@ pub mod media {
         pub total_episodes: i32,
     }
 
+    impl PodcastSpecifics {
+        pub fn get_episode(&self, episode_number: i32) -> Option<&PodcastEpisode> {
+            self.episodes.iter().find(|e| e.number == episode_number)
+        }
+    }
+
     #[derive(
         Debug,
         PartialEq,

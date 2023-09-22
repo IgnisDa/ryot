@@ -1745,10 +1745,11 @@ impl MiscellaneousService {
             calendar_event_id: i32,
             date: NaiveDate,
             metadata_extra_information: Option<String>,
-            metadata_id: i32,
-            metadata_title: String,
-            metadata_images: Option<MetadataImages>,
-            metadata_lot: MetadataLot,
+            m_id: i32,
+            m_title: String,
+            m_images: Option<MetadataImages>,
+            m_lot: MetadataLot,
+            m_specifics: MediaSpecifics,
         }
         let main_select = CalendarEvent::find()
             .select_only()
@@ -1774,15 +1775,19 @@ impl MiscellaneousService {
             )
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Lot)),
-                "metadata_lot",
+                "m_lot",
             )
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Title)),
-                "metadata_title",
+                "m_title",
             )
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Images)),
-                "metadata_images",
+                "m_images",
+            )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Specifics)),
+                "m_specifics",
             )
             .join_rev(
                 JoinType::Join,
@@ -1812,38 +1817,47 @@ impl MiscellaneousService {
             .await?;
         let mut events = vec![];
         for evt in all_events {
-            let image = if let Some(images) = evt.metadata_images {
-                if let Some(i) = images.0.first().cloned() {
-                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
             let mut calc = GraphqlCalendarEvent {
                 calendar_event_id: evt.calendar_event_id,
                 date: evt.date,
-                metadata_id: evt.metadata_id,
-                metadata_title: evt.metadata_title,
-                metadata_lot: evt.metadata_lot,
-                metadata_image: image,
+                metadata_id: evt.m_id,
+                metadata_title: evt.m_title,
+                metadata_lot: evt.m_lot,
                 ..Default::default()
             };
+            let mut image = None;
             if let Some(ex) = &evt.metadata_extra_information {
-                let specifics =
+                let extra_info =
                     serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ex)
                         .unwrap();
-                match specifics {
+                match extra_info {
                     SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
                         calc.show_season_number = Some(s.season);
                         calc.show_episode_number = Some(s.episode);
+                        if let MediaSpecifics::Show(sh) = evt.m_specifics {
+                            if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                                image = ep.poster_images.first().cloned();
+                            }
+                        }
                     }
                     SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
                         calc.podcast_episode_number = Some(p.episode);
+                        if let MediaSpecifics::Podcast(po) = evt.m_specifics {
+                            if let Some(ep) = po.get_episode(p.episode) {
+                                image = ep.thumbnail.clone();
+                            }
+                        };
                     }
                 }
             }
+            if image.is_none() {
+                if let Some(images) = evt.m_images {
+                    if let Some(i) = images.0.first().cloned() {
+                        image = Some(get_stored_asset(i.url, &self.file_storage_service).await);
+                    }
+                }
+            }
+            calc.metadata_image = image;
             events.push(calc);
         }
         Ok(events)
