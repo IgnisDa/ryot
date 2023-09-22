@@ -64,9 +64,9 @@ use crate::{
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
     migrator::{
-        CalendarEvent as TempCalendarEvent, Metadata as TempMetadata, MetadataLot, MetadataSource,
-        MetadataToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
-        UserLot, UserToMetadata as TempUserToMetadata,
+        Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
+        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
+        UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -1742,27 +1742,6 @@ impl MiscellaneousService {
             m_specifics: MediaSpecifics,
         }
         let all_events = CalendarEvent::find()
-            .select_only()
-            .filter(
-                Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
-                    .eq(user_id),
-            )
-            .expr(Expr::col((
-                TempCalendarEvent::Table,
-                calendar_event::Column::Id,
-            )))
-            .expr(Expr::col((
-                TempCalendarEvent::Table,
-                calendar_event::Column::Date,
-            )))
-            .expr(Expr::col((
-                TempCalendarEvent::Table,
-                calendar_event::Column::MetadataExtraInformation,
-            )))
-            .expr(Expr::col((
-                TempCalendarEvent::Table,
-                calendar_event::Column::MetadataId,
-            )))
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Lot)),
                 "m_lot",
@@ -1778,6 +1757,10 @@ impl MiscellaneousService {
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Specifics)),
                 "m_specifics",
+            )
+            .filter(
+                Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
+                    .eq(user_id),
             )
             .join_rev(
                 JoinType::Join,
