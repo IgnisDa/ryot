@@ -151,7 +151,7 @@ const Page: NextPageWithLayout = () => {
 		);
 		return collectionContents;
 	});
-	const userUpcomingMedia = useQuery(["upcomingMedia"], async () => {
+	const upcomingMedia = useQuery(["upcomingMedia"], async () => {
 		const { userUpcomingCalendarEvents } = await gqlClient.request(
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: 8 } },
@@ -171,7 +171,7 @@ const Page: NextPageWithLayout = () => {
 
 	return userPreferences.data &&
 		latestUserSummary.data &&
-		userUpcomingMedia.data &&
+		upcomingMedia.data &&
 		inProgressCollection.data &&
 		inProgressCollection.data.results &&
 		inProgressCollection.data.details ? (
@@ -200,7 +200,30 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
-					{JSON.stringify(userUpcomingMedia.data, null, 4)}
+					{upcomingMedia.data.length > 0 ? (
+						<>
+							<Title>Upcoming</Title>
+							<Grid>
+								{upcomingMedia.data.map((um) => (
+									<MediaItemWithoutUpdateModal
+										key={um.metadataId}
+										item={{
+											identifier: um.metadataId.toString(),
+											title: um.metadataTitle,
+											image: um.metadataImage,
+										}}
+										lot={um.metadataLot}
+										href={withQuery(
+											APP_ROUTES.media.individualMediaItem.details,
+											{ id: um.metadataId },
+										)}
+										noRatingLink
+									/>
+								))}
+							</Grid>
+							<Divider />
+						</>
+					) : undefined}
 					{inProgressCollection.data.results.items.length > 0 ? (
 						<>
 							<Title>{inProgressCollection.data.details.name}</Title>

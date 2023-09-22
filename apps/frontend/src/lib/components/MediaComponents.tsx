@@ -33,7 +33,6 @@ import {
 	type AddMediaToCollectionMutationVariables,
 	CreateReviewCommentDocument,
 	type CreateReviewCommentMutationVariables,
-	type MediaSearchQuery,
 	MetadataLot,
 	MetadataSource,
 	type ReviewItem,
@@ -327,7 +326,12 @@ export const BaseDisplayItem = (props: {
 	);
 };
 
-type Item = MediaSearchQuery["mediaSearch"]["items"][number]["item"];
+type Item = {
+	identifier: string;
+	title: string;
+	image?: string | null;
+	publishYear?: number | null;
+};
 
 const useStyles = createStyles({
 	starIcon: {
