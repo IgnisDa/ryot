@@ -1,5 +1,17 @@
 
 
+# Version 2.18.3 (2023-09-23)
+
+## Bug Fixes
+
+- **frontend:** select correct tab for preferences
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.18.2 (2023-09-23)
 
 
