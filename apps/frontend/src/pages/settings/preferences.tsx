@@ -57,6 +57,7 @@ const Page: NextPageWithLayout = () => {
 				<title>Preferences | Ryot</title>
 			</Head>
 			<Container size="xs">
+				<Title>Preferences</Title>
 				{!coreDetails.data.preferencesChangeAllowed ? (
 					<Alert
 						icon={<IconAlertCircle size="1rem" />}
@@ -69,7 +70,6 @@ const Page: NextPageWithLayout = () => {
 				<Tabs
 					mt="md"
 					value={activeTab}
-					variant="outline"
 					onTabChange={(v) => {
 						if (v) setActiveTab(v);
 					}}
@@ -112,7 +112,7 @@ const Page: NextPageWithLayout = () => {
 								</Fragment>
 							))}
 							<Divider />
-							<Title order={3} mb={-16}>
+							<Title order={3} mb={-10}>
 								General
 							</Title>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
