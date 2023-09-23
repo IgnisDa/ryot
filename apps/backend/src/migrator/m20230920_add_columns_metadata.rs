@@ -5,6 +5,8 @@ use super::Metadata;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static METADATA_IDENTIFIER_INDEX: &str = "metadata_identifier__index";
+
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -16,6 +18,14 @@ impl MigrationTrait for Migration {
                         .add_column(ColumnDef::new(Metadata::FreeCreators).json())
                         .to_owned(),
                 )
+                .await?;
+        }
+        if manager
+            .has_index("metadata", METADATA_IDENTIFIER_INDEX)
+            .await?
+        {
+            manager
+                .drop_index(Index::drop().name(METADATA_IDENTIFIER_INDEX).to_owned())
                 .await?;
         }
         Ok(())

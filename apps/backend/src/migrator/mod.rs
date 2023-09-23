@@ -74,8 +74,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20230919_add_num_times_updated_field_to_seen::Migration),
             Box::new(m20230919_change_foreign_keys::Migration),
-            Box::new(m20239420_create_person::Migration),
             Box::new(m20230920_add_columns_metadata::Migration),
+            Box::new(m20239420_create_person::Migration),
         ]
     }
 }
