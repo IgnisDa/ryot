@@ -23,13 +23,18 @@ use crate::models::fitness::UserMeasurementStats;
 #[specta(rename = "ExportUserMeasurementItem")]
 #[sea_orm(table_name = "user_measurement")]
 pub struct Model {
+    /// The date and time this measurement was made.
     #[sea_orm(primary_key, auto_increment = false)]
     pub timestamp: DateTimeUtc,
     #[graphql(skip)]
     #[sea_orm(primary_key, auto_increment = false)]
+    #[serde(skip)]
     pub user_id: i32,
+    /// The name given to this measurement by the user.
     pub name: Option<String>,
+    /// Any comment associated entered by the user.
     pub comment: Option<String>,
+    /// The contents of the actual measurement.
     pub stats: UserMeasurementStats,
 }
 
