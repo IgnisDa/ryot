@@ -64,9 +64,9 @@ use crate::{
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
     migrator::{
-        CalendarEvent as TempCalendarEvent, Metadata as TempMetadata, MetadataLot, MetadataSource,
-        MetadataToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
-        UserLot, UserToMetadata as TempUserToMetadata,
+        Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
+        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
+        UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -1635,29 +1635,19 @@ impl MiscellaneousService {
             .cloned();
         let next_episode = history.first().and_then(|h| {
             if let Some(s) = &media_details.show_specifics {
-                let all_episodes = s
-                    .seasons
-                    .iter()
-                    .flat_map(|s| s.episodes.iter().map(|e| (e, s.season_number)))
-                    .collect_vec();
-                let current = all_episodes.iter().position(|s| {
-                    s.0.episode_number == h.show_information.as_ref().unwrap().episode
-                        && s.1 == h.show_information.as_ref().unwrap().season
-                });
-                current.and_then(|i| {
-                    all_episodes.get(i + 1).map(|ep| UserMediaNextEpisode {
-                        season_number: Some(ep.1),
-                        episode_number: Some(ep.0.episode_number),
-                    })
+                let current = s.get_episode(
+                    h.show_information.as_ref().unwrap().season,
+                    h.show_information.as_ref().unwrap().episode,
+                );
+                current.map(|(s, e)| UserMediaNextEpisode {
+                    season_number: Some(s.season_number),
+                    episode_number: Some(e.episode_number),
                 })
             } else if let Some(p) = &media_details.podcast_specifics {
-                let current = p
-                    .episodes
-                    .iter()
-                    .position(|p| p.number == h.podcast_information.as_ref().unwrap().episode);
+                let current = p.get_episode(h.podcast_information.as_ref().unwrap().episode);
                 current.map(|i| UserMediaNextEpisode {
                     season_number: None,
-                    episode_number: p.episodes.get(i + 1).map(|e| e.number),
+                    episode_number: Some(i.number),
                 })
             } else {
                 None
@@ -1742,47 +1732,35 @@ impl MiscellaneousService {
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
-            calendar_event_id: i32,
+            id: i32,
             date: NaiveDate,
             metadata_extra_information: Option<String>,
             metadata_id: i32,
-            metadata_title: String,
-            metadata_images: Option<MetadataImages>,
-            metadata_lot: MetadataLot,
+            m_title: String,
+            m_images: Option<MetadataImages>,
+            m_lot: MetadataLot,
+            m_specifics: MediaSpecifics,
         }
-        let main_select = CalendarEvent::find()
-            .select_only()
-            .filter(
-                Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
-                    .eq(user_id),
-            )
-            .column_as(
-                Expr::col((TempCalendarEvent::Table, calendar_event::Column::Id)),
-                "calendar_event_id",
-            )
-            .expr(Expr::col((
-                TempCalendarEvent::Table,
-                calendar_event::Column::Date,
-            )))
-            .expr(Expr::col((
-                TempCalendarEvent::Table,
-                calendar_event::Column::MetadataExtraInformation,
-            )))
-            .column_as(
-                Expr::col((TempMetadata::Table, metadata::Column::Id)),
-                "metadata_id",
-            )
+        let all_events = CalendarEvent::find()
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Lot)),
-                "metadata_lot",
+                "m_lot",
             )
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Title)),
-                "metadata_title",
+                "m_title",
             )
             .column_as(
                 Expr::col((TempMetadata::Table, metadata::Column::Images)),
-                "metadata_images",
+                "m_images",
+            )
+            .column_as(
+                Expr::col((TempMetadata::Table, metadata::Column::Specifics)),
+                "m_specifics",
+            )
+            .filter(
+                Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
+                    .eq(user_id),
             )
             .join_rev(
                 JoinType::Join,
@@ -1798,8 +1776,7 @@ impl MiscellaneousService {
                     .to(calendar_event::Column::MetadataId)
                     .into(),
             )
-            .order_by_asc(calendar_event::Column::Date);
-        let all_events = main_select
+            .order_by_asc(calendar_event::Column::Date)
             .apply_if(end_date, |q, v| {
                 q.filter(calendar_event::Column::Date.gte(v))
             })
@@ -1812,38 +1789,47 @@ impl MiscellaneousService {
             .await?;
         let mut events = vec![];
         for evt in all_events {
-            let image = if let Some(images) = evt.metadata_images {
-                if let Some(i) = images.0.first().cloned() {
-                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
             let mut calc = GraphqlCalendarEvent {
-                calendar_event_id: evt.calendar_event_id,
+                calendar_event_id: evt.id,
                 date: evt.date,
                 metadata_id: evt.metadata_id,
-                metadata_title: evt.metadata_title,
-                metadata_lot: evt.metadata_lot,
-                metadata_image: image,
+                metadata_title: evt.m_title,
+                metadata_lot: evt.m_lot,
                 ..Default::default()
             };
+            let mut image = None;
             if let Some(ex) = &evt.metadata_extra_information {
-                let specifics =
+                let extra_info =
                     serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ex)
                         .unwrap();
-                match specifics {
+                match extra_info {
                     SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
                         calc.show_season_number = Some(s.season);
                         calc.show_episode_number = Some(s.episode);
+                        if let MediaSpecifics::Show(sh) = evt.m_specifics {
+                            if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                                image = ep.poster_images.first().cloned();
+                            }
+                        }
                     }
                     SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
                         calc.podcast_episode_number = Some(p.episode);
+                        if let MediaSpecifics::Podcast(po) = evt.m_specifics {
+                            if let Some(ep) = po.get_episode(p.episode) {
+                                image = ep.thumbnail.clone();
+                            }
+                        };
                     }
                 }
             }
+            if image.is_none() {
+                if let Some(images) = evt.m_images {
+                    if let Some(i) = images.0.first().cloned() {
+                        image = Some(get_stored_asset(i.url, &self.file_storage_service).await);
+                    }
+                }
+            }
+            calc.metadata_image = image;
             events.push(calc);
         }
         Ok(events)
@@ -2360,15 +2346,7 @@ impl MiscellaneousService {
                             input.show_episode_number,
                             meta.specifics,
                         ) {
-                            let mut is_there = false;
-                            for s in spec.seasons.iter() {
-                                for e in s.episodes.iter() {
-                                    if s.season_number == season && e.episode_number == episode {
-                                        is_there = true;
-                                        break;
-                                    }
-                                }
-                            }
+                            let is_there = spec.get_episode(season, episode).is_some();
                             if !is_there {
                                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
@@ -2387,13 +2365,7 @@ impl MiscellaneousService {
                         if let (Some(episode), MediaSpecifics::Podcast(spec)) =
                             (input.podcast_episode_number, meta.specifics)
                         {
-                            let mut is_there = false;
-                            for e in spec.episodes.iter() {
-                                if e.number == episode {
-                                    is_there = true;
-                                    break;
-                                }
-                            }
+                            let is_there = spec.get_episode(episode).is_some();
                             if !is_there {
                                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
@@ -3939,27 +3911,7 @@ impl MiscellaneousService {
                         ls.media.books.pages += pg;
                     }
                 }
-                MediaSpecifics::Podcast(item) => {
-                    unique_podcasts.insert(seen.metadata_id);
-                    for episode in item.episodes {
-                        match seen.extra_information.to_owned() {
-                            None => continue,
-                            Some(sei) => match sei {
-                                SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
-                                    unreachable!()
-                                }
-                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
-                                    if s.episode == episode.number {
-                                        if let Some(r) = episode.runtime {
-                                            ls.media.podcasts.runtime += r;
-                                        }
-                                        unique_podcast_episodes.insert((s.episode, episode.id));
-                                    }
-                                }
-                            },
-                        }
-                    }
-                }
+
                 MediaSpecifics::Movie(item) => {
                     ls.media.movies.watched += 1;
                     if let Some(r) = item.runtime {
@@ -3968,23 +3920,33 @@ impl MiscellaneousService {
                 }
                 MediaSpecifics::Show(item) => {
                     unique_shows.insert(seen.metadata_id);
-                    for season in item.seasons {
-                        for episode in season.episodes {
-                            match seen.extra_information.to_owned().unwrap() {
-                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
-                                    unreachable!()
+                    match seen.extra_information.to_owned().unwrap() {
+                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
+                            unreachable!()
+                        }
+                        SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                            if let Some((season, episode)) = item.get_episode(s.season, s.episode) {
+                                if let Some(r) = episode.runtime {
+                                    ls.media.shows.runtime += r;
                                 }
-                                SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                                    if s.season == season.season_number
-                                        && s.episode == episode.episode_number
-                                    {
-                                        if let Some(r) = episode.runtime {
-                                            ls.media.shows.runtime += r;
-                                        }
-                                        ls.media.shows.watched_episodes += 1;
-                                        unique_show_seasons.insert((s.season, season.id));
-                                    }
+                                ls.media.shows.watched_episodes += 1;
+                                unique_show_seasons.insert((s.season, season.id));
+                            }
+                        }
+                    };
+                }
+                MediaSpecifics::Podcast(item) => {
+                    unique_podcasts.insert(seen.metadata_id);
+                    match seen.extra_information.to_owned().unwrap() {
+                        SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
+                            unreachable!()
+                        }
+                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
+                            if let Some(episode) = item.get_episode(s.episode) {
+                                if let Some(r) = episode.runtime {
+                                    ls.media.podcasts.runtime += r;
                                 }
+                                unique_podcast_episodes.insert((s.episode, episode.id.clone()));
                             }
                         }
                     }
@@ -5757,43 +5719,19 @@ impl MiscellaneousService {
                 match info {
                     SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
                         if let MediaSpecifics::Show(show_info) = meta.specifics {
-                            if let Some((se, ep)) = show_info
-                                .seasons
-                                .iter()
-                                .flat_map(|s| {
-                                    s.episodes
-                                        .iter()
-                                        .map(|e| (s.season_number, e.episode_number))
-                                })
-                                .find(|(s, e)| s == &show.season && e == &show.episode)
+                            if let Some((_, ep)) = show_info.get_episode(show.season, show.episode)
                             {
-                                if let Some(season) =
-                                    show_info.seasons.iter().find(|s| s.season_number == se)
-                                {
-                                    if let Some(episode) =
-                                        season.episodes.iter().find(|e| e.episode_number == ep)
-                                    {
-                                        if episode.publish_date.unwrap() != cal_event.date {
-                                            need_to_delete = true;
-                                        }
-                                    }
+                                if ep.publish_date.unwrap() != cal_event.date {
+                                    need_to_delete = true;
                                 }
                             }
                         }
                     }
                     SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
                         if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
-                            if let Some(ep) = podcast_info
-                                .episodes
-                                .iter()
-                                .find(|e| e.number == podcast.episode)
-                            {
-                                if let Some(episode) =
-                                    podcast_info.episodes.iter().find(|e| e.number == ep.number)
-                                {
-                                    if episode.publish_date != cal_event.date {
-                                        need_to_delete = true;
-                                    }
+                            if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                                if ep.publish_date != cal_event.date {
+                                    need_to_delete = true;
                                 }
                             }
                         }

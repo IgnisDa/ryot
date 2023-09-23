@@ -25,6 +25,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import {
+	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	CollectionsDocument,
 	LatestUserSummaryDocument,
@@ -56,7 +57,39 @@ import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "./_app";
 
 const service = new HumanizeDurationLanguage();
-const humaizer = new HumanizeDuration(service);
+const humanizer = new HumanizeDuration(service);
+
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
+	const diff = DateTime.fromISO(um.date).diff(DateTime.fromJSDate(today));
+	const numDaysLeft = parseInt(diff.as("days").toFixed(0));
+	console.log(diff.as("days").toFixed(0));
+	return (
+		<MediaItemWithoutUpdateModal
+			item={{
+				identifier: um.metadataId.toString(),
+				title: um.metadataTitle,
+				image: um.metadataImage,
+				publishYear: `${match(um.metadataLot)
+					.with(
+						MetadataLot.Show,
+						() => `S${um.showSeasonNumber}E${um.showEpisodeNumber}`,
+					)
+					.with(MetadataLot.Podcast, () => `EP${um.podcastEpisodeNumber}`)
+					.otherwise(() => "")} ${
+					numDaysLeft === 0 ? "Today" : `In ${numDaysLeft} days`
+				}`,
+			}}
+			lot={um.metadataLot}
+			href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
+				id: um.metadataId,
+			})}
+			noRatingLink
+		/>
+	);
+};
 
 const ActualDisplayStat = (props: {
 	icon: JSX.Element;
@@ -85,7 +118,7 @@ const ActualDisplayStat = (props: {
 							fz={{ base: "md", md: "sm" }}
 						>
 							{d.type === "duration"
-								? humaizer.humanize(d.value * 1000 * 60, {
+								? humanizer.humanize(d.value * 1000 * 60, {
 										round: true,
 										largest: 3,
 								  })
@@ -207,34 +240,7 @@ const Page: NextPageWithLayout = () => {
 							<Title>Upcoming</Title>
 							<Grid>
 								{upcomingMedia.data.map((um) => (
-									<MediaItemWithoutUpdateModal
-										key={um.metadataId}
-										item={{
-											identifier: um.metadataId.toString(),
-											title: um.metadataTitle,
-											image: um.metadataImage,
-											publishYear: `${match(um.metadataLot)
-												.with(
-													MetadataLot.Show,
-													() =>
-														`S${um.showSeasonNumber}E${um.showEpisodeNumber}`,
-												)
-												.with(
-													MetadataLot.Podcast,
-													() => `EP${um.podcastEpisodeNumber}`,
-												)
-												.otherwise(() => "")} In ${+DateTime.fromISO(um.date)
-												.diff(DateTime.now())
-												.as("days")
-												.toFixed()} days`,
-										}}
-										lot={um.metadataLot}
-										href={withQuery(
-											APP_ROUTES.media.individualMediaItem.details,
-											{ id: um.metadataId },
-										)}
-										noRatingLink
-									/>
+									<UpComingMedia um={um} key={um.calendarEventId} />
 								))}
 							</Grid>
 							<Divider />
@@ -470,46 +476,50 @@ const Page: NextPageWithLayout = () => {
 							{ minWidth: "lg", cols: 3 },
 						]}
 					>
-						{currentWorkout ? (
+						{userPreferences.data.featuresEnabled.fitness.enabled ? (
+							currentWorkout ? (
+								<Link
+									passHref
+									legacyBehavior
+									href={APP_ROUTES.fitness.exercises.currentWorkout}
+								>
+									<Button
+										variant="outline"
+										component="a"
+										leftIcon={<IconBarbell />}
+										onClick={() => {}}
+									>
+										Go to current workout
+									</Button>
+								</Link>
+							) : (
+								<Button
+									variant="outline"
+									leftIcon={<IconBarbell />}
+									onClick={() => {
+										setCurrentWorkout(getDefaultWorkout());
+										router.push(APP_ROUTES.fitness.exercises.currentWorkout);
+									}}
+								>
+									Start a workout
+								</Button>
+							)
+						) : undefined}
+						{userPreferences.data.featuresEnabled.media.enabled ? (
 							<Link
 								passHref
 								legacyBehavior
-								href={APP_ROUTES.fitness.exercises.currentWorkout}
+								href={APP_ROUTES.media.individualMediaItem.create}
 							>
 								<Button
 									variant="outline"
 									component="a"
-									leftIcon={<IconBarbell />}
-									onClick={() => {}}
+									leftIcon={<IconPhotoPlus />}
 								>
-									Go to current workout
+									Create a media item
 								</Button>
 							</Link>
-						) : (
-							<Button
-								variant="outline"
-								leftIcon={<IconBarbell />}
-								onClick={() => {
-									setCurrentWorkout(getDefaultWorkout());
-									router.push(APP_ROUTES.fitness.exercises.currentWorkout);
-								}}
-							>
-								Start a workout
-							</Button>
-						)}
-						<Link
-							passHref
-							legacyBehavior
-							href={APP_ROUTES.media.individualMediaItem.create}
-						>
-							<Button
-								variant="outline"
-								component="a"
-								leftIcon={<IconPhotoPlus />}
-							>
-								Create a media item
-							</Button>
-						</Link>
+						) : undefined}
 					</SimpleGrid>
 				</Stack>
 			</Container>

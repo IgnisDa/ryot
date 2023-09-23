@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.18.1"
+version = "2.18.2"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -91,7 +91,7 @@ serde-xml-rs = "0.6.0"
 slug = "0.1.4"
 sqlx = "*"
 sonyflake = "0.2.0"
-specta = { version = "1.0.5", features = [
+specta = { git = "https://github.com/oscartbeaumont/specta.git", rev = "5f3d5ff6", features = [
     "typescript",
     "chrono",
     "rust_decimal",
