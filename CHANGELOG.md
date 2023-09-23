@@ -1,5 +1,17 @@
 
 
+# Version 2.18.4 (2023-09-23)
+
+## Build
+
+- **backend:** bump version
+  
+  ## Features
+
+- **frontend:** save active tab for preferences
+  
+  
+
 # Version 2.18.3 (2023-09-23)
 
 ## Bug Fixes
