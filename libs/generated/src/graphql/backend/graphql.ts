@@ -661,8 +661,14 @@ export enum MediaSortOrder {
   Desc = 'DESC'
 }
 
+export type MetadataCreator = {
+  id?: Maybe<Scalars['Int']['output']>;
+  image?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
 export type MetadataCreatorGroupedByRole = {
-  items: Array<Creator>;
+  items: Array<MetadataCreator>;
   name: Scalars['String']['output'];
 };
 
@@ -1536,9 +1542,13 @@ export enum UserLot {
 }
 
 export type UserMeasurement = {
+  /** Any comment associated entered by the user. */
   comment?: Maybe<Scalars['String']['output']>;
+  /** The name given to this measurement by the user. */
   name?: Maybe<Scalars['String']['output']>;
+  /** The contents of the actual measurement. */
   stats: UserMeasurementStats;
+  /** The date and time this measurement was made. */
   timestamp: Scalars['DateTime']['output'];
 };
 
@@ -1570,9 +1580,13 @@ export type UserMeasurementDataInput = {
 };
 
 export type UserMeasurementInput = {
+  /** Any comment associated entered by the user. */
   comment?: InputMaybe<Scalars['String']['input']>;
+  /** The name given to this measurement by the user. */
   name?: InputMaybe<Scalars['String']['input']>;
+  /** The contents of the actual measurement. */
   stats: UserMeasurementDataInput;
+  /** The date and time this measurement was made. */
   timestamp: Scalars['DateTime']['input'];
 };
 
@@ -2178,7 +2192,7 @@ export type MediaDetailsQueryVariables = Exact<{
 }>;
 
 
-export type MediaDetailsQuery = { mediaDetails: { title: string, description?: string | null, identifier: string, lot: MetadataLot, source: MetadataSource, isNsfw: boolean, providerRating?: any | null, publishYear?: number | null, publishDate?: string | null, genres: Array<string>, sourceUrl?: string | null, creators: Array<{ name: string, items: Array<{ id: number, name: string, image?: string | null }> }>, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> }, group?: { id: number, name: string, part: number } | null, suggestions: Array<{ lot: MetadataLot, source: MetadataSource, identifier: string, title: string, image?: string | null, metadataId?: number | null }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: number | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: string }> } | null, showSpecifics?: { seasons: Array<{ seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: string | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
+export type MediaDetailsQuery = { mediaDetails: { title: string, description?: string | null, identifier: string, lot: MetadataLot, source: MetadataSource, isNsfw: boolean, providerRating?: any | null, publishYear?: number | null, publishDate?: string | null, genres: Array<string>, sourceUrl?: string | null, creators: Array<{ name: string, items: Array<{ id?: number | null, name: string, image?: string | null }> }>, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> }, group?: { id: number, name: string, part: number } | null, suggestions: Array<{ lot: MetadataLot, source: MetadataSource, identifier: string, title: string, image?: string | null, metadataId?: number | null }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: number | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: string }> } | null, showSpecifics?: { seasons: Array<{ seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: string | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
 
 export type MediaListQueryVariables = Exact<{
   input: MediaListInput;

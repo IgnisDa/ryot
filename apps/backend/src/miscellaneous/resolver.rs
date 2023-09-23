@@ -343,9 +343,16 @@ struct GeneralFeatures {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct MetadataCreator {
+    id: Option<i32>,
+    name: String,
+    image: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct MetadataCreatorGroupedByRole {
     name: String,
-    items: Vec<creator::Model>,
+    items: Vec<MetadataCreator>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -1389,7 +1396,6 @@ impl MiscellaneousService {
             id: i32,
             name: String,
             image: Option<String>,
-            extra_information: CreatorExtraInformation,
             role: String,
         }
         let crts = MetadataToCreator::find()
@@ -1410,13 +1416,12 @@ impl MiscellaneousService {
             .into_model::<PartialCreator>()
             .all(&self.db)
             .await?;
-        let mut creators: HashMap<String, Vec<creator::Model>> = HashMap::new();
+        let mut creators: HashMap<String, Vec<_>> = HashMap::new();
         for cr in crts {
-            let creator = creator::Model {
-                id: cr.id,
+            let creator = MetadataCreator {
+                id: Some(cr.id),
                 name: cr.name,
                 image: cr.image,
-                extra_information: cr.extra_information,
             };
             creators
                 .entry(cr.role)
@@ -1424,6 +1429,21 @@ impl MiscellaneousService {
                     e.push(creator.clone());
                 })
                 .or_insert(vec![creator.clone()]);
+        }
+        if let Some(free_creators) = &meta.free_creators {
+            for cr in free_creators.0.clone() {
+                let creator = MetadataCreator {
+                    id: None,
+                    name: cr.name,
+                    image: cr.image,
+                };
+                creators
+                    .entry(cr.role)
+                    .and_modify(|e| {
+                        e.push(creator.clone());
+                    })
+                    .or_insert(vec![creator.clone()]);
+            }
         }
         if let Some(ref mut d) = meta.description {
             *d = markdown_to_html_opts(
