@@ -21,7 +21,7 @@ import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase, startCase } from "@ryot/ts-utils";
+import { snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -152,7 +152,7 @@ const Page: NextPageWithLayout = () => {
 							<Box>
 								<Box>
 									<Text display={"inline"} fw="bold">
-										{calendarEvents.data.length}
+										{sum(calendarEvents.data.map((e) => e.events.length))}
 									</Text>{" "}
 									items found
 								</Box>

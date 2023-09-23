@@ -28,6 +28,7 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
+#[instrument(skip(_information, ctx))]
 pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Invalidating invalid media import jobs");
     ctx.data::<Arc<ImporterService>>()
@@ -52,6 +53,7 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     Ok(())
 }
 
+#[instrument(skip(_information, ctx))]
 pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Cleaning up user and metadata association");
     ctx.data::<Arc<MiscellaneousService>>()
@@ -68,6 +70,7 @@ pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<()
     Ok(())
 }
 
+#[instrument(skip(_information, ctx))]
 pub async fn yank_integrations_data(
     _information: ScheduledJob,
     ctx: JobContext,
@@ -109,20 +112,17 @@ pub async fn perform_application_job(
     let start = Instant::now();
     match information {
         ApplicationJob::ImportMedia(user_id, input) => {
-            tracing::trace!("Importing media");
             importer_service
                 .import_from_lot(user_id, input)
                 .await
                 .unwrap();
         }
         ApplicationJob::UserCreated(user_id) => {
-            tracing::trace!("Running jobs after user creation");
             misc_service.user_created_job(user_id).await.unwrap();
             misc_service.user_created_job(user_id).await.unwrap();
             misc_service.calculate_user_summary(user_id).await.unwrap();
         }
         ApplicationJob::RecalculateUserSummary(user_id) => {
-            tracing::trace!("Calculating summary for user {:?}", user_id);
             misc_service.calculate_user_summary(user_id).await.unwrap();
         }
         ApplicationJob::UpdateMetadata(metadata) => {
@@ -143,15 +143,12 @@ pub async fn perform_application_job(
             }
         }
         ApplicationJob::UpdateExerciseJob(exercise) => {
-            tracing::trace!("Updating exercise name = {:?}", exercise.name);
             exercise_service.update_exercise(exercise).await.unwrap();
         }
         ApplicationJob::AfterMediaSeen(seen) => {
-            tracing::trace!("Performing jobs after media seen = {:?}", seen.id);
             misc_service.after_media_seen_tasks(seen).await.unwrap();
         }
         ApplicationJob::RecalculateCalendarEvents => {
-            tracing::trace!("Recalculating calendar events");
             misc_service.recalculate_calendar_events().await.unwrap();
         }
     };

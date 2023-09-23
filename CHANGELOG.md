@@ -1,5 +1,45 @@
 
 
+# Version 2.18.4 (2023-09-23)
+
+## Build
+
+- **backend:** bump version
+  
+  ## Features
+
+- **frontend:** save active tab for preferences
+  
+  
+
+# Version 2.18.3 (2023-09-23)
+
+## Bug Fixes
+
+- **frontend:** select correct tab for preferences
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
+# Version 2.18.2 (2023-09-23)
+
+
+
+# Version 2.18.1 (2023-09-22)
+
+## Bug Fixes
+
+- **frontend:** display correct total events
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.18.0 (2023-09-22)
 
 
