@@ -251,7 +251,6 @@ const Page: NextPageWithLayout = () => {
 									});
 								}}
 							/>
-							<Divider />
 							<SimpleGrid cols={1}>
 								{/*
 						// TODO: Introduce this back when we figure out a way to handle units
