@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{partial_metadata, prelude::PartialMetadata},
     migrator::{MetadataLot, MetadataSource},
-    models::media::{FreeMetadataCreators, MediaSpecifics, MetadataImages, MetadataVideos},
+    models::media::{MediaSpecifics, MetadataFreeCreators, MetadataImages, MetadataVideos},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
@@ -35,7 +35,7 @@ pub struct Model {
     pub production_status: String,
     pub provider_rating: Option<Decimal>,
     pub last_processed_on_for_calendar: Option<DateTimeUtc>,
-    pub free_creators: Option<FreeMetadataCreators>,
+    pub free_creators: Option<MetadataFreeCreators>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

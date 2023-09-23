@@ -76,10 +76,10 @@ use crate::{
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
             MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataGroupListItem,
-            MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource,
-            MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
+            MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
+            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
@@ -2518,7 +2518,7 @@ impl MiscellaneousService {
         images: Vec<MetadataImage>,
         videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
-        creators: Vec<FreeMetadataCreator>,
+        free_creators: Vec<FreeMetadataCreator>,
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
@@ -2533,8 +2533,6 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-
-        // compare diff using serde diff
 
         if meta.production_status != production_status {
             notifications.push((
@@ -2685,6 +2683,11 @@ impl MiscellaneousService {
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.publish_date = ActiveValue::Set(publish_date);
+        meta.free_creators = ActiveValue::Set(if free_creators.is_empty() {
+            None
+        } else {
+            Some(MetadataFreeCreators(free_creators))
+        });
         meta.specifics = ActiveValue::Set(specifics);
         meta.last_processed_on_for_calendar = ActiveValue::Set(None);
         let metadata = meta.update(&self.db).await.unwrap();
@@ -2693,7 +2696,6 @@ impl MiscellaneousService {
             metadata.id,
             metadata.lot,
             metadata.source,
-            creators,
             genres,
             suggestions,
             groups,
@@ -2870,6 +2872,11 @@ impl MiscellaneousService {
                 None => ActiveValue::NotSet,
                 Some(n) => ActiveValue::Set(n),
             },
+            free_creators: ActiveValue::Set(if details.free_creators.is_empty() {
+                None
+            } else {
+                Some(MetadataFreeCreators(details.free_creators))
+            }),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.db).await?;
@@ -2878,7 +2885,6 @@ impl MiscellaneousService {
             metadata.id,
             metadata.lot,
             metadata.source,
-            details.free_creators,
             details.genres,
             details.suggestions,
             details.groups,
@@ -2893,7 +2899,6 @@ impl MiscellaneousService {
         metadata_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
-        creators: Vec<FreeMetadataCreator>,
         genres: Vec<String>,
         suggestions: Vec<PartialMetadata>,
         groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
@@ -2911,11 +2916,11 @@ impl MiscellaneousService {
             .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        for (idx, creator) in creators.into_iter().enumerate() {
-            self.associate_creator_with_metadata(metadata_id, creator, idx)
-                .await
-                .ok();
-        }
+        // for (idx, creator) in free_creators.into_iter().enumerate() {
+        //     self.associate_creator_with_metadata(metadata_id, creator, idx)
+        //         .await
+        //         .ok();
+        // }
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
