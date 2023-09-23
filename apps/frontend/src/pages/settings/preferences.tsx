@@ -63,13 +63,13 @@ const Page: NextPageWithLayout = () => {
 				) : undefined}
 				<Tabs defaultValue="enabled-features" mt="md">
 					<Tabs.List>
-						<Tabs.Tab value="enabled-features">Enabled features</Tabs.Tab>
-						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
 						<Tabs.Tab value="general">General</Tabs.Tab>
+						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
 						<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 					</Tabs.List>
-					<Tabs.Panel value="enabled-features" mt="md">
+					<Tabs.Panel value="general" mt="md">
 						<Stack>
+							<Text>Features that you want to use.</Text>
 							{["media", "fitness"].map((facet) => (
 								<Fragment key={facet}>
 									<Title order={4}>{startCase(facet)}</Title>
@@ -99,11 +99,51 @@ const Page: NextPageWithLayout = () => {
 									</SimpleGrid>
 								</Fragment>
 							))}
+							<Divider />
+							<Title order={3} mb={-16}>
+								General
+							</Title>
+							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
+								<Select
+									size="xs"
+									label="Scale used for rating in reviews"
+									data={Object.values(UserReviewScale).map((c) => ({
+										label: startCase(snakeCase(c)),
+										value: c,
+									}))}
+									defaultValue={userPreferences.data.general.reviewScale}
+									disabled={!coreDetails.data.preferencesChangeAllowed}
+									onChange={(val) => {
+										if (val)
+											updateUserEnabledFeatures.mutate({
+												input: {
+													property: "general.review_scale",
+													value: val,
+												},
+											});
+									}}
+								/>
+								<Switch
+									size="xs"
+									mt="md"
+									label={"Whether NSFW will be displayed"}
+									checked={userPreferences.data.general.displayNsfw}
+									disabled={!coreDetails.data.preferencesChangeAllowed}
+									onChange={(ev) => {
+										updateUserEnabledFeatures.mutate({
+											input: {
+												property: "general.display_nsfw",
+												value: String(ev.currentTarget.checked),
+											},
+										});
+									}}
+								/>
+							</SimpleGrid>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications" mt="md">
 						<Stack>
-							<Text size="xs">
+							<Text>
 								The following applies to media in your Watchlist or the ones you
 								have monitored explicitly.
 							</Text>
@@ -153,51 +193,9 @@ const Page: NextPageWithLayout = () => {
 							</SimpleGrid>
 						</Stack>
 					</Tabs.Panel>
-					<Tabs.Panel value="general" mt="md">
-						<Stack>
-							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
-								<Select
-									size="xs"
-									label="Scale used for rating in reviews"
-									data={Object.values(UserReviewScale).map((c) => ({
-										label: startCase(snakeCase(c)),
-										value: c,
-									}))}
-									defaultValue={userPreferences.data.general.reviewScale}
-									disabled={!coreDetails.data.preferencesChangeAllowed}
-									onChange={(val) => {
-										if (val)
-											updateUserEnabledFeatures.mutate({
-												input: {
-													property: "general.review_scale",
-													value: val,
-												},
-											});
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label={"Whether NSFW will be displayed"}
-									checked={userPreferences.data.general.displayNsfw}
-									disabled={!coreDetails.data.preferencesChangeAllowed}
-									onChange={(ev) => {
-										updateUserEnabledFeatures.mutate({
-											input: {
-												property: "general.display_nsfw",
-												value: String(ev.currentTarget.checked),
-											},
-										});
-									}}
-								/>
-							</SimpleGrid>
-						</Stack>
-					</Tabs.Panel>
 					<Tabs.Panel value="fitness" mt="md">
 						<Stack>
-							<Text size="xs">
-								The default measurements you want to keep track of.
-							</Text>
+							<Text>The default measurements you want to keep track of.</Text>
 							<SimpleGrid cols={2}>
 								{Object.entries(
 									userPreferences.data.fitness.measurements.inbuilt,
