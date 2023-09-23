@@ -16,6 +16,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
@@ -32,6 +33,10 @@ import type { NextPageWithLayout } from "../_app";
 const Page: NextPageWithLayout = () => {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
+	const [activeTab, setActiveTab] = useLocalStorage({
+		defaultValue: "general",
+		key: "savedPreferencesTab",
+	});
 
 	const updateUserEnabledFeatures = useMutation({
 		mutationFn: async (variables: UpdateUserPreferenceMutationVariables) => {
@@ -61,7 +66,14 @@ const Page: NextPageWithLayout = () => {
 						Changing preferences is disabled on this instance.
 					</Alert>
 				) : undefined}
-				<Tabs defaultValue="general" mt="md">
+				<Tabs
+					mt="md"
+					value={activeTab}
+					variant="outline"
+					onTabChange={(v) => {
+						if (v) setActiveTab(v);
+					}}
+				>
 					<Tabs.List>
 						<Tabs.Tab value="general">General</Tabs.Tab>
 						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
