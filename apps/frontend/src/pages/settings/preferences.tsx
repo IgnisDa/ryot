@@ -61,7 +61,7 @@ const Page: NextPageWithLayout = () => {
 						Changing preferences is disabled on this instance.
 					</Alert>
 				) : undefined}
-				<Tabs defaultValue="enabled-features" mt="md">
+				<Tabs defaultValue="general" mt="md">
 					<Tabs.List>
 						<Tabs.Tab value="general">General</Tabs.Tab>
 						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
