@@ -982,7 +982,6 @@ const Page: NextPageWithLayout = () => {
 														sm: 480,
 														md: 520,
 														lg: 580,
-														xl: 650,
 													}}
 												>
 													<Flex gap="md">
