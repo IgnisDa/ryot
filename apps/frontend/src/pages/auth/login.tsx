@@ -1,5 +1,6 @@
 import { APP_ROUTES } from "@/lib/constants";
 import { useCoreDetails, useEnabledCoreFeatures } from "@/lib/hooks/graphql";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
@@ -27,7 +28,7 @@ type FormSchema = z.infer<typeof formSchema>;
 export default function Page() {
 	const router = useRouter();
 	const coreDetails = useCoreDetails();
-	const enabledFeatures = useEnabledCoreFeatures();
+	const coreEnabledFeatures = useEnabledCoreFeatures();
 	const loginUser = useMutation({
 		mutationFn: async (input: UserInput) => {
 			const { loginUser } = await gqlClient.request(LoginUserDocument, {
@@ -67,7 +68,7 @@ export default function Page() {
 			form.setValues({ password: "demo-password", username: "demo" });
 	}, [coreDetails.data]);
 
-	return (
+	return coreDetails.data && coreEnabledFeatures.data ? (
 		<>
 			<Head>
 				<title>Login | Ryot</title>
@@ -106,7 +107,7 @@ export default function Page() {
 				<Button mt="md" type="submit" loading={loginUser.isLoading} w="100%">
 					Login
 				</Button>
-				{enabledFeatures.data?.signupAllowed ? (
+				{coreEnabledFeatures.data.signupAllowed ? (
 					<Box mt="lg" style={{ textAlign: "right" }}>
 						Need an account? Register{" "}
 						<Link href={APP_ROUTES.auth.register} passHref legacyBehavior>
@@ -117,5 +118,7 @@ export default function Page() {
 				) : undefined}
 			</Box>
 		</>
+	) : (
+		<LoadingPage />
 	);
 }
