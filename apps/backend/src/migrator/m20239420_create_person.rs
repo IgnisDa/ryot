@@ -16,7 +16,8 @@ pub enum Person {
     CreatedOn,
     LastUpdatedOn,
     Name,
-    Image,
+    Images,
+    ExtraInformation,
 }
 
 #[derive(Iden)]
@@ -65,7 +66,8 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Person::Image).string())
+                    .col(ColumnDef::new(Person::Images).json().not_null())
+                    .col(ColumnDef::new(Person::ExtraInformation).json().not_null())
                     .to_owned(),
             )
             .await?;
