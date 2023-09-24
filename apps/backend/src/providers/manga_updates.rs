@@ -10,8 +10,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            FreeMetadataCreator, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            MetadataImageLot, PartialMetadata, RealMetadataCreator,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -116,22 +116,16 @@ impl MediaProvider for MangaUpdatesService {
             .body_json()
             .await
             .map_err(|e| anyhow!(e))?;
-        let mut creators = vec![];
-        for author in data.authors.unwrap_or_default() {
-            let data: ItemAuthor = self
-                .client
-                .get(format!("authors/{}", author.author_id.unwrap()))
-                .await
-                .map_err(|e| anyhow!(e))?
-                .body_json()
-                .await
-                .map_err(|e| anyhow!(e))?;
-            creators.push(FreeMetadataCreator {
-                name: data.name,
-                role: author.lot.unwrap(),
-                image: data.image.unwrap().url.original,
-            });
-        }
+        let creators = data
+            .authors
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| RealMetadataCreator {
+                identifier: a.author_id.unwrap().to_string(),
+                role: a.lot.unwrap(),
+                source: MetadataSource::MangaUpdates,
+            })
+            .collect();
         let mut suggestions = vec![];
         for series_id in data
             .recommendations
@@ -167,6 +161,7 @@ impl MediaProvider for MangaUpdatesService {
             description: data.description,
             source: MetadataSource::MangaUpdates,
             lot: MetadataLot::Manga,
+            real_creators: creators,
             production_status: data.status.unwrap_or_else(|| "Released".to_string()),
             genres: data
                 .genres
@@ -193,13 +188,13 @@ impl MediaProvider for MangaUpdatesService {
                 volumes: None,
                 url: data.url,
             }),
-            free_creators: creators,
             suggestions,
             provider_rating: data.bayesian_rating,
             videos: vec![],
             publish_date: None,
             groups: vec![],
             is_nsfw: None,
+            free_creators: vec![],
         };
         Ok(data)
     }

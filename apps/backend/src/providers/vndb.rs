@@ -11,8 +11,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, VisualNovelSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
+            RealMetadataCreator, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -25,7 +25,7 @@ const FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
 const FIELDS: &str = const_str::concat!(
     FIELDS_SMALL,
     ",",
-    "length_minutes,tags.name,developers.name,devstatus,description,rating"
+    "length_minutes,tags.name,developers.id,devstatus,description,rating"
 );
 
 #[derive(Debug, Clone)]
@@ -57,6 +57,11 @@ struct ImageLinks {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct Developer {
+    id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct ItemResponse {
     id: String,
     title: String,
@@ -66,7 +71,7 @@ struct ItemResponse {
     image_links: Option<ImageLinks>,
     length_minutes: Option<i32>,
     devstatus: Option<i32>,
-    developers: Option<Vec<NamedObject>>,
+    developers: Option<Vec<Developer>>,
     screenshots: Option<Vec<ImageLinks>>,
     tags: Option<Vec<NamedObject>>,
 }
@@ -94,7 +99,7 @@ impl MediaProvider for VndbService {
             .map_err(|e| anyhow!(e))?;
         let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
-        let d = self.google_books_response_to_search_response(item);
+        let d = self.vndb_response_to_search_response(item);
         Ok(d)
     }
 
@@ -130,7 +135,7 @@ impl MediaProvider for VndbService {
                     images,
                     publish_year,
                     ..
-                } = self.google_books_response_to_search_response(b);
+                } = self.vndb_response_to_search_response(b);
                 let image = images
                     .into_iter()
                     .map(|i| match i.url {
@@ -160,7 +165,7 @@ impl MediaProvider for VndbService {
 }
 
 impl VndbService {
-    fn google_books_response_to_search_response(&self, item: ItemResponse) -> MediaDetails {
+    fn vndb_response_to_search_response(&self, item: ItemResponse) -> MediaDetails {
         let mut images = vec![];
         if let Some(il) = item.image_links {
             images.push(il.url);
@@ -176,10 +181,10 @@ impl VndbService {
             .developers
             .unwrap_or_default()
             .into_iter()
-            .map(|a| FreeMetadataCreator {
-                name: a.name,
+            .map(|a| RealMetadataCreator {
+                identifier: a.id,
                 role: "Developer".to_owned(),
-                image: None,
+                source: MetadataSource::Vndb,
             })
             .collect_vec();
         let genres = item
@@ -203,7 +208,7 @@ impl VndbService {
                 .unwrap_or_else(|| "Released".to_owned()),
             title: item.title,
             description: item.description,
-            free_creators: creators.into_iter().unique().collect(),
+            real_creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.released.clone().and_then(|d| convert_date_to_year(&d)),
             publish_date: item.released.and_then(|d| convert_string_to_date(&d)),
@@ -216,6 +221,7 @@ impl VndbService {
             videos: vec![],
             suggestions: vec![],
             groups: vec![],
+            free_creators: vec![],
         }
     }
 }

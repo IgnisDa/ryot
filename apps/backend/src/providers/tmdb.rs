@@ -16,9 +16,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadata, ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
+            MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
+            RealMetadataCreator, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -30,13 +30,8 @@ static URL: &str = "https://api.themoviedb.org/3/";
 static IMAGE_URL: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbCompany {
-    name: String,
-    logo_path: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
+    id: i32,
     name: Option<String>,
     known_for_department: Option<String>,
     job: Option<String>,
@@ -97,7 +92,6 @@ struct TmdbMovie {
     runtime: Option<i32>,
     status: Option<String>,
     genres: Option<Vec<NamedObject>>,
-    production_companies: Option<Vec<TmdbCompany>>,
     belongs_to_collection: Option<IdObject>,
     videos: Option<TmdbVideoResults>,
 }
@@ -257,12 +251,12 @@ impl MediaProvider for TmdbMovieService {
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
+                    if let Some(r) = g.known_for_department {
                         if r == *"Acting" {
-                            Some(FreeMetadataCreator {
-                                name: n,
+                            Some(RealMetadataCreator {
+                                identifier: g.id.to_string(),
                                 role: r,
-                                image: g.profile_path,
+                                source: MetadataSource::Tmdb,
                             })
                         } else {
                             None
@@ -280,12 +274,12 @@ impl MediaProvider for TmdbMovieService {
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let (Some(n), Some(r)) = (g.name, g.job) {
+                    if let Some(r) = g.job {
                         if r == *"Director" {
-                            Some(FreeMetadataCreator {
-                                name: n,
+                            Some(RealMetadataCreator {
+                                identifier: g.id.to_string(),
                                 role: r,
-                                image: g.profile_path,
+                                source: MetadataSource::Tmdb,
                             })
                         } else {
                             None
@@ -297,25 +291,6 @@ impl MediaProvider for TmdbMovieService {
                 .unique()
                 .collect_vec(),
         );
-        creators.extend(
-            data.production_companies
-                .unwrap_or_default()
-                .into_iter()
-                .map(|p| FreeMetadataCreator {
-                    name: p.name,
-                    role: "Production".to_owned(),
-                    image: p.logo_path.map(|p| self.base.get_cover_image_url(p)),
-                })
-                .collect_vec(),
-        );
-        let creators = creators
-            .into_iter()
-            .map(|c| FreeMetadataCreator {
-                name: c.name,
-                role: c.role,
-                image: c.image.map(|i| self.base.get_cover_image_url(i)),
-            })
-            .collect_vec();
         let mut image_ids = Vec::from_iter(data.poster_path);
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
@@ -348,7 +323,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            free_creators: creators,
+            real_creators: creators,
             images: image_ids
                 .into_iter()
                 .unique()
@@ -378,6 +353,7 @@ impl MediaProvider for TmdbMovieService {
             } else {
                 None
             },
+            free_creators: vec![],
         })
     }
 
@@ -465,7 +441,6 @@ impl MediaProvider for TmdbShowService {
             genres: Vec<NamedObject>,
             status: Option<String>,
             vote_average: Option<Decimal>,
-            production_companies: Option<Vec<TmdbCompany>>,
             videos: Option<TmdbVideoResults>,
         }
         let mut rsp = self
@@ -559,7 +534,7 @@ impl MediaProvider for TmdbShowService {
             }
             seasons.push(data);
         }
-        let mut author_names = seasons
+        let author_names = seasons
             .iter()
             .flat_map(|s| {
                 s.episodes
@@ -569,13 +544,11 @@ impl MediaProvider for TmdbShowService {
                             .clone()
                             .into_iter()
                             .flat_map(|g| {
-                                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                                    Some(FreeMetadataCreator {
-                                        name: n,
+                                if let Some(r) = g.known_for_department {
+                                    Some(RealMetadataCreator {
+                                        identifier: g.id.to_string(),
                                         role: r,
-                                        image: g
-                                            .profile_path
-                                            .map(|p| self.base.get_cover_image_url(p)),
+                                        source: MetadataSource::Tmdb,
                                     })
                                 } else {
                                     None
@@ -586,18 +559,7 @@ impl MediaProvider for TmdbShowService {
                     .collect_vec()
             })
             .collect_vec();
-        author_names.extend(
-            show_data
-                .production_companies
-                .unwrap_or_default()
-                .into_iter()
-                .map(|p| FreeMetadataCreator {
-                    name: p.name,
-                    role: "Production".to_owned(),
-                    image: p.logo_path.map(|p| self.base.get_cover_image_url(p)),
-                }),
-        );
-        let author_names: HashBag<FreeMetadataCreator> =
+        let author_names: HashBag<RealMetadataCreator> =
             HashBag::from_iter(author_names.into_iter());
         let author_names = Vec::from_iter(author_names.set_iter())
             .into_iter()
@@ -615,7 +577,7 @@ impl MediaProvider for TmdbShowService {
             production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
             description: show_data.overview,
-            free_creators: author_names,
+            real_creators: author_names,
             genres: show_data
                 .genres
                 .into_iter()
@@ -687,6 +649,7 @@ impl MediaProvider for TmdbShowService {
                 None
             },
             groups: vec![],
+            free_creators: vec![],
         })
     }
 

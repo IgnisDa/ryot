@@ -16,8 +16,8 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            MetadataImageLot, PartialMetadata, RealMetadataCreator,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -177,21 +177,11 @@ impl MediaProvider for OpenlibraryService {
                         .unwrap_or_else(|| "Author".to_owned()),
                 ),
             };
-            let mut rsp = self
-                .client
-                .get(format!("{}.json", key))
-                .await
-                .map_err(|e| anyhow!(e))?;
-            let OpenlibraryAuthorPartial { name, photos } =
-                rsp.body_json().await.map_err(|e| anyhow!(e))?;
-            let image = photos
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|c| c > &0)
-                .collect_vec()
-                .first()
-                .map(|i| self.get_author_cover_image_url(*i));
-            creators.push(FreeMetadataCreator { name, role, image });
+            creators.push(RealMetadataCreator {
+                identifier: get_key(&key),
+                role,
+                source: MetadataSource::Openlibrary,
+            });
         }
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
@@ -295,7 +285,7 @@ impl MediaProvider for OpenlibraryService {
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
-            free_creators: creators,
+            real_creators: creators,
             genres,
             images,
             publish_year: first_release_date.map(|d| d.year()),
@@ -308,6 +298,7 @@ impl MediaProvider for OpenlibraryService {
             videos: vec![],
             groups: vec![],
             is_nsfw: None,
+            free_creators: vec![],
         })
     }
 

@@ -17,9 +17,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
-            VideoGameSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
+            MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
+            RealMetadataCreator, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -66,6 +66,7 @@ struct IgdbVideo {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbInvolvedCompany {
+    id: i32,
     company: IgdbCompany,
     developer: bool,
     publisher: bool,
@@ -313,12 +314,9 @@ where id = {id};
                 } else {
                     "Unknown"
                 };
-                FreeMetadataCreator {
-                    name: ic.company.name,
-                    image: ic
-                        .company
-                        .logo
-                        .map(|u| self.get_cover_image_url(u.image_id)),
+                RealMetadataCreator {
+                    identifier: ic.id.to_string(),
+                    source: MetadataSource::Igdb,
                     role: role.to_owned(),
                 }
             })
@@ -340,7 +338,7 @@ where id = {id};
             production_status: "Released".to_owned(),
             title: item.name.unwrap(),
             description: item.summary,
-            free_creators: creators,
+            real_creators: creators,
             images,
             videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),
@@ -375,6 +373,7 @@ where id = {id};
             provider_rating: item.rating,
             groups: vec![],
             is_nsfw: None,
+            free_creators: vec![],
         }
     }
 
