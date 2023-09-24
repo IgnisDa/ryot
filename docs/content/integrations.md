@@ -88,3 +88,15 @@ TMDb ID attached to their metadata.
    the zipped addon to your Kodi instance. Once installed, it will be visible under
    the "Services" sub category named "Ryot".
 4. Click on "Configure" to fill in the correct details.
+
+### Flow Launcher
+
+The plugin for [Flow Launcher](https://www.flowlauncher.com/) allows you to quickly
+search your ryot tracker by media category:
+
+![image](https://imgur.com/gVt9VBd.gif)
+
+To install, search for "ryot" in the Flow Launcher plugin store. Or use `pm install ryot`.
+
+Refer to the [documentation](https://github.com/bretthysuik/Flow.Launcher.Plugin.Ryot#configuration)
+for post-install configuration.
