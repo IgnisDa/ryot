@@ -698,6 +698,13 @@ pub mod media {
         pub lot: MetadataLot,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    pub struct RealMetadataCreator {
+        pub identifier: String,
+        pub source: MetadataSource,
+        pub role: String,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -708,6 +715,7 @@ pub mod media {
         pub lot: MetadataLot,
         pub production_status: String,
         pub free_creators: Vec<FreeMetadataCreator>,
+        pub real_creators: Vec<RealMetadataCreator>,
         pub genres: Vec<String>,
         pub images: Vec<MetadataImage>,
         pub videos: Vec<MetadataVideo>,

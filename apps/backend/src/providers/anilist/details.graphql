@@ -24,12 +24,7 @@ query DetailsQuery($id: Int!) {
     staff {
       edges {
         node {
-          name {
-            full
-          }
-          image {
-            large
-          }
+          id
         }
         role
       }

@@ -11,9 +11,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            AnimeSpecifics, FreeMetadataCreator, MangaSpecifics, MediaDetails, MediaSearchItem,
-            MediaSpecifics, MetadataImage, MetadataImageLot, MetadataVideo, MetadataVideoSource,
-            PartialMetadata,
+            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MetadataImage, MetadataImageLot, MetadataVideo, MetadataVideoSource, PartialMetadata,
+            RealMetadataCreator,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -198,10 +198,10 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         .flatten()
         .map(|s| {
             let node = s.node.unwrap();
-            FreeMetadataCreator {
-                name: node.name.unwrap().full.unwrap(),
+            RealMetadataCreator {
+                identifier: node.id.to_string(),
+                source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
-                image: node.image.unwrap().large,
             }
         })
         .unique()
@@ -266,7 +266,8 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         source: MetadataSource::Anilist,
         description: details.description,
         lot,
-        free_creators: creators,
+        real_creators: creators,
+        free_creators: vec![],
         images,
         videos,
         genres: genres.into_iter().unique().collect(),
