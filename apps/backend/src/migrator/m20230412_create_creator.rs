@@ -1,5 +1,3 @@
-// TODO: Create a similar `Person` model and deprecate this one
-
 use sea_orm_migration::prelude::*;
 
 use super::Metadata;
