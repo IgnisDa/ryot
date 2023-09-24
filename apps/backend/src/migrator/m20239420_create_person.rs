@@ -13,10 +13,10 @@ pub enum Person {
     Id,
     Identifier,
     Source,
+    CreatedOn,
     LastUpdatedOn,
     Name,
     Image,
-    ExtraInformation,
 }
 
 #[derive(Iden)]
@@ -48,10 +48,10 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::Identifier).string().not_null())
                     .col(ColumnDef::new(Person::Source).string_len(2).not_null())
                     .col(
-                        ColumnDef::new(Person::Name)
-                            .string()
-                            .unique_key()
-                            .not_null(),
+                        ColumnDef::new(Person::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
                     )
                     .col(
                         ColumnDef::new(Person::LastUpdatedOn)
@@ -59,8 +59,13 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(
+                        ColumnDef::new(Person::Name)
+                            .string()
+                            .unique_key()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Person::Image).string())
-                    .col(ColumnDef::new(Person::ExtraInformation).json())
                     .to_owned(),
             )
             .await?;
