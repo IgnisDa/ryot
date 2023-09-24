@@ -962,13 +962,6 @@ pub mod media {
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataFreeCreators(pub Vec<FreeMetadataCreator>);
 
-    #[derive(
-        Debug, FromJsonQueryResult, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject,
-    )]
-    pub struct CreatorExtraInformation {
-        pub active: bool,
-    }
-
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
     pub struct SeenShowExtraInformation {
         pub season: i32,
