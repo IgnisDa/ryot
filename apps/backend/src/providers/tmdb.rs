@@ -30,6 +30,11 @@ static URL: &str = "https://api.themoviedb.org/3/";
 static IMAGE_URL: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbCompany {
+    id: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
     id: i32,
     name: Option<String>,
@@ -96,6 +101,7 @@ struct TmdbMediaEntry {
     backdrop_path: Option<String>,
     release_date: Option<String>,
     first_air_date: Option<String>,
+    production_companies: Option<Vec<TmdbCompany>>,
     seasons: Option<Vec<TmdbSeasonNumber>>,
     runtime: Option<i32>,
     status: Option<String>,
@@ -297,6 +303,17 @@ impl MediaProvider for TmdbMovieService {
                     }
                 })
                 .unique()
+                .collect_vec(),
+        );
+        creators.extend(
+            data.production_companies
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| RealMetadataCreator {
+                    identifier: p.id.to_string(),
+                    role: "Production".to_owned(),
+                    source: MetadataSource::Tmdb,
+                })
                 .collect_vec(),
         );
         let mut image_ids = Vec::from_iter(data.poster_path);
@@ -523,7 +540,7 @@ impl MediaProvider for TmdbShowService {
             }
             seasons.push(data);
         }
-        let author_names = seasons
+        let mut author_names = seasons
             .iter()
             .flat_map(|s| {
                 s.episodes
@@ -548,6 +565,18 @@ impl MediaProvider for TmdbShowService {
                     .collect_vec()
             })
             .collect_vec();
+        author_names.extend(
+            show_data
+                .production_companies
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| RealMetadataCreator {
+                    identifier: p.id.to_string(),
+                    role: "Production".to_owned(),
+                    source: MetadataSource::Tmdb,
+                })
+                .collect_vec(),
+        );
         let author_names: HashBag<RealMetadataCreator> =
             HashBag::from_iter(author_names.into_iter());
         let author_names = Vec::from_iter(author_names.set_iter())
