@@ -29,6 +29,13 @@ query DetailsQuery($id: Int!) {
         role
       }
     }
+    studios {
+      edges {
+        node {
+          id
+        }
+      }
+    }
     averageScore
     recommendations {
       nodes {

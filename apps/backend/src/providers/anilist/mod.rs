@@ -192,7 +192,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             .flatten()
             .map(|t| t.name),
     );
-    let creators = Vec::from_iter(details.staff)
+    let mut creators = Vec::from_iter(details.staff)
         .into_iter()
         .flat_map(|s| s.edges.unwrap())
         .flatten()
@@ -204,8 +204,22 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
                 role: s.role.unwrap(),
             }
         })
-        .unique()
         .collect_vec();
+    creators.extend(
+        Vec::from_iter(details.studios)
+            .into_iter()
+            .flat_map(|s| s.edges.unwrap())
+            .flatten()
+            .map(|s| {
+                let node = s.node.unwrap();
+                RealMetadataCreator {
+                    identifier: node.id.to_string(),
+                    source: MetadataSource::Anilist,
+                    role: "Production".to_owned(),
+                }
+            }),
+    );
+    let creators = creators.into_iter().unique().collect_vec();
     let (specifics, lot) = match details.type_.unwrap() {
         details_query::MediaType::ANIME => (
             MediaSpecifics::Anime(AnimeSpecifics {
