@@ -80,15 +80,23 @@ struct TmdbVideoResults {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbMovie {
+struct TmdbSeasonNumber {
+    season_number: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbMediaEntry {
     id: i32,
-    title: String,
+    name: Option<String>,
+    title: Option<String>,
     adult: Option<bool>,
     vote_average: Option<Decimal>,
     overview: Option<String>,
     poster_path: Option<String>,
     backdrop_path: Option<String>,
     release_date: Option<String>,
+    first_air_date: Option<String>,
+    seasons: Option<Vec<TmdbSeasonNumber>>,
     runtime: Option<i32>,
     status: Option<String>,
     genres: Option<Vec<NamedObject>>,
@@ -147,7 +155,7 @@ impl TmdbMovieService {
             overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            parts: Vec<TmdbMovie>,
+            parts: Vec<TmdbMediaEntry>,
         }
         let data: TmdbCollection = self
             .client
@@ -175,7 +183,7 @@ impl TmdbMovieService {
             .parts
             .into_iter()
             .map(|p| PartialMetadata {
-                title: p.title,
+                title: p.title.unwrap(),
                 identifier: p.id.to_string(),
                 source: MetadataSource::Tmdb,
                 lot: MetadataLot::Movie,
@@ -221,7 +229,7 @@ impl MediaProvider for TmdbMovieService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let mut videos = vec![];
         if let Some(vid) = data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
@@ -316,7 +324,7 @@ impl MediaProvider for TmdbMovieService {
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
             production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
-            title: data.title,
+            title: data.title.unwrap(),
             genres: data
                 .genres
                 .unwrap_or_default()
@@ -424,25 +432,6 @@ impl TmdbShowService {
 #[async_trait]
 impl MediaProvider for TmdbShowService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbSeasonNumber {
-            season_number: i32,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbShow {
-            id: i32,
-            name: String,
-            adult: Option<bool>,
-            overview: Option<String>,
-            poster_path: Option<String>,
-            backdrop_path: Option<String>,
-            first_air_date: Option<String>,
-            seasons: Vec<TmdbSeasonNumber>,
-            genres: Vec<NamedObject>,
-            status: Option<String>,
-            vote_average: Option<Decimal>,
-            videos: Option<TmdbVideoResults>,
-        }
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
@@ -453,7 +442,7 @@ impl MediaProvider for TmdbShowService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let show_data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let show_data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let mut videos = vec![];
         if let Some(vid) = show_data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
@@ -496,7 +485,7 @@ impl MediaProvider for TmdbShowService {
             episodes: Vec<TmdbEpisode>,
         }
         let mut seasons = vec![];
-        for s in show_data.seasons.iter() {
+        for s in show_data.seasons.unwrap_or_default().iter() {
             let mut rsp = self
                 .client
                 .get(format!(
@@ -571,7 +560,7 @@ impl MediaProvider for TmdbShowService {
             .collect_vec();
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
-            title: show_data.name,
+            title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
             lot: MetadataLot::Show,
             production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
@@ -580,6 +569,7 @@ impl MediaProvider for TmdbShowService {
             real_creators: author_names,
             genres: show_data
                 .genres
+                .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.name)
                 .unique()
