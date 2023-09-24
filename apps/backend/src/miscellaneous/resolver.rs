@@ -4252,6 +4252,7 @@ impl MiscellaneousService {
             publish_date: None,
             suggestions: vec![],
             groups: vec![],
+            real_creators: vec![],
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(

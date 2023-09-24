@@ -405,6 +405,7 @@ impl AudibleService {
             provider_rating: rating,
             suggestions: vec![],
             groups: vec![],
+            real_creators: vec![],
         }
     }
 }

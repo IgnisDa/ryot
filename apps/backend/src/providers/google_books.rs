@@ -238,6 +238,7 @@ impl GoogleBooksService {
             groups: vec![],
             videos: vec![],
             is_nsfw: None,
+            real_creators: vec![],
         }
     }
 }
