@@ -53,7 +53,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::Identifier).string().not_null())
                     .col(ColumnDef::new(Person::Source).string_len(2).not_null())
                     .col(ColumnDef::new(Person::Image).string())
-                    .col(ColumnDef::new(Person::ExtraInformation).json().not_null())
+                    .col(ColumnDef::new(Person::ExtraInformation).json())
                     .to_owned(),
             )
             .await?;
