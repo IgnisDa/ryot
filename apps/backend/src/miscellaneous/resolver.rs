@@ -1695,10 +1695,13 @@ impl MiscellaneousService {
         let average_rating = if reviews.is_empty() {
             None
         } else {
-            Some(
-                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
-                    / Decimal::from(reviews.len()),
-            )
+            let total_rating = reviews.iter().flat_map(|r| r.rating).collect_vec();
+            let sum = total_rating.iter().sum::<Decimal>();
+            if sum == dec!(0) {
+                None
+            } else {
+                Some(sum / Decimal::from(total_rating.iter().len()))
+            }
         };
 
         Ok(UserMediaDetails {
