@@ -23,6 +23,7 @@ import {
 	Group,
 	Image,
 	Indicator,
+	Loader,
 	Menu,
 	Modal,
 	NumberInput,
@@ -704,7 +705,12 @@ const Page: NextPageWithLayout = () => {
 								</Text>
 							</Link>
 						) : undefined}
-						<Title id="media-title">{mediaDetails.data.title}</Title>
+						<Group>
+							<Title id="media-title">{mediaDetails.data.title}</Title>
+							{userMediaDetails.data && mediaSpecifics.data ? undefined : (
+								<Loader size="xs" />
+							)}
+						</Group>
 					</Box>
 					{userMediaDetails.data &&
 					userMediaDetails.data.collections.length > 0 ? (
