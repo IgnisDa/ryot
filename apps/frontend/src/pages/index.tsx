@@ -65,7 +65,7 @@ today.setHours(0, 0, 0, 0);
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	const diff = DateTime.fromISO(um.date).diff(DateTime.fromJSDate(today));
 	const numDaysLeft = parseInt(diff.as("days").toFixed(0));
-	console.log(diff.as("days").toFixed(0));
+
 	return (
 		<MediaItemWithoutUpdateModal
 			item={{
@@ -94,7 +94,12 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 const ActualDisplayStat = (props: {
 	icon: JSX.Element;
 	lot: string;
-	data: { type: "duration" | "number"; label: string; value: number }[];
+	data: {
+		type: "duration" | "number";
+		label: string;
+		value: number;
+		hideIfZero?: true;
+	}[];
 	color?: string;
 }) => {
 	const theme = useMantineTheme();
@@ -110,25 +115,27 @@ const ActualDisplayStat = (props: {
 				rootColor={props.color ?? colors[11]}
 			/>
 			<Flex wrap={"wrap"} ml="xs">
-				{props.data.map((d, idx) => (
-					<Box key={idx.toString()} mx={"xs"}>
-						<Text
-							fw={d.label !== "Runtime" ? "bold" : undefined}
-							display={"inline"}
-							fz={{ base: "md", md: "sm" }}
-						>
-							{d.type === "duration"
-								? humanizer.humanize(d.value * 1000 * 60, {
-										round: true,
-										largest: 3,
-								  })
-								: humanFormat(d.value)}
-						</Text>
-						<Text display={"inline"} ml="4px" fz={{ base: "md", md: "sm" }}>
-							{d.label === "Runtime" ? "" : d.label}
-						</Text>
-					</Box>
-				))}
+				{props.data.map((d, idx) =>
+					d.type === "number" && d.value === 0 && d.hideIfZero ? undefined : (
+						<Box key={idx.toString()} mx={"xs"}>
+							<Text
+								fw={d.label !== "Runtime" ? "bold" : undefined}
+								display={"inline"}
+								fz={{ base: "md", md: "sm" }}
+							>
+								{d.type === "duration"
+									? humanizer.humanize(d.value * 1000 * 60, {
+											round: true,
+											largest: 3,
+									  })
+									: humanFormat(d.value)}
+							</Text>
+							<Text display={"inline"} ml="4px" fz={{ base: "md", md: "sm" }}>
+								{d.label === "Runtime" ? "" : d.label}
+							</Text>
+						</Box>
+					),
+				)}
 			</Flex>
 		</Paper>
 	);
@@ -437,6 +444,7 @@ const Page: NextPageWithLayout = () => {
 										label: "Reviews",
 										value: latestUserSummary.data.media.reviewsPosted,
 										type: "number",
+										hideIfZero: true,
 									},
 									{
 										label: "People",
@@ -461,6 +469,7 @@ const Page: NextPageWithLayout = () => {
 										label: "Workouts",
 										value: latestUserSummary.data.fitness.workoutsRecorded,
 										type: "number",
+										hideIfZero: true,
 									},
 								]}
 							/>
