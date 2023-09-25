@@ -190,6 +190,13 @@ export interface SchedulerConfig {
 }
 
 export interface ServerConfig {
+	/**
+	 * The number of seconds after which a new application job is checked for.
+	 * Reducing this number will increase memory consumption but make certain
+	 * actions (eg: items automatically being added to "In Progress") faster.
+	 * @default 5
+	 */
+	application_job_check_seconds: number;
 	/** The path where the config file will be written once the server boots up. */
 	config_dump_path: string;
 	/** An array of URLs for CORS. */
