@@ -72,15 +72,15 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, CreatorExtraInformation, FreeMetadataCreator,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemReviewComment,
-            ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
-            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            CreateOrUpdateCollectionInput, FreeMetadataCreator, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
+            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
             MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
             MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            ProgressUpdateResultUnion, RealMetadataCreator, ReviewCommentUser, ReviewComments,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, Visibility, VisualNovelSpecifics,
@@ -2539,6 +2539,7 @@ impl MiscellaneousService {
         videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
         free_creators: Vec<FreeMetadataCreator>,
+        real_creators: Vec<RealMetadataCreator>,
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
@@ -2719,45 +2720,46 @@ impl MiscellaneousService {
             genres,
             suggestions,
             groups,
+            real_creators,
         )
         .await?;
         Ok(notifications)
     }
 
-    async fn associate_creator_with_metadata(
+    async fn associate_real_creator_with_metadata(
         &self,
         metadata_id: i32,
-        creator: FreeMetadataCreator,
+        creator: RealMetadataCreator,
         index: usize,
     ) -> Result<()> {
-        let db_creator = if let Some(db_creator) = Creator::find()
-            .filter(creator::Column::Name.eq(&creator.name))
-            .one(&self.db)
-            .await
-            .unwrap()
-        {
-            if db_creator.image.is_none() {
-                let mut new: creator::ActiveModel = db_creator.clone().into();
-                new.image = ActiveValue::Set(creator.image);
-                new.update(&self.db).await?;
-            }
-            db_creator
-        } else {
-            let c = creator::ActiveModel {
-                name: ActiveValue::Set(creator.name),
-                image: ActiveValue::Set(creator.image),
-                extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
-                ..Default::default()
-            };
-            c.insert(&self.db).await.unwrap()
-        };
-        let intermediate = metadata_to_creator::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            creator_id: ActiveValue::Set(db_creator.id),
-            role: ActiveValue::Set(creator.role),
-            index: ActiveValue::Set(index.try_into().unwrap()),
-        };
-        intermediate.insert(&self.db).await.ok();
+        // let db_creator = if let Some(db_creator) = Creator::find()
+        //     .filter(creator::Column::Name.eq(&creator.name))
+        //     .one(&self.db)
+        //     .await
+        //     .unwrap()
+        // {
+        //     if db_creator.image.is_none() {
+        //         let mut new: creator::ActiveModel = db_creator.clone().into();
+        //         new.image = ActiveValue::Set(creator.image);
+        //         new.update(&self.db).await?;
+        //     }
+        //     db_creator
+        // } else {
+        //     let c = creator::ActiveModel {
+        //         name: ActiveValue::Set(creator.name),
+        //         image: ActiveValue::Set(creator.image),
+        //         extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
+        //         ..Default::default()
+        //     };
+        //     c.insert(&self.db).await.unwrap()
+        // };
+        // let intermediate = metadata_to_creator::ActiveModel {
+        //     metadata_id: ActiveValue::Set(metadata_id),
+        //     creator_id: ActiveValue::Set(db_creator.id),
+        //     role: ActiveValue::Set(creator.role),
+        //     index: ActiveValue::Set(index.try_into().unwrap()),
+        // };
+        // intermediate.insert(&self.db).await.ok();
         Ok(())
     }
 
@@ -2908,6 +2910,7 @@ impl MiscellaneousService {
             details.genres,
             details.suggestions,
             details.groups,
+            details.real_creators,
         )
         .await?;
         Ok(IdObject { id: metadata.id })
@@ -2922,6 +2925,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         suggestions: Vec<PartialMetadata>,
         groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        real_creators: Vec<RealMetadataCreator>,
     ) -> Result<()> {
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
@@ -2936,11 +2940,11 @@ impl MiscellaneousService {
             .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        // for (idx, creator) in free_creators.into_iter().enumerate() {
-        //     self.associate_creator_with_metadata(metadata_id, creator, idx)
-        //         .await
-        //         .ok();
-        // }
+        for (idx, creator) in real_creators.into_iter().enumerate() {
+            self.associate_real_creator_with_metadata(metadata_id, creator, idx)
+                .await
+                .ok();
+        }
         for genre in genres {
             self.associate_genre_with_metadata(genre, metadata_id)
                 .await
@@ -3809,6 +3813,7 @@ impl MiscellaneousService {
                     details.videos,
                     details.specifics,
                     details.free_creators,
+                    details.real_creators,
                     details.genres,
                     details.production_status,
                     details.publish_year,
