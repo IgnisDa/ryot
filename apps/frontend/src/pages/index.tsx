@@ -79,7 +79,11 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 					)
 					.with(MetadataLot.Podcast, () => `EP${um.podcastEpisodeNumber}`)
 					.otherwise(() => "")} ${
-					numDaysLeft === 0 ? "Today" : `In ${numDaysLeft} days`
+					numDaysLeft === 0
+						? "Today"
+						: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
+								numDaysLeft === 1 ? "" : "s"
+						  }`
 				}`,
 			}}
 			lot={um.metadataLot}
