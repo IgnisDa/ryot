@@ -55,6 +55,7 @@ import {
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
 	MediaDetailsDocument,
+	MediaSpecificsDocument,
 	MergeMetadataDocument,
 	type MergeMetadataMutationVariables,
 	MetadataLot,
@@ -485,6 +486,17 @@ const Page: NextPageWithLayout = () => {
 				setActiveTab("overview");
 		},
 	});
+	const mediaSpecifics = useQuery({
+		queryKey: ["mediaSpecifics", metadataId],
+		queryFn: async () => {
+			const { mediaDetails } = await gqlClient.request(MediaSpecificsDocument, {
+				metadataId,
+			});
+			return mediaDetails;
+		},
+		staleTime: Infinity,
+		enabled: !!metadataId,
+	});
 	const userMediaDetails = useQuery({
 		queryKey: ["userMediaDetails", metadataId],
 		queryFn: async () => {
@@ -724,57 +736,57 @@ const Page: NextPageWithLayout = () => {
 								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : undefined}
-						{mediaDetails.data.bookSpecifics?.pages ? (
+						{mediaSpecifics.data?.bookSpecifics?.pages ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.bookSpecifics.pages} pages
+								• {mediaSpecifics.data.bookSpecifics.pages} pages
 							</Text>
 						) : undefined}
-						{mediaDetails.data.podcastSpecifics?.totalEpisodes ? (
+						{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
+								• {mediaSpecifics.data.podcastSpecifics.totalEpisodes} episodes
 							</Text>
 						) : undefined}
-						{mediaDetails.data.animeSpecifics?.episodes ? (
+						{mediaSpecifics.data?.animeSpecifics?.episodes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.animeSpecifics.episodes} episodes
+								• {mediaSpecifics.data.animeSpecifics.episodes} episodes
 							</Text>
 						) : undefined}
-						{mediaDetails.data.mangaSpecifics?.chapters ? (
+						{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.mangaSpecifics.chapters} chapters
+								• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
 							</Text>
 						) : undefined}
-						{mediaDetails.data.mangaSpecifics?.volumes ? (
+						{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.mangaSpecifics.volumes} volumes
+								• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
 							</Text>
 						) : undefined}
-						{mediaDetails.data.movieSpecifics?.runtime ? (
+						{mediaSpecifics.data?.movieSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
-									mediaDetails.data.movieSpecifics.runtime * 1000 * 60,
+									mediaSpecifics.data.movieSpecifics.runtime * 1000 * 60,
 								)}
 							</Text>
 						) : undefined}
-						{mediaDetails.data.showSpecifics ? (
+						{mediaSpecifics.data?.showSpecifics ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.showSpecifics.seasons.length} seasons
+								• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
 							</Text>
 						) : undefined}
-						{mediaDetails.data.audioBookSpecifics?.runtime ? (
+						{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
-									mediaDetails.data.audioBookSpecifics.runtime * 1000 * 60,
+									mediaSpecifics.data.audioBookSpecifics.runtime * 1000 * 60,
 								)}
 							</Text>
 						) : undefined}
@@ -921,12 +933,12 @@ const Page: NextPageWithLayout = () => {
 									History
 								</Tabs.Tab>
 							) : undefined}
-							{mediaDetails.data.showSpecifics ? (
+							{mediaSpecifics.data?.showSpecifics ? (
 								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
 									Seasons
 								</Tabs.Tab>
 							) : undefined}
-							{mediaDetails.data.podcastSpecifics ? (
+							{mediaSpecifics.data?.podcastSpecifics ? (
 								<Tabs.Tab
 									value="episodes"
 									icon={<IconPlayerPlay size="1rem" />}
@@ -1044,12 +1056,12 @@ const Page: NextPageWithLayout = () => {
 											opened={progressModalOpened}
 											lot={mediaDetails.data.lot}
 											total={
-												mediaDetails.data.audioBookSpecifics?.runtime ||
-												mediaDetails.data.bookSpecifics?.pages ||
-												mediaDetails.data.movieSpecifics?.runtime ||
-												mediaDetails.data.mangaSpecifics?.chapters ||
-												mediaDetails.data.animeSpecifics?.episodes ||
-												mediaDetails.data.visualNovelSpecifics?.length
+												mediaSpecifics.data?.audioBookSpecifics?.runtime ||
+												mediaSpecifics.data?.bookSpecifics?.pages ||
+												mediaSpecifics.data?.movieSpecifics?.runtime ||
+												mediaSpecifics.data?.mangaSpecifics?.chapters ||
+												mediaSpecifics.data?.animeSpecifics?.episodes ||
+												mediaSpecifics.data?.visualNovelSpecifics?.length
 											}
 										/>
 									) : undefined}
@@ -1374,11 +1386,11 @@ const Page: NextPageWithLayout = () => {
 								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						{mediaDetails.data.showSpecifics ? (
+						{mediaSpecifics.data?.showSpecifics ? (
 							<Tabs.Panel value="seasons">
 								<MediaScrollArea>
 									<Accordion chevronPosition="right" variant="contained">
-										{mediaDetails.data.showSpecifics.seasons.map((s) => (
+										{mediaSpecifics.data.showSpecifics.seasons.map((s) => (
 											<Accordion.Item
 												value={s.seasonNumber.toString()}
 												key={s.seasonNumber}
@@ -1485,11 +1497,11 @@ const Page: NextPageWithLayout = () => {
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : undefined}
-						{mediaDetails.data.podcastSpecifics ? (
+						{mediaSpecifics.data?.podcastSpecifics ? (
 							<Tabs.Panel value="episodes">
 								<MediaScrollArea>
 									<Stack ml="md">
-										{mediaDetails.data.podcastSpecifics.episodes.map((e) => (
+										{mediaSpecifics.data.podcastSpecifics.episodes.map((e) => (
 											<AccordionLabel
 												{...e}
 												name={e.title}

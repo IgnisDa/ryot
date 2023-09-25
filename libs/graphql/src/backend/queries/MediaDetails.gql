@@ -39,57 +39,5 @@ query MediaDetails($metadataId: Int!) {
       image
       metadataId
     }
-    animeSpecifics {
-      episodes
-    }
-    audioBookSpecifics {
-      runtime
-    }
-    bookSpecifics {
-      pages
-    }
-    movieSpecifics {
-      runtime
-    }
-    mangaSpecifics {
-      volumes
-      chapters
-    }
-    podcastSpecifics {
-      episodes {
-        title
-        overview
-        thumbnail
-        number
-        runtime
-        publishDate
-      }
-      totalEpisodes
-    }
-    showSpecifics {
-      seasons {
-        seasonNumber
-        name
-        overview
-        backdropImages
-        posterImages
-        episodes {
-          id
-          name
-          posterImages
-          episodeNumber
-          publishDate
-          name
-          overview
-          runtime
-        }
-      }
-    }
-    visualNovelSpecifics {
-      length
-    }
-    videoGameSpecifics {
-      platforms
-    }
   }
 }
