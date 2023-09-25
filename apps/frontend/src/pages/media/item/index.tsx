@@ -54,7 +54,6 @@ import {
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
-	MediaDetailsDocument,
 	MergeMetadataDocument,
 	type MergeMetadataMutationVariables,
 	MetadataLot,
@@ -69,6 +68,8 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 	UserReviewScale,
+	MediaMainDetailsDocument,
+	MediaAdditionalDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -490,9 +491,12 @@ const Page: NextPageWithLayout = () => {
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
-				metadataId,
-			});
+			const { mediaDetails } = await gqlClient.request(
+				MediaMainDetailsDocument,
+				{
+					metadataId,
+				},
+			);
 			return mediaDetails;
 		},
 		staleTime: Infinity,
@@ -505,6 +509,20 @@ const Page: NextPageWithLayout = () => {
 			)
 				setActiveTab("overview");
 		},
+	});
+	const mediaSpecifics = useQuery({
+		queryKey: ["mediaSpecifics", metadataId],
+		queryFn: async () => {
+			const { mediaDetails } = await gqlClient.request(
+				MediaAdditionalDetailsDocument,
+				{
+					metadataId,
+				},
+			);
+			return mediaDetails;
+		},
+		staleTime: Infinity,
+		enabled: !!metadataId,
 	});
 	const userMediaDetails = useQuery({
 		queryKey: ["userMediaDetails", metadataId],
@@ -659,17 +677,14 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return coreDetails.data &&
-		mediaDetails.data &&
-		preferences.data &&
-		userMediaDetails.data ? (
+	return coreDetails.data && mediaDetails.data && preferences.data ? (
 		<>
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					images={mediaDetails.data.assets.images}
+					images={mediaSpecifics.data?.assets.images || []}
 					externalLink={{
 						source,
 						lot: mediaDetails.data.lot,
@@ -691,7 +706,8 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 						<Title id="media-title">{mediaDetails.data.title}</Title>
 					</Box>
-					{userMediaDetails.data.collections.length > 0 ? (
+					{userMediaDetails.data &&
+					userMediaDetails.data.collections.length > 0 ? (
 						<Group id="media-collections">
 							{userMediaDetails.data.collections.map((col) => (
 								<Badge
@@ -745,57 +761,57 @@ const Page: NextPageWithLayout = () => {
 								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : undefined}
-						{mediaDetails.data.bookSpecifics?.pages ? (
+						{mediaSpecifics.data?.bookSpecifics?.pages ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.bookSpecifics.pages} pages
+								• {mediaSpecifics.data.bookSpecifics.pages} pages
 							</Text>
 						) : undefined}
-						{mediaDetails.data.podcastSpecifics?.totalEpisodes ? (
+						{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.podcastSpecifics.totalEpisodes} episodes
+								• {mediaSpecifics.data.podcastSpecifics.totalEpisodes} episodes
 							</Text>
 						) : undefined}
-						{mediaDetails.data.animeSpecifics?.episodes ? (
+						{mediaSpecifics.data?.animeSpecifics?.episodes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.animeSpecifics.episodes} episodes
+								• {mediaSpecifics.data.animeSpecifics.episodes} episodes
 							</Text>
 						) : undefined}
-						{mediaDetails.data.mangaSpecifics?.chapters ? (
+						{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.mangaSpecifics.chapters} chapters
+								• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
 							</Text>
 						) : undefined}
-						{mediaDetails.data.mangaSpecifics?.volumes ? (
+						{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.mangaSpecifics.volumes} volumes
+								• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
 							</Text>
 						) : undefined}
-						{mediaDetails.data.movieSpecifics?.runtime ? (
+						{mediaSpecifics.data?.movieSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
-									mediaDetails.data.movieSpecifics.runtime * 1000 * 60,
+									mediaSpecifics.data.movieSpecifics.runtime * 1000 * 60,
 								)}
 							</Text>
 						) : undefined}
-						{mediaDetails.data.showSpecifics ? (
+						{mediaSpecifics.data?.showSpecifics ? (
 							<Text color="dimmed">
 								{" "}
-								• {mediaDetails.data.showSpecifics.seasons.length} seasons
+								• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
 							</Text>
 						) : undefined}
-						{mediaDetails.data.audioBookSpecifics?.runtime ? (
+						{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
 							<Text color="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
-									mediaDetails.data.audioBookSpecifics.runtime * 1000 * 60,
+									mediaSpecifics.data.audioBookSpecifics.runtime * 1000 * 60,
 								)}
 							</Text>
 						) : undefined}
@@ -804,7 +820,7 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 					</Flex>
 					{mediaDetails.data.providerRating ||
-					userMediaDetails.data.averageRating ? (
+					(userMediaDetails.data && userMediaDetails.data.averageRating) ? (
 						<Group>
 							{mediaDetails.data.providerRating ? (
 								<Paper
@@ -877,7 +893,7 @@ const Page: NextPageWithLayout = () => {
 									</Text>
 								</Paper>
 							) : undefined}
-							{userMediaDetails.data.averageRating ? (
+							{userMediaDetails.data && userMediaDetails.data.averageRating ? (
 								<Paper
 									p={4}
 									display={"flex"}
@@ -902,7 +918,7 @@ const Page: NextPageWithLayout = () => {
 							) : undefined}
 						</Group>
 					) : undefined}
-					{userMediaDetails.data.reminder ? (
+					{userMediaDetails.data && userMediaDetails.data.reminder ? (
 						<Alert
 							icon={<IconAlertCircle size="1rem" />}
 							variant="outline"
@@ -914,7 +930,7 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
-					{userMediaDetails.data.inProgress ? (
+					{userMediaDetails.data && userMediaDetails.data.inProgress ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
 							ing this ({userMediaDetails.data.inProgress.progress}%)
@@ -934,7 +950,8 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
 								Actions
 							</Tabs.Tab>
-							{userMediaDetails.data.history.length > 0 ? (
+							{userMediaDetails.data &&
+							userMediaDetails.data.history.length > 0 ? (
 								<Tabs.Tab
 									value="history"
 									icon={<IconRotateClockwise size="1rem" />}
@@ -942,12 +959,12 @@ const Page: NextPageWithLayout = () => {
 									History
 								</Tabs.Tab>
 							) : undefined}
-							{mediaDetails.data.showSpecifics ? (
+							{mediaSpecifics.data?.showSpecifics ? (
 								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
 									Seasons
 								</Tabs.Tab>
 							) : undefined}
-							{mediaDetails.data.podcastSpecifics ? (
+							{mediaSpecifics.data?.podcastSpecifics ? (
 								<Tabs.Tab
 									value="episodes"
 									icon={<IconPlayerPlay size="1rem" />}
@@ -956,6 +973,7 @@ const Page: NextPageWithLayout = () => {
 								</Tabs.Tab>
 							) : undefined}
 							{!coreDetails.data.reviewsDisabled &&
+							userMediaDetails.data &&
 							userMediaDetails.data.reviews.length > 0 ? (
 								<Tabs.Tab
 									value="reviews"
@@ -964,13 +982,13 @@ const Page: NextPageWithLayout = () => {
 									Reviews
 								</Tabs.Tab>
 							) : undefined}
-							{mediaDetails.data.suggestions.length > 0 ? (
+							{(mediaSpecifics.data?.suggestions.length || 0) > 0 ? (
 								<Tabs.Tab value="suggestions" icon={<IconBulb size="1rem" />}>
 									Suggestions
 								</Tabs.Tab>
 							) : undefined}
 							{!coreDetails.data.videosDisabled &&
-							mediaDetails.data.assets.videos.length > 0 ? (
+							(mediaSpecifics.data?.assets.videos.length || 0) > 0 ? (
 								<Tabs.Tab value="videos" icon={<IconVideo size="1rem" />}>
 									Videos
 								</Tabs.Tab>
@@ -992,8 +1010,8 @@ const Page: NextPageWithLayout = () => {
 										<Text fs="italic">No overview available</Text>
 									)}
 									<Stack mt="xl">
-										{mediaDetails.data.creators.map((c) => (
-											<Box key={c.name} pb="xs">
+										{mediaSpecifics.data?.creators.map((c) => (
+											<Box key={c.name}>
 												<Text fw="bold">{c.name}</Text>
 												<ScrollArea
 													mt="xs"
@@ -1048,7 +1066,7 @@ const Page: NextPageWithLayout = () => {
 									spacing="lg"
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
-									{userMediaDetails.data.inProgress ? (
+									{userMediaDetails.data && userMediaDetails.data.inProgress ? (
 										<ProgressModal
 											progress={userMediaDetails.data.inProgress.progress}
 											refetch={userMediaDetails.refetch}
@@ -1057,12 +1075,12 @@ const Page: NextPageWithLayout = () => {
 											opened={progressModalOpened}
 											lot={mediaDetails.data.lot}
 											total={
-												mediaDetails.data.audioBookSpecifics?.runtime ||
-												mediaDetails.data.bookSpecifics?.pages ||
-												mediaDetails.data.movieSpecifics?.runtime ||
-												mediaDetails.data.mangaSpecifics?.chapters ||
-												mediaDetails.data.animeSpecifics?.episodes ||
-												mediaDetails.data.visualNovelSpecifics?.length
+												mediaSpecifics.data?.audioBookSpecifics?.runtime ||
+												mediaSpecifics.data?.bookSpecifics?.pages ||
+												mediaSpecifics.data?.movieSpecifics?.runtime ||
+												mediaSpecifics.data?.mangaSpecifics?.chapters ||
+												mediaSpecifics.data?.animeSpecifics?.episodes ||
+												mediaSpecifics.data?.visualNovelSpecifics?.length
 											}
 										/>
 									) : undefined}
@@ -1075,7 +1093,8 @@ const Page: NextPageWithLayout = () => {
 											mediaDetails.data.lot === MetadataLot.Podcast ? (
 												<>
 													<Menu.Label>Shows and podcasts</Menu.Label>
-													{userMediaDetails.data.nextEpisode ? (
+													{userMediaDetails.data &&
+													userMediaDetails.data.nextEpisode ? (
 														<>
 															<Menu.Item
 																onClick={async () => {
@@ -1122,7 +1141,8 @@ const Page: NextPageWithLayout = () => {
 															<PutOnHoldBtn />
 														</>
 													) : undefined}
-													{userMediaDetails.data.history.length !== 0 ? (
+													{userMediaDetails.data &&
+													userMediaDetails.data.history.length !== 0 ? (
 														<DropBtn />
 													) : (
 														<Menu.Item disabled>
@@ -1131,7 +1151,8 @@ const Page: NextPageWithLayout = () => {
 													)}
 												</>
 											) : undefined}
-											{userMediaDetails.data.inProgress ? (
+											{userMediaDetails.data &&
+											userMediaDetails.data.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
 													<Menu.Item
@@ -1200,17 +1221,22 @@ const Page: NextPageWithLayout = () => {
 											href={withQuery(APP_ROUTES.media.postReview, {
 												metadataId,
 												showSeasonNumber:
-													userMediaDetails.data.nextEpisode?.seasonNumber ??
+													(userMediaDetails.data &&
+														userMediaDetails.data.nextEpisode?.seasonNumber) ??
 													undefined,
 												showEpisodeNumber:
 													mediaDetails.data.lot === MetadataLot.Show
-														? userMediaDetails.data.nextEpisode
-																?.episodeNumber ?? undefined
+														? (userMediaDetails.data &&
+																userMediaDetails.data.nextEpisode
+																	?.episodeNumber) ??
+														  undefined
 														: undefined,
 												podcastEpisodeNumber:
 													mediaDetails.data.lot === MetadataLot.Podcast
-														? userMediaDetails.data.nextEpisode
-																?.episodeNumber ?? undefined
+														? (userMediaDetails.data &&
+																userMediaDetails.data.nextEpisode
+																	?.episodeNumber) ??
+														  undefined
 														: undefined,
 											})}
 											passHref
@@ -1242,10 +1268,12 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									>
-										{userMediaDetails.data.isMonitored ? "Stop" : "Start"}{" "}
+										{userMediaDetails.data && userMediaDetails.data.isMonitored
+											? "Stop"
+											: "Start"}{" "}
 										monitoring
 									</Button>
-									{userMediaDetails.data.reminder ? (
+									{userMediaDetails.data && userMediaDetails.data.reminder ? (
 										<Button
 											variant="outline"
 											onClick={() => {
@@ -1309,89 +1337,104 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<Stack>
 									<Text>
-										Seen by all users {userMediaDetails.data.seenBy} time
-										{userMediaDetails.data.seenBy > 1 ? "s" : ""} and{" "}
-										{userMediaDetails.data.history.length} time
-										{userMediaDetails.data.history.length > 1 ? "s" : ""} by you
+										Seen by all users{" "}
+										{userMediaDetails.data && userMediaDetails.data.seenBy} time
+										{userMediaDetails.data && userMediaDetails.data.seenBy > 1
+											? "s"
+											: ""}{" "}
+										and{" "}
+										{userMediaDetails.data &&
+											userMediaDetails.data.history.length}{" "}
+										time
+										{userMediaDetails.data &&
+										userMediaDetails.data.history.length > 1
+											? "s"
+											: ""}{" "}
+										by you
 									</Text>
-									{userMediaDetails.data.history.map((h) => (
-										<Flex
-											key={h.id}
-											direction={"column"}
-											ml="md"
-											data-seen-id={h.id}
-											data-seen-num-times-updated={h.numTimesUpdated}
-										>
-											<Flex gap="xl">
-												<Text fw="bold">
-													{changeCase(h.state)}{" "}
-													{h.progress !== 100 ? `(${h.progress}%)` : undefined}
-												</Text>
-												{h.showInformation ? (
-													<Text color="dimmed">
-														S{h.showInformation.season}-E
-														{h.showInformation.episode}
-													</Text>
-												) : undefined}
-												{h.podcastInformation ? (
-													<Text color="dimmed">
-														EP-{h.podcastInformation.episode}
-													</Text>
-												) : undefined}
-											</Flex>
-											<Flex ml="sm" direction={"column"} gap={4}>
+									{userMediaDetails.data &&
+										userMediaDetails.data.history.map((h) => (
+											<Flex
+												key={h.id}
+												direction={"column"}
+												ml="md"
+												data-seen-id={h.id}
+												data-seen-num-times-updated={h.numTimesUpdated}
+											>
 												<Flex gap="xl">
-													<Flex gap={"xs"}>
-														<Text size="sm">Started:</Text>
-														<Text size="sm" fw="bold">
-															{h.startedOn
-																? DateTime.fromISO(h.startedOn).toLocaleString()
-																: "N/A"}
+													<Text fw="bold">
+														{changeCase(h.state)}{" "}
+														{h.progress !== 100
+															? `(${h.progress}%)`
+															: undefined}
+													</Text>
+													{h.showInformation ? (
+														<Text color="dimmed">
+															S{h.showInformation.season}-E
+															{h.showInformation.episode}
 														</Text>
-													</Flex>
-													<Flex gap={"xs"}>
-														<Text size="sm">Ended:</Text>
-														<Text size="sm" fw="bold">
-															{h.finishedOn
-																? DateTime.fromISO(
-																		h.finishedOn,
-																  ).toLocaleString()
-																: "N/A"}
+													) : undefined}
+													{h.podcastInformation ? (
+														<Text color="dimmed">
+															EP-{h.podcastInformation.episode}
 														</Text>
-													</Flex>
+													) : undefined}
 												</Flex>
-												<Flex gap={"md"}>
-													<Flex gap={"xs"}>
-														<Text size="sm">Updated:</Text>
-														<Text size="sm" fw="bold">
-															{DateTime.fromJSDate(
-																h.lastUpdatedOn,
-															).toLocaleString()}
-														</Text>
+												<Flex ml="sm" direction={"column"} gap={4}>
+													<Flex gap="xl">
+														<Flex gap={"xs"}>
+															<Text size="sm">Started:</Text>
+															<Text size="sm" fw="bold">
+																{h.startedOn
+																	? DateTime.fromISO(
+																			h.startedOn,
+																	  ).toLocaleString()
+																	: "N/A"}
+															</Text>
+														</Flex>
+														<Flex gap={"xs"}>
+															<Text size="sm">Ended:</Text>
+															<Text size="sm" fw="bold">
+																{h.finishedOn
+																	? DateTime.fromISO(
+																			h.finishedOn,
+																	  ).toLocaleString()
+																	: "N/A"}
+															</Text>
+														</Flex>
 													</Flex>
-													<Button
-														variant="outline"
-														color="red"
-														leftIcon={<IconX size="1.2rem" />}
-														compact
-														onClick={() => {
-															deleteSeenItem.mutate({ seenId: h.id });
-														}}
-													>
-														Delete
-													</Button>
+													<Flex gap={"md"}>
+														<Flex gap={"xs"}>
+															<Text size="sm">Updated:</Text>
+															<Text size="sm" fw="bold">
+																{DateTime.fromJSDate(
+																	h.lastUpdatedOn,
+																).toLocaleString()}
+															</Text>
+														</Flex>
+														<Button
+															variant="outline"
+															color="red"
+															leftIcon={<IconX size="1.2rem" />}
+															compact
+															onClick={() => {
+																deleteSeenItem.mutate({ seenId: h.id });
+															}}
+														>
+															Delete
+														</Button>
+													</Flex>
 												</Flex>
 											</Flex>
-										</Flex>
-									))}
+										))}
 								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						{mediaDetails.data.showSpecifics ? (
+						{mediaSpecifics.data?.showSpecifics ? (
 							<Tabs.Panel value="seasons">
 								<MediaScrollArea>
 									<Accordion chevronPosition="right" variant="contained">
-										{mediaDetails.data.showSpecifics.seasons.map((s) => (
+										{mediaSpecifics.data.showSpecifics.seasons.map((s) => (
 											<Accordion.Item
 												value={s.seasonNumber.toString()}
 												key={s.seasonNumber}
@@ -1402,15 +1445,18 @@ const Page: NextPageWithLayout = () => {
 														name={`${s.seasonNumber}. ${s.name}`}
 														displayIndicator={
 															s.episodes.length > 0 &&
-															s.episodes.every((e) =>
-																userMediaDetails.data.history.some(
-																	(h) =>
-																		h.progress === 100 &&
-																		h.showInformation &&
-																		h.showInformation.episode ===
-																			e.episodeNumber &&
-																		h.showInformation.season === s.seasonNumber,
-																),
+															s.episodes.every(
+																(e) =>
+																	userMediaDetails.data &&
+																	userMediaDetails.data.history.some(
+																		(h) =>
+																			h.progress === 100 &&
+																			h.showInformation &&
+																			h.showInformation.episode ===
+																				e.episodeNumber &&
+																			h.showInformation.season ===
+																				s.seasonNumber,
+																	),
 															)
 																? 1
 																: 0
@@ -1454,15 +1500,17 @@ const Page: NextPageWithLayout = () => {
 																	name={`${e.episodeNumber}. ${e.name}`}
 																	publishDate={e.publishDate}
 																	displayIndicator={
-																		userMediaDetails.data.history.filter(
-																			(h) =>
-																				h.progress === 100 &&
-																				h.showInformation &&
-																				h.showInformation.episode ===
-																					e.episodeNumber &&
-																				h.showInformation.season ===
-																					s.seasonNumber,
-																		).length
+																		(userMediaDetails.data &&
+																			userMediaDetails.data.history.filter(
+																				(h) =>
+																					h.progress === 100 &&
+																					h.showInformation &&
+																					h.showInformation.episode ===
+																						e.episodeNumber &&
+																					h.showInformation.season ===
+																						s.seasonNumber,
+																			).length) ||
+																		0
 																	}
 																>
 																	<Button
@@ -1498,11 +1546,11 @@ const Page: NextPageWithLayout = () => {
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : undefined}
-						{mediaDetails.data.podcastSpecifics ? (
+						{mediaSpecifics.data?.podcastSpecifics ? (
 							<Tabs.Panel value="episodes">
 								<MediaScrollArea>
 									<Stack ml="md">
-										{mediaDetails.data.podcastSpecifics.episodes.map((e) => (
+										{mediaSpecifics.data.podcastSpecifics.episodes.map((e) => (
 											<AccordionLabel
 												{...e}
 												name={e.title}
@@ -1510,9 +1558,11 @@ const Page: NextPageWithLayout = () => {
 												key={e.number}
 												publishDate={e.publishDate}
 												displayIndicator={
-													userMediaDetails.data.history.filter(
-														(h) => h.podcastInformation?.episode === e.number,
-													).length
+													(userMediaDetails.data &&
+														userMediaDetails.data.history.filter(
+															(h) => h.podcastInformation?.episode === e.number,
+														).length) ||
+													0
 												}
 											>
 												<Button
@@ -1542,14 +1592,15 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
 									<Stack>
-										{userMediaDetails.data.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												metadataId={metadataId}
-												refetch={userMediaDetails.refetch}
-											/>
-										))}
+										{userMediaDetails.data &&
+											userMediaDetails.data.reviews.map((r) => (
+												<ReviewItemDisplay
+													review={r}
+													key={r.id}
+													metadataId={metadataId}
+													refetch={userMediaDetails.refetch}
+												/>
+											))}
 									</Stack>
 								</MediaScrollArea>
 							</Tabs.Panel>
@@ -1563,7 +1614,7 @@ const Page: NextPageWithLayout = () => {
 										{ minWidth: "lg", cols: 5 },
 									]}
 								>
-									{mediaDetails.data.suggestions.map((sug) => (
+									{mediaSpecifics.data?.suggestions.map((sug) => (
 										<Link
 											key={sug.identifier}
 											passHref
@@ -1615,7 +1666,7 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Panel value="videos">
 								<MediaScrollArea>
 									<Stack>
-										{mediaDetails.data.assets.videos.map((v) => (
+										{mediaSpecifics.data?.assets.videos.map((v) => (
 											<Box key={v.videoId}>
 												<iframe
 													width={"100%"}
@@ -1635,7 +1686,6 @@ const Page: NextPageWithLayout = () => {
 															.exhaustive() + v.videoId
 													}
 													title="YouTube video player"
-													allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
 													allowFullScreen
 												/>
 											</Box>
