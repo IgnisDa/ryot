@@ -157,6 +157,7 @@ const Page: NextPageWithLayout = () => {
 			return mediaList;
 		},
 		enabled: lot !== undefined && activeTab === "mine",
+		retry: false,
 	});
 	const collections = useQuery({
 		queryKey: ["collections"],
@@ -205,6 +206,7 @@ const Page: NextPageWithLayout = () => {
 		},
 		enabled: query !== "" && lot !== undefined && activeTab === "search",
 		staleTime: Infinity,
+		retry: false,
 	});
 
 	useEffect(() => {
