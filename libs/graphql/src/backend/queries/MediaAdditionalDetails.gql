@@ -1,5 +1,13 @@
-query MediaSpecifics($metadataId: Int!) {
+query MediaAdditionalDetails($metadataId: Int!) {
   mediaDetails(metadataId: $metadataId) {
+    suggestions {
+      lot
+      source
+      identifier
+      title
+      image
+      metadataId
+    }
     animeSpecifics {
       episodes
     }

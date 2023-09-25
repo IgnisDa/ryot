@@ -1,4 +1,4 @@
-query MediaDetails($metadataId: Int!) {
+query MediaMainDetails($metadataId: Int!) {
   mediaDetails(metadataId: $metadataId) {
     title
     description
@@ -30,14 +30,6 @@ query MediaDetails($metadataId: Int!) {
       id
       name
       part
-    }
-    suggestions {
-      lot
-      source
-      identifier
-      title
-      image
-      metadataId
     }
   }
 }

@@ -54,8 +54,6 @@ import {
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
-	MediaDetailsDocument,
-	MediaSpecificsDocument,
 	MergeMetadataDocument,
 	type MergeMetadataMutationVariables,
 	MetadataLot,
@@ -70,6 +68,8 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 	UserReviewScale,
+	MediaMainDetailsDocument,
+	MediaAdditionalDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -470,9 +470,12 @@ const Page: NextPageWithLayout = () => {
 	const mediaDetails = useQuery({
 		queryKey: ["mediaDetails", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
-				metadataId,
-			});
+			const { mediaDetails } = await gqlClient.request(
+				MediaMainDetailsDocument,
+				{
+					metadataId,
+				},
+			);
 			return mediaDetails;
 		},
 		staleTime: Infinity,
@@ -489,9 +492,12 @@ const Page: NextPageWithLayout = () => {
 	const mediaSpecifics = useQuery({
 		queryKey: ["mediaSpecifics", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MediaSpecificsDocument, {
-				metadataId,
-			});
+			const { mediaDetails } = await gqlClient.request(
+				MediaAdditionalDetailsDocument,
+				{
+					metadataId,
+				},
+			);
 			return mediaDetails;
 		},
 		staleTime: Infinity,
@@ -955,7 +961,7 @@ const Page: NextPageWithLayout = () => {
 									Reviews
 								</Tabs.Tab>
 							) : undefined}
-							{mediaDetails.data.suggestions.length > 0 ? (
+							{(mediaSpecifics.data?.suggestions.length || 0) > 0 ? (
 								<Tabs.Tab value="suggestions" icon={<IconBulb size="1rem" />}>
 									Suggestions
 								</Tabs.Tab>
@@ -1562,7 +1568,7 @@ const Page: NextPageWithLayout = () => {
 										{ minWidth: "lg", cols: 5 },
 									]}
 								>
-									{mediaDetails.data.suggestions.map((sug) => (
+									{mediaSpecifics.data?.suggestions.map((sug) => (
 										<Link
 											key={sug.identifier}
 											passHref
