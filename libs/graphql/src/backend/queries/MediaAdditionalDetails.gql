@@ -1,5 +1,20 @@
 query MediaAdditionalDetails($metadataId: Int!) {
   mediaDetails(metadataId: $metadataId) {
+    creators {
+      name
+      items {
+        id
+        name
+        image
+      }
+    }
+    assets {
+      images
+      videos {
+        videoId
+        source
+      }
+    }
     suggestions {
       lot
       source

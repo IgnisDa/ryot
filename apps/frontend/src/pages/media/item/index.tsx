@@ -666,7 +666,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<MediaDetailsLayout
-					images={mediaDetails.data.assets.images}
+					images={mediaSpecifics.data?.assets.images || []}
 					externalLink={{
 						source,
 						lot: mediaDetails.data.lot,
@@ -967,7 +967,7 @@ const Page: NextPageWithLayout = () => {
 								</Tabs.Tab>
 							) : undefined}
 							{!coreDetails.data.videosDisabled &&
-							mediaDetails.data.assets.videos.length > 0 ? (
+							(mediaSpecifics.data?.assets.videos.length || 0) > 0 ? (
 								<Tabs.Tab value="videos" icon={<IconVideo size="1rem" />}>
 									Videos
 								</Tabs.Tab>
@@ -989,7 +989,7 @@ const Page: NextPageWithLayout = () => {
 										<Text fs="italic">No overview available</Text>
 									)}
 									<Stack mt="xl">
-										{mediaDetails.data.creators.map((c) => (
+										{mediaSpecifics.data?.creators.map((c) => (
 											<Box key={c.name}>
 												<Text fw="bold">{c.name}</Text>
 												<ScrollArea
@@ -1620,7 +1620,7 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Panel value="videos">
 								<MediaScrollArea>
 									<Stack>
-										{mediaDetails.data.assets.videos.map((v) => (
+										{mediaSpecifics.data?.assets.videos.map((v) => (
 											<Box key={v.videoId}>
 												<iframe
 													width={"100%"}

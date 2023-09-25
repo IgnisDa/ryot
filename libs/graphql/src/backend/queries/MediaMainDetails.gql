@@ -6,21 +6,6 @@ query MediaMainDetails($metadataId: Int!) {
     lot
     source
     isNsfw
-    creators {
-      name
-      items {
-        id
-        name
-        image
-      }
-    }
-    assets {
-      images
-      videos {
-        videoId
-        source
-      }
-    }
     providerRating
     publishYear
     publishDate
