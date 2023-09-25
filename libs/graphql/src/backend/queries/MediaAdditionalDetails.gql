@@ -1,11 +1,5 @@
-query MediaDetails($metadataId: Int!) {
+query MediaAdditionalDetails($metadataId: Int!) {
   mediaDetails(metadataId: $metadataId) {
-    title
-    description
-    identifier
-    lot
-    source
-    isNsfw
     creators {
       name
       items {
@@ -20,16 +14,6 @@ query MediaDetails($metadataId: Int!) {
         videoId
         source
       }
-    }
-    providerRating
-    publishYear
-    publishDate
-    genres
-    sourceUrl
-    group {
-      id
-      name
-      part
     }
     suggestions {
       lot
