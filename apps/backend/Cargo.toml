@@ -22,6 +22,7 @@ async-graphql = { version = "6.0.6", features = [
 ] }
 async-graphql-axum = "6.0.6"
 async-trait = "0.1.73"
+async-stream = "0.3.5"
 aws-sdk-s3 = "0.31.2"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
 axum-extra = { version = "0.8.0", default-features = false, features = [
