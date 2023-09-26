@@ -4,6 +4,17 @@ The easiest way to deploy Ryot is using the docker
 [image](https://github.com/IgnisDa/ryot/pkgs/container/ryot). Here is a
 non-exhaustive set of guides to deploy Ryot.
 
+## Railway
+
+1. Click on "+ New Project" on your dashboard and select "Empty project".
+2. Once the project is created click on "+ New" and select "Database" and then
+  "Add PostgreSQL".
+3. Click on "+ New" again and select "Docker Image". Type `ghcr.io/ignisda/ryot`
+  and hit Enter.
+4. Click on the newly created service and go to the "Variables" section. Click on
+  "New Variable" and then "Add Reference". Click on "Add". 
+5. Go to the "Settings" tab and then click on "Generate Domain".
+
 ## Dokku
 
 This is a script that automatically sets up a Ryot server using the docker image
@@ -86,7 +97,7 @@ are required to deploy to Fly.
    flyctl postgres create ryot-db
    ```
 
-2. Copy the [`fly.toml`]({{ extra.file_path }}/fly.toml) in the root of this
+2. Copy the [`fly.toml`]({{ extra.file_path }}/config/fly.toml) file from this
    repository to your own repository. You **WILL** have to change the `app` key to
    a name of your choosing. Deploy it using the below command.
    `bash
