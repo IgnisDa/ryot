@@ -76,6 +76,27 @@ impl MediaProviderLanguages for AnilistService {
 }
 
 #[derive(Debug, Clone)]
+pub struct NonMediaAnilistService {
+    base: AnilistService,
+}
+
+impl NonMediaAnilistService {
+    pub async fn new() -> Self {
+        let client = get_client_config(URL).await;
+        Self {
+            base: AnilistService { client },
+        }
+    }
+}
+
+#[async_trait]
+impl MediaProvider for NonMediaAnilistService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        person_details(&self.base.client, identity).await
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct AnilistAnimeService {
     base: AnilistService,
     page_limit: i32,
@@ -93,10 +114,6 @@ impl AnilistAnimeService {
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        person_details(&self.base.client, identity).await
-    }
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier).await?;
         Ok(details)
@@ -142,10 +159,6 @@ impl AnilistMangaService {
 
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        person_details(&self.base.client, identity).await
-    }
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier).await?;
         Ok(details)
