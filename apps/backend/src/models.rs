@@ -713,6 +713,7 @@ pub mod media {
         pub images: Vec<String>,
         pub description: Option<String>,
         pub gender: Option<String>,
+        pub death_date: Option<NaiveDate>,
         pub birth_date: Option<NaiveDate>,
         pub place: Option<String>,
         pub website: Option<String>,

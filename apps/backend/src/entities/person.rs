@@ -21,6 +21,7 @@ pub struct Model {
     pub description: Option<String>,
     pub gender: Option<String>,
     pub birth_date: Option<NaiveDate>,
+    pub death_date: Option<NaiveDate>,
     pub place: Option<String>,
     pub website: Option<String>,
 }

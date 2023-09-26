@@ -19,6 +19,7 @@ pub enum Person {
     Description,
     Gender,
     BirthDate,
+    DeathDate,
     // The place of origin
     Place,
     Website,
@@ -75,6 +76,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::Description).text())
                     .col(ColumnDef::new(Person::Gender).string())
                     .col(ColumnDef::new(Person::BirthDate).date())
+                    .col(ColumnDef::new(Person::DeathDate).date())
                     .col(ColumnDef::new(Person::Place).string())
                     .col(ColumnDef::new(Person::Website).string())
                     .to_owned(),
