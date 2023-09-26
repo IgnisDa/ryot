@@ -52,7 +52,8 @@ use crate::{
     entities::{
         calendar_event, collection, creator, genre, metadata, metadata_group,
         metadata_to_collection, metadata_to_creator, metadata_to_genre,
-        metadata_to_partial_metadata, partial_metadata, partial_metadata_to_metadata_group,
+        metadata_to_partial_metadata, metadata_to_person, partial_metadata,
+        partial_metadata_to_metadata_group,
         prelude::{
             CalendarEvent, Collection, Creator, Genre, Metadata, MetadataGroup,
             MetadataToCollection, MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
@@ -2924,6 +2925,10 @@ impl MiscellaneousService {
         groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
         real_creators: Vec<RealMetadataCreator>,
     ) -> Result<()> {
+        MetadataToPerson::delete_many()
+            .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
+            .exec(&self.db)
+            .await?;
         MetadataToCreator::delete_many()
             .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
