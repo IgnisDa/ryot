@@ -13,6 +13,7 @@ use crate::{
 #[async_trait]
 pub trait MediaProvider {
     /// Search for something using a particular query and offset.
+    #[allow(unused_variables)]
     async fn search(
         &self,
         query: &str,
@@ -23,11 +24,13 @@ pub trait MediaProvider {
     }
 
     /// Get details about a media item for the particular identifier.
+    #[allow(unused_variables)]
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         bail!("This provider does not support getting media details")
     }
 
     /// Get details about a person for the particular details.
+    #[allow(unused_variables)]
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
     }
