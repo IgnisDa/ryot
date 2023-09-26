@@ -2761,7 +2761,6 @@ impl MiscellaneousService {
     async fn deploy_associate_person_with_metadata_job(
         &self,
         metadata_id: i32,
-        metadata_lot: MetadataLot,
         person: PartialMetadataPerson,
         index: usize,
     ) -> Result<()> {
@@ -2769,7 +2768,6 @@ impl MiscellaneousService {
             .clone()
             .push(ApplicationJob::AssociatePersonWithMetadata(
                 metadata_id,
-                metadata_lot,
                 person,
                 index,
             ))
@@ -2968,7 +2966,7 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         for (index, creator) in people.into_iter().enumerate() {
-            self.deploy_associate_person_with_metadata_job(metadata_id, lot, creator, index)
+            self.deploy_associate_person_with_metadata_job(metadata_id, creator, index)
                 .await
                 .ok();
         }
@@ -5980,7 +5978,6 @@ impl MiscellaneousService {
     pub async fn associate_person_with_metadata(
         &self,
         metadata_id: i32,
-        metadata_lot: MetadataLot,
         person: PartialMetadataPerson,
         index: usize,
     ) -> Result<()> {
