@@ -418,11 +418,6 @@ pub struct ServerConfig {
     pub insecure_cookie: bool,
     /// This will set SameSite=None on the auth cookies.
     pub samesite_none: bool,
-    /// The number of seconds after which a new application job is checked for.
-    /// Reducing this number will increase memory consumption but make certain
-    /// actions (eg: items automatically being added to "In Progress") faster.
-    #[setting(default = 5)]
-    pub application_job_check_seconds: u64,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.

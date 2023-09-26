@@ -93,7 +93,6 @@ async fn main() -> Result<()> {
     let user_cleanup_every = config.scheduler.user_cleanup_every;
     let pull_every = config.integration.pull_every;
     let max_file_size = config.server.max_file_size;
-    let new_background_job_check_seconds = config.server.application_job_check_seconds;
     fs::write(
         &config.server.config_dump_path,
         serde_json::to_string_pretty(&config)?,
@@ -289,9 +288,7 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(importer_service_1.clone()))
                     .layer(ApalisExtension(media_service_4.clone()))
                     .layer(ApalisExtension(exercise_service_1.clone()))
-                    .with_storage_config(perform_application_job_storage.clone(), |cfg| {
-                        cfg.fetch_interval(Duration::from_secs(new_background_job_check_seconds))
-                    })
+                    .with_storage(perform_application_job_storage.clone())
                     .build_fn(perform_application_job)
             })
             .run()
