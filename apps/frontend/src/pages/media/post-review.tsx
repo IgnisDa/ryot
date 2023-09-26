@@ -23,7 +23,7 @@ import {
 	CreatorDetailsDocument,
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
-	MediaDetailsDocument,
+	MediaMainDetailsDocument,
 	MetadataLot,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
@@ -84,9 +84,10 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["mediaDetails", metadataId, creatorId],
 		queryFn: async () => {
 			if (metadataId) {
-				const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
-					metadataId,
-				});
+				const { mediaDetails } = await gqlClient.request(
+					MediaMainDetailsDocument,
+					{ metadataId },
+				);
 				return {
 					title: mediaDetails.title,
 					isShow: mediaDetails.lot === MetadataLot.Show,
