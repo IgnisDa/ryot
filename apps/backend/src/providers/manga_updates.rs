@@ -69,7 +69,9 @@ struct ItemCategory {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ItemBirthday {
-    as_string: NaiveDate,
+    year: Option<i32>,
+    month: Option<u32>,
+    day: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -137,7 +139,7 @@ impl MediaProvider for MangaUpdatesService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             MetadataPerson {
-                identifier: data.publisher_id.unwrap().to_string(),
+                identifier: identity.identifier,
                 source: MetadataSource::MangaUpdates,
                 name: data.name.unwrap(),
                 description: data.info,
@@ -158,13 +160,19 @@ impl MediaProvider for MangaUpdatesService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             MetadataPerson {
-                identifier: data.author_id.unwrap().to_string(),
+                identifier: identity.identifier,
                 source: MetadataSource::MangaUpdates,
                 name: data.name.unwrap(),
                 gender: data.gender,
                 place: data.birthplace,
                 images: Some(Vec::from_iter(data.image.and_then(|i| i.url.original))),
-                birth_date: data.birthday.map(|b| b.as_string),
+                birth_date: data.birthday.and_then(|b| {
+                    if let (Some(y), Some(m), Some(d)) = (b.year, b.month, b.day) {
+                        NaiveDate::from_ymd_opt(y, m, d)
+                    } else {
+                        None
+                    }
+                }),
                 death_date: None,
                 description: None,
                 website: None,
