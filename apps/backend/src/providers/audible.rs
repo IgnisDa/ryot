@@ -382,7 +382,7 @@ impl AudibleService {
             production_status: "Released".to_owned(),
             title: item.title,
             description,
-            free_creators: creators,
+            creators,
             genres: item
                 .category_ladders
                 .unwrap_or_default()

@@ -85,6 +85,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for ITunesService {
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -172,7 +173,7 @@ impl MediaProvider for ITunesService {
             lot: MetadataLot::Podcast,
             description,
             images,
-            free_creators: creators,
+            creators,
             genres,
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {
                 episodes,

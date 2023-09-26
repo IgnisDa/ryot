@@ -1,10 +1,11 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
+    entities::prelude::Person,
     models::{
-        media::{MediaDetails, MediaSearchItem},
+        media::{MediaDetails, MediaSearchItem, PartialMetadataPerson},
         SearchResults,
     },
     utils::AuthContext,
@@ -22,6 +23,11 @@ pub trait MediaProvider {
 
     /// Get details about a media item for the particular identifier.
     async fn details(&self, identifier: &str) -> Result<MediaDetails>;
+
+    /// Get details about a person for the particular details.
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        bail!("This provider does not support getting person details")
+    }
 }
 
 pub trait MediaProviderLanguages {

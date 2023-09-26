@@ -2892,10 +2892,10 @@ impl MiscellaneousService {
                 None => ActiveValue::NotSet,
                 Some(n) => ActiveValue::Set(n),
             },
-            free_creators: ActiveValue::Set(if details.free_creators.is_empty() {
+            free_creators: ActiveValue::Set(if details.creators.is_empty() {
                 None
             } else {
-                Some(MetadataFreeCreators(details.free_creators))
+                Some(MetadataFreeCreators(details.creators))
             }),
             ..Default::default()
         };
@@ -3814,7 +3814,7 @@ impl MiscellaneousService {
                     details.images,
                     details.videos,
                     details.specifics,
-                    details.free_creators,
+                    details.creators,
                     details.people,
                     details.genres,
                     details.production_status,
@@ -4247,7 +4247,7 @@ impl MiscellaneousService {
             description: input.description,
             lot: input.lot,
             source: MetadataSource::Custom,
-            free_creators: creators,
+            creators,
             genres: input.genres.unwrap_or_default(),
             images,
             videos,

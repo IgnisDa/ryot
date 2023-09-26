@@ -88,6 +88,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
         let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -224,7 +225,7 @@ impl GoogleBooksService {
             production_status: "Released".to_owned(),
             title: item.title,
             description: item.description,
-            free_creators: creators.into_iter().unique().collect(),
+            creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             publish_date: None,

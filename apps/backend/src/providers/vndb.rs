@@ -8,6 +8,7 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::VisualNovelConfig,
+    entities::prelude::Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -85,6 +86,10 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -221,7 +226,7 @@ impl VndbService {
             videos: vec![],
             suggestions: vec![],
             groups: vec![],
-            free_creators: vec![],
+            creators: vec![],
         }
     }
 }

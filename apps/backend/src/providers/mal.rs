@@ -97,6 +97,7 @@ impl MalMangaService {
 
 #[async_trait]
 impl MediaProvider for MalMangaService {
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, "manga", identifier).await?;
         Ok(details)
@@ -280,7 +281,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
         suggestions,
         provider_rating: details.mean,
-        free_creators: vec![],
+        creators: vec![],
         videos: vec![],
         groups: vec![],
         people: vec![],

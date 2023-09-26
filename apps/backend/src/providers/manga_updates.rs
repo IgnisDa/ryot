@@ -7,6 +7,7 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::MangaMangaUpdatesConfig,
+    entities::prelude::Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -107,6 +108,10 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let data: ItemRecord = self
             .client
@@ -194,7 +199,7 @@ impl MediaProvider for MangaUpdatesService {
             publish_date: None,
             groups: vec![],
             is_nsfw: None,
-            free_creators: vec![],
+            creators: vec![],
         };
         Ok(data)
     }

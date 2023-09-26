@@ -12,7 +12,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
-    entities::metadata_group,
+    entities::{metadata_group, prelude::Person},
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -224,6 +224,10 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -378,7 +382,7 @@ impl MediaProvider for TmdbMovieService {
             } else {
                 None
             },
-            free_creators: vec![],
+            creators: vec![],
         })
     }
 
@@ -448,6 +452,10 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -668,7 +676,7 @@ impl MediaProvider for TmdbShowService {
                 None
             },
             groups: vec![],
-            free_creators: vec![],
+            creators: vec![],
         })
     }
 

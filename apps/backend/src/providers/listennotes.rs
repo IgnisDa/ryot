@@ -59,6 +59,7 @@ impl ListennotesService {
 
 #[async_trait]
 impl MediaProvider for ListennotesService {
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut details = self
             .details_with_paginated_episodes(identifier, None, None)
@@ -222,7 +223,7 @@ impl ListennotesService {
             description: podcast_data.description,
             lot: MetadataLot::Podcast,
             source: MetadataSource::Listennotes,
-            free_creators: Vec::from_iter(podcast_data.publisher.map(|p| FreeMetadataCreator {
+            creators: Vec::from_iter(podcast_data.publisher.map(|p| FreeMetadataCreator {
                 name: p,
                 role: "Publishing".to_owned(),
                 image: None,

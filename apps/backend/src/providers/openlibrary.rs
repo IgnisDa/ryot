@@ -13,6 +13,7 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
+    entities::prelude::Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -84,6 +85,10 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
@@ -298,7 +303,7 @@ impl MediaProvider for OpenlibraryService {
             videos: vec![],
             groups: vec![],
             is_nsfw: None,
-            free_creators: vec![],
+            creators: vec![],
         })
     }
 

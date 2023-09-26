@@ -277,7 +277,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     production_status: "Released".to_owned(),
                     lot,
                     source: MetadataSource::Custom,
-                    free_creators: details
+                    creators: details
                         .authors
                         .unwrap_or_default()
                         .into_iter()

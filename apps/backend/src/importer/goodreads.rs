@@ -116,7 +116,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             production_status: "Released".to_owned(),
                             lot: MetadataLot::Book,
                             source: MetadataSource::Custom,
-                            free_creators: vec![FreeMetadataCreator {
+                            creators: vec![FreeMetadataCreator {
                                 name: d.author_name,
                                 role: "Author".to_owned(),
                                 image: None,

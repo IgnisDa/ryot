@@ -8,6 +8,7 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
+    entities::prelude::Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -73,6 +74,10 @@ impl AnilistAnimeService {
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier).await?;
         Ok(details)
@@ -116,6 +121,10 @@ impl AnilistMangaService {
 
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+        todo!()
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier).await?;
         Ok(details)
@@ -281,7 +290,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         description: details.description,
         lot,
         people: creators,
-        free_creators: vec![],
+        creators: vec![],
         images,
         videos,
         genres: genres.into_iter().unique().collect(),
