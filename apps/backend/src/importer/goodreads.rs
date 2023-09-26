@@ -136,7 +136,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             suggestions: vec![],
                             groups: vec![],
                             is_nsfw: None,
-                            real_creators: vec![],
+                            people: vec![],
                         },
                     )),
                     seen_history,

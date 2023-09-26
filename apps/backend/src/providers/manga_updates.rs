@@ -11,7 +11,7 @@ use crate::{
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, PartialMetadata, RealMetadataCreator,
+            MetadataImageLot, PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -120,7 +120,7 @@ impl MediaProvider for MangaUpdatesService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| RealMetadataCreator {
+            .map(|a| PartialMetadataPerson {
                 identifier: a.author_id.unwrap().to_string(),
                 role: a.lot.unwrap(),
                 source: MetadataSource::MangaUpdates,
@@ -161,7 +161,7 @@ impl MediaProvider for MangaUpdatesService {
             description: data.description,
             source: MetadataSource::MangaUpdates,
             lot: MetadataLot::Manga,
-            real_creators: creators,
+            people: creators,
             production_status: data.status.unwrap_or_else(|| "Released".to_string()),
             genres: data
                 .genres

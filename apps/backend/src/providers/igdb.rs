@@ -19,7 +19,7 @@ use crate::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
             MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
-            RealMetadataCreator, VideoGameSpecifics,
+            PartialMetadataPerson, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -314,7 +314,7 @@ where id = {id};
                 } else {
                     "Unknown"
                 };
-                RealMetadataCreator {
+                PartialMetadataPerson {
                     identifier: ic.id.to_string(),
                     source: MetadataSource::Igdb,
                     role: role.to_owned(),
@@ -338,7 +338,7 @@ where id = {id};
             production_status: "Released".to_owned(),
             title: item.name.unwrap(),
             description: item.summary,
-            real_creators: creators,
+            people: creators,
             images,
             videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),

@@ -13,7 +13,7 @@ use crate::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImage, MetadataImageLot, MetadataVideo, MetadataVideoSource, PartialMetadata,
-            RealMetadataCreator,
+            PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -198,7 +198,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         .flatten()
         .map(|s| {
             let node = s.node.unwrap();
-            RealMetadataCreator {
+            PartialMetadataPerson {
                 identifier: node.id.to_string(),
                 source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
@@ -212,7 +212,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             .flatten()
             .map(|s| {
                 let node = s.node.unwrap();
-                RealMetadataCreator {
+                PartialMetadataPerson {
                     identifier: node.id.to_string(),
                     source: MetadataSource::Anilist,
                     role: "Production".to_owned(),
@@ -280,7 +280,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         source: MetadataSource::Anilist,
         description: details.description,
         lot,
-        real_creators: creators,
+        people: creators,
         free_creators: vec![],
         images,
         videos,

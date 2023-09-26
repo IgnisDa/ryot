@@ -283,7 +283,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         free_creators: vec![],
         videos: vec![],
         groups: vec![],
-        real_creators: vec![],
+        people: vec![],
     };
     Ok(data)
 }

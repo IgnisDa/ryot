@@ -185,7 +185,7 @@ impl MediaProvider for ITunesService {
             groups: vec![],
             videos: vec![],
             is_nsfw: None,
-            real_creators: vec![],
+            people: vec![],
         })
     }
 

@@ -18,7 +18,7 @@ use crate::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
             MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
-            RealMetadataCreator, ShowEpisode, ShowSeason, ShowSpecifics,
+            PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -267,7 +267,7 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let Some(r) = g.known_for_department {
                         if r == *"Acting" {
-                            Some(RealMetadataCreator {
+                            Some(PartialMetadataPerson {
                                 identifier: g.id.to_string(),
                                 role: r,
                                 source: MetadataSource::Tmdb,
@@ -290,7 +290,7 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let Some(r) = g.job {
                         if r == *"Director" {
-                            Some(RealMetadataCreator {
+                            Some(PartialMetadataPerson {
                                 identifier: g.id.to_string(),
                                 role: r,
                                 source: MetadataSource::Tmdb,
@@ -309,7 +309,7 @@ impl MediaProvider for TmdbMovieService {
             data.production_companies
                 .unwrap_or_default()
                 .into_iter()
-                .map(|p| RealMetadataCreator {
+                .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
@@ -348,7 +348,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            real_creators: creators,
+            people: creators,
             images: image_ids
                 .into_iter()
                 .unique()
@@ -551,7 +551,7 @@ impl MediaProvider for TmdbShowService {
                             .into_iter()
                             .flat_map(|g| {
                                 if let Some(r) = g.known_for_department {
-                                    Some(RealMetadataCreator {
+                                    Some(PartialMetadataPerson {
                                         identifier: g.id.to_string(),
                                         role: r,
                                         source: MetadataSource::Tmdb,
@@ -570,14 +570,14 @@ impl MediaProvider for TmdbShowService {
                 .production_companies
                 .unwrap_or_default()
                 .into_iter()
-                .map(|p| RealMetadataCreator {
+                .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
                 })
                 .collect_vec(),
         );
-        let author_names: HashBag<RealMetadataCreator> =
+        let author_names: HashBag<PartialMetadataPerson> =
             HashBag::from_iter(author_names.into_iter());
         let author_names = Vec::from_iter(author_names.set_iter())
             .into_iter()
@@ -595,7 +595,7 @@ impl MediaProvider for TmdbShowService {
             production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
             description: show_data.overview,
-            real_creators: author_names,
+            people: author_names,
             genres: show_data
                 .genres
                 .unwrap_or_default()

@@ -17,7 +17,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, PartialMetadata, RealMetadataCreator,
+            MetadataImageLot, PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -177,7 +177,7 @@ impl MediaProvider for OpenlibraryService {
                         .unwrap_or_else(|| "Author".to_owned()),
                 ),
             };
-            creators.push(RealMetadataCreator {
+            creators.push(PartialMetadataPerson {
                 identifier: get_key(&key),
                 role,
                 source: MetadataSource::Openlibrary,
@@ -285,7 +285,7 @@ impl MediaProvider for OpenlibraryService {
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
-            real_creators: creators,
+            people: creators,
             genres,
             images,
             publish_year: first_release_date.map(|d| d.year()),

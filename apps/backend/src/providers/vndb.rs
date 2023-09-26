@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
-            RealMetadataCreator, VisualNovelSpecifics,
+            PartialMetadataPerson, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -181,7 +181,7 @@ impl VndbService {
             .developers
             .unwrap_or_default()
             .into_iter()
-            .map(|a| RealMetadataCreator {
+            .map(|a| PartialMetadataPerson {
                 identifier: a.id,
                 role: "Developer".to_owned(),
                 source: MetadataSource::Vndb,
@@ -208,7 +208,7 @@ impl VndbService {
                 .unwrap_or_else(|| "Released".to_owned()),
             title: item.title,
             description: item.description,
-            real_creators: creators.into_iter().unique().collect(),
+            people: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.released.clone().and_then(|d| convert_date_to_year(&d)),
             publish_date: item.released.and_then(|d| convert_string_to_date(&d)),

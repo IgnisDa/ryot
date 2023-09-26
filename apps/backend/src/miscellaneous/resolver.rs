@@ -81,12 +81,12 @@ use crate::{
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
             MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, RealMetadataCreator, ReviewCommentUser, ReviewComments,
-            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, Visibility, VisualNovelSpecifics,
+            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata,
+            PartialMetadataPerson, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            ReviewCommentUser, ReviewComments, SeenOrReviewOrCalendarEventExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -2557,7 +2557,7 @@ impl MiscellaneousService {
         videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
         free_creators: Vec<FreeMetadataCreator>,
-        real_creators: Vec<RealMetadataCreator>,
+        people: Vec<PartialMetadataPerson>,
         genres: Vec<String>,
         production_status: String,
         publish_year: Option<i32>,
@@ -2738,7 +2738,7 @@ impl MiscellaneousService {
             genres,
             suggestions,
             groups,
-            real_creators,
+            people,
         )
         .await?;
         Ok(notifications)
@@ -2747,7 +2747,7 @@ impl MiscellaneousService {
     async fn deploy_associate_person_with_metadata_job(
         &self,
         metadata_id: i32,
-        person: RealMetadataCreator,
+        person: PartialMetadataPerson,
         index: usize,
     ) -> Result<()> {
         self.perform_application_job
@@ -2908,7 +2908,7 @@ impl MiscellaneousService {
             details.genres,
             details.suggestions,
             details.groups,
-            details.real_creators,
+            details.people,
         )
         .await?;
         Ok(IdObject { id: metadata.id })
@@ -2923,7 +2923,7 @@ impl MiscellaneousService {
         genres: Vec<String>,
         suggestions: Vec<PartialMetadata>,
         groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
-        real_creators: Vec<RealMetadataCreator>,
+        people: Vec<PartialMetadataPerson>,
     ) -> Result<()> {
         MetadataToPerson::delete_many()
             .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
@@ -2942,7 +2942,7 @@ impl MiscellaneousService {
             .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        for (index, creator) in real_creators.into_iter().enumerate() {
+        for (index, creator) in people.into_iter().enumerate() {
             self.deploy_associate_person_with_metadata_job(metadata_id, creator, index)
                 .await
                 .ok();
@@ -3815,7 +3815,7 @@ impl MiscellaneousService {
                     details.videos,
                     details.specifics,
                     details.free_creators,
-                    details.real_creators,
+                    details.people,
                     details.genres,
                     details.production_status,
                     details.publish_year,
@@ -4259,7 +4259,7 @@ impl MiscellaneousService {
             publish_date: None,
             suggestions: vec![],
             groups: vec![],
-            real_creators: vec![],
+            people: vec![],
         };
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(
@@ -5884,7 +5884,7 @@ impl MiscellaneousService {
     pub async fn associate_person_with_metadata(
         &self,
         metadata_id: i32,
-        person: RealMetadataCreator,
+        person: PartialMetadataPerson,
         index: usize,
     ) -> Result<()> {
         dbg!(person);

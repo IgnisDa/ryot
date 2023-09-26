@@ -10,7 +10,7 @@ use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
-    models::{fitness::Exercise, media::RealMetadataCreator},
+    models::{fitness::Exercise, media::PartialMetadataPerson},
 };
 
 // Cron Jobs
@@ -95,7 +95,7 @@ pub enum ApplicationJob {
     UpdateExerciseJob(Exercise),
     AfterMediaSeen(seen::Model),
     RecalculateCalendarEvents,
-    AssociatePersonWithMetadata(i32, RealMetadataCreator, usize),
+    AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
 }
 
 impl Job for ApplicationJob {
