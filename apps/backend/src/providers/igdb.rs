@@ -168,7 +168,7 @@ where id = {id};
             .map_err(|e| anyhow!(e))?;
         let mut details: Vec<IgdbInvolvedCompany> =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let detail = details.pop().map(|ic| ic.company.clone()).unwrap();
+        let detail = details.pop().map(|ic| ic.company).unwrap();
         Ok(MetadataPerson {
             identifier: detail.id.to_string(),
             name: detail.name,

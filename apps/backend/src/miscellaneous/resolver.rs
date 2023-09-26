@@ -5926,8 +5926,8 @@ impl MiscellaneousService {
         } else {
             let provider = self.get_provider(metadata_lot, person.source).await?;
             let person = provider.person_details(person).await?;
-            let images = if let Some(images) = person.images {
-                Some(MetadataImages(
+            let images = person.images.map(|images| {
+                MetadataImages(
                     images
                         .into_iter()
                         .map(|i| MetadataImage {
@@ -5935,10 +5935,8 @@ impl MiscellaneousService {
                             lot: MetadataImageLot::Poster,
                         })
                         .collect(),
-                ))
-            } else {
-                None
-            };
+                )
+            });
             let person = person::ActiveModel {
                 identifier: ActiveValue::Set(person.identifier),
                 source: ActiveValue::Set(person.source),

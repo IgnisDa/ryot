@@ -790,9 +790,7 @@ impl TmdbService {
             name: details.name,
             images: Some(images),
             identifier: details.id.to_string(),
-            description: description
-                .map(|s| if s.as_str() == "" { None } else { Some(s) })
-                .flatten(),
+            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source: MetadataSource::Tmdb,
             place: details.origin_country.or(details.place_of_birth),
             website: details.homepage,
