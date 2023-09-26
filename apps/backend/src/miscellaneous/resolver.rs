@@ -3164,7 +3164,7 @@ impl MiscellaneousService {
                 });
             }
             let preferences = user_by_id(&self.db, user_id).await?.preferences;
-            let provider = self.get_provider(lot, source).await?;
+            let provider = self.get_media_provider(lot, source).await?;
             let results = provider
                 .search(&q, input.page, preferences.general.display_nsfw)
                 .await?;
@@ -3281,7 +3281,11 @@ impl MiscellaneousService {
         .await)
     }
 
-    async fn get_provider(&self, lot: MetadataLot, source: MetadataSource) -> Result<Provider> {
+    async fn get_media_provider(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+    ) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MetadataSource::Vndb => Box::new(
@@ -3370,7 +3374,7 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: &str,
     ) -> Result<MediaDetails> {
-        let provider = self.get_provider(lot, source).await?;
+        let provider = self.get_media_provider(lot, source).await?;
         let results = provider.details(identifier).await?;
         Ok(results)
     }
@@ -5924,7 +5928,7 @@ impl MiscellaneousService {
             // TODO: Deploy job to update person if older than 3 days
             db_person
         } else {
-            let provider = self.get_provider(metadata_lot, person.source).await?;
+            let provider = self.get_media_provider(metadata_lot, person.source).await?;
             let person = provider.person_details(person).await?;
             let images = person.images.map(|images| {
                 MetadataImages(
