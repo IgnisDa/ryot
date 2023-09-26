@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
 use rust_decimal::Decimal;
+use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -53,10 +54,15 @@ fields
 where version_parent = null;
 ";
 
-#[derive(Serialize, Deserialize, Debug)]
+#[serde_as]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbCompany {
+    id: i32,
     name: String,
     logo: Option<IgdbImage>,
+    country: Option<i32>,
+    description: Option<String>,
+    websites: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -74,18 +80,18 @@ struct IgdbInvolvedCompany {
     supporting: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbImage {
     image_id: String,
 }
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
-struct IgdbSearchResponse {
+struct IgdbItemResponse {
     id: i32,
     name: Option<String>,
     rating: Option<Decimal>,
-    games: Option<Vec<IgdbSearchResponse>>,
+    games: Option<Vec<IgdbItemResponse>>,
     summary: Option<String>,
     cover: Option<IgdbImage>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
@@ -95,7 +101,7 @@ struct IgdbSearchResponse {
     artworks: Option<Vec<IgdbImage>>,
     genres: Option<Vec<NamedObject>>,
     platforms: Option<Vec<NamedObject>>,
-    similar_games: Option<Vec<IgdbSearchResponse>>,
+    similar_games: Option<Vec<IgdbItemResponse>>,
     version_parent: Option<i32>,
     collection: Option<IdObject>,
     #[serde(flatten)]
@@ -134,16 +140,53 @@ impl IgdbService {
 #[async_trait]
 impl MediaProvider for IgdbService {
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        todo!()
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r#"
+fields
+    *,
+    company.id,
+    company.name,
+    company.country,
+    company.description,
+    company.logo.*,
+    company.start_date,
+    company.url;
+where id = {id};
+            "#,
+            id = identity.identifier
+        );
+        let mut rsp = client
+            .post("involved_companies")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut details: Vec<IgdbInvolvedCompany> =
+            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let detail = details.pop().map(|ic| ic.company.clone()).unwrap();
+        Ok(MetadataPerson {
+            identifier: detail.id.to_string(),
+            name: detail.name,
+            images: Some(Vec::from_iter(
+                detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
+            )),
+            source: MetadataSource::Igdb,
+            description: detail.description,
+            place: detail
+                .country
+                .and_then(from_numeric)
+                .map(|c| c.name.to_owned()),
+            website: detail.websites.unwrap_or_default().first().cloned(),
+            birth_date: None,
+            death_date: None,
+            gender: None,
+        })
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let client = get_client(&self.config).await;
         let req_body = format!(
-            r#"
-{field}
-where id = {id};
-            "#,
+            r#"{field} where id = {id};"#,
             field = GAME_FIELDS,
             id = identifier
         );
@@ -152,8 +195,7 @@ where id = {id};
             .body_string(req_body)
             .await
             .map_err(|e| anyhow!(e))?;
-
-        let mut details: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut details: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![self.group_details(&c.id.to_string()).await?],
@@ -189,7 +231,7 @@ offset: {offset};
             .await
             .map_err(|e| anyhow!(e))?;
 
-        let search: Vec<IgdbSearchResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         // DEV: API does not return total count
         let total = 100;
@@ -235,7 +277,7 @@ where id = {id};
             ",
             id = identifier
         );
-        let details: IgdbSearchResponse = client
+        let details: IgdbItemResponse = client
             .post("collections")
             .body_string(req_body)
             .await
@@ -279,7 +321,7 @@ where id = {id};
         ))
     }
 
-    fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
+    fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MediaDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| MetadataImageForMediaDetails {
             image: self.get_cover_image_url(a.image_id),
             lot: MetadataImageLot::Poster,
