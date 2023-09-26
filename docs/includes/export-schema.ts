@@ -7,12 +7,14 @@ export type ExportAllResponse = {
 	/**
 	 * Data about user's media.
 	 */
-	media: ImportOrExportMediaItem<string>[] /**
+	media: ImportOrExportMediaItem<string>[];
+	/**
 	 * Data about user's people.
-	 */;
-	people: ImportOrExportPersonItem[] /**
+	 */
+	people: ImportOrExportPersonItem[];
+	/**
 	 * Data about user's measurements.
-	 */;
+	 */
 	measurements: ExportUserMeasurementItem[];
 };
 
@@ -20,15 +22,18 @@ export type ExportUserMeasurementItem = {
 	/**
 	 * The date and time this measurement was made.
 	 */
-	timestamp: string /**
+	timestamp: string;
+	/**
 	 * The name given to this measurement by the user.
-	 */;
-	name: string | null /**
+	 */
+	name: string | null;
+	/**
 	 * Any comment associated entered by the user.
-	 */;
-	comment: string | null /**
+	 */
+	comment: string | null;
+	/**
 	 * The contents of the actual measurement.
-	 */;
+	 */
 	stats: UserMeasurementStats;
 };
 
@@ -36,21 +41,26 @@ export type ImportOrExportItemRating = {
 	/**
 	 * Data about the review.
 	 */
-	review: ImportOrExportItemReview | null /**
+	review: ImportOrExportItemReview | null;
+	/**
 	 * The score of the review.
-	 */;
-	rating: string | null /**
+	 */
+	rating: string | null;
+	/**
 	 * If for a show, the season for which this review was for.
-	 */;
-	show_season_number: number | null /**
+	 */
+	show_season_number: number | null;
+	/**
 	 * If for a show, the episode for which this review was for.
-	 */;
-	show_episode_number: number | null /**
+	 */
+	show_episode_number: number | null;
+	/**
 	 * If for a podcast, the episode for which this review was for.
-	 */;
-	podcast_episode_number: number | null /**
+	 */
+	podcast_episode_number: number | null;
+	/**
 	 * The comments attached to this review.
-	 */;
+	 */
 	comments: ImportOrExportItemReviewComment[] | null;
 };
 
@@ -58,21 +68,24 @@ export type ImportOrExportItemReview = {
 	/**
 	 * The date the review was posted.
 	 */
-	date: string | null /**
+	date: string | null;
+	/**
 	 * Whether to mark the review as a spoiler. Defaults to false.
-	 */;
-	spoiler: boolean | null /**
+	 */
+	spoiler: boolean | null;
+	/**
 	 * Actual text for the review.
-	 */;
+	 */
 	text: string | null;
 };
 
 export type ImportOrExportItemReviewComment = {
 	id: string;
 	text: string;
-	user: ReviewCommentUser /**
+	user: ReviewCommentUser;
+	/**
 	 * The user ids of all those who liked it.
-	 */;
+	 */
 	liked_by: number[];
 	created_on: string;
 };
@@ -84,24 +97,30 @@ export type ImportOrExportMediaItem<T> = {
 	/**
 	 * An string to help identify it in the original source.
 	 */
-	source_id: string /**
+	source_id: string;
+	/**
 	 * The type of media.
-	 */;
-	lot: MetadataLot /**
+	 */
+	lot: MetadataLot;
+	/**
 	 * The source of media.
-	 */;
-	source: MetadataSource /**
+	 */
+	source: MetadataSource;
+	/**
 	 * The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
-	 */;
-	identifier: null /**
+	 */
+	identifier: null;
+	/**
 	 * The seen history for the user.
-	 */;
-	seen_history: ImportOrExportMediaItemSeen[] /**
+	 */
+	seen_history: ImportOrExportMediaItemSeen[];
+	/**
 	 * The review history for the user.
-	 */;
-	reviews: ImportOrExportItemRating[] /**
+	 */
+	reviews: ImportOrExportItemRating[];
+	/**
 	 * The collections to add this media to.
-	 */;
+	 */
 	collections: string[];
 };
 
@@ -109,21 +128,26 @@ export type ImportOrExportMediaItemSeen = {
 	/**
 	 * The progress of media done. If none, it is considered as done.
 	 */
-	progress: number | null /**
+	progress: number | null;
+	/**
 	 * The timestamp when started watching.
-	 */;
-	started_on: string | null /**
+	 */
+	started_on: string | null;
+	/**
 	 * The timestamp when finished watching.
-	 */;
-	ended_on: string | null /**
+	 */
+	ended_on: string | null;
+	/**
 	 * If for a show, the season which was seen.
-	 */;
-	show_season_number: number | null /**
+	 */
+	show_season_number: number | null;
+	/**
 	 * If for a show, the episode which was seen.
-	 */;
-	show_episode_number: number | null /**
+	 */
+	show_episode_number: number | null;
+	/**
 	 * If for a podcast, the episode which was seen.
-	 */;
+	 */
 	podcast_episode_number: number | null;
 };
 
@@ -134,9 +158,10 @@ export type ImportOrExportPersonItem = {
 	/**
 	 * The name of the creator.
 	 */
-	name: string /**
+	name: string;
+	/**
 	 * The review history for the user.
-	 */;
+	 */
 	reviews: ImportOrExportItemRating[];
 };
 
