@@ -61,6 +61,7 @@ rs-utils = { path = "../../libs/rs-utils" }
 rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
+rust_iso3166 = "0.1.10"
 schematic = { version = "0.11.6", features = [
     "json",
     "schema",
