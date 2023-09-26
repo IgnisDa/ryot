@@ -26,7 +26,6 @@ static URL: &str = "https://api.myanimelist.net/v2/";
 #[derive(Debug, Clone)]
 pub struct MalService {
     client: Client,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for MalService {
@@ -42,13 +41,15 @@ impl MediaProviderLanguages for MalService {
 #[derive(Debug, Clone)]
 pub struct MalAnimeService {
     base: MalService,
+    page_limit: i32,
 }
 
 impl MalAnimeService {
     pub async fn new(config: &AnimeMalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
-            base: MalService { client, page_limit },
+            base: MalService { client },
+            page_limit,
         }
     }
 }
@@ -66,14 +67,8 @@ impl MediaProvider for MalAnimeService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
-        let (items, total, next_page) = search(
-            &self.base.client,
-            "anime",
-            query,
-            page,
-            self.base.page_limit,
-        )
-        .await?;
+        let (items, total, next_page) =
+            search(&self.base.client, "anime", query, page, self.page_limit).await?;
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,
@@ -84,13 +79,15 @@ impl MediaProvider for MalAnimeService {
 #[derive(Debug, Clone)]
 pub struct MalMangaService {
     base: MalService,
+    page_limit: i32,
 }
 
 impl MalMangaService {
     pub async fn new(config: &MangaMalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
-            base: MalService { client, page_limit },
+            base: MalService { client },
+            page_limit,
         }
     }
 }
@@ -108,14 +105,8 @@ impl MediaProvider for MalMangaService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
-        let (items, total, next_page) = search(
-            &self.base.client,
-            "manga",
-            query,
-            page,
-            self.base.page_limit,
-        )
-        .await?;
+        let (items, total, next_page) =
+            search(&self.base.client, "manga", query, page, self.page_limit).await?;
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,
