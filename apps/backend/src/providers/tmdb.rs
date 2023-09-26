@@ -798,15 +798,12 @@ impl TmdbService {
             website: details.homepage,
             birth_date: details.birthday,
             death_date: details.deathday,
-            gender: details
-                .gender
-                .map(|g| match g {
-                    1 => Some("Female".to_owned()),
-                    2 => Some("Male".to_owned()),
-                    3 => Some("Non-Binary".to_owned()),
-                    _ => None,
-                })
-                .flatten(),
+            gender: details.gender.and_then(|g| match g {
+                1 => Some("Female".to_owned()),
+                2 => Some("Male".to_owned()),
+                3 => Some("Non-Binary".to_owned()),
+                _ => None,
+            }),
         })
     }
 
