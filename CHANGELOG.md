@@ -1,5 +1,17 @@
 
 
+# Version 2.18.8 (2023-09-26)
+
+## Bug Fixes
+
+- **frontend:** get posting reviews and updating progress working
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.18.7 (2023-09-26)
 
 ## Features
