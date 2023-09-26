@@ -7,7 +7,7 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::MangaMangaUpdatesConfig,
-    entities::prelude::Person,
+    entities::person::Model as Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{

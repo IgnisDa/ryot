@@ -13,7 +13,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
-    entities::{metadata_group, prelude::Person},
+    entities::{metadata_group, person::Model as Person},
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{

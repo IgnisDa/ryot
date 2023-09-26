@@ -3,7 +3,7 @@ use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
-    entities::prelude::Person,
+    entities::person::Model as Person,
     models::{
         media::{MediaDetails, MediaSearchItem, PartialMetadataPerson},
         SearchResults,

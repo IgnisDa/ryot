@@ -13,7 +13,7 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
-    entities::prelude::Person,
+    entities::person::Model as Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{

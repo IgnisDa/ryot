@@ -9,6 +9,7 @@ use crate::{
     entities::{metadata, seen},
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
+    migrator::MetadataLot,
     miscellaneous::resolver::MiscellaneousService,
     models::{fitness::Exercise, media::PartialMetadataPerson},
 };
@@ -95,7 +96,7 @@ pub enum ApplicationJob {
     UpdateExerciseJob(Exercise),
     AfterMediaSeen(seen::Model),
     RecalculateCalendarEvents,
-    AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
+    AssociatePersonWithMetadata(i32, MetadataLot, PartialMetadataPerson, usize),
 }
 
 impl Job for ApplicationJob {
@@ -152,9 +153,9 @@ pub async fn perform_application_job(
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.unwrap();
         }
-        ApplicationJob::AssociatePersonWithMetadata(metadata_id, person, index) => {
+        ApplicationJob::AssociatePersonWithMetadata(metadata_id, metadata_lot, person, index) => {
             misc_service
-                .associate_person_with_metadata(metadata_id, person, index)
+                .associate_person_with_metadata(metadata_id, metadata_lot, person, index)
                 .await
                 .unwrap();
         }
