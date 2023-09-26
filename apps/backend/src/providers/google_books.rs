@@ -13,9 +13,9 @@ use crate::{
     models::{
         media::{
             BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataImageForMediaDetails, MetadataImageLot,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, get_base_http_client},

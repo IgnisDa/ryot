@@ -12,13 +12,10 @@ use crate::{
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::DefaultCollection,
-    models::{
-        media::{
-            BookSpecifics, FreeMetadataCreator, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot,
-        },
-        StoredUrl,
+    models::media::{
+        BookSpecifics, FreeMetadataCreator, ImportOrExportItemRating, ImportOrExportItemReview,
+        ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataImageForMediaDetails,
+        MetadataImageLot,
     },
 };
 

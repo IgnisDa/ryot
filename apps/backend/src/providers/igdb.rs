@@ -17,9 +17,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideoSource, PartialMetadata, PartialMetadataPerson, VideoGameSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
+            PartialMetadataPerson, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },

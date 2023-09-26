@@ -13,8 +13,8 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo,
-            MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
+            PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },

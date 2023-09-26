@@ -16,11 +16,11 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PodcastEpisode,
             PodcastSpecifics,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_naive_to_utc, get_base_http_client},

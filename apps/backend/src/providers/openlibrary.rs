@@ -17,10 +17,10 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PartialMetadataPerson,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,

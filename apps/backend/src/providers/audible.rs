@@ -16,10 +16,9 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataImages,
-            PartialMetadata,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, PartialMetadata,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},

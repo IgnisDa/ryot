@@ -12,11 +12,10 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadataPerson,
-            VisualNovelSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
+            MetadataImageLot, PartialMetadataPerson, VisualNovelSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},

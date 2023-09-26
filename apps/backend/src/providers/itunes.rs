@@ -12,10 +12,10 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,

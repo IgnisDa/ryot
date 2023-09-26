@@ -13,9 +13,9 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
