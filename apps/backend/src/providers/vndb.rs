@@ -12,8 +12,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
-            PartialMetadataPerson, VisualNovelSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadataPerson,
+            VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -137,19 +138,11 @@ impl MediaProvider for VndbService {
                 let MediaDetails {
                     identifier,
                     title,
-                    images,
+                    url_images,
                     publish_year,
                     ..
                 } = self.vndb_response_to_search_response(b);
-                let image = images
-                    .into_iter()
-                    .map(|i| match i.url {
-                        StoredUrl::S3(_u) => unreachable!(),
-                        StoredUrl::Url(u) => u,
-                    })
-                    .collect_vec()
-                    .get(0)
-                    .cloned();
+                let image = url_images.get(0).map(|i| i.image);
                 MediaSearchItem {
                     identifier,
                     title,
@@ -178,8 +171,8 @@ impl VndbService {
         for i in item.screenshots.unwrap_or_default() {
             images.push(i.url);
         }
-        let images = images.into_iter().map(|a| MetadataImage {
-            url: StoredUrl::Url(a),
+        let images = images.into_iter().map(|a| MetadataImageForMediaDetails {
+            image: a,
             lot: MetadataImageLot::Poster,
         });
         let creators = item
@@ -221,12 +214,13 @@ impl VndbService {
                 length: item.length_minutes,
             }),
             provider_rating: item.rating,
-            images: images.unique().collect(),
+            url_images: images.unique().collect(),
             is_nsfw: None,
             videos: vec![],
             suggestions: vec![],
             groups: vec![],
             creators: vec![],
+            s3_images: vec![],
         }
     }
 }

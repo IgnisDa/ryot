@@ -705,6 +705,12 @@ pub mod media {
         pub role: String,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    pub struct MetadataImageForMediaDetails {
+        pub image: String,
+        pub lot: MetadataImageLot,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -717,7 +723,8 @@ pub mod media {
         pub creators: Vec<FreeMetadataCreator>,
         pub people: Vec<PartialMetadataPerson>,
         pub genres: Vec<String>,
-        pub images: Vec<MetadataImage>,
+        pub url_images: Vec<MetadataImageForMediaDetails>,
+        pub s3_images: Vec<MetadataImageForMediaDetails>,
         pub videos: Vec<MetadataVideo>,
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
@@ -845,6 +852,7 @@ pub mod media {
         Serialize,
         Default,
         Hash,
+        Enum,
     )]
     pub enum MetadataImageLot {
         Backdrop,

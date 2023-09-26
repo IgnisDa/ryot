@@ -80,13 +80,14 @@ use crate::{
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
-            MetadataGroupListItem, MetadataImage, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadata,
-            PartialMetadataPerson, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, ReviewComments, SeenOrReviewOrCalendarEventExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
+            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataImages, MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
+            PartialMetadata, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
+            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, Visibility, VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -2553,10 +2554,11 @@ impl MiscellaneousService {
         is_nsfw: Option<bool>,
         description: Option<String>,
         provider_rating: Option<Decimal>,
-        images: Vec<MetadataImage>,
+        url_images: Vec<MetadataImageForMediaDetails>,
+        s3_images: Vec<MetadataImageForMediaDetails>,
         videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
-        free_creators: Vec<FreeMetadataCreator>,
+        creators: Vec<FreeMetadataCreator>,
         people: Vec<PartialMetadataPerson>,
         genres: Vec<String>,
         production_status: String,
@@ -2708,6 +2710,16 @@ impl MiscellaneousService {
             .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
             .collect_vec();
 
+        let mut images = vec![];
+        images.extend(url_images.into_iter().map(|i| MetadataImage {
+            url: StoredUrl::Url(i.image),
+            lot: i.lot,
+        }));
+        images.extend(s3_images.into_iter().map(|i| MetadataImage {
+            url: StoredUrl::S3(i.image),
+            lot: i.lot,
+        }));
+
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
@@ -2722,10 +2734,10 @@ impl MiscellaneousService {
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.publish_date = ActiveValue::Set(publish_date);
-        meta.free_creators = ActiveValue::Set(if free_creators.is_empty() {
+        meta.free_creators = ActiveValue::Set(if creators.is_empty() {
             None
         } else {
-            Some(MetadataFreeCreators(free_creators))
+            Some(MetadataFreeCreators(creators))
         });
         meta.specifics = ActiveValue::Set(specifics);
         meta.last_processed_on_for_calendar = ActiveValue::Set(None);
@@ -2875,6 +2887,15 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
+        let mut images = vec![];
+        images.extend(details.url_images.into_iter().map(|i| MetadataImage {
+            url: StoredUrl::Url(i.image),
+            lot: i.lot,
+        }));
+        images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
+            url: StoredUrl::S3(i.image),
+            lot: i.lot,
+        }));
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(details.lot),
             source: ActiveValue::Set(details.source),
@@ -2882,7 +2903,7 @@ impl MiscellaneousService {
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
             publish_date: ActiveValue::Set(details.publish_date),
-            images: ActiveValue::Set(Some(MetadataImages(details.images))),
+            images: ActiveValue::Set(Some(MetadataImages(images))),
             videos: ActiveValue::Set(Some(MetadataVideos(details.videos))),
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
@@ -3811,7 +3832,8 @@ impl MiscellaneousService {
                     details.is_nsfw,
                     details.description,
                     details.provider_rating,
-                    details.images,
+                    details.url_images,
+                    details.s3_images,
                     details.videos,
                     details.specifics,
                     details.creators,
@@ -4217,8 +4239,8 @@ impl MiscellaneousService {
             .images
             .unwrap_or_default()
             .into_iter()
-            .map(|i| MetadataImage {
-                url: StoredUrl::S3(i),
+            .map(|i| MetadataImageForMediaDetails {
+                image: i,
                 lot: MetadataImageLot::Poster,
             })
             .collect();
@@ -4249,7 +4271,8 @@ impl MiscellaneousService {
             source: MetadataSource::Custom,
             creators,
             genres: input.genres.unwrap_or_default(),
-            images,
+            s3_images: images,
+            url_images: vec![],
             videos,
             publish_year: input.publish_year,
             specifics,

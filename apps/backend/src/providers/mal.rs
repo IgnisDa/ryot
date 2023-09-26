@@ -13,7 +13,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -97,7 +97,6 @@ impl MalMangaService {
 
 #[async_trait]
 impl MediaProvider for MalMangaService {
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, "manga", identifier).await?;
         Ok(details)
@@ -269,8 +268,8 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             .into_iter()
             .map(|g| g.name)
             .collect(),
-        images: vec![MetadataImage {
-            url: StoredUrl::Url(details.main_picture.large),
+        url_images: vec![MetadataImageForMediaDetails {
+            image: details.main_picture.large,
             lot: MetadataImageLot::Poster,
         }],
         specifics,
@@ -285,6 +284,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         videos: vec![],
         groups: vec![],
         people: vec![],
+        s3_images: vec![],
     };
     Ok(data)
 }

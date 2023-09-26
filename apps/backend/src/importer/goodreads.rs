@@ -16,7 +16,7 @@ use crate::{
         media::{
             BookSpecifics, FreeMetadataCreator, ImportOrExportItemRating, ImportOrExportItemReview,
             ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataImage,
-            MetadataImageLot,
+            MetadataImageForMediaDetails, MetadataImageLot,
         },
         StoredUrl,
     },
@@ -121,8 +121,8 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                                 role: "Author".to_owned(),
                                 image: None,
                             }],
-                            images: vec![MetadataImage {
-                                url: StoredUrl::Url(d.book_large_image_url),
+                            url_images: vec![MetadataImageForMediaDetails {
+                                image: d.book_large_image_url,
                                 lot: MetadataImageLot::Poster,
                             }],
                             specifics: MediaSpecifics::Book(BookSpecifics {
@@ -137,6 +137,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             groups: vec![],
                             is_nsfw: None,
                             people: vec![],
+                            s3_images: vec![],
                         },
                     )),
                     seen_history,

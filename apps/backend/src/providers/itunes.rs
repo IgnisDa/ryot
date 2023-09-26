@@ -13,7 +13,7 @@ use crate::{
     models::{
         media::{
             FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, PodcastEpisode, PodcastSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -85,7 +85,6 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for ITunesService {
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -135,11 +134,11 @@ impl MediaProvider for ITunesService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let images = details
+        let url_images = details
             .image
             .into_iter()
-            .map(|a| MetadataImage {
-                url: StoredUrl::Url(a),
+            .map(|a| MetadataImageForMediaDetails {
+                image: a,
                 lot: MetadataImageLot::Poster,
             })
             .collect();
@@ -172,7 +171,7 @@ impl MediaProvider for ITunesService {
             source: MetadataSource::Itunes,
             lot: MetadataLot::Podcast,
             description,
-            images,
+            url_images,
             creators,
             genres,
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {
@@ -187,6 +186,7 @@ impl MediaProvider for ITunesService {
             videos: vec![],
             is_nsfw: None,
             people: vec![],
+            s3_images: vec![],
         })
     }
 

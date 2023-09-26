@@ -13,7 +13,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageLot,
+            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -88,7 +88,6 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
         let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -125,19 +124,11 @@ impl MediaProvider for GoogleBooksService {
                 let MediaDetails {
                     identifier,
                     title,
-                    images,
+                    url_images,
                     publish_year,
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
-                let image = images
-                    .into_iter()
-                    .map(|i| match i.url {
-                        StoredUrl::S3(_u) => unreachable!(),
-                        StoredUrl::Url(u) => u,
-                    })
-                    .collect_vec()
-                    .get(0)
-                    .cloned();
+                let image = url_images.get(0).map(|i| i.image);
                 MediaSearchItem {
                     identifier,
                     title,
@@ -188,8 +179,8 @@ impl GoogleBooksService {
                 images.push(a);
             }
         };
-        let images = images.into_iter().map(|a| MetadataImage {
-            url: StoredUrl::Url(a),
+        let images = images.into_iter().map(|a| MetadataImageForMediaDetails {
+            image: a,
             lot: MetadataImageLot::Poster,
         });
         let mut creators = item
@@ -232,7 +223,7 @@ impl GoogleBooksService {
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: item.page_count,
             }),
-            images: images.unique().collect(),
+            url_images: images.unique().collect(),
             provider_rating: item.average_rating,
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],
@@ -240,6 +231,7 @@ impl GoogleBooksService {
             videos: vec![],
             is_nsfw: None,
             people: vec![],
+            s3_images: vec![],
         }
     }
 }

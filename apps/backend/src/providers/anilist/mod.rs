@@ -13,8 +13,8 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageLot, MetadataVideo, MetadataVideoSource, PartialMetadata,
-            PartialMetadataPerson,
+            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo,
+            MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -181,8 +181,8 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
     }
     let images = images
         .into_iter()
-        .map(|i| MetadataImage {
-            url: StoredUrl::Url(i),
+        .map(|i| MetadataImageForMediaDetails {
+            image: i,
             lot: MetadataImageLot::Poster,
         })
         .unique()
@@ -291,7 +291,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         lot,
         people: creators,
         creators: vec![],
-        images,
+        url_images: images,
         videos,
         genres: genres.into_iter().unique().collect(),
         publish_year: year,
@@ -300,6 +300,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         suggestions,
         provider_rating: score,
         groups: vec![],
+        s3_images: vec![],
     })
 }
 

@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, PartialMetadata, PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -180,10 +180,10 @@ impl MediaProvider for MangaUpdatesService {
                         .map(|r| r.category),
                 )
                 .collect(),
-            images: Vec::from_iter(data.image.unwrap().url.original)
+            url_images: Vec::from_iter(data.image.unwrap().url.original)
                 .into_iter()
-                .map(|i| MetadataImage {
-                    url: StoredUrl::Url(i),
+                .map(|i| MetadataImageForMediaDetails {
+                    image: i,
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -200,6 +200,7 @@ impl MediaProvider for MangaUpdatesService {
             groups: vec![],
             is_nsfw: None,
             creators: vec![],
+            s3_images: vec![],
         };
         Ok(data)
     }

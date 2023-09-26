@@ -18,7 +18,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, PartialMetadata, PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -207,8 +207,8 @@ impl MediaProvider for OpenlibraryService {
         let images = images
             .into_iter()
             .filter(|c| c > &0)
-            .map(|c| MetadataImage {
-                url: StoredUrl::Url(self.get_book_cover_image_url(c)),
+            .map(|c| MetadataImageForMediaDetails {
+                image: self.get_book_cover_image_url(c),
                 lot: MetadataImageLot::Poster,
             })
             .unique()
@@ -292,7 +292,7 @@ impl MediaProvider for OpenlibraryService {
             source: MetadataSource::Openlibrary,
             people: creators,
             genres,
-            images,
+            url_images: images,
             publish_year: first_release_date.map(|d| d.year()),
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
@@ -304,6 +304,7 @@ impl MediaProvider for OpenlibraryService {
             groups: vec![],
             is_nsfw: None,
             creators: vec![],
+            s3_images: vec![],
         })
     }
 

@@ -16,9 +16,10 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
-            MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
-            PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
+            ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -353,11 +354,11 @@ impl MediaProvider for TmdbMovieService {
                 .map(|g| g.name)
                 .collect(),
             people: creators,
-            images: image_ids
+            url_images: image_ids
                 .into_iter()
                 .unique()
-                .map(|p| MetadataImage {
-                    url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                .map(|p| MetadataImageForMediaDetails {
+                    image: self.base.get_cover_image_url(p),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -383,6 +384,7 @@ impl MediaProvider for TmdbMovieService {
                 None
             },
             creators: vec![],
+            s3_images: vec![],
         })
     }
 
@@ -614,11 +616,11 @@ impl MediaProvider for TmdbShowService {
             publish_date: convert_string_to_date(
                 &show_data.first_air_date.clone().unwrap_or_default(),
             ),
-            images: image_ids
+            url_images: image_ids
                 .into_iter()
                 .unique()
-                .map(|p| MetadataImage {
-                    url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                .map(|p| MetadataImageForMediaDetails {
+                    image: self.base.get_cover_image_url(p),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -677,6 +679,7 @@ impl MediaProvider for TmdbShowService {
             },
             groups: vec![],
             creators: vec![],
+            s3_images: vec![],
         })
     }
 

@@ -17,9 +17,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage, MetadataImageLot,
-            MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
-            PartialMetadataPerson, VideoGameSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataVideo,
+            MetadataVideoSource, PartialMetadata, PartialMetadataPerson, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -201,16 +201,7 @@ offset: {offset};
                 MediaSearchItem {
                     identifier: a.identifier,
                     title: a.title,
-                    image: a
-                        .images
-                        .into_iter()
-                        .map(|i| match i.url {
-                            StoredUrl::S3(_u) => unreachable!(),
-                            StoredUrl::Url(u) => u,
-                        })
-                        .collect_vec()
-                        .get(0)
-                        .cloned(),
+                    image: a.url_images.get(0).map(|i| i.image),
                     publish_year: a.publish_year,
                 }
             })
@@ -289,16 +280,16 @@ where id = {id};
     }
 
     fn igdb_response_to_search_response(&self, item: IgdbSearchResponse) -> MediaDetails {
-        let mut images = Vec::from_iter(item.cover.map(|a| MetadataImage {
-            url: StoredUrl::Url(self.get_cover_image_url(a.image_id)),
+        let mut images = Vec::from_iter(item.cover.map(|a| MetadataImageForMediaDetails {
+            image: self.get_cover_image_url(a.image_id),
             lot: MetadataImageLot::Poster,
         }));
         let additional_images =
             item.artworks
                 .unwrap_or_default()
                 .into_iter()
-                .map(|a| MetadataImage {
-                    url: StoredUrl::Url(self.get_cover_image_url(a.image_id)),
+                .map(|a| MetadataImageForMediaDetails {
+                    image: self.get_cover_image_url(a.image_id),
                     lot: MetadataImageLot::Poster,
                 });
         images.extend(additional_images);
@@ -343,7 +334,7 @@ where id = {id};
             title: item.name.unwrap(),
             description: item.summary,
             people: creators,
-            images,
+            url_images: images,
             videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
@@ -378,6 +369,7 @@ where id = {id};
             groups: vec![],
             is_nsfw: None,
             creators: vec![],
+            s3_images: vec![],
         }
     }
 

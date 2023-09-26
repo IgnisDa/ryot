@@ -17,7 +17,8 @@ use crate::{
     models::{
         media::{
             FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageLot, PartialMetadata, PodcastEpisode, PodcastSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PodcastEpisode,
+            PodcastSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -59,7 +60,6 @@ impl ListennotesService {
 
 #[async_trait]
 impl MediaProvider for ListennotesService {
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut details = self
             .details_with_paginated_episodes(identifier, None, None)
@@ -234,8 +234,8 @@ impl ListennotesService {
                 .filter_map(|g| GENRES.get().unwrap().get(&g).cloned())
                 .unique()
                 .collect(),
-            images: Vec::from_iter(podcast_data.image.map(|a| MetadataImage {
-                url: StoredUrl::Url(a),
+            url_images: Vec::from_iter(podcast_data.image.map(|a| MetadataImageForMediaDetails {
+                image: a,
                 lot: MetadataImageLot::Poster,
             })),
             videos: vec![],
@@ -258,6 +258,7 @@ impl ListennotesService {
             suggestions: vec![],
             groups: vec![],
             people: vec![],
+            s3_images: vec![],
         })
     }
 }
