@@ -1,5 +1,13 @@
 
 
+# Version 2.18.7 (2023-09-26)
+
+## Features
+
+- move stuff to railway ([#366](https://github.com/IgnisDa/ryot/issues/366))
+  
+  
+
 # Version 2.18.6 (2023-09-25)
 
 
