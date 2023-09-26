@@ -9,6 +9,7 @@ query MediaMainDetails($metadataId: Int!) {
     providerRating
     publishYear
     publishDate
+    productionStatus
     genres
     sourceUrl
     group {
