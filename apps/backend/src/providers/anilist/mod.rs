@@ -63,7 +63,6 @@ struct StaffQuery;
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     client: Client,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -79,13 +78,15 @@ impl MediaProviderLanguages for AnilistService {
 #[derive(Debug, Clone)]
 pub struct AnilistAnimeService {
     base: AnilistService,
+    page_limit: i32,
 }
 
 impl AnilistAnimeService {
     pub async fn new(_config: &AnimeAnilistConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
-            base: AnilistService { client, page_limit },
+            base: AnilistService { client },
+            page_limit,
         }
     }
 }
@@ -112,7 +113,7 @@ impl MediaProvider for AnilistAnimeService {
             search_query::MediaType::ANIME,
             query,
             page,
-            self.base.page_limit,
+            self.page_limit,
             display_nsfw,
         )
         .await?;
@@ -126,13 +127,15 @@ impl MediaProvider for AnilistAnimeService {
 #[derive(Debug, Clone)]
 pub struct AnilistMangaService {
     base: AnilistService,
+    page_limit: i32,
 }
 
 impl AnilistMangaService {
     pub async fn new(_config: &MangaAnilistConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
-            base: AnilistService { client, page_limit },
+            base: AnilistService { client },
+            page_limit,
         }
     }
 }
@@ -159,7 +162,7 @@ impl MediaProvider for AnilistMangaService {
             search_query::MediaType::MANGA,
             query,
             page,
-            self.base.page_limit,
+            self.page_limit,
             display_nsfw,
         )
         .await?;
