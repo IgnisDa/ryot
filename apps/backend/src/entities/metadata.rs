@@ -50,6 +50,8 @@ pub enum Relation {
     MetadataToGenre,
     #[sea_orm(has_many = "super::metadata_to_partial_metadata::Entity")]
     MetadataToPartialMetadata,
+    #[sea_orm(has_many = "super::metadata_to_person::Entity")]
+    MetadataToPerson,
     #[sea_orm(has_many = "super::partial_metadata::Entity")]
     PartialMetadata,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -87,6 +89,12 @@ impl Related<super::metadata_to_genre::Entity> for Entity {
 impl Related<super::metadata_to_partial_metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MetadataToPartialMetadata.def()
+    }
+}
+
+impl Related<super::metadata_to_person::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToPerson.def()
     }
 }
 

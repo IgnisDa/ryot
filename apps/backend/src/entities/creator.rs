@@ -18,22 +18,21 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::metadata_to_creator::Entity")]
+    MetadataToCreator,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
+}
+
+impl Related<super::metadata_to_creator::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToCreator.def()
+    }
 }
 
 impl Related<super::review::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Review.def()
-    }
-}
-
-impl Related<super::metadata::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::metadata_to_creator::Relation::Metadata.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::metadata_to_creator::Relation::Creator.def().rev())
     }
 }
 
