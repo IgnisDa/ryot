@@ -1,0 +1,6 @@
+query StudioQuery($id: Int!) {
+  Studio(id: $id) {
+    id
+    name
+  }
+}

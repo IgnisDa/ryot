@@ -41,6 +41,15 @@ struct SearchQuery;
 )]
 struct DetailsQuery;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/studio_details.graphql",
+    response_derives = "Debug",
+    variables_derives = "Debug"
+)]
+struct StudioQuery;
+
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     client: Client,
@@ -74,7 +83,7 @@ impl AnilistAnimeService {
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        todo!()
+        person_details(&self.base.client, identity).await
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -121,7 +130,7 @@ impl AnilistMangaService {
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        todo!()
+        person_details(&self.base.client, identity).await
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -153,6 +162,47 @@ impl MediaProvider for AnilistMangaService {
 
 async fn get_client_config(url: &str) -> Client {
     get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
+}
+
+async fn person_details(
+    client: &Client,
+    identity: PartialMetadataPerson,
+) -> Result<MetadataPerson> {
+    let data = if identity.role.as_str() == "Production" {
+        let variables = studio_query::Variables {
+            id: identity.identifier.parse::<i64>().unwrap(),
+        };
+        let body = StudioQuery::build_query(variables);
+        let details = client
+            .post("")
+            .body_json(&body)
+            .unwrap()
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Response<studio_query::ResponseData>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .data
+            .unwrap()
+            .studio
+            .unwrap();
+        MetadataPerson {
+            identifier: details.id.to_string(),
+            source: MetadataSource::Anilist,
+            name: details.name,
+            website: None,
+            description: None,
+            gender: None,
+            place: None,
+            images: None,
+            death_date: None,
+            birth_date: None,
+        }
+    } else {
+        todo!()
+    };
+    Ok(data)
 }
 
 async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
