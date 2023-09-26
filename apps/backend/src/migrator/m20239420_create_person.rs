@@ -66,12 +66,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(
-                        ColumnDef::new(Person::Name)
-                            .string()
-                            .unique_key()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Person::Name).string().not_null())
                     .col(ColumnDef::new(Person::Images).json())
                     .col(ColumnDef::new(Person::Description).text())
                     .col(ColumnDef::new(Person::Gender).string())

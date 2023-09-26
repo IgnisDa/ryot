@@ -15,7 +15,6 @@ pub struct Model {
     pub source: MetadataSource,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
-    #[sea_orm(unique)]
     pub name: String,
     pub images: Option<MetadataImages>,
     pub description: Option<String>,
