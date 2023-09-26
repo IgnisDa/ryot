@@ -4524,7 +4524,6 @@ dependencies = [
  "argon2",
  "async-graphql",
  "async-graphql-axum",
- "async-stream",
  "async-trait",
  "aws-sdk-s3",
  "axum",
