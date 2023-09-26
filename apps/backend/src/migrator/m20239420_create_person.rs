@@ -72,7 +72,7 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Person::Images).json().not_null())
+                    .col(ColumnDef::new(Person::Images).json())
                     .col(ColumnDef::new(Person::Description).text())
                     .col(ColumnDef::new(Person::Gender).string())
                     .col(ColumnDef::new(Person::BirthDate).date())

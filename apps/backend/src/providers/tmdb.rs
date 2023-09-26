@@ -788,7 +788,7 @@ impl TmdbService {
         let description = details.description.or(details.biography);
         Ok(MetadataPerson {
             name: details.name,
-            images,
+            images: Some(images),
             identifier: details.id.to_string(),
             description: description
                 .map(|s| if s.as_str() == "" { None } else { Some(s) })

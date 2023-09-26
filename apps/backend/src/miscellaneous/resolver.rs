@@ -5926,6 +5926,20 @@ impl MiscellaneousService {
         } else {
             let provider = self.get_provider(metadata_lot, person.source).await?;
             let person = provider.person_details(person).await?;
+            dbg!(&person);
+            let images = if let Some(images) = person.images {
+                Some(MetadataImages(
+                    images
+                        .into_iter()
+                        .map(|i| MetadataImage {
+                            url: StoredUrl::Url(i),
+                            lot: MetadataImageLot::Poster,
+                        })
+                        .collect(),
+                ))
+            } else {
+                None
+            };
             let person = person::ActiveModel {
                 identifier: ActiveValue::Set(person.identifier),
                 source: ActiveValue::Set(person.source),
@@ -5935,16 +5949,7 @@ impl MiscellaneousService {
                 birth_date: ActiveValue::Set(person.birth_date),
                 place: ActiveValue::Set(person.place),
                 website: ActiveValue::Set(person.website),
-                images: ActiveValue::Set(MetadataImages(
-                    person
-                        .images
-                        .into_iter()
-                        .map(|i| MetadataImage {
-                            url: StoredUrl::Url(i),
-                            lot: MetadataImageLot::Poster,
-                        })
-                        .collect(),
-                )),
+                images: ActiveValue::Set(images),
                 ..Default::default()
             };
             person.insert(&self.db).await.unwrap()

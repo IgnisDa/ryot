@@ -17,7 +17,7 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     #[sea_orm(unique)]
     pub name: String,
-    pub images: MetadataImages,
+    pub images: Option<MetadataImages>,
     pub description: Option<String>,
     pub gender: Option<String>,
     pub birth_date: Option<NaiveDate>,
