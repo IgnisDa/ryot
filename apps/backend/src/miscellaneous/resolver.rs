@@ -5926,7 +5926,6 @@ impl MiscellaneousService {
         } else {
             let provider = self.get_provider(metadata_lot, person.source).await?;
             let person = provider.person_details(person).await?;
-            dbg!(&person);
             let images = if let Some(images) = person.images {
                 Some(MetadataImages(
                     images

@@ -54,7 +54,11 @@ fields
 where version_parent = null;
 ";
 
-#[serde_as]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbWebsite {
+    url: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbCompany {
     id: i32,
@@ -62,7 +66,7 @@ struct IgdbCompany {
     logo: Option<IgdbImage>,
     country: Option<i32>,
     description: Option<String>,
-    websites: Option<Vec<String>>,
+    websites: Option<Vec<IgdbWebsite>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -150,6 +154,7 @@ fields
     company.country,
     company.description,
     company.logo.*,
+    company.websites.url,
     company.start_date,
     company.url;
 where id = {id};
@@ -176,7 +181,11 @@ where id = {id};
                 .country
                 .and_then(from_numeric)
                 .map(|c| c.name.to_owned()),
-            website: detail.websites.unwrap_or_default().first().cloned(),
+            website: detail
+                .websites
+                .unwrap_or_default()
+                .first()
+                .map(|i| i.url.clone()),
             birth_date: None,
             death_date: None,
             gender: None,
