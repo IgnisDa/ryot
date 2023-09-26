@@ -8,7 +8,7 @@ _UPPER_SNAKE_CASE_ the characters. For example, `video_games.twitch.client_id`
 becomes `VIDEO_GAMES_TWITCH_CLIENT_ID`.
 
 Ryot serves the final configuration loaded at the `/config` endpoint as JSON
-([example](https://ryot.fly.dev/config)). This can also be treated as a [health
+([example](https://ryot.up.railway.app/config)). This can also be treated as a [health
 endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
 
 !!! info
