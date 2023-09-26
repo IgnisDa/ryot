@@ -3118,7 +3118,7 @@ impl MiscellaneousService {
     async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
         let mut preferences = user_by_id(&self.db, user_id).await?.preferences;
         preferences.features_enabled.media.anime =
-            self.config.anime.is_enabled() && preferences.features_enabled.media.anime;
+            self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
         preferences.features_enabled.media.audio_book =
             self.config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
         preferences.features_enabled.media.book =
@@ -3126,7 +3126,7 @@ impl MiscellaneousService {
         preferences.features_enabled.media.show =
             self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
         preferences.features_enabled.media.manga =
-            self.config.manga.is_enabled() && preferences.features_enabled.media.manga;
+            self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
         preferences.features_enabled.media.movie =
             self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
         preferences.features_enabled.media.podcast =
@@ -3336,14 +3336,14 @@ impl MiscellaneousService {
             MetadataSource::Anilist => match lot {
                 MetadataLot::Anime => Box::new(
                     AnilistAnimeService::new(
-                        &self.config.anime.anilist,
+                        &self.config.anime_and_manga.anilist,
                         self.config.frontend.page_size,
                     )
                     .await,
                 ),
                 MetadataLot::Manga => Box::new(
                     AnilistMangaService::new(
-                        &self.config.manga.anilist,
+                        &self.config.anime_and_manga.anilist,
                         self.config.frontend.page_size,
                     )
                     .await,
@@ -3352,12 +3352,18 @@ impl MiscellaneousService {
             },
             MetadataSource::Mal => match lot {
                 MetadataLot::Anime => Box::new(
-                    MalAnimeService::new(&self.config.anime.mal, self.config.frontend.page_size)
-                        .await,
+                    MalAnimeService::new(
+                        &self.config.anime_and_manga.mal,
+                        self.config.frontend.page_size,
+                    )
+                    .await,
                 ),
                 MetadataLot::Manga => Box::new(
-                    MalMangaService::new(&self.config.manga.mal, self.config.frontend.page_size)
-                        .await,
+                    MalMangaService::new(
+                        &self.config.anime_and_manga.mal,
+                        self.config.frontend.page_size,
+                    )
+                    .await,
                 ),
                 _ => return err(),
             },
@@ -3366,7 +3372,7 @@ impl MiscellaneousService {
             ),
             MetadataSource::MangaUpdates => Box::new(
                 MangaUpdatesService::new(
-                    &self.config.manga.manga_updates,
+                    &self.config.anime_and_manga.manga_updates,
                     self.config.frontend.page_size,
                 )
                 .await,
@@ -3410,7 +3416,7 @@ impl MiscellaneousService {
             ),
             MetadataSource::MangaUpdates => Box::new(
                 MangaUpdatesService::new(
-                    &self.config.manga.manga_updates,
+                    &self.config.anime_and_manga.manga_updates,
                     self.config.frontend.page_size,
                 )
                 .await,
@@ -3423,9 +3429,9 @@ impl MiscellaneousService {
                 .await,
             ),
             MetadataSource::Anilist => Box::new(NonMediaAnilistService::new().await),
-            MetadataSource::Mal => {
-                Box::new(NonMediaMalService::new(self.config.anime.mal.client_id.to_owned()).await)
-            }
+            MetadataSource::Mal => Box::new(
+                NonMediaMalService::new(self.config.anime_and_manga.mal.client_id.to_owned()).await,
+            ),
             MetadataSource::Custom => return err(),
         };
         Ok(service)

@@ -19,29 +19,39 @@ fn default_mal_client_id(_ctx: &()) -> Option<String> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "ANIME_MAL_")]
-pub struct AnimeMalConfig {
+#[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
+pub struct MalConfig {
     /// The client ID to be used for the MAL API.
     #[setting(default = default_mal_client_id)]
     pub client_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "ANIME_ANILIST_")]
-pub struct AnimeAnilistConfig {}
+#[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
+pub struct AnilistConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(
+    rename_all = "snake_case",
+    env_prefix = "ANIME_AND_MANGA_MANGA_UPDATES_"
+)]
+pub struct MangaUpdatesConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
-pub struct AnimeConfig {
-    /// Settings related to Anilist (anime).
+pub struct AnimeAndMangaConfig {
+    /// Settings related to Anilist.
     #[setting(nested)]
-    pub anilist: AnimeAnilistConfig,
-    /// Settings related to MAL (anime).
+    pub anilist: AnilistConfig,
+    /// Settings related to MAL.
     #[setting(nested)]
-    pub mal: AnimeMalConfig,
+    pub mal: MalConfig,
+    /// Settings related to MangaUpdates.
+    #[setting(nested)]
+    pub manga_updates: MangaUpdatesConfig,
 }
 
-impl IsFeatureEnabled for AnimeConfig {}
+impl IsFeatureEnabled for AnimeAndMangaConfig {}
 
 fn validate_audible_locale(
     value: &str,
@@ -162,38 +172,6 @@ pub struct MovieAndShowConfig {
 }
 
 impl IsFeatureEnabled for MovieAndShowConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
-pub struct MangaAnilistConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MANGA_MAL_")]
-pub struct MangaMalConfig {
-    /// The client ID to be used for the MAL API.
-    #[setting(default = default_mal_client_id)]
-    pub client_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MANGA_MANGA_UPDATES_")]
-pub struct MangaMangaUpdatesConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case")]
-pub struct MangaConfig {
-    /// Settings related to Anilist (manga).
-    #[setting(nested)]
-    pub anilist: MangaAnilistConfig,
-    /// Settings related to MangaUpdates.
-    #[setting(nested)]
-    pub manga_updates: MangaMangaUpdatesConfig,
-    /// Settings related to MAL (manga).
-    #[setting(nested)]
-    pub mal: MangaMalConfig,
-}
-
-impl IsFeatureEnabled for MangaConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
@@ -434,9 +412,9 @@ pub struct UsersConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
-    /// Settings related to anime.
+    /// Settings related to anime and manga.
     #[setting(nested)]
-    pub anime: AnimeConfig,
+    pub anime_and_manga: AnimeAndMangaConfig,
     /// Settings related to audio books.
     #[setting(nested)]
     pub audio_books: AudioBookConfig,
@@ -458,9 +436,6 @@ pub struct AppConfig {
     /// Settings related to external integrations.
     #[setting(nested)]
     pub integration: IntegrationConfig,
-    /// Settings related to manga.
-    #[setting(nested)]
-    pub manga: MangaConfig,
     /// Settings related to media.
     #[setting(nested)]
     pub media: MediaConfig,
@@ -492,7 +467,7 @@ impl AppConfig {
     pub fn masked_value(&self) -> Self {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
-        cl.anime.mal.client_id = gt();
+        cl.anime_and_manga.mal.client_id = gt();
         cl.database.url = gt();
         cl.file_storage.s3_region = gt();
         cl.file_storage.s3_bucket_name = gt();
@@ -500,7 +475,6 @@ impl AppConfig {
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
         cl.integration.hasher_salt = gt();
-        cl.manga.mal.client_id = gt();
         cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.scheduler.database_url = gt();

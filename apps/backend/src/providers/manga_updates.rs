@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::MangaMangaUpdatesConfig,
+    config::MangaUpdatesConfig,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -39,7 +39,7 @@ impl MediaProviderLanguages for MangaUpdatesService {
 }
 
 impl MangaUpdatesService {
-    pub async fn new(_config: &MangaMangaUpdatesConfig, page_limit: i32) -> Self {
+    pub async fn new(_config: &MangaUpdatesConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self { client, page_limit }
     }

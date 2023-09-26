@@ -2,20 +2,26 @@
 
 /* eslint-disable */
 
-export interface AnimeAnilistConfig {
+export interface AnilistConfig {
 
 }
 
-export interface AnimeMalConfig {
+export interface MalConfig {
 	/** The client ID to be used for the MAL API. */
 	client_id: string;
 }
 
-export interface AnimeConfig {
-	/** Settings related to Anilist (anime). */
-	anilist: AnimeAnilistConfig;
-	/** Settings related to MAL (anime). */
-	mal: AnimeMalConfig;
+export interface MangaUpdatesConfig {
+
+}
+
+export interface AnimeAndMangaConfig {
+	/** Settings related to Anilist. */
+	anilist: AnilistConfig;
+	/** Settings related to MAL. */
+	mal: MalConfig;
+	/** Settings related to MangaUpdates. */
+	manga_updates: MangaUpdatesConfig;
 }
 
 export interface AudibleConfig {
@@ -112,28 +118,6 @@ export interface IntegrationConfig {
 	 * @default 2
 	 */
 	pull_every: number;
-}
-
-export interface MangaAnilistConfig {
-
-}
-
-export interface MangaMalConfig {
-	/** The client ID to be used for the MAL API. */
-	client_id: string;
-}
-
-export interface MangaMangaUpdatesConfig {
-
-}
-
-export interface MangaConfig {
-	/** Settings related to Anilist (manga). */
-	anilist: MangaAnilistConfig;
-	/** Settings related to MAL (manga). */
-	mal: MangaMalConfig;
-	/** Settings related to MangaUpdates. */
-	manga_updates: MangaMangaUpdatesConfig;
 }
 
 export interface MediaConfig {
@@ -302,8 +286,8 @@ export interface VisualNovelConfig {
 }
 
 export interface AppConfig {
-	/** Settings related to anime. */
-	anime: AnimeConfig;
+	/** Settings related to anime and manga. */
+	anime_and_manga: AnimeAndMangaConfig;
 	/** Settings related to audio books. */
 	audio_books: AudioBookConfig;
 	/** Settings related to books. */
@@ -318,8 +302,6 @@ export interface AppConfig {
 	frontend: FrontendConfig;
 	/** Settings related to external integrations. */
 	integration: IntegrationConfig;
-	/** Settings related to manga. */
-	manga: MangaConfig;
 	/** Settings related to media. */
 	media: MediaConfig;
 	/** Settings related to movies and shows. */

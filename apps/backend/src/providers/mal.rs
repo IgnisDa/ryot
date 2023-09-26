@@ -8,7 +8,7 @@ use serde_json::json;
 use surf::Client;
 
 use crate::{
-    config::{AnimeMalConfig, MangaMalConfig},
+    config::MalConfig,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -67,7 +67,7 @@ pub struct MalAnimeService {
 }
 
 impl MalAnimeService {
-    pub async fn new(config: &AnimeMalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &MalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
             base: MalService { client },
@@ -105,7 +105,7 @@ pub struct MalMangaService {
 }
 
 impl MalMangaService {
-    pub async fn new(config: &MangaMalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &MalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
             base: MalService { client },
