@@ -56,8 +56,9 @@ use crate::{
         prelude::{
             CalendarEvent, Collection, Creator, Genre, Metadata, MetadataGroup,
             MetadataToCollection, MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
-            PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Review, Seen,
-            User, UserMeasurement, UserToMetadata, Workout,
+            MetadataToPerson, PartialMetadata as PartialMetadataModel,
+            PartialMetadataToMetadataGroup, Person, Review, Seen, User, UserMeasurement,
+            UserToMetadata, Workout,
         },
         review, seen, user, user_measurement, user_to_metadata, workout,
     },
