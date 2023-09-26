@@ -2,6 +2,7 @@ use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use hashbag::HashBag;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -12,14 +13,14 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::{MoviesTmdbConfig, ShowsTmdbConfig},
-    entities::{metadata_group, person::Model as Person},
+    entities::metadata_group,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            ShowEpisode, ShowSeason, ShowSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataPerson,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
+            PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -29,11 +30,6 @@ use crate::{
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static IMAGE_URL: OnceLock<String> = OnceLock::new();
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbCompany {
-    id: i32,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
@@ -53,6 +49,8 @@ struct TmdbImage {
 struct TmdbImagesResponse {
     backdrops: Option<Vec<TmdbImage>>,
     posters: Option<Vec<TmdbImage>>,
+    logos: Option<Vec<TmdbImage>>,
+    profiles: Option<Vec<TmdbImage>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -102,7 +100,7 @@ struct TmdbMediaEntry {
     backdrop_path: Option<String>,
     release_date: Option<String>,
     first_air_date: Option<String>,
-    production_companies: Option<Vec<TmdbCompany>>,
+    production_companies: Option<Vec<TmdbNonMediaEntity>>,
     seasons: Option<Vec<TmdbSeasonNumber>>,
     runtime: Option<i32>,
     status: Option<String>,
@@ -225,8 +223,8 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
-        todo!()
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        self.base.person_details(identity, &self.client).await
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -454,8 +452,8 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
-        todo!()
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        self.base.person_details(identity, &self.client).await
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -747,7 +745,68 @@ async fn get_client_config(url: &str, access_token: &str) -> Client {
     client
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbNonMediaEntity {
+    id: i32,
+    name: String,
+    biography: Option<String>,
+    description: Option<String>,
+    birthday: Option<NaiveDate>,
+    deathday: Option<NaiveDate>,
+    homepage: Option<String>,
+    gender: Option<u8>,
+    origin_country: Option<String>,
+    place_of_birth: Option<String>,
+}
+
 impl TmdbService {
+    async fn person_details(
+        &self,
+        identity: PartialMetadataPerson,
+        client: &Client,
+    ) -> Result<MetadataPerson> {
+        let typ = if identity.role == "Production" {
+            "company".to_owned()
+        } else {
+            "person".to_owned()
+        };
+        let details: TmdbNonMediaEntity = client
+            .get(format!("{}/{}", typ, identity.identifier))
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut images = vec![];
+        self.save_all_images(client, &typ, &identity.identifier, &mut images)
+            .await?;
+        let images = images
+            .into_iter()
+            .unique()
+            .map(|p| self.get_cover_image_url(p))
+            .collect();
+        Ok(MetadataPerson {
+            name: details.name,
+            images,
+            identifier: details.id.to_string(),
+            source: MetadataSource::Tmdb,
+            description: details.description.or(details.biography),
+            place: details.origin_country.or(details.place_of_birth),
+            website: details.homepage,
+            birth_date: details.birthday,
+            death_date: details.deathday,
+            gender: details
+                .gender
+                .map(|g| match g {
+                    1 => Some("Female".to_owned()),
+                    2 => Some("Male".to_owned()),
+                    3 => Some("Non-Binary".to_owned()),
+                    _ => None,
+                })
+                .flatten(),
+        })
+    }
+
     async fn save_all_images(
         &self,
         client: &Client,
@@ -766,6 +825,16 @@ impl TmdbService {
             }
         }
         if let Some(imgs) = new_images.backdrops {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.logos {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.profiles {
             for image in imgs {
                 images.push(image.file_path);
             }
