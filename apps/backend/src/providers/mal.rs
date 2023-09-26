@@ -13,8 +13,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadata,
-            PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -40,25 +39,16 @@ impl MediaProviderLanguages for MalService {
 }
 
 #[derive(Debug, Clone)]
-pub struct NonMediaMalService {
-    base: MalService,
-}
+pub struct NonMediaMalService {}
 
 impl NonMediaMalService {
-    pub async fn new(client_id: String) -> Self {
-        let client = get_client_config(URL, &client_id).await;
-        Self {
-            base: MalService { client },
-        }
+    pub async fn new() -> Self {
+        Self {}
     }
 }
 
 #[async_trait]
-impl MediaProvider for NonMediaMalService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        todo!()
-    }
-}
+impl MediaProvider for NonMediaMalService {}
 
 #[derive(Debug, Clone)]
 pub struct MalAnimeService {

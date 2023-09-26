@@ -3429,9 +3429,7 @@ impl MiscellaneousService {
                 .await,
             ),
             MetadataSource::Anilist => Box::new(NonMediaAnilistService::new().await),
-            MetadataSource::Mal => Box::new(
-                NonMediaMalService::new(self.config.anime_and_manga.mal.client_id.to_owned()).await,
-            ),
+            MetadataSource::Mal => Box::new(NonMediaMalService::new().await),
             MetadataSource::Custom => return err(),
         };
         Ok(service)
