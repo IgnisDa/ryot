@@ -19,7 +19,8 @@ import { DatePickerInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
 	BulkProgressUpdateDocument,
-	MediaDetailsDocument,
+	MediaAdditionalDetailsDocument,
+	MediaMainDetailsDocument,
 	MetadataLot,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
@@ -57,9 +58,24 @@ const Page: NextPageWithLayout = () => {
 	const mediaDetails = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(MediaDetailsDocument, {
-				metadataId: metadataId,
-			});
+			const { mediaDetails } = await gqlClient.request(
+				MediaMainDetailsDocument,
+				{
+					metadataId: metadataId,
+				},
+			);
+			return mediaDetails;
+		},
+	});
+	const mediaSpecifics = useQuery({
+		queryKey: ["details", metadataId],
+		queryFn: async () => {
+			const { mediaDetails } = await gqlClient.request(
+				MediaAdditionalDetailsDocument,
+				{
+					metadataId: metadataId,
+				},
+			);
 			return mediaDetails;
 		},
 	});
@@ -67,7 +83,8 @@ const Page: NextPageWithLayout = () => {
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
 			const updates = [];
 			if (completeShow) {
-				for (const season of mediaDetails.data?.showSpecifics?.seasons || []) {
+				for (const season of mediaSpecifics.data?.showSpecifics?.seasons ||
+					[]) {
 					for (const episode of season.episodes) {
 						updates.push({
 							...variables.input,
@@ -78,7 +95,7 @@ const Page: NextPageWithLayout = () => {
 				}
 			}
 			if (completePodcast) {
-				for (const episode of mediaDetails.data?.podcastSpecifics?.episodes ||
+				for (const episode of mediaSpecifics.data?.podcastSpecifics?.episodes ||
 					[]) {
 					updates.push({
 						...variables.input,
@@ -87,12 +104,12 @@ const Page: NextPageWithLayout = () => {
 				}
 			}
 			if (onlySeason) {
-				const selectedSeason = mediaDetails.data?.showSpecifics?.seasons.find(
+				const selectedSeason = mediaSpecifics.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
 				);
 				invariant(selectedSeason, "No season selected");
 				if (allSeasonsBefore) {
-					for (const season of mediaDetails.data?.showSpecifics?.seasons ||
+					for (const season of mediaSpecifics.data?.showSpecifics?.seasons ||
 						[]) {
 						if (season.seasonNumber > selectedSeason.seasonNumber) break;
 						for (const episode of season.episodes || []) {
@@ -154,7 +171,7 @@ const Page: NextPageWithLayout = () => {
 		podcastEpisodeNumber: Number(selectedPodcastEpisodeNumber),
 	};
 
-	return mediaDetails.data && title ? (
+	return mediaDetails.data && mediaSpecifics.data && title ? (
 		<>
 			<Head>
 				<title>Update Progress | Ryot</title>
@@ -167,7 +184,7 @@ const Page: NextPageWithLayout = () => {
 						radius={"md"}
 					/>
 					<Title>{title}</Title>
-					{mediaDetails.data.showSpecifics ? (
+					{mediaSpecifics.data.showSpecifics ? (
 						<>
 							{onlySeason || completeShow ? (
 								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
@@ -185,10 +202,12 @@ const Page: NextPageWithLayout = () => {
 									</Title>
 									<Select
 										label="Season"
-										data={mediaDetails.data.showSpecifics.seasons.map((s) => ({
-											label: `${s.seasonNumber}. ${s.name.toString()}`,
-											value: s.seasonNumber.toString(),
-										}))}
+										data={mediaSpecifics.data.showSpecifics.seasons.map(
+											(s) => ({
+												label: `${s.seasonNumber}. ${s.name.toString()}`,
+												value: s.seasonNumber.toString(),
+											}),
+										)}
 										onChange={setSelectedShowSeasonNumber}
 										defaultValue={selectedShowSeasonNumber}
 									/>
@@ -204,7 +223,7 @@ const Page: NextPageWithLayout = () => {
 								<Select
 									label="Episode"
 									data={
-										mediaDetails.data.showSpecifics.seasons
+										mediaSpecifics.data.showSpecifics.seasons
 											.find(
 												(s) =>
 													s.seasonNumber === Number(selectedShowSeasonNumber),
@@ -220,7 +239,7 @@ const Page: NextPageWithLayout = () => {
 							) : undefined}
 						</>
 					) : undefined}
-					{mediaDetails.data.podcastSpecifics ? (
+					{mediaSpecifics.data.podcastSpecifics ? (
 						completePodcast ? (
 							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
 								This will mark all episodes for this podcast as seen
@@ -230,7 +249,7 @@ const Page: NextPageWithLayout = () => {
 								<Title order={6}>Select episode</Title>
 								<Autocomplete
 									label="Episode"
-									data={mediaDetails.data.podcastSpecifics.episodes.map(
+									data={mediaSpecifics.data.podcastSpecifics.episodes.map(
 										(se) => ({
 											label: se.title.toString(),
 											value: se.number.toString(),

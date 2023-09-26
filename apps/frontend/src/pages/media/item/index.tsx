@@ -55,6 +55,8 @@ import {
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
+	MediaAdditionalDetailsDocument,
+	MediaMainDetailsDocument,
 	MergeMetadataDocument,
 	type MergeMetadataMutationVariables,
 	MetadataLot,
@@ -69,8 +71,6 @@ import {
 	type ToggleMediaMonitorMutationVariables,
 	UserMediaDetailsDocument,
 	UserReviewScale,
-	MediaMainDetailsDocument,
-	MediaAdditionalDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -827,7 +827,7 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 					</Flex>
 					{mediaDetails.data.providerRating ||
-					(userMediaDetails.data && userMediaDetails.data.averageRating) ? (
+					userMediaDetails.data?.averageRating ? (
 						<Group>
 							{mediaDetails.data.providerRating ? (
 								<Paper
@@ -900,7 +900,7 @@ const Page: NextPageWithLayout = () => {
 									</Text>
 								</Paper>
 							) : undefined}
-							{userMediaDetails.data && userMediaDetails.data.averageRating ? (
+							{userMediaDetails.data?.averageRating ? (
 								<Paper
 									p={4}
 									display={"flex"}
@@ -925,7 +925,7 @@ const Page: NextPageWithLayout = () => {
 							) : undefined}
 						</Group>
 					) : undefined}
-					{userMediaDetails.data && userMediaDetails.data.reminder ? (
+					{userMediaDetails.data?.reminder ? (
 						<Alert
 							icon={<IconAlertCircle size="1rem" />}
 							variant="outline"
@@ -937,7 +937,7 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
-					{userMediaDetails.data && userMediaDetails.data.inProgress ? (
+					{userMediaDetails.data?.inProgress ? (
 						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
 							ing this ({userMediaDetails.data.inProgress.progress}%)
@@ -1073,7 +1073,7 @@ const Page: NextPageWithLayout = () => {
 									spacing="lg"
 									breakpoints={[{ minWidth: "md", cols: 2 }]}
 								>
-									{userMediaDetails.data && userMediaDetails.data.inProgress ? (
+									{userMediaDetails.data?.inProgress ? (
 										<ProgressModal
 											progress={userMediaDetails.data.inProgress.progress}
 											refetch={userMediaDetails.refetch}
@@ -1100,8 +1100,7 @@ const Page: NextPageWithLayout = () => {
 											mediaDetails.data.lot === MetadataLot.Podcast ? (
 												<>
 													<Menu.Label>Shows and podcasts</Menu.Label>
-													{userMediaDetails.data &&
-													userMediaDetails.data.nextEpisode ? (
+													{userMediaDetails.data?.nextEpisode ? (
 														<>
 															<Menu.Item
 																onClick={async () => {
@@ -1158,8 +1157,7 @@ const Page: NextPageWithLayout = () => {
 													)}
 												</>
 											) : undefined}
-											{userMediaDetails.data &&
-											userMediaDetails.data.inProgress ? (
+											{userMediaDetails.data?.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
 													<Menu.Item
@@ -1228,22 +1226,17 @@ const Page: NextPageWithLayout = () => {
 											href={withQuery(APP_ROUTES.media.postReview, {
 												metadataId,
 												showSeasonNumber:
-													(userMediaDetails.data &&
-														userMediaDetails.data.nextEpisode?.seasonNumber) ??
+													userMediaDetails.data?.nextEpisode?.seasonNumber ??
 													undefined,
 												showEpisodeNumber:
 													mediaDetails.data.lot === MetadataLot.Show
-														? (userMediaDetails.data &&
-																userMediaDetails.data.nextEpisode
-																	?.episodeNumber) ??
-														  undefined
+														? userMediaDetails.data?.nextEpisode
+																?.episodeNumber ?? undefined
 														: undefined,
 												podcastEpisodeNumber:
 													mediaDetails.data.lot === MetadataLot.Podcast
-														? (userMediaDetails.data &&
-																userMediaDetails.data.nextEpisode
-																	?.episodeNumber) ??
-														  undefined
+														? userMediaDetails.data?.nextEpisode
+																?.episodeNumber ?? undefined
 														: undefined,
 											})}
 											passHref
@@ -1275,12 +1268,10 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									>
-										{userMediaDetails.data && userMediaDetails.data.isMonitored
-											? "Stop"
-											: "Start"}{" "}
+										{userMediaDetails.data?.isMonitored ? "Stop" : "Start"}{" "}
 										monitoring
 									</Button>
-									{userMediaDetails.data && userMediaDetails.data.reminder ? (
+									{userMediaDetails.data?.reminder ? (
 										<Button
 											variant="outline"
 											onClick={() => {
@@ -1344,96 +1335,87 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<Stack>
 									<Text>
-										Seen by all users{" "}
-										{userMediaDetails.data && userMediaDetails.data.seenBy} time
+										Seen by all users {userMediaDetails.data?.seenBy} time
 										{userMediaDetails.data && userMediaDetails.data.seenBy > 1
 											? "s"
 											: ""}{" "}
-										and{" "}
-										{userMediaDetails.data &&
-											userMediaDetails.data.history.length}{" "}
-										time
+										and {userMediaDetails.data?.history.length} time
 										{userMediaDetails.data &&
 										userMediaDetails.data.history.length > 1
 											? "s"
 											: ""}{" "}
 										by you
 									</Text>
-									{userMediaDetails.data &&
-										userMediaDetails.data.history.map((h) => (
-											<Flex
-												key={h.id}
-												direction={"column"}
-												ml="md"
-												data-seen-id={h.id}
-												data-seen-num-times-updated={h.numTimesUpdated}
-											>
-												<Flex gap="xl">
-													<Text fw="bold">
-														{changeCase(h.state)}{" "}
-														{h.progress !== 100
-															? `(${h.progress}%)`
-															: undefined}
+									{userMediaDetails.data?.history.map((h) => (
+										<Flex
+											key={h.id}
+											direction={"column"}
+											ml="md"
+											data-seen-id={h.id}
+											data-seen-num-times-updated={h.numTimesUpdated}
+										>
+											<Flex gap="xl">
+												<Text fw="bold">
+													{changeCase(h.state)}{" "}
+													{h.progress !== 100 ? `(${h.progress}%)` : undefined}
+												</Text>
+												{h.showInformation ? (
+													<Text color="dimmed">
+														S{h.showInformation.season}-E
+														{h.showInformation.episode}
 													</Text>
-													{h.showInformation ? (
-														<Text color="dimmed">
-															S{h.showInformation.season}-E
-															{h.showInformation.episode}
+												) : undefined}
+												{h.podcastInformation ? (
+													<Text color="dimmed">
+														EP-{h.podcastInformation.episode}
+													</Text>
+												) : undefined}
+											</Flex>
+											<Flex ml="sm" direction={"column"} gap={4}>
+												<Flex gap="xl">
+													<Flex gap={"xs"}>
+														<Text size="sm">Started:</Text>
+														<Text size="sm" fw="bold">
+															{h.startedOn
+																? DateTime.fromISO(h.startedOn).toLocaleString()
+																: "N/A"}
 														</Text>
-													) : undefined}
-													{h.podcastInformation ? (
-														<Text color="dimmed">
-															EP-{h.podcastInformation.episode}
+													</Flex>
+													<Flex gap={"xs"}>
+														<Text size="sm">Ended:</Text>
+														<Text size="sm" fw="bold">
+															{h.finishedOn
+																? DateTime.fromISO(
+																		h.finishedOn,
+																  ).toLocaleString()
+																: "N/A"}
 														</Text>
-													) : undefined}
+													</Flex>
 												</Flex>
-												<Flex ml="sm" direction={"column"} gap={4}>
-													<Flex gap="xl">
-														<Flex gap={"xs"}>
-															<Text size="sm">Started:</Text>
-															<Text size="sm" fw="bold">
-																{h.startedOn
-																	? DateTime.fromISO(
-																			h.startedOn,
-																	  ).toLocaleString()
-																	: "N/A"}
-															</Text>
-														</Flex>
-														<Flex gap={"xs"}>
-															<Text size="sm">Ended:</Text>
-															<Text size="sm" fw="bold">
-																{h.finishedOn
-																	? DateTime.fromISO(
-																			h.finishedOn,
-																	  ).toLocaleString()
-																	: "N/A"}
-															</Text>
-														</Flex>
+												<Flex gap={"md"}>
+													<Flex gap={"xs"}>
+														<Text size="sm">Updated:</Text>
+														<Text size="sm" fw="bold">
+															{DateTime.fromJSDate(
+																h.lastUpdatedOn,
+															).toLocaleString()}
+														</Text>
 													</Flex>
-													<Flex gap={"md"}>
-														<Flex gap={"xs"}>
-															<Text size="sm">Updated:</Text>
-															<Text size="sm" fw="bold">
-																{DateTime.fromJSDate(
-																	h.lastUpdatedOn,
-																).toLocaleString()}
-															</Text>
-														</Flex>
-														<Button
-															variant="outline"
-															color="red"
-															leftIcon={<IconX size="1.2rem" />}
-															compact
-															onClick={() => {
-																deleteSeenItem.mutate({ seenId: h.id });
-															}}
-														>
-															Delete
-														</Button>
-													</Flex>
+													<Button
+														variant="outline"
+														color="red"
+														leftIcon={<IconX size="1.2rem" />}
+														compact
+														onClick={() => {
+															deleteSeenItem.mutate({ seenId: h.id });
+														}}
+													>
+														Delete
+													</Button>
 												</Flex>
 											</Flex>
-										))}
+										</Flex>
+									))}
 								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
@@ -1452,18 +1434,15 @@ const Page: NextPageWithLayout = () => {
 														name={`${s.seasonNumber}. ${s.name}`}
 														displayIndicator={
 															s.episodes.length > 0 &&
-															s.episodes.every(
-																(e) =>
-																	userMediaDetails.data &&
-																	userMediaDetails.data.history.some(
-																		(h) =>
-																			h.progress === 100 &&
-																			h.showInformation &&
-																			h.showInformation.episode ===
-																				e.episodeNumber &&
-																			h.showInformation.season ===
-																				s.seasonNumber,
-																	),
+															s.episodes.every((e) =>
+																userMediaDetails.data?.history.some(
+																	(h) =>
+																		h.progress === 100 &&
+																		h.showInformation &&
+																		h.showInformation.episode ===
+																			e.episodeNumber &&
+																		h.showInformation.season === s.seasonNumber,
+																),
 															)
 																? 1
 																: 0
@@ -1507,17 +1486,15 @@ const Page: NextPageWithLayout = () => {
 																	name={`${e.episodeNumber}. ${e.name}`}
 																	publishDate={e.publishDate}
 																	displayIndicator={
-																		(userMediaDetails.data &&
-																			userMediaDetails.data.history.filter(
-																				(h) =>
-																					h.progress === 100 &&
-																					h.showInformation &&
-																					h.showInformation.episode ===
-																						e.episodeNumber &&
-																					h.showInformation.season ===
-																						s.seasonNumber,
-																			).length) ||
-																		0
+																		userMediaDetails.data?.history.filter(
+																			(h) =>
+																				h.progress === 100 &&
+																				h.showInformation &&
+																				h.showInformation.episode ===
+																					e.episodeNumber &&
+																				h.showInformation.season ===
+																					s.seasonNumber,
+																		).length || 0
 																	}
 																>
 																	<Button
@@ -1565,11 +1542,9 @@ const Page: NextPageWithLayout = () => {
 												key={e.number}
 												publishDate={e.publishDate}
 												displayIndicator={
-													(userMediaDetails.data &&
-														userMediaDetails.data.history.filter(
-															(h) => h.podcastInformation?.episode === e.number,
-														).length) ||
-													0
+													userMediaDetails.data?.history.filter(
+														(h) => h.podcastInformation?.episode === e.number,
+													).length || 0
 												}
 											>
 												<Button
@@ -1599,15 +1574,14 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
 									<Stack>
-										{userMediaDetails.data &&
-											userMediaDetails.data.reviews.map((r) => (
-												<ReviewItemDisplay
-													review={r}
-													key={r.id}
-													metadataId={metadataId}
-													refetch={userMediaDetails.refetch}
-												/>
-											))}
+										{userMediaDetails.data?.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												metadataId={metadataId}
+												refetch={userMediaDetails.refetch}
+											/>
+										))}
 									</Stack>
 								</MediaScrollArea>
 							</Tabs.Panel>
