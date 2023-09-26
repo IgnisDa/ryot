@@ -3,6 +3,7 @@ use std::{
     iter::zip,
     str::FromStr,
     sync::{Arc, OnceLock},
+    time::SystemTime,
 };
 
 use anyhow::anyhow;
@@ -1295,30 +1296,42 @@ impl MiscellaneousService {
     }
 }
 
+async fn get_service_latest_version() -> Result<String> {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct GithubResponse {
+        tag_name: String,
+    }
+    let github_response = surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
+        .header(USER_AGENT, USER_AGENT_STR)
+        .await
+        .map_err(|e| anyhow!(e))?
+        .body_json::<GithubResponse>()
+        .await
+        .map_err(|e| anyhow!(e))?;
+    let tag = github_response
+        .tag_name
+        .strip_prefix('v')
+        .unwrap()
+        .to_owned();
+    Ok(tag)
+}
+
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
-        static LATEST_VERSION: OnceLock<String> = OnceLock::new();
-        let tag = if let Some(tag) = LATEST_VERSION.get() {
-            tag.clone()
-        } else {
-            #[derive(Serialize, Deserialize, Debug)]
-            struct GithubResponse {
-                tag_name: String,
+        static LATEST_VERSION: OnceLock<(String, SystemTime)> = OnceLock::new();
+        let tag = if let Some((tag, the_time)) = LATEST_VERSION.get() {
+            if the_time.elapsed()?.as_secs() > 60 {
+                let latest_version = get_service_latest_version().await?;
+                LATEST_VERSION
+                    .set((latest_version.clone(), SystemTime::now()))
+                    .ok();
+                latest_version
+            } else {
+                tag.clone()
             }
-            let github_response =
-                surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
-                    .header(USER_AGENT, USER_AGENT_STR)
-                    .await
-                    .map_err(|e| anyhow!(e))?
-                    .body_json::<GithubResponse>()
-                    .await
-                    .map_err(|e| anyhow!(e))?;
-            let tag = github_response
-                .tag_name
-                .strip_prefix('v')
-                .unwrap()
-                .to_owned();
-            LATEST_VERSION.set(tag.clone()).ok();
+        } else {
+            let tag = get_service_latest_version().await?;
+            LATEST_VERSION.set((tag.clone(), SystemTime::now())).ok();
             tag
         };
         let latest_version = Version::parse(&tag).unwrap();
