@@ -785,12 +785,15 @@ impl TmdbService {
             .unique()
             .map(|p| self.get_cover_image_url(p))
             .collect();
+        let description = details.description.or(details.biography);
         Ok(MetadataPerson {
             name: details.name,
             images,
             identifier: details.id.to_string(),
+            description: description
+                .map(|s| if s.as_str() == "" { None } else { Some(s) })
+                .flatten(),
             source: MetadataSource::Tmdb,
-            description: details.description.or(details.biography),
             place: details.origin_country.or(details.place_of_birth),
             website: details.homepage,
             birth_date: details.birthday,
