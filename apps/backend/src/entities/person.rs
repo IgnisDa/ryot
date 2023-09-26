@@ -20,7 +20,8 @@ pub struct Model {
     pub description: Option<String>,
     pub gender: Option<String>,
     pub birth_date: Option<Date>,
-    pub place_of_birth: Option<String>,
+    pub place: Option<String>,
+    pub website: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

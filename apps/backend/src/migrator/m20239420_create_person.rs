@@ -19,7 +19,9 @@ pub enum Person {
     Description,
     Gender,
     BirthDate,
-    PlaceOfBirth,
+    // The place of origin
+    Place,
+    Website,
     Images,
 }
 
@@ -69,11 +71,12 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Person::Images).json().not_null())
                     .col(ColumnDef::new(Person::Description).text())
                     .col(ColumnDef::new(Person::Gender).string())
                     .col(ColumnDef::new(Person::BirthDate).date())
-                    .col(ColumnDef::new(Person::PlaceOfBirth).string())
-                    .col(ColumnDef::new(Person::Images).json().not_null())
+                    .col(ColumnDef::new(Person::Place).string())
+                    .col(ColumnDef::new(Person::Website).string())
                     .to_owned(),
             )
             .await?;
