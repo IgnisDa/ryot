@@ -92,16 +92,18 @@ use crate::{
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
-        anilist::{AnilistAnimeService, AnilistMangaService, AnilistService},
+        anilist::{
+            AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService,
+        },
         audible::AudibleService,
         google_books::GoogleBooksService,
         igdb::IgdbService,
         itunes::ITunesService,
         listennotes::ListennotesService,
-        mal::{MalAnimeService, MalMangaService, MalService},
+        mal::{MalAnimeService, MalMangaService, MalService, NonMediaMalService},
         manga_updates::MangaUpdatesService,
         openlibrary::OpenlibraryService,
-        tmdb::{TmdbMovieService, TmdbService, TmdbShowService},
+        tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
         vndb::VndbService,
     },
     traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
@@ -3368,6 +3370,61 @@ impl MiscellaneousService {
         Ok(service)
     }
 
+    async fn get_non_media_provider(&self, source: MetadataSource) -> Result<Provider> {
+        let err = || Err(Error::new("This source is not supported".to_owned()));
+        let service: Provider = match source {
+            MetadataSource::Vndb => Box::new(
+                VndbService::new(&self.config.visual_novels, self.config.frontend.page_size).await,
+            ),
+            MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
+            MetadataSource::Itunes => Box::new(
+                ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
+                    .await,
+            ),
+            MetadataSource::GoogleBooks => Box::new(
+                GoogleBooksService::new(
+                    &self.config.books.google_books,
+                    self.config.frontend.page_size,
+                )
+                .await,
+            ),
+            MetadataSource::Audible => Box::new(
+                AudibleService::new(
+                    &self.config.audio_books.audible,
+                    self.config.frontend.page_size,
+                )
+                .await,
+            ),
+            MetadataSource::Listennotes => Box::new(
+                ListennotesService::new(&self.config.podcasts, self.config.frontend.page_size)
+                    .await,
+            ),
+            MetadataSource::Igdb => Box::new(
+                IgdbService::new(&self.config.video_games, self.config.frontend.page_size).await,
+            ),
+            MetadataSource::MangaUpdates => Box::new(
+                MangaUpdatesService::new(
+                    &self.config.manga.manga_updates,
+                    self.config.frontend.page_size,
+                )
+                .await,
+            ),
+            MetadataSource::Tmdb => Box::new(
+                NonMediaTmdbService::new(
+                    self.config.shows.tmdb.access_token.clone(),
+                    self.config.shows.tmdb.locale.clone(),
+                )
+                .await,
+            ),
+            MetadataSource::Anilist => Box::new(NonMediaAnilistService::new().await),
+            MetadataSource::Mal => {
+                Box::new(NonMediaMalService::new(self.config.anime.mal.client_id.clone()).await)
+            }
+            MetadataSource::Custom => return err(),
+        };
+        Ok(service)
+    }
+
     async fn details_from_provider(
         &self,
         lot: MetadataLot,
@@ -5928,7 +5985,7 @@ impl MiscellaneousService {
             // TODO: Deploy job to update person if older than 3 days
             db_person
         } else {
-            let provider = self.get_media_provider(metadata_lot, person.source).await?;
+            let provider = self.get_non_media_provider(person.source).await?;
             let person = provider.person_details(person).await?;
             let images = person.images.map(|images| {
                 MetadataImages(
