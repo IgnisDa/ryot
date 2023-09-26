@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -67,23 +68,28 @@ struct ItemCategory {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ItemBirthday {
+    as_string: NaiveDate,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct ItemAuthor {
     author_id: Option<i128>,
-    id: Option<i128>,
-    name: String,
+    name: Option<String>,
     image: Option<ItemImage>,
     #[serde(rename = "type")]
     lot: Option<String>,
+    birthday: Option<ItemBirthday>,
+    birthplace: Option<String>,
+    gender: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ItemPublisher {
     publisher_id: Option<i128>,
-    id: Option<i128>,
-    name: String,
-    image: Option<ItemImage>,
-    #[serde(rename = "type")]
-    lot: Option<String>,
+    name: Option<String>,
+    info: Option<String>,
+    site: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -121,7 +127,49 @@ struct SearchResponse {
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        todo!()
+        Ok(if identity.role.as_str() == "Publisher" {
+            let data: ItemPublisher = self
+                .client
+                .get(format!("publishers/{}", identity.identifier))
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            MetadataPerson {
+                identifier: data.publisher_id.unwrap().to_string(),
+                source: MetadataSource::MangaUpdates,
+                name: data.name.unwrap(),
+                description: data.info,
+                website: data.site,
+                gender: None,
+                place: None,
+                images: None,
+                death_date: None,
+                birth_date: None,
+            }
+        } else {
+            let data: ItemAuthor = self
+                .client
+                .get(format!("authors/{}", identity.identifier))
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            MetadataPerson {
+                identifier: data.author_id.unwrap().to_string(),
+                source: MetadataSource::MangaUpdates,
+                name: data.name.unwrap(),
+                gender: data.gender,
+                place: data.birthplace,
+                images: Some(Vec::from_iter(data.image.and_then(|i| i.url.original))),
+                birth_date: data.birthday.map(|b| b.as_string),
+                death_date: None,
+                description: None,
+                website: None,
+            }
+        })
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -133,7 +181,7 @@ impl MediaProvider for MangaUpdatesService {
             .body_json()
             .await
             .map_err(|e| anyhow!(e))?;
-        let mut creators = data
+        let mut people = data
             .authors
             .unwrap_or_default()
             .into_iter()
@@ -143,10 +191,10 @@ impl MediaProvider for MangaUpdatesService {
                 source: MetadataSource::MangaUpdates,
             })
             .collect_vec();
-        creators.extend(data.publishers.unwrap_or_default().into_iter().map(|a| {
+        people.extend(data.publishers.unwrap_or_default().into_iter().map(|a| {
             PartialMetadataPerson {
                 identifier: a.publisher_id.unwrap().to_string(),
-                role: a.lot.unwrap(),
+                role: "Publisher".to_owned(),
                 source: MetadataSource::MangaUpdates,
             }
         }));
@@ -163,21 +211,22 @@ impl MediaProvider for MangaUpdatesService {
                     .map(|r| r.related_series_id.unwrap()),
             )
         {
-            let data: ItemRecord = self
+            if let Ok(data) = self
                 .client
                 .get(format!("series/{}", series_id))
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json()
+                .body_json::<ItemRecord>()
                 .await
-                .map_err(|e| anyhow!(e))?;
-            suggestions.push(PartialMetadata {
-                title: data.title.unwrap(),
-                image: data.image.unwrap().url.original,
-                identifier: data.series_id.unwrap().to_string(),
-                source: MetadataSource::MangaUpdates,
-                lot: MetadataLot::Manga,
-            });
+            {
+                suggestions.push(PartialMetadata {
+                    title: data.title.unwrap(),
+                    image: data.image.unwrap().url.original,
+                    identifier: data.series_id.unwrap().to_string(),
+                    source: MetadataSource::MangaUpdates,
+                    lot: MetadataLot::Manga,
+                });
+            }
         }
         let data = MediaDetails {
             identifier: data.series_id.unwrap().to_string(),
@@ -185,7 +234,7 @@ impl MediaProvider for MangaUpdatesService {
             description: data.description,
             source: MetadataSource::MangaUpdates,
             lot: MetadataLot::Manga,
-            people: creators,
+            people,
             production_status: data.status.unwrap_or_else(|| "Released".to_string()),
             genres: data
                 .genres
