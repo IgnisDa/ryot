@@ -133,6 +133,68 @@ impl MediaProviderLanguages for TmdbService {
 }
 
 #[derive(Debug, Clone)]
+pub struct NonMediaTmdbService {
+    client: Client,
+    base: TmdbService,
+}
+
+impl NonMediaTmdbService {
+    pub async fn new(access_token: String, language: String) -> Self {
+        let client = get_client_config(URL, &access_token).await;
+        Self {
+            client,
+            base: TmdbService { language },
+        }
+    }
+}
+
+#[async_trait]
+impl MediaProvider for NonMediaTmdbService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        let typ = if identity.role == "Production" {
+            "company".to_owned()
+        } else {
+            "person".to_owned()
+        };
+        let details: TmdbNonMediaEntity = self
+            .client
+            .get(format!("{}/{}", typ, identity.identifier))
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut images = vec![];
+        self.base
+            .save_all_images(&self.client, &typ, &identity.identifier, &mut images)
+            .await?;
+        let images = images
+            .into_iter()
+            .unique()
+            .map(|p| self.base.get_cover_image_url(p))
+            .collect();
+        let description = details.description.or(details.biography);
+        Ok(MetadataPerson {
+            name: details.name,
+            images: Some(images),
+            identifier: details.id.to_string(),
+            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
+            source: MetadataSource::Tmdb,
+            place: details.origin_country.or(details.place_of_birth),
+            website: details.homepage,
+            birth_date: details.birthday,
+            death_date: details.deathday,
+            gender: details.gender.and_then(|g| match g {
+                1 => Some("Female".to_owned()),
+                2 => Some("Male".to_owned()),
+                3 => Some("Non-Binary".to_owned()),
+                _ => None,
+            }),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct TmdbMovieService {
     client: Client,
     base: TmdbService,
@@ -223,10 +285,6 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        self.base.person_details(identity, &self.client).await
-    }
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -452,10 +510,6 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        self.base.person_details(identity, &self.client).await
-    }
-
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -760,51 +814,6 @@ struct TmdbNonMediaEntity {
 }
 
 impl TmdbService {
-    async fn person_details(
-        &self,
-        identity: PartialMetadataPerson,
-        client: &Client,
-    ) -> Result<MetadataPerson> {
-        let typ = if identity.role == "Production" {
-            "company".to_owned()
-        } else {
-            "person".to_owned()
-        };
-        let details: TmdbNonMediaEntity = client
-            .get(format!("{}/{}", typ, identity.identifier))
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let mut images = vec![];
-        self.save_all_images(client, &typ, &identity.identifier, &mut images)
-            .await?;
-        let images = images
-            .into_iter()
-            .unique()
-            .map(|p| self.get_cover_image_url(p))
-            .collect();
-        let description = details.description.or(details.biography);
-        Ok(MetadataPerson {
-            name: details.name,
-            images: Some(images),
-            identifier: details.id.to_string(),
-            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
-            source: MetadataSource::Tmdb,
-            place: details.origin_country.or(details.place_of_birth),
-            website: details.homepage,
-            birth_date: details.birthday,
-            death_date: details.deathday,
-            gender: details.gender.and_then(|g| match g {
-                1 => Some("Female".to_owned()),
-                2 => Some("Male".to_owned()),
-                3 => Some("Non-Binary".to_owned()),
-                _ => None,
-            }),
-        })
-    }
-
     async fn save_all_images(
         &self,
         client: &Client,

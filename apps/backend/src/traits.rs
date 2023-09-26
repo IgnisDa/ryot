@@ -18,10 +18,14 @@ pub trait MediaProvider {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>>;
+    ) -> Result<SearchResults<MediaSearchItem>> {
+        bail!("This provider does not support searching media")
+    }
 
     /// Get details about a media item for the particular identifier.
-    async fn details(&self, identifier: &str) -> Result<MediaDetails>;
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+        bail!("This provider does not support getting media details")
+    }
 
     /// Get details about a person for the particular details.
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
