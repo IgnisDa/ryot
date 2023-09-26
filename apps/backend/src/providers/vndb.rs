@@ -21,9 +21,9 @@ use crate::{
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
-const FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
-const FIELDS: &str = const_str::concat!(
-    FIELDS_SMALL,
+const MEDIA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
+const MEDIA_FIELDS: &str = const_str::concat!(
+    MEDIA_FIELDS_SMALL,
     ",",
     "length_minutes,tags.name,developers.id,devstatus,description,rating"
 );
@@ -64,7 +64,8 @@ struct Developer {
 #[derive(Serialize, Deserialize, Debug)]
 struct ItemResponse {
     id: String,
-    title: String,
+    #[serde(alias = "name")]
+    title: Option<String>,
     rating: Option<Decimal>,
     released: Option<String>,
     description: Option<String>,
@@ -86,7 +87,31 @@ struct SearchResponse {
 #[async_trait]
 impl MediaProvider for VndbService {
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        todo!()
+        let mut rsp = self
+            .client
+            .post("producer")
+            .body_json(&serde_json::json!({
+                "filters": format!(r#"["id", "=", "{}"]"#, identity.identifier),
+                "count": true,
+                "fields": "id,name,description"
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let item = data.results.unwrap_or_default().pop().unwrap();
+        Ok(MetadataPerson {
+            identifier: item.id,
+            source: MetadataSource::Vndb,
+            name: item.title.unwrap(),
+            description: item.description,
+            gender: None,
+            images: None,
+            death_date: None,
+            birth_date: None,
+            place: None,
+            website: None,
+        })
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -96,7 +121,7 @@ impl MediaProvider for VndbService {
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
-                "fields": FIELDS
+                "fields": MEDIA_FIELDS
             }))
             .unwrap()
             .await
@@ -119,7 +144,7 @@ impl MediaProvider for VndbService {
             .post("vn")
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
-                "fields": FIELDS_SMALL,
+                "fields": MEDIA_FIELDS_SMALL,
                 "count": true,
                 "results": self.page_limit,
                 "page": page
@@ -202,7 +227,7 @@ impl VndbService {
                     _ => unreachable!(),
                 })
                 .unwrap_or_else(|| "Released".to_owned()),
-            title: item.title,
+            title: item.title.unwrap(),
             description: item.description,
             people: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
