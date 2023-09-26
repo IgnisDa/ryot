@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use http_types::mime;
+use itertools::Itertools;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
@@ -76,6 +77,16 @@ struct ItemAuthor {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ItemPublisher {
+    publisher_id: Option<i128>,
+    id: Option<i128>,
+    name: String,
+    image: Option<ItemImage>,
+    #[serde(rename = "type")]
+    lot: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct ItemRecord {
     series_id: Option<i128>,
     related_series_id: Option<i128>,
@@ -85,6 +96,7 @@ struct ItemRecord {
     status: Option<String>,
     url: Option<String>,
     authors: Option<Vec<ItemAuthor>>,
+    publishers: Option<Vec<ItemPublisher>>,
     genres: Option<Vec<ItemGenre>>,
     categories: Option<Vec<ItemCategory>>,
     bayesian_rating: Option<Decimal>,
@@ -121,7 +133,7 @@ impl MediaProvider for MangaUpdatesService {
             .body_json()
             .await
             .map_err(|e| anyhow!(e))?;
-        let creators = data
+        let mut creators = data
             .authors
             .unwrap_or_default()
             .into_iter()
@@ -130,7 +142,14 @@ impl MediaProvider for MangaUpdatesService {
                 role: a.lot.unwrap(),
                 source: MetadataSource::MangaUpdates,
             })
-            .collect();
+            .collect_vec();
+        creators.extend(data.publishers.unwrap_or_default().into_iter().map(|a| {
+            PartialMetadataPerson {
+                identifier: a.publisher_id.unwrap().to_string(),
+                role: a.lot.unwrap(),
+                source: MetadataSource::MangaUpdates,
+            }
+        }));
         let mut suggestions = vec![];
         for series_id in data
             .recommendations
