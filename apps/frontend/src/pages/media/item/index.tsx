@@ -762,9 +762,10 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 					) : undefined}
 					<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
+						<Text color="dimmed">{mediaDetails.data.productionStatus}</Text>
 						{mediaDetails.data.genres.length > 0 ? (
 							<Text color="dimmed">
-								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
+								• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.bookSpecifics?.pages ? (
