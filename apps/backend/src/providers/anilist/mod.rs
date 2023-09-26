@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use graphql_client::{GraphQLQuery, Response};
 use http_types::mime;
 use itertools::Itertools;
@@ -49,6 +50,15 @@ struct DetailsQuery;
     variables_derives = "Debug"
 )]
 struct StudioQuery;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/staff_details.graphql",
+    response_derives = "Debug",
+    variables_derives = "Debug"
+)]
+struct StaffQuery;
 
 #[derive(Debug, Clone)]
 pub struct AnilistService {
@@ -200,7 +210,59 @@ async fn person_details(
             birth_date: None,
         }
     } else {
-        todo!()
+        let variables = staff_query::Variables {
+            id: identity.identifier.parse::<i64>().unwrap(),
+        };
+        let body = StaffQuery::build_query(variables);
+        let details = client
+            .post("")
+            .body_json(&body)
+            .unwrap()
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Response<staff_query::ResponseData>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .data
+            .unwrap()
+            .staff
+            .unwrap();
+        let images = Vec::from_iter(details.image.and_then(|i| i.large));
+        let birth_date = details.date_of_birth.and_then(|d| {
+            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+                NaiveDate::from_ymd_opt(
+                    y.try_into().unwrap(),
+                    m.try_into().unwrap(),
+                    d.try_into().unwrap(),
+                )
+            } else {
+                None
+            }
+        });
+        let death_date = details.date_of_death.and_then(|d| {
+            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+                NaiveDate::from_ymd_opt(
+                    y.try_into().unwrap(),
+                    m.try_into().unwrap(),
+                    d.try_into().unwrap(),
+                )
+            } else {
+                None
+            }
+        });
+        MetadataPerson {
+            identifier: details.id.to_string(),
+            source: MetadataSource::Anilist,
+            name: details.name.unwrap().full.unwrap(),
+            description: details.description,
+            gender: details.gender,
+            place: details.home_town,
+            images: Some(images),
+            death_date,
+            birth_date,
+            website: None,
+        }
     };
     Ok(data)
 }
@@ -224,7 +286,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         .unwrap()
         .media
         .unwrap();
-    let mut images = Vec::from_iter(details.cover_image.map(|i| i.extra_large.unwrap()));
+    let mut images = Vec::from_iter(details.cover_image.and_then(|i| i.extra_large));
     if let Some(i) = details.banner_image {
         images.push(i);
     }
