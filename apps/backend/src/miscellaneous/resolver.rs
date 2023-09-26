@@ -1263,6 +1263,8 @@ impl MiscellaneousMutation {
         service.deploy_recalculate_calendar_events_job().await
     }
 }
+static COMMITS_IN_PROGRESS: OnceLock<HashSet<(MetadataLot, MetadataSource, String)>> =
+    OnceLock::new();
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
@@ -1282,6 +1284,7 @@ impl MiscellaneousService {
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
+        COMMITS_IN_PROGRESS.set(HashSet::new()).unwrap();
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
 
@@ -3450,6 +3453,14 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: &str,
     ) -> Result<IdObject> {
+        let set = COMMITS_IN_PROGRESS.get().unwrap();
+        if set.contains(&(lot, source, identifier.to_owned())) {
+            return Err(Error::new("This media is already being committed."));
+        } else {
+            let mut new_set = set.clone();
+            new_set.insert((lot, source, identifier.to_owned()));
+            COMMITS_IN_PROGRESS.set(new_set).unwrap();
+        }
         if let Some(m) = self
             .media_exists_in_database(lot, source, identifier)
             .await?
