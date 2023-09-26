@@ -35,7 +35,7 @@ struct SearchQuery;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/details.graphql",
+    query_path = "src/providers/anilist/media_details.graphql",
     response_derives = "Debug",
     variables_derives = "Debug"
 )]
