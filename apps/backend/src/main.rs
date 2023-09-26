@@ -26,8 +26,6 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
-use chrono::DateTime;
-use futures::stream::BoxStream;
 use itertools::Itertools;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -338,40 +336,4 @@ fn init_tracing() -> Result<WorkerGuard> {
     )
     .expect("Unable to set global tracing subscriber");
     Ok(guard)
-}
-
-trait ToStreamWithTimezone<J> {
-    fn to_stream_with_timezone(
-        self,
-        tz: Timezone,
-    ) -> BoxStream<'static, Result<Option<JobRequest<J>>, JobError>>;
-}
-
-impl<J: From<DateTime<TZ>> + Job + Send + 'static, T: Timer + Sync + Send + 'static, TZ>
-    ToStreamWithTimezone for CronStream<J, T>
-{
-    fn to_stream_with_timezone(
-        self,
-        tz: TZ,
-    ) -> BoxStream<'static, Result<Option<JobRequest<J>>, JobError>> {
-        let stream = async_stream::stream! {
-            let mut schedule = self.0.upcoming_owned(tz);
-            loop {
-                let next = schedule.next();
-                match next {
-                    Some(next) => {
-                        let to_sleep = next - DateTime::<TZ>::now();
-                        let to_sleep = to_sleep.to_std().map_err(|e| JobError::Failed(e.into()))?;
-                        self.2.sleep(to_sleep).await;
-                        yield Ok(Some(JobRequest::new(J::from(DateTime::<TZ>::now()))));
-                    },
-                    None => {
-                        yield Ok(None);
-                    }
-                }
-
-            }
-        };
-        stream.boxed()
-    }
 }
