@@ -8,12 +8,11 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::VisualNovelConfig,
-    entities::person::Model as Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
-            MetadataImageLot, PartialMetadataPerson, VisualNovelSpecifics,
+            MetadataImageLot, MetadataPerson, PartialMetadataPerson, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -86,7 +85,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         todo!()
     }
 

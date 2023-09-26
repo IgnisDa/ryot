@@ -13,13 +13,13 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
-    entities::{metadata_group, person::Model as Person},
+    entities::metadata_group,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, PartialMetadata,
-            PartialMetadataPerson, VideoGameSpecifics,
+            MetadataImageLot, MetadataImages, MetadataPerson, MetadataVideo, MetadataVideoSource,
+            PartialMetadata, PartialMetadataPerson, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -133,7 +133,7 @@ impl IgdbService {
 
 #[async_trait]
 impl MediaProvider for IgdbService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         todo!()
     }
 

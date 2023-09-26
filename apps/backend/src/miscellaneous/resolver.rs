@@ -5926,7 +5926,27 @@ impl MiscellaneousService {
         } else {
             let provider = self.get_provider(metadata_lot, person.source).await?;
             let person = provider.person_details(person).await?;
-            let person: person::ActiveModel = person.into();
+            let person = person::ActiveModel {
+                identifier: ActiveValue::Set(person.identifier),
+                source: ActiveValue::Set(person.source),
+                name: ActiveValue::Set(person.name),
+                description: ActiveValue::Set(person.description),
+                gender: ActiveValue::Set(person.gender),
+                birth_date: ActiveValue::Set(person.birth_date),
+                place: ActiveValue::Set(person.place),
+                website: ActiveValue::Set(person.website),
+                images: ActiveValue::Set(MetadataImages(
+                    person
+                        .images
+                        .into_iter()
+                        .map(|i| MetadataImage {
+                            url: StoredUrl::Url(i),
+                            lot: MetadataImageLot::Poster,
+                        })
+                        .collect(),
+                )),
+                ..Default::default()
+            };
             person.insert(&self.db).await.unwrap()
         };
         let intermediate = metadata_to_person::ActiveModel {

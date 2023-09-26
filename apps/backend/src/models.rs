@@ -706,6 +706,19 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    pub struct MetadataPerson {
+        pub identifier: String,
+        pub source: MetadataSource,
+        pub name: String,
+        pub images: Vec<String>,
+        pub description: Option<String>,
+        pub gender: Option<String>,
+        pub birth_date: Option<NaiveDate>,
+        pub place: Option<String>,
+        pub website: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct MetadataImageForMediaDetails {
         pub image: String,
         pub lot: MetadataImageLot,

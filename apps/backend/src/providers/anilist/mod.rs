@@ -8,13 +8,12 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::{AnimeAnilistConfig, MangaAnilistConfig},
-    entities::person::Model as Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
-            PartialMetadata, PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
+            MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -74,7 +73,7 @@ impl AnilistAnimeService {
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         todo!()
     }
 
@@ -121,7 +120,7 @@ impl AnilistMangaService {
 
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         todo!()
     }
 

@@ -13,12 +13,12 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
-    entities::person::Model as Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadata,
+            PartialMetadataPerson,
         },
         SearchDetails, SearchResults,
     },
@@ -85,7 +85,7 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         todo!()
     }
 

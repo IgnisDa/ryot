@@ -7,12 +7,12 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::MangaMangaUpdatesConfig,
-    entities::person::Model as Person,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadata,
+            PartialMetadataPerson,
         },
         SearchDetails, SearchResults,
     },
@@ -108,7 +108,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         todo!()
     }
 

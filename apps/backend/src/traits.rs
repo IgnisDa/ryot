@@ -3,9 +3,8 @@ use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
-    entities::person::Model as Person,
     models::{
-        media::{MediaDetails, MediaSearchItem, PartialMetadataPerson},
+        media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson},
         SearchResults,
     },
     utils::AuthContext,
@@ -25,7 +24,7 @@ pub trait MediaProvider {
     async fn details(&self, identifier: &str) -> Result<MediaDetails>;
 
     /// Get details about a person for the particular details.
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<Person> {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
     }
 }
