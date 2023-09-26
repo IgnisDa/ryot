@@ -2742,40 +2742,20 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
-    async fn associate_real_creator_with_metadata(
+    async fn deploy_associate_person_with_metadata_job(
         &self,
         metadata_id: i32,
-        creator: RealMetadataCreator,
+        person: RealMetadataCreator,
         index: usize,
     ) -> Result<()> {
-        // let db_creator = if let Some(db_creator) = Creator::find()
-        //     .filter(creator::Column::Name.eq(&creator.name))
-        //     .one(&self.db)
-        //     .await
-        //     .unwrap()
-        // {
-        //     if db_creator.image.is_none() {
-        //         let mut new: creator::ActiveModel = db_creator.clone().into();
-        //         new.image = ActiveValue::Set(creator.image);
-        //         new.update(&self.db).await?;
-        //     }
-        //     db_creator
-        // } else {
-        //     let c = creator::ActiveModel {
-        //         name: ActiveValue::Set(creator.name),
-        //         image: ActiveValue::Set(creator.image),
-        //         extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
-        //         ..Default::default()
-        //     };
-        //     c.insert(&self.db).await.unwrap()
-        // };
-        // let intermediate = metadata_to_creator::ActiveModel {
-        //     metadata_id: ActiveValue::Set(metadata_id),
-        //     creator_id: ActiveValue::Set(db_creator.id),
-        //     role: ActiveValue::Set(creator.role),
-        //     index: ActiveValue::Set(index.try_into().unwrap()),
-        // };
-        // intermediate.insert(&self.db).await.ok();
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::AssociatePersonWithMetadata(
+                metadata_id,
+                person,
+                index,
+            ))
+            .await?;
         Ok(())
     }
 
@@ -2956,8 +2936,8 @@ impl MiscellaneousService {
             .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        for (idx, creator) in real_creators.into_iter().enumerate() {
-            self.associate_real_creator_with_metadata(metadata_id, creator, idx)
+        for (index, creator) in real_creators.into_iter().enumerate() {
+            self.deploy_associate_person_with_metadata_job(metadata_id, creator, index)
                 .await
                 .ok();
         }
@@ -5892,6 +5872,44 @@ impl MiscellaneousService {
             }
         }
         tracing::debug!("Finished updating calendar events");
+        Ok(())
+    }
+
+    pub async fn associate_person_with_metadata(
+        &self,
+        metadata_id: i32,
+        person: RealMetadataCreator,
+        index: usize,
+    ) -> Result<()> {
+        dbg!(person);
+        // let db_creator = if let Some(db_creator) = Creator::find()
+        //     .filter(creator::Column::Name.eq(&creator.name))
+        //     .one(&self.db)
+        //     .await
+        //     .unwrap()
+        // {
+        //     if db_creator.image.is_none() {
+        //         let mut new: creator::ActiveModel = db_creator.clone().into();
+        //         new.image = ActiveValue::Set(creator.image);
+        //         new.update(&self.db).await?;
+        //     }
+        //     db_creator
+        // } else {
+        //     let c = creator::ActiveModel {
+        //         name: ActiveValue::Set(creator.name),
+        //         image: ActiveValue::Set(creator.image),
+        //         extra_information: ActiveValue::Set(CreatorExtraInformation { active: true }),
+        //         ..Default::default()
+        //     };
+        //     c.insert(&self.db).await.unwrap()
+        // };
+        // let intermediate = metadata_to_creator::ActiveModel {
+        //     metadata_id: ActiveValue::Set(metadata_id),
+        //     creator_id: ActiveValue::Set(db_creator.id),
+        //     role: ActiveValue::Set(creator.role),
+        //     index: ActiveValue::Set(index.try_into().unwrap()),
+        // };
+        // intermediate.insert(&self.db).await.ok();
         Ok(())
     }
 }

@@ -10,7 +10,7 @@ use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
-    models::fitness::Exercise,
+    models::{fitness::Exercise, media::RealMetadataCreator},
 };
 
 // Cron Jobs
@@ -95,6 +95,7 @@ pub enum ApplicationJob {
     UpdateExerciseJob(Exercise),
     AfterMediaSeen(seen::Model),
     RecalculateCalendarEvents,
+    AssociatePersonWithMetadata(i32, RealMetadataCreator, usize),
 }
 
 impl Job for ApplicationJob {
@@ -150,6 +151,12 @@ pub async fn perform_application_job(
         }
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.unwrap();
+        }
+        ApplicationJob::AssociatePersonWithMetadata(metadata_id, person, index) => {
+            misc_service
+                .associate_person_with_metadata(metadata_id, person, index)
+                .await
+                .unwrap();
         }
     };
     let end = Instant::now();
