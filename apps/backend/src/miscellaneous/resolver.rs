@@ -3124,11 +3124,11 @@ impl MiscellaneousService {
         preferences.features_enabled.media.book =
             self.config.books.is_enabled() && preferences.features_enabled.media.book;
         preferences.features_enabled.media.show =
-            self.config.shows.is_enabled() && preferences.features_enabled.media.show;
+            self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
         preferences.features_enabled.media.manga =
             self.config.manga.is_enabled() && preferences.features_enabled.media.manga;
         preferences.features_enabled.media.movie =
-            self.config.movies.is_enabled() && preferences.features_enabled.media.movie;
+            self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
         preferences.features_enabled.media.podcast =
             self.config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
         preferences.features_enabled.media.video_game =
@@ -3318,12 +3318,18 @@ impl MiscellaneousService {
             ),
             MetadataSource::Tmdb => match lot {
                 MetadataLot::Show => Box::new(
-                    TmdbShowService::new(&self.config.shows.tmdb, self.config.frontend.page_size)
-                        .await,
+                    TmdbShowService::new(
+                        &self.config.movies_and_shows.tmdb,
+                        self.config.frontend.page_size,
+                    )
+                    .await,
                 ),
                 MetadataLot::Movie => Box::new(
-                    TmdbMovieService::new(&self.config.movies.tmdb, self.config.frontend.page_size)
-                        .await,
+                    TmdbMovieService::new(
+                        &self.config.movies_and_shows.tmdb,
+                        self.config.frontend.page_size,
+                    )
+                    .await,
                 ),
                 _ => return err(),
             },
@@ -3411,14 +3417,14 @@ impl MiscellaneousService {
             ),
             MetadataSource::Tmdb => Box::new(
                 NonMediaTmdbService::new(
-                    self.config.shows.tmdb.access_token.clone(),
-                    self.config.shows.tmdb.locale.clone(),
+                    self.config.movies_and_shows.tmdb.access_token.clone(),
+                    self.config.movies_and_shows.tmdb.locale.clone(),
                 )
                 .await,
             ),
             MetadataSource::Anilist => Box::new(NonMediaAnilistService::new().await),
             MetadataSource::Mal => {
-                Box::new(NonMediaMalService::new(self.config.anime.mal.client_id.clone()).await)
+                Box::new(NonMediaMalService::new(self.config.anime.mal.client_id.to_owned()).await)
             }
             MetadataSource::Custom => return err(),
         };

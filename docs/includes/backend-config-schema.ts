@@ -140,16 +140,16 @@ export interface MediaConfig {
 
 }
 
-export interface MoviesTmdbConfig {
+export interface TmdbConfig {
 	/** The access token for the TMDB API. */
 	access_token: string;
 	/** The locale to use for making requests to TMDB API. */
 	locale: string;
 }
 
-export interface MovieConfig {
-	/** Settings related to TMDB (movies). */
-	tmdb: MoviesTmdbConfig;
+export interface MovieAndShowConfig {
+	/** Settings related to TMDB. */
+	tmdb: TmdbConfig;
 }
 
 export interface ITunesConfig {
@@ -230,18 +230,6 @@ export interface ServerConfig {
 	 * @default false
 	 */
 	videos_disabled: boolean;
-}
-
-export interface ShowsTmdbConfig {
-	/** The access token for the TMDB API. */
-	access_token: string;
-	/** The locale to use for making requests to TMDB API. */
-	locale: string;
-}
-
-export interface ShowConfig {
-	/** Settings related to TMDB (shows). */
-	tmdb: ShowsTmdbConfig;
 }
 
 export interface UsersConfig {
@@ -334,16 +322,14 @@ export interface AppConfig {
 	manga: MangaConfig;
 	/** Settings related to media. */
 	media: MediaConfig;
-	/** Settings related to movies. */
-	movies: MovieConfig;
+	/** Settings related to movies and shows. */
+	movies_and_shows: MovieAndShowConfig;
 	/** Settings related to podcasts. */
 	podcasts: PodcastConfig;
 	/** Settings related to scheduler. */
 	scheduler: SchedulerConfig;
 	/** Settings related to server. */
 	server: ServerConfig;
-	/** Settings related to shows. */
-	shows: ShowConfig;
 	/** Settings related to users. */
 	users: UsersConfig;
 	/** Settings related to video games. */

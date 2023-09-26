@@ -128,7 +128,11 @@ pub struct ExerciseConfig {}
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {}
 
-fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
+fn validate_tmdb_locale(
+    value: &str,
+    _partial: &PartialTmdbConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
     if !TmdbService::supported_languages().contains(&value.to_owned()) {
         return Err(ValidateError::new(format!(
             "Tmdb does not support this locale: {:?}",
@@ -138,34 +142,26 @@ fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
     Ok(())
 }
 
-fn validate_movies_tmdb_locale(
-    value: &str,
-    _partial: &PartialMoviesTmdbConfig,
-    _context: &(),
-) -> Result<(), ValidateError> {
-    validate_tmdb_locale(value)
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
-pub struct MoviesTmdbConfig {
+#[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
+pub struct TmdbConfig {
     /// The access token for the TMDB API.
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
     /// The locale to use for making requests to TMDB API.
-    #[setting(validate = validate_movies_tmdb_locale, default = TmdbService::default_language())]
+    #[setting(validate = validate_tmdb_locale, default = TmdbService::default_language())]
     pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
-pub struct MovieConfig {
-    /// Settings related to TMDB (movies).
+pub struct MovieAndShowConfig {
+    /// Settings related to TMDB.
     #[setting(nested)]
-    pub tmdb: MoviesTmdbConfig,
+    pub tmdb: TmdbConfig,
 }
 
-impl IsFeatureEnabled for MovieConfig {}
+impl IsFeatureEnabled for MovieAndShowConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
@@ -240,35 +236,6 @@ pub struct PodcastConfig {
 }
 
 impl IsFeatureEnabled for PodcastConfig {}
-
-fn validate_shows_tmdb_locale(
-    value: &str,
-    _partial: &PartialShowsTmdbConfig,
-    _context: &(),
-) -> Result<(), ValidateError> {
-    validate_tmdb_locale(value)
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
-pub struct ShowsTmdbConfig {
-    /// The access token for the TMDB API.
-    #[setting(default = default_tmdb_access_token)]
-    pub access_token: String,
-    /// The locale to use for making requests to TMDB API.
-    #[setting(validate = validate_shows_tmdb_locale, default = TmdbService::default_language())]
-    pub locale: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case")]
-pub struct ShowConfig {
-    /// Settings related to TMDB (shows).
-    #[setting(nested)]
-    pub tmdb: ShowsTmdbConfig,
-}
-
-impl IsFeatureEnabled for ShowConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
@@ -497,9 +464,9 @@ pub struct AppConfig {
     /// Settings related to media.
     #[setting(nested)]
     pub media: MediaConfig,
-    /// Settings related to movies.
+    /// Settings related to movies and shows.
     #[setting(nested)]
-    pub movies: MovieConfig,
+    pub movies_and_shows: MovieAndShowConfig,
     /// Settings related to podcasts.
     #[setting(nested)]
     pub podcasts: PodcastConfig,
@@ -509,9 +476,6 @@ pub struct AppConfig {
     /// Settings related to server.
     #[setting(nested)]
     pub server: ServerConfig,
-    /// Settings related to shows.
-    #[setting(nested)]
-    pub shows: ShowConfig,
     /// Settings related to users.
     #[setting(nested)]
     pub users: UsersConfig,
@@ -537,9 +501,8 @@ impl AppConfig {
         cl.file_storage.s3_url = gt();
         cl.integration.hasher_salt = gt();
         cl.manga.mal.client_id = gt();
-        cl.movies.tmdb.access_token = gt();
+        cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
-        cl.shows.tmdb.access_token = gt();
         cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
