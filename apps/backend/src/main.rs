@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
     };
     tracing::info!("Using database backend: {selected_database:?}");
 
-    Migrator::up(&db, None).await.unwrap();
+    Migrator::up(&db, None).await?;
 
     match env::args().nth(1) {
         None => {}
