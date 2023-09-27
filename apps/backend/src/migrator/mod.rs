@@ -31,6 +31,8 @@ mod m20230919_add_num_times_updated_field_to_seen;
 mod m20230919_change_foreign_keys;
 mod m20230920_add_columns_to_metadata_table;
 mod m20230927_add_person_id_field_to_review;
+mod m20230927_change_faulty_index_person_table;
+mod m20230927_remove_useless_tables;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -78,6 +80,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230919_change_foreign_keys::Migration),
             Box::new(m20230920_add_columns_to_metadata_table::Migration),
             Box::new(m20230927_add_person_id_field_to_review::Migration),
+            Box::new(m20230927_change_faulty_index_person_table::Migration),
+            Box::new(m20230927_remove_useless_tables::Migration),
         ]
     }
 }

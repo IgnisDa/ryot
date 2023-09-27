@@ -6,6 +6,7 @@ use super::Metadata;
 pub struct Migration;
 
 pub static METADATA_TO_PERSON_PRIMARY_KEY: &str = "pk-media-item_person";
+pub static PERSON_IDENTIFIER_UNIQUE_KEY: &str = "person-identifier-source__unique_index";
 
 #[derive(Iden)]
 pub enum Person {
@@ -81,9 +82,10 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name("person-identifier-source__unique_index")
+                    .name(PERSON_IDENTIFIER_UNIQUE_KEY)
                     .table(Person::Table)
                     .col(Person::Identifier)
+                    .col(Person::Source)
                     .to_owned(),
             )
             .await?;

@@ -16,6 +16,13 @@ impl MigrationTrait for Migration {
                     Table::alter()
                         .table(Review::Table)
                         .add_column(ColumnDef::new(Review::PersonId).integer().null())
+                        .to_owned(),
+                )
+                .await?;
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Review::Table)
                         .add_foreign_key(
                             TableForeignKey::new()
                                 .name(PERSON_TO_REVIEW_FOREIGN_KEY)
