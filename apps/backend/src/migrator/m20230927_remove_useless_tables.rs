@@ -33,7 +33,7 @@ impl MigrationTrait for Migration {
             let resp = db.query_one(stmt).await?.unwrap();
             let count = resp.try_get_by_index::<i64>(0)?;
             if count > 0 {
-                let var_name = "CREATOR_MIGRATION_CHECK";
+                let var_name = "MIGRATIONS_NO_CREATOR_CHECK";
                 let message = format!("
 This migration will delete all old creators (changes introduced in `v2.19.0`) and associated reviews.
 You have reviews for {count} creator(s).
