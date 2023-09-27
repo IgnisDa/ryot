@@ -3,7 +3,6 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
 use crate::{
     entities::{metadata, seen},
@@ -28,7 +27,6 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-#[instrument(skip(_information, ctx))]
 pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Invalidating invalid media import jobs");
     ctx.data::<Arc<ImporterService>>()
@@ -53,7 +51,6 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     Ok(())
 }
 
-#[instrument(skip(_information, ctx))]
 pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     tracing::trace!("Cleaning up user and metadata association");
     ctx.data::<Arc<MiscellaneousService>>()
@@ -70,7 +67,6 @@ pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<()
     Ok(())
 }
 
-#[instrument(skip(_information, ctx))]
 pub async fn yank_integrations_data(
     _information: ScheduledJob,
     ctx: JobContext,
@@ -102,7 +98,6 @@ impl Job for ApplicationJob {
     const NAME: &'static str = "apalis::ApplicationJob";
 }
 
-#[instrument(skip(ctx))]
 pub async fn perform_application_job(
     information: ApplicationJob,
     ctx: JobContext,
