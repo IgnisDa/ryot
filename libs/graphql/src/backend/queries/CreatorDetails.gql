@@ -3,7 +3,7 @@ query CreatorDetails($creatorId: Int!) {
     details {
       id
       name
-      image
+      displayImages
     }
     contents {
       name

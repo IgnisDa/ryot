@@ -20,6 +20,8 @@ pub struct Model {
     pub name: String,
     #[graphql(skip)]
     pub images: Option<MetadataImages>,
+    #[sea_orm(ignore)]
+    pub display_images: Vec<String>,
     pub description: Option<String>,
     pub gender: Option<String>,
     pub birth_date: Option<NaiveDate>,

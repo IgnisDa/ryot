@@ -5518,7 +5518,8 @@ impl MiscellaneousService {
     }
 
     async fn creator_details(&self, creator_id: i32) -> Result<CreatorDetails> {
-        let details = Person::find_by_id(creator_id).one(&self.db).await?.unwrap();
+        let mut details = Person::find_by_id(creator_id).one(&self.db).await?.unwrap();
+        details.display_images = details.images.as_urls(&self.file_storage_service).await;
         let associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(creator_id))
             .find_also_related(Metadata)
