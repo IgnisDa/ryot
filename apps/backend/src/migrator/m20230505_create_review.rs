@@ -5,10 +5,13 @@ use crate::{
     models::media::Visibility,
 };
 
+use super::m20230925_create_person::Person;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static CREATOR_TO_REVIEW_FOREIGN_KEY: &str = "review_to_creator_foreign_key";
+pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 
 /// A review can be for either a creator or a media item.
 #[derive(Iden)]
@@ -24,6 +27,7 @@ pub enum Review {
     UserId,
     MetadataId,
     CreatorId,
+    PersonId,
     Spoiler,
     Comments,
 }
@@ -88,6 +92,15 @@ impl MigrationTrait for Migration {
                             .name(CREATOR_TO_REVIEW_FOREIGN_KEY)
                             .from(Review::Table, Review::CreatorId)
                             .to(Creator::Table, Creator::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(Review::PersonId).integer().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(PERSON_TO_REVIEW_FOREIGN_KEY)
+                            .from(Review::Table, Review::PersonId)
+                            .to(Person::Table, Person::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
