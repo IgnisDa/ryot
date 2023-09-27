@@ -5,6 +5,7 @@ use std::{
 };
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
+use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
@@ -24,6 +25,7 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataLot, MetadataSource, SeenState,
     },
+    traits::DatabaseImagesAsSingleUrl,
     utils::get_stored_asset,
 };
 
@@ -918,13 +920,18 @@ pub mod media {
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
-    impl MetadataImages {
-        pub async fn get_first(
+    #[async_trait]
+    impl DatabaseImagesAsSingleUrl for Option<MetadataImages> {
+        async fn first_as_url(
             &self,
             file_storage_service: &Arc<FileStorageService>,
         ) -> Option<String> {
-            if let Some(i) = self.0.first().cloned() {
-                Some(get_stored_asset(i.url, file_storage_service).await)
+            if let Some(images) = self {
+                if let Some(i) = images.0.first().cloned() {
+                    Some(get_stored_asset(i.url, file_storage_service).await)
+                } else {
+                    None
+                }
             } else {
                 None
             }

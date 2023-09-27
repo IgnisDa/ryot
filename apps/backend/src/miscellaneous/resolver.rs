@@ -104,7 +104,10 @@ use crate::{
         tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
         vndb::VndbService,
     },
-    traits::{AuthProvider, IsFeatureEnabled, MediaProvider, MediaProviderLanguages},
+    traits::{
+        AuthProvider, DatabaseImagesAsSingleUrl, IsFeatureEnabled, MediaProvider,
+        MediaProviderLanguages,
+    },
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
         UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
@@ -1434,11 +1437,7 @@ impl MiscellaneousService {
             .await?;
         let mut creators: HashMap<String, Vec<_>> = HashMap::new();
         for cr in crts {
-            let image = if let Some(images) = cr.images {
-                images.get_first(&self.file_storage_service).await
-            } else {
-                None
-            };
+            let image = cr.images.first_as_url(&self.file_storage_service).await;
             let creator = MetadataCreator {
                 id: Some(cr.id),
                 name: cr.name,
@@ -1867,9 +1866,7 @@ impl MiscellaneousService {
                 }
             }
             if image.is_none() {
-                if let Some(images) = evt.m_images {
-                    image = images.get_first(&self.file_storage_service).await
-                }
+                image = evt.m_images.first_as_url(&self.file_storage_service).await
             }
             calc.metadata_image = image;
             events.push(calc);
@@ -5504,11 +5501,7 @@ impl MiscellaneousService {
         } = creators_paginator.num_items_and_pages().await?;
         let mut creators = vec![];
         for cr in creators_paginator.fetch_page(page - 1).await? {
-            let image = if let Some(images) = cr.images {
-                images.get_first(&self.file_storage_service).await
-            } else {
-                None
-            };
+            let image = cr.images.first_as_url(&self.file_storage_service).await;
             creators.push(MediaCreatorSearchItem {
                 id: cr.id,
                 name: cr.name,
@@ -5540,11 +5533,7 @@ impl MiscellaneousService {
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
-            let image = if let Some(images) = m.images {
-                images.get_first(&self.file_storage_service).await
-            } else {
-                None
-            };
+            let image = m.images.first_as_url(&self.file_storage_service).await;
             let metadata = partial_metadata::Model {
                 identifier: m.identifier,
                 title: m.title,

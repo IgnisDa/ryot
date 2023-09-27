@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::{bail, Result};
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
+    file_storage::FileStorageService,
     models::{
         media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson},
         SearchResults,
@@ -49,6 +52,11 @@ pub trait IsFeatureEnabled {
     fn is_enabled(&self) -> bool {
         true
     }
+}
+
+#[async_trait]
+pub trait DatabaseImagesAsSingleUrl {
+    async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
 }
 
 #[async_trait]
