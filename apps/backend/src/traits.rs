@@ -55,12 +55,12 @@ pub trait IsFeatureEnabled {
 }
 
 #[async_trait]
-pub trait DatabaseImagesAsSingleUrl {
+pub trait DatabaseAssestsAsSingleUrl {
     async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
 }
 
 #[async_trait]
-pub trait DatabaseImagesAsUrls {
+pub trait DatabaseAssetsAsUrls {
     async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String>;
 }
 

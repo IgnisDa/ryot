@@ -25,7 +25,7 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataLot, MetadataSource, SeenState,
     },
-    traits::DatabaseImagesAsSingleUrl,
+    traits::DatabaseAssestsAsSingleUrl,
     utils::get_stored_asset,
 };
 
@@ -86,7 +86,7 @@ pub struct IdObject {
 }
 
 pub mod media {
-    use crate::traits::DatabaseImagesAsUrls;
+    use crate::traits::DatabaseAssetsAsUrls;
 
     use super::*;
 
@@ -923,7 +923,7 @@ pub mod media {
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
     #[async_trait]
-    impl DatabaseImagesAsSingleUrl for Option<MetadataImages> {
+    impl DatabaseAssestsAsSingleUrl for Option<MetadataImages> {
         async fn first_as_url(
             &self,
             file_storage_service: &Arc<FileStorageService>,
@@ -941,7 +941,7 @@ pub mod media {
     }
 
     #[async_trait]
-    impl DatabaseImagesAsUrls for Option<MetadataImages> {
+    impl DatabaseAssetsAsUrls for Option<MetadataImages> {
         async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
             let mut images = vec![];
             if let Some(imgs) = self {
