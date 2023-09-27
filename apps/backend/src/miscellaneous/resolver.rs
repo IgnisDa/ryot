@@ -5985,8 +5985,8 @@ impl MiscellaneousService {
             db_person
         } else {
             let provider = self.get_non_media_provider(person.source).await?;
-            let person = provider.person_details(person).await?;
-            let images = person.images.map(|images| {
+            let provider_person = provider.person_details(person).await?;
+            let images = provider_person.images.map(|images| {
                 MetadataImages(
                     images
                         .into_iter()
@@ -5998,14 +5998,14 @@ impl MiscellaneousService {
                 )
             });
             let person = person::ActiveModel {
-                identifier: ActiveValue::Set(person.identifier),
-                source: ActiveValue::Set(person.source),
-                name: ActiveValue::Set(person.name),
-                description: ActiveValue::Set(person.description),
-                gender: ActiveValue::Set(person.gender),
-                birth_date: ActiveValue::Set(person.birth_date),
-                place: ActiveValue::Set(person.place),
-                website: ActiveValue::Set(person.website),
+                identifier: ActiveValue::Set(provider_person.identifier),
+                source: ActiveValue::Set(provider_person.source),
+                name: ActiveValue::Set(provider_person.name),
+                description: ActiveValue::Set(provider_person.description),
+                gender: ActiveValue::Set(provider_person.gender),
+                birth_date: ActiveValue::Set(provider_person.birth_date),
+                place: ActiveValue::Set(provider_person.place),
+                website: ActiveValue::Set(provider_person.website),
                 images: ActiveValue::Set(images),
                 ..Default::default()
             };
