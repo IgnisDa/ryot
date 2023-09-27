@@ -86,6 +86,8 @@ pub struct IdObject {
 }
 
 pub mod media {
+    use crate::traits::DatabaseImagesAsUrls;
+
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -935,6 +937,19 @@ pub mod media {
             } else {
                 None
             }
+        }
+    }
+
+    #[async_trait]
+    impl DatabaseImagesAsUrls for Option<MetadataImages> {
+        async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
+            let mut images = vec![];
+            if let Some(imgs) = self {
+                for i in imgs.0.clone() {
+                    images.push(get_stored_asset(i.url, file_storage_service).await);
+                }
+            }
+            images
         }
     }
 

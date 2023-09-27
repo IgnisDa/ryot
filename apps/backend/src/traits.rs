@@ -60,6 +60,11 @@ pub trait DatabaseImagesAsSingleUrl {
 }
 
 #[async_trait]
+pub trait DatabaseImagesAsUrls {
+    async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String>;
+}
+
+#[async_trait]
 pub trait AuthProvider {
     fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let ctx = ctx.data_unchecked::<AuthContext>();

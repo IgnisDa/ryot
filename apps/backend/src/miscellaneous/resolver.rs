@@ -105,8 +105,8 @@ use crate::{
         vndb::VndbService,
     },
     traits::{
-        AuthProvider, DatabaseImagesAsSingleUrl, IsFeatureEnabled, MediaProvider,
-        MediaProviderLanguages,
+        AuthProvider, DatabaseImagesAsSingleUrl, DatabaseImagesAsUrls, IsFeatureEnabled,
+        MediaProvider, MediaProviderLanguages,
     },
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
@@ -1374,13 +1374,8 @@ impl MiscellaneousService {
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
-        let mut images = vec![];
+        let images = meta.images.as_urls(&self.file_storage_service).await;
         let mut videos = vec![];
-        if let Some(imgs) = &meta.images {
-            for i in imgs.0.clone() {
-                images.push(get_stored_asset(i.url, &self.file_storage_service).await);
-            }
-        }
         if let Some(vids) = &meta.videos {
             for v in vids.0.clone() {
                 let url = get_stored_asset(v.identifier, &self.file_storage_service).await;
