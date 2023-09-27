@@ -2806,10 +2806,19 @@ impl MiscellaneousService {
         };
         for (idx, media) in associated_items.into_iter().enumerate() {
             let db_partial_metadata = self.create_partial_metadata(media).await?;
+            PartialMetadataToMetadataGroup::delete_many()
+                .filter(partial_metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
+                .filter(
+                    partial_metadata_to_metadata_group::Column::PartialMetadataId
+                        .eq(db_partial_metadata.id),
+                )
+                .exec(&self.db)
+                .await
+                .ok();
             let intermediate = partial_metadata_to_metadata_group::ActiveModel {
                 metadata_group_id: ActiveValue::Set(group_id),
                 partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                part: ActiveValue::Set(idx.try_into().unwrap()),
+                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
             };
             intermediate.insert(&self.db).await.ok();
         }
