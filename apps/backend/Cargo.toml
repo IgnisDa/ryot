@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.19.1"
+version = "2.19.2"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -14,13 +14,13 @@ apalis = { version = "0.4.4", features = [
     "sqlite",
 ] }
 argon2 = "0.5.2"
-async-graphql = { version = "6.0.6", features = [
+async-graphql = { version = "6.0.7", features = [
     "chrono",
     "decimal",
     "log",
     "uuid",
 ] }
-async-graphql-axum = "6.0.6"
+async-graphql-axum = "6.0.7"
 async-trait = "0.1.73"
 aws-sdk-s3 = "0.31.2"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
@@ -32,7 +32,7 @@ convert_case = "0.6.0"
 const-str = "0.5.6"
 cookie = "0.17.0"
 csv = "1.2.2"
-derive_more = { version = "0.99.17", features = [
+derive_more = { version = "1.0.0-beta.3", features = [
     "add",
     "sum",
     "add_assign",
@@ -62,7 +62,7 @@ rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.10"
-schematic = { version = "0.11.6", features = [
+schematic = { version = "0.11.8", features = [
     "json",
     "schema",
     "toml",
@@ -83,7 +83,7 @@ sea-orm = { version = "0.12.3", features = [
     "with-rust_decimal",
 ] }
 sea-orm-migration = "0.12.3"
-sea-query = "0.30.1"
+sea-query = "0.30.2"
 semver = "1.0.19"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
