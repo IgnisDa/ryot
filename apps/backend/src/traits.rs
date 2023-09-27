@@ -5,9 +5,12 @@ use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
+    entities::metadata_group,
     file_storage::FileStorageService,
     models::{
-        media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson},
+        media::{
+            MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadata, PartialMetadataPerson,
+        },
         SearchResults,
     },
     utils::AuthContext,
@@ -15,7 +18,7 @@ use crate::{
 
 #[async_trait]
 pub trait MediaProvider {
-    /// Search for something using a particular query and offset.
+    /// Search for a query.
     #[allow(unused_variables)]
     async fn search(
         &self,
@@ -26,16 +29,25 @@ pub trait MediaProvider {
         bail!("This provider does not support searching media")
     }
 
-    /// Get details about a media item for the particular identifier.
+    /// Get details about a media item.
     #[allow(unused_variables)]
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         bail!("This provider does not support getting media details")
     }
 
-    /// Get details about a person for the particular details.
+    /// Get details about a person.
     #[allow(unused_variables)]
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
+    }
+
+    /// Get details about a group/collection.
+    #[allow(unused_variables)]
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
+        bail!("This provider does not support getting group details")
     }
 }
 
