@@ -22,7 +22,6 @@ pub struct Model {
     pub spoiler: bool,
     pub user_id: i32,
     pub metadata_id: Option<i32>,
-    pub creator_id: Option<i32>,
     pub person_id: Option<i32>,
     pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
     pub comments: ReviewComments,
@@ -31,17 +30,9 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::creator::Entity",
-        from = "Column::CreatorId",
-        to = "super::creator::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    Creator,
-    #[sea_orm(
-        belongs_to = "super::creator::Entity",
+        belongs_to = "super::person::Entity",
         from = "Column::PersonId",
-        to = "super::creator::Column::Id",
+        to = "super::person::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
@@ -62,12 +53,6 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
-}
-
-impl Related<super::creator::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Creator.def()
-    }
 }
 
 impl Related<super::person::Entity> for Entity {

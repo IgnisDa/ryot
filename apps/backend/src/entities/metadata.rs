@@ -44,8 +44,6 @@ pub enum Relation {
     CalendarEvent,
     #[sea_orm(has_many = "super::metadata_to_collection::Entity")]
     MetadataToCollection,
-    #[sea_orm(has_many = "super::metadata_to_creator::Entity")]
-    MetadataToCreator,
     #[sea_orm(has_many = "super::metadata_to_genre::Entity")]
     MetadataToGenre,
     #[sea_orm(has_many = "super::metadata_to_partial_metadata::Entity")]
@@ -71,12 +69,6 @@ impl Related<super::calendar_event::Entity> for Entity {
 impl Related<super::metadata_to_collection::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MetadataToCollection.def()
-    }
-}
-
-impl Related<super::metadata_to_creator::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::MetadataToCreator.def()
     }
 }
 

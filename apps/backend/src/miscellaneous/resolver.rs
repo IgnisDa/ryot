@@ -50,12 +50,12 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        calendar_event, collection, creator, genre, metadata, metadata_group,
-        metadata_to_collection, metadata_to_genre, metadata_to_partial_metadata,
-        metadata_to_person, partial_metadata, partial_metadata_to_metadata_group, person,
+        calendar_event, collection, genre, metadata, metadata_group, metadata_to_collection,
+        metadata_to_genre, metadata_to_partial_metadata, metadata_to_person, partial_metadata,
+        partial_metadata_to_metadata_group, person,
         prelude::{
-            CalendarEvent, Collection, Creator, Genre, Metadata, MetadataGroup,
-            MetadataToCollection, MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
+            CalendarEvent, Collection, Genre, Metadata, MetadataGroup, MetadataToCollection,
+            MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
             Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
         },
@@ -361,7 +361,7 @@ struct MetadataCreatorGroupedByRole {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct CreatorDetails {
-    details: creator::Model,
+    details: person::Model,
     contents: Vec<CreatorDetailsGroupedByRole>,
 }
 
@@ -3018,7 +3018,7 @@ impl MiscellaneousService {
             }
         }
         tracing::trace!("Cleaning up people without associated metadata");
-        let mut all_creators = Creator::find().stream(&self.db).await?;
+        let mut all_creators = Person::find().stream(&self.db).await?;
         while let Some(creator) = all_creators.try_next().await? {
             let num_associations = MetadataToPerson::find()
                 .filter(metadata_to_person::Column::PersonId.eq(creator.id))
@@ -3026,7 +3026,7 @@ impl MiscellaneousService {
                 .await
                 .unwrap();
             let num_reviews = Review::find()
-                .filter(review::Column::CreatorId.eq(creator.id))
+                .filter(review::Column::PersonId.eq(creator.id))
                 .count(&self.db)
                 .await
                 .unwrap();
@@ -3524,7 +3524,7 @@ impl MiscellaneousService {
                 query.filter(review::Column::MetadataId.eq(v))
             })
             .apply_if(creator_id, |query, v| {
-                query.filter(review::Column::CreatorId.eq(v))
+                query.filter(review::Column::PersonId.eq(v))
             })
             .into_tuple::<i32>()
             .all(&self.db)
@@ -3727,7 +3727,7 @@ impl MiscellaneousService {
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
-            creator_id: ActiveValue::Set(input.creator_id),
+            person_id: ActiveValue::Set(input.creator_id),
             extra_information: ActiveValue::Set(extra_information),
             comments: ActiveValue::Set(ReviewComments(vec![])),
             ..Default::default()
@@ -5540,10 +5540,7 @@ impl MiscellaneousService {
     }
 
     async fn creator_details(&self, creator_id: i32) -> Result<CreatorDetails> {
-        let details = Creator::find_by_id(creator_id)
-            .one(&self.db)
-            .await?
-            .unwrap();
+        let details = Person::find_by_id(creator_id).one(&self.db).await?.unwrap();
         let associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(creator_id))
             .find_also_related(Metadata)
@@ -5766,9 +5763,9 @@ impl MiscellaneousService {
     pub async fn export_people(&self, user_id: i32) -> Result<Vec<ImportOrExportPersonItem>> {
         let mut resp: Vec<ImportOrExportPersonItem> = vec![];
         let all_reviews = Review::find()
-            .filter(review::Column::CreatorId.is_not_null())
+            .filter(review::Column::PersonId.is_not_null())
             .filter(review::Column::UserId.eq(user_id))
-            .find_also_related(Creator)
+            .find_also_related(Person)
             .all(&self.db)
             .await?;
         for (review, creator) in all_reviews {
