@@ -762,6 +762,7 @@ pub mod media {
         AlreadyFilled(Box<MediaDetails>),
     }
 
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
@@ -778,6 +779,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
     }
 
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
@@ -788,6 +790,7 @@ pub mod media {
         pub text: Option<String>,
     }
 
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
@@ -805,6 +808,7 @@ pub mod media {
     }
 
     /// Details about a specific media item that needs to be imported or exported.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportMediaItem<T> {
         /// An string to help identify it in the original source.
@@ -824,6 +828,7 @@ pub mod media {
     }
 
     /// Complete export of the user.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ExportAllResponse {
         /// Data about user's media.
@@ -835,6 +840,7 @@ pub mod media {
     }
 
     /// Details about a specific creator item that needs to be exported.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportPersonItem {
         /// The name of the creator.
@@ -973,6 +979,7 @@ pub mod media {
         pub name: String,
     }
 
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,

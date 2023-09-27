@@ -3,10 +3,12 @@
 use async_graphql::{InputObject, SimpleObject};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::models::fitness::UserMeasurementStats;
 
+#[skip_serializing_none]
 #[derive(
     Clone,
     Debug,
