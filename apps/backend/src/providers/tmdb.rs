@@ -33,7 +33,7 @@ static IMAGE_URL: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
-    id: i32,
+    id: Option<i32>,
     name: Option<String>,
     known_for_department: Option<String>,
     job: Option<String>,
@@ -326,13 +326,17 @@ impl MediaProvider for TmdbMovieService {
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let Some(r) = g.known_for_department {
-                        if r == *"Acting" {
-                            Some(PartialMetadataPerson {
-                                identifier: g.id.to_string(),
-                                role: r,
-                                source: MetadataSource::Tmdb,
-                            })
+                    if let Some(id) = g.id {
+                        if let Some(r) = g.known_for_department {
+                            if r == *"Acting" {
+                                Some(PartialMetadataPerson {
+                                    identifier: id.to_string(),
+                                    role: r,
+                                    source: MetadataSource::Tmdb,
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -349,13 +353,17 @@ impl MediaProvider for TmdbMovieService {
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let Some(r) = g.job {
-                        if r == *"Director" {
-                            Some(PartialMetadataPerson {
-                                identifier: g.id.to_string(),
-                                role: r,
-                                source: MetadataSource::Tmdb,
-                            })
+                    if let Some(id) = g.id {
+                        if let Some(r) = g.job {
+                            if r == *"Director" {
+                                Some(PartialMetadataPerson {
+                                    identifier: id.to_string(),
+                                    role: r,
+                                    source: MetadataSource::Tmdb,
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -612,9 +620,9 @@ impl MediaProvider for TmdbShowService {
                             .clone()
                             .into_iter()
                             .flat_map(|g| {
-                                if let Some(r) = g.known_for_department {
-                                    Some(PartialMetadataPerson {
-                                        identifier: g.id.to_string(),
+                                if let Some(id) = g.id {
+                                    g.known_for_department.map(|r| PartialMetadataPerson {
+                                        identifier: id.to_string(),
                                         role: r,
                                         source: MetadataSource::Tmdb,
                                     })
