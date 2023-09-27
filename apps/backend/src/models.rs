@@ -25,7 +25,7 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataLot, MetadataSource, SeenState,
     },
-    traits::DatabaseAssestsAsSingleUrl,
+    traits::{DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
 
@@ -86,8 +86,6 @@ pub struct IdObject {
 }
 
 pub mod media {
-    use crate::traits::DatabaseAssetsAsUrls;
-
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
