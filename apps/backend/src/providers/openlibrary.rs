@@ -29,6 +29,17 @@ use crate::{
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+enum OpenlibraryDescription {
+    Text(String),
+    Nested {
+        #[serde(rename = "type")]
+        key: String,
+        value: String,
+    },
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct BookSearchResults {
     total: i32,
@@ -86,7 +97,53 @@ impl OpenlibraryService {
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
-        todo!()
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryLink {
+            url: Option<String>,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryAuthor {
+            key: String,
+            bio: Option<OpenlibraryDescription>,
+            name: String,
+            photos: Option<Vec<i64>>,
+            links: Option<Vec<OpenlibraryLink>>,
+            birth_date: Option<String>,
+            death_date: Option<String>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("authors/{}.json", identity.identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: OpenlibraryAuthor = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let identifier = get_key(&data.key);
+        let description = data.bio.map(|d| match d {
+            OpenlibraryDescription::Text(s) => s,
+            OpenlibraryDescription::Nested { value, .. } => value,
+        });
+        let images = data
+            .photos
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|c| c > &0)
+            .map(|c| self.get_author_cover_image_url(c))
+            .unique()
+            .collect();
+        Ok(MetadataPerson {
+            identifier,
+            source: MetadataSource::Openlibrary,
+            name: data.name,
+            description,
+            images: Some(images),
+            website: data
+                .links
+                .and_then(|l| l.first().and_then(|a| a.url.clone())),
+            gender: None,
+            death_date: None,
+            birth_date: None,
+            place: None,
+        })
     }
 
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
@@ -101,16 +158,6 @@ impl MediaProvider for OpenlibraryService {
         enum OpenlibraryAuthorResponse {
             Flat(OpenlibraryKey),
             Nested(OpenlibraryAuthor),
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        #[serde(untagged)]
-        enum OpenlibraryDescription {
-            Text(String),
-            Nested {
-                #[serde(rename = "type")]
-                key: String,
-                value: String,
-            },
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryBook {
@@ -164,12 +211,6 @@ impl MediaProvider for OpenlibraryService {
             .filter_map(|f| f.publish_date.clone())
             .filter_map(|f| Self::parse_date(&f))
             .min();
-
-        #[derive(Debug, Serialize, Deserialize)]
-        struct OpenlibraryAuthorPartial {
-            name: String,
-            photos: Option<Vec<i64>>,
-        }
         let mut creators = vec![];
         for a in data.authors.unwrap_or_default().iter() {
             let (key, role) = match a {
