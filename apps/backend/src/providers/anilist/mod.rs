@@ -328,7 +328,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             .flatten()
             .map(|t| t.name),
     );
-    let mut creators = Vec::from_iter(details.staff)
+    let mut people = Vec::from_iter(details.staff)
         .into_iter()
         .flat_map(|s| s.edges.unwrap())
         .flatten()
@@ -341,7 +341,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             }
         })
         .collect_vec();
-    creators.extend(
+    people.extend(
         Vec::from_iter(details.studios)
             .into_iter()
             .flat_map(|s| s.edges.unwrap())
@@ -355,7 +355,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
                 }
             }),
     );
-    let creators = creators.into_iter().unique().collect_vec();
+    let people = people.into_iter().unique().collect_vec();
     let (specifics, lot) = match details.type_.unwrap() {
         details_query::MediaType::ANIME => (
             MediaSpecifics::Anime(AnimeSpecifics {
@@ -416,7 +416,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         source: MetadataSource::Anilist,
         description: details.description,
         lot,
-        people: creators,
+        people,
         creators: vec![],
         url_images: images,
         videos,

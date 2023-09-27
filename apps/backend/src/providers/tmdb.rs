@@ -319,8 +319,8 @@ impl MediaProvider for TmdbMovieService {
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut creators = vec![];
-        creators.extend(
+        let mut people = vec![];
+        people.extend(
             credits
                 .cast
                 .clone()
@@ -343,7 +343,7 @@ impl MediaProvider for TmdbMovieService {
                 .unique()
                 .collect_vec(),
         );
-        creators.extend(
+        people.extend(
             credits
                 .crew
                 .clone()
@@ -366,7 +366,7 @@ impl MediaProvider for TmdbMovieService {
                 .unique()
                 .collect_vec(),
         );
-        creators.extend(
+        people.extend(
             data.production_companies
                 .unwrap_or_default()
                 .into_iter()
@@ -409,7 +409,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            people: creators,
+            people,
             url_images: image_ids
                 .into_iter()
                 .unique()
@@ -602,7 +602,7 @@ impl MediaProvider for TmdbShowService {
             }
             seasons.push(data);
         }
-        let mut author_names = seasons
+        let mut people = seasons
             .iter()
             .flat_map(|s| {
                 s.episodes
@@ -627,7 +627,7 @@ impl MediaProvider for TmdbShowService {
                     .collect_vec()
             })
             .collect_vec();
-        author_names.extend(
+        people.extend(
             show_data
                 .production_companies
                 .unwrap_or_default()
@@ -639,9 +639,8 @@ impl MediaProvider for TmdbShowService {
                 })
                 .collect_vec(),
         );
-        let author_names: HashBag<PartialMetadataPerson> =
-            HashBag::from_iter(author_names.into_iter());
-        let author_names = Vec::from_iter(author_names.set_iter())
+        let people: HashBag<PartialMetadataPerson> = HashBag::from_iter(people.into_iter());
+        let people = Vec::from_iter(people.set_iter())
             .into_iter()
             .sorted_by_key(|c| c.1)
             .rev()
@@ -657,7 +656,7 @@ impl MediaProvider for TmdbShowService {
             production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
             description: show_data.overview,
-            people: author_names,
+            people,
             genres: show_data
                 .genres
                 .unwrap_or_default()

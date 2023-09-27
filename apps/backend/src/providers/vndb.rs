@@ -198,7 +198,7 @@ impl VndbService {
             image: a,
             lot: MetadataImageLot::Poster,
         });
-        let creators = item
+        let people = item
             .developers
             .unwrap_or_default()
             .into_iter()
@@ -229,7 +229,7 @@ impl VndbService {
                 .unwrap_or_else(|| "Released".to_owned()),
             title: item.title.unwrap(),
             description: item.description,
-            people: creators.into_iter().unique().collect(),
+            people: people.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.released.clone().and_then(|d| convert_date_to_year(&d)),
             publish_date: item.released.and_then(|d| convert_string_to_date(&d)),

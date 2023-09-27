@@ -344,7 +344,7 @@ where id = {id};
                     lot: MetadataImageLot::Poster,
                 });
         images.extend(additional_images);
-        let creators = item
+        let people = item
             .involved_companies
             .into_iter()
             .flatten()
@@ -384,7 +384,7 @@ where id = {id};
             production_status: "Released".to_owned(),
             title: item.name.unwrap(),
             description: item.summary,
-            people: creators,
+            people,
             url_images: images,
             videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),

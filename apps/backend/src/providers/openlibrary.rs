@@ -211,7 +211,7 @@ impl MediaProvider for OpenlibraryService {
             .filter_map(|f| f.publish_date.clone())
             .filter_map(|f| Self::parse_date(&f))
             .min();
-        let mut creators = vec![];
+        let mut people = vec![];
         for a in data.authors.unwrap_or_default().iter() {
             let (key, role) = match a {
                 OpenlibraryAuthorResponse::Flat(s) => (s.key.to_owned(), "Author".to_owned()),
@@ -223,7 +223,7 @@ impl MediaProvider for OpenlibraryService {
                         .unwrap_or_else(|| "Author".to_owned()),
                 ),
             };
-            creators.push(PartialMetadataPerson {
+            people.push(PartialMetadataPerson {
                 identifier: get_key(&key),
                 role,
                 source: MetadataSource::Openlibrary,
@@ -331,7 +331,7 @@ impl MediaProvider for OpenlibraryService {
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
-            people: creators,
+            people,
             genres,
             url_images: images,
             publish_year: first_release_date.map(|d| d.year()),
