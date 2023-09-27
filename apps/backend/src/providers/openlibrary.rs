@@ -139,9 +139,9 @@ impl MediaProvider for OpenlibraryService {
             website: data
                 .links
                 .and_then(|l| l.first().and_then(|a| a.url.clone())),
+            birth_date: data.birth_date.and_then(|b| parse_date(&b)),
+            death_date: data.death_date.and_then(|b| parse_date(&b)),
             gender: None,
-            death_date: None,
-            birth_date: None,
             place: None,
         })
     }
@@ -497,4 +497,8 @@ pub fn get_key(key: &str) -> String {
         .cloned()
         .unwrap()
         .to_owned()
+}
+
+fn parse_date(date_str: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(date_str, "%e %B %Y").ok()
 }
