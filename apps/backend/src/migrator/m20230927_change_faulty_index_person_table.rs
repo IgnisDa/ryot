@@ -9,7 +9,12 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_index(Index::drop().name(PERSON_IDENTIFIER_UNIQUE_KEY).to_owned())
+            .drop_index(
+                Index::drop()
+                    .table(Person::Table)
+                    .name(PERSON_IDENTIFIER_UNIQUE_KEY)
+                    .to_owned(),
+            )
             .await?;
         manager
             .create_index(
