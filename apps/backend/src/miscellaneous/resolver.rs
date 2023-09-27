@@ -5468,6 +5468,13 @@ impl MiscellaneousService {
         &self,
         input: SearchInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
+        #[derive(Debug, FromQueryResult)]
+        struct PartialCreator {
+            id: i32,
+            name: String,
+            images: Option<MetadataImages>,
+            media_count: i64,
+        }
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let alias = "media_count";
         let query = Person::find()
@@ -5495,15 +5502,29 @@ impl MiscellaneousService {
             .order_by(Expr::col(Alias::new(alias)), Order::Desc);
         let creators_paginator = query
             .clone()
-            .into_model::<MediaCreatorSearchItem>()
+            .into_model::<PartialCreator>()
             .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
         } = creators_paginator.num_items_and_pages().await?;
         let mut creators = vec![];
-        for c in creators_paginator.fetch_page(page - 1).await? {
-            creators.push(c);
+        for cr in creators_paginator.fetch_page(page - 1).await? {
+            let image = if let Some(images) = cr.images {
+                if let Some(i) = images.0.first().cloned() {
+                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            creators.push(MediaCreatorSearchItem {
+                id: cr.id,
+                name: cr.name,
+                image,
+                media_count: cr.media_count,
+            });
         }
         Ok(SearchResults {
             details: SearchDetails {
