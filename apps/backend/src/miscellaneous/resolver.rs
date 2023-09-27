@@ -1375,7 +1375,16 @@ impl MiscellaneousService {
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
         let images = meta.images.as_urls(&self.file_storage_service).await;
-        let videos = meta.videos.as_urls(&self.file_storage_service).await;
+        let mut videos = vec![];
+        if let Some(vids) = &meta.videos {
+            for v in vids.0.clone() {
+                let url = get_stored_asset(v.identifier, &self.file_storage_service).await;
+                videos.push(GraphqlVideoAsset {
+                    source: v.source,
+                    video_id: url,
+                })
+            }
+        }
         Ok(GraphqlMediaAssets { images, videos })
     }
 

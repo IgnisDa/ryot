@@ -953,19 +953,6 @@ pub mod media {
         }
     }
 
-    #[async_trait]
-    impl DatabaseAssetsAsUrls for Option<MetadataVideos> {
-        async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
-            let mut videos = vec![];
-            if let Some(vids) = self {
-                for i in vids.0.clone() {
-                    videos.push(get_stored_asset(i.url, file_storage_service).await);
-                }
-            }
-            videos
-        }
-    }
-
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataVideos(pub Vec<MetadataVideo>);
