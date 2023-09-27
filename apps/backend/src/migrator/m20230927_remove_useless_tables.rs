@@ -34,14 +34,14 @@ impl MigrationTrait for Migration {
             let count = resp.try_get_by_index::<i64>(0)?;
             if count > 0 {
                 let var_name = "CREATOR_MIGRATION_CHECK";
-                if env::var(var_name).is_err() {
-                    return Err(DbErr::Custom(format!("
-
-This migration will drop all old creators. You have reviews for {:} creators.
+                let message = format!("
+This migration will drop all old creators (introduced in `v2.19.0`). You have reviews for {count} creator(s).
 Please follow instructions at https://github.com/IgnisDa/ryot/releases/tag/v2.19.0 to migrate this data.
 
-If you want to skip this check, please set the environement variable `{}=1`.                    
-                        ", count, var_name)));
+If you want to skip this check, please set the environment variable `{var_name}=1`.");
+                tracing::info!(message);
+                if env::var(var_name).is_err() {
+                    return Err(DbErr::Custom("Unable to continue".to_owned()));
                 } else {
                     tracing::warn!("Deleting {} review(s) in 10 seconds.", count);
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
