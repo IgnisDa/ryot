@@ -1,7 +1,7 @@
 use sea_orm_migration::prelude::*;
 
 use super::{
-    m20230505_create_review::PERSON_TO_REVIEW_FOREIGN_KEY, m20230925_create_person::Person, Review,
+    m20230413_create_person::Person, m20230505_create_review::PERSON_TO_REVIEW_FOREIGN_KEY, Review,
 };
 
 #[derive(DeriveMigrationName)]

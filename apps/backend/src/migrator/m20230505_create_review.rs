@@ -5,7 +5,7 @@ use crate::{
     models::media::Visibility,
 };
 
-use super::m20230925_create_person::Person;
+use super::m20230413_create_person::Person;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
