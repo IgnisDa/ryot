@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt,
+    sync::Arc,
 };
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
@@ -18,10 +19,12 @@ use specta::Type;
 
 use crate::{
     entities::{exercise::Model as ExerciseModel, metadata_group, user_measurement},
+    file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataLot, MetadataSource, SeenState,
     },
+    utils::get_stored_asset,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -914,6 +917,19 @@ pub mod media {
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
+
+    impl MetadataImages {
+        pub async fn get_first(
+            &self,
+            file_storage_service: &Arc<FileStorageService>,
+        ) -> Option<String> {
+            if let Some(i) = self.0.first().cloned() {
+                Some(get_stored_asset(i.url, file_storage_service).await)
+            } else {
+                None
+            }
+        }
+    }
 
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]

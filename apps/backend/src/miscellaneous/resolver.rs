@@ -1435,11 +1435,7 @@ impl MiscellaneousService {
         let mut creators: HashMap<String, Vec<_>> = HashMap::new();
         for cr in crts {
             let image = if let Some(images) = cr.images {
-                if let Some(i) = images.0.first().cloned() {
-                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
-                } else {
-                    None
-                }
+                images.get_first(&self.file_storage_service).await
             } else {
                 None
             };
@@ -1872,9 +1868,7 @@ impl MiscellaneousService {
             }
             if image.is_none() {
                 if let Some(images) = evt.m_images {
-                    if let Some(i) = images.0.first().cloned() {
-                        image = Some(get_stored_asset(i.url, &self.file_storage_service).await);
-                    }
+                    image = images.get_first(&self.file_storage_service).await
                 }
             }
             calc.metadata_image = image;
@@ -5511,11 +5505,7 @@ impl MiscellaneousService {
         let mut creators = vec![];
         for cr in creators_paginator.fetch_page(page - 1).await? {
             let image = if let Some(images) = cr.images {
-                if let Some(i) = images.0.first().cloned() {
-                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
-                } else {
-                    None
-                }
+                images.get_first(&self.file_storage_service).await
             } else {
                 None
             };
@@ -5550,12 +5540,8 @@ impl MiscellaneousService {
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
-            let image = if let Some(imgs) = m.images {
-                if let Some(i) = imgs.0.first() {
-                    Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await)
-                } else {
-                    None
-                }
+            let image = if let Some(images) = m.images {
+                images.get_first(&self.file_storage_service).await
             } else {
                 None
             };
