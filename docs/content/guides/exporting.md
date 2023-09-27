@@ -5,7 +5,7 @@ Users can export either their entire data or individual parts of it.
 To start, login to your Ryot instance and go to the "Imports and Exports" section
 in the "Settings" section. Select the "Export" tab and then generate a new auth token.
 
-The base endpoint is `/export/<type>`. So requests will look like:
+The endpoint is in the format of `/export/<type>`. So requests will look like:
 
 ```bash
 curl <ryot_instance_url>/export/<type> --header 'X-Auth-Token: <token>'
@@ -20,7 +20,7 @@ The export has the following type: `ExportAllResponse`.
 ## Media (`type=media`)
 
 This will return all media that the user has an
-[association](https://github.com/IgnisDa/ryot/blob/main/apps/backend/src/migrator/m20230417_create_user.rs#L11-L18)
+[association](https://github.com/IgnisDa/ryot/blob/main/apps/backend/src/migrator/m20230417_create_user.rs#L11-L17)
 with.
 
 The export has the following type: `ImportOrExportMediaItem<string>[]`.
