@@ -18,6 +18,9 @@ export type ExportAllResponse = {
 	measurements: ExportUserMeasurementItem[];
 };
 
+/**
+ * An export of a measurement taken at a point in time.
+ */
 export type ExportUserMeasurementItem = {
 	/**
 	 * The date and time this measurement was made.
@@ -26,59 +29,68 @@ export type ExportUserMeasurementItem = {
 	/**
 	 * The name given to this measurement by the user.
 	 */
-	name: string | null;
+	name?: string | null;
 	/**
 	 * Any comment associated entered by the user.
 	 */
-	comment: string | null;
+	comment?: string | null;
 	/**
 	 * The contents of the actual measurement.
 	 */
 	stats: UserMeasurementStats;
 };
 
+/**
+ * A rating given to an entity.
+ */
 export type ImportOrExportItemRating = {
 	/**
 	 * Data about the review.
 	 */
-	review: ImportOrExportItemReview | null;
+	review?: ImportOrExportItemReview | null;
 	/**
 	 * The score of the review.
 	 */
-	rating: string | null;
+	rating?: string | null;
 	/**
 	 * If for a show, the season for which this review was for.
 	 */
-	show_season_number: number | null;
+	show_season_number?: number | null;
 	/**
 	 * If for a show, the episode for which this review was for.
 	 */
-	show_episode_number: number | null;
+	show_episode_number?: number | null;
 	/**
 	 * If for a podcast, the episode for which this review was for.
 	 */
-	podcast_episode_number: number | null;
+	podcast_episode_number?: number | null;
 	/**
 	 * The comments attached to this review.
 	 */
-	comments: ImportOrExportItemReviewComment[] | null;
+	comments?: ImportOrExportItemReviewComment[] | null;
 };
 
+/**
+ * Review data associated to a rating.
+ */
 export type ImportOrExportItemReview = {
 	/**
 	 * The date the review was posted.
 	 */
-	date: string | null;
+	date?: string | null;
 	/**
 	 * Whether to mark the review as a spoiler. Defaults to false.
 	 */
-	spoiler: boolean | null;
+	spoiler?: boolean | null;
 	/**
 	 * Actual text for the review.
 	 */
-	text: string | null;
+	text?: string | null;
 };
 
+/**
+ * Comments left in replies to posted reviews.
+ */
 export type ImportOrExportItemReviewComment = {
 	id: string;
 	text: string;
@@ -124,31 +136,34 @@ export type ImportOrExportMediaItem<T> = {
 	collections: string[];
 };
 
+/**
+ * A specific instance when an entity was seen.
+ */
 export type ImportOrExportMediaItemSeen = {
 	/**
 	 * The progress of media done. If none, it is considered as done.
 	 */
-	progress: number | null;
+	progress?: number | null;
 	/**
 	 * The timestamp when started watching.
 	 */
-	started_on: string | null;
+	started_on?: string | null;
 	/**
 	 * The timestamp when finished watching.
 	 */
-	ended_on: string | null;
+	ended_on?: string | null;
 	/**
 	 * If for a show, the season which was seen.
 	 */
-	show_season_number: number | null;
+	show_season_number?: number | null;
 	/**
 	 * If for a show, the episode which was seen.
 	 */
-	show_episode_number: number | null;
+	show_episode_number?: number | null;
 	/**
 	 * If for a podcast, the episode which was seen.
 	 */
-	podcast_episode_number: number | null;
+	podcast_episode_number?: number | null;
 };
 
 /**
@@ -192,8 +207,14 @@ export type MetadataSource =
 	| "Tmdb"
 	| "Vndb";
 
+/**
+ * A user that has commented on a review.
+ */
 export type ReviewCommentUser = { id: number; name: string };
 
+/**
+ * The actual statistics that were logged in a user measurement.
+ */
 export type UserMeasurementStats = {
 	weight?: string | null;
 	body_mass_index?: string | null;

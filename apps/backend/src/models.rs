@@ -762,6 +762,7 @@ pub mod media {
         AlreadyFilled(Box<MediaDetails>),
     }
 
+    /// A specific instance when an entity was seen.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportMediaItemSeen {
@@ -779,6 +780,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
     }
 
+    /// Review data associated to a rating.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemReview {
@@ -790,6 +792,7 @@ pub mod media {
         pub text: Option<String>,
     }
 
+    /// A rating given to an entity.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemRating {
@@ -961,6 +964,7 @@ pub mod media {
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataVideos(pub Vec<MetadataVideo>);
 
+    /// A user that has commented on a review.
     #[derive(
         Clone,
         Debug,
@@ -979,6 +983,7 @@ pub mod media {
         pub name: String,
     }
 
+    /// Comments left in replies to posted reviews.
     #[skip_serializing_none]
     #[derive(
         Clone,
@@ -1109,6 +1114,7 @@ pub mod fitness {
         pub name: String,
     }
 
+    /// The actual statistics that were logged in a user measurement.
     #[skip_serializing_none]
     #[derive(
         Debug,

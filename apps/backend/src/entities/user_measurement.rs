@@ -8,6 +8,7 @@ use specta::Type;
 
 use crate::models::fitness::UserMeasurementStats;
 
+/// An export of a measurement taken at a point in time.
 #[skip_serializing_none]
 #[derive(
     Clone,
