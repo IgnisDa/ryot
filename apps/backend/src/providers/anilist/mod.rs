@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use graphql_client::{GraphQLQuery, Response};
 use http_types::mime;
 use itertools::Itertools;
@@ -7,13 +8,13 @@ use rust_decimal::Decimal;
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::{AnimeAnilistConfig, MangaAnilistConfig},
+    config::AnilistConfig,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataCreator, MetadataImage, MetadataImageLot, MetadataVideo, MetadataVideoSource,
-            PartialMetadata,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
+            MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -35,16 +36,33 @@ struct SearchQuery;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/details.graphql",
+    query_path = "src/providers/anilist/media_details.graphql",
     response_derives = "Debug",
     variables_derives = "Debug"
 )]
 struct DetailsQuery;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/studio_details.graphql",
+    response_derives = "Debug",
+    variables_derives = "Debug"
+)]
+struct StudioQuery;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/staff_details.graphql",
+    response_derives = "Debug",
+    variables_derives = "Debug"
+)]
+struct StaffQuery;
+
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     client: Client,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -58,15 +76,38 @@ impl MediaProviderLanguages for AnilistService {
 }
 
 #[derive(Debug, Clone)]
-pub struct AnilistAnimeService {
+pub struct NonMediaAnilistService {
     base: AnilistService,
 }
 
-impl AnilistAnimeService {
-    pub async fn new(_config: &AnimeAnilistConfig, page_limit: i32) -> Self {
+impl NonMediaAnilistService {
+    pub async fn new() -> Self {
         let client = get_client_config(URL).await;
         Self {
-            base: AnilistService { client, page_limit },
+            base: AnilistService { client },
+        }
+    }
+}
+
+#[async_trait]
+impl MediaProvider for NonMediaAnilistService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        person_details(&self.base.client, identity).await
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AnilistAnimeService {
+    base: AnilistService,
+    page_limit: i32,
+}
+
+impl AnilistAnimeService {
+    pub async fn new(_config: &AnilistConfig, page_limit: i32) -> Self {
+        let client = get_client_config(URL).await;
+        Self {
+            base: AnilistService { client },
+            page_limit,
         }
     }
 }
@@ -89,7 +130,7 @@ impl MediaProvider for AnilistAnimeService {
             search_query::MediaType::ANIME,
             query,
             page,
-            self.base.page_limit,
+            self.page_limit,
             display_nsfw,
         )
         .await?;
@@ -103,13 +144,15 @@ impl MediaProvider for AnilistAnimeService {
 #[derive(Debug, Clone)]
 pub struct AnilistMangaService {
     base: AnilistService,
+    page_limit: i32,
 }
 
 impl AnilistMangaService {
-    pub async fn new(_config: &MangaAnilistConfig, page_limit: i32) -> Self {
+    pub async fn new(_config: &AnilistConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
-            base: AnilistService { client, page_limit },
+            base: AnilistService { client },
+            page_limit,
         }
     }
 }
@@ -132,7 +175,7 @@ impl MediaProvider for AnilistMangaService {
             search_query::MediaType::MANGA,
             query,
             page,
-            self.base.page_limit,
+            self.page_limit,
             display_nsfw,
         )
         .await?;
@@ -145,6 +188,99 @@ impl MediaProvider for AnilistMangaService {
 
 async fn get_client_config(url: &str) -> Client {
     get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
+}
+
+async fn person_details(
+    client: &Client,
+    identity: PartialMetadataPerson,
+) -> Result<MetadataPerson> {
+    let data = if identity.role.as_str() == "Production" {
+        let variables = studio_query::Variables {
+            id: identity.identifier.parse::<i64>().unwrap(),
+        };
+        let body = StudioQuery::build_query(variables);
+        let details = client
+            .post("")
+            .body_json(&body)
+            .unwrap()
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Response<studio_query::ResponseData>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .data
+            .unwrap()
+            .studio
+            .unwrap();
+        MetadataPerson {
+            identifier: details.id.to_string(),
+            source: MetadataSource::Anilist,
+            name: details.name,
+            website: None,
+            description: None,
+            gender: None,
+            place: None,
+            images: None,
+            death_date: None,
+            birth_date: None,
+        }
+    } else {
+        let variables = staff_query::Variables {
+            id: identity.identifier.parse::<i64>().unwrap(),
+        };
+        let body = StaffQuery::build_query(variables);
+        let details = client
+            .post("")
+            .body_json(&body)
+            .unwrap()
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Response<staff_query::ResponseData>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .data
+            .unwrap()
+            .staff
+            .unwrap();
+        let images = Vec::from_iter(details.image.and_then(|i| i.large));
+        let birth_date = details.date_of_birth.and_then(|d| {
+            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+                NaiveDate::from_ymd_opt(
+                    y.try_into().unwrap(),
+                    m.try_into().unwrap(),
+                    d.try_into().unwrap(),
+                )
+            } else {
+                None
+            }
+        });
+        let death_date = details.date_of_death.and_then(|d| {
+            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+                NaiveDate::from_ymd_opt(
+                    y.try_into().unwrap(),
+                    m.try_into().unwrap(),
+                    d.try_into().unwrap(),
+                )
+            } else {
+                None
+            }
+        });
+        MetadataPerson {
+            identifier: details.id.to_string(),
+            source: MetadataSource::Anilist,
+            name: details.name.unwrap().full.unwrap(),
+            description: details.description,
+            gender: details.gender,
+            place: details.home_town,
+            images: Some(images),
+            death_date,
+            birth_date,
+            website: None,
+        }
+    };
+    Ok(data)
 }
 
 async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
@@ -166,14 +302,14 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         .unwrap()
         .media
         .unwrap();
-    let mut images = Vec::from_iter(details.cover_image.map(|i| i.extra_large.unwrap()));
+    let mut images = Vec::from_iter(details.cover_image.and_then(|i| i.extra_large));
     if let Some(i) = details.banner_image {
         images.push(i);
     }
     let images = images
         .into_iter()
-        .map(|i| MetadataImage {
-            url: StoredUrl::Url(i),
+        .map(|i| MetadataImageForMediaDetails {
+            image: i,
             lot: MetadataImageLot::Poster,
         })
         .unique()
@@ -192,20 +328,34 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             .flatten()
             .map(|t| t.name),
     );
-    let creators = Vec::from_iter(details.staff)
+    let mut people = Vec::from_iter(details.staff)
         .into_iter()
         .flat_map(|s| s.edges.unwrap())
         .flatten()
         .map(|s| {
             let node = s.node.unwrap();
-            MetadataCreator {
-                name: node.name.unwrap().full.unwrap(),
+            PartialMetadataPerson {
+                identifier: node.id.to_string(),
+                source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
-                image: node.image.unwrap().large,
             }
         })
-        .unique()
         .collect_vec();
+    people.extend(
+        Vec::from_iter(details.studios)
+            .into_iter()
+            .flat_map(|s| s.edges.unwrap())
+            .flatten()
+            .map(|s| {
+                let node = s.node.unwrap();
+                PartialMetadataPerson {
+                    identifier: node.id.to_string(),
+                    source: MetadataSource::Anilist,
+                    role: "Production".to_owned(),
+                }
+            }),
+    );
+    let people = people.into_iter().unique().collect_vec();
     let (specifics, lot) = match details.type_.unwrap() {
         details_query::MediaType::ANIME => (
             MediaSpecifics::Anime(AnimeSpecifics {
@@ -266,8 +416,9 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         source: MetadataSource::Anilist,
         description: details.description,
         lot,
-        creators,
-        images,
+        people,
+        creators: vec![],
+        url_images: images,
         videos,
         genres: genres.into_iter().unique().collect(),
         publish_year: year,
@@ -276,6 +427,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         suggestions,
         provider_rating: score,
         groups: vec![],
+        s3_images: vec![],
     })
 }
 

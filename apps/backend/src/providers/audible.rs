@@ -15,10 +15,10 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot, MetadataImages, PartialMetadata,
+            AudioBookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, PartialMetadata,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
@@ -249,16 +249,7 @@ impl MediaProvider for AudibleService {
                 MediaSearchItem {
                     identifier: a.identifier,
                     title: a.title,
-                    image: a
-                        .images
-                        .into_iter()
-                        .map(|i| match i.url {
-                            StoredUrl::S3(_u) => unreachable!(),
-                            StoredUrl::Url(u) => u,
-                        })
-                        .collect_vec()
-                        .get(0)
-                        .cloned(),
+                    image: a.url_images.get(0).map(|i| i.image.clone()),
                     publish_year: a.publish_year,
                 }
             })
@@ -336,37 +327,30 @@ impl AudibleService {
     }
 
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
-        let images =
-            Vec::from_iter(
-                item.product_images
-                    .unwrap()
-                    .image_2400
-                    .map(|a| MetadataImage {
-                        url: StoredUrl::Url(a),
-                        lot: MetadataImageLot::Poster,
-                    }),
-            );
+        let images = Vec::from_iter(item.product_images.unwrap().image_2400.map(|a| {
+            MetadataImageForMediaDetails {
+                image: a,
+                lot: MetadataImageLot::Poster,
+            }
+        }));
         let release_date = item.release_date.unwrap_or_default();
         let mut creators = item
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| MetadataCreator {
+            .map(|a| FreeMetadataCreator {
                 name: a.name,
                 role: "Author".to_owned(),
                 image: None,
             })
             .collect_vec();
-        creators.extend(
-            item.narrators
-                .unwrap_or_default()
-                .into_iter()
-                .map(|a| MetadataCreator {
-                    name: a.name,
-                    role: "Narrator".to_owned(),
-                    image: None,
-                }),
-        );
+        creators.extend(item.narrators.unwrap_or_default().into_iter().map(|a| {
+            FreeMetadataCreator {
+                name: a.name,
+                role: "Narrator".to_owned(),
+                image: None,
+            }
+        }));
         let description = item.publisher_summary.or(item.merchandising_summary);
         let rating = if let Some(r) = item.rating {
             if r.num_reviews > 0 {
@@ -403,11 +387,13 @@ impl AudibleService {
             specifics: MediaSpecifics::AudioBook(AudioBookSpecifics {
                 runtime: item.runtime_length_min,
             }),
-            images,
+            url_images: images,
             videos: vec![],
             provider_rating: rating,
             suggestions: vec![],
             groups: vec![],
+            people: vec![],
+            s3_images: vec![],
         }
     }
 }

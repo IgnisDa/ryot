@@ -23,6 +23,7 @@ import {
 	Group,
 	Image,
 	Indicator,
+	Loader,
 	Menu,
 	Modal,
 	NumberInput,
@@ -110,7 +111,7 @@ const formatter = new Intl.ListFormat("en", {
 	type: "conjunction",
 });
 
-function ProgressModal(props: {
+const ProgressModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
@@ -118,7 +119,7 @@ function ProgressModal(props: {
 	total?: number | null;
 	lot: MetadataLot;
 	refetch: () => void;
-}) {
+}) => {
 	const [value, setValue] = useState(props.progress);
 	const progressUpdate = useMutation({
 		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
@@ -219,14 +220,35 @@ function ProgressModal(props: {
 			</Stack>
 		</Modal>
 	);
-}
+};
 
-function SelectCollectionModal(props: {
+const MetadataCreator = (props: { name: string; image?: string | null }) => {
+	return (
+		<>
+			<Avatar
+				imageProps={{ loading: "lazy" }}
+				src={props.image}
+				h={100}
+				w={85}
+				mx="auto"
+				alt={`${props.name} profile picture`}
+				styles={{
+					image: { objectPosition: "top" },
+				}}
+			/>
+			<Text size="xs" color="dimmed" align="center" lineClamp={1} mt={4}>
+				{props.name}
+			</Text>
+		</>
+	);
+};
+
+const SelectCollectionModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
 	refetchUserMedia: () => void;
-}) {
+}) => {
 	const [selectedCollection, setSelectedCollection] = useState<string | null>(
 		null,
 	);
@@ -292,15 +314,15 @@ function SelectCollectionModal(props: {
 			) : undefined}
 		</Modal>
 	) : undefined;
-}
+};
 
-function CreateReminderModal(props: {
+const CreateReminderModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	title: string;
 	metadataId: number;
 	refetchUserMediaDetails: () => void;
-}) {
+}) => {
 	const [message, setMessage] = useState(`Complete '${props.title}'`);
 	const [remindOn, setRemindOn] = useState("");
 
@@ -371,7 +393,7 @@ function CreateReminderModal(props: {
 			</Stack>
 		</Modal>
 	);
-}
+};
 
 const AccordionLabel = ({
 	name,
@@ -683,7 +705,12 @@ const Page: NextPageWithLayout = () => {
 								</Text>
 							</Link>
 						) : undefined}
-						<Title id="media-title">{mediaDetails.data.title}</Title>
+						<Group>
+							<Title id="media-title">{mediaDetails.data.title}</Title>
+							{userMediaDetails.data && mediaSpecifics.data ? undefined : (
+								<Loader size="xs" />
+							)}
+						</Group>
 					</Box>
 					{userMediaDetails.data &&
 					userMediaDetails.data.collections.length > 0 ? (
@@ -735,9 +762,10 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 					) : undefined}
 					<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
+						<Text color="dimmed">{mediaDetails.data.productionStatus}</Text>
 						{mediaDetails.data.genres.length > 0 ? (
 							<Text color="dimmed">
-								{formatter.format(mediaDetails.data.genres.slice(0, 5))}
+								• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.bookSpecifics?.pages ? (
@@ -1000,43 +1028,35 @@ const Page: NextPageWithLayout = () => {
 														sm: 480,
 														md: 520,
 														lg: 580,
-														xl: 650,
 													}}
 												>
 													<Flex gap="md">
 														{c.items.map((creator) => (
-															<Link
-																key={creator.id}
-																passHref
-																legacyBehavior
-																href={withQuery(
-																	APP_ROUTES.media.people.details,
-																	{ id: creator.id },
-																)}
-															>
-																<Anchor data-creator-id={creator.id}>
-																	<Avatar
-																		imageProps={{ loading: "lazy" }}
-																		src={creator.image}
-																		h={100}
-																		w={85}
-																		mx="auto"
-																		alt={`${creator.name} profile picture`}
-																		styles={{
-																			image: { objectPosition: "top" },
-																		}}
-																	/>
-																	<Text
-																		size="xs"
-																		color="dimmed"
-																		align="center"
-																		lineClamp={1}
-																		mt={4}
+															<Box>
+																{creator.id ? (
+																	<Link
+																		key={creator.id}
+																		passHref
+																		legacyBehavior
+																		href={withQuery(
+																			APP_ROUTES.media.people.details,
+																			{ id: creator.id },
+																		)}
 																	>
-																		{creator.name}
-																	</Text>
-																</Anchor>
-															</Link>
+																		<Anchor data-creator-id={creator.id}>
+																			<MetadataCreator
+																				name={creator.name}
+																				image={creator.image}
+																			/>
+																		</Anchor>
+																	</Link>
+																) : (
+																	<MetadataCreator
+																		name={creator.name}
+																		image={creator.image}
+																	/>
+																)}
+															</Box>
 														))}
 													</Flex>
 												</ScrollArea>

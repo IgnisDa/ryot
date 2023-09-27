@@ -12,10 +12,10 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot,
+            BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, get_base_http_client},
@@ -124,19 +124,11 @@ impl MediaProvider for GoogleBooksService {
                 let MediaDetails {
                     identifier,
                     title,
-                    images,
+                    url_images,
                     publish_year,
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
-                let image = images
-                    .into_iter()
-                    .map(|i| match i.url {
-                        StoredUrl::S3(_u) => unreachable!(),
-                        StoredUrl::Url(u) => u,
-                    })
-                    .collect_vec()
-                    .get(0)
-                    .cloned();
+                let image = url_images.get(0).map(|i| i.image.clone());
                 MediaSearchItem {
                     identifier,
                     title,
@@ -187,22 +179,22 @@ impl GoogleBooksService {
                 images.push(a);
             }
         };
-        let images = images.into_iter().map(|a| MetadataImage {
-            url: StoredUrl::Url(a),
+        let images = images.into_iter().map(|a| MetadataImageForMediaDetails {
+            image: a,
             lot: MetadataImageLot::Poster,
         });
         let mut creators = item
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| MetadataCreator {
+            .map(|a| FreeMetadataCreator {
                 name: a,
                 role: "Author".to_owned(),
                 image: None,
             })
             .collect_vec();
         if let Some(p) = item.publisher {
-            creators.push(MetadataCreator {
+            creators.push(FreeMetadataCreator {
                 name: p,
                 role: "Publisher".to_owned(),
                 image: None,
@@ -231,13 +223,15 @@ impl GoogleBooksService {
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: item.page_count,
             }),
-            images: images.unique().collect(),
+            url_images: images.unique().collect(),
             provider_rating: item.average_rating,
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],
             groups: vec![],
             videos: vec![],
             is_nsfw: None,
+            people: vec![],
+            s3_images: vec![],
         }
     }
 }

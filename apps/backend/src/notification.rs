@@ -11,6 +11,9 @@ impl UserNotificationSetting {
     // TODO: Allow formatting messages
     pub async fn send_message(&self, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);
+        if std::env::var("DISABLE_NOTIFICATIONS").is_ok() {
+            return Ok(());
+        }
         match self {
             Self::Apprise { url, key } => {
                 surf::post(format!("{}/notify/{}", url, key))

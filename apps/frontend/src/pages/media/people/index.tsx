@@ -78,7 +78,7 @@ const Page: NextPageWithLayout = () => {
 				<title>{creatorDetails.data.details.name} | Ryot</title>
 			</Head>
 			<Container>
-				<MediaDetailsLayout images={[creatorDetails.data.details.image]}>
+				<MediaDetailsLayout images={creatorDetails.data.details.displayImages}>
 					<Title id="creator-title">{creatorDetails.data.details.name}</Title>
 					<Flex id="creator-details" wrap={"wrap"} gap={4}>
 						<Text>

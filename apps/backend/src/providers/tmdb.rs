@@ -2,6 +2,7 @@ use std::sync::OnceLock;
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use hashbag::HashBag;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -11,14 +12,15 @@ use serde_json::json;
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
-    config::{MoviesTmdbConfig, ShowsTmdbConfig},
+    config::TmdbConfig,
     entities::metadata_group,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, MetadataImages, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadata, ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataPerson,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
+            PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -30,13 +32,8 @@ static URL: &str = "https://api.themoviedb.org/3/";
 static IMAGE_URL: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbCompany {
-    name: String,
-    logo_path: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
+    id: Option<i32>,
     name: Option<String>,
     known_for_department: Option<String>,
     job: Option<String>,
@@ -52,6 +49,8 @@ struct TmdbImage {
 struct TmdbImagesResponse {
     backdrops: Option<Vec<TmdbImage>>,
     posters: Option<Vec<TmdbImage>>,
+    logos: Option<Vec<TmdbImage>>,
+    profiles: Option<Vec<TmdbImage>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -85,19 +84,27 @@ struct TmdbVideoResults {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbMovie {
+struct TmdbSeasonNumber {
+    season_number: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbMediaEntry {
     id: i32,
-    title: String,
+    name: Option<String>,
+    title: Option<String>,
     adult: Option<bool>,
     vote_average: Option<Decimal>,
     overview: Option<String>,
     poster_path: Option<String>,
     backdrop_path: Option<String>,
     release_date: Option<String>,
+    first_air_date: Option<String>,
+    production_companies: Option<Vec<TmdbNonMediaEntity>>,
+    seasons: Option<Vec<TmdbSeasonNumber>>,
     runtime: Option<i32>,
     status: Option<String>,
     genres: Option<Vec<NamedObject>>,
-    production_companies: Option<Vec<TmdbCompany>>,
     belongs_to_collection: Option<IdObject>,
     videos: Option<TmdbVideoResults>,
 }
@@ -126,13 +133,75 @@ impl MediaProviderLanguages for TmdbService {
 }
 
 #[derive(Debug, Clone)]
+pub struct NonMediaTmdbService {
+    client: Client,
+    base: TmdbService,
+}
+
+impl NonMediaTmdbService {
+    pub async fn new(access_token: String, language: String) -> Self {
+        let client = get_client_config(URL, &access_token).await;
+        Self {
+            client,
+            base: TmdbService { language },
+        }
+    }
+}
+
+#[async_trait]
+impl MediaProvider for NonMediaTmdbService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        let typ = if identity.role == "Production" {
+            "company".to_owned()
+        } else {
+            "person".to_owned()
+        };
+        let details: TmdbNonMediaEntity = self
+            .client
+            .get(format!("{}/{}", typ, identity.identifier))
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut images = vec![];
+        self.base
+            .save_all_images(&self.client, &typ, &identity.identifier, &mut images)
+            .await?;
+        let images = images
+            .into_iter()
+            .unique()
+            .map(|p| self.base.get_cover_image_url(p))
+            .collect();
+        let description = details.description.or(details.biography);
+        Ok(MetadataPerson {
+            name: details.name,
+            images: Some(images),
+            identifier: details.id.to_string(),
+            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
+            source: MetadataSource::Tmdb,
+            place: details.origin_country.or(details.place_of_birth),
+            website: details.homepage,
+            birth_date: details.birthday,
+            death_date: details.deathday,
+            gender: details.gender.and_then(|g| match g {
+                1 => Some("Female".to_owned()),
+                2 => Some("Male".to_owned()),
+                3 => Some("Non-Binary".to_owned()),
+                _ => None,
+            }),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct TmdbMovieService {
     client: Client,
     base: TmdbService,
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &MoviesTmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(config: &TmdbConfig, _page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.access_token).await;
         Self {
             client,
@@ -153,7 +222,7 @@ impl TmdbMovieService {
             overview: Option<String>,
             poster_path: Option<String>,
             backdrop_path: Option<String>,
-            parts: Vec<TmdbMovie>,
+            parts: Vec<TmdbMediaEntry>,
         }
         let data: TmdbCollection = self
             .client
@@ -181,7 +250,7 @@ impl TmdbMovieService {
             .parts
             .into_iter()
             .map(|p| PartialMetadata {
-                title: p.title,
+                title: p.title.unwrap(),
                 identifier: p.id.to_string(),
                 source: MetadataSource::Tmdb,
                 lot: MetadataLot::Movie,
@@ -227,7 +296,7 @@ impl MediaProvider for TmdbMovieService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: TmdbMovie = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let mut videos = vec![];
         if let Some(vid) = data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
@@ -250,20 +319,24 @@ impl MediaProvider for TmdbMovieService {
             .await
             .map_err(|e| anyhow!(e))?;
         let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut creators = vec![];
-        creators.extend(
+        let mut people = vec![];
+        people.extend(
             credits
                 .cast
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                        if r == *"Acting" {
-                            Some(MetadataCreator {
-                                name: n,
-                                role: r,
-                                image: g.profile_path,
-                            })
+                    if let Some(id) = g.id {
+                        if let Some(r) = g.known_for_department {
+                            if r == *"Acting" {
+                                Some(PartialMetadataPerson {
+                                    identifier: id.to_string(),
+                                    role: r,
+                                    source: MetadataSource::Tmdb,
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -274,19 +347,23 @@ impl MediaProvider for TmdbMovieService {
                 .unique()
                 .collect_vec(),
         );
-        creators.extend(
+        people.extend(
             credits
                 .crew
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let (Some(n), Some(r)) = (g.name, g.job) {
-                        if r == *"Director" {
-                            Some(MetadataCreator {
-                                name: n,
-                                role: r,
-                                image: g.profile_path,
-                            })
+                    if let Some(id) = g.id {
+                        if let Some(r) = g.job {
+                            if r == *"Director" {
+                                Some(PartialMetadataPerson {
+                                    identifier: id.to_string(),
+                                    role: r,
+                                    source: MetadataSource::Tmdb,
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -297,25 +374,17 @@ impl MediaProvider for TmdbMovieService {
                 .unique()
                 .collect_vec(),
         );
-        creators.extend(
+        people.extend(
             data.production_companies
                 .unwrap_or_default()
                 .into_iter()
-                .map(|p| MetadataCreator {
-                    name: p.name,
+                .map(|p| PartialMetadataPerson {
+                    identifier: p.id.to_string(),
                     role: "Production".to_owned(),
-                    image: p.logo_path.map(|p| self.base.get_cover_image_url(p)),
+                    source: MetadataSource::Tmdb,
                 })
                 .collect_vec(),
         );
-        let creators = creators
-            .into_iter()
-            .map(|c| MetadataCreator {
-                name: c.name,
-                role: c.role,
-                image: c.image.map(|i| self.base.get_cover_image_url(i)),
-            })
-            .collect_vec();
         let mut image_ids = Vec::from_iter(data.poster_path);
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
@@ -341,19 +410,19 @@ impl MediaProvider for TmdbMovieService {
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
             production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
-            title: data.title,
+            title: data.title.unwrap(),
             genres: data
                 .genres
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            creators,
-            images: image_ids
+            people,
+            url_images: image_ids
                 .into_iter()
                 .unique()
-                .map(|p| MetadataImage {
-                    url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                .map(|p| MetadataImageForMediaDetails {
+                    image: self.base.get_cover_image_url(p),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -378,6 +447,8 @@ impl MediaProvider for TmdbMovieService {
             } else {
                 None
             },
+            creators: vec![],
+            s3_images: vec![],
         })
     }
 
@@ -434,7 +505,7 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &ShowsTmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(config: &TmdbConfig, _page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.access_token).await;
         Self {
             client,
@@ -448,26 +519,6 @@ impl TmdbShowService {
 #[async_trait]
 impl MediaProvider for TmdbShowService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbSeasonNumber {
-            season_number: i32,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbShow {
-            id: i32,
-            name: String,
-            adult: Option<bool>,
-            overview: Option<String>,
-            poster_path: Option<String>,
-            backdrop_path: Option<String>,
-            first_air_date: Option<String>,
-            seasons: Vec<TmdbSeasonNumber>,
-            genres: Vec<NamedObject>,
-            status: Option<String>,
-            vote_average: Option<Decimal>,
-            production_companies: Option<Vec<TmdbCompany>>,
-            videos: Option<TmdbVideoResults>,
-        }
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
@@ -478,7 +529,7 @@ impl MediaProvider for TmdbShowService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let show_data: TmdbShow = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let show_data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let mut videos = vec![];
         if let Some(vid) = show_data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
@@ -521,7 +572,7 @@ impl MediaProvider for TmdbShowService {
             episodes: Vec<TmdbEpisode>,
         }
         let mut seasons = vec![];
-        for s in show_data.seasons.iter() {
+        for s in show_data.seasons.unwrap_or_default().iter() {
             let mut rsp = self
                 .client
                 .get(format!(
@@ -559,7 +610,7 @@ impl MediaProvider for TmdbShowService {
             }
             seasons.push(data);
         }
-        let mut author_names = seasons
+        let mut people = seasons
             .iter()
             .flat_map(|s| {
                 s.episodes
@@ -569,13 +620,11 @@ impl MediaProvider for TmdbShowService {
                             .clone()
                             .into_iter()
                             .flat_map(|g| {
-                                if let (Some(n), Some(r)) = (g.name, g.known_for_department) {
-                                    Some(MetadataCreator {
-                                        name: n,
+                                if let Some(id) = g.id {
+                                    g.known_for_department.map(|r| PartialMetadataPerson {
+                                        identifier: id.to_string(),
                                         role: r,
-                                        image: g
-                                            .profile_path
-                                            .map(|p| self.base.get_cover_image_url(p)),
+                                        source: MetadataSource::Tmdb,
                                     })
                                 } else {
                                     None
@@ -586,19 +635,20 @@ impl MediaProvider for TmdbShowService {
                     .collect_vec()
             })
             .collect_vec();
-        author_names.extend(
+        people.extend(
             show_data
                 .production_companies
                 .unwrap_or_default()
                 .into_iter()
-                .map(|p| MetadataCreator {
-                    name: p.name,
+                .map(|p| PartialMetadataPerson {
+                    identifier: p.id.to_string(),
                     role: "Production".to_owned(),
-                    image: p.logo_path.map(|p| self.base.get_cover_image_url(p)),
-                }),
+                    source: MetadataSource::Tmdb,
+                })
+                .collect_vec(),
         );
-        let author_names: HashBag<MetadataCreator> = HashBag::from_iter(author_names.into_iter());
-        let author_names = Vec::from_iter(author_names.set_iter())
+        let people: HashBag<PartialMetadataPerson> = HashBag::from_iter(people.into_iter());
+        let people = Vec::from_iter(people.set_iter())
             .into_iter()
             .sorted_by_key(|c| c.1)
             .rev()
@@ -608,15 +658,16 @@ impl MediaProvider for TmdbShowService {
             .collect_vec();
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
-            title: show_data.name,
+            title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
             lot: MetadataLot::Show,
             production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
             source: MetadataSource::Tmdb,
             description: show_data.overview,
-            creators: author_names,
+            people,
             genres: show_data
                 .genres
+                .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.name)
                 .unique()
@@ -624,11 +675,11 @@ impl MediaProvider for TmdbShowService {
             publish_date: convert_string_to_date(
                 &show_data.first_air_date.clone().unwrap_or_default(),
             ),
-            images: image_ids
+            url_images: image_ids
                 .into_iter()
                 .unique()
-                .map(|p| MetadataImage {
-                    url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                .map(|p| MetadataImageForMediaDetails {
+                    image: self.base.get_cover_image_url(p),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -686,6 +737,8 @@ impl MediaProvider for TmdbShowService {
                 None
             },
             groups: vec![],
+            creators: vec![],
+            s3_images: vec![],
         })
     }
 
@@ -753,6 +806,20 @@ async fn get_client_config(url: &str, access_token: &str) -> Client {
     client
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbNonMediaEntity {
+    id: i32,
+    name: String,
+    biography: Option<String>,
+    description: Option<String>,
+    birthday: Option<NaiveDate>,
+    deathday: Option<NaiveDate>,
+    homepage: Option<String>,
+    gender: Option<u8>,
+    origin_country: Option<String>,
+    place_of_birth: Option<String>,
+}
+
 impl TmdbService {
     async fn save_all_images(
         &self,
@@ -772,6 +839,16 @@ impl TmdbService {
             }
         }
         if let Some(imgs) = new_images.backdrops {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.logos {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.profiles {
             for image in imgs {
                 images.push(image.file_path);
             }

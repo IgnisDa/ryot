@@ -12,13 +12,10 @@ use crate::{
     },
     migrator::{MetadataLot, MetadataSource},
     miscellaneous::DefaultCollection,
-    models::{
-        media::{
-            BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot,
-        },
-        StoredUrl,
+    models::media::{
+        BookSpecifics, FreeMetadataCreator, ImportOrExportItemRating, ImportOrExportItemReview,
+        ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataImageForMediaDetails,
+        MetadataImageLot,
     },
 };
 
@@ -116,13 +113,13 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             production_status: "Released".to_owned(),
                             lot: MetadataLot::Book,
                             source: MetadataSource::Custom,
-                            creators: vec![MetadataCreator {
+                            creators: vec![FreeMetadataCreator {
                                 name: d.author_name,
                                 role: "Author".to_owned(),
                                 image: None,
                             }],
-                            images: vec![MetadataImage {
-                                url: StoredUrl::Url(d.book_large_image_url),
+                            url_images: vec![MetadataImageForMediaDetails {
+                                image: d.book_large_image_url,
                                 lot: MetadataImageLot::Poster,
                             }],
                             specifics: MediaSpecifics::Book(BookSpecifics {
@@ -136,6 +133,8 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             suggestions: vec![],
                             groups: vec![],
                             is_nsfw: None,
+                            people: vec![],
+                            s3_images: vec![],
                         },
                     )),
                     seen_history,

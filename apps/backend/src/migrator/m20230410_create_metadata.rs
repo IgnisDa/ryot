@@ -8,8 +8,6 @@ use strum::Display;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-// TODO: Drop this index
-pub static METADATA_IDENTIFIER_INDEX: &str = "metadata_identifier__index";
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
 // The different types of media that can be stored
@@ -129,8 +127,10 @@ pub enum Metadata {
     Specifics,
     // whether it is not safe for work
     IsNsfw,
-    // Time when this item has been processed by the calendar indexer
+    // time when this item has been processed by the calendar indexer
     LastProcessedOnForCalendar,
+    // those creators who can not be created as a `person` due to incomplete info
+    FreeCreators,
 }
 
 #[async_trait::async_trait]
@@ -180,15 +180,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
                     .col(ColumnDef::new(Metadata::Specifics).json().not_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(METADATA_IDENTIFIER_INDEX)
-                    .table(Metadata::Table)
-                    .col(Metadata::Identifier)
+                    .col(ColumnDef::new(Metadata::FreeCreators).json())
                     .to_owned(),
             )
             .await?;

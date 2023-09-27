@@ -19,29 +19,39 @@ fn default_mal_client_id(_ctx: &()) -> Option<String> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "ANIME_MAL_")]
-pub struct AnimeMalConfig {
+#[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
+pub struct MalConfig {
     /// The client ID to be used for the MAL API.
     #[setting(default = default_mal_client_id)]
     pub client_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "ANIME_ANILIST_")]
-pub struct AnimeAnilistConfig {}
+#[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
+pub struct AnilistConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(
+    rename_all = "snake_case",
+    env_prefix = "ANIME_AND_MANGA_MANGA_UPDATES_"
+)]
+pub struct MangaUpdatesConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
-pub struct AnimeConfig {
-    /// Settings related to Anilist (anime).
+pub struct AnimeAndMangaConfig {
+    /// Settings related to Anilist.
     #[setting(nested)]
-    pub anilist: AnimeAnilistConfig,
-    /// Settings related to MAL (anime).
+    pub anilist: AnilistConfig,
+    /// Settings related to MAL.
     #[setting(nested)]
-    pub mal: AnimeMalConfig,
+    pub mal: MalConfig,
+    /// Settings related to MangaUpdates.
+    #[setting(nested)]
+    pub manga_updates: MangaUpdatesConfig,
 }
 
-impl IsFeatureEnabled for AnimeConfig {}
+impl IsFeatureEnabled for AnimeAndMangaConfig {}
 
 fn validate_audible_locale(
     value: &str,
@@ -128,7 +138,11 @@ pub struct ExerciseConfig {}
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {}
 
-fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
+fn validate_tmdb_locale(
+    value: &str,
+    _partial: &PartialTmdbConfig,
+    _context: &(),
+) -> Result<(), ValidateError> {
     if !TmdbService::supported_languages().contains(&value.to_owned()) {
         return Err(ValidateError::new(format!(
             "Tmdb does not support this locale: {:?}",
@@ -138,66 +152,26 @@ fn validate_tmdb_locale(value: &str) -> Result<(), ValidateError> {
     Ok(())
 }
 
-fn validate_movies_tmdb_locale(
-    value: &str,
-    _partial: &PartialMoviesTmdbConfig,
-    _context: &(),
-) -> Result<(), ValidateError> {
-    validate_tmdb_locale(value)
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
-pub struct MoviesTmdbConfig {
+#[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
+pub struct TmdbConfig {
     /// The access token for the TMDB API.
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
     /// The locale to use for making requests to TMDB API.
-    #[setting(validate = validate_movies_tmdb_locale, default = TmdbService::default_language())]
+    #[setting(validate = validate_tmdb_locale, default = TmdbService::default_language())]
     pub locale: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
-pub struct MovieConfig {
-    /// Settings related to TMDB (movies).
+pub struct MovieAndShowConfig {
+    /// Settings related to TMDB.
     #[setting(nested)]
-    pub tmdb: MoviesTmdbConfig,
+    pub tmdb: TmdbConfig,
 }
 
-impl IsFeatureEnabled for MovieConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MANGA_ANILIST_")]
-pub struct MangaAnilistConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MANGA_MAL_")]
-pub struct MangaMalConfig {
-    /// The client ID to be used for the MAL API.
-    #[setting(default = default_mal_client_id)]
-    pub client_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MANGA_MANGA_UPDATES_")]
-pub struct MangaMangaUpdatesConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case")]
-pub struct MangaConfig {
-    /// Settings related to Anilist (manga).
-    #[setting(nested)]
-    pub anilist: MangaAnilistConfig,
-    /// Settings related to MangaUpdates.
-    #[setting(nested)]
-    pub manga_updates: MangaMangaUpdatesConfig,
-    /// Settings related to MAL (manga).
-    #[setting(nested)]
-    pub mal: MangaMalConfig,
-}
-
-impl IsFeatureEnabled for MangaConfig {}
+impl IsFeatureEnabled for MovieAndShowConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
@@ -240,35 +214,6 @@ pub struct PodcastConfig {
 }
 
 impl IsFeatureEnabled for PodcastConfig {}
-
-fn validate_shows_tmdb_locale(
-    value: &str,
-    _partial: &PartialShowsTmdbConfig,
-    _context: &(),
-) -> Result<(), ValidateError> {
-    validate_tmdb_locale(value)
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MOVIES_TMDB_")]
-pub struct ShowsTmdbConfig {
-    /// The access token for the TMDB API.
-    #[setting(default = default_tmdb_access_token)]
-    pub access_token: String,
-    /// The locale to use for making requests to TMDB API.
-    #[setting(validate = validate_shows_tmdb_locale, default = TmdbService::default_language())]
-    pub locale: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case")]
-pub struct ShowConfig {
-    /// Settings related to TMDB (shows).
-    #[setting(nested)]
-    pub tmdb: ShowsTmdbConfig,
-}
-
-impl IsFeatureEnabled for ShowConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
@@ -418,11 +363,6 @@ pub struct ServerConfig {
     pub insecure_cookie: bool,
     /// This will set SameSite=None on the auth cookies.
     pub samesite_none: bool,
-    /// The number of seconds after which a new application job is checked for.
-    /// Reducing this number will increase memory consumption but make certain
-    /// actions (eg: items automatically being added to "In Progress") faster.
-    #[setting(default = 5)]
-    pub application_job_check_seconds: u64,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
@@ -472,9 +412,9 @@ pub struct UsersConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
-    /// Settings related to anime.
+    /// Settings related to anime and manga.
     #[setting(nested)]
-    pub anime: AnimeConfig,
+    pub anime_and_manga: AnimeAndMangaConfig,
     /// Settings related to audio books.
     #[setting(nested)]
     pub audio_books: AudioBookConfig,
@@ -496,15 +436,12 @@ pub struct AppConfig {
     /// Settings related to external integrations.
     #[setting(nested)]
     pub integration: IntegrationConfig,
-    /// Settings related to manga.
-    #[setting(nested)]
-    pub manga: MangaConfig,
     /// Settings related to media.
     #[setting(nested)]
     pub media: MediaConfig,
-    /// Settings related to movies.
+    /// Settings related to movies and shows.
     #[setting(nested)]
-    pub movies: MovieConfig,
+    pub movies_and_shows: MovieAndShowConfig,
     /// Settings related to podcasts.
     #[setting(nested)]
     pub podcasts: PodcastConfig,
@@ -514,9 +451,6 @@ pub struct AppConfig {
     /// Settings related to server.
     #[setting(nested)]
     pub server: ServerConfig,
-    /// Settings related to shows.
-    #[setting(nested)]
-    pub shows: ShowConfig,
     /// Settings related to users.
     #[setting(nested)]
     pub users: UsersConfig,
@@ -533,7 +467,7 @@ impl AppConfig {
     pub fn masked_value(&self) -> Self {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
-        cl.anime.mal.client_id = gt();
+        cl.anime_and_manga.mal.client_id = gt();
         cl.database.url = gt();
         cl.file_storage.s3_region = gt();
         cl.file_storage.s3_bucket_name = gt();
@@ -541,10 +475,8 @@ impl AppConfig {
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
         cl.integration.hasher_salt = gt();
-        cl.manga.mal.client_id = gt();
-        cl.movies.tmdb.access_token = gt();
+        cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
-        cl.shows.tmdb.access_token = gt();
         cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();

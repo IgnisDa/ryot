@@ -16,10 +16,11 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadata,
+            PartialMetadataPerson,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,
@@ -27,6 +28,17 @@ use crate::{
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+enum OpenlibraryDescription {
+    Text(String),
+    Nested {
+        #[serde(rename = "type")]
+        key: String,
+        value: String,
+    },
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct BookSearchResults {
@@ -84,6 +96,56 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryLink {
+            url: Option<String>,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct OpenlibraryAuthor {
+            key: String,
+            bio: Option<OpenlibraryDescription>,
+            name: String,
+            photos: Option<Vec<i64>>,
+            links: Option<Vec<OpenlibraryLink>>,
+            birth_date: Option<String>,
+            death_date: Option<String>,
+        }
+        let mut rsp = self
+            .client
+            .get(format!("authors/{}.json", identity.identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: OpenlibraryAuthor = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let identifier = get_key(&data.key);
+        let description = data.bio.map(|d| match d {
+            OpenlibraryDescription::Text(s) => s,
+            OpenlibraryDescription::Nested { value, .. } => value,
+        });
+        let images = data
+            .photos
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|c| c > &0)
+            .map(|c| self.get_author_cover_image_url(c))
+            .unique()
+            .collect();
+        Ok(MetadataPerson {
+            identifier,
+            source: MetadataSource::Openlibrary,
+            name: data.name,
+            description,
+            images: Some(images),
+            website: data
+                .links
+                .and_then(|l| l.first().and_then(|a| a.url.clone())),
+            birth_date: data.birth_date.and_then(|b| parse_date(&b)),
+            death_date: data.death_date.and_then(|b| parse_date(&b)),
+            gender: None,
+            place: None,
+        })
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
@@ -96,16 +158,6 @@ impl MediaProvider for OpenlibraryService {
         enum OpenlibraryAuthorResponse {
             Flat(OpenlibraryKey),
             Nested(OpenlibraryAuthor),
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        #[serde(untagged)]
-        enum OpenlibraryDescription {
-            Text(String),
-            Nested {
-                #[serde(rename = "type")]
-                key: String,
-                value: String,
-            },
         }
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryBook {
@@ -159,13 +211,7 @@ impl MediaProvider for OpenlibraryService {
             .filter_map(|f| f.publish_date.clone())
             .filter_map(|f| Self::parse_date(&f))
             .min();
-
-        #[derive(Debug, Serialize, Deserialize)]
-        struct OpenlibraryAuthorPartial {
-            name: String,
-            photos: Option<Vec<i64>>,
-        }
-        let mut creators = vec![];
+        let mut people = vec![];
         for a in data.authors.unwrap_or_default().iter() {
             let (key, role) = match a {
                 OpenlibraryAuthorResponse::Flat(s) => (s.key.to_owned(), "Author".to_owned()),
@@ -177,21 +223,11 @@ impl MediaProvider for OpenlibraryService {
                         .unwrap_or_else(|| "Author".to_owned()),
                 ),
             };
-            let mut rsp = self
-                .client
-                .get(format!("{}.json", key))
-                .await
-                .map_err(|e| anyhow!(e))?;
-            let OpenlibraryAuthorPartial { name, photos } =
-                rsp.body_json().await.map_err(|e| anyhow!(e))?;
-            let image = photos
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|c| c > &0)
-                .collect_vec()
-                .first()
-                .map(|i| self.get_author_cover_image_url(*i));
-            creators.push(MetadataCreator { name, role, image });
+            people.push(PartialMetadataPerson {
+                identifier: get_key(&key),
+                role,
+                source: MetadataSource::Openlibrary,
+            });
         }
         let description = data.description.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
@@ -212,8 +248,8 @@ impl MediaProvider for OpenlibraryService {
         let images = images
             .into_iter()
             .filter(|c| c > &0)
-            .map(|c| MetadataImage {
-                url: StoredUrl::Url(self.get_book_cover_image_url(c)),
+            .map(|c| MetadataImageForMediaDetails {
+                image: self.get_book_cover_image_url(c),
                 lot: MetadataImageLot::Poster,
             })
             .unique()
@@ -295,9 +331,9 @@ impl MediaProvider for OpenlibraryService {
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
-            creators,
+            people,
             genres,
-            images,
+            url_images: images,
             publish_year: first_release_date.map(|d| d.year()),
             specifics: MediaSpecifics::Book(BookSpecifics {
                 pages: Some(num_pages),
@@ -308,6 +344,8 @@ impl MediaProvider for OpenlibraryService {
             videos: vec![],
             groups: vec![],
             is_nsfw: None,
+            creators: vec![],
+            s3_images: vec![],
         })
     }
 
@@ -459,4 +497,8 @@ pub fn get_key(key: &str) -> String {
         .cloned()
         .unwrap()
         .to_owned()
+}
+
+fn parse_date(date_str: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(date_str, "%e %B %Y").ok()
 }

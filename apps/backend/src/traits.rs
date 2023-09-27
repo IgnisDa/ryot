@@ -1,10 +1,13 @@
-use anyhow::Result;
+use std::sync::Arc;
+
+use anyhow::{bail, Result};
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
+    file_storage::FileStorageService,
     models::{
-        media::{MediaDetails, MediaSearchItem},
+        media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson},
         SearchResults,
     },
     utils::AuthContext,
@@ -13,15 +16,27 @@ use crate::{
 #[async_trait]
 pub trait MediaProvider {
     /// Search for something using a particular query and offset.
+    #[allow(unused_variables)]
     async fn search(
         &self,
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>>;
+    ) -> Result<SearchResults<MediaSearchItem>> {
+        bail!("This provider does not support searching media")
+    }
 
     /// Get details about a media item for the particular identifier.
-    async fn details(&self, identifier: &str) -> Result<MediaDetails>;
+    #[allow(unused_variables)]
+    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+        bail!("This provider does not support getting media details")
+    }
+
+    /// Get details about a person for the particular details.
+    #[allow(unused_variables)]
+    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+        bail!("This provider does not support getting person details")
+    }
 }
 
 pub trait MediaProviderLanguages {
@@ -37,6 +52,16 @@ pub trait IsFeatureEnabled {
     fn is_enabled(&self) -> bool {
         true
     }
+}
+
+#[async_trait]
+pub trait DatabaseAssestsAsSingleUrl {
+    async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
+}
+
+#[async_trait]
+pub trait DatabaseAssetsAsUrls {
+    async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String>;
 }
 
 #[async_trait]

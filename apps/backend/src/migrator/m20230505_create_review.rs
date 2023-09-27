@@ -1,14 +1,14 @@
 use sea_orm_migration::prelude::*;
 
 use crate::{
-    migrator::{m20230412_create_creator::Creator, m20230417_create_user::User, Metadata},
+    migrator::{m20230413_create_person::Person, m20230417_create_user::User, Metadata},
     models::media::Visibility,
 };
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static CREATOR_TO_REVIEW_FOREIGN_KEY: &str = "review_to_creator_foreign_key";
+pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 
 /// A review can be for either a creator or a media item.
 #[derive(Iden)]
@@ -23,7 +23,7 @@ pub enum Review {
     Visibility,
     UserId,
     MetadataId,
-    CreatorId,
+    PersonId,
     Spoiler,
     Comments,
 }
@@ -82,12 +82,12 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::CreatorId).integer().null())
+                    .col(ColumnDef::new(Review::PersonId).integer().null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name(CREATOR_TO_REVIEW_FOREIGN_KEY)
-                            .from(Review::Table, Review::CreatorId)
-                            .to(Creator::Table, Creator::Id)
+                            .name(PERSON_TO_REVIEW_FOREIGN_KEY)
+                            .from(Review::Table, Review::PersonId)
+                            .to(Person::Table, Person::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

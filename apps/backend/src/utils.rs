@@ -201,11 +201,11 @@ where
 
 pub async fn get_stored_asset(
     url: StoredUrl,
-    files_storage_service: &Arc<FileStorageService>,
+    file_storage_service: &Arc<FileStorageService>,
 ) -> String {
     match url {
         StoredUrl::Url(u) => u,
-        StoredUrl::S3(u) => files_storage_service.get_presigned_url(u).await,
+        StoredUrl::S3(u) => file_storage_service.get_presigned_url(u).await,
     }
 }
 

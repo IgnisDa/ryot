@@ -1,9 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt,
+    sync::Arc,
 };
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
+use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
@@ -18,10 +20,13 @@ use specta::Type;
 
 use crate::{
     entities::{exercise::Model as ExerciseModel, metadata_group, user_measurement},
+    file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
         MetadataLot, MetadataSource, SeenState,
     },
+    traits::{DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls},
+    utils::get_stored_asset,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -698,6 +703,33 @@ pub mod media {
         pub lot: MetadataLot,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    pub struct PartialMetadataPerson {
+        pub identifier: String,
+        pub source: MetadataSource,
+        pub role: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    pub struct MetadataPerson {
+        pub identifier: String,
+        pub source: MetadataSource,
+        pub name: String,
+        pub description: Option<String>,
+        pub images: Option<Vec<String>>,
+        pub gender: Option<String>,
+        pub death_date: Option<NaiveDate>,
+        pub birth_date: Option<NaiveDate>,
+        pub place: Option<String>,
+        pub website: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    pub struct MetadataImageForMediaDetails {
+        pub image: String,
+        pub lot: MetadataImageLot,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -707,9 +739,11 @@ pub mod media {
         pub description: Option<String>,
         pub lot: MetadataLot,
         pub production_status: String,
-        pub creators: Vec<MetadataCreator>,
+        pub creators: Vec<FreeMetadataCreator>,
+        pub people: Vec<PartialMetadataPerson>,
         pub genres: Vec<String>,
-        pub images: Vec<MetadataImage>,
+        pub url_images: Vec<MetadataImageForMediaDetails>,
+        pub s3_images: Vec<MetadataImageForMediaDetails>,
         pub videos: Vec<MetadataVideo>,
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
@@ -837,6 +871,7 @@ pub mod media {
         Serialize,
         Default,
         Hash,
+        Enum,
     )]
     pub enum MetadataImageLot {
         Backdrop,
@@ -884,6 +919,37 @@ pub mod media {
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataImages(pub Vec<MetadataImage>);
+
+    #[async_trait]
+    impl DatabaseAssestsAsSingleUrl for Option<MetadataImages> {
+        async fn first_as_url(
+            &self,
+            file_storage_service: &Arc<FileStorageService>,
+        ) -> Option<String> {
+            if let Some(images) = self {
+                if let Some(i) = images.0.first().cloned() {
+                    Some(get_stored_asset(i.url, file_storage_service).await)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    }
+
+    #[async_trait]
+    impl DatabaseAssetsAsUrls for Option<MetadataImages> {
+        async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
+            let mut images = vec![];
+            if let Some(imgs) = self {
+                for i in imgs.0.clone() {
+                    images.push(get_stored_asset(i.url, file_storage_service).await);
+                }
+            }
+            images
+        }
+    }
 
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
@@ -944,18 +1010,15 @@ pub mod media {
         Default,
         Hash,
     )]
-    pub struct MetadataCreator {
+    pub struct FreeMetadataCreator {
         pub name: String,
         pub role: String,
         pub image: Option<String>,
     }
 
-    #[derive(
-        Debug, FromJsonQueryResult, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject,
-    )]
-    pub struct CreatorExtraInformation {
-        pub active: bool,
-    }
+    // FIXME: Remove this
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    pub struct MetadataFreeCreators(pub Vec<FreeMetadataCreator>);
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
     pub struct SeenShowExtraInformation {

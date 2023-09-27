@@ -14,6 +14,8 @@ non-exhaustive set of guides to deploy Ryot.
 4. Click on the newly created service and go to the "Variables" section. Click on
   "New Variable" and then "Add Reference". Click on "Add". 
 5. Go to the "Settings" tab and then click on "Generate Domain".
+6. Optionally, you can set the [healthcheck](https://docs.railway.app/deploy/healthchecks)
+  path to `/config`.
 
 ## Dokku
 
@@ -92,7 +94,6 @@ The demo Ryot instance is deployed to [Fly](https://fly.io). The following steps
 are required to deploy to Fly.
 
 1. Create a new postgres database for Ryot.
-
    ```bash
    flyctl postgres create ryot-db
    ```
@@ -103,9 +104,7 @@ are required to deploy to Fly.
    `bash
  flyctl launch
  `
-
 3. Connect the database.
-
    ```bash
    fly postgres attach --app ryot ryot-db
    ```

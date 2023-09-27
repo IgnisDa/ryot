@@ -17,9 +17,9 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
-            MediaDetails, MediaSpecifics, MetadataCreator, Visibility,
+            BookSpecifics, CreateOrUpdateCollectionInput, FreeMetadataCreator,
+            ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
+            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, Visibility,
         },
         IdObject,
     },
@@ -281,7 +281,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         .authors
                         .unwrap_or_default()
                         .into_iter()
-                        .map(|a| MetadataCreator {
+                        .map(|a| FreeMetadataCreator {
                             name: a,
                             role: "Author".to_owned(),
                             image: None,
@@ -290,13 +290,15 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     specifics: MediaSpecifics::Book(BookSpecifics { pages: num_pages }),
                     provider_rating: None,
                     genres: vec![],
-                    images: vec![],
+                    url_images: vec![],
                     videos: vec![],
                     publish_year: None,
                     publish_date: None,
                     suggestions: vec![],
                     groups: vec![],
                     is_nsfw: None,
+                    people: vec![],
+                    s3_images: vec![],
                 })),
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             },

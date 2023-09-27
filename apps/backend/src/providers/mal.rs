@@ -8,14 +8,14 @@ use serde_json::json;
 use surf::Client;
 
 use crate::{
-    config::{AnimeMalConfig, MangaMalConfig},
+    config::MalConfig,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImage, MetadataImageLot, PartialMetadata,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
@@ -26,7 +26,6 @@ static URL: &str = "https://api.myanimelist.net/v2/";
 #[derive(Debug, Clone)]
 pub struct MalService {
     client: Client,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for MalService {
@@ -40,15 +39,29 @@ impl MediaProviderLanguages for MalService {
 }
 
 #[derive(Debug, Clone)]
+pub struct NonMediaMalService {}
+
+impl NonMediaMalService {
+    pub async fn new() -> Self {
+        Self {}
+    }
+}
+
+#[async_trait]
+impl MediaProvider for NonMediaMalService {}
+
+#[derive(Debug, Clone)]
 pub struct MalAnimeService {
     base: MalService,
+    page_limit: i32,
 }
 
 impl MalAnimeService {
-    pub async fn new(config: &AnimeMalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &MalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
-            base: MalService { client, page_limit },
+            base: MalService { client },
+            page_limit,
         }
     }
 }
@@ -66,14 +79,8 @@ impl MediaProvider for MalAnimeService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
-        let (items, total, next_page) = search(
-            &self.base.client,
-            "anime",
-            query,
-            page,
-            self.base.page_limit,
-        )
-        .await?;
+        let (items, total, next_page) =
+            search(&self.base.client, "anime", query, page, self.page_limit).await?;
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,
@@ -84,13 +91,15 @@ impl MediaProvider for MalAnimeService {
 #[derive(Debug, Clone)]
 pub struct MalMangaService {
     base: MalService,
+    page_limit: i32,
 }
 
 impl MalMangaService {
-    pub async fn new(config: &MangaMalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &MalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
-            base: MalService { client, page_limit },
+            base: MalService { client },
+            page_limit,
         }
     }
 }
@@ -108,14 +117,8 @@ impl MediaProvider for MalMangaService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MediaSearchItem>> {
-        let (items, total, next_page) = search(
-            &self.base.client,
-            "manga",
-            query,
-            page,
-            self.base.page_limit,
-        )
-        .await?;
+        let (items, total, next_page) =
+            search(&self.base.client, "manga", query, page, self.page_limit).await?;
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,
@@ -268,8 +271,8 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             .into_iter()
             .map(|g| g.name)
             .collect(),
-        images: vec![MetadataImage {
-            url: StoredUrl::Url(details.main_picture.large),
+        url_images: vec![MetadataImageForMediaDetails {
+            image: details.main_picture.large,
             lot: MetadataImageLot::Poster,
         }],
         specifics,
@@ -283,6 +286,8 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         creators: vec![],
         videos: vec![],
         groups: vec![],
+        people: vec![],
+        s3_images: vec![],
     };
     Ok(data)
 }

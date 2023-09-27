@@ -16,10 +16,11 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, PartialMetadata, PodcastEpisode, PodcastSpecifics,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PodcastEpisode,
+            PodcastSpecifics,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{convert_naive_to_utc, get_base_http_client},
@@ -222,7 +223,7 @@ impl ListennotesService {
             description: podcast_data.description,
             lot: MetadataLot::Podcast,
             source: MetadataSource::Listennotes,
-            creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataCreator {
+            creators: Vec::from_iter(podcast_data.publisher.map(|p| FreeMetadataCreator {
                 name: p,
                 role: "Publishing".to_owned(),
                 image: None,
@@ -233,8 +234,8 @@ impl ListennotesService {
                 .filter_map(|g| GENRES.get().unwrap().get(&g).cloned())
                 .unique()
                 .collect(),
-            images: Vec::from_iter(podcast_data.image.map(|a| MetadataImage {
-                url: StoredUrl::Url(a),
+            url_images: Vec::from_iter(podcast_data.image.map(|a| MetadataImageForMediaDetails {
+                image: a,
                 lot: MetadataImageLot::Poster,
             })),
             videos: vec![],
@@ -256,6 +257,8 @@ impl ListennotesService {
             provider_rating: podcast_data.listen_score,
             suggestions: vec![],
             groups: vec![],
+            people: vec![],
+            s3_images: vec![],
         })
     }
 }

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{partial_metadata, prelude::PartialMetadata},
     migrator::{MetadataLot, MetadataSource},
-    models::media::{MediaSpecifics, MetadataImages, MetadataVideos},
+    models::media::{MediaSpecifics, MetadataFreeCreators, MetadataImages, MetadataVideos},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
@@ -22,8 +22,6 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub title: String,
     pub is_nsfw: bool,
-    // FIXME: Remove this
-    #[sea_orm(indexed)]
     pub identifier: String,
     pub description: Option<String>,
     pub publish_year: Option<i32>,
@@ -35,6 +33,7 @@ pub struct Model {
     pub production_status: String,
     pub provider_rating: Option<Decimal>,
     pub last_processed_on_for_calendar: Option<DateTimeUtc>,
+    pub free_creators: Option<MetadataFreeCreators>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -43,12 +42,12 @@ pub enum Relation {
     CalendarEvent,
     #[sea_orm(has_many = "super::metadata_to_collection::Entity")]
     MetadataToCollection,
-    #[sea_orm(has_many = "super::metadata_to_creator::Entity")]
-    MetadataToCreator,
     #[sea_orm(has_many = "super::metadata_to_genre::Entity")]
     MetadataToGenre,
     #[sea_orm(has_many = "super::metadata_to_partial_metadata::Entity")]
     MetadataToPartialMetadata,
+    #[sea_orm(has_many = "super::metadata_to_person::Entity")]
+    MetadataToPerson,
     #[sea_orm(has_many = "super::partial_metadata::Entity")]
     PartialMetadata,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -71,12 +70,6 @@ impl Related<super::metadata_to_collection::Entity> for Entity {
     }
 }
 
-impl Related<super::metadata_to_creator::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::MetadataToCreator.def()
-    }
-}
-
 impl Related<super::metadata_to_genre::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MetadataToGenre.def()
@@ -86,6 +79,12 @@ impl Related<super::metadata_to_genre::Entity> for Entity {
 impl Related<super::metadata_to_partial_metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MetadataToPartialMetadata.def()
+    }
+}
+
+impl Related<super::metadata_to_person::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToPerson.def()
     }
 }
 

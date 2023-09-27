@@ -12,10 +12,10 @@ use crate::{
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataCreator, MetadataImage,
-            MetadataImageLot, PodcastEpisode, PodcastSpecifics,
+            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
-        NamedObject, SearchDetails, SearchResults, StoredUrl,
+        NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,
@@ -103,7 +103,7 @@ impl MediaProvider for ITunesService {
         let description = ht.description.clone();
         let creators = Vec::from_iter(ht.artist_name.clone())
             .into_iter()
-            .map(|a| MetadataCreator {
+            .map(|a| FreeMetadataCreator {
                 name: a,
                 role: "Artist".to_owned(),
                 image: None,
@@ -134,11 +134,11 @@ impl MediaProvider for ITunesService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let images = details
+        let url_images = details
             .image
             .into_iter()
-            .map(|a| MetadataImage {
-                url: StoredUrl::Url(a),
+            .map(|a| MetadataImageForMediaDetails {
+                image: a,
                 lot: MetadataImageLot::Poster,
             })
             .collect();
@@ -171,7 +171,7 @@ impl MediaProvider for ITunesService {
             source: MetadataSource::Itunes,
             lot: MetadataLot::Podcast,
             description,
-            images,
+            url_images,
             creators,
             genres,
             specifics: MediaSpecifics::Podcast(PodcastSpecifics {
@@ -185,6 +185,8 @@ impl MediaProvider for ITunesService {
             groups: vec![],
             videos: vec![],
             is_nsfw: None,
+            people: vec![],
+            s3_images: vec![],
         })
     }
 

@@ -2,20 +2,26 @@
 
 /* eslint-disable */
 
-export interface AnimeAnilistConfig {
+export interface AnilistConfig {
 
 }
 
-export interface AnimeMalConfig {
+export interface MalConfig {
 	/** The client ID to be used for the MAL API. */
 	client_id: string;
 }
 
-export interface AnimeConfig {
-	/** Settings related to Anilist (anime). */
-	anilist: AnimeAnilistConfig;
-	/** Settings related to MAL (anime). */
-	mal: AnimeMalConfig;
+export interface MangaUpdatesConfig {
+
+}
+
+export interface AnimeAndMangaConfig {
+	/** Settings related to Anilist. */
+	anilist: AnilistConfig;
+	/** Settings related to MAL. */
+	mal: MalConfig;
+	/** Settings related to MangaUpdates. */
+	manga_updates: MangaUpdatesConfig;
 }
 
 export interface AudibleConfig {
@@ -114,42 +120,20 @@ export interface IntegrationConfig {
 	pull_every: number;
 }
 
-export interface MangaAnilistConfig {
-
-}
-
-export interface MangaMalConfig {
-	/** The client ID to be used for the MAL API. */
-	client_id: string;
-}
-
-export interface MangaMangaUpdatesConfig {
-
-}
-
-export interface MangaConfig {
-	/** Settings related to Anilist (manga). */
-	anilist: MangaAnilistConfig;
-	/** Settings related to MAL (manga). */
-	mal: MangaMalConfig;
-	/** Settings related to MangaUpdates. */
-	manga_updates: MangaMangaUpdatesConfig;
-}
-
 export interface MediaConfig {
 
 }
 
-export interface MoviesTmdbConfig {
+export interface TmdbConfig {
 	/** The access token for the TMDB API. */
 	access_token: string;
 	/** The locale to use for making requests to TMDB API. */
 	locale: string;
 }
 
-export interface MovieConfig {
-	/** Settings related to TMDB (movies). */
-	tmdb: MoviesTmdbConfig;
+export interface MovieAndShowConfig {
+	/** Settings related to TMDB. */
+	tmdb: TmdbConfig;
 }
 
 export interface ITunesConfig {
@@ -190,13 +174,6 @@ export interface SchedulerConfig {
 }
 
 export interface ServerConfig {
-	/**
-	 * The number of seconds after which a new application job is checked for.
-	 * Reducing this number will increase memory consumption but make certain
-	 * actions (eg: items automatically being added to "In Progress") faster.
-	 * @default 5
-	 */
-	application_job_check_seconds: number;
 	/** The path where the config file will be written once the server boots up. */
 	config_dump_path: string;
 	/** An array of URLs for CORS. */
@@ -237,18 +214,6 @@ export interface ServerConfig {
 	 * @default false
 	 */
 	videos_disabled: boolean;
-}
-
-export interface ShowsTmdbConfig {
-	/** The access token for the TMDB API. */
-	access_token: string;
-	/** The locale to use for making requests to TMDB API. */
-	locale: string;
-}
-
-export interface ShowConfig {
-	/** Settings related to TMDB (shows). */
-	tmdb: ShowsTmdbConfig;
 }
 
 export interface UsersConfig {
@@ -321,8 +286,8 @@ export interface VisualNovelConfig {
 }
 
 export interface AppConfig {
-	/** Settings related to anime. */
-	anime: AnimeConfig;
+	/** Settings related to anime and manga. */
+	anime_and_manga: AnimeAndMangaConfig;
 	/** Settings related to audio books. */
 	audio_books: AudioBookConfig;
 	/** Settings related to books. */
@@ -337,20 +302,16 @@ export interface AppConfig {
 	frontend: FrontendConfig;
 	/** Settings related to external integrations. */
 	integration: IntegrationConfig;
-	/** Settings related to manga. */
-	manga: MangaConfig;
 	/** Settings related to media. */
 	media: MediaConfig;
-	/** Settings related to movies. */
-	movies: MovieConfig;
+	/** Settings related to movies and shows. */
+	movies_and_shows: MovieAndShowConfig;
 	/** Settings related to podcasts. */
 	podcasts: PodcastConfig;
 	/** Settings related to scheduler. */
 	scheduler: SchedulerConfig;
 	/** Settings related to server. */
 	server: ServerConfig;
-	/** Settings related to shows. */
-	shows: ShowConfig;
 	/** Settings related to users. */
 	users: UsersConfig;
 	/** Settings related to video games. */
