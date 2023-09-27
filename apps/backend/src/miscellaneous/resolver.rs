@@ -51,15 +51,13 @@ use crate::{
     config::AppConfig,
     entities::{
         calendar_event, collection, creator, genre, metadata, metadata_group,
-        metadata_to_collection, metadata_to_creator, metadata_to_genre,
-        metadata_to_partial_metadata, metadata_to_person, partial_metadata,
-        partial_metadata_to_metadata_group, person,
+        metadata_to_collection, metadata_to_genre, metadata_to_partial_metadata,
+        metadata_to_person, partial_metadata, partial_metadata_to_metadata_group, person,
         prelude::{
             CalendarEvent, Collection, Creator, Genre, Metadata, MetadataGroup,
-            MetadataToCollection, MetadataToCreator, MetadataToGenre, MetadataToPartialMetadata,
-            MetadataToPerson, PartialMetadata as PartialMetadataModel,
-            PartialMetadataToMetadataGroup, Person, Review, Seen, User, UserMeasurement,
-            UserToMetadata, Workout,
+            MetadataToCollection, MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
+            PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
+            Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
         },
         review, seen, user, user_measurement, user_to_metadata, workout,
     },
@@ -1413,33 +1411,42 @@ impl MiscellaneousService {
         struct PartialCreator {
             id: i32,
             name: String,
-            image: Option<String>,
+            images: Option<MetadataImages>,
             role: String,
         }
-        let crts = MetadataToCreator::find()
+        let crts = MetadataToPerson::find()
             .expr(Expr::col(Asterisk))
-            .filter(metadata_to_creator::Column::MetadataId.eq(meta.id))
+            .filter(metadata_to_person::Column::MetadataId.eq(meta.id))
             .join(
                 JoinType::Join,
-                metadata_to_creator::Relation::Creator
+                metadata_to_person::Relation::Person
                     .def()
                     .on_condition(|left, right| {
                         Condition::all().add(
-                            Expr::col((left, metadata_to_creator::Column::CreatorId))
-                                .equals((right, creator::Column::Id)),
+                            Expr::col((left, metadata_to_person::Column::PersonId))
+                                .equals((right, person::Column::Id)),
                         )
                     }),
             )
-            .order_by_asc(metadata_to_creator::Column::Index)
+            .order_by_asc(metadata_to_person::Column::Index)
             .into_model::<PartialCreator>()
             .all(&self.db)
             .await?;
         let mut creators: HashMap<String, Vec<_>> = HashMap::new();
         for cr in crts {
+            let image = if let Some(images) = cr.images {
+                if let Some(i) = images.0.first().cloned() {
+                    Some(get_stored_asset(i.url, &self.file_storage_service).await)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             let creator = MetadataCreator {
                 id: Some(cr.id),
                 name: cr.name,
-                image: cr.image,
+                image,
             };
             creators
                 .entry(cr.role)
@@ -2952,10 +2959,6 @@ impl MiscellaneousService {
             .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        MetadataToCreator::delete_many()
-            .filter(metadata_to_creator::Column::MetadataId.eq(metadata_id))
-            .exec(&self.db)
-            .await?;
         MetadataToGenre::delete_many()
             .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
@@ -3014,11 +3017,11 @@ impl MiscellaneousService {
                 genre.delete(&self.db).await.ok();
             }
         }
-        tracing::trace!("Cleaning up creators without associated metadata");
+        tracing::trace!("Cleaning up people without associated metadata");
         let mut all_creators = Creator::find().stream(&self.db).await?;
         while let Some(creator) = all_creators.try_next().await? {
-            let num_associations = MetadataToCreator::find()
-                .filter(metadata_to_creator::Column::CreatorId.eq(creator.id))
+            let num_associations = MetadataToPerson::find()
+                .filter(metadata_to_person::Column::PersonId.eq(creator.id))
                 .count(&self.db)
                 .await
                 .unwrap();
@@ -4004,12 +4007,12 @@ impl MiscellaneousService {
         let mut unique_creators = HashSet::new();
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
-            meta.find_related(MetadataToCreator)
+            meta.find_related(MetadataToPerson)
                 .all(&self.db)
                 .await?
                 .into_iter()
                 .for_each(|c| {
-                    unique_creators.insert(c.creator_id);
+                    unique_creators.insert(c.person_id);
                 });
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
@@ -5467,10 +5470,10 @@ impl MiscellaneousService {
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let alias = "media_count";
-        let query = Creator::find()
+        let query = Person::find()
             .apply_if(input.query, |query, v| {
                 query.filter(Condition::all().add(get_case_insensitive_like_query(
-                    Expr::col(creator::Column::Name),
+                    Expr::col(person::Column::Name),
                     &v,
                 )))
             })
@@ -5482,13 +5485,13 @@ impl MiscellaneousService {
             )
             .join_rev(
                 JoinType::LeftJoin,
-                MetadataToCreator::belongs_to(Creator)
-                    .from(metadata_to_creator::Column::CreatorId)
-                    .to(creator::Column::Id)
+                MetadataToPerson::belongs_to(Person)
+                    .from(metadata_to_person::Column::PersonId)
+                    .to(person::Column::Id)
                     .into(),
             )
-            .group_by(creator::Column::Id)
-            .group_by(creator::Column::Name)
+            .group_by(person::Column::Id)
+            .group_by(person::Column::Name)
             .order_by(Expr::col(Alias::new(alias)), Order::Desc);
         let creators_paginator = query
             .clone()
@@ -5520,10 +5523,10 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        let associations = MetadataToCreator::find()
-            .filter(metadata_to_creator::Column::CreatorId.eq(creator_id))
+        let associations = MetadataToPerson::find()
+            .filter(metadata_to_person::Column::PersonId.eq(creator_id))
             .find_also_related(Metadata)
-            .order_by_asc(metadata_to_creator::Column::Index)
+            .order_by_asc(metadata_to_person::Column::Index)
             .all(&self.db)
             .await?;
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
