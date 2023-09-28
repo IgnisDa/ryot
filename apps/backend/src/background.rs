@@ -94,7 +94,7 @@ pub enum ApplicationJob {
     AfterMediaSeen(seen::Model),
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
-    AssociateGroupWithMetadata(i32, MetadataLot, MetadataSource, String),
+    AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
 }
 
 impl Job for ApplicationJob {
@@ -157,9 +157,9 @@ pub async fn perform_application_job(
                 .await
                 .unwrap();
         }
-        ApplicationJob::AssociateGroupWithMetadata(metadata_id, lot, source, group_identifier) => {
+        ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => {
             misc_service
-                .associate_group_with_metadata(metadata_id, lot, source, group_identifier)
+                .associate_group_with_metadata(lot, source, group_identifier)
                 .await
                 .unwrap();
         }
