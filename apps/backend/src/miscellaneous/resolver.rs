@@ -2794,29 +2794,14 @@ impl MiscellaneousService {
         source: MetadataSource,
         group_identifier: String,
     ) -> Result<()> {
-        // let existing_group = MetadataGroup::find()
-        //     .filter(metadata_group::Column::Identifier.eq(&group.identifier))
-        //     .filter(metadata_group::Column::Lot.eq(lot))
-        //     .filter(metadata_group::Column::Source.eq(source))
-        //     .one(&self.db)
-        //     .await?;
+        let existing_group = MetadataGroup::find()
+            .filter(metadata_group::Column::Identifier.eq(&group_identifier))
+            .filter(metadata_group::Column::Lot.eq(lot))
+            .filter(metadata_group::Column::Source.eq(source))
+            .one(&self.db)
+            .await?;
         // let group_id = match existing_group {
-        //     Some(eg) => {
-        //         if eg.title != group.title
-        //             || eg.description != group.description
-        //             || eg.images != group.images
-        //         {
-        //             let title = group.title.clone();
-        //             let description = group.description.clone();
-        //             let images = group.images.clone();
-        //             let mut db_group: metadata_group::ActiveModel = group.into();
-        //             db_group.title = ActiveValue::Set(title);
-        //             db_group.description = ActiveValue::Set(description);
-        //             db_group.images = ActiveValue::Set(images);
-        //             db_group.update(&self.db).await?;
-        //         }
-        //         eg.id
-        //     }
+        //     Some(eg) => eg.id,
         //     None => {
         //         let mut db_group: metadata_group::ActiveModel = group.into();
         //         db_group.id = ActiveValue::NotSet;
