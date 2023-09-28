@@ -2768,60 +2768,80 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn deploy_associate_group_with_metadata_job(
+    async fn deploy_associate_group_with_metadata_job(
         &self,
+        metadata_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
-        (group, associated_items): (metadata_group::Model, Vec<PartialMetadata>),
+        group_identifier: String,
     ) -> Result<()> {
-        let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(&group.identifier))
-            .filter(metadata_group::Column::Lot.eq(lot))
-            .filter(metadata_group::Column::Source.eq(source))
-            .one(&self.db)
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::AssociateGroupWithMetadata(
+                metadata_id,
+                lot,
+                source,
+                group_identifier,
+            ))
             .await?;
-        let group_id = match existing_group {
-            Some(eg) => {
-                if eg.title != group.title
-                    || eg.description != group.description
-                    || eg.images != group.images
-                {
-                    let title = group.title.clone();
-                    let description = group.description.clone();
-                    let images = group.images.clone();
-                    let mut db_group: metadata_group::ActiveModel = group.into();
-                    db_group.title = ActiveValue::Set(title);
-                    db_group.description = ActiveValue::Set(description);
-                    db_group.images = ActiveValue::Set(images);
-                    db_group.update(&self.db).await?;
-                }
-                eg.id
-            }
-            None => {
-                let mut db_group: metadata_group::ActiveModel = group.into();
-                db_group.id = ActiveValue::NotSet;
-                let new_group = db_group.insert(&self.db).await?;
-                new_group.id
-            }
-        };
-        for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = self.create_partial_metadata(media).await?;
-            PartialMetadataToMetadataGroup::delete_many()
-                .filter(partial_metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
-                .filter(
-                    partial_metadata_to_metadata_group::Column::PartialMetadataId
-                        .eq(db_partial_metadata.id),
-                )
-                .exec(&self.db)
-                .await
-                .ok();
-            let intermediate = partial_metadata_to_metadata_group::ActiveModel {
-                metadata_group_id: ActiveValue::Set(group_id),
-                partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-            };
-            intermediate.insert(&self.db).await.ok();
-        }
+        Ok(())
+    }
+
+    pub async fn associate_group_with_metadata(
+        &self,
+        metadata_id: i32,
+        lot: MetadataLot,
+        source: MetadataSource,
+        group_identifier: String,
+    ) -> Result<()> {
+        // let existing_group = MetadataGroup::find()
+        //     .filter(metadata_group::Column::Identifier.eq(&group.identifier))
+        //     .filter(metadata_group::Column::Lot.eq(lot))
+        //     .filter(metadata_group::Column::Source.eq(source))
+        //     .one(&self.db)
+        //     .await?;
+        // let group_id = match existing_group {
+        //     Some(eg) => {
+        //         if eg.title != group.title
+        //             || eg.description != group.description
+        //             || eg.images != group.images
+        //         {
+        //             let title = group.title.clone();
+        //             let description = group.description.clone();
+        //             let images = group.images.clone();
+        //             let mut db_group: metadata_group::ActiveModel = group.into();
+        //             db_group.title = ActiveValue::Set(title);
+        //             db_group.description = ActiveValue::Set(description);
+        //             db_group.images = ActiveValue::Set(images);
+        //             db_group.update(&self.db).await?;
+        //         }
+        //         eg.id
+        //     }
+        //     None => {
+        //         let mut db_group: metadata_group::ActiveModel = group.into();
+        //         db_group.id = ActiveValue::NotSet;
+        //         let new_group = db_group.insert(&self.db).await?;
+        //         new_group.id
+        //     }
+        // };
+        // for (idx, media) in associated_items.into_iter().enumerate() {
+        //     let db_partial_metadata = self.create_partial_metadata(media).await?;
+        //     PartialMetadataToMetadataGroup::delete_many()
+        //         .filter(partial_metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
+        //         .filter(
+        //             partial_metadata_to_metadata_group::Column::PartialMetadataId
+        //                 .eq(db_partial_metadata.id),
+        //         )
+        //         .exec(&self.db)
+        //         .await
+        //         .ok();
+        //     let intermediate = partial_metadata_to_metadata_group::ActiveModel {
+        //         metadata_group_id: ActiveValue::Set(group_id),
+        //         partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+        //         part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+        //     };
+        //     intermediate.insert(&self.db).await.ok();
+        // }
         Ok(())
     }
 
@@ -2980,10 +3000,14 @@ impl MiscellaneousService {
         }
         // DEV: Ideally, we should remove partial_metadata to metadata_group association but does not really matter
         for group_identifier in groups {
-            // TODO: Create a job out of it
-            self.deploy_associate_group_with_metadata_job(lot, source, group_identifier)
-                .await
-                .ok();
+            self.deploy_associate_group_with_metadata_job(
+                metadata_id,
+                lot,
+                source,
+                group_identifier,
+            )
+            .await
+            .ok();
         }
         Ok(())
     }
