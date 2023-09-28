@@ -11,7 +11,7 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::AudibleConfig,
-    entities::metadata_group,
+    entities::metadata_group::MetadataGroupWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -174,7 +174,7 @@ impl MediaProvider for AudibleService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadata>)> {
         let data: AudibleItemResponse = self
             .client
             .get(identifier)
@@ -212,8 +212,7 @@ impl MediaProvider for AudibleService {
             })
         }
         Ok((
-            metadata_group::Model {
-                id: 0,
+            MetadataGroupWithoutId {
                 display_images: vec![],
                 parts: collection_contents.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),

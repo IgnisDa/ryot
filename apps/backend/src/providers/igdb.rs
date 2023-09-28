@@ -14,7 +14,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
-    entities::metadata_group,
+    entities::metadata_group::MetadataGroupWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -146,7 +146,7 @@ impl MediaProvider for IgdbService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadata>)> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r"
@@ -190,8 +190,7 @@ where id = {id};
             })
             .collect_vec();
         Ok((
-            metadata_group::Model {
-                id: 0,
+            MetadataGroupWithoutId {
                 display_images: vec![],
                 parts: items.len().try_into().unwrap(),
                 identifier: details.id.to_string(),
