@@ -19,7 +19,10 @@ use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
-    entities::{exercise::Model as ExerciseModel, metadata_group, user_measurement},
+    entities::{
+        exercise::Model as ExerciseModel, partial_metadata::PartialMetadataWithoutId,
+        user_measurement,
+    },
     file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
@@ -695,15 +698,6 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
-    pub struct PartialMetadata {
-        pub title: String,
-        pub image: Option<String>,
-        pub identifier: String,
-        pub source: MetadataSource,
-        pub lot: MetadataLot,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct PartialMetadataPerson {
         pub identifier: String,
         pub source: MetadataSource,
@@ -748,8 +742,8 @@ pub mod media {
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
-        pub suggestions: Vec<PartialMetadata>,
-        pub groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        pub suggestions: Vec<PartialMetadataWithoutId>,
+        pub group_identifiers: Vec<String>,
         pub provider_rating: Option<Decimal>,
     }
 
@@ -762,6 +756,8 @@ pub mod media {
         AlreadyFilled(Box<MediaDetails>),
     }
 
+    /// A specific instance when an entity was seen.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
@@ -778,6 +774,8 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
     }
 
+    /// Review data associated to a rating.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
@@ -788,6 +786,8 @@ pub mod media {
         pub text: Option<String>,
     }
 
+    /// A rating given to an entity.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
@@ -805,6 +805,7 @@ pub mod media {
     }
 
     /// Details about a specific media item that needs to be imported or exported.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportMediaItem<T> {
         /// An string to help identify it in the original source.
@@ -824,6 +825,7 @@ pub mod media {
     }
 
     /// Complete export of the user.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ExportAllResponse {
         /// Data about user's media.
@@ -835,6 +837,7 @@ pub mod media {
     }
 
     /// Details about a specific creator item that needs to be exported.
+    #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Type)]
     pub struct ImportOrExportPersonItem {
         /// The name of the creator.
@@ -955,6 +958,7 @@ pub mod media {
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
     pub struct MetadataVideos(pub Vec<MetadataVideo>);
 
+    /// A user that has commented on a review.
     #[derive(
         Clone,
         Debug,
@@ -973,6 +977,8 @@ pub mod media {
         pub name: String,
     }
 
+    /// Comments left in replies to posted reviews.
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,
@@ -1102,6 +1108,7 @@ pub mod fitness {
         pub name: String,
     }
 
+    /// The actual statistics that were logged in a user measurement.
     #[skip_serializing_none]
     #[derive(
         Debug,

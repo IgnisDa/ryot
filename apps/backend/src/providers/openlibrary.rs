@@ -13,12 +13,12 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     config::OpenlibraryConfig,
+    entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadata,
-            PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
         },
         SearchDetails, SearchResults,
     },
@@ -314,7 +314,7 @@ impl MediaProvider for OpenlibraryService {
                     .next()
                     .and_then(|img| img.value().attr("src"))
                     .map(|src| src.to_string());
-                suggestions.push(PartialMetadata {
+                suggestions.push(PartialMetadataWithoutId {
                     title: name,
                     image,
                     identifier,
@@ -342,7 +342,7 @@ impl MediaProvider for OpenlibraryService {
             publish_date: None,
             provider_rating: None,
             videos: vec![],
-            groups: vec![],
+            group_identifiers: vec![],
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],

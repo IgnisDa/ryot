@@ -278,6 +278,7 @@ const Page: NextPageWithLayout = () => {
 									onClick={() => {
 										generateAuthToken.mutate({});
 									}}
+									loading={generateAuthToken.isLoading}
 								>
 									Create auth token
 								</Button>

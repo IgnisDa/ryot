@@ -14,13 +14,15 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
-    entities::metadata_group,
+    entities::{
+        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
+    },
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataImages, MetadataPerson, MetadataVideo, MetadataVideoSource,
-            PartialMetadata, PartialMetadataPerson, VideoGameSpecifics,
+            PartialMetadataPerson, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -143,6 +145,67 @@ impl IgdbService {
 
 #[async_trait]
 impl MediaProvider for IgdbService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r"
+fields
+    id,
+    name,
+    games.id,
+    games.name,
+    games.cover.*,
+    games.version_parent;
+where id = {id};
+            ",
+            id = identifier
+        );
+        let details: IgdbItemResponse = client
+            .post("collections")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Vec<_>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .pop()
+            .unwrap();
+        let items = details
+            .games
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|g| {
+                if g.version_parent.is_some() {
+                    None
+                } else {
+                    Some(PartialMetadataWithoutId {
+                        identifier: g.id.to_string(),
+                        title: g.name.unwrap(),
+                        image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                        source: MetadataSource::Igdb,
+                        lot: MetadataLot::VideoGame,
+                    })
+                }
+            })
+            .collect_vec();
+        Ok((
+            MetadataGroupWithoutId {
+                display_images: vec![],
+                parts: items.len().try_into().unwrap(),
+                identifier: details.id.to_string(),
+                title: details.name.unwrap_or_default(),
+                description: None,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::VideoGame,
+                source: MetadataSource::Igdb,
+            },
+            items,
+        ))
+    }
+
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         let client = get_client(&self.config).await;
         let req_body = format!(
@@ -207,11 +270,11 @@ where id = {id};
         let mut details: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
         let groups = match detail.collection.as_ref() {
-            Some(c) => vec![self.group_details(&c.id.to_string()).await?],
+            Some(c) => vec![c.id.to_string()],
             None => vec![],
         };
         let mut game_details = self.igdb_response_to_search_response(detail);
-        game_details.groups = groups;
+        game_details.group_identifiers = groups;
         Ok(game_details)
     }
 
@@ -268,68 +331,6 @@ offset: {offset};
 }
 
 impl IgdbService {
-    async fn group_details(
-        &self,
-        identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
-        let client = get_client(&self.config).await;
-        let req_body = format!(
-            r"
-fields
-    id,
-    name,
-    games.id,
-    games.name,
-    games.cover.*,
-    games.version_parent;
-where id = {id};
-            ",
-            id = identifier
-        );
-        let details: IgdbItemResponse = client
-            .post("collections")
-            .body_string(req_body)
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Vec<_>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .pop()
-            .unwrap();
-        let items = details
-            .games
-            .unwrap_or_default()
-            .into_iter()
-            .flat_map(|g| {
-                if g.version_parent.is_some() {
-                    None
-                } else {
-                    Some(PartialMetadata {
-                        identifier: g.id.to_string(),
-                        title: g.name.unwrap(),
-                        image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                        source: MetadataSource::Igdb,
-                        lot: MetadataLot::VideoGame,
-                    })
-                }
-            })
-            .collect_vec();
-        Ok((
-            metadata_group::Model {
-                id: 0,
-                display_images: vec![],
-                parts: items.len().try_into().unwrap(),
-                identifier: details.id.to_string(),
-                title: details.name.unwrap_or_default(),
-                description: None,
-                images: MetadataImages(vec![]),
-                lot: MetadataLot::VideoGame,
-                source: MetadataSource::Igdb,
-            },
-            items,
-        ))
-    }
-
     fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MediaDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| MetadataImageForMediaDetails {
             image: self.get_cover_image_url(a.image_id),
@@ -408,7 +409,7 @@ where id = {id};
                 .similar_games
                 .unwrap_or_default()
                 .into_iter()
-                .map(|g| PartialMetadata {
+                .map(|g| PartialMetadataWithoutId {
                     title: g.name.unwrap(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),
@@ -417,7 +418,7 @@ where id = {id};
                 })
                 .collect(),
             provider_rating: item.rating,
-            groups: vec![],
+            group_identifiers: vec![],
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],

@@ -3,11 +3,13 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 use crate::{
     entities::{metadata, seen},
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
+    migrator::{MetadataLot, MetadataSource},
     miscellaneous::resolver::MiscellaneousService,
     models::{fitness::Exercise, media::PartialMetadataPerson},
 };
@@ -82,7 +84,7 @@ pub async fn yank_integrations_data(
 
 // Application Jobs
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
     ImportMedia(i32, DeployImportJobInput),
     UserCreated(i32),
@@ -92,6 +94,7 @@ pub enum ApplicationJob {
     AfterMediaSeen(seen::Model),
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
+    AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
 }
 
 impl Job for ApplicationJob {
@@ -102,6 +105,7 @@ pub async fn perform_application_job(
     information: ApplicationJob,
     ctx: JobContext,
 ) -> Result<(), JobError> {
+    let name = information.to_string();
     let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
@@ -153,8 +157,18 @@ pub async fn perform_application_job(
                 .await
                 .unwrap();
         }
+        ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => {
+            misc_service
+                .associate_group_with_metadata(lot, source, group_identifier)
+                .await
+                .unwrap();
+        }
     };
     let end = Instant::now();
-    tracing::trace!("Job completed, took {}s", (end - start).as_secs());
+    tracing::trace!(
+        "Job {:#?} completed in {}ms",
+        name,
+        (end - start).as_millis()
+    );
     Ok(())
 }

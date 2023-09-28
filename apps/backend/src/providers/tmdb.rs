@@ -13,14 +13,16 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::TmdbConfig,
-    entities::metadata_group,
+    entities::{
+        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
+    },
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataPerson,
-            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
-            PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, ShowEpisode,
+            ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -210,11 +212,14 @@ impl TmdbMovieService {
             },
         }
     }
+}
 
+#[async_trait]
+impl MediaProvider for TmdbMovieService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCollection {
             id: i32,
@@ -249,7 +254,7 @@ impl TmdbMovieService {
         let parts = data
             .parts
             .into_iter()
-            .map(|p| PartialMetadata {
+            .map(|p| PartialMetadataWithoutId {
                 title: p.title.unwrap(),
                 identifier: p.id.to_string(),
                 source: MetadataSource::Tmdb,
@@ -258,8 +263,7 @@ impl TmdbMovieService {
             })
             .collect_vec();
         Ok((
-            metadata_group::Model {
-                id: 0,
+            MetadataGroupWithoutId {
                 display_images: vec![],
                 parts: parts.len().try_into().unwrap(),
                 identifier: identifier.to_owned(),
@@ -281,10 +285,7 @@ impl TmdbMovieService {
             parts,
         ))
     }
-}
 
-#[async_trait]
-impl MediaProvider for TmdbMovieService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -397,13 +398,6 @@ impl MediaProvider for TmdbMovieService {
             .save_all_suggestions(&self.client, "movie", identifier)
             .await?;
 
-        let groups = match data.belongs_to_collection {
-            Some(c) => Some(self.group_details(&c.id.to_string()).await?),
-            None => None,
-        }
-        .into_iter()
-        .collect();
-
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
@@ -437,7 +431,6 @@ impl MediaProvider for TmdbMovieService {
                 runtime: data.runtime,
             }),
             suggestions,
-            groups,
             provider_rating: if let Some(av) = data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))
@@ -449,6 +442,10 @@ impl MediaProvider for TmdbMovieService {
             },
             creators: vec![],
             s3_images: vec![],
+            group_identifiers: Vec::from_iter(data.belongs_to_collection)
+                .into_iter()
+                .map(|c| c.id.to_string())
+                .collect(),
         })
     }
 
@@ -736,7 +733,7 @@ impl MediaProvider for TmdbShowService {
             } else {
                 None
             },
-            groups: vec![],
+            group_identifiers: vec![],
             creators: vec![],
             s3_images: vec![],
         })
@@ -861,7 +858,7 @@ impl TmdbService {
         client: &Client,
         typ: &str,
         identifier: &str,
-    ) -> Result<Vec<PartialMetadata>> {
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
         let lot = match typ {
             "movie" => MetadataLot::Movie,
             "tv" => MetadataLot::Show,
@@ -886,7 +883,7 @@ impl TmdbService {
                 } else {
                     continue;
                 };
-                suggestions.push(PartialMetadata {
+                suggestions.push(PartialMetadataWithoutId {
                     title: name,
                     image: entry.poster_path.map(|p| self.get_cover_image_url(p)),
                     identifier: entry.id.to_string(),

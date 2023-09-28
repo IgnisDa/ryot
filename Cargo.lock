@@ -1151,6 +1151,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "boilermates"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b159337fa36894b98dc2f55dc0ada298afb38d64589bbdbb945128ba4c86ccd9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "borsh"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4537,7 +4548,7 @@ checksum = "dc31bd9b61a32c31f9650d18add92aa83a49ba979c143eefd27fe7177b05bd5f"
 
 [[package]]
 name = "ryot"
-version = "2.19.2"
+version = "2.19.3"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4548,6 +4559,7 @@ dependencies = [
  "aws-sdk-s3",
  "axum",
  "axum-extra",
+ "boilermates",
  "chrono",
  "const-str",
  "convert_case",

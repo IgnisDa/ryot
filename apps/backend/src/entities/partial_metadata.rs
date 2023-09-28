@@ -2,6 +2,7 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use boilermates::boilermates;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
@@ -12,10 +13,16 @@ use crate::{
 
 use super::metadata;
 
+#[boilermates("PartialMetadataWithoutId")]
+#[boilermates(attr_for(
+    "PartialMetadataWithoutId",
+    "#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]"
+))]
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "partial_metadata")]
 #[graphql(name = "PartialMetadata")]
 pub struct Model {
+    #[boilermates(not_in("PartialMetadataWithoutId"))]
     #[sea_orm(primary_key)]
     #[graphql(skip)]
     pub id: i32,
@@ -24,6 +31,7 @@ pub struct Model {
     pub image: Option<String>,
     pub lot: MetadataLot,
     pub source: MetadataSource,
+    #[boilermates(not_in("PartialMetadataWithoutId"))]
     pub metadata_id: Option<i32>,
 }
 

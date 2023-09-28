@@ -241,9 +241,9 @@ impl VndbService {
             is_nsfw: None,
             videos: vec![],
             suggestions: vec![],
-            groups: vec![],
             creators: vec![],
             s3_images: vec![],
+            group_identifiers: vec![],
         }
     }
 }

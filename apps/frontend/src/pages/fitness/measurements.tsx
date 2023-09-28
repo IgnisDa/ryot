@@ -214,9 +214,8 @@ const Page: NextPageWithLayout = () => {
 							e.preventDefault();
 							const submitData = {};
 							const formData = new FormData(e.currentTarget);
-							for (const [name, value] of formData.entries()) {
+							for (const [name, value] of formData.entries())
 								if (value !== "") set(submitData, name, value);
-							}
 							if (Object.keys(submitData).length > 0) {
 								createUserMeasurement.mutate({
 									// biome-ignore lint/suspicious/noExplicitAny: required

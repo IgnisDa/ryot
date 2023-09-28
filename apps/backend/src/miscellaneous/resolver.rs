@@ -51,7 +51,8 @@ use crate::{
     config::AppConfig,
     entities::{
         calendar_event, collection, genre, metadata, metadata_group, metadata_to_collection,
-        metadata_to_genre, metadata_to_partial_metadata, metadata_to_person, partial_metadata,
+        metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
+        partial_metadata::{self, PartialMetadataWithoutId},
         partial_metadata_to_metadata_group, person,
         prelude::{
             CalendarEvent, Collection, Genre, Metadata, MetadataGroup, MetadataToCollection,
@@ -80,12 +81,11 @@ use crate::{
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
             MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataImages, MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
-            PartialMetadata, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser, ReviewComments,
-            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, Visibility, VisualNovelSpecifics,
+            PartialMetadataPerson, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            ReviewCommentUser, ReviewComments, SeenOrReviewOrCalendarEventExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -2559,8 +2559,8 @@ impl MiscellaneousService {
         production_status: String,
         publish_year: Option<i32>,
         publish_date: Option<NaiveDate>,
-        suggestions: Vec<PartialMetadata>,
-        groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        suggestions: Vec<PartialMetadataWithoutId>,
+        group_identifiers: Vec<String>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2744,7 +2744,7 @@ impl MiscellaneousService {
             metadata.source,
             genres,
             suggestions,
-            groups,
+            group_identifiers,
             people,
         )
         .await?;
@@ -2768,48 +2768,62 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    async fn deploy_associate_group_with_metadata_job(
+        &self,
+        lot: MetadataLot,
+        source: MetadataSource,
+        group_identifier: String,
+    ) -> Result<()> {
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::AssociateGroupWithMetadata(
+                lot,
+                source,
+                group_identifier,
+            ))
+            .await?;
+        Ok(())
+    }
+
     pub async fn associate_group_with_metadata(
         &self,
         lot: MetadataLot,
         source: MetadataSource,
-        (group, associated_items): (metadata_group::Model, Vec<PartialMetadata>),
+        group_identifier: String,
     ) -> Result<()> {
         let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(&group.identifier))
+            .filter(metadata_group::Column::Identifier.eq(&group_identifier))
             .filter(metadata_group::Column::Lot.eq(lot))
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
-        let group_id = match existing_group {
-            Some(eg) => {
-                if eg.title != group.title
-                    || eg.description != group.description
-                    || eg.images != group.images
-                {
-                    let title = group.title.clone();
-                    let description = group.description.clone();
-                    let images = group.images.clone();
-                    let mut db_group: metadata_group::ActiveModel = group.into();
-                    db_group.title = ActiveValue::Set(title);
-                    db_group.description = ActiveValue::Set(description);
-                    db_group.images = ActiveValue::Set(images);
-                    db_group.update(&self.db).await?;
-                }
-                eg.id
-            }
+        let (group_id, associated_items) = match existing_group {
+            Some(eg) => (eg.id, vec![]),
             None => {
-                let mut db_group: metadata_group::ActiveModel = group.into();
+                let provider = self.get_media_provider(lot, source).await?;
+                let (group_details, associated_items) =
+                    provider.group_details(&group_identifier).await?;
+                let mut db_group: metadata_group::ActiveModel = group_details.into_model(0).into();
                 db_group.id = ActiveValue::NotSet;
                 let new_group = db_group.insert(&self.db).await?;
-                new_group.id
+                (new_group.id, associated_items)
             }
         };
         for (idx, media) in associated_items.into_iter().enumerate() {
             let db_partial_metadata = self.create_partial_metadata(media).await?;
+            PartialMetadataToMetadataGroup::delete_many()
+                .filter(partial_metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
+                .filter(
+                    partial_metadata_to_metadata_group::Column::PartialMetadataId
+                        .eq(db_partial_metadata.id),
+                )
+                .exec(&self.db)
+                .await
+                .ok();
             let intermediate = partial_metadata_to_metadata_group::ActiveModel {
                 metadata_group_id: ActiveValue::Set(group_id),
                 partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                part: ActiveValue::Set(idx.try_into().unwrap()),
+                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
             };
             intermediate.insert(&self.db).await.ok();
         }
@@ -2818,7 +2832,7 @@ impl MiscellaneousService {
 
     async fn associate_suggestion_with_metadata(
         &self,
-        data: PartialMetadata,
+        data: PartialMetadataWithoutId,
         metadata_id: i32,
     ) -> Result<()> {
         let db_partial_metadata = self.create_partial_metadata(data).await?;
@@ -2833,7 +2847,7 @@ impl MiscellaneousService {
 
     async fn create_partial_metadata(
         &self,
-        data: PartialMetadata,
+        data: PartialMetadataWithoutId,
     ) -> Result<partial_metadata::Model> {
         let model = if let Some(c) = PartialMetadataModel::find()
             .filter(partial_metadata::Column::Identifier.eq(&data.identifier))
@@ -2923,7 +2937,7 @@ impl MiscellaneousService {
             metadata.source,
             details.genres,
             details.suggestions,
-            details.groups,
+            details.group_identifiers,
             details.people,
         )
         .await?;
@@ -2937,8 +2951,8 @@ impl MiscellaneousService {
         lot: MetadataLot,
         source: MetadataSource,
         genres: Vec<String>,
-        suggestions: Vec<PartialMetadata>,
-        groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        suggestions: Vec<PartialMetadataWithoutId>,
+        groups: Vec<String>,
         people: Vec<PartialMetadataPerson>,
     ) -> Result<()> {
         MetadataToPerson::delete_many()
@@ -2969,9 +2983,8 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
-        // DEV: Ideally, we should remove partial_metadata to metadata_group association but does not really matter
-        for group in groups {
-            self.associate_group_with_metadata(lot, source, group)
+        for group_identifier in groups {
+            self.deploy_associate_group_with_metadata_job(lot, source, group_identifier)
                 .await
                 .ok();
         }
@@ -3903,7 +3916,7 @@ impl MiscellaneousService {
                     details.publish_year,
                     details.publish_date,
                     details.suggestions,
-                    details.groups,
+                    details.group_identifiers,
                 )
                 .await?
             }
@@ -4341,7 +4354,7 @@ impl MiscellaneousService {
             is_nsfw: input.is_nsfw,
             publish_date: None,
             suggestions: vec![],
-            groups: vec![],
+            group_identifiers: vec![],
             people: vec![],
         };
         let media = self.commit_media_internal(details).await?;
@@ -5985,8 +5998,8 @@ impl MiscellaneousService {
             db_person
         } else {
             let provider = self.get_non_media_provider(person.source).await?;
-            let person = provider.person_details(person).await?;
-            let images = person.images.map(|images| {
+            let provider_person = provider.person_details(person).await?;
+            let images = provider_person.images.map(|images| {
                 MetadataImages(
                     images
                         .into_iter()
@@ -5998,14 +6011,14 @@ impl MiscellaneousService {
                 )
             });
             let person = person::ActiveModel {
-                identifier: ActiveValue::Set(person.identifier),
-                source: ActiveValue::Set(person.source),
-                name: ActiveValue::Set(person.name),
-                description: ActiveValue::Set(person.description),
-                gender: ActiveValue::Set(person.gender),
-                birth_date: ActiveValue::Set(person.birth_date),
-                place: ActiveValue::Set(person.place),
-                website: ActiveValue::Set(person.website),
+                identifier: ActiveValue::Set(provider_person.identifier),
+                source: ActiveValue::Set(provider_person.source),
+                name: ActiveValue::Set(provider_person.name),
+                description: ActiveValue::Set(provider_person.description),
+                gender: ActiveValue::Set(provider_person.gender),
+                birth_date: ActiveValue::Set(provider_person.birth_date),
+                place: ActiveValue::Set(provider_person.place),
+                website: ActiveValue::Set(provider_person.website),
                 images: ActiveValue::Set(images),
                 ..Default::default()
             };

@@ -37,7 +37,7 @@ impl MigrationTrait for Migration {
                 let message = format!("
 This migration will delete all old creators (changes introduced in `v2.19.0`) and associated reviews.
 You have reviews for {count} creator(s).
-Please downgrade to the `v2.19.0`, follow instructions at https://github.com/IgnisDa/ryot/releases/tag/v2.19.0 to migrate this data, and then upgrade again.
+Please downgrade to `v2.19.0`, follow instructions at https://github.com/IgnisDa/ryot/releases/tag/v2.19.0 to migrate this data, and then upgrade again.
 
 If you want to skip this check, please set the environment variable `{var_name}=1`.");
                 tracing::info!(message);
