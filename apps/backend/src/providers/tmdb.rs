@@ -430,7 +430,6 @@ impl MediaProvider for TmdbMovieService {
                 runtime: data.runtime,
             }),
             suggestions,
-            groups: vec![],
             provider_rating: if let Some(av) = data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))
@@ -442,7 +441,7 @@ impl MediaProvider for TmdbMovieService {
             },
             creators: vec![],
             s3_images: vec![],
-            new_group_identifiers: Vec::from_iter(data.belongs_to_collection)
+            group_identifiers: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
                 .map(|c| c.id.to_string())
                 .collect(),
@@ -733,8 +732,7 @@ impl MediaProvider for TmdbShowService {
             } else {
                 None
             },
-            groups: vec![],
-            new_group_identifiers: vec![],
+            group_identifiers: vec![],
             creators: vec![],
             s3_images: vec![],
         })

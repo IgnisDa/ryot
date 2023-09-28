@@ -749,8 +749,7 @@ pub mod media {
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
         pub suggestions: Vec<PartialMetadata>,
-        pub groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
-        pub new_group_identifiers: Vec<String>,
+        pub group_identifiers: Vec<String>,
         pub provider_rating: Option<Decimal>,
     }
 

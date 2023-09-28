@@ -285,8 +285,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         provider_rating: details.mean,
         creators: vec![],
         videos: vec![],
-        new_group_identifiers: vec![],
-        groups: vec![],
+        group_identifiers: vec![],
         people: vec![],
         s3_images: vec![],
     };

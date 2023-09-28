@@ -211,7 +211,7 @@ impl MediaProvider for AudibleService {
             }
         }
         item.suggestions = suggestions.into_iter().unique().collect();
-        item.new_group_identifiers = groups;
+        item.group_identifiers = groups;
         Ok(item)
     }
 
@@ -391,8 +391,7 @@ impl AudibleService {
             videos: vec![],
             provider_rating: rating,
             suggestions: vec![],
-            new_group_identifiers: vec![],
-            groups: vec![],
+            group_identifiers: vec![],
             people: vec![],
             s3_images: vec![],
         }

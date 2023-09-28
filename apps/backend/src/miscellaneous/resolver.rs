@@ -2560,7 +2560,7 @@ impl MiscellaneousService {
         publish_year: Option<i32>,
         publish_date: Option<NaiveDate>,
         suggestions: Vec<PartialMetadata>,
-        groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        group_identifiers: Vec<String>,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2744,7 +2744,7 @@ impl MiscellaneousService {
             metadata.source,
             genres,
             suggestions,
-            groups,
+            group_identifiers,
             people,
         )
         .await?;
@@ -2768,7 +2768,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn associate_group_with_metadata(
+    pub async fn deploy_associate_group_with_metadata_job(
         &self,
         lot: MetadataLot,
         source: MetadataSource,
@@ -2932,7 +2932,7 @@ impl MiscellaneousService {
             metadata.source,
             details.genres,
             details.suggestions,
-            details.groups,
+            details.group_identifiers,
             details.people,
         )
         .await?;
@@ -2947,7 +2947,7 @@ impl MiscellaneousService {
         source: MetadataSource,
         genres: Vec<String>,
         suggestions: Vec<PartialMetadata>,
-        groups: Vec<(metadata_group::Model, Vec<PartialMetadata>)>,
+        groups: Vec<String>,
         people: Vec<PartialMetadataPerson>,
     ) -> Result<()> {
         MetadataToPerson::delete_many()
@@ -2979,8 +2979,9 @@ impl MiscellaneousService {
                 .ok();
         }
         // DEV: Ideally, we should remove partial_metadata to metadata_group association but does not really matter
-        for group in groups {
-            self.associate_group_with_metadata(lot, source, group)
+        for group_identifier in groups {
+            // TODO: Create a job out of it
+            self.deploy_associate_group_with_metadata_job(lot, source, group_identifier)
                 .await
                 .ok();
         }
@@ -3912,7 +3913,7 @@ impl MiscellaneousService {
                     details.publish_year,
                     details.publish_date,
                     details.suggestions,
-                    details.groups,
+                    details.group_identifiers,
                 )
                 .await?
             }
@@ -4350,8 +4351,7 @@ impl MiscellaneousService {
             is_nsfw: input.is_nsfw,
             publish_date: None,
             suggestions: vec![],
-            groups: vec![],
-            new_group_identifiers: vec![],
+            group_identifiers: vec![],
             people: vec![],
         };
         let media = self.commit_media_internal(details).await?;

@@ -211,7 +211,7 @@ where id = {id};
             None => vec![],
         };
         let mut game_details = self.igdb_response_to_search_response(detail);
-        game_details.new_group_identifiers = groups;
+        game_details.group_identifiers = groups;
         Ok(game_details)
     }
 
@@ -417,8 +417,7 @@ where id = {id};
                 })
                 .collect(),
             provider_rating: item.rating,
-            groups: vec![],
-            new_group_identifiers: vec![],
+            group_identifiers: vec![],
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],
