@@ -14,13 +14,15 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::VideoGameConfig,
-    entities::metadata_group::MetadataGroupWithoutId,
+    entities::{
+        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
+    },
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataImages, MetadataPerson, MetadataVideo, MetadataVideoSource,
-            PartialMetadata, PartialMetadataPerson, VideoGameSpecifics,
+            PartialMetadataPerson, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -146,7 +148,7 @@ impl MediaProvider for IgdbService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadata>)> {
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r"
@@ -179,7 +181,7 @@ where id = {id};
                 if g.version_parent.is_some() {
                     None
                 } else {
-                    Some(PartialMetadata {
+                    Some(PartialMetadataWithoutId {
                         identifier: g.id.to_string(),
                         title: g.name.unwrap(),
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
@@ -407,7 +409,7 @@ impl IgdbService {
                 .similar_games
                 .unwrap_or_default()
                 .into_iter()
-                .map(|g| PartialMetadata {
+                .map(|g| PartialMetadataWithoutId {
                     title: g.name.unwrap(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),

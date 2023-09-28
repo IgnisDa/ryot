@@ -9,12 +9,13 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::AnilistConfig,
+    entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
-            MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
+            MetadataVideoSource, PartialMetadataPerson,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -386,7 +387,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         .into_iter()
         .map(|r| {
             let data = r.unwrap().media_recommendation.unwrap();
-            PartialMetadata {
+            PartialMetadataWithoutId {
                 title: data.title.unwrap().user_preferred.unwrap(),
                 identifier: data.id.to_string(),
                 source: MetadataSource::Anilist,

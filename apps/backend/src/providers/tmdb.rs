@@ -13,14 +13,16 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     config::TmdbConfig,
-    entities::metadata_group::MetadataGroupWithoutId,
+    entities::{
+        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
+    },
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataPerson,
-            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
-            PartialMetadataPerson, ShowEpisode, ShowSeason, ShowSpecifics,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, ShowEpisode,
+            ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -217,7 +219,7 @@ impl MediaProvider for TmdbMovieService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadata>)> {
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbCollection {
             id: i32,
@@ -252,7 +254,7 @@ impl MediaProvider for TmdbMovieService {
         let parts = data
             .parts
             .into_iter()
-            .map(|p| PartialMetadata {
+            .map(|p| PartialMetadataWithoutId {
                 title: p.title.unwrap(),
                 identifier: p.id.to_string(),
                 source: MetadataSource::Tmdb,
@@ -856,7 +858,7 @@ impl TmdbService {
         client: &Client,
         typ: &str,
         identifier: &str,
-    ) -> Result<Vec<PartialMetadata>> {
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
         let lot = match typ {
             "movie" => MetadataLot::Movie,
             "tv" => MetadataLot::Show,
@@ -881,7 +883,7 @@ impl TmdbService {
                 } else {
                     continue;
                 };
-                suggestions.push(PartialMetadata {
+                suggestions.push(PartialMetadataWithoutId {
                     title: name,
                     image: entry.poster_path.map(|p| self.get_cover_image_url(p)),
                     identifier: entry.id.to_string(),

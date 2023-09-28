@@ -11,12 +11,14 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::AudibleConfig,
-    entities::metadata_group::MetadataGroupWithoutId,
+    entities::{
+        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
+    },
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AudioBookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, PartialMetadata,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -174,7 +176,7 @@ impl MediaProvider for AudibleService {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadata>)> {
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         let data: AudibleItemResponse = self
             .client
             .get(identifier)
@@ -203,7 +205,7 @@ impl MediaProvider for AudibleService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-            collection_contents.push(PartialMetadata {
+            collection_contents.push(PartialMetadataWithoutId {
                 title: data.product.title,
                 image: data.product.product_images.and_then(|i| i.image_2400),
                 identifier: i,
@@ -256,7 +258,7 @@ impl MediaProvider for AudibleService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for sim in data.similar_products.into_iter() {
-                suggestions.push(PartialMetadata {
+                suggestions.push(PartialMetadataWithoutId {
                     title: sim.title,
                     image: sim.product_images.unwrap().image_500,
                     identifier: sim.asin,

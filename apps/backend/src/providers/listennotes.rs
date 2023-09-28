@@ -13,12 +13,12 @@ use surf::Client;
 
 use crate::{
     config::PodcastConfig,
+    entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata, PodcastEpisode,
-            PodcastSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -85,7 +85,7 @@ impl MediaProvider for ListennotesService {
         details.suggestions = rec_data
             .recommendations
             .into_iter()
-            .map(|r| PartialMetadata {
+            .map(|r| PartialMetadataWithoutId {
                 title: r.title,
                 image: r.thumbnail,
                 identifier: r.id,

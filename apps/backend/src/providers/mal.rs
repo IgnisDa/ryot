@@ -9,11 +9,12 @@ use surf::Client;
 
 use crate::{
     config::MalConfig,
+    entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadata,
+            MetadataImageForMediaDetails, MetadataImageLot,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -229,7 +230,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
     };
     let mut suggestions = vec![];
     for rel in details.related_anime.unwrap_or_default().into_iter() {
-        suggestions.push(PartialMetadata {
+        suggestions.push(PartialMetadataWithoutId {
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
@@ -238,7 +239,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         });
     }
     for rel in details.related_manga.unwrap_or_default().into_iter() {
-        suggestions.push(PartialMetadata {
+        suggestions.push(PartialMetadataWithoutId {
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
@@ -247,7 +248,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         });
     }
     for rel in details.recommendations.unwrap_or_default().into_iter() {
-        suggestions.push(PartialMetadata {
+        suggestions.push(PartialMetadataWithoutId {
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),

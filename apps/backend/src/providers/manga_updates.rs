@@ -9,12 +9,12 @@ use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     config::MangaUpdatesConfig,
+    entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadata,
-            PartialMetadataPerson,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
         },
         SearchDetails, SearchResults,
     },
@@ -227,7 +227,7 @@ impl MediaProvider for MangaUpdatesService {
                 .body_json::<ItemRecord>()
                 .await
             {
-                suggestions.push(PartialMetadata {
+                suggestions.push(PartialMetadataWithoutId {
                     title: data.title.unwrap(),
                     image: data.image.unwrap().url.original,
                     identifier: data.series_id.unwrap().to_string(),

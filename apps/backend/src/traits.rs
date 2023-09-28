@@ -5,12 +5,12 @@ use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
-    entities::metadata_group::MetadataGroupWithoutId,
+    entities::{
+        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
+    },
     file_storage::FileStorageService,
     models::{
-        media::{
-            MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadata, PartialMetadataPerson,
-        },
+        media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson},
         SearchResults,
     },
     utils::AuthContext,
@@ -46,7 +46,7 @@ pub trait MediaProvider {
     async fn group_details(
         &self,
         identifier: &str,
-    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadata>)> {
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         bail!("This provider does not support getting group details")
     }
 }

@@ -19,7 +19,10 @@ use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
-    entities::{exercise::Model as ExerciseModel, user_measurement},
+    entities::{
+        exercise::Model as ExerciseModel, partial_metadata::PartialMetadataWithoutId,
+        user_measurement,
+    },
     file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
@@ -695,15 +698,6 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
-    pub struct PartialMetadata {
-        pub title: String,
-        pub image: Option<String>,
-        pub identifier: String,
-        pub source: MetadataSource,
-        pub lot: MetadataLot,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct PartialMetadataPerson {
         pub identifier: String,
         pub source: MetadataSource,
@@ -748,7 +742,7 @@ pub mod media {
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
         pub specifics: MediaSpecifics,
-        pub suggestions: Vec<PartialMetadata>,
+        pub suggestions: Vec<PartialMetadataWithoutId>,
         pub group_identifiers: Vec<String>,
         pub provider_rating: Option<Decimal>,
     }
