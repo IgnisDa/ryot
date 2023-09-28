@@ -397,13 +397,6 @@ impl MediaProvider for TmdbMovieService {
             .save_all_suggestions(&self.client, "movie", identifier)
             .await?;
 
-        let groups = match data.belongs_to_collection {
-            Some(c) => Some(self.group_details(&c.id.to_string()).await?),
-            None => None,
-        }
-        .into_iter()
-        .collect();
-
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
@@ -437,7 +430,7 @@ impl MediaProvider for TmdbMovieService {
                 runtime: data.runtime,
             }),
             suggestions,
-            groups,
+            groups: vec![],
             provider_rating: if let Some(av) = data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))
@@ -449,6 +442,10 @@ impl MediaProvider for TmdbMovieService {
             },
             creators: vec![],
             s3_images: vec![],
+            new_group_identifiers: Vec::from_iter(data.belongs_to_collection)
+                .into_iter()
+                .map(|c| c.id.to_string())
+                .collect(),
         })
     }
 
@@ -737,6 +734,7 @@ impl MediaProvider for TmdbShowService {
                 None
             },
             groups: vec![],
+            new_group_identifiers: vec![],
             creators: vec![],
             s3_images: vec![],
         })

@@ -207,11 +207,11 @@ where id = {id};
         let mut details: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
         let groups = match detail.collection.as_ref() {
-            Some(c) => vec![self.group_details(&c.id.to_string()).await?],
+            Some(c) => vec![c.id.to_string()],
             None => vec![],
         };
         let mut game_details = self.igdb_response_to_search_response(detail);
-        game_details.groups = groups;
+        game_details.new_group_identifiers = groups;
         Ok(game_details)
     }
 
@@ -418,6 +418,7 @@ where id = {id};
                 .collect(),
             provider_rating: item.rating,
             groups: vec![],
+            new_group_identifiers: vec![],
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],

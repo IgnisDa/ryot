@@ -244,6 +244,7 @@ impl VndbService {
             groups: vec![],
             creators: vec![],
             s3_images: vec![],
+            new_group_identifiers: vec![],
         }
     }
 }

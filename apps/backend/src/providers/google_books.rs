@@ -227,6 +227,7 @@ impl GoogleBooksService {
             provider_rating: item.average_rating,
             // DEV: I could not find a way to get similar books from the API
             suggestions: vec![],
+            new_group_identifiers: vec![],
             groups: vec![],
             videos: vec![],
             is_nsfw: None,

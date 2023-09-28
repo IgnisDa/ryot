@@ -182,7 +182,7 @@ impl MediaProvider for AudibleService {
         let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let mut groups = vec![];
         for s in data.product.clone().series.unwrap_or_default() {
-            groups.push(self.group_details(&s.asin).await?);
+            groups.push(s.asin);
         }
         let mut item = self.audible_response_to_search_response(data.product);
         let mut suggestions = vec![];
@@ -211,7 +211,7 @@ impl MediaProvider for AudibleService {
             }
         }
         item.suggestions = suggestions.into_iter().unique().collect();
-        item.groups = groups;
+        item.new_group_identifiers = groups;
         Ok(item)
     }
 
@@ -391,6 +391,7 @@ impl AudibleService {
             videos: vec![],
             provider_rating: rating,
             suggestions: vec![],
+            new_group_identifiers: vec![],
             groups: vec![],
             people: vec![],
             s3_images: vec![],

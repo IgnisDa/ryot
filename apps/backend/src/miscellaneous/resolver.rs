@@ -4351,6 +4351,7 @@ impl MiscellaneousService {
             publish_date: None,
             suggestions: vec![],
             groups: vec![],
+            new_group_identifiers: vec![],
             people: vec![],
         };
         let media = self.commit_media_internal(details).await?;

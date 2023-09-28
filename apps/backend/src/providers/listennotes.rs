@@ -256,6 +256,7 @@ impl ListennotesService {
             }),
             provider_rating: podcast_data.listen_score,
             suggestions: vec![],
+            new_group_identifiers: vec![],
             groups: vec![],
             people: vec![],
             s3_images: vec![],

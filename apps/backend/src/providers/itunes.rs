@@ -182,6 +182,7 @@ impl MediaProvider for ITunesService {
             provider_rating: None,
             // DEV: I could not find a way to get similar podcasts from the API
             suggestions: vec![],
+            new_group_identifiers: vec![],
             groups: vec![],
             videos: vec![],
             is_nsfw: None,

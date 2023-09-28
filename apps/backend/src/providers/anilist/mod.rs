@@ -426,6 +426,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         specifics,
         suggestions,
         provider_rating: score,
+        new_group_identifiers: vec![],
         groups: vec![],
         s3_images: vec![],
     })

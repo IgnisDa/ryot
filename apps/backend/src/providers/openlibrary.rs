@@ -343,6 +343,7 @@ impl MediaProvider for OpenlibraryService {
             provider_rating: None,
             videos: vec![],
             groups: vec![],
+            new_group_identifiers: vec![],
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],

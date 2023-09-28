@@ -274,6 +274,7 @@ impl MediaProvider for MangaUpdatesService {
             videos: vec![],
             publish_date: None,
             groups: vec![],
+            new_group_identifiers: vec![],
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],

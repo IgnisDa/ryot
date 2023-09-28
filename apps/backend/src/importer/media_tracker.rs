@@ -296,6 +296,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     publish_date: None,
                     suggestions: vec![],
                     groups: vec![],
+                    new_group_identifiers: vec![],
                     is_nsfw: None,
                     people: vec![],
                     s3_images: vec![],
