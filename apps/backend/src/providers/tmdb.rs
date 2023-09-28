@@ -210,7 +210,10 @@ impl TmdbMovieService {
             },
         }
     }
+}
 
+#[async_trait]
+impl MediaProvider for TmdbMovieService {
     async fn group_details(
         &self,
         identifier: &str,
@@ -281,10 +284,7 @@ impl TmdbMovieService {
             parts,
         ))
     }
-}
 
-#[async_trait]
-impl MediaProvider for TmdbMovieService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client

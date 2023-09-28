@@ -143,6 +143,68 @@ impl IgdbService {
 
 #[async_trait]
 impl MediaProvider for IgdbService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r"
+fields
+    id,
+    name,
+    games.id,
+    games.name,
+    games.cover.*,
+    games.version_parent;
+where id = {id};
+            ",
+            id = identifier
+        );
+        let details: IgdbItemResponse = client
+            .post("collections")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<Vec<_>>()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .pop()
+            .unwrap();
+        let items = details
+            .games
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|g| {
+                if g.version_parent.is_some() {
+                    None
+                } else {
+                    Some(PartialMetadata {
+                        identifier: g.id.to_string(),
+                        title: g.name.unwrap(),
+                        image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                        source: MetadataSource::Igdb,
+                        lot: MetadataLot::VideoGame,
+                    })
+                }
+            })
+            .collect_vec();
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                display_images: vec![],
+                parts: items.len().try_into().unwrap(),
+                identifier: details.id.to_string(),
+                title: details.name.unwrap_or_default(),
+                description: None,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::VideoGame,
+                source: MetadataSource::Igdb,
+            },
+            items,
+        ))
+    }
+
     async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
         let client = get_client(&self.config).await;
         let req_body = format!(
@@ -268,68 +330,6 @@ offset: {offset};
 }
 
 impl IgdbService {
-    async fn group_details(
-        &self,
-        identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
-        let client = get_client(&self.config).await;
-        let req_body = format!(
-            r"
-fields
-    id,
-    name,
-    games.id,
-    games.name,
-    games.cover.*,
-    games.version_parent;
-where id = {id};
-            ",
-            id = identifier
-        );
-        let details: IgdbItemResponse = client
-            .post("collections")
-            .body_string(req_body)
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Vec<_>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .pop()
-            .unwrap();
-        let items = details
-            .games
-            .unwrap_or_default()
-            .into_iter()
-            .flat_map(|g| {
-                if g.version_parent.is_some() {
-                    None
-                } else {
-                    Some(PartialMetadata {
-                        identifier: g.id.to_string(),
-                        title: g.name.unwrap(),
-                        image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                        source: MetadataSource::Igdb,
-                        lot: MetadataLot::VideoGame,
-                    })
-                }
-            })
-            .collect_vec();
-        Ok((
-            metadata_group::Model {
-                id: 0,
-                display_images: vec![],
-                parts: items.len().try_into().unwrap(),
-                identifier: details.id.to_string(),
-                title: details.name.unwrap_or_default(),
-                description: None,
-                images: MetadataImages(vec![]),
-                lot: MetadataLot::VideoGame,
-                source: MetadataSource::Igdb,
-            },
-            items,
-        ))
-    }
-
     fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MediaDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| MetadataImageForMediaDetails {
             image: self.get_cover_image_url(a.image_id),

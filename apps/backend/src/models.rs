@@ -19,7 +19,7 @@ use serde_with::skip_serializing_none;
 use specta::Type;
 
 use crate::{
-    entities::{exercise::Model as ExerciseModel, metadata_group, user_measurement},
+    entities::{exercise::Model as ExerciseModel, user_measurement},
     file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,

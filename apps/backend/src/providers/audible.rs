@@ -171,6 +171,62 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
+    async fn group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
+        let data: AudibleItemResponse = self
+            .client
+            .get(identifier)
+            .query(&PrimaryQuery::default())
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let items = data
+            .product
+            .relationships
+            .unwrap()
+            .into_iter()
+            .sorted_by_key(|f| f.sort.parse::<i32>().unwrap())
+            .map(|i| i.asin)
+            .collect_vec();
+        let mut collection_contents = vec![];
+        for i in items {
+            let mut rsp = self
+                .client
+                .get(&i)
+                .query(&PrimaryQuery::default())
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            collection_contents.push(PartialMetadata {
+                title: data.product.title,
+                image: data.product.product_images.and_then(|i| i.image_2400),
+                identifier: i,
+                source: MetadataSource::Audible,
+                lot: MetadataLot::AudioBook,
+            })
+        }
+        Ok((
+            metadata_group::Model {
+                id: 0,
+                display_images: vec![],
+                parts: collection_contents.len().try_into().unwrap(),
+                identifier: identifier.to_owned(),
+                title: data.product.title,
+                description: None,
+                images: MetadataImages(vec![]),
+                lot: MetadataLot::AudioBook,
+                source: MetadataSource::Audible,
+            },
+            collection_contents,
+        ))
+    }
+
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
@@ -270,62 +326,6 @@ impl MediaProvider for AudibleService {
 }
 
 impl AudibleService {
-    async fn group_details(
-        &self,
-        identifier: &str,
-    ) -> Result<(metadata_group::Model, Vec<PartialMetadata>)> {
-        let data: AudibleItemResponse = self
-            .client
-            .get(identifier)
-            .query(&PrimaryQuery::default())
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let items = data
-            .product
-            .relationships
-            .unwrap()
-            .into_iter()
-            .sorted_by_key(|f| f.sort.parse::<i32>().unwrap())
-            .map(|i| i.asin)
-            .collect_vec();
-        let mut collection_contents = vec![];
-        for i in items {
-            let mut rsp = self
-                .client
-                .get(&i)
-                .query(&PrimaryQuery::default())
-                .unwrap()
-                .await
-                .map_err(|e| anyhow!(e))?;
-            let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-            collection_contents.push(PartialMetadata {
-                title: data.product.title,
-                image: data.product.product_images.and_then(|i| i.image_2400),
-                identifier: i,
-                source: MetadataSource::Audible,
-                lot: MetadataLot::AudioBook,
-            })
-        }
-        Ok((
-            metadata_group::Model {
-                id: 0,
-                display_images: vec![],
-                parts: collection_contents.len().try_into().unwrap(),
-                identifier: identifier.to_owned(),
-                title: data.product.title,
-                description: None,
-                images: MetadataImages(vec![]),
-                lot: MetadataLot::AudioBook,
-                source: MetadataSource::Audible,
-            },
-            collection_contents,
-        ))
-    }
-
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
         let images = Vec::from_iter(item.product_images.unwrap().image_2400.map(|a| {
             MetadataImageForMediaDetails {
