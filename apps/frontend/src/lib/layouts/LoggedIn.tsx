@@ -323,7 +323,6 @@ export default function ({ children }: { children: ReactElement }) {
 
 	return userPreferences.data && openedLinkGroups ? (
 		<AppShell
-			my={{ sm: "xl" }}
 			w="100%"
 			padding={0}
 			layout="alt"
@@ -470,8 +469,8 @@ export default function ({ children }: { children: ReactElement }) {
 						color={theme.colors.gray[6]}
 					/>
 				</Flex>
-				<AppShell.Main>
-					<Box mt="md" style={{ flexGrow: 1 }} pb={40}>
+				<AppShell.Main py={{ sm: "xl" }}>
+					<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%">
 						{children}
 					</Box>
 					<Box style={{ marginBottom: 20 }}>
