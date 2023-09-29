@@ -2,16 +2,13 @@
 	"name": "@ryot/frontend",
 	"private": true,
 	"dependencies": {
-		"@emotion/react": "11.11.1",
-		"@emotion/server": "11.11.0",
-		"@mantine/carousel": "6.0.20",
-		"@mantine/core": "6.0.20",
-		"@mantine/dates": "6.0.20",
-		"@mantine/form": "6.0.20",
-		"@mantine/hooks": "6.0.20",
-		"@mantine/modals": "6.0.20",
-		"@mantine/next": "6.0.21",
-		"@mantine/notifications": "6.0.20",
+		"@mantine/carousel": "7.1.0",
+		"@mantine/core": "7.1.0",
+		"@mantine/dates": "7.1.0",
+		"@mantine/form": "7.1.0",
+		"@mantine/hooks": "7.1.0",
+		"@mantine/modals": "7.1.0",
+		"@mantine/notifications": "7.1.0",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
@@ -43,6 +40,9 @@
 		"@types/luxon": "3.3.2",
 		"@types/node": "20.7.0",
 		"@types/react": "18.2.23",
-		"@types/react-dom": "18.2.8"
+		"@types/react-dom": "18.2.8",
+		"postcss": "^8.4.31",
+		"postcss-preset-mantine": "^1.7.0",
+		"postcss-simple-vars": "^7.0.1"
 	}
 }
