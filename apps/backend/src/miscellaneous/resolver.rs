@@ -2797,16 +2797,15 @@ impl MiscellaneousService {
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
-        let (group_id, associated_items) = match existing_group {
-            Some(eg) => (eg.id, vec![]),
+        let provider = self.get_media_provider(lot, source).await?;
+        let (group_details, associated_items) = provider.group_details(&group_identifier).await?;
+        let group_id = match existing_group {
+            Some(eg) => eg.id,
             None => {
-                let provider = self.get_media_provider(lot, source).await?;
-                let (group_details, associated_items) =
-                    provider.group_details(&group_identifier).await?;
                 let mut db_group: metadata_group::ActiveModel = group_details.into_model(0).into();
                 db_group.id = ActiveValue::NotSet;
                 let new_group = db_group.insert(&self.db).await?;
-                (new_group.id, associated_items)
+                new_group.id
             }
         };
         for (idx, media) in associated_items.into_iter().enumerate() {
@@ -6022,7 +6021,7 @@ impl MiscellaneousService {
                 images: ActiveValue::Set(images),
                 ..Default::default()
             };
-            person.insert(&self.db).await.unwrap()
+            person.insert(&self.db).await?
         };
         let intermediate = metadata_to_person::ActiveModel {
             metadata_id: ActiveValue::Set(metadata_id),
