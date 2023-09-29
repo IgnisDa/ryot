@@ -23,6 +23,7 @@
 			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"]
 		},
+		"plugins": [{ "name": "typescript-plugin-css-modules" }],
 		"outDir": "../../.moon/cache/types/apps/frontend"
 	},
 	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
