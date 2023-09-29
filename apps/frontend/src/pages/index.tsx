@@ -163,7 +163,7 @@ const DisplayStatForMediaType = (props: {
 				href={withQuery(APP_ROUTES.media.list, {
 					lot: props.lot.toLowerCase(),
 				})}
-				style={{ textDecoration: "none" }}
+				style={{ all: "unset", cursor: "pointer" }}
 			>
 				<ActualDisplayStat
 					data={props.data}
@@ -285,13 +285,9 @@ const Page: NextPageWithLayout = () => {
 						Calculated {formatTimeAgo(latestUserSummary.data.calculatedOn)}
 					</Text>
 					<SimpleGrid
-						cols={1}
+						cols={{ base: 1, sm: 2, md: 3 }}
 						style={{ alignItems: "center" }}
 						spacing="lg"
-						breakpoints={[
-							{ minWidth: "sm", cols: 2 },
-							{ minWidth: "md", cols: 3 },
-						]}
 					>
 						<DisplayStatForMediaType
 							lot={MetadataLot.Movie}
@@ -481,14 +477,7 @@ const Page: NextPageWithLayout = () => {
 					</SimpleGrid>
 					<Divider />
 					<Title>Actions</Title>
-					<SimpleGrid
-						cols={1}
-						spacing="lg"
-						breakpoints={[
-							{ minWidth: "sm", cols: 2 },
-							{ minWidth: "lg", cols: 3 },
-						]}
-					>
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
 						{userPreferences.data.featuresEnabled.fitness.enabled ? (
 							currentWorkout ? (
 								<Link
@@ -499,7 +488,7 @@ const Page: NextPageWithLayout = () => {
 									<Button
 										variant="outline"
 										component="a"
-										leftIcon={<IconBarbell />}
+										leftSection={<IconBarbell />}
 										onClick={() => {}}
 									>
 										Go to current workout
@@ -508,7 +497,7 @@ const Page: NextPageWithLayout = () => {
 							) : (
 								<Button
 									variant="outline"
-									leftIcon={<IconBarbell />}
+									leftSection={<IconBarbell />}
 									onClick={() => {
 										setCurrentWorkout(getDefaultWorkout());
 										router.push(APP_ROUTES.fitness.exercises.currentWorkout);
@@ -527,7 +516,7 @@ const Page: NextPageWithLayout = () => {
 								<Button
 									variant="outline"
 									component="a"
-									leftIcon={<IconPhotoPlus />}
+									leftSection={<IconPhotoPlus />}
 								>
 									Create a media item
 								</Button>

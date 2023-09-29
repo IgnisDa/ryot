@@ -1,0 +1,12 @@
+.starIcon {
+  color: #9ca3af;
+  &:hover {
+    color: #ebe600ff;
+  }
+}
+
+.text {
+  @mixin dark {
+    color: white;
+  }
+}
