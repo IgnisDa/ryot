@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{collections::HashMap, sync::OnceLock};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::{http::headers::AUTHORIZATION, Client};
 
@@ -111,7 +111,7 @@ struct IgdbItemResponse {
     version_parent: Option<i32>,
     collection: Option<IdObject>,
     #[serde(flatten)]
-    rest_data: std::collections::HashMap<String, serde_json::Value>,
+    rest_data: Option<HashMap<String, Value>>,
 }
 
 #[derive(Debug, Clone)]
@@ -286,6 +286,19 @@ where id = {id};
     ) -> Result<SearchResults<MediaSearchItem>> {
         let page = page.unwrap_or(1);
         let client = get_client(&self.config).await;
+        let count_req_body =
+            format!(r#"fields id; where version_parent = null; search "{query}"; limit: 500;"#);
+        let mut rsp = client
+            .post("games")
+            .body_string(count_req_body)
+            .await
+            .map_err(|e| anyhow!(e))?;
+
+        let search_count_resp: Vec<IgdbItemResponse> =
+            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
+        let total = search_count_resp.len().try_into().unwrap();
+
         let req_body = format!(
             r#"
 {field}
@@ -305,9 +318,6 @@ offset: {offset};
 
         let search: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
-        // DEV: API does not return total count
-        let total = 100;
-
         let resp = search
             .into_iter()
             .map(|r| {
@@ -320,6 +330,7 @@ offset: {offset};
                 }
             })
             .collect_vec();
+
         Ok(SearchResults {
             details: SearchDetails {
                 total,
