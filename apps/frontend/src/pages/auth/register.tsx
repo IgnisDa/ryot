@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import classes from "./styles.module.css";
 
 const formSchema = z
 	.object({
@@ -90,13 +91,7 @@ export default function Page() {
 						password: values.password,
 					});
 				})}
-				sx={(t) => ({
-					width: "80%",
-					[t.fn.largerThan("sm")]: { width: "60%" },
-					[t.fn.largerThan("md")]: { width: "50%" },
-					[t.fn.largerThan("lg")]: { width: "40%" },
-					[t.fn.largerThan("xl")]: { width: "30%" },
-				})}
+				className={classes.form}
 			>
 				<TextInput
 					label="Username"
@@ -131,7 +126,7 @@ export default function Page() {
 							? { "data-disabled": true }
 							: {})}
 						loading={registerUser.isLoading}
-						sx={{ "&[data-disabled]": { pointerEvents: "all" } }}
+						className={classes.btn}
 						w="100%"
 					>
 						Register

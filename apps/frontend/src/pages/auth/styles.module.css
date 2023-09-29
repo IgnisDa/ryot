@@ -1,0 +1,21 @@
+.form {
+  width: 80%;
+  @media (min-width: $mantine-breakpoint-sm) {
+    width: 60%;
+  }
+  @media (min-width: $mantine-breakpoint-md) {
+    width: 50%;
+  }
+  @media (min-width: $mantine-breakpoint-lg) {
+    width: 40%;
+  }
+  @media (min-width: $mantine-breakpoint-xl) {
+    width: 30%;
+  }
+}
+
+.btn {
+  &[data-disabled] {
+    pointer-events: all;
+  }
+}
