@@ -202,7 +202,6 @@ impl MediaProvider for ITunesService {
             .get("search")
             .query(&serde_json::json!({
                 "term": query,
-                "limit": self.page_limit,
                 "media": "podcast",
                 "entity": "podcast",
                 "lang": self.language
@@ -216,15 +215,24 @@ impl MediaProvider for ITunesService {
             .unwrap_or_default()
             .into_iter()
             .map(get_search_response)
-            .collect();
+            .collect_vec();
 
-        // DEV: API does not return total count
-        let total = 100;
+        let total = resp.len().try_into().unwrap();
+
+        let resp = resp
+            .into_iter()
+            .skip(((page - 1) * self.page_limit).try_into().unwrap())
+            .take(self.page_limit.try_into().unwrap())
+            .collect_vec();
 
         Ok(SearchResults {
             details: SearchDetails {
                 total,
-                next_page: Some(page + 1),
+                next_page: if total > page * self.page_limit {
+                    Some(page + 1)
+                } else {
+                    None
+                },
             },
             items: resp,
         })
