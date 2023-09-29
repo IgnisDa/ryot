@@ -142,7 +142,11 @@ const Page: NextPageWithLayout = () => {
 													.at(0)}/${i.slug}`}
 											>
 												{({ copy }) => (
-													<ActionIcon color="green" onClick={copy}>
+													<ActionIcon
+														color="green"
+														onClick={copy}
+														variant="subtle"
+													>
 														<IconCopy />
 													</ActionIcon>
 												)}
@@ -150,6 +154,7 @@ const Page: NextPageWithLayout = () => {
 										) : undefined}
 										<ActionIcon
 											color="red"
+											variant="subtle"
 											size="sm"
 											onClick={() => {
 												const yes = confirm(
@@ -216,7 +221,6 @@ const Page: NextPageWithLayout = () => {
 									<Select
 										label="Select a source"
 										required
-										withinPortal
 										data={[
 											...Object.values(UserYankIntegrationSettingKind),
 											...Object.values(UserSinkIntegrationSettingKind),

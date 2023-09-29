@@ -344,7 +344,8 @@ const Page: NextPageWithLayout = () => {
 									<Progress
 										value={progress}
 										striped
-										animate
+										// TODO: Bring this back when mantine supports it
+										// animate
 										size={"sm"}
 										color="orange"
 									/>
