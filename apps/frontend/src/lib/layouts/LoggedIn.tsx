@@ -324,6 +324,7 @@ export default function ({ children }: { children: ReactElement }) {
 	return userPreferences.data && openedLinkGroups ? (
 		<AppShell
 			my={{ sm: "xl" }}
+			w="100%"
 			padding={0}
 			layout="alt"
 			navbar={{
