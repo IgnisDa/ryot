@@ -10,7 +10,7 @@ import {
 	Box,
 	Center,
 	Container,
-	Grid as MantineGrid,
+	Group,
 	Pagination,
 	Stack,
 	Text,
@@ -19,7 +19,7 @@ import {
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { CreatorsListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials } from "@ryot/ts-utils";
-import { IconSearch, IconX } from "@tabler/icons-react";
+import { IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useEffect } from "react";
@@ -72,21 +72,25 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<MantineGrid grow>
-						<MantineGrid.Col span={12}>
-							<TextInput
-								name="query"
-								placeholder={"Search for people"}
-								leftSection={<IconSearch />}
-								onChange={(e) => setQuery(e.currentTarget.value)}
-								value={query}
-								rightSection={<ClearButton />}
-								style={{ flexGrow: 1 }}
-								autoCapitalize="none"
-								autoComplete="off"
-							/>
-						</MantineGrid.Col>
-					</MantineGrid>
+					<Group>
+						<TextInput
+							name="query"
+							placeholder={"Search for people"}
+							leftSection={<IconSearch />}
+							onChange={(e) => setQuery(e.currentTarget.value)}
+							value={query}
+							rightSection={<ClearButton />}
+							style={{ flexGrow: 1 }}
+							autoCapitalize="none"
+							autoComplete="off"
+						/>
+						<ActionIcon
+							onClick={() => listCreators.refetch()}
+							loading={listCreators.isLoading}
+						>
+							<IconRefresh />
+						</ActionIcon>
+					</Group>
 					{listCreators.data && listCreators.data.details.total > 0 ? (
 						<>
 							<Box>
