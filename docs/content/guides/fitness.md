@@ -14,7 +14,7 @@ Some pointers on Ryot and fitness tracking.
 Before you can get exercises tracking working, you will need to import all
 exercises data. Follow these steps to do so:
 
-1. Open your instance's `/graphql` endpoint. For example `https://ryot.up.railway.app/graphql`.
+1. Open your instance's `/graphql` endpoint. For example `https://ryot.fly.dev/graphql`.
 
 2. Enter the following mutation in the editor and run it.
   ```graphql
