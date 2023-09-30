@@ -760,44 +760,44 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 					) : undefined}
 					<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
-						<Text color="dimmed">{mediaDetails.data.productionStatus}</Text>
+						<Text c="dimmed">{mediaDetails.data.productionStatus}</Text>
 						{mediaDetails.data.genres.length > 0 ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.bookSpecifics?.pages ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.bookSpecifics.pages} pages
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.podcastSpecifics.totalEpisodes} episodes
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.animeSpecifics?.episodes ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.animeSpecifics.episodes} episodes
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.movieSpecifics?.runtime ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
@@ -806,13 +806,13 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.showSpecifics ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
@@ -821,7 +821,7 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						) : undefined}
 						{mediaDetails.data.publishYear ? (
-							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
+							<Text c="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : undefined}
 					</Flex>
 					{mediaDetails.data.providerRating ||
@@ -930,9 +930,7 @@ const Page: NextPageWithLayout = () => {
 							color="violet"
 						>
 							Reminder for {userMediaDetails.data.reminder.remindOn}
-							<Text color="green">
-								{userMediaDetails.data.reminder.message}
-							</Text>
+							<Text c="green">{userMediaDetails.data.reminder.message}</Text>
 						</Alert>
 					) : undefined}
 					{userMediaDetails.data?.inProgress ? (
@@ -1366,13 +1364,13 @@ const Page: NextPageWithLayout = () => {
 													{h.progress !== 100 ? `(${h.progress}%)` : undefined}
 												</Text>
 												{h.showInformation ? (
-													<Text color="dimmed">
+													<Text c="dimmed">
 														S{h.showInformation.season}-E
 														{h.showInformation.episode}
 													</Text>
 												) : undefined}
 												{h.podcastInformation ? (
-													<Text color="dimmed">
+													<Text c="dimmed">
 														EP-{h.podcastInformation.episode}
 													</Text>
 												) : undefined}

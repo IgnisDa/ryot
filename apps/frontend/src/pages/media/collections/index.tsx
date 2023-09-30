@@ -55,7 +55,7 @@ const Page: NextPageWithLayout = () => {
 			<Container>
 				<Stack>
 					<Box>
-						<Text color="dimmed" size="xs" mb={-10}>
+						<Text c="dimmed" size="xs" mb={-10}>
 							{changeCase(collectionContents.data.details.visibility)}
 						</Text>
 						<Title>{collectionContents.data.details.name}</Title>{" "}

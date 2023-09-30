@@ -125,13 +125,13 @@ export const ReviewItemDisplay = ({
 				</Flex>
 				<Box ml={"sm"} mt={"xs"}>
 					{typeof review.showSeason === "number" ? (
-						<Text color="dimmed">
+						<Text c="dimmed">
 							S{review.showSeason}-E
 							{review.showEpisode}
 						</Text>
 					) : undefined}
 					{typeof review.podcastEpisode === "number" ? (
-						<Text color="dimmed">EP-{review.podcastEpisode}</Text>
+						<Text c="dimmed">EP-{review.podcastEpisode}</Text>
 					) : undefined}
 					{(review.rating || 0) > 0 ? (
 						<Flex align={"center"} gap={4}>
@@ -371,7 +371,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					>
 						<Flex align={"center"} gap={4}>
 							<IconStarFilled size={"0.8rem"} style={{ color: "#EBE600FF" }} />
-							<Text color="white" size="xs" fw="bold" pr={4}>
+							<Text c="white" size="xs" fw="bold" pr={4}>
 								{match(userPreferences.data.general.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
 										// biome-ignore lint/style/noNonNullAssertion: it is validated above

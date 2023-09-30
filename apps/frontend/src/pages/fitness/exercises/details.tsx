@@ -171,7 +171,7 @@ const Page: NextPageWithLayout = () => {
 									{userExerciseDetails.data.history.map((h) => (
 										<Paper key={h.workoutId} withBorder p="xs">
 											<Text fw="bold">{h.workoutName}</Text>
-											<Text color="dimmed" fz="sm" mb="xs">
+											<Text c="dimmed" fz="sm" mb="xs">
 												{DateTime.fromJSDate(h.workoutTime).toLocaleString(
 													DateTime.DATETIME_MED_WITH_WEEKDAY,
 												)}

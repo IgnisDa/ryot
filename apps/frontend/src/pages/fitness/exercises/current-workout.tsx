@@ -64,7 +64,7 @@ const StatDisplay = (props: { name: string; value: string }) => {
 			<Text ta="center" size="xl">
 				{props.value}
 			</Text>
-			<Text color="dimmed" size="sm">
+			<Text c="dimmed" size="sm">
 				{props.name}
 			</Text>
 		</Box>
