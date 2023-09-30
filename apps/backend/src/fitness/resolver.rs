@@ -31,7 +31,7 @@ use crate::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes, WorkoutSetRecord,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
     utils::{get_case_insensitive_like_query, user_by_id},
@@ -57,8 +57,7 @@ struct ExerciseListFilter {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct ExercisesListInput {
-    page: i32,
-    query: Option<String>,
+    search: SearchInput,
     filter: Option<ExerciseListFilter>,
 }
 
@@ -340,7 +339,7 @@ impl ExerciseService {
                         q.filter(exercise::Column::Equipment.eq(v))
                     })
             })
-            .apply_if(input.query, |query, v| {
+            .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::any()
                         .add(get_case_insensitive_like_query(
@@ -362,16 +361,17 @@ impl ExerciseService {
         let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let mut items = vec![];
         for ex in data
-            .fetch_page((input.page - 1).try_into().unwrap())
+            .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
             .await?
         {
             items.push(ex.graphql_repr(&self.file_storage_service).await);
         }
-        let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
-            Some(input.page + 1)
-        } else {
-            None
-        };
+        let next_page =
+            if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
+                Some(input.search.page.unwrap() + 1)
+            } else {
+                None
+            };
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,

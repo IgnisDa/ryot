@@ -114,8 +114,10 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
 				input: {
-					page: parseInt(activePage || "1"),
-					query: debouncedQuery || undefined,
+					search: {
+						page: parseInt(activePage || "1"),
+						query: debouncedQuery || undefined,
+					},
 					filter: exerciseFilters,
 				},
 			});

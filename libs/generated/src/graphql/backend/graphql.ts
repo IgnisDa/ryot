@@ -388,8 +388,7 @@ export type ExerciseSearchResults = {
 
 export type ExercisesListInput = {
   filter?: InputMaybe<ExerciseListFilter>;
-  page: Scalars['Int']['input'];
-  query?: InputMaybe<Scalars['String']['input']>;
+  search: SearchInput;
 };
 
 export type GeneralFeatures = {
