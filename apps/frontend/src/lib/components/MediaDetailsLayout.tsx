@@ -1,6 +1,15 @@
 import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
-import { Anchor, Badge, Box, Flex, Image, Stack, Text } from "@mantine/core";
+import {
+	Anchor,
+	Badge,
+	Box,
+	Flex,
+	Image,
+	Stack,
+	Text,
+	useComputedColorScheme,
+} from "@mantine/core";
 import type {
 	MetadataLot,
 	MetadataSource,
@@ -8,6 +17,7 @@ import type {
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useState } from "react";
+import { getFallbackImageUrl } from "../utilities";
 import classes from "./styles.module.css";
 
 function getSurroundingElements<T>(array: T[], element: number): number[] {
@@ -28,6 +38,7 @@ export default function (props: {
 	};
 }) {
 	const [activeImageId, setActiveImageId] = useState<number>(0);
+	const colorScheme = useComputedColorScheme("dark");
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -54,7 +65,12 @@ export default function (props: {
 					</Carousel>
 				) : (
 					<Box w={300}>
-						<Image src={props.images[0]} height={400} radius="lg" />
+						<Image
+							src={props.images[0]}
+							height={400}
+							radius="lg"
+							fallbackSrc={getFallbackImageUrl(colorScheme)}
+						/>
 					</Box>
 				)}
 				{props.externalLink ? (

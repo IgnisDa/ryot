@@ -58,15 +58,14 @@ const CalendarEvent = (props: {
 					align="end"
 				>
 					<Text mt="sm" size="sm">
-						<Link
-							passHref
-							legacyBehavior
+						<Anchor
+							component={Link}
 							href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
 								id: evt.metadataId,
 							})}
 						>
-							<Anchor>{evt.metadataTitle}</Anchor>
-						</Link>{" "}
+							{evt.metadataTitle}
+						</Anchor>{" "}
 						{typeof evt.showSeasonNumber === "number" ? (
 							<Text span color="dimmed" size="sm">
 								(S{evt.showSeasonNumber}-E

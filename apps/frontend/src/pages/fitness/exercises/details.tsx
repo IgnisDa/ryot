@@ -10,6 +10,7 @@ import {
 	Image,
 	List,
 	Paper,
+	ScrollArea,
 	Stack,
 	Tabs,
 	Text,
@@ -150,11 +151,19 @@ const Page: NextPageWithLayout = () => {
 
 						<Tabs.Panel value="overview">
 							<Stack>
-								<Flex gap={6}>
-									{exerciseDetails.data.attributes.images.map((i) => (
-										<Image key={i} radius={"md"} src={i} />
-									))}
-								</Flex>
+								<ScrollArea>
+									<Flex gap={6}>
+										{exerciseDetails.data.attributes.images.map((i) => (
+											<Image
+												key={i}
+												radius={"md"}
+												src={i}
+												h="200px"
+												w="248px"
+											/>
+										))}
+									</Flex>
+								</ScrollArea>
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>

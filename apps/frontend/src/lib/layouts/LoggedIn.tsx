@@ -473,7 +473,7 @@ export default function ({ children }: { children: ReactElement }) {
 					<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%">
 						{children}
 					</Box>
-					<Box style={{ marginBottom: 20 }}>
+					<Box className={classes.shellFooter}>
 						<Footer />
 					</Box>
 				</AppShell.Main>

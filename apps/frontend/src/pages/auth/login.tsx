@@ -104,9 +104,9 @@ export default function Page() {
 				{enabledFeatures.data?.signupAllowed ? (
 					<Box mt="lg" style={{ textAlign: "right" }}>
 						Need an account? Register{" "}
-						<Link href={APP_ROUTES.auth.register} passHref legacyBehavior>
-							<Anchor>here</Anchor>
-						</Link>
+						<Anchor href={APP_ROUTES.auth.register} component={Link}>
+							here
+						</Anchor>
 						.
 					</Box>
 				) : undefined}

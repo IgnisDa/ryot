@@ -142,11 +142,7 @@ const Page: NextPageWithLayout = () => {
 													.at(0)}/${i.slug}`}
 											>
 												{({ copy }) => (
-													<ActionIcon
-														color="green"
-														onClick={copy}
-														variant="subtle"
-													>
+													<ActionIcon color="green" onClick={copy}>
 														<IconCopy />
 													</ActionIcon>
 												)}

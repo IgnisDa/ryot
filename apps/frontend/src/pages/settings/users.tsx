@@ -148,7 +148,7 @@ const Page: NextPageWithLayout = () => {
 											onClick={() => {
 												registerUserForm.setFieldValue(
 													"password",
-													randomString(5),
+													randomString(7),
 												);
 											}}
 										>

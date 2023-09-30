@@ -159,7 +159,7 @@ const ExerciseDisplay = (props: {
 						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
 							<Menu.Target>
-								<ActionIcon color="blue" variant="transparent">
+								<ActionIcon color="blue">
 									<IconDotsVertical />
 								</ActionIcon>
 							</Menu.Target>
@@ -184,7 +184,6 @@ const ExerciseDisplay = (props: {
 								/>
 								<ActionIcon
 									color="red"
-									variant="transparent"
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
@@ -505,17 +504,15 @@ const Page: NextPageWithLayout = () => {
 							</Fragment>
 						))}
 						<Group justify="center">
-							<Link
-								passHref
-								legacyBehavior
+							<Button
+								component={Link}
+								variant="subtle"
 								href={withQuery(APP_ROUTES.fitness.exercises.list, {
 									selectionEnabled: "yes",
 								})}
 							>
-								<Button component="a" variant="subtle">
-									Add exercise
-								</Button>
-							</Link>
+								Add exercise
+							</Button>
 						</Group>
 						<Group justify="center">
 							<Button

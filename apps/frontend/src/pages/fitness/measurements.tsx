@@ -98,7 +98,6 @@ const DisplayMeasurement = (props: {
 						)}
 					</Button>
 					<ActionIcon
-						variant="light"
 						color="red"
 						size="sm"
 						onClick={() => {

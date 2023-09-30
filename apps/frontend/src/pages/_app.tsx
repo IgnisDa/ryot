@@ -8,6 +8,8 @@ import {
 	type MantineColorSchemeManager,
 	MantineProvider,
 	isMantineColorScheme,
+	createTheme,
+	ActionIcon,
 } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
@@ -81,6 +83,19 @@ type AppPropsWithLayout = AppProps & {
 	Component: NextPageWithLayout;
 };
 
+const theme = createTheme({
+	fontFamily: "Poppins",
+	breakpoints: { "3xl": "112em" },
+	components: {
+		ActionIcon: ActionIcon.extend({
+			defaultProps: {
+				variant: "subtle",
+				color: "gray",
+			},
+		}),
+	},
+});
+
 export default function App({ Component, pageProps }: AppPropsWithLayout) {
 	const getLayout = Component.getLayout ?? ((page) => page);
 
@@ -110,10 +125,8 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 			<QueryClientProvider client={queryClient}>
 				<JotaiProvider>
 					<MantineProvider
-						theme={{
-							fontFamily: "Poppins",
-							breakpoints: { "3xl": "112em" },
-						}}
+						classNamesPrefix="mnt"
+						theme={theme}
 						colorSchemeManager={colorSchemeManager}
 					>
 						<ModalsProvider

@@ -134,9 +134,9 @@ export default function Page() {
 				</Tooltip>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Already a member? Login{" "}
-					<Link href={APP_ROUTES.auth.login} passHref legacyBehavior>
-						<Anchor>here</Anchor>
-					</Link>
+					<Anchor href={APP_ROUTES.auth.login} component={Link}>
+						here
+					</Anchor>
 					.
 				</Box>
 			</Box>

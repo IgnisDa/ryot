@@ -120,37 +120,35 @@ const Page: NextPageWithLayout = () => {
 											</Title>
 											<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 												{role.items.map((item) => (
-													<Link
+													<Anchor
 														key={item.metadataId}
-														passHref
-														legacyBehavior
+														data-media-id={item.metadataId}
+														component={Link}
 														href={withQuery(
 															APP_ROUTES.media.individualMediaItem.details,
 															{ id: item.metadataId },
 														)}
 													>
-														<Anchor data-media-id={item.metadataId}>
-															<Avatar
-																imageProps={{ loading: "lazy" }}
-																src={item.image}
-																radius={"sm"}
-																h={100}
-																w={85}
-																mx="auto"
-																alt={`${item.title} picture`}
-																styles={{ image: { objectPosition: "top" } }}
-															/>
-															<Text
-																c="dimmed"
-																size="xs"
-																ta="center"
-																lineClamp={1}
-																mt={4}
-															>
-																{item.title}
-															</Text>
-														</Anchor>
-													</Link>
+														<Avatar
+															imageProps={{ loading: "lazy" }}
+															src={item.image}
+															radius={"sm"}
+															h={100}
+															w={85}
+															mx="auto"
+															alt={`${item.title} picture`}
+															styles={{ image: { objectPosition: "top" } }}
+														/>
+														<Text
+															c="dimmed"
+															size="xs"
+															ta="center"
+															lineClamp={1}
+															mt={4}
+														>
+															{item.title}
+														</Text>
+													</Anchor>
 												))}
 											</SimpleGrid>
 										</Box>
@@ -161,17 +159,16 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-									<Link
-										href={withQuery(APP_ROUTES.media.postReview, { creatorId })}
-										passHref
-										legacyBehavior
+									<Button
+										variant="outline"
+										w="100%"
+										component={Link}
+										href={withQuery(APP_ROUTES.media.postReview, {
+											creatorId,
+										})}
 									>
-										<Anchor>
-											<Button variant="outline" w="100%">
-												Post a review
-											</Button>
-										</Anchor>
-									</Link>
+										Post a review
+									</Button>
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>

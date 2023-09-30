@@ -324,13 +324,13 @@ const Page: NextPageWithLayout = () => {
 								<Flex justify={"space-between"} align={"center"}>
 									<Title order={2}>Import data</Title>
 									<Group>
-										<Link
-											passHref
-											legacyBehavior
+										<Anchor
 											href={APP_ROUTES.settings.imports.reports}
+											component={Link}
+											size="xs"
 										>
-											<Anchor size="xs">Reports</Anchor>
-										</Link>
+											Reports
+										</Anchor>
 										<Anchor
 											size="xs"
 											href="https://ignisda.github.io/ryot/importing.html"

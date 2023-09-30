@@ -6,7 +6,7 @@ import {
 	useUserPreferences,
 } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getLot, getVerb } from "@/lib/utilities";
+import { Verb, getFallbackImageUrl, getLot, getVerb } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
@@ -23,7 +23,7 @@ import {
 	Stack,
 	Text,
 	Tooltip,
-	TypographyStylesProvider,
+	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -106,21 +106,18 @@ export const ReviewItemDisplay = ({
 						</Text>
 					</Box>
 					{user && user.id === review.postedBy?.id ? (
-						<Link
+						<Anchor
+							component={Link}
 							href={withQuery(APP_ROUTES.media.postReview, {
 								metadataId,
 								creatorId,
 								reviewId: review.id,
 							})}
-							passHref
-							legacyBehavior
 						>
-							<Anchor>
-								<ActionIcon>
-									<IconEdit size="1rem" />
-								</ActionIcon>
-							</Anchor>
-						</Link>
+							<ActionIcon>
+								<IconEdit size="1rem" />
+							</ActionIcon>
+						</Anchor>
 					) : undefined}
 				</Flex>
 				<Box ml={"sm"} mt={"xs"}>
@@ -147,10 +144,10 @@ export const ReviewItemDisplay = ({
 					) : undefined}
 					{review.text ? (
 						!review.spoiler ? (
-							<TypographyStylesProvider>
+							<>
 								{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
 								<div dangerouslySetInnerHTML={{ __html: review.text }} />
-							</TypographyStylesProvider>
+							</>
 						) : (
 							<>
 								{!opened ? (
@@ -262,6 +259,8 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: JSX.Element;
 }) => {
+	const colorScheme = useComputedColorScheme("dark");
+
 	return (
 		<Flex
 			key={`${props.bottomLeft}-${props.bottomRight}-${props.name}`}
@@ -271,28 +270,35 @@ export const BaseDisplayItem = (props: {
 			pos={"relative"}
 		>
 			{props.topLeft}
-			<Link passHref legacyBehavior href={props.href}>
-				<Anchor style={{ flex: "none" }} pos="relative">
-					<Image
-						src={props.imageLink}
-						radius={"md"}
-						height={250}
-						width={167}
-						style={{ cursor: "pointer" }}
-						alt={`Image for ${props.name}`}
-						styles={{
-							root: {
-								transitionProperty: "transform",
-								transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-								transitionDuration: "150ms",
-								// "&:hover": { boxShadow: "0 0 15px black" },
-							},
-						}}
-					/>
-					{props.topRight}
-				</Anchor>
-			</Link>
-			<Flex w={"100%"} direction={"column"}>
+			<Anchor
+				component={Link}
+				href={props.href}
+				style={{ flex: "none" }}
+				pos="relative"
+			>
+				<Image
+					src={props.imageLink}
+					radius={"md"}
+					style={{ cursor: "pointer" }}
+					alt={`Image for ${props.name}`}
+					className={classes.mediaImage}
+					styles={{
+						root: {
+							transitionProperty: "transform",
+							transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+							transitionDuration: "150ms",
+						},
+					}}
+					h={260}
+					w={170}
+					fallbackSrc={getFallbackImageUrl(
+						colorScheme,
+						getInitials(props.name),
+					)}
+				/>
+				{props.topRight}
+			</Anchor>
+			<Flex w={"100%"} direction={"column"} px={{ base: 10, md: 3 }}>
 				<Flex justify={"space-between"} direction={"row"} w="100%">
 					<Text c="dimmed" size="sm">
 						{props.bottomLeft}

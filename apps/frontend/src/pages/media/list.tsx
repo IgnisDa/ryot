@@ -215,11 +215,7 @@ const Page: NextPageWithLayout = () => {
 
 	const ClearButton = () =>
 		query ? (
-			<ActionIcon
-				onClick={() => setQuery("")}
-				variant="transparent"
-				color="gray"
-			>
+			<ActionIcon onClick={() => setQuery("")}>
 				<IconX size="1rem" />
 			</ActionIcon>
 		) : undefined;
@@ -260,7 +256,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Tabs
-					variant="outline"
+					variant="default"
 					value={activeTab}
 					onChange={(v) => {
 						if (v === "mine" || v === "search") setActiveTab(v);
@@ -279,8 +275,6 @@ const Page: NextPageWithLayout = () => {
 						<Flex style={{ flexGrow: 1 }} justify={"end"}>
 							<ActionIcon
 								size="lg"
-								color="gray"
-								variant="subtle"
 								mt={4}
 								loading={searchQuery.isFetching || listMedia.isFetching}
 								onClick={() => {
@@ -307,7 +301,6 @@ const Page: NextPageWithLayout = () => {
 										<ActionIcon
 											onClick={openFiltersModal}
 											color={isFilterChanged ? "blue" : "gray"}
-											variant="subtle"
 										>
 											<IconFilter size="1.5rem" />
 										</ActionIcon>
@@ -320,11 +313,7 @@ const Page: NextPageWithLayout = () => {
 											<Stack>
 												<Group>
 													<Title order={3}>Filters</Title>
-													<ActionIcon
-														onClick={resetFilters}
-														variant="subtle"
-														color="gray"
-													>
+													<ActionIcon onClick={resetFilters}>
 														<IconFilterOff size="1.5rem" />
 													</ActionIcon>
 												</Group>
@@ -364,8 +353,6 @@ const Page: NextPageWithLayout = () => {
 														}}
 													/>
 													<ActionIcon
-														variant="subtle"
-														color="gray"
 														onClick={() => {
 															if (mineSortOrder === MediaSortOrder.Asc)
 																setMineSortOrder(MediaSortOrder.Desc);
