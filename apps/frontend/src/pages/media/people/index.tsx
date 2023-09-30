@@ -140,12 +140,14 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="actions" leftSection={<IconUser size="1rem" />}>
 								Actions
 							</Tabs.Tab>
-							<Tabs.Tab
-								value="reviews"
-								leftSection={<IconMessageCircle2 size="1rem" />}
-							>
-								Reviews
-							</Tabs.Tab>
+							{userCreatorDetails.data.reviews.length > 0 ? (
+								<Tabs.Tab
+									value="reviews"
+									leftSection={<IconMessageCircle2 size="1rem" />}
+								>
+									Reviews
+								</Tabs.Tab>
+							) : undefined}
 						</Tabs.List>
 						<Tabs.Panel value="media">
 							<MediaScrollArea>
@@ -222,22 +224,18 @@ const Page: NextPageWithLayout = () => {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="reviews">
-							{userCreatorDetails.data.reviews.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										{userCreatorDetails.data.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												creatorId={creatorId}
-												refetch={userCreatorDetails.refetch}
-											/>
-										))}
-									</Stack>
-								</MediaScrollArea>
-							) : (
-								<Text fs="italic">No reviews posted</Text>
-							)}
+							<MediaScrollArea>
+								<Stack>
+									{userCreatorDetails.data.reviews.map((r) => (
+										<ReviewItemDisplay
+											review={r}
+											key={r.id}
+											creatorId={creatorId}
+											refetch={userCreatorDetails.refetch}
+										/>
+									))}
+								</Stack>
+							</MediaScrollArea>
 						</Tabs.Panel>
 					</Tabs>
 				</MediaDetailsLayout>
