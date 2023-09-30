@@ -3,6 +3,12 @@ query CreatorDetails($creatorId: Int!) {
     details {
       id
       name
+      description
+      birthDate
+      deathDate
+      place
+      website
+      gender
       displayImages
     }
     contents {
