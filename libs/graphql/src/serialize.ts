@@ -50,6 +50,7 @@ const stringify = (value: unknown): unknown => {
 };
 
 export const gqlSerializer = {
+	// biome-ignore lint/suspicious/noExplicitAny: required here
 	parse: <T = any>(jsonStr: string): T => {
 		const jsonValue = JSON.parse(jsonStr);
 		return parse(jsonValue) as T;

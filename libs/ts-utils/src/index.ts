@@ -1,12 +1,12 @@
 import TimeAgo from "javascript-time-ago";
 import en from "javascript-time-ago/locale/en.json";
 import {
-	sum,
 	camelCase,
 	groupBy,
 	mapValues,
 	snakeCase,
 	startCase,
+	sum,
 } from "lodash";
 
 TimeAgo.addDefaultLocale(en);
