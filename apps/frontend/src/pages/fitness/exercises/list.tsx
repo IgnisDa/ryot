@@ -230,12 +230,13 @@ const Page: NextPageWithLayout = () => {
 												// biome-ignore lint/suspicious/noExplicitAny: required heres
 												value={(exerciseFilters as any)[f]}
 												onChange={(v) => {
-													setExerciseFilters(
-														produce(exerciseFilters, (draft) => {
-															// biome-ignore lint/suspicious/noExplicitAny: required heres
-															(draft as any)[f] = v;
-														}),
-													);
+													if (exerciseFilters)
+														setExerciseFilters(
+															produce(exerciseFilters, (draft) => {
+																// biome-ignore lint/suspicious/noExplicitAny: required heres
+																(draft as any)[f] = v;
+															}),
+														);
 												}}
 											/>
 										))}
