@@ -114,7 +114,7 @@ export const ReviewItemDisplay = ({
 								reviewId: review.id,
 							})}
 						>
-							<ActionIcon variant="subtle">
+							<ActionIcon>
 								<IconEdit size="1rem" />
 							</ActionIcon>
 						</Anchor>

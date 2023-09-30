@@ -730,8 +730,6 @@ const Page: NextPageWithLayout = () => {
 											{col.name}
 										</Anchor>
 										<ActionIcon
-											variant="transparent"
-											color="gray"
 											size="1rem"
 											onClick={() => {
 												const yes = confirm(

@@ -159,7 +159,7 @@ const ExerciseDisplay = (props: {
 						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
 							<Menu.Target>
-								<ActionIcon color="blue" variant="transparent">
+								<ActionIcon color="blue">
 									<IconDotsVertical />
 								</ActionIcon>
 							</Menu.Target>
@@ -184,7 +184,6 @@ const ExerciseDisplay = (props: {
 								/>
 								<ActionIcon
 									color="red"
-									variant="transparent"
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {

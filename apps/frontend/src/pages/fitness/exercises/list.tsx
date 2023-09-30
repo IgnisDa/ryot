@@ -192,7 +192,6 @@ const Page: NextPageWithLayout = () => {
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
-									variant="transparent"
 									color={isFilterChanged ? "blue" : "gray"}
 								>
 									<IconFilter size="1.5rem" />
@@ -206,11 +205,7 @@ const Page: NextPageWithLayout = () => {
 									<Stack>
 										<Group>
 											<Title order={3}>Filters</Title>
-											<ActionIcon
-												onClick={resetFilters}
-												variant="transparent"
-												color="gray"
-											>
+											<ActionIcon onClick={resetFilters}>
 												<IconFilterOff size="1.5rem" />
 											</ActionIcon>
 										</Group>
