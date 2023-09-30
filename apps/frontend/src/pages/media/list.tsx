@@ -488,7 +488,7 @@ const Page: NextPageWithLayout = () => {
 									</Grid>
 								</>
 							) : (
-								<Text>No media found :(</Text>
+								<Text>No media found matching your query</Text>
 							)}
 							{searchQuery.data ? (
 								<Center>
