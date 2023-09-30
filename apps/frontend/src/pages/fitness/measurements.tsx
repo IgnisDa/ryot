@@ -10,7 +10,6 @@ import {
 	Container,
 	Drawer,
 	Flex,
-	Group,
 	MultiSelect,
 	NumberInput,
 	Paper,
@@ -270,7 +269,7 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
-					<Group grow>
+					<SimpleGrid cols={{ base: 1, md: 2 }}>
 						<MultiSelect
 							label="Statistics to display"
 							data={[
@@ -301,7 +300,7 @@ const Page: NextPageWithLayout = () => {
 								if (v) setselectedTimespan(v as TimeSpan);
 							}}
 						/>
-					</Group>
+					</SimpleGrid>
 					<Box w={"100%"} ml={-15}>
 						{selectedStats ? (
 							<ResponsiveContainer width="100%" height={300}>
