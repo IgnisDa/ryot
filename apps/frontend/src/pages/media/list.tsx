@@ -260,7 +260,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Tabs
-					variant="outline"
+					variant="default"
 					value={activeTab}
 					onChange={(v) => {
 						if (v === "mine" || v === "search") setActiveTab(v);
