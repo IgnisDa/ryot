@@ -33,11 +33,11 @@ import {
 } from "@mantine/hooks";
 import {
 	CollectionsDocument,
+	GraphqlSortOrder,
 	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
 	MediaSortBy,
-	MediaSortOrder,
 	MediaSourcesForLotDocument,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -63,7 +63,7 @@ import type { NextPageWithLayout } from "../_app";
 const defaultFilters = {
 	mineCollectionFilter: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
-	mineSortOrder: MediaSortOrder.Desc,
+	mineSortOrder: GraphqlSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
 };
 
@@ -145,9 +145,11 @@ const Page: NextPageWithLayout = () => {
 			const { mediaList } = await gqlClient.request(MediaListDocument, {
 				input: {
 					lot,
-					page: parseInt(activeMinePage || "1"),
+					search: {
+						page: parseInt(activeMinePage || "1"),
+						query: debouncedQuery || undefined,
+					},
 					sort: { order: mineSortOrder, by: mineSortBy },
-					query: debouncedQuery || undefined,
 					filter: {
 						general: mineGeneralFilter,
 						collection: Number(mineCollectionFilter),
@@ -354,12 +356,12 @@ const Page: NextPageWithLayout = () => {
 													/>
 													<ActionIcon
 														onClick={() => {
-															if (mineSortOrder === MediaSortOrder.Asc)
-																setMineSortOrder(MediaSortOrder.Desc);
-															else setMineSortOrder(MediaSortOrder.Asc);
+															if (mineSortOrder === GraphqlSortOrder.Asc)
+																setMineSortOrder(GraphqlSortOrder.Desc);
+															else setMineSortOrder(GraphqlSortOrder.Asc);
 														}}
 													>
-														{mineSortOrder === MediaSortOrder.Asc ? (
+														{mineSortOrder === GraphqlSortOrder.Asc ? (
 															<IconSortAscending />
 														) : (
 															<IconSortDescending />

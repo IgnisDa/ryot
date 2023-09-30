@@ -434,6 +434,11 @@ export type GraphqlMediaGroup = {
   part: Scalars['Int']['output'];
 };
 
+export enum GraphqlSortOrder {
+  Asc = 'ASC',
+  Desc = 'DESC'
+}
+
 export type GraphqlUserIntegration = {
   description: Scalars['String']['output'];
   id: Scalars['Int']['output'];
@@ -596,8 +601,7 @@ export enum MediaGeneralFilter {
 export type MediaListInput = {
   filter?: InputMaybe<MediaFilter>;
   lot: MetadataLot;
-  page: Scalars['Int']['input'];
-  query?: InputMaybe<Scalars['String']['input']>;
+  search: SearchInput;
   sort?: InputMaybe<MediaSortInput>;
 };
 
@@ -643,13 +647,8 @@ export enum MediaSortBy {
 
 export type MediaSortInput = {
   by?: MediaSortBy;
-  order?: MediaSortOrder;
+  order?: GraphqlSortOrder;
 };
-
-export enum MediaSortOrder {
-  Asc = 'ASC',
-  Desc = 'DESC'
-}
 
 export type MetadataCreator = {
   id?: Maybe<Scalars['Int']['output']>;
