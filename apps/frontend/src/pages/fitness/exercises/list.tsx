@@ -46,6 +46,7 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconPlus,
+	IconRefresh,
 	IconSearch,
 	IconX,
 } from "@tabler/icons-react";
@@ -149,7 +150,7 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Exercises | Ryot</title>
 			</Head>
-			<Container size={"lg"}>
+			<Container size={"md"}>
 				<Stack gap={"xl"}>
 					<Flex align={"center"} gap={"md"}>
 						<Title>Exercises</Title>
@@ -192,6 +193,13 @@ const Page: NextPageWithLayout = () => {
 									autoCapitalize="none"
 									autoComplete="off"
 								/>
+								<ActionIcon
+									size="lg"
+									loading={exercisesList.isLoading}
+									onClick={() => exercisesList.refetch()}
+								>
+									<IconRefresh size="1.625rem" />
+								</ActionIcon>
 								<ActionIcon
 									onClick={openFiltersModal}
 									color={isFilterChanged ? "blue" : "gray"}
