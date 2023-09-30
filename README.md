@@ -21,7 +21,7 @@
 <p align="center">
     <a href="https://ignisda.github.io/ryot" target="_blank" rel="noopener noreferrer">Documentation</a> •
     <a href="https://ignisda.github.io/ryot/configuration" target="_blank" rel="noopener noreferrer">Configuration</a> •
-    <a href="https://ryot.up.railway.app" target="_blank" rel="noopener noreferrer">Demo</a>
+    <a href="https://ryot.fly.dev" target="_blank" rel="noopener noreferrer">Demo</a>
 </p>
 
 <br/>
@@ -31,7 +31,7 @@ hosted tracker you will ever need!
 
 ## 💻 Demo
 
-You can use the demo instance hosted on [Railway](https://ryot.up.railway.app/). Login
+You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login
 and register with the username `demo` and password `demo-password`. This instance
 is automatically deployed from the latest release.
 

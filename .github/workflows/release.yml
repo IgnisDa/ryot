@@ -175,13 +175,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Railway CLI
-        run: npm install --global @railway/cli
+      - name: Set up CLI
+        run: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy to Railway
-        run: railway up
+      - name: Deploy
+        run: flyctl deploy --remote-only --detach --config ci/fly.toml
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   deploy-docs:
     # otherwise the docs dislay the incorrect version
