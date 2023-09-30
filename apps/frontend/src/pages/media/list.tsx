@@ -15,7 +15,6 @@ import {
 	Center,
 	Container,
 	Flex,
-	Grid as MantineGrid,
 	Group,
 	Modal,
 	Pagination,
@@ -291,107 +290,100 @@ const Page: NextPageWithLayout = () => {
 
 					<Tabs.Panel value="mine">
 						<Stack>
-							<MantineGrid grow>
-								<MantineGrid.Col span={12}>
-									<Flex align={"center"} gap="xs">
-										{/* Weird syntax because of: https://stackoverflow.com/a/65328486/11667450 */}
-										{SearchInput({
-											placeholder: `Sift through your ${changeCase(
-												lot.toLowerCase(),
-											).toLowerCase()}s`,
-										})}
-										<ActionIcon
-											onClick={openFiltersModal}
-											color={isFilterChanged ? "blue" : "gray"}
-										>
-											<IconFilter size="1.5rem" />
-										</ActionIcon>
-										<Modal
-											opened={filtersModalOpened}
-											onClose={closeFiltersModal}
-											centered
-											withCloseButton={false}
-										>
-											<Stack>
-												<Group>
-													<Title order={3}>Filters</Title>
-													<ActionIcon onClick={resetFilters}>
-														<IconFilterOff size="1.5rem" />
-													</ActionIcon>
-												</Group>
-												<Select
-													value={mineGeneralFilter?.toString()}
-													data={[
-														{
-															group: "General filters",
-															items: Object.values(MediaGeneralFilter).map(
-																(o) => ({
-																	value: o.toString(),
-																	label: startCase(o.toLowerCase()),
-																}),
-															),
-														},
-													]}
-													onChange={(v) => {
-														if (v)
-															setMineGeneralFilter(v as MediaGeneralFilter);
-													}}
-												/>
-												<Flex gap={"xs"} align={"center"}>
-													<Select
-														w="100%"
-														data={[
-															{
-																group: "Sort by",
-																items: Object.values(MediaSortBy).map((o) => ({
-																	value: o.toString(),
-																	label: startCase(o.toLowerCase()),
-																})),
-															},
-														]}
-														value={mineSortBy?.toString()}
-														onChange={(v) => {
-															if (v) setMineSortBy(v as MediaSortBy);
-														}}
-													/>
-													<ActionIcon
-														onClick={() => {
-															if (mineSortOrder === GraphqlSortOrder.Asc)
-																setMineSortOrder(GraphqlSortOrder.Desc);
-															else setMineSortOrder(GraphqlSortOrder.Asc);
-														}}
-													>
-														{mineSortOrder === GraphqlSortOrder.Asc ? (
-															<IconSortAscending />
-														) : (
-															<IconSortDescending />
-														)}
-													</ActionIcon>
-												</Flex>
-												{collections.data && collections.data.length > 0 ? (
-													<Select
-														placeholder="Select a collection"
-														value={mineCollectionFilter}
-														data={[
-															{
-																group: "My collections",
-																items: collections.data.map((c) => ({
-																	value: c?.id?.toString(),
-																	label: c?.name,
-																})),
-															},
-														]}
-														onChange={(v) => {
-															setMineCollectionFilter(v || "non");
-														}}
-														clearable
-													/>
-												) : undefined}
-											</Stack>
-										</Modal>
-									</Flex>
-								</MantineGrid.Col>
-							</MantineGrid>
+							<Group wrap="nowrap">
+								{/* Weird syntax because of: https://stackoverflow.com/a/65328486/11667450 */}
+								{SearchInput({
+									placeholder: `Sift through your ${changeCase(
+										lot.toLowerCase(),
+									).toLowerCase()}s`,
+								})}
+								<ActionIcon
+									onClick={openFiltersModal}
+									color={isFilterChanged ? "blue" : "gray"}
+								>
+									<IconFilter size="1.5rem" />
+								</ActionIcon>
+								<Modal
+									opened={filtersModalOpened}
+									onClose={closeFiltersModal}
+									centered
+									withCloseButton={false}
+								>
+									<Stack>
+										<Group>
+											<Title order={3}>Filters</Title>
+											<ActionIcon onClick={resetFilters}>
+												<IconFilterOff size="1.5rem" />
+											</ActionIcon>
+										</Group>
+										<Select
+											value={mineGeneralFilter?.toString()}
+											data={[
+												{
+													group: "General filters",
+													items: Object.values(MediaGeneralFilter).map((o) => ({
+														value: o.toString(),
+														label: startCase(o.toLowerCase()),
+													})),
+												},
+											]}
+											onChange={(v) => {
+												if (v) setMineGeneralFilter(v as MediaGeneralFilter);
+											}}
+										/>
+										<Flex gap={"xs"} align={"center"}>
+											<Select
+												w="100%"
+												data={[
+													{
+														group: "Sort by",
+														items: Object.values(MediaSortBy).map((o) => ({
+															value: o.toString(),
+															label: startCase(o.toLowerCase()),
+														})),
+													},
+												]}
+												value={mineSortBy?.toString()}
+												onChange={(v) => {
+													if (v) setMineSortBy(v as MediaSortBy);
+												}}
+											/>
+											<ActionIcon
+												onClick={() => {
+													if (mineSortOrder === GraphqlSortOrder.Asc)
+														setMineSortOrder(GraphqlSortOrder.Desc);
+													else setMineSortOrder(GraphqlSortOrder.Asc);
+												}}
+											>
+												{mineSortOrder === GraphqlSortOrder.Asc ? (
+													<IconSortAscending />
+												) : (
+													<IconSortDescending />
+												)}
+											</ActionIcon>
+										</Flex>
+										{collections.data && collections.data.length > 0 ? (
+											<Select
+												placeholder="Select a collection"
+												value={mineCollectionFilter}
+												data={[
+													{
+														group: "My collections",
+														items: collections.data.map((c) => ({
+															value: c?.id?.toString(),
+															label: c?.name,
+														})),
+													},
+												]}
+												onChange={(v) => {
+													setMineCollectionFilter(v || "non");
+												}}
+												clearable
+											/>
+										) : undefined}
+									</Stack>
+								</Modal>
+							</Group>
 							{listMedia.data && listMedia.data.details.total > 0 ? (
 								<>
 									<Box>
