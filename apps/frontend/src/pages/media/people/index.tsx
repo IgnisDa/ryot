@@ -86,6 +86,34 @@ const Page: NextPageWithLayout = () => {
 							{creatorDetails.data.contents.flatMap((c) => c.items).length}{" "}
 							media items
 						</Text>
+						{creatorDetails.data.details.birthDate ? (
+							<Text c="dimmed">
+								• Birth: {creatorDetails.data.details.birthDate}
+							</Text>
+						) : undefined}
+						{creatorDetails.data.details.deathDate ? (
+							<Text c="dimmed">
+								• Death: {creatorDetails.data.details.deathDate}
+							</Text>
+						) : undefined}
+						{creatorDetails.data.details.place ? (
+							<Text c="dimmed">• {creatorDetails.data.details.place}</Text>
+						) : undefined}
+						{creatorDetails.data.details.website ? (
+							<>
+								•
+								<Anchor
+									href={creatorDetails.data.details.website}
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									Website
+								</Anchor>
+							</>
+						) : undefined}
+						{creatorDetails.data.details.gender ? (
+							<Text c="dimmed">• {creatorDetails.data.details.gender}</Text>
+						) : undefined}
 					</Flex>
 					<Tabs
 						value={activeTab}
