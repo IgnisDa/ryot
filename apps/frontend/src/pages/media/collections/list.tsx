@@ -122,7 +122,7 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size="1.25rem" />
 						</ActionIcon>
 					</Flex>
-					<SimpleGrid cols={1} breakpoints={[{ minWidth: "md", cols: 2 }]}>
+					<SimpleGrid cols={{ base: 1, md: 2 }}>
 						{collections.data.map((c) => (
 							<Flex
 								key={c?.id}
@@ -133,18 +133,15 @@ const Page: NextPageWithLayout = () => {
 							>
 								<Box>
 									<Flex align={"center"} gap="xs">
-										<Link
+										<Anchor
+											component={Link}
 											href={withQuery(APP_ROUTES.media.collections.details, {
 												collectionId: c?.id,
 											})}
-											passHref
-											legacyBehavior
 										>
-											<Anchor color="gray">
-												<Title order={4}>{c?.name}</Title>
-											</Anchor>
-										</Link>
-										<Text color="dimmed" size={"xs"}>
+											<Title order={4}>{c?.name}</Title>
+										</Anchor>
+										<Text c="dimmed" size={"xs"}>
 											{c?.numItems} items, {changeCase(c?.visibility || "")}
 										</Text>
 									</Flex>

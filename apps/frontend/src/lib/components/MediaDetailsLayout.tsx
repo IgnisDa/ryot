@@ -1,4 +1,5 @@
 import { Carousel } from "@mantine/carousel";
+import "@mantine/carousel/styles.css";
 import { Anchor, Badge, Box, Flex, Image, Stack, Text } from "@mantine/core";
 import type {
 	MetadataLot,
@@ -7,6 +8,7 @@ import type {
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useState } from "react";
+import classes from "./styles.module.css";
 
 function getSurroundingElements<T>(array: T[], element: number): number[] {
 	if (array.length === 1) return [0];
@@ -32,11 +34,7 @@ export default function (props: {
 			<Box
 				id="images-container"
 				pos="relative"
-				sx={(t) => ({
-					width: "100%",
-					flex: "none",
-					[t.fn.largerThan("md")]: { width: "35%" },
-				})}
+				className={classes.imagesContainer}
 			>
 				{props.images.length > 1 ? (
 					<Carousel
@@ -49,23 +47,14 @@ export default function (props: {
 								{getSurroundingElements(props.images, activeImageId).includes(
 									idx,
 								) ? (
-									<Image
-										src={url}
-										radius="lg"
-										imageProps={{ loading: "lazy" }}
-									/>
+									<Image src={url} radius="lg" />
 								) : undefined}
 							</Carousel.Slide>
 						))}
 					</Carousel>
 				) : (
 					<Box w={300}>
-						<Image
-							src={props.images[0]}
-							withPlaceholder
-							height={400}
-							radius="lg"
-						/>
+						<Image src={props.images[0]} height={400} radius="lg" />
 					</Box>
 				)}
 				{props.externalLink ? (
@@ -79,7 +68,7 @@ export default function (props: {
 						variant="filled"
 					>
 						<Flex gap={4} align={"center"}>
-							<Text size={10}>
+							<Text size={"10"}>
 								{snakeCase(props.externalLink.source)}:
 								{snakeCase(props.externalLink.lot)}
 							</Text>

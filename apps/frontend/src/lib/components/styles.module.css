@@ -10,3 +10,11 @@
     color: white;
   }
 }
+
+.imagesContainer {
+  width: 100%;
+  flex: none;
+  @media (min-width: $mantine-breakpoint-md) {
+    width: 35%;
+  }
+}

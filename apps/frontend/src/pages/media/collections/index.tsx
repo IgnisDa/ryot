@@ -40,7 +40,7 @@ const Page: NextPageWithLayout = () => {
 		async () => {
 			const { collectionContents } = await gqlClient.request(
 				CollectionContentsDocument,
-				{ input: { collectionId, page: parseInt(activePage) || 1 } },
+				{ input: { collectionId, page: parseInt(activePage || "1") } },
 			);
 			return collectionContents;
 		},
@@ -91,7 +91,7 @@ const Page: NextPageWithLayout = () => {
 						<Center>
 							<Pagination
 								size="sm"
-								value={parseInt(activePage)}
+								value={parseInt(activePage || "1")}
 								onChange={(v) => setPage(v.toString())}
 								total={Math.ceil(
 									collectionContents.data.results.details.total /

@@ -58,18 +58,12 @@ const Page: NextPageWithLayout = () => {
 						<Text>{groupDetails.data.details.parts} media items</Text>
 					</Flex>
 					<MediaScrollArea>
-						<SimpleGrid
-							cols={3}
-							breakpoints={[
-								{ minWidth: "md", cols: 4 },
-								{ minWidth: "lg", cols: 5 },
-							]}
-						>
+						<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 							{groupDetails.data.contents.map((media) => (
-								<Link
+								<Anchor
 									key={media.identifier}
-									passHref
-									legacyBehavior
+									component={Link}
+									data-media-id={media.identifier}
 									href={
 										media.metadataId
 											? withQuery(
@@ -83,29 +77,20 @@ const Page: NextPageWithLayout = () => {
 											  })
 									}
 								>
-									<Anchor data-media-id={media.identifier}>
-										<Avatar
-											imageProps={{ loading: "lazy" }}
-											src={media.image}
-											h={100}
-											w={85}
-											mx="auto"
-											alt={`${media.title} picture`}
-											styles={{
-												image: { objectPosition: "top" },
-											}}
-										/>
-										<Text
-											color="dimmed"
-											size="xs"
-											align="center"
-											lineClamp={1}
-											mt={4}
-										>
-											{media.title}
-										</Text>
-									</Anchor>
-								</Link>
+									<Avatar
+										imageProps={{ loading: "lazy" }}
+										radius={"sm"}
+										src={media.image}
+										h={100}
+										w={85}
+										mx="auto"
+										alt={`${media.title} picture`}
+										styles={{ image: { objectPosition: "top" } }}
+									/>
+									<Text c="dimmed" size="xs" ta="center" lineClamp={1} mt={4}>
+										{media.title}
+									</Text>
+								</Anchor>
 							))}
 						</SimpleGrid>
 					</MediaScrollArea>
