@@ -120,6 +120,9 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
+					<Flex align={"center"} gap={"md"}>
+						<Title>People</Title>
+					</Flex>
 					<Group>
 						<TextInput
 							name="query"

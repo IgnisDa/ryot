@@ -10,11 +10,12 @@ import {
 	Box,
 	Center,
 	Container,
-	Grid as MantineGrid,
+	Flex,
 	Pagination,
 	Stack,
 	Text,
 	TextInput,
+	Title,
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { MetadataGroupsListDocument } from "@ryot/generated/graphql/backend/graphql";
@@ -75,21 +76,20 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<MantineGrid grow>
-						<MantineGrid.Col span={12}>
-							<TextInput
-								name="query"
-								placeholder={"Search for groups"}
-								leftSection={<IconSearch />}
-								onChange={(e) => setQuery(e.currentTarget.value)}
-								value={query}
-								rightSection={<ClearButton />}
-								style={{ flexGrow: 1 }}
-								autoCapitalize="none"
-								autoComplete="off"
-							/>
-						</MantineGrid.Col>
-					</MantineGrid>
+					<Flex align={"center"} gap={"md"}>
+						<Title>Groups</Title>
+					</Flex>
+					<TextInput
+						name="query"
+						placeholder={"Search for groups"}
+						leftSection={<IconSearch />}
+						onChange={(e) => setQuery(e.currentTarget.value)}
+						value={query}
+						rightSection={<ClearButton />}
+						style={{ flexGrow: 1 }}
+						autoCapitalize="none"
+						autoComplete="off"
+					/>
 					{listMetadataGroups.data &&
 					listMetadataGroups.data.details.total > 0 ? (
 						<>
