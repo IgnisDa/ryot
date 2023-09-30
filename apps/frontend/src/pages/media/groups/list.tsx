@@ -42,6 +42,7 @@ const Page: NextPageWithLayout = () => {
 	const listMetadataGroups = useQuery({
 		queryKey: ["metadataGroupsList", activePage, debouncedQuery],
 		queryFn: async () => {
+			if (typeof debouncedQuery === "undefined") return;
 			const { metadataGroupsList } = await gqlClient.request(
 				MetadataGroupsListDocument,
 				{
@@ -79,7 +80,7 @@ const Page: NextPageWithLayout = () => {
 							<TextInput
 								name="query"
 								placeholder={"Search for groups"}
-								icon={<IconSearch />}
+								leftSection={<IconSearch />}
 								onChange={(e) => setQuery(e.currentTarget.value)}
 								value={query}
 								rightSection={<ClearButton />}
@@ -121,7 +122,7 @@ const Page: NextPageWithLayout = () => {
 						<Center>
 							<Pagination
 								size="sm"
-								value={parseInt(activePage)}
+								value={parseInt(activePage || "1")}
 								onChange={(v) => setPage(v.toString())}
 								total={Math.ceil(
 									listMetadataGroups.data.details.total /

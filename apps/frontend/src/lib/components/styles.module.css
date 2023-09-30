@@ -1,0 +1,20 @@
+.starIcon {
+  color: #9ca3af;
+  &:hover {
+    color: #ebe600ff;
+  }
+}
+
+.text {
+  @mixin dark {
+    color: white;
+  }
+}
+
+.imagesContainer {
+  width: 100%;
+  flex: none;
+  @media (min-width: $mantine-breakpoint-md) {
+    width: 35%;
+  }
+}

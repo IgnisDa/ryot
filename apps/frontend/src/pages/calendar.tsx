@@ -45,7 +45,7 @@ const CalendarEvent = (props: {
 			mt="sm"
 		>
 			<Card.Section withBorder p="sm">
-				<Group position="apart">
+				<Group justify="space-between">
 					<Text>{date.toFormat("d LLLL")}</Text>
 					<Text>{date.toFormat("cccc")}</Text>
 				</Group>
@@ -54,7 +54,7 @@ const CalendarEvent = (props: {
 				<Group
 					key={evt.calendarEventId}
 					data-calendar-event-id={evt.calendarEventId}
-					position="apart"
+					justify="space-between"
 					align="end"
 				>
 					<Text mt="sm" size="sm">
@@ -98,13 +98,14 @@ const Page: NextPageWithLayout = () => {
 			return value.toISO() as string;
 		},
 		deserialize: (value) => {
-			return DateTime.fromISO(value);
+			return value ? DateTime.fromISO(value) : DateTime.now();
 		},
 	});
 
 	const calendarEvents = useQuery(
 		["calendarEvents", selectedMonth],
 		async () => {
+			if (selectedMonth === undefined) return;
 			const { userCalendarEvents } = await gqlClient.request(
 				UserCalendarEventsDocument,
 				{ input: { month: selectedMonth.month, year: selectedMonth.year } },
@@ -121,8 +122,8 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Group position="apart">
-						<Title order={3} underline>
+					<Group justify="space-between">
+						<Title order={3} td="underline">
 							{selectedMonth.toFormat("LLLL, yyyy")}
 						</Title>
 						<Button.Group>
@@ -161,10 +162,10 @@ const Page: NextPageWithLayout = () => {
 								))}
 							</Box>
 						) : (
-							<Text italic>No events in this time period</Text>
+							<Text fs="italic">No events in this time period</Text>
 						)
 					) : (
-						<Group position="center">
+						<Group justify="space-between">
 							<Loader size="lg" />
 						</Group>
 					)}

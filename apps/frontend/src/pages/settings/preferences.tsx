@@ -70,7 +70,7 @@ const Page: NextPageWithLayout = () => {
 				<Tabs
 					mt="md"
 					value={activeTab}
-					onTabChange={(v) => {
+					onChange={(v) => {
 						if (v) setActiveTab(v);
 					}}
 				>

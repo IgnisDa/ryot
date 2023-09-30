@@ -4,15 +4,7 @@ export default function (props: {
 	children: JSX.Element[];
 }) {
 	return (
-		<SimpleGrid
-			cols={2}
-			spacing="lg"
-			breakpoints={[
-				{ minWidth: "sm", cols: 3 },
-				{ minWidth: "md", cols: 4 },
-				{ minWidth: "lg", cols: 5 },
-			]}
-		>
+		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
 			{props.children}
 		</SimpleGrid>
 	);

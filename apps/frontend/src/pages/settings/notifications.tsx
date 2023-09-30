@@ -230,7 +230,6 @@ const Page: NextPageWithLayout = () => {
 									<Select
 										label="Select a platform"
 										required
-										withinPortal
 										data={Object.values(UserNotificationSettingKind).map(
 											(v) => ({ label: changeCase(v), value: v }),
 										)}

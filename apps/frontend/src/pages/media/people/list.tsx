@@ -42,6 +42,7 @@ const Page: NextPageWithLayout = () => {
 	const listCreators = useQuery({
 		queryKey: ["creatorsList", activePage, debouncedQuery],
 		queryFn: async () => {
+			if (typeof debouncedQuery === "undefined") return;
 			const { creatorsList } = await gqlClient.request(CreatorsListDocument, {
 				input: {
 					page: Number(activePage || 1),
@@ -76,7 +77,7 @@ const Page: NextPageWithLayout = () => {
 							<TextInput
 								name="query"
 								placeholder={"Search for people"}
-								icon={<IconSearch />}
+								leftSection={<IconSearch />}
 								onChange={(e) => setQuery(e.currentTarget.value)}
 								value={query}
 								rightSection={<ClearButton />}
@@ -116,7 +117,7 @@ const Page: NextPageWithLayout = () => {
 						<Center>
 							<Pagination
 								size="sm"
-								value={parseInt(activePage)}
+								value={parseInt(activePage || "1")}
 								onChange={(v) => setPage(v.toString())}
 								total={Math.ceil(
 									listCreators.data.details.total / coreDetails.data.pageLimit,

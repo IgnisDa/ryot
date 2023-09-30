@@ -61,10 +61,10 @@ import type { NextPageWithLayout } from "../../_app";
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
 		<Box mx="auto">
-			<Text align="center" size="xl">
+			<Text ta="center" size="xl">
 				{props.value}
 			</Text>
-			<Text color="dimmed" size="sm">
+			<Text c="dimmed" size="sm">
 				{props.name}
 			</Text>
 		</Box>
@@ -102,7 +102,6 @@ const StatInput = (props: {
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify={"center"}>
 			<NumberInput
-				type="number"
 				value={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
 						.statistic[props.stat]
@@ -123,7 +122,7 @@ const StatInput = (props: {
 				}}
 				size="xs"
 				styles={{ input: { width: rem(72), textAlign: "center" } }}
-				precision={
+				decimalScale={
 					typeof props.inputStep === "number"
 						? Math.log10(1 / props.inputStep)
 						: undefined
@@ -160,7 +159,7 @@ const ExerciseDisplay = (props: {
 						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
 							<Menu.Target>
-								<ActionIcon color="blue">
+								<ActionIcon color="blue" variant="transparent">
 									<IconDotsVertical />
 								</ActionIcon>
 							</Menu.Target>
@@ -185,6 +184,7 @@ const ExerciseDisplay = (props: {
 								/>
 								<ActionIcon
 									color="red"
+									variant="transparent"
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
@@ -200,7 +200,7 @@ const ExerciseDisplay = (props: {
 					</Stack>
 					<Menu.Dropdown>
 						<Menu.Item
-							icon={<IconClipboard size={14} />}
+							leftSection={<IconClipboard size={14} />}
 							onClick={() => {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
@@ -213,7 +213,7 @@ const ExerciseDisplay = (props: {
 						</Menu.Item>
 						<Menu.Item
 							color="red"
-							icon={<IconTrash size={14} />}
+							leftSection={<IconTrash size={14} />}
 							onClick={() => {
 								const yes = confirm(
 									`This removes '${props.exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
@@ -230,18 +230,18 @@ const ExerciseDisplay = (props: {
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
-				<Stack spacing="xs">
+				<Stack gap="xs">
 					<Flex justify="space-between" align="center">
-						<Text size="xs" w="5%" align="center">
+						<Text size="xs" w="5%" ta="center">
 							SET
 						</Text>
 						{durationCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} ta="center">
 								DURATION (MIN)
 							</Text>
 						) : undefined}
 						{distanceCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} ta="center">
 								DISTANCE (
 								{match(userPreferences.data.fitness.exercises.unitSystem)
 									.with(UserUnitSystem.Metric, () => "KM")
@@ -251,7 +251,7 @@ const ExerciseDisplay = (props: {
 							</Text>
 						) : undefined}
 						{weightCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} ta="center">
 								WEIGHT (
 								{match(userPreferences.data.fitness.exercises.unitSystem)
 									.with(UserUnitSystem.Metric, () => "KG")
@@ -261,7 +261,7 @@ const ExerciseDisplay = (props: {
 							</Text>
 						) : undefined}
 						{repsCol ? (
-							<Text size="xs" style={{ flex: 1 }} align="center">
+							<Text size="xs" style={{ flex: 1 }} ta="center">
 								REPS
 							</Text>
 						) : undefined}
@@ -272,12 +272,7 @@ const ExerciseDisplay = (props: {
 							<Menu>
 								<Menu.Target>
 									<UnstyledButton w="5%">
-										<Text
-											mt={2}
-											fw="bold"
-											color={getSetColor(s.lot)}
-											align="center"
-										>
+										<Text mt={2} fw="bold" c={getSetColor(s.lot)} ta="center">
 											{match(s.lot)
 												.with(SetLot.Normal, () => idx + 1)
 												.otherwise(() => s.lot.at(0))}
@@ -291,7 +286,7 @@ const ExerciseDisplay = (props: {
 											key={lot}
 											disabled={s.lot === lot}
 											fz="xs"
-											icon={
+											leftSection={
 												<Text fw="bold" fz="xs" w={10} color={getSetColor(lot)}>
 													{lot.at(0)}
 												</Text>
@@ -313,7 +308,7 @@ const ExerciseDisplay = (props: {
 									<Menu.Item
 										color="red"
 										fz={"xs"}
-										icon={<IconTrash size={14} />}
+										leftSection={<IconTrash size={14} />}
 										onClick={() => {
 											const yes = confirm(
 												"Are you sure you want to delete this set?",
@@ -363,7 +358,7 @@ const ExerciseDisplay = (props: {
 									stat="reps"
 								/>
 							) : undefined}
-							<Group w="10%" position="center">
+							<Group w="10%" justify="center">
 								<Transition
 									mounted
 									transition={{ in: {}, out: {}, transitionProperty: "all" }}
@@ -509,7 +504,7 @@ const Page: NextPageWithLayout = () => {
 								<Divider />
 							</Fragment>
 						))}
-						<Group position="center">
+						<Group justify="center">
 							<Link
 								passHref
 								legacyBehavior
@@ -522,7 +517,7 @@ const Page: NextPageWithLayout = () => {
 								</Button>
 							</Link>
 						</Group>
-						<Group position="center">
+						<Group justify="center">
 							<Button
 								color="red"
 								variant="subtle"

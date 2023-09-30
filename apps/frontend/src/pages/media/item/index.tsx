@@ -180,7 +180,7 @@ const ProgressModal = (props: {
 				</Group>
 				{props.total ? (
 					<>
-						<Text align="center" fw={"bold"}>
+						<Text ta="center" fw={"bold"}>
 							OR
 						</Text>
 						<Flex align={"center"} gap="xs">
@@ -194,7 +194,7 @@ const ProgressModal = (props: {
 								min={0}
 								step={1}
 								hideControls
-								icon={updateIcon}
+								leftSection={updateIcon}
 							/>
 							<Text>{text}</Text>
 						</Flex>
@@ -236,7 +236,7 @@ const MetadataCreator = (props: { name: string; image?: string | null }) => {
 					image: { objectPosition: "top" },
 				}}
 			/>
-			<Text size="xs" color="dimmed" align="center" lineClamp={1} mt={4}>
+			<Text size="xs" c="dimmed" ta="center" lineClamp={1} mt={4}>
 				{props.name}
 			</Text>
 		</>
@@ -286,11 +286,9 @@ const SelectCollectionModal = (props: {
 					<Title order={3}>Select collection</Title>
 					{collections.data.length > 0 ? (
 						<Select
-							withinPortal
 							data={collections.data}
 							onChange={setSelectedCollection}
 							searchable
-							nothingFound="Nothing found"
 						/>
 					) : undefined}
 					<Button
@@ -434,7 +432,7 @@ const AccordionLabel = ({
 				</Indicator>
 				{children}
 			</Flex>
-			<Group spacing={6}>
+			<Group gap={6}>
 				<Text>{name}</Text>
 				{runtime ? (
 					<Text size={"xs"} color="dimmed">
@@ -700,7 +698,7 @@ const Page: NextPageWithLayout = () => {
 								})}
 								style={{ color: "unset" }}
 							>
-								<Text color="dimmed" italic>
+								<Text c="dimmed" fs="italic">
 									{mediaDetails.data.group.name} #{mediaDetails.data.group.part}
 								</Text>
 							</Link>
@@ -762,44 +760,44 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 					) : undefined}
 					<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
-						<Text color="dimmed">{mediaDetails.data.productionStatus}</Text>
+						<Text c="dimmed">{mediaDetails.data.productionStatus}</Text>
 						{mediaDetails.data.genres.length > 0 ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.bookSpecifics?.pages ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.bookSpecifics.pages} pages
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.podcastSpecifics.totalEpisodes} episodes
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.animeSpecifics?.episodes ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.animeSpecifics.episodes} episodes
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.movieSpecifics?.runtime ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
@@ -808,13 +806,13 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.showSpecifics ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
 							</Text>
 						) : undefined}
 						{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
-							<Text color="dimmed">
+							<Text c="dimmed">
 								{" "}
 								•{" "}
 								{humanizer.humanize(
@@ -823,7 +821,7 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						) : undefined}
 						{mediaDetails.data.publishYear ? (
-							<Text color="dimmed"> • {mediaDetails.data.publishYear}</Text>
+							<Text c="dimmed"> • {mediaDetails.data.publishYear}</Text>
 						) : undefined}
 					</Flex>
 					{mediaDetails.data.providerRating ||
@@ -932,9 +930,7 @@ const Page: NextPageWithLayout = () => {
 							color="violet"
 						>
 							Reminder for {userMediaDetails.data.reminder.remindOn}
-							<Text color="green">
-								{userMediaDetails.data.reminder.message}
-							</Text>
+							<Text c="green">{userMediaDetails.data.reminder.message}</Text>
 						</Alert>
 					) : undefined}
 					{userMediaDetails.data?.inProgress ? (
@@ -946,35 +942,41 @@ const Page: NextPageWithLayout = () => {
 					<Tabs
 						value={activeTab}
 						variant="outline"
-						onTabChange={(v) => {
+						onChange={(v) => {
 							if (v) setActiveTab(v);
 						}}
 					>
 						<Tabs.List mb={"xs"}>
-							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
+							<Tabs.Tab
+								value="overview"
+								leftSection={<IconInfoCircle size="1rem" />}
+							>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
+							<Tabs.Tab value="actions" leftSection={<IconUser size="1rem" />}>
 								Actions
 							</Tabs.Tab>
 							{userMediaDetails.data &&
 							userMediaDetails.data.history.length > 0 ? (
 								<Tabs.Tab
 									value="history"
-									icon={<IconRotateClockwise size="1rem" />}
+									leftSection={<IconRotateClockwise size="1rem" />}
 								>
 									History
 								</Tabs.Tab>
 							) : undefined}
 							{mediaSpecifics.data?.showSpecifics ? (
-								<Tabs.Tab value="seasons" icon={<IconPlayerPlay size="1rem" />}>
+								<Tabs.Tab
+									value="seasons"
+									leftSection={<IconPlayerPlay size="1rem" />}
+								>
 									Seasons
 								</Tabs.Tab>
 							) : undefined}
 							{mediaSpecifics.data?.podcastSpecifics ? (
 								<Tabs.Tab
 									value="episodes"
-									icon={<IconPlayerPlay size="1rem" />}
+									leftSection={<IconPlayerPlay size="1rem" />}
 								>
 									Episodes
 								</Tabs.Tab>
@@ -984,19 +986,25 @@ const Page: NextPageWithLayout = () => {
 							userMediaDetails.data.reviews.length > 0 ? (
 								<Tabs.Tab
 									value="reviews"
-									icon={<IconMessageCircle2 size="1rem" />}
+									leftSection={<IconMessageCircle2 size="1rem" />}
 								>
 									Reviews
 								</Tabs.Tab>
 							) : undefined}
 							{(mediaSpecifics.data?.suggestions.length || 0) > 0 ? (
-								<Tabs.Tab value="suggestions" icon={<IconBulb size="1rem" />}>
+								<Tabs.Tab
+									value="suggestions"
+									leftSection={<IconBulb size="1rem" />}
+								>
 									Suggestions
 								</Tabs.Tab>
 							) : undefined}
 							{!coreDetails.data.videosDisabled &&
 							(mediaSpecifics.data?.assets.videos.length || 0) > 0 ? (
-								<Tabs.Tab value="videos" icon={<IconVideo size="1rem" />}>
+								<Tabs.Tab
+									value="videos"
+									leftSection={<IconVideo size="1rem" />}
+								>
 									Videos
 								</Tabs.Tab>
 							) : undefined}
@@ -1068,11 +1076,7 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
-								<SimpleGrid
-									cols={1}
-									spacing="lg"
-									breakpoints={[{ minWidth: "md", cols: 2 }]}
-								>
+								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{userMediaDetails.data?.inProgress ? (
 										<ProgressModal
 											progress={userMediaDetails.data.inProgress.progress}
@@ -1360,13 +1364,13 @@ const Page: NextPageWithLayout = () => {
 													{h.progress !== 100 ? `(${h.progress}%)` : undefined}
 												</Text>
 												{h.showInformation ? (
-													<Text color="dimmed">
+													<Text c="dimmed">
 														S{h.showInformation.season}-E
 														{h.showInformation.episode}
 													</Text>
 												) : undefined}
 												{h.podcastInformation ? (
-													<Text color="dimmed">
+													<Text c="dimmed">
 														EP-{h.podcastInformation.episode}
 													</Text>
 												) : undefined}
@@ -1404,8 +1408,8 @@ const Page: NextPageWithLayout = () => {
 													<Button
 														variant="outline"
 														color="red"
-														leftIcon={<IconX size="1.2rem" />}
-														compact
+														leftSection={<IconX size="1.2rem" />}
+														size="compact-xs"
 														onClick={() => {
 															deleteSeenItem.mutate({ seenId: h.id });
 														}}
@@ -1588,13 +1592,7 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 						<Tabs.Panel value="suggestions">
 							<MediaScrollArea>
-								<SimpleGrid
-									cols={3}
-									breakpoints={[
-										{ minWidth: "md", cols: 4 },
-										{ minWidth: "lg", cols: 5 },
-									]}
-								>
+								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 									{mediaSpecifics.data?.suggestions.map((sug) => (
 										<Link
 											key={sug.identifier}
@@ -1624,14 +1622,13 @@ const Page: NextPageWithLayout = () => {
 													w={85}
 													mx="auto"
 													alt={`${sug.title} picture`}
-													styles={{
-														image: { objectPosition: "top" },
-													}}
+													styles={{ image: { objectPosition: "top" } }}
+													radius={"sm"}
 												/>
 												<Text
-													color="dimmed"
+													c="dimmed"
 													size="xs"
-													align="center"
+													ta="center"
 													lineClamp={1}
 													mt={4}
 												>

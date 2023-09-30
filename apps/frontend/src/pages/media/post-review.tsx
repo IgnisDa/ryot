@@ -222,7 +222,6 @@ const Page: NextPageWithLayout = () => {
 										max={100}
 										step={1}
 										w={"40%"}
-										type="number"
 										hideControls
 										rightSection={<IconPercentage size="1rem" />}
 									/>
@@ -263,6 +262,7 @@ const Page: NextPageWithLayout = () => {
 							{...form.getInputProps("text")}
 							autoFocus
 							minRows={10}
+							autosize
 						/>
 						<Box>
 							<Input.Label>Visibility</Input.Label>

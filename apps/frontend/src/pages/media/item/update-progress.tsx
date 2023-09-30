@@ -16,6 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import "@mantine/dates/styles.css";
 import { notifications } from "@mantine/notifications";
 import {
 	BulkProgressUpdateDocument,
@@ -180,8 +181,7 @@ const Page: NextPageWithLayout = () => {
 				<Stack pos={"relative"} p="sm">
 					<LoadingOverlay
 						visible={progressUpdate.isLoading}
-						overlayBlur={2}
-						radius={"md"}
+						overlayProps={{ blur: 2, radius: "md" }}
 					/>
 					<Title>{title}</Title>
 					{mediaSpecifics.data.showSpecifics ? (

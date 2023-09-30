@@ -24,7 +24,6 @@ import {
 	Text,
 	Tooltip,
 	TypographyStylesProvider,
-	createStyles,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -52,6 +51,7 @@ import { useRouter } from "next/router";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import classes from "./styles.module.css";
 
 export const MediaScrollArea = (props: { children: JSX.Element }) => {
 	const coreDetails = useCoreDetails();
@@ -125,23 +125,18 @@ export const ReviewItemDisplay = ({
 				</Flex>
 				<Box ml={"sm"} mt={"xs"}>
 					{typeof review.showSeason === "number" ? (
-						<Text color="dimmed">
+						<Text c="dimmed">
 							S{review.showSeason}-E
 							{review.showEpisode}
 						</Text>
 					) : undefined}
 					{typeof review.podcastEpisode === "number" ? (
-						<Text color="dimmed">EP-{review.podcastEpisode}</Text>
+						<Text c="dimmed">EP-{review.podcastEpisode}</Text>
 					) : undefined}
 					{(review.rating || 0) > 0 ? (
 						<Flex align={"center"} gap={4}>
 							<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
-							<Text
-								sx={(theme) => ({
-									color: theme.colorScheme === "dark" ? "white" : undefined,
-								})}
-								fw="bold"
-							>
+							<Text className={classes.text} fw="bold">
 								{review.rating}
 								{userPreferences.data.general.reviewScale ===
 								UserReviewScale.OutOfFive
@@ -159,7 +154,7 @@ export const ReviewItemDisplay = ({
 						) : (
 							<>
 								{!opened ? (
-									<Button onClick={toggle} variant={"subtle"} compact>
+									<Button onClick={toggle} variant={"subtle"} size="compact-md">
 										Show spoiler
 									</Button>
 								) : undefined}
@@ -172,7 +167,7 @@ export const ReviewItemDisplay = ({
 					) : undefined}
 					<Button
 						variant="subtle"
-						compact
+						size="compact-md"
 						onClick={() => {
 							const comment = prompt("Enter comment");
 							if (comment && review.id)
@@ -279,23 +274,20 @@ export const BaseDisplayItem = (props: {
 			<Link passHref legacyBehavior href={props.href}>
 				<Anchor style={{ flex: "none" }} pos="relative">
 					<Image
-						imageProps={{ loading: "lazy" }}
 						src={props.imageLink}
 						radius={"md"}
 						height={250}
 						width={167}
-						withPlaceholder
-						placeholder={<Text size={60}>{props.imagePlaceholder}</Text>}
 						style={{ cursor: "pointer" }}
 						alt={`Image for ${props.name}`}
-						styles={() => ({
-							image: {
+						styles={{
+							root: {
 								transitionProperty: "transform",
 								transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
 								transitionDuration: "150ms",
-								"&:hover": { boxShadow: "0 0 15px black" },
+								// "&:hover": { boxShadow: "0 0 15px black" },
 							},
-						})}
+						}}
 					/>
 					{props.topRight}
 				</Anchor>
@@ -333,13 +325,6 @@ type Item = {
 	publishYear?: string | null;
 };
 
-const useStyles = createStyles({
-	starIcon: {
-		color: "#9ca3af",
-		"&:hover": { color: "#EBE600FF" },
-	},
-});
-
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
 	lot: MetadataLot;
@@ -351,7 +336,6 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noRatingLink?: boolean;
 }) => {
 	const userPreferences = useUserPreferences();
-	const { classes } = useStyles();
 	const router = useRouter();
 	const nextPath = withQuery(router.pathname, router.query);
 
@@ -387,7 +371,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					>
 						<Flex align={"center"} gap={4}>
 							<IconStarFilled size={"0.8rem"} style={{ color: "#EBE600FF" }} />
-							<Text color="white" size="xs" fw="bold" pr={4}>
+							<Text c="white" size="xs" fw="bold" pr={4}>
 								{match(userPreferences.data.general.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
 										// biome-ignore lint/style/noNonNullAssertion: it is validated above
@@ -501,7 +485,7 @@ export const MediaSearchItem = (props: {
 					<Button
 						variant="outline"
 						w="100%"
-						compact
+						size="compact-md"
 						onClick={async () => {
 							const id = await commitFunction();
 							const nextPath = withQuery(router.pathname, router.query);
@@ -520,7 +504,7 @@ export const MediaSearchItem = (props: {
 						<Button
 							variant="outline"
 							w="100%"
-							compact
+							size="compact-md"
 							onClick={async () => {
 								const id = await commitFunction();
 								router.push(
@@ -538,7 +522,7 @@ export const MediaSearchItem = (props: {
 					mt="xs"
 					variant="outline"
 					w="100%"
-					compact
+					size="compact-md"
 					onClick={async () => {
 						const id = await commitFunction();
 						addMediaToCollection.mutate({

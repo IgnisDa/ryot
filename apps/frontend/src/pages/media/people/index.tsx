@@ -88,21 +88,24 @@ const Page: NextPageWithLayout = () => {
 					</Flex>
 					<Tabs
 						value={activeTab}
-						onTabChange={(v) => {
+						onChange={(v) => {
 							if (v) setActiveTab(v);
 						}}
 						variant="outline"
 					>
 						<Tabs.List mb={"xs"}>
-							<Tabs.Tab value="media" icon={<IconDeviceTv size="1rem" />}>
+							<Tabs.Tab
+								value="media"
+								leftSection={<IconDeviceTv size="1rem" />}
+							>
 								Media
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" icon={<IconUser size="1rem" />}>
+							<Tabs.Tab value="actions" leftSection={<IconUser size="1rem" />}>
 								Actions
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="reviews"
-								icon={<IconMessageCircle2 size="1rem" />}
+								leftSection={<IconMessageCircle2 size="1rem" />}
 							>
 								Reviews
 							</Tabs.Tab>
@@ -112,16 +115,10 @@ const Page: NextPageWithLayout = () => {
 								<Stack>
 									{creatorDetails.data.contents.map((role) => (
 										<Box key={role.name}>
-											<Title order={3} mb="xs" align="center">
+											<Title order={3} mb="xs" ta="center">
 												{role.name}
 											</Title>
-											<SimpleGrid
-												cols={3}
-												breakpoints={[
-													{ minWidth: "md", cols: 4 },
-													{ minWidth: "lg", cols: 5 },
-												]}
-											>
+											<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 												{role.items.map((item) => (
 													<Link
 														key={item.metadataId}
@@ -136,18 +133,17 @@ const Page: NextPageWithLayout = () => {
 															<Avatar
 																imageProps={{ loading: "lazy" }}
 																src={item.image}
+																radius={"sm"}
 																h={100}
 																w={85}
 																mx="auto"
 																alt={`${item.title} picture`}
-																styles={{
-																	image: { objectPosition: "top" },
-																}}
+																styles={{ image: { objectPosition: "top" } }}
 															/>
 															<Text
-																color="dimmed"
+																c="dimmed"
 																size="xs"
-																align="center"
+																ta="center"
 																lineClamp={1}
 																mt={4}
 															>
@@ -164,11 +160,7 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
-								<SimpleGrid
-									cols={1}
-									spacing="lg"
-									breakpoints={[{ minWidth: "md", cols: 2 }]}
-								>
+								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									<Link
 										href={withQuery(APP_ROUTES.media.postReview, { creatorId })}
 										passHref

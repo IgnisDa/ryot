@@ -190,7 +190,7 @@ const Page: NextPageWithLayout = () => {
 									}
 									onChange={(f) => uploadFiles(f, "image")}
 									accept="image/png,image/jpeg,image/jpg"
-									icon={<IconPhoto />}
+									leftSection={<IconPhoto />}
 								/>
 								<FileInput
 									label="Videos"
@@ -202,12 +202,12 @@ const Page: NextPageWithLayout = () => {
 									}
 									onChange={(f) => uploadFiles(f, "video")}
 									accept="video/mp4,video/x-m4v,video/*"
-									icon={<IconVideo />}
+									leftSection={<IconVideo />}
 								/>
 								<NumberInput
 									label="Publish year"
 									{...form.getInputProps("publishYear")}
-									icon={<IconCalendar />}
+									leftSection={<IconCalendar />}
 								/>
 								<TextInput
 									label="Creators"

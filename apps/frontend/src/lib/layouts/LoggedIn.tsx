@@ -13,15 +13,13 @@ import {
 	Flex,
 	Group,
 	Image,
-	MediaQuery,
-	Navbar,
 	ScrollArea,
 	Stack,
 	Text,
 	ThemeIcon,
 	UnstyledButton,
-	createStyles,
-	rem,
+	useComputedColorScheme,
+	useDirection,
 	useMantineColorScheme,
 	useMantineTheme,
 } from "@mantine/core";
@@ -54,6 +52,7 @@ import { type ReactElement, useEffect } from "react";
 import { useCookies } from "react-cookie";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import classes from "./styles.module.css";
 
 const AUTH_COOKIE = "auth";
 
@@ -87,7 +86,7 @@ const Footer = () => {
 	return coreDetails.data ? (
 		<Stack>
 			{coreDetails.data.upgrade ? (
-				<Text align="center" color={color}>
+				<Text ta="center" c={color}>
 					{text}
 				</Text>
 			) : undefined}
@@ -96,17 +95,17 @@ const Footer = () => {
 					href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
 					target="_blank"
 				>
-					<Text color="red" weight={"bold"}>
+					<Text c="red" fw={"bold"}>
 						v{coreDetails.data.version}
 					</Text>
 				</Anchor>
 				<Anchor href="https://diptesh.me" target="_blank">
-					<Text color="indigo" weight={"bold"}>
+					<Text c="indigo" fw={"bold"}>
 						{coreDetails.data.authorName}
 					</Text>
 				</Anchor>
 				<Anchor href={coreDetails.data.repositoryLink} target="_blank">
-					<Text color="orange" weight={"bold"}>
+					<Text c="orange" fw={"bold"}>
 						Github
 					</Text>
 				</Anchor>
@@ -115,106 +114,15 @@ const Footer = () => {
 	) : undefined;
 };
 
-const useStyles = createStyles((theme) => ({
-	footer: {
-		borderTop: `${rem(1)} solid ${
-			theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]
-		}`,
-		paddingTop: theme.spacing.md,
-		paddingLeft: theme.spacing.sm,
-	},
-	control: {
-		fontWeight: 500,
-		display: "block",
-		width: "100%",
-		padding: `${theme.spacing.xs} ${theme.spacing.md}`,
-		color: theme.colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
-		fontSize: theme.fontSizes.sm,
-		"&:hover": {
-			backgroundColor:
-				theme.colorScheme === "dark"
-					? theme.colors.dark[7]
-					: theme.colors.gray[0],
-			color: theme.colorScheme === "dark" ? theme.white : theme.black,
-		},
-	},
-	link: {
-		fontWeight: 500,
-		display: "block",
-		textDecoration: "none",
-		padding: `${theme.spacing.xs} ${theme.spacing.md}`,
-		paddingLeft: rem(31),
-		marginLeft: rem(30),
-		fontSize: theme.fontSizes.sm,
-		color:
-			theme.colorScheme === "dark"
-				? theme.colors.dark[0]
-				: theme.colors.gray[7],
-		borderLeft: `${rem(1)} solid ${
-			theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]
-		}`,
-
-		"&:hover": {
-			backgroundColor:
-				theme.colorScheme === "dark"
-					? theme.colors.dark[7]
-					: theme.colors.gray[0],
-			color: theme.colorScheme === "dark" ? theme.white : theme.black,
-		},
-	},
-	chevron: {
-		transition: "transform 200ms ease",
-	},
-	oldLink: {
-		color: theme.colorScheme === "dark" ? theme.colors.dark[0] : undefined,
-	},
-	logoText: {
-		color: theme.colorScheme === "dark" ? "white" : theme.colors.dark[9],
-	},
-}));
-
-const useThemeStyles = createStyles((theme) => ({
-	control: {
-		backgroundColor:
-			theme.colorScheme === "dark"
-				? theme.colors.dark[8]
-				: theme.colors.gray[0],
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "space-between",
-		borderRadius: 1000,
-		paddingLeft: theme.spacing.sm,
-		paddingRight: rem(4),
-		width: rem(136),
-		height: rem(36),
-	},
-
-	iconWrapper: {
-		height: rem(28),
-		width: rem(28),
-		borderRadius: rem(28),
-		backgroundColor:
-			theme.colorScheme === "dark"
-				? theme.colors.yellow[4]
-				: theme.colors.dark[4],
-		color: theme.colorScheme === "dark" ? theme.black : theme.colors.blue[2],
-	},
-
-	value: {
-		lineHeight: 1,
-	},
-}));
-
 function ThemeToggle() {
-	const { classes } = useThemeStyles();
 	const { colorScheme, toggleColorScheme } = useMantineColorScheme();
 	const Icon = colorScheme === "dark" ? IconSun : IconMoon;
 
 	return (
-		<Group position="center">
+		<Group justify="center">
 			<UnstyledButton
 				aria-label="Toggle theme"
-				className={classes.control}
+				className={classes.control2}
 				onClick={() => toggleColorScheme()}
 				title="Ctrl + J"
 			>
@@ -247,9 +155,9 @@ export function LinksGroup({
 	opened,
 	links,
 }: LinksGroupProps) {
-	const { classes, theme } = useStyles();
+	const { dir } = useDirection();
 	const hasLinks = Array.isArray(links);
-	const ChevronIcon = theme.dir === "ltr" ? IconChevronRight : IconChevronLeft;
+	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const items = (hasLinks ? links : []).map((link) => (
 		<Link className={classes.link} href={link.link} key={link.label}>
 			{link.label}
@@ -271,8 +179,8 @@ export function LinksGroup({
 				}
 				className={classes.control}
 			>
-				<Group position="apart" spacing={0}>
-					<Box sx={{ display: "flex", alignItems: "center" }}>
+				<Group justify="space-between" gap={0}>
+					<Box style={{ display: "flex", alignItems: "center" }}>
 						<ThemeIcon variant="light" size={30}>
 							<Icon size="1.1rem" />
 						</ThemeIcon>
@@ -285,7 +193,7 @@ export function LinksGroup({
 							stroke={1.5}
 							style={{
 								transform: opened
-									? `rotate(${theme.dir === "rtl" ? -90 : 90}deg)`
+									? `rotate(${dir === "rtl" ? -90 : 90}deg)`
 									: "none",
 							}}
 						/>
@@ -309,8 +217,7 @@ export default function ({ children }: { children: ReactElement }) {
 	});
 	const theme = useMantineTheme();
 	const [opened, { toggle, close }] = useDisclosure(false);
-	const { classes, cx } = useStyles();
-	const { colorScheme } = useMantineColorScheme();
+	const colorScheme = useComputedColorScheme("dark");
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
@@ -408,183 +315,168 @@ export default function ({ children }: { children: ReactElement }) {
 		const handleStart = () => {
 			close();
 		};
-
 		router.events.on("routeChangeComplete", handleStart);
 		return () => {
 			router.events.off("routeChangeComplete", handleStart);
 		};
 	}, [router]);
 
-	return userPreferences.data ? (
+	return userPreferences.data && openedLinkGroups ? (
 		<AppShell
-			my={{ sm: "xl" }}
+			w="100%"
 			padding={0}
-			fixed
 			layout="alt"
-			navbarOffsetBreakpoint="sm"
-			asideOffsetBreakpoint="sm"
-			navbar={
-				<Navbar
-					py="md"
-					px="md"
-					hiddenBreakpoint="sm"
-					hidden={!opened}
-					width={{ sm: 200, lg: 220 }}
-				>
-					<MediaQuery largerThan="sm" styles={{ display: "none" }}>
-						<Flex justify={"end"}>
-							<Burger
-								opened={opened}
-								onClick={toggle}
-								color={theme.colors.gray[6]}
-							/>
-						</Flex>
-					</MediaQuery>
-					<Navbar.Section grow component={ScrollArea}>
+			navbar={{
+				width: { sm: 200, lg: 220 },
+				breakpoint: "sm",
+				collapsed: { mobile: !opened },
+			}}
+		>
+			<AppShell.Navbar py="md" px="md">
+				<Flex justify={"end"} hiddenFrom="sm">
+					<Burger
+						opened={opened}
+						onClick={toggle}
+						color={theme.colors.gray[6]}
+					/>
+				</Flex>
+				<Box component={ScrollArea} style={{ flexGrow: 1 }}>
+					<LinksGroup
+						label="Home"
+						icon={IconHome2}
+						href={APP_ROUTES.dashboard}
+						opened={false}
+						setOpened={() => {}}
+					/>
+					{userPreferences.data.featuresEnabled.media.enabled ? (
 						<LinksGroup
-							label="Home"
-							icon={IconHome2}
-							href={APP_ROUTES.dashboard}
-							opened={false}
-							setOpened={() => {}}
-						/>
-						{userPreferences.data.featuresEnabled.media.enabled ? (
-							<LinksGroup
-								label="Media"
-								icon={IconDeviceSpeaker}
-								links={mediaLinks}
-								opened={openedLinkGroups.media}
-								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
-											draft.media = k;
-										}),
-									)
-								}
-							/>
-						) : undefined}
-						{userPreferences.data.featuresEnabled.fitness.enabled ? (
-							<LinksGroup
-								label="Fitness"
-								icon={IconStretching}
-								opened={openedLinkGroups.fitness}
-								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
-											draft.fitness = k;
-										}),
-									)
-								}
-								links={fitnessLinks}
-							/>
-						) : undefined}
-						<LinksGroup
-							label="Calendar"
-							icon={IconCalendar}
-							href={APP_ROUTES.calendar}
-							opened={false}
-							setOpened={() => {}}
-						/>
-						<LinksGroup
-							label="Settings"
-							icon={IconSettings}
-							opened={openedLinkGroups.settings}
+							label="Media"
+							icon={IconDeviceSpeaker}
+							links={mediaLinks}
+							opened={openedLinkGroups.media}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
-										draft.settings = k;
+										draft.media = k;
 									}),
 								)
 							}
-							links={
-								[
-									{
-										label: "Preferences",
-										link: APP_ROUTES.settings.preferences,
-									},
-									{
-										label: "Imports and Exports",
-										link: APP_ROUTES.settings.imports.new,
-									},
-									{ label: "Profile", link: APP_ROUTES.settings.profile },
-									{
-										label: "Integrations",
-										link: APP_ROUTES.settings.integrations,
-									},
-									{
-										label: "Notifications",
-										link: APP_ROUTES.settings.notifications,
-									},
-									{
-										label: "Miscellaneous",
-										link: APP_ROUTES.settings.miscellaneous,
-									},
-									userDetails.data?.__typename === "User" &&
-									userDetails.data.lot === UserLot.Admin
-										? { label: "Users", link: APP_ROUTES.settings.users }
-										: undefined,
-									// biome-ignore lint/suspicious/noExplicitAny: required here
-								].filter(Boolean) as any
-							}
 						/>
-					</Navbar.Section>
-					<Navbar.Section>
-						<Flex direction={"column"} justify={"center"} gap="md">
-							<ThemeToggle />
-							<UnstyledButton
-								mx="auto"
-								onClick={() => logoutUser.mutate()}
-								className={cx(classes.oldLink)}
-							>
-								<Group>
-									<IconLogout size="1.2rem" />
-									<Text>Logout</Text>
-								</Group>
-							</UnstyledButton>
-						</Flex>
-					</Navbar.Section>
-				</Navbar>
-			}
-		>
-			<Flex direction={"column"} h="90%">
-				<MediaQuery largerThan="sm" styles={{ display: "none" }}>
-					<Flex justify={"space-between"} p="md">
-						<Link
-							href={APP_ROUTES.dashboard}
-							style={{ textDecoration: "none" }}
+					) : undefined}
+					{userPreferences.data.featuresEnabled.fitness.enabled ? (
+						<LinksGroup
+							label="Fitness"
+							icon={IconStretching}
+							opened={openedLinkGroups.fitness}
+							setOpened={(k) =>
+								setOpenedLinkGroups(
+									produce(openedLinkGroups, (draft) => {
+										draft.fitness = k;
+									}),
+								)
+							}
+							links={fitnessLinks}
+						/>
+					) : undefined}
+					<LinksGroup
+						label="Calendar"
+						icon={IconCalendar}
+						href={APP_ROUTES.calendar}
+						opened={false}
+						setOpened={() => {}}
+					/>
+					<LinksGroup
+						label="Settings"
+						icon={IconSettings}
+						opened={openedLinkGroups.settings}
+						setOpened={(k) =>
+							setOpenedLinkGroups(
+								produce(openedLinkGroups, (draft) => {
+									draft.settings = k;
+								}),
+							)
+						}
+						links={
+							[
+								{
+									label: "Preferences",
+									link: APP_ROUTES.settings.preferences,
+								},
+								{
+									label: "Imports and Exports",
+									link: APP_ROUTES.settings.imports.new,
+								},
+								{ label: "Profile", link: APP_ROUTES.settings.profile },
+								{
+									label: "Integrations",
+									link: APP_ROUTES.settings.integrations,
+								},
+								{
+									label: "Notifications",
+									link: APP_ROUTES.settings.notifications,
+								},
+								{
+									label: "Miscellaneous",
+									link: APP_ROUTES.settings.miscellaneous,
+								},
+								userDetails.data?.__typename === "User" &&
+								userDetails.data.lot === UserLot.Admin
+									? { label: "Users", link: APP_ROUTES.settings.users }
+									: undefined,
+								// biome-ignore lint/suspicious/noExplicitAny: required here
+							].filter(Boolean) as any
+						}
+					/>
+				</Box>
+				<Box>
+					<Flex direction={"column"} justify={"center"} gap="md">
+						<ThemeToggle />
+						<UnstyledButton
+							mx="auto"
+							onClick={() => logoutUser.mutate()}
+							className={classes.oldLink}
 						>
 							<Group>
-								<Image
-									imageProps={{ loading: "lazy" }}
-									src={
-										colorScheme === "dark"
-											? "/logo-light.png"
-											: "/icon-512x512.png"
-									}
-									height={40}
-									width={40}
-									radius={"md"}
-								/>
-								<Text size={"xl"} className={classes.logoText}>
-									Ryot
-								</Text>
+								<IconLogout size="1.2rem" />
+								<Text>Logout</Text>
 							</Group>
-						</Link>
-						<Burger
-							opened={opened}
-							onClick={toggle}
-							color={theme.colors.gray[6]}
-						/>
+						</UnstyledButton>
 					</Flex>
-				</MediaQuery>
-				<Box mt="md" style={{ flexGrow: 1 }}>
-					{children}
 				</Box>
-				<MediaQuery smallerThan="sm" styles={{ marginBottom: 36 }}>
-					<Box mt={36}>
+			</AppShell.Navbar>
+			<Flex direction={"column"} h="90%">
+				<Flex justify={"space-between"} p="md" hiddenFrom="sm">
+					<Link href={APP_ROUTES.dashboard} style={{ all: "unset" }}>
+						<Group>
+							<Image
+								src={
+									colorScheme === "dark"
+										? "/logo-light.png"
+										: "/icon-512x512.png"
+								}
+								h={40}
+								w={40}
+								radius="md"
+							/>
+							<Text size={"xl"} className={classes.logoText}>
+								Ryot
+							</Text>
+						</Group>
+					</Link>
+					<Burger
+						opened={opened}
+						onClick={toggle}
+						color={theme.colors.gray[6]}
+					/>
+				</Flex>
+				<AppShell.Main py={{ sm: "xl" }}>
+					<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%">
+						{children}
+					</Box>
+					<Box style={{ marginBottom: 20 }}>
 						<Footer />
 					</Box>
-				</MediaQuery>
+				</AppShell.Main>
 			</Flex>
 		</AppShell>
 	) : undefined;

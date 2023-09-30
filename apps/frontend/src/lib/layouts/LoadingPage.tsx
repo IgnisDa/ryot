@@ -6,10 +6,10 @@ export default function () {
 	return (
 		<Container>
 			<Grid>
-				<Grid.Col xs={4}>{loaderChild}</Grid.Col>
-				<Grid.Col xs={8}>{loaderChild}</Grid.Col>
-				<Grid.Col xs={8}>{loaderChild}</Grid.Col>
-				<Grid.Col xs={4}>{loaderChild}</Grid.Col>
+				<Grid.Col span={{ xs: 4 }}>{loaderChild}</Grid.Col>
+				<Grid.Col span={{ xs: 8 }}>{loaderChild}</Grid.Col>
+				<Grid.Col span={{ xs: 8 }}>{loaderChild}</Grid.Col>
+				<Grid.Col span={{ xs: 4 }}>{loaderChild}</Grid.Col>
 			</Grid>
 		</Container>
 	);

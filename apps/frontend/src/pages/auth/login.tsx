@@ -16,6 +16,7 @@ import { useRouter } from "next/router";
 import { useEffect } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import classes from "./styles.module.css";
 
 const formSchema = z.object({
 	username: z.string(),
@@ -79,13 +80,7 @@ export default function Page() {
 				onSubmit={form.onSubmit((values) => {
 					loginUser.mutate(values);
 				})}
-				sx={(t) => ({
-					width: "80%",
-					[t.fn.largerThan("sm")]: { width: "60%" },
-					[t.fn.largerThan("md")]: { width: "50%" },
-					[t.fn.largerThan("lg")]: { width: "40%" },
-					[t.fn.largerThan("xl")]: { width: "30%" },
-				})}
+				className={classes.form}
 			>
 				<TextInput
 					label="Username"

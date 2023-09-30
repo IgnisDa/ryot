@@ -122,22 +122,28 @@ const Page: NextPageWithLayout = () => {
 					<Title id="exercise-title">{exerciseDetails.data.name}</Title>
 					<Tabs
 						value={activeTab}
-						onTabChange={(v) => {
+						onChange={(v) => {
 							if (v) setActiveTab(v);
 						}}
 						variant="outline"
 					>
 						<Tabs.List mb={"xs"}>
-							<Tabs.Tab value="overview" icon={<IconInfoCircle size="1rem" />}>
+							<Tabs.Tab
+								value="overview"
+								leftSection={<IconInfoCircle size="1rem" />}
+							>
 								Overview
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="history"
-								icon={<IconHistoryToggle size="1rem" />}
+								leftSection={<IconHistoryToggle size="1rem" />}
 							>
 								History
 							</Tabs.Tab>
-							<Tabs.Tab value="records" icon={<IconTrophy size="1rem" />}>
+							<Tabs.Tab
+								value="records"
+								leftSection={<IconTrophy size="1rem" />}
+							>
 								Records
 							</Tabs.Tab>
 						</Tabs.List>
@@ -146,12 +152,7 @@ const Page: NextPageWithLayout = () => {
 							<Stack>
 								<Flex gap={6}>
 									{exerciseDetails.data.attributes.images.map((i) => (
-										<Image
-											key={i}
-											radius={"md"}
-											src={i}
-											imageProps={{ loading: "lazy" }}
-										/>
+										<Image key={i} radius={"md"} src={i} />
 									))}
 								</Flex>
 								<Text size="xl" fw="bold">
@@ -170,7 +171,7 @@ const Page: NextPageWithLayout = () => {
 									{userExerciseDetails.data.history.map((h) => (
 										<Paper key={h.workoutId} withBorder p="xs">
 											<Text fw="bold">{h.workoutName}</Text>
-											<Text color="dimmed" fz="sm" mb="xs">
+											<Text c="dimmed" fz="sm" mb="xs">
 												{DateTime.fromJSDate(h.workoutTime).toLocaleString(
 													DateTime.DATETIME_MED_WITH_WEEKDAY,
 												)}
@@ -194,7 +195,7 @@ const Page: NextPageWithLayout = () => {
 									))}
 								</Stack>
 							) : (
-								<Text italic>No history found</Text>
+								<Text fs="italic">No history found</Text>
 							)}
 						</Tabs.Panel>
 						<Tabs.Panel value="records">
@@ -238,7 +239,7 @@ const Page: NextPageWithLayout = () => {
 									</Box>
 								</Stack>
 							) : (
-								<Text italic>No records found</Text>
+								<Text fs="italic">No records found</Text>
 							)}
 						</Tabs.Panel>
 					</Tabs>

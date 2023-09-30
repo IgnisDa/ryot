@@ -114,7 +114,7 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
 				input: {
-					page: parseInt(activePage) || 1,
+					page: parseInt(activePage || "1"),
 					query: debouncedQuery || undefined,
 					filter: exerciseFilters,
 				},
@@ -129,7 +129,7 @@ const Page: NextPageWithLayout = () => {
 	}, [query]);
 
 	const isFilterChanged =
-		Object.values(exerciseFilters).filter(Boolean).length > 0;
+		Object.values(exerciseFilters || {}).filter(Boolean).length > 0;
 
 	const resetFilters = () => {
 		setExerciseFilters(defaultFilterValue);
@@ -148,7 +148,7 @@ const Page: NextPageWithLayout = () => {
 				<title>Exercises | Ryot</title>
 			</Head>
 			<Container size={"lg"}>
-				<Stack spacing={"xl"}>
+				<Stack gap={"xl"}>
 					<Flex align={"center"} gap={"md"}>
 						<Title>Exercises</Title>
 						<ActionIcon
@@ -182,7 +182,7 @@ const Page: NextPageWithLayout = () => {
 								<TextInput
 									name="query"
 									placeholder="Search for exercises by name or instructions"
-									icon={<IconSearch />}
+									leftSection={<IconSearch />}
 									onChange={(e) => setQuery(e.currentTarget.value)}
 									value={query}
 									rightSection={<ClearButton />}
@@ -192,7 +192,8 @@ const Page: NextPageWithLayout = () => {
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={isFilterChanged ? "blue" : undefined}
+									variant="transparent"
+									color={isFilterChanged ? "blue" : "gray"}
 								>
 									<IconFilter size="1.5rem" />
 								</ActionIcon>
@@ -205,14 +206,17 @@ const Page: NextPageWithLayout = () => {
 									<Stack>
 										<Group>
 											<Title order={3}>Filters</Title>
-											<ActionIcon onClick={resetFilters}>
+											<ActionIcon
+												onClick={resetFilters}
+												variant="transparent"
+												color="gray"
+											>
 												<IconFilterOff size="1.5rem" />
 											</ActionIcon>
 										</Group>
 										{Object.keys(defaultFilterValue).map((f) => (
 											<Select
 												key={f}
-												withinPortal
 												clearable
 												// biome-ignore lint/suspicious/noExplicitAny: required heres
 												data={(exerciseInformation.data.filters as any)[f].map(
@@ -226,12 +230,13 @@ const Page: NextPageWithLayout = () => {
 												// biome-ignore lint/suspicious/noExplicitAny: required heres
 												value={(exerciseFilters as any)[f]}
 												onChange={(v) => {
-													setExerciseFilters(
-														produce(exerciseFilters, (draft) => {
-															// biome-ignore lint/suspicious/noExplicitAny: required heres
-															(draft as any)[f] = v;
-														}),
-													);
+													if (exerciseFilters)
+														setExerciseFilters(
+															produce(exerciseFilters, (draft) => {
+																// biome-ignore lint/suspicious/noExplicitAny: required heres
+																(draft as any)[f] = v;
+															}),
+														);
 												}}
 											/>
 										))}
@@ -256,12 +261,7 @@ const Page: NextPageWithLayout = () => {
 											</>
 										) : undefined}
 									</Box>
-									<SimpleGrid
-										breakpoints={[
-											{ minWidth: "md", cols: 2 },
-											{ minWidth: "lg", cols: 3 },
-										]}
-									>
+									<SimpleGrid cols={{ md: 2, lg: 3 }}>
 										{exercisesList.data.items.map((exercise) => (
 											<Flex
 												key={exercise.id}
@@ -320,7 +320,7 @@ const Page: NextPageWithLayout = () => {
 								<Center>
 									<Pagination
 										size="sm"
-										value={parseInt(activePage)}
+										value={parseInt(activePage || "1")}
 										onChange={(v) => setPage(v.toString())}
 										total={Math.ceil(
 											exercisesList.data.details.total /

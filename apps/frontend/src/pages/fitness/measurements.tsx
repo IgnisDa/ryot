@@ -93,7 +93,7 @@ const DisplayMeasurement = (props: {
 		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
 			<Flex direction={"column"} justify={"center"} gap="xs">
 				<Flex justify={"space-around"}>
-					<Button onClick={toggle} variant="default" size="xs" compact>
+					<Button onClick={toggle} variant="default" size="compact-xs">
 						{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
 							DateTime.DATETIME_SHORT,
 						)}
@@ -117,13 +117,13 @@ const DisplayMeasurement = (props: {
 				</Flex>
 				<Collapse in={opened}>
 					{props.measurement.name ? (
-						<Text align="center">Name: {props.measurement.name}</Text>
+						<Text ta="center">Name: {props.measurement.name}</Text>
 					) : undefined}
 					{props.measurement.comment ? (
-						<Text align="center">Comment: {props.measurement.comment}</Text>
+						<Text ta="center">Comment: {props.measurement.comment}</Text>
 					) : undefined}
 					{values.map((v) => (
-						<Text key={v.name} align="center">
+						<Text key={v.name} ta="center">
 							{startCase(snakeCase(v.name))}: {v.value}
 						</Text>
 					))}
@@ -151,7 +151,7 @@ const Page: NextPageWithLayout = () => {
 		key: "measurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
-	const [selectedTimespan, setselectedTimespan] = useLocalStorage({
+	const [selectedTimeSpan, setselectedTimespan] = useLocalStorage({
 		defaultValue: TimeSpan.Last30Days,
 		key: "measurementsDisplaySelectedTimespan",
 		getInitialValueInEffect: true,
@@ -160,15 +160,15 @@ const Page: NextPageWithLayout = () => {
 
 	const preferences = useUserPreferences();
 	const userMeasurementsList = useQuery(
-		["userMeasurementsList", selectedTimespan],
+		["userMeasurementsList", selectedTimeSpan],
 		async () => {
 			const now = DateTime.now();
-			const [startTime, endTime] = match(selectedTimespan)
+			const [startTime, endTime] = match(selectedTimeSpan)
 				.with(TimeSpan.Last7Days, () => [now, now.minus({ days: 7 })])
 				.with(TimeSpan.Last30Days, () => [now, now.minus({ days: 30 })])
 				.with(TimeSpan.Last90Days, () => [now, now.minus({ days: 90 })])
 				.with(TimeSpan.Last365Days, () => [now, now.minus({ days: 365 })])
-				.with(TimeSpan.AllTime, () => [null, null])
+				.with(TimeSpan.AllTime, undefined, () => [null, null])
 				.exhaustive();
 			const { userMeasurementsList } = await gqlClient.request(
 				UserMeasurementsListDocument,
@@ -242,7 +242,7 @@ const Page: NextPageWithLayout = () => {
 									)
 									.map((v) => (
 										<NumberInput
-											precision={3}
+											decimalScale={3}
 											key={v}
 											label={changeCase(snakeCase(v))}
 											name={`stats.${v}`}
@@ -295,7 +295,7 @@ const Page: NextPageWithLayout = () => {
 						/>
 						<Select
 							label="Timespan"
-							value={selectedTimespan}
+							value={selectedTimeSpan}
 							data={Object.values(TimeSpan)}
 							onChange={(v) => {
 								if (v) setselectedTimespan(v as TimeSpan);
@@ -303,41 +303,41 @@ const Page: NextPageWithLayout = () => {
 						/>
 					</Group>
 					<Box w={"100%"} ml={-15}>
-						<ResponsiveContainer width="100%" height={300}>
-							<LineChart
-								data={userMeasurementsList.data}
-								margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-							>
-								<CartesianGrid strokeDasharray="3 3" />
-								<XAxis dataKey="timestamp" tickFormatter={dateFormatter} hide />
-								<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
-								<Tooltip />
-								{selectedStats.map((s) => (
-									<Line
-										key={s}
-										type="monotone"
-										dot={false}
-										dataKey={(v) => {
-											const data = get(v.stats, s);
-											if (data) return Number(data);
-											return null;
-										}}
-										name={s}
-										connectNulls
+						{selectedStats ? (
+							<ResponsiveContainer width="100%" height={300}>
+								<LineChart
+									data={userMeasurementsList.data}
+									margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+								>
+									<CartesianGrid strokeDasharray="3 3" />
+									<XAxis
+										dataKey="timestamp"
+										tickFormatter={dateFormatter}
+										hide
 									/>
-								))}
-							</LineChart>
-						</ResponsiveContainer>
+									<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
+									<Tooltip />
+									{selectedStats.map((s) => (
+										<Line
+											key={s}
+											type="monotone"
+											dot={false}
+											dataKey={(v) => {
+												const data = get(v.stats, s);
+												if (data) return Number(data);
+												return null;
+											}}
+											name={s}
+											connectNulls
+										/>
+									))}
+								</LineChart>
+							</ResponsiveContainer>
+						) : undefined}
 					</Box>
 					{userMeasurementsList.data.length > 0 ? (
 						<ScrollArea h={400}>
-							<SimpleGrid
-								cols={2}
-								breakpoints={[
-									{ minWidth: "md", cols: 3 },
-									{ minWidth: "xl", cols: 4 },
-								]}
-							>
+							<SimpleGrid cols={{ base: 2, md: 3, xl: 4 }}>
 								{userMeasurementsList.data.map((m) => (
 									<DisplayMeasurement
 										key={m.timestamp.toISOString()}
@@ -348,7 +348,7 @@ const Page: NextPageWithLayout = () => {
 							</SimpleGrid>
 						</ScrollArea>
 					) : (
-						<Text align="center">
+						<Text ta="center">
 							You have not added any measurements in this time period.
 						</Text>
 					)}
