@@ -235,13 +235,12 @@ const Page: NextPageWithLayout = () => {
 						>
 							<Text size="lg">
 								You have a workout in progress. Click{" "}
-								<Link
-									passHref
-									legacyBehavior
+								<Anchor
+									component={Link}
 									href={APP_ROUTES.fitness.exercises.currentWorkout}
 								>
-									<Anchor>here</Anchor>
-								</Link>{" "}
+									here
+								</Anchor>{" "}
 								to continue.
 							</Text>
 						</Alert>
@@ -480,20 +479,14 @@ const Page: NextPageWithLayout = () => {
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
 						{userPreferences.data.featuresEnabled.fitness.enabled ? (
 							currentWorkout ? (
-								<Link
-									passHref
-									legacyBehavior
+								<Button
+									variant="outline"
 									href={APP_ROUTES.fitness.exercises.currentWorkout}
+									component={Link}
+									leftSection={<IconBarbell />}
 								>
-									<Button
-										variant="outline"
-										component="a"
-										leftSection={<IconBarbell />}
-										onClick={() => {}}
-									>
-										Go to current workout
-									</Button>
-								</Link>
+									Go to current workout
+								</Button>
 							) : (
 								<Button
 									variant="outline"
@@ -508,19 +501,14 @@ const Page: NextPageWithLayout = () => {
 							)
 						) : undefined}
 						{userPreferences.data.featuresEnabled.media.enabled ? (
-							<Link
-								passHref
-								legacyBehavior
+							<Button
+								variant="outline"
+								component={Link}
+								leftSection={<IconPhotoPlus />}
 								href={APP_ROUTES.media.individualMediaItem.create}
 							>
-								<Button
-									variant="outline"
-									component="a"
-									leftSection={<IconPhotoPlus />}
-								>
-									Create a media item
-								</Button>
-							</Link>
+								Create a media item
+							</Button>
 						) : undefined}
 					</SimpleGrid>
 				</Stack>

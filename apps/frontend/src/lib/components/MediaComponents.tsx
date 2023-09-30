@@ -267,26 +267,30 @@ export const BaseDisplayItem = (props: {
 			pos={"relative"}
 		>
 			{props.topLeft}
-			<Link passHref legacyBehavior href={props.href}>
-				<Anchor style={{ flex: "none" }} pos="relative">
-					<Image
-						src={props.imageLink}
-						radius={"md"}
-						style={{ cursor: "pointer" }}
-						alt={`Image for ${props.name}`}
-						className={classes.mediaImage}
-						styles={{
-							root: {
-								transitionProperty: "transform",
-								transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-								transitionDuration: "150ms",
-							},
-						}}
-						w={170}
-					/>
-					{props.topRight}
-				</Anchor>
-			</Link>
+			<Anchor
+				component={Link}
+				href={props.href}
+				style={{ flex: "none" }}
+				pos="relative"
+			>
+				<Image
+					src={props.imageLink}
+					radius={"md"}
+					style={{ cursor: "pointer" }}
+					alt={`Image for ${props.name}`}
+					className={classes.mediaImage}
+					styles={{
+						root: {
+							transitionProperty: "transform",
+							transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+							transitionDuration: "150ms",
+						},
+					}}
+					h={260}
+					w={170}
+				/>
+				{props.topRight}
+			</Anchor>
 			<Flex w={"100%"} direction={"column"} px={{ base: 10, md: 3 }}>
 				<Flex justify={"space-between"} direction={"row"} w="100%">
 					<Text c="dimmed" size="sm">

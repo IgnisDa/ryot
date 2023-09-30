@@ -505,17 +505,15 @@ const Page: NextPageWithLayout = () => {
 							</Fragment>
 						))}
 						<Group justify="center">
-							<Link
-								passHref
-								legacyBehavior
+							<Button
+								component={Link}
+								variant="subtle"
 								href={withQuery(APP_ROUTES.fitness.exercises.list, {
 									selectionEnabled: "yes",
 								})}
 							>
-								<Button component="a" variant="subtle">
-									Add exercise
-								</Button>
-							</Link>
+								Add exercise
+							</Button>
 						</Group>
 						<Group justify="center">
 							<Button

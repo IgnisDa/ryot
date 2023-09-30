@@ -353,13 +353,9 @@ const CreateReminderModal = (props: {
 				<Title order={3}>Create a reminder</Title>
 				<Text>
 					A notification will be sent to all your configured{" "}
-					<Link
-						passHref
-						legacyBehavior
-						href={APP_ROUTES.settings.notifications}
-					>
-						<Anchor>platforms</Anchor>
-					</Link>
+					<Anchor href={APP_ROUTES.settings.notifications} component={Link}>
+						platforms
+					</Anchor>
 					.
 				</Text>
 				<TextInput
@@ -723,20 +719,16 @@ const Page: NextPageWithLayout = () => {
 									}
 								>
 									<Flex gap={2}>
-										<Link
-											passHref
-											legacyBehavior
+										<Anchor
+											component={Link}
+											truncate
+											style={{ all: "unset", cursor: "pointer" }}
 											href={withQuery(APP_ROUTES.media.collections.details, {
 												collectionId: col.id,
 											})}
 										>
-											<Anchor
-												truncate
-												style={{ all: "unset", cursor: "pointer" }}
-											>
-												{col.name}
-											</Anchor>
-										</Link>
+											{col.name}
+										</Anchor>
 										<ActionIcon
 											size="1rem"
 											onClick={() => {
@@ -1038,22 +1030,20 @@ const Page: NextPageWithLayout = () => {
 														{c.items.map((creator) => (
 															<Box>
 																{creator.id ? (
-																	<Link
+																	<Anchor
+																		component={Link}
 																		key={creator.id}
-																		passHref
-																		legacyBehavior
+																		data-creator-id={creator.id}
 																		href={withQuery(
 																			APP_ROUTES.media.people.details,
 																			{ id: creator.id },
 																		)}
 																	>
-																		<Anchor data-creator-id={creator.id}>
-																			<MetadataCreator
-																				name={creator.name}
-																				image={creator.image}
-																			/>
-																		</Anchor>
-																	</Link>
+																		<MetadataCreator
+																			name={creator.name}
+																			image={creator.image}
+																		/>
+																	</Anchor>
 																) : (
 																	<MetadataCreator
 																		name={creator.name}
@@ -1222,7 +1212,8 @@ const Page: NextPageWithLayout = () => {
 										</Menu.Dropdown>
 									</Menu>
 									{!coreDetails.data.reviewsDisabled ? (
-										<Link
+										<Anchor
+											component={Link}
 											href={withQuery(APP_ROUTES.media.postReview, {
 												metadataId,
 												showSeasonNumber:
@@ -1239,15 +1230,11 @@ const Page: NextPageWithLayout = () => {
 																?.episodeNumber ?? undefined
 														: undefined,
 											})}
-											passHref
-											legacyBehavior
 										>
-											<Anchor>
-												<Button variant="outline" w="100%">
-													Post a review
-												</Button>
-											</Anchor>
-										</Link>
+											<Button variant="outline" w="100%">
+												Post a review
+											</Button>
+										</Anchor>
 									) : undefined}
 									<>
 										<Button variant="outline" onClick={collectionModalOpen}>
@@ -1590,10 +1577,10 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 									{mediaSpecifics.data?.suggestions.map((sug) => (
-										<Link
+										<Anchor
 											key={sug.identifier}
-											passHref
-											legacyBehavior
+											data-media-id={sug.identifier}
+											component={Link}
 											href={
 												sug.metadataId
 													? withQuery(
@@ -1610,28 +1597,26 @@ const Page: NextPageWithLayout = () => {
 													  )
 											}
 										>
-											<Anchor data-media-id={sug.identifier}>
-												<Avatar
-													imageProps={{ loading: "lazy" }}
-													src={sug.image}
-													h={100}
-													w={85}
-													mx="auto"
-													alt={`${sug.title} picture`}
-													styles={{ image: { objectPosition: "top" } }}
-													radius={"sm"}
-												/>
-												<Text
-													c="dimmed"
-													size="xs"
-													ta="center"
-													lineClamp={1}
-													mt={4}
-												>
-													{sug.title}
-												</Text>
-											</Anchor>
-										</Link>
+											<Avatar
+												imageProps={{ loading: "lazy" }}
+												src={sug.image}
+												h={100}
+												w={85}
+												mx="auto"
+												alt={`${sug.title} picture`}
+												styles={{ image: { objectPosition: "top" } }}
+												radius={"sm"}
+											/>
+											<Text
+												c="dimmed"
+												size="xs"
+												ta="center"
+												lineClamp={1}
+												mt={4}
+											>
+												{sug.title}
+											</Text>
+										</Anchor>
 									))}
 								</SimpleGrid>
 							</MediaScrollArea>
