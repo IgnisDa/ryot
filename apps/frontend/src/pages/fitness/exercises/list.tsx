@@ -193,7 +193,7 @@ const Page: NextPageWithLayout = () => {
 								<ActionIcon
 									onClick={openFiltersModal}
 									variant="transparent"
-									color={isFilterChanged ? "blue" : undefined}
+									color={isFilterChanged ? "blue" : "gray"}
 								>
 									<IconFilter size="1.5rem" />
 								</ActionIcon>
