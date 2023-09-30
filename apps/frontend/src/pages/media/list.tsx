@@ -145,7 +145,7 @@ const Page: NextPageWithLayout = () => {
 			const { mediaList } = await gqlClient.request(MediaListDocument, {
 				input: {
 					lot,
-					page: parseInt(activeMinePage) || 1,
+					page: parseInt(activeMinePage || "1"),
 					sort: { order: mineSortOrder, by: mineSortBy },
 					query: debouncedQuery || undefined,
 					filter: {
@@ -197,7 +197,7 @@ const Page: NextPageWithLayout = () => {
 			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
 				input: {
 					query: debouncedQuery,
-					page: parseInt(activeSearchPage) || 1,
+					page: parseInt(activeSearchPage || "1"),
 				},
 				lot,
 				source: searchSource as MetadataSource,
@@ -238,7 +238,7 @@ const Page: NextPageWithLayout = () => {
 			<TextInput
 				name="query"
 				placeholder={props.placeholder}
-				icon={<IconSearch />}
+				leftSection={<IconSearch />}
 				onChange={(e) => setQuery(e.currentTarget.value)}
 				value={query}
 				rightSection={<ClearButton />}
@@ -258,22 +258,25 @@ const Page: NextPageWithLayout = () => {
 				<Tabs
 					variant="outline"
 					value={activeTab}
-					onTabChange={(v) => {
+					onChange={(v) => {
 						if (v === "mine" || v === "search") setActiveTab(v);
 					}}
 				>
 					<Tabs.List mb={"xs"}>
-						<Tabs.Tab value="mine" icon={<IconListCheck size="1.5rem" />}>
+						<Tabs.Tab
+							value="mine"
+							leftSection={<IconListCheck size="1.5rem" />}
+						>
 							<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
 						</Tabs.Tab>
-						<Tabs.Tab value="search" icon={<IconSearch size="1.5rem" />}>
+						<Tabs.Tab value="search" leftSection={<IconSearch size="1.5rem" />}>
 							<Text size={"lg"}>Search</Text>
 						</Tabs.Tab>
-						<Box style={{ flexGrow: 1 }}>
+						<Flex style={{ flexGrow: 1 }} justify={"end"}>
 							<ActionIcon
 								size="lg"
+								color="gray"
 								variant="transparent"
-								ml="auto"
 								mt="xs"
 								loading={searchQuery.isFetching || listMedia.isFetching}
 								onClick={() => {
@@ -283,7 +286,7 @@ const Page: NextPageWithLayout = () => {
 							>
 								<IconRefresh size="1.625rem" />
 							</ActionIcon>
-						</Box>
+						</Flex>
 					</Tabs.List>
 
 					<Tabs.Panel value="mine">
@@ -299,7 +302,8 @@ const Page: NextPageWithLayout = () => {
 										})}
 										<ActionIcon
 											onClick={openFiltersModal}
-											color={isFilterChanged ? "blue" : undefined}
+											color={isFilterChanged ? "blue" : "gray"}
+											variant="subtle"
 										>
 											<IconFilter size="1.5rem" />
 										</ActionIcon>
@@ -312,18 +316,27 @@ const Page: NextPageWithLayout = () => {
 											<Stack>
 												<Group>
 													<Title order={3}>Filters</Title>
-													<ActionIcon onClick={resetFilters}>
+													<ActionIcon
+														onClick={resetFilters}
+														variant="subtle"
+														color="gray"
+													>
 														<IconFilterOff size="1.5rem" />
 													</ActionIcon>
 												</Group>
 												<Select
-													withinPortal
-													value={mineGeneralFilter.toString()}
-													data={Object.values(MediaGeneralFilter).map((o) => ({
-														value: o.toString(),
-														label: startCase(o.toLowerCase()),
-														group: "General filters",
-													}))}
+													value={mineGeneralFilter?.toString()}
+													data={[
+														{
+															group: "General filters",
+															items: Object.values(MediaGeneralFilter).map(
+																(o) => ({
+																	value: o.toString(),
+																	label: startCase(o.toLowerCase()),
+																}),
+															),
+														},
+													]}
 													onChange={(v) => {
 														if (v)
 															setMineGeneralFilter(v as MediaGeneralFilter);
@@ -331,44 +344,50 @@ const Page: NextPageWithLayout = () => {
 												/>
 												<Flex gap={"xs"} align={"center"}>
 													<Select
-														withinPortal
 														w="100%"
-														data={Object.values(MediaSortBy).map((o) => ({
-															value: o.toString(),
-															label: startCase(o.toLowerCase()),
-															group: "Sort by",
-														}))}
-														value={mineSortBy.toString()}
+														data={[
+															{
+																group: "Sort by",
+																items: Object.values(MediaSortBy).map((o) => ({
+																	value: o.toString(),
+																	label: startCase(o.toLowerCase()),
+																})),
+															},
+														]}
+														value={mineSortBy?.toString()}
 														onChange={(v) => {
 															if (v) setMineSortBy(v as MediaSortBy);
 														}}
-														rightSection={
-															<ActionIcon
-																onClick={() => {
-																	if (mineSortOrder === MediaSortOrder.Asc)
-																		setMineSortOrder(MediaSortOrder.Desc);
-																	else setMineSortOrder(MediaSortOrder.Asc);
-																}}
-															>
-																{mineSortOrder === MediaSortOrder.Asc ? (
-																	<IconSortAscending />
-																) : (
-																	<IconSortDescending />
-																)}
-															</ActionIcon>
-														}
 													/>
+													<ActionIcon
+														variant="subtle"
+														color="gray"
+														onClick={() => {
+															if (mineSortOrder === MediaSortOrder.Asc)
+																setMineSortOrder(MediaSortOrder.Desc);
+															else setMineSortOrder(MediaSortOrder.Asc);
+														}}
+													>
+														{mineSortOrder === MediaSortOrder.Asc ? (
+															<IconSortAscending />
+														) : (
+															<IconSortDescending />
+														)}
+													</ActionIcon>
 												</Flex>
 												{collections.data && collections.data.length > 0 ? (
 													<Select
-														withinPortal
 														placeholder="Select a collection"
 														value={mineCollectionFilter}
-														data={collections.data.map((c) => ({
-															value: c?.id?.toString(),
-															label: c?.name,
-															group: "My collections",
-														}))}
+														data={[
+															{
+																group: "My collections",
+																items: collections.data.map((c) => ({
+																	value: c?.id?.toString(),
+																	label: c?.name,
+																})),
+															},
+														]}
 														onChange={(v) => {
 															setMineCollectionFilter(v || "non");
 														}}
@@ -413,7 +432,7 @@ const Page: NextPageWithLayout = () => {
 								<Center>
 									<Pagination
 										size="sm"
-										value={parseInt(activeMinePage)}
+										value={parseInt(activeMinePage || "1")}
 										onChange={(v) => setMinePage(v.toString())}
 										total={Math.ceil(
 											listMedia.data.details.total / coreDetails.data.pageLimit,
@@ -467,7 +486,7 @@ const Page: NextPageWithLayout = () => {
 													publishYear: b.item.publishYear?.toString(),
 												}}
 												maybeItemId={b.databaseId ?? undefined}
-												query={query}
+												query={query || ""}
 												lot={lot}
 												searchQueryRefetch={searchQuery.refetch}
 												source={searchSource as unknown as MetadataSource}
@@ -482,7 +501,7 @@ const Page: NextPageWithLayout = () => {
 								<Center>
 									<Pagination
 										size="sm"
-										value={parseInt(activeSearchPage)}
+										value={parseInt(activeSearchPage || "1")}
 										onChange={(v) => setSearchPage(v.toString())}
 										total={Math.ceil(
 											searchQuery.data.details.total /
