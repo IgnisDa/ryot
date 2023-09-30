@@ -11,6 +11,7 @@ import {
 	Center,
 	Container,
 	Flex,
+	Group,
 	Pagination,
 	Stack,
 	Text,
@@ -20,7 +21,7 @@ import {
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { MetadataGroupsListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
-import { IconSearch, IconX } from "@tabler/icons-react";
+import { IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useEffect } from "react";
@@ -79,17 +80,25 @@ const Page: NextPageWithLayout = () => {
 					<Flex align={"center"} gap={"md"}>
 						<Title>Groups</Title>
 					</Flex>
-					<TextInput
-						name="query"
-						placeholder={"Search for groups"}
-						leftSection={<IconSearch />}
-						onChange={(e) => setQuery(e.currentTarget.value)}
-						value={query}
-						rightSection={<ClearButton />}
-						style={{ flexGrow: 1 }}
-						autoCapitalize="none"
-						autoComplete="off"
-					/>
+					<Group>
+						<TextInput
+							name="query"
+							placeholder={"Search for groups"}
+							leftSection={<IconSearch />}
+							onChange={(e) => setQuery(e.currentTarget.value)}
+							value={query}
+							rightSection={<ClearButton />}
+							style={{ flexGrow: 1 }}
+							autoCapitalize="none"
+							autoComplete="off"
+						/>
+						<ActionIcon
+							onClick={() => listMetadataGroups.refetch()}
+							loading={listMetadataGroups.isLoading}
+						>
+							<IconRefresh />
+						</ActionIcon>
+					</Group>
 					{listMetadataGroups.data &&
 					listMetadataGroups.data.details.total > 0 ? (
 						<>
