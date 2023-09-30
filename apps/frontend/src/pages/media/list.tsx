@@ -215,7 +215,11 @@ const Page: NextPageWithLayout = () => {
 
 	const ClearButton = () =>
 		query ? (
-			<ActionIcon onClick={() => setQuery("")}>
+			<ActionIcon
+				onClick={() => setQuery("")}
+				variant="transparent"
+				color="gray"
+			>
 				<IconX size="1rem" />
 			</ActionIcon>
 		) : undefined;
@@ -267,17 +271,17 @@ const Page: NextPageWithLayout = () => {
 							value="mine"
 							leftSection={<IconListCheck size="1.5rem" />}
 						>
-							<Text size={"lg"}>My {changeCase(lot.toLowerCase())}s</Text>
+							<Text>My {changeCase(lot.toLowerCase())}s</Text>
 						</Tabs.Tab>
 						<Tabs.Tab value="search" leftSection={<IconSearch size="1.5rem" />}>
-							<Text size={"lg"}>Search</Text>
+							<Text>Search</Text>
 						</Tabs.Tab>
 						<Flex style={{ flexGrow: 1 }} justify={"end"}>
 							<ActionIcon
 								size="lg"
 								color="gray"
-								variant="transparent"
-								mt="xs"
+								variant="subtle"
+								mt={4}
 								loading={searchQuery.isFetching || listMedia.isFetching}
 								onClick={() => {
 									searchQuery.refetch();
