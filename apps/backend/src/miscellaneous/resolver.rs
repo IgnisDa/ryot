@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
-    Context, Enum, Error, InputObject, Object, OneofObject, Result, SimpleObject, Union,
+    Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{
@@ -442,17 +442,17 @@ struct GraphqlMediaDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-enum MediaSortOrder {
+enum GraphqlSortOrder {
     Desc,
     #[default]
     Asc,
 }
 
-impl From<MediaSortOrder> for Order {
-    fn from(value: MediaSortOrder) -> Self {
+impl From<GraphqlSortOrder> for Order {
+    fn from(value: GraphqlSortOrder) -> Self {
         match value {
-            MediaSortOrder::Desc => Self::Desc,
-            MediaSortOrder::Asc => Self::Asc,
+            GraphqlSortOrder::Desc => Self::Desc,
+            GraphqlSortOrder::Asc => Self::Asc,
         }
     }
 }
@@ -467,12 +467,21 @@ enum MediaSortBy {
     Rating,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum CreatorSortBy {
+    #[default]
+    Name,
+    MediaItems,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct MediaSortInput {
+#[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
+#[graphql(concrete(name = "CreatorSortInput", params(CreatorSortBy)))]
+struct SortInput<T: InputType + Default> {
     #[graphql(default)]
-    order: MediaSortOrder,
+    order: GraphqlSortOrder,
     #[graphql(default)]
-    by: MediaSortBy,
+    by: T,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
@@ -496,11 +505,16 @@ struct MediaFilter {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaListInput {
-    page: i32,
+    search: SearchInput,
     lot: MetadataLot,
-    query: Option<String>,
     filter: Option<MediaFilter>,
-    sort: Option<MediaSortInput>,
+    sort: Option<SortInput<MediaSortBy>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreatorsListInput {
+    search: SearchInput,
+    sort: Option<SortInput<CreatorSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -890,7 +904,7 @@ impl MiscellaneousQuery {
     async fn creators_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: CreatorsListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.creators_list(input).await
@@ -1959,7 +1973,7 @@ impl MiscellaneousService {
             )
             .to_owned();
 
-        if let Some(v) = input.query {
+        if let Some(v) = input.search.query {
             let get_contains_expr = |col: metadata::Column| {
                 get_case_insensitive_like_query(
                     Func::cast_as(Expr::col((metadata_alias.clone(), col)), Alias::new("text")),
@@ -2190,7 +2204,7 @@ impl MiscellaneousService {
 
         let main_select = main_select
             .limit(self.config.frontend.page_size as u64)
-            .offset(((input.page - 1) * self.config.frontend.page_size) as u64)
+            .offset(((input.search.page.unwrap() - 1) * self.config.frontend.page_size) as u64)
             .to_owned();
         let stmt = self.get_db_stmt(main_select);
         let metadata_items = InnerMediaSearchItem::find_by_statement(stmt)
@@ -2244,11 +2258,12 @@ impl MiscellaneousService {
             };
             items.push(m_small);
         }
-        let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
-            Some(input.page + 1)
-        } else {
-            None
-        };
+        let next_page =
+            if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
+                Some(input.search.page.unwrap() + 1)
+            } else {
+                None
+            };
         Ok(SearchResults {
             details: SearchDetails { next_page, total },
             items,
@@ -5462,9 +5477,9 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn creators_list(
+    async fn creators_list(
         &self,
-        input: SearchInput,
+        input: CreatorsListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         #[derive(Debug, FromQueryResult)]
         struct PartialCreator {
@@ -5473,10 +5488,21 @@ impl MiscellaneousService {
             images: Option<MetadataImages>,
             media_count: i64,
         }
-        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
         let alias = "media_count";
+        let media_items_col = Expr::col(Alias::new(alias));
+        let (order_by, sort_order) = match input.sort {
+            None => (media_items_col, Order::Desc),
+            Some(ord) => (
+                match ord.by {
+                    CreatorSortBy::Name => Expr::col(person::Column::Name),
+                    CreatorSortBy::MediaItems => media_items_col,
+                },
+                ord.order.into(),
+            ),
+        };
         let query = Person::find()
-            .apply_if(input.query, |query, v| {
+            .apply_if(input.search.query, |query, v| {
                 query.filter(Condition::all().add(get_case_insensitive_like_query(
                     Expr::col(person::Column::Name),
                     &v,
@@ -5497,7 +5523,7 @@ impl MiscellaneousService {
             )
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
-            .order_by(Expr::col(Alias::new(alias)), Order::Desc);
+            .order_by(order_by, sort_order);
         let creators_paginator = query
             .clone()
             .into_model::<PartialCreator>()

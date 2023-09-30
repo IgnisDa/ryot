@@ -3,13 +3,13 @@ import "@mantine/notifications/styles.css";
 
 import { queryClient } from "@/lib/services/api";
 import {
+	ActionIcon,
 	Flex,
 	type MantineColorScheme,
 	type MantineColorSchemeManager,
 	MantineProvider,
-	isMantineColorScheme,
 	createTheme,
-	ActionIcon,
+	isMantineColorScheme,
 } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
