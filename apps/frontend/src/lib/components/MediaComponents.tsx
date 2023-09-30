@@ -23,7 +23,6 @@ import {
 	Stack,
 	Text,
 	Tooltip,
-	TypographyStylesProvider,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -106,21 +105,18 @@ export const ReviewItemDisplay = ({
 						</Text>
 					</Box>
 					{user && user.id === review.postedBy?.id ? (
-						<Link
+						<Anchor
+							component={Link}
 							href={withQuery(APP_ROUTES.media.postReview, {
 								metadataId,
 								creatorId,
 								reviewId: review.id,
 							})}
-							passHref
-							legacyBehavior
 						>
-							<Anchor>
-								<ActionIcon>
-									<IconEdit size="1rem" />
-								</ActionIcon>
-							</Anchor>
-						</Link>
+							<ActionIcon variant="subtle">
+								<IconEdit size="1rem" />
+							</ActionIcon>
+						</Anchor>
 					) : undefined}
 				</Flex>
 				<Box ml={"sm"} mt={"xs"}>
@@ -147,10 +143,10 @@ export const ReviewItemDisplay = ({
 					) : undefined}
 					{review.text ? (
 						!review.spoiler ? (
-							<TypographyStylesProvider>
+							<>
 								{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
 								<div dangerouslySetInnerHTML={{ __html: review.text }} />
-							</TypographyStylesProvider>
+							</>
 						) : (
 							<>
 								{!opened ? (
@@ -276,23 +272,22 @@ export const BaseDisplayItem = (props: {
 					<Image
 						src={props.imageLink}
 						radius={"md"}
-						height={250}
-						width={167}
 						style={{ cursor: "pointer" }}
 						alt={`Image for ${props.name}`}
+						className={classes.mediaImage}
 						styles={{
 							root: {
 								transitionProperty: "transform",
 								transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
 								transitionDuration: "150ms",
-								// "&:hover": { boxShadow: "0 0 15px black" },
 							},
 						}}
+						w={170}
 					/>
 					{props.topRight}
 				</Anchor>
 			</Link>
-			<Flex w={"100%"} direction={"column"}>
+			<Flex w={"100%"} direction={"column"} px={{ base: 10, md: 3 }}>
 				<Flex justify={"space-between"} direction={"row"} w="100%">
 					<Text c="dimmed" size="sm">
 						{props.bottomLeft}

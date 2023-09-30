@@ -18,3 +18,9 @@
     width: 35%;
   }
 }
+
+.mediaImage {
+  &:hover {
+    box-shadow: 0 0 10px black;
+  }
+}
