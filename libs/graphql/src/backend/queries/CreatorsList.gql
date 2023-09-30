@@ -1,4 +1,4 @@
-query CreatorsList($input: SearchInput!) {
+query CreatorsList($input: CreatorsListInput!) {
   creatorsList(input: $input) {
     details {
       total

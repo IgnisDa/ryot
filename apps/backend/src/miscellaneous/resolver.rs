@@ -467,8 +467,16 @@ enum MediaSortBy {
     Rating,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum CreatorSortBy {
+    #[default]
+    Name,
+    MediaItems,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
+#[graphql(concrete(name = "CreatorSortInput", params(CreatorSortBy)))]
 struct SortInput<T: InputType + Default> {
     #[graphql(default)]
     order: GraphqlSortOrder,
@@ -501,6 +509,12 @@ struct MediaListInput {
     lot: MetadataLot,
     filter: Option<MediaFilter>,
     sort: Option<SortInput<MediaSortBy>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreatorsListInput {
+    search: SearchInput,
+    sort: Option<SortInput<CreatorSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -890,7 +904,7 @@ impl MiscellaneousQuery {
     async fn creators_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: CreatorsListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.creators_list(input).await
@@ -5463,9 +5477,9 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn creators_list(
+    async fn creators_list(
         &self,
-        input: SearchInput,
+        input: CreatorsListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         #[derive(Debug, FromQueryResult)]
         struct PartialCreator {
@@ -5474,10 +5488,21 @@ impl MiscellaneousService {
             images: Option<MetadataImages>,
             media_count: i64,
         }
-        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
         let alias = "media_count";
+        let media_items_col = Expr::col(Alias::new(alias));
+        let (order_by, sort_order) = match input.sort {
+            None => (media_items_col, Order::Desc),
+            Some(ord) => (
+                match ord.by {
+                    CreatorSortBy::Name => Expr::col(person::Column::Name),
+                    CreatorSortBy::MediaItems => media_items_col,
+                },
+                ord.order.into(),
+            ),
+        };
         let query = Person::find()
-            .apply_if(input.query, |query, v| {
+            .apply_if(input.search.query, |query, v| {
                 query.filter(Condition::all().add(get_case_insensitive_like_query(
                     Expr::col(person::Column::Name),
                     &v,
@@ -5498,7 +5523,7 @@ impl MiscellaneousService {
             )
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
-            .order_by(Expr::col(Alias::new(alias)), Order::Desc);
+            .order_by(order_by, sort_order);
         let creators_paginator = query
             .clone()
             .into_model::<PartialCreator>()
