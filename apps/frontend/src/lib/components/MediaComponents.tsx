@@ -6,7 +6,7 @@ import {
 	useUserPreferences,
 } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getLot, getVerb } from "@/lib/utilities";
+import { Verb, getFallbackImageUrl, getLot, getVerb } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
@@ -23,6 +23,7 @@ import {
 	Stack,
 	Text,
 	Tooltip,
+	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -258,6 +259,8 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: JSX.Element;
 }) => {
+	const colorScheme = useComputedColorScheme("dark");
+
 	return (
 		<Flex
 			key={`${props.bottomLeft}-${props.bottomRight}-${props.name}`}
@@ -288,6 +291,10 @@ export const BaseDisplayItem = (props: {
 					}}
 					h={260}
 					w={170}
+					fallbackSrc={getFallbackImageUrl(
+						colorScheme,
+						getInitials(props.name),
+					)}
 				/>
 				{props.topRight}
 			</Anchor>
