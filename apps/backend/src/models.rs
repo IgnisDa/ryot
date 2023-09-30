@@ -50,7 +50,7 @@ pub struct NamedObject {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, InputObject)]
+#[derive(Serialize, Deserialize, Debug, InputObject, Clone)]
 pub struct SearchInput {
     pub query: Option<String>,
     pub page: Option<i32>,

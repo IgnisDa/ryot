@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
-    Context, Enum, Error, InputObject, Object, OneofObject, Result, SimpleObject, Union,
+    Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{
@@ -442,17 +442,17 @@ struct GraphqlMediaDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-enum MediaSortOrder {
+enum GraphqlSortOrder {
     Desc,
     #[default]
     Asc,
 }
 
-impl From<MediaSortOrder> for Order {
-    fn from(value: MediaSortOrder) -> Self {
+impl From<GraphqlSortOrder> for Order {
+    fn from(value: GraphqlSortOrder) -> Self {
         match value {
-            MediaSortOrder::Desc => Self::Desc,
-            MediaSortOrder::Asc => Self::Asc,
+            GraphqlSortOrder::Desc => Self::Desc,
+            GraphqlSortOrder::Asc => Self::Asc,
         }
     }
 }
@@ -468,11 +468,12 @@ enum MediaSortBy {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct MediaSortInput {
+#[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
+struct SortInput<T: InputType + Default> {
     #[graphql(default)]
-    order: MediaSortOrder,
+    order: GraphqlSortOrder,
     #[graphql(default)]
-    by: MediaSortBy,
+    by: T,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
@@ -496,11 +497,10 @@ struct MediaFilter {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaListInput {
-    page: i32,
+    search: SearchInput,
     lot: MetadataLot,
-    query: Option<String>,
     filter: Option<MediaFilter>,
-    sort: Option<MediaSortInput>,
+    sort: Option<SortInput<MediaSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1959,7 +1959,7 @@ impl MiscellaneousService {
             )
             .to_owned();
 
-        if let Some(v) = input.query {
+        if let Some(v) = input.search.query {
             let get_contains_expr = |col: metadata::Column| {
                 get_case_insensitive_like_query(
                     Func::cast_as(Expr::col((metadata_alias.clone(), col)), Alias::new("text")),
@@ -2190,7 +2190,7 @@ impl MiscellaneousService {
 
         let main_select = main_select
             .limit(self.config.frontend.page_size as u64)
-            .offset(((input.page - 1) * self.config.frontend.page_size) as u64)
+            .offset(((input.search.page.unwrap() - 1) * self.config.frontend.page_size) as u64)
             .to_owned();
         let stmt = self.get_db_stmt(main_select);
         let metadata_items = InnerMediaSearchItem::find_by_statement(stmt)
@@ -2244,11 +2244,12 @@ impl MiscellaneousService {
             };
             items.push(m_small);
         }
-        let next_page = if total - ((input.page) * self.config.frontend.page_size) > 0 {
-            Some(input.page + 1)
-        } else {
-            None
-        };
+        let next_page =
+            if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
+                Some(input.search.page.unwrap() + 1)
+            } else {
+                None
+            };
         Ok(SearchResults {
             details: SearchDetails { next_page, total },
             items,
