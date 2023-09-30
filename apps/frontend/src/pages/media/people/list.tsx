@@ -10,21 +10,46 @@ import {
 	Box,
 	Center,
 	Container,
+	Flex,
 	Group,
+	Modal,
 	Pagination,
+	Select,
 	Stack,
 	Text,
 	TextInput,
+	Title,
 } from "@mantine/core";
-import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
-import { CreatorsListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials } from "@ryot/ts-utils";
-import { IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
+import {
+	useDebouncedState,
+	useDisclosure,
+	useLocalStorage,
+} from "@mantine/hooks";
+import {
+	CreatorSortBy,
+	CreatorsListDocument,
+	GraphqlSortOrder,
+} from "@ryot/generated/graphql/backend/graphql";
+import { getInitials, startCase } from "@ryot/ts-utils";
+import {
+	IconFilter,
+	IconFilterOff,
+	IconRefresh,
+	IconSearch,
+	IconSortAscending,
+	IconSortDescending,
+	IconX,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
+
+const defaultFilters = {
+	sortBy: CreatorSortBy.MediaItems,
+	sortOrder: GraphqlSortOrder.Desc,
+};
 
 const Page: NextPageWithLayout = () => {
 	const [query, setQuery] = useLocalStorage({
@@ -37,26 +62,44 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
 	const coreDetails = useCoreDetails();
+	const [sortBy, setSortBy] = useLocalStorage({
+		key: "creatorSortBy",
+		defaultValue: defaultFilters.sortBy,
+		getInitialValueInEffect: false,
+	});
+	const [sortOrder, setSortOrder] = useLocalStorage({
+		key: "creatorSortOrder",
+		defaultValue: defaultFilters.sortOrder,
+		getInitialValueInEffect: false,
+	});
 
 	const listCreators = useQuery({
-		queryKey: ["creatorsList", activePage, debouncedQuery],
+		queryKey: ["creatorsList", activePage, debouncedQuery, sortBy, sortOrder],
 		queryFn: async () => {
 			if (typeof debouncedQuery === "undefined") return;
 			const { creatorsList } = await gqlClient.request(CreatorsListDocument, {
 				input: {
-					page: Number(activePage || 1),
-					query: debouncedQuery.length > 0 ? debouncedQuery : undefined,
+					search: {
+						page: parseInt(activePage || "1"),
+						query: debouncedQuery.length > 0 ? debouncedQuery : undefined,
+					},
+					sort: { by: sortBy, order: sortOrder },
 				},
 			});
 			return creatorsList;
 		},
-		staleTime: Infinity,
 	});
 
 	useEffect(() => {
 		setDebouncedQuery(query?.trim() || "");
 	}, [query]);
+
+	const isFilterChanged = sortBy !== defaultFilters.sortBy;
 
 	const ClearButton = () =>
 		query ? (
@@ -64,6 +107,11 @@ const Page: NextPageWithLayout = () => {
 				<IconX size="1rem" />
 			</ActionIcon>
 		) : undefined;
+
+	const resetFilters = () => {
+		setSortBy(defaultFilters.sortBy);
+		setSortOrder(defaultFilters.sortOrder);
+	};
 
 	return coreDetails.data ? (
 		<>
@@ -90,6 +138,53 @@ const Page: NextPageWithLayout = () => {
 						>
 							<IconRefresh />
 						</ActionIcon>
+						<ActionIcon
+							onClick={openFiltersModal}
+							color={isFilterChanged ? "blue" : "gray"}
+						>
+							<IconFilter size="1.5rem" />
+						</ActionIcon>
+						<Modal
+							opened={filtersModalOpened}
+							onClose={closeFiltersModal}
+							centered
+							withCloseButton={false}
+						>
+							<Stack>
+								<Group>
+									<Title order={3}>Sort by</Title>
+									<ActionIcon onClick={resetFilters}>
+										<IconFilterOff size="1.5rem" />
+									</ActionIcon>
+								</Group>
+								<Flex gap={"xs"} align={"center"}>
+									<Select
+										w="100%"
+										data={Object.values(CreatorSortBy).map((o) => ({
+											value: o.toString(),
+											label: startCase(o.toLowerCase()),
+										}))}
+										value={sortBy?.toString()}
+										onChange={(v) => {
+											if (v) setSortBy(v as CreatorSortBy);
+										}}
+									/>
+									<ActionIcon
+										onClick={() => {
+											if (sortOrder === GraphqlSortOrder.Asc)
+												setSortOrder(GraphqlSortOrder.Desc);
+											else setSortOrder(GraphqlSortOrder.Asc);
+										}}
+									>
+										{sortOrder === GraphqlSortOrder.Asc ? (
+											<IconSortAscending />
+										) : (
+											<IconSortDescending />
+										)}
+									</ActionIcon>
+								</Flex>
+							</Stack>
+						</Modal>
 					</Group>
 					{listCreators.data && listCreators.data.details.total > 0 ? (
 						<>
