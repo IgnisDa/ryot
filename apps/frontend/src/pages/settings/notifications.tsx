@@ -307,7 +307,7 @@ const Page: NextPageWithLayout = () => {
 															)}
 														/>
 														<TextInput
-															label="Auth header"
+															label="Access token"
 															description={
 																<>
 																	If you want to publish to a{" "}
