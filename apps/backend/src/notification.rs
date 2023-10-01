@@ -3,6 +3,7 @@ use std::env;
 use anyhow::{anyhow, Result};
 use convert_case::{Case, Casing};
 use http_types::mime;
+use surf::http::headers::AUTHORIZATION;
 
 use crate::{
     users::UserNotificationSetting,
@@ -64,8 +65,9 @@ impl UserNotificationSetting {
                 url,
                 priority,
                 topic,
+                auth_header,
             } => {
-                surf::post(format!(
+                let mut request = surf::post(format!(
                     "{}/{}",
                     url.clone().unwrap_or_else(|| "https://ntfy.sh".to_owned()),
                     topic
@@ -77,10 +79,14 @@ impl UserNotificationSetting {
                     priority
                         .map(|p| p.to_string())
                         .unwrap_or_else(|| "3".to_owned()),
-                )
-                .body_string(msg.to_owned())
-                .await
-                .map_err(|e| anyhow!(e))?;
+                );
+                if let Some(token) = auth_header {
+                    request = request.header(AUTHORIZATION, format!("Bearer {}", token));
+                }
+                request
+                    .body_string(msg.to_owned())
+                    .await
+                    .map_err(|e| anyhow!(e))?;
             }
             Self::PushBullet { api_token } => {
                 surf::post("https://api.pushbullet.com/v2/pushes")

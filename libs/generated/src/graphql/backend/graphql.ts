@@ -184,6 +184,7 @@ export type CreateReviewCommentInput = {
 
 export type CreateUserNotificationPlatformInput = {
   apiToken?: InputMaybe<Scalars['String']['input']>;
+  authHeader?: InputMaybe<Scalars['String']['input']>;
   baseUrl?: InputMaybe<Scalars['String']['input']>;
   lot: UserNotificationSettingKind;
   priority?: InputMaybe<Scalars['Int']['input']>;

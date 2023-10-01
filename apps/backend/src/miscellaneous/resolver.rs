@@ -191,6 +191,8 @@ struct CreateUserNotificationPlatformInput {
     base_url: Option<String>,
     #[graphql(secret)]
     api_token: Option<String>,
+    #[graphql(secret)]
+    auth_header: Option<String>,
     priority: Option<i32>,
 }
 
@@ -4855,6 +4857,7 @@ impl MiscellaneousService {
                     url: input.base_url,
                     topic: input.api_token.unwrap(),
                     priority: input.priority,
+                    auth_header: input.auth_header,
                 },
                 UserNotificationSettingKind::PushBullet => UserNotificationSetting::PushBullet {
                     api_token: input.api_token.unwrap(),
