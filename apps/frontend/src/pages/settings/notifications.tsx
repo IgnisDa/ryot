@@ -307,6 +307,12 @@ const Page: NextPageWithLayout = () => {
 															)}
 														/>
 														<TextInput
+															label="Server Url"
+															{...createUserNotificationPlatformForm.getInputProps(
+																"baseUrl",
+															)}
+														/>
+														<TextInput
 															label="Access token"
 															description={
 																<>
@@ -323,12 +329,6 @@ const Page: NextPageWithLayout = () => {
 															}
 															{...createUserNotificationPlatformForm.getInputProps(
 																"authHeader",
-															)}
-														/>
-														<TextInput
-															label="Server Url"
-															{...createUserNotificationPlatformForm.getInputProps(
-																"baseUrl",
 															)}
 														/>
 														<NumberInput
