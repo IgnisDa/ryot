@@ -3,6 +3,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
+	Anchor,
 	Box,
 	Button,
 	Container,
@@ -49,6 +50,7 @@ const createUserNotificationPlatformSchema = z.object({
 		})
 		.optional(),
 	apiToken: z.string().optional(),
+	authHeader: z.string().optional(),
 	priority: z.number().optional(),
 });
 type CreateUserNotificationPlatformSchema = z.infer<
@@ -302,6 +304,25 @@ const Page: NextPageWithLayout = () => {
 															required
 															{...createUserNotificationPlatformForm.getInputProps(
 																"apiToken",
+															)}
+														/>
+														<TextInput
+															label="Auth header"
+															description={
+																<>
+																	If you want to publish to a{" "}
+																	<Anchor
+																		size="xs"
+																		href="https://docs.ntfy.sh/publish/#access-tokens"
+																		target="_blank"
+																		rel="noopener noreferrer"
+																	>
+																		protected topic
+																	</Anchor>
+																</>
+															}
+															{...createUserNotificationPlatformForm.getInputProps(
+																"authHeader",
 															)}
 														/>
 														<TextInput
