@@ -277,7 +277,7 @@ const Page: NextPageWithLayout = () => {
 							<ActionIcon
 								size="lg"
 								mt={4}
-								loading={searchQuery.isFetching || listMedia.isFetching}
+								loading={searchQuery.isFetching}
 								onClick={() => {
 									searchQuery.refetch();
 									listMedia.refetch();
