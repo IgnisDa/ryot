@@ -64,6 +64,7 @@ impl UserNotificationSetting {
                 url,
                 priority,
                 topic,
+                auth_header,
             } => {
                 surf::post(format!(
                     "{}/{}",

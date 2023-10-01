@@ -341,6 +341,7 @@ pub enum UserNotificationSetting {
         url: Option<String>,
         topic: String,
         priority: Option<i32>,
+        auth_header: Option<String>,
     },
     PushBullet {
         api_token: String,
