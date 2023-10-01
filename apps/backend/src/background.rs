@@ -129,7 +129,7 @@ pub async fn perform_application_job(
                     let user_ids = misc_service
                         .users_to_be_notified_for_state_changes(metadata.id)
                         .await
-                        .ok();
+                        .unwrap();
                     for user_id in user_ids {
                         misc_service
                             .send_media_state_changed_notification_for_user(user_id, &notification)
