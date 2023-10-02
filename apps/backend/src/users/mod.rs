@@ -292,7 +292,7 @@ impl Default for UserGeneralPreferences {
     fn default() -> Self {
         Self {
             review_scale: UserReviewScale::default(),
-            display_nsfw: bool::default(),
+            display_nsfw: false,
             dashboard: vec![
                 UserGeneralDashboardElement {
                     element: DashboardElement::Upcoming,
