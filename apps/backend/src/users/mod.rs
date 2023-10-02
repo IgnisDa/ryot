@@ -261,13 +261,62 @@ pub enum UserReviewScale {
     OutOfHundred,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+pub enum DashboardElement {
+    Upcoming,
+    InProgress,
+    Summary,
+    Actions,
+}
+
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserGeneralDashboardElement {
+    pub element: DashboardElement,
+    pub hidden: bool,
+    pub num_elements: Option<i32>,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 #[serde(default)]
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
+    pub dashboard: Vec<UserGeneralDashboardElement>,
+}
+
+impl Default for UserGeneralPreferences {
+    fn default() -> Self {
+        Self {
+            review_scale: UserReviewScale::default(),
+            display_nsfw: bool::default(),
+            dashboard: vec![
+                UserGeneralDashboardElement {
+                    element: DashboardElement::Upcoming,
+                    hidden: false,
+                    num_elements: Some(8),
+                },
+                UserGeneralDashboardElement {
+                    element: DashboardElement::InProgress,
+                    hidden: false,
+                    num_elements: Some(8),
+                },
+                UserGeneralDashboardElement {
+                    element: DashboardElement::Summary,
+                    hidden: false,
+                    num_elements: None,
+                },
+                UserGeneralDashboardElement {
+                    element: DashboardElement::Actions,
+                    hidden: false,
+                    num_elements: None,
+                },
+            ],
+        }
+    }
 }
 
 #[derive(
