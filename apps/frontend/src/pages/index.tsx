@@ -28,10 +28,10 @@ import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	CollectionsDocument,
-	DashboardElement,
 	LatestUserSummaryDocument,
 	MetadataLot,
 	UserUpcomingCalendarEventsDocument,
+	DashboardElementLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
 import {
@@ -190,7 +190,7 @@ const Page: NextPageWithLayout = () => {
 	const userPreferences = useUserPreferences();
 	const inProgressCollection = useQuery(["collections"], async () => {
 		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.element === DashboardElement.InProgress,
+			(de) => de.element === DashboardElementLot.InProgress,
 		)?.numElements;
 		invariant(take, "Can not get the value of take");
 		const { collections } = await gqlClient.request(CollectionsDocument, {
@@ -205,7 +205,7 @@ const Page: NextPageWithLayout = () => {
 	});
 	const upcomingMedia = useQuery(["upcomingMedia"], async () => {
 		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.element === DashboardElement.Upcoming,
+			(de) => de.element === DashboardElementLot.Upcoming,
 		)?.numElements;
 		invariant(take, "Can not get the value of take");
 		const { userUpcomingCalendarEvents } = await gqlClient.request(
@@ -257,7 +257,7 @@ const Page: NextPageWithLayout = () => {
 					) : undefined}
 					{userPreferences.data.general.dashboard.map((de) =>
 						match([de.element, de.hidden])
-							.with([DashboardElement.Upcoming, false], () =>
+							.with([DashboardElementLot.Upcoming, false], () =>
 								upcomingMedia.data.length > 0 ? (
 									<>
 										<Title>Upcoming</Title>
@@ -270,7 +270,7 @@ const Page: NextPageWithLayout = () => {
 									</>
 								) : undefined,
 							)
-							.with([DashboardElement.InProgress, false], () =>
+							.with([DashboardElementLot.InProgress, false], () =>
 								inProgressCollection.data.results.items.length > 0 ? (
 									<>
 										<Title>{inProgressCollection.data.details.name}</Title>
@@ -295,7 +295,7 @@ const Page: NextPageWithLayout = () => {
 									</>
 								) : undefined,
 							)
-							.with([DashboardElement.Summary, false], () => (
+							.with([DashboardElementLot.Summary, false], () => (
 								<>
 									<Title>Summary</Title>
 									<Text size="xs" mt={-15}>
@@ -508,7 +508,7 @@ const Page: NextPageWithLayout = () => {
 									<Divider />
 								</>
 							))
-							.with([DashboardElement.Actions, false], () => (
+							.with([DashboardElementLot.Actions, false], () => (
 								<>
 									<Title>Actions</Title>
 									<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">

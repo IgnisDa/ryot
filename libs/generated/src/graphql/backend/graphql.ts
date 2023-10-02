@@ -228,7 +228,7 @@ export type CreatorsListInput = {
   sort?: InputMaybe<CreatorSortInput>;
 };
 
-export enum DashboardElement {
+export enum DashboardElementLot {
   Actions = 'ACTIONS',
   InProgress = 'IN_PROGRESS',
   Summary = 'SUMMARY',
@@ -1550,7 +1550,7 @@ export type UserFitnessSummary = {
 };
 
 export type UserGeneralDashboardElement = {
-  element: DashboardElement;
+  element: DashboardElementLot;
   hidden: Scalars['Boolean']['output'];
   numElements?: Maybe<Scalars['Int']['output']>;
 };
@@ -2346,7 +2346,7 @@ export type UserNotificationPlatformsQuery = { userNotificationPlatforms: Array<
 export type UserPreferencesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserPreferencesQuery = { userPreferences: { general: { reviewScale: UserReviewScale, displayNsfw: boolean, dashboard: Array<{ element: DashboardElement, hidden: boolean, numElements?: number | null }> }, fitness: { measurements: { custom: Array<{ name: string, dataType: UserCustomMeasurementDataType }>, inbuilt: { weight: boolean, bodyMassIndex: boolean, totalBodyWater: boolean, muscle: boolean, leanBodyMass: boolean, bodyFat: boolean, boneMass: boolean, visceralFat: boolean, waistCircumference: boolean, waistToHeightRatio: boolean, hipCircumference: boolean, waistToHipRatio: boolean, chestCircumference: boolean, thighCircumference: boolean, bicepsCircumference: boolean, neckCircumference: boolean, bodyFatCaliper: boolean, chestSkinfold: boolean, abdominalSkinfold: boolean, thighSkinfold: boolean, basalMetabolicRate: boolean, totalDailyEnergyExpenditure: boolean, calories: boolean } }, exercises: { saveHistory: number, unitSystem: UserUnitSystem } }, notifications: { episodeReleased: boolean, episodeNameChanged: boolean, statusChanged: boolean, releaseDateChanged: boolean, numberOfSeasonsChanged: boolean, numberOfChaptersOrEpisodesChanged: boolean }, featuresEnabled: { fitness: { enabled: boolean, measurements: boolean }, media: { enabled: boolean, anime: boolean, audioBook: boolean, book: boolean, manga: boolean, movie: boolean, podcast: boolean, show: boolean, videoGame: boolean, visualNovel: boolean } } } };
+export type UserPreferencesQuery = { userPreferences: { general: { reviewScale: UserReviewScale, displayNsfw: boolean, dashboard: Array<{ element: DashboardElementLot, hidden: boolean, numElements?: number | null }> }, fitness: { measurements: { custom: Array<{ name: string, dataType: UserCustomMeasurementDataType }>, inbuilt: { weight: boolean, bodyMassIndex: boolean, totalBodyWater: boolean, muscle: boolean, leanBodyMass: boolean, bodyFat: boolean, boneMass: boolean, visceralFat: boolean, waistCircumference: boolean, waistToHeightRatio: boolean, hipCircumference: boolean, waistToHipRatio: boolean, chestCircumference: boolean, thighCircumference: boolean, bicepsCircumference: boolean, neckCircumference: boolean, bodyFatCaliper: boolean, chestSkinfold: boolean, abdominalSkinfold: boolean, thighSkinfold: boolean, basalMetabolicRate: boolean, totalDailyEnergyExpenditure: boolean, calories: boolean } }, exercises: { saveHistory: number, unitSystem: UserUnitSystem } }, notifications: { episodeReleased: boolean, episodeNameChanged: boolean, statusChanged: boolean, releaseDateChanged: boolean, numberOfSeasonsChanged: boolean, numberOfChaptersOrEpisodesChanged: boolean }, featuresEnabled: { fitness: { enabled: boolean, measurements: boolean }, media: { enabled: boolean, anime: boolean, audioBook: boolean, book: boolean, manga: boolean, movie: boolean, podcast: boolean, show: boolean, videoGame: boolean, visualNovel: boolean } } } };
 
 export type UserUpcomingCalendarEventsQueryVariables = Exact<{
   input: UserUpcomingCalendarEventInput;

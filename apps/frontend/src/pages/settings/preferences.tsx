@@ -6,8 +6,10 @@ import {
 	Alert,
 	Container,
 	Divider,
+	Group,
 	JsonInput,
 	NumberInput,
+	Paper,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -21,6 +23,7 @@ import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 	UserReviewScale,
+	DashboardElementLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
@@ -81,7 +84,21 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="dashboard" mt="md">
-							Hello world!
+							<Paper withBorder p="xs">
+								<Group justify="space-between">
+									<Title order={6}>Upcoming</Title>
+									<Switch
+										label="Hidden"
+										labelPosition="left"
+										defaultChecked={
+											userPreferences.data.general.dashboard.find(
+												(de) => de.element === DashboardElementLot.Upcoming,
+											)?.hidden
+										}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+									/>
+								</Group>
+							</Paper>
 						</Tabs.Panel>
 						<Tabs.Panel value="general" mt="md">
 							<Stack>

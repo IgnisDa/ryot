@@ -262,7 +262,7 @@ pub enum UserReviewScale {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
-pub enum DashboardElement {
+pub enum DashboardElementLot {
     Upcoming,
     InProgress,
     Summary,
@@ -273,7 +273,7 @@ pub enum DashboardElement {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserGeneralDashboardElement {
-    pub element: DashboardElement,
+    pub element: DashboardElementLot,
     pub hidden: bool,
     pub num_elements: Option<i32>,
 }
@@ -295,22 +295,22 @@ impl Default for UserGeneralPreferences {
             display_nsfw: false,
             dashboard: vec![
                 UserGeneralDashboardElement {
-                    element: DashboardElement::Upcoming,
+                    element: DashboardElementLot::Upcoming,
                     hidden: false,
                     num_elements: Some(8),
                 },
                 UserGeneralDashboardElement {
-                    element: DashboardElement::InProgress,
+                    element: DashboardElementLot::InProgress,
                     hidden: false,
                     num_elements: Some(8),
                 },
                 UserGeneralDashboardElement {
-                    element: DashboardElement::Summary,
+                    element: DashboardElementLot::Summary,
                     hidden: false,
                     num_elements: None,
                 },
                 UserGeneralDashboardElement {
-                    element: DashboardElement::Actions,
+                    element: DashboardElementLot::Actions,
                     hidden: false,
                     num_elements: None,
                 },

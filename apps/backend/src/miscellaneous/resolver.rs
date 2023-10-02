@@ -4641,6 +4641,9 @@ impl MiscellaneousService {
                 "display_nsfw" => {
                     preferences.general.display_nsfw = value_bool.unwrap();
                 }
+                "dashboard" => {
+                    preferences.general.dashboard = serde_json::from_str(&input.value).unwrap();
+                }
                 _ => return Err(err()),
             },
             _ => return Err(err()),
