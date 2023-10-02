@@ -20,10 +20,10 @@ import {
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import {
+	DashboardElementLot,
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 	UserReviewScale,
-	DashboardElementLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
@@ -32,6 +32,59 @@ import Head from "next/head";
 import { Fragment, type ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
+
+const EditDashboardElement = (props: {
+	lot: DashboardElementLot;
+}) => {
+	const userPreferences = useUserPreferences();
+	const coreDetails = useCoreDetails();
+	const updateUserEnabledFeatures = useMutation({
+		mutationFn: async (variables: UpdateUserPreferenceMutationVariables) => {
+			const { updateUserPreference } = await gqlClient.request(
+				UpdateUserPreferenceDocument,
+				variables,
+			);
+			return updateUserPreference;
+		},
+		onSuccess: () => {
+			userPreferences.refetch();
+		},
+	});
+
+	return userPreferences.data && coreDetails.data ? (
+		<Paper withBorder p="xs">
+			<Group justify="space-between">
+				<Title order={6}>{changeCase(props.lot)}</Title>
+				<Switch
+					label="Hidden"
+					labelPosition="left"
+					defaultChecked={
+						userPreferences.data.general.dashboard.find(
+							(de) => de.element === props.lot,
+						)?.hidden
+					}
+					disabled={!coreDetails.data.preferencesChangeAllowed}
+					onChange={(ev) => {
+						const newValue = ev.currentTarget.checked;
+						const index = userPreferences.data.general.dashboard.findIndex(
+							(de) => de.element === props.lot,
+						);
+						const newDashboardData = [
+							...userPreferences.data.general.dashboard,
+						];
+						newDashboardData[index].hidden = newValue;
+						updateUserEnabledFeatures.mutate({
+							input: {
+								property: "general.dashboard",
+								value: JSON.stringify(newDashboardData),
+							},
+						});
+					}}
+				/>
+			</Group>
+		</Paper>
+	) : undefined;
+};
 
 const Page: NextPageWithLayout = () => {
 	const userPreferences = useUserPreferences();
@@ -84,38 +137,12 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="dashboard" mt="md">
-							<Paper withBorder p="xs">
-								<Group justify="space-between">
-									<Title order={6}>Upcoming</Title>
-									<Switch
-										label="Hidden"
-										labelPosition="left"
-										defaultChecked={
-											userPreferences.data.general.dashboard.find(
-												(de) => de.element === DashboardElementLot.Upcoming,
-											)?.hidden
-										}
-										disabled={!coreDetails.data.preferencesChangeAllowed}
-										onChange={(ev) => {
-											const newValue = ev.currentTarget.checked;
-											const index =
-												userPreferences.data.general.dashboard.findIndex(
-													(de) => de.element === DashboardElementLot.Upcoming,
-												);
-											const newDashboardData = [
-												...userPreferences.data.general.dashboard,
-											];
-											newDashboardData[index].hidden = newValue;
-											updateUserEnabledFeatures.mutate({
-												input: {
-													property: "general.dashboard",
-													value: JSON.stringify(newDashboardData),
-												},
-											});
-										}}
-									/>
-								</Group>
-							</Paper>
+							<Stack>
+								<EditDashboardElement lot={DashboardElementLot.Upcoming} />
+								<EditDashboardElement lot={DashboardElementLot.InProgress} />
+								<EditDashboardElement lot={DashboardElementLot.Summary} />
+								<EditDashboardElement lot={DashboardElementLot.Actions} />
+							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="general" mt="md">
 							<Stack>
