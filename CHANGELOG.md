@@ -1,5 +1,17 @@
 
 
+# Version 2.19.12 (2023-10-02)
+
+## Bug Fixes
+
+- **backend:** calculate unique media items correctly
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.19.11 (2023-10-02)
 
 ## Bug Fixes
