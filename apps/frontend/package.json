@@ -2,6 +2,7 @@
 	"name": "@ryot/frontend",
 	"private": true,
 	"dependencies": {
+		"@hello-pangea/dnd": "16.3.0",
 		"@mantine/carousel": "7.1.0",
 		"@mantine/core": "7.1.0",
 		"@mantine/dates": "7.1.0",
@@ -41,9 +42,9 @@
 		"@types/node": "20.7.0",
 		"@types/react": "18.2.23",
 		"@types/react-dom": "18.2.8",
-		"postcss": "^8.4.31",
-		"postcss-preset-mantine": "^1.7.0",
-		"postcss-simple-vars": "^7.0.1",
-		"typescript-plugin-css-modules": "^5.0.1"
+		"postcss": "8.4.31",
+		"postcss-preset-mantine": "1.7.0",
+		"postcss-simple-vars": "7.0.1",
+		"typescript-plugin-css-modules": "5.0.1"
 	}
 }
