@@ -4,6 +4,7 @@ import "@mantine/notifications/styles.css";
 import { queryClient } from "@/lib/services/api";
 import {
 	ActionIcon,
+	Alert,
 	Flex,
 	type MantineColorScheme,
 	type MantineColorSchemeManager,
@@ -91,6 +92,11 @@ const theme = createTheme({
 			defaultProps: {
 				variant: "subtle",
 				color: "gray",
+			},
+		}),
+		Alert: Alert.extend({
+			defaultProps: {
+				p: "xs",
 			},
 		}),
 	},
