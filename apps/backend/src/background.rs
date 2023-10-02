@@ -112,18 +112,21 @@ pub async fn perform_application_job(
     let start = Instant::now();
     match information {
         ApplicationJob::ImportMedia(user_id, input) => {
-            importer_service
-                .import_from_lot(user_id, input)
-                .await
-                .unwrap();
+            importer_service.import_from_lot(user_id, input).await.ok();
         }
         ApplicationJob::UserCreated(user_id) => {
-            misc_service.user_created_job(user_id).await.unwrap();
-            misc_service.user_created_job(user_id).await.unwrap();
-            misc_service.calculate_user_summary(user_id).await.unwrap();
+            misc_service.user_created_job(user_id).await.ok();
+            misc_service.user_created_job(user_id).await.ok();
+            misc_service
+                .calculate_user_summary(user_id, true)
+                .await
+                .ok();
         }
         ApplicationJob::RecalculateUserSummary(user_id) => {
-            misc_service.calculate_user_summary(user_id).await.unwrap();
+            misc_service
+                .calculate_user_summary(user_id, true)
+                .await
+                .ok();
         }
         ApplicationJob::UpdateMetadata(metadata) => {
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
@@ -137,31 +140,31 @@ pub async fn perform_application_job(
                         misc_service
                             .send_media_state_changed_notification_for_user(user_id, &notification)
                             .await
-                            .unwrap();
+                            .ok();
                     }
                 }
             }
         }
         ApplicationJob::UpdateExerciseJob(exercise) => {
-            exercise_service.update_exercise(exercise).await.unwrap();
+            exercise_service.update_exercise(exercise).await.ok();
         }
         ApplicationJob::AfterMediaSeen(seen) => {
-            misc_service.after_media_seen_tasks(seen).await.unwrap();
+            misc_service.after_media_seen_tasks(seen).await.ok();
         }
         ApplicationJob::RecalculateCalendarEvents => {
-            misc_service.recalculate_calendar_events().await.unwrap();
+            misc_service.recalculate_calendar_events().await.ok();
         }
         ApplicationJob::AssociatePersonWithMetadata(metadata_id, person, index) => {
             misc_service
                 .associate_person_with_metadata(metadata_id, person, index)
                 .await
-                .unwrap();
+                .ok();
         }
         ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => {
             misc_service
                 .associate_group_with_metadata(lot, source, group_identifier)
                 .await
-                .unwrap();
+                .ok();
         }
     };
     let end = Instant::now();

@@ -80,7 +80,7 @@ const Page: NextPageWithLayout = () => {
 					<Flex align={"center"} gap={"md"}>
 						<Title>Groups</Title>
 					</Flex>
-					<Group>
+					<Group wrap="nowrap">
 						<TextInput
 							name="query"
 							placeholder={"Search for groups"}

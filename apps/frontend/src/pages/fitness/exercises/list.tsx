@@ -181,7 +181,7 @@ const Page: NextPageWithLayout = () => {
 						</Alert>
 					) : (
 						<>
-							<Flex align="center" gap="md">
+							<Group wrap="nowrap">
 								<TextInput
 									name="query"
 									placeholder="Search for exercises by name or instructions"
@@ -247,7 +247,7 @@ const Page: NextPageWithLayout = () => {
 										))}
 									</Stack>
 								</Modal>
-							</Flex>
+							</Group>
 							{exercisesList.data && exercisesList.data.details.total > 0 ? (
 								<>
 									<Box>

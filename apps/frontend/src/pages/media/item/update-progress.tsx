@@ -21,7 +21,6 @@ import { notifications } from "@mantine/notifications";
 import {
 	BulkProgressUpdateDocument,
 	MediaAdditionalDetailsDocument,
-	MediaMainDetailsDocument,
 	MetadataLot,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
@@ -56,26 +55,12 @@ const Page: NextPageWithLayout = () => {
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 	const [allSeasonsBefore, setAllSeasonsBefore] = useState(false);
 
-	const mediaDetails = useQuery({
-		queryKey: ["details", metadataId],
-		queryFn: async () => {
-			const { mediaDetails } = await gqlClient.request(
-				MediaMainDetailsDocument,
-				{
-					metadataId: metadataId,
-				},
-			);
-			return mediaDetails;
-		},
-	});
 	const mediaSpecifics = useQuery({
 		queryKey: ["details", metadataId],
 		queryFn: async () => {
 			const { mediaDetails } = await gqlClient.request(
 				MediaAdditionalDetailsDocument,
-				{
-					metadataId: metadataId,
-				},
+				{ metadataId: metadataId },
 			);
 			return mediaDetails;
 		},
@@ -135,9 +120,9 @@ const Page: NextPageWithLayout = () => {
 				return true;
 			}
 			if (
-				(mediaDetails.data?.lot === MetadataLot.Show &&
+				(mediaSpecifics.data?.lot === MetadataLot.Show &&
 					(!selectedShowEpisodeNumber || !selectedShowSeasonNumber)) ||
-				(mediaDetails.data?.lot === MetadataLot.Podcast &&
+				(mediaSpecifics.data?.lot === MetadataLot.Podcast &&
 					!selectedPodcastEpisodeNumber)
 			) {
 				notifications.show({ message: "Please select a season and episode" });
@@ -162,7 +147,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const title = mediaDetails.data?.title;
+	const title = mediaSpecifics.data?.title;
 
 	const mutationInput = {
 		metadataId: metadataId || 0,
@@ -172,7 +157,7 @@ const Page: NextPageWithLayout = () => {
 		podcastEpisodeNumber: Number(selectedPodcastEpisodeNumber),
 	};
 
-	return mediaDetails.data && mediaSpecifics.data && title ? (
+	return mediaSpecifics.data && title ? (
 		<>
 			<Head>
 				<title>Update Progress | Ryot</title>
@@ -262,7 +247,7 @@ const Page: NextPageWithLayout = () => {
 						)
 					) : undefined}
 					<Title order={6}>
-						When did you {getVerb(Verb.Read, mediaDetails.data.lot)} it?
+						When did you {getVerb(Verb.Read, mediaSpecifics.data.lot)} it?
 					</Title>
 					<Button
 						variant="outline"

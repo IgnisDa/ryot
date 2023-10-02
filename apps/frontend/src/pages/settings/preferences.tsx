@@ -60,6 +60,8 @@ const Page: NextPageWithLayout = () => {
 				<Title>Preferences</Title>
 				{!coreDetails.data.preferencesChangeAllowed ? (
 					<Alert
+						mt="md"
+						p="xs"
 						icon={<IconAlertCircle size="1rem" />}
 						variant="outline"
 						color="violet"

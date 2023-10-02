@@ -451,7 +451,7 @@ pub mod media {
     )]
     pub struct AudioBooksSummary {
         pub runtime: i32,
-        pub played: i32,
+        pub played: usize,
     }
 
     #[derive(
@@ -466,7 +466,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct VideoGamesSummary {
-        pub played: i32,
+        pub played: usize,
     }
 
     #[derive(
@@ -481,7 +481,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct VisualNovelsSummary {
-        pub played: i32,
+        pub played: usize,
         pub runtime: i32,
     }
 
@@ -530,8 +530,8 @@ pub mod media {
     )]
     pub struct PodcastsSummary {
         pub runtime: i32,
-        pub played: i32,
-        pub played_episodes: i32,
+        pub played: usize,
+        pub played_episodes: usize,
     }
 
     #[derive(
@@ -547,9 +547,9 @@ pub mod media {
     )]
     pub struct ShowsSummary {
         pub runtime: i32,
-        pub watched: i32,
-        pub watched_episodes: i32,
-        pub watched_seasons: i32,
+        pub watched: usize,
+        pub watched_episodes: usize,
+        pub watched_seasons: usize,
     }
 
     #[derive(
@@ -627,6 +627,17 @@ pub mod media {
         pub workouts_recorded: u64,
     }
 
+    #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
+    pub struct UserSummaryUniqueItems {
+        pub visual_novels: HashSet<i32>,
+        pub video_games: HashSet<i32>,
+        pub shows: HashSet<i32>,
+        pub show_seasons: HashSet<(i32, i32)>,
+        pub podcasts: HashSet<i32>,
+        pub podcast_episodes: HashSet<(i32, String)>,
+        pub creators: HashSet<i32>,
+    }
+
     #[derive(
         SimpleObject,
         Debug,
@@ -644,6 +655,8 @@ pub mod media {
         pub fitness: UserFitnessSummary,
         pub media: UserMediaSummary,
         pub calculated_on: DateTimeUtc,
+        #[graphql(skip)]
+        pub unique_items: UserSummaryUniqueItems,
     }
 
     #[derive(Debug, InputObject)]

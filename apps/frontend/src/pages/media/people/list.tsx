@@ -123,7 +123,7 @@ const Page: NextPageWithLayout = () => {
 					<Flex align={"center"} gap={"md"}>
 						<Title>People</Title>
 					</Flex>
-					<Group>
+					<Group wrap="nowrap">
 						<TextInput
 							name="query"
 							placeholder={"Search for people"}
