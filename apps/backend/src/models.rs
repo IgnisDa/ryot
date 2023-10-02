@@ -627,6 +627,17 @@ pub mod media {
         pub workouts_recorded: u64,
     }
 
+    #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
+    pub struct UserSummaryUniqueItems {
+        pub visual_novels: HashSet<i32>,
+        pub video_games: HashSet<i32>,
+        pub shows: HashSet<i32>,
+        pub show_seasons: HashSet<(i32, i32)>,
+        pub podcasts: HashSet<i32>,
+        pub podcast_episodes: HashSet<(i32, String)>,
+        pub creators: HashSet<i32>,
+    }
+
     #[derive(
         SimpleObject,
         Debug,
@@ -644,6 +655,8 @@ pub mod media {
         pub fitness: UserFitnessSummary,
         pub media: UserMediaSummary,
         pub calculated_on: DateTimeUtc,
+        #[graphql(skip)]
+        pub unique_items: UserSummaryUniqueItems,
     }
 
     #[derive(Debug, InputObject)]

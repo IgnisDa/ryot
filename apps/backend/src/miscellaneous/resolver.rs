@@ -3985,9 +3985,20 @@ impl MiscellaneousService {
         user_id: i32,
         calculate_from_beginning: bool,
     ) -> Result<IdObject> {
-        let mut ls = UserSummary {
-            calculated_on: Utc::now(),
-            ..Default::default()
+        let (mut ls, start_from) = match calculate_from_beginning {
+            true => (
+                UserSummary {
+                    calculated_on: Utc::now(),
+                    ..Default::default()
+                },
+                None,
+            ),
+            false => {
+                let mut here = self.latest_user_summary(user_id).await?;
+                let time = here.calculated_on.clone();
+                here.calculated_on = Utc::now();
+                (here, Some(time))
+            }
         };
 
         let num_reviews = Review::find()
@@ -4013,17 +4024,13 @@ impl MiscellaneousService {
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::Progress.eq(100))
+            .apply_if(start_from, |query, v| {
+                query.filter(seen::Column::LastUpdatedOn.gt(v))
+            })
             .find_also_related(Metadata)
             .stream(&self.db)
             .await?;
 
-        let mut unique_visual_novels = HashSet::new();
-        let mut unique_video_games = HashSet::new();
-        let mut unique_shows = HashSet::new();
-        let mut unique_show_seasons = HashSet::new();
-        let mut unique_podcasts = HashSet::new();
-        let mut unique_podcast_episodes = HashSet::new();
-        let mut unique_creators = HashSet::new();
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
             meta.find_related(MetadataToPerson)
@@ -4031,7 +4038,7 @@ impl MiscellaneousService {
                 .await?
                 .into_iter()
                 .for_each(|c| {
-                    unique_creators.insert(c.person_id);
+                    ls.unique_items.creators.insert(c.person_id);
                 });
             match meta.specifics {
                 MediaSpecifics::AudioBook(item) => {
@@ -4066,7 +4073,7 @@ impl MiscellaneousService {
                     }
                 }
                 MediaSpecifics::Show(item) => {
-                    unique_shows.insert(seen.metadata_id);
+                    ls.unique_items.shows.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
                             unreachable!()
@@ -4077,13 +4084,13 @@ impl MiscellaneousService {
                                     ls.media.shows.runtime += r;
                                 }
                                 ls.media.shows.watched_episodes += 1;
-                                unique_show_seasons.insert((s.season, season.id));
+                                ls.unique_items.show_seasons.insert((s.season, season.id));
                             }
                         }
                     };
                 }
                 MediaSpecifics::Podcast(item) => {
-                    unique_podcasts.insert(seen.metadata_id);
+                    ls.unique_items.podcasts.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
                         SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
                             unreachable!()
@@ -4093,16 +4100,18 @@ impl MiscellaneousService {
                                 if let Some(r) = episode.runtime {
                                     ls.media.podcasts.runtime += r;
                                 }
-                                unique_podcast_episodes.insert((s.episode, episode.id.clone()));
+                                ls.unique_items
+                                    .podcast_episodes
+                                    .insert((s.episode, episode.id.clone()));
                             }
                         }
                     }
                 }
                 MediaSpecifics::VideoGame(_item) => {
-                    unique_video_games.insert(seen.metadata_id);
+                    ls.unique_items.video_games.insert(seen.metadata_id);
                 }
                 MediaSpecifics::VisualNovel(item) => {
-                    unique_visual_novels.insert(seen.metadata_id);
+                    ls.unique_items.visual_novels.insert(seen.metadata_id);
                     if let Some(r) = item.length {
                         ls.media.visual_novels.runtime += r;
                     }
@@ -4111,16 +4120,18 @@ impl MiscellaneousService {
             }
         }
 
-        ls.media.podcasts.played += i32::try_from(unique_podcasts.len()).unwrap();
-        ls.media.podcasts.played_episodes += i32::try_from(unique_podcast_episodes.len()).unwrap();
+        ls.media.podcasts.played += i32::try_from(ls.unique_items.podcasts.len()).unwrap();
+        ls.media.podcasts.played_episodes +=
+            i32::try_from(ls.unique_items.podcast_episodes.len()).unwrap();
 
-        ls.media.shows.watched = i32::try_from(unique_shows.len()).unwrap();
-        ls.media.shows.watched_seasons += i32::try_from(unique_show_seasons.len()).unwrap();
-        ls.media.creators_interacted_with += unique_creators.len();
+        ls.media.shows.watched = i32::try_from(ls.unique_items.shows.len()).unwrap();
+        ls.media.shows.watched_seasons +=
+            i32::try_from(ls.unique_items.show_seasons.len()).unwrap();
+        ls.media.creators_interacted_with += ls.unique_items.creators.len();
 
-        ls.media.video_games.played = i32::try_from(unique_video_games.len()).unwrap();
+        ls.media.video_games.played = i32::try_from(ls.unique_items.video_games.len()).unwrap();
 
-        ls.media.visual_novels.played = i32::try_from(unique_visual_novels.len()).unwrap();
+        ls.media.visual_novels.played = i32::try_from(ls.unique_items.visual_novels.len()).unwrap();
 
         let user_model = user::ActiveModel {
             id: ActiveValue::Unchanged(user_id),
