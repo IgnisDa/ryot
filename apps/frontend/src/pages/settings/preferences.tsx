@@ -2,7 +2,6 @@ import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	Alert,
 	Container,
@@ -16,31 +15,20 @@ import {
 	Tabs,
 	Text,
 	Title,
-	rem,
 } from "@mantine/core";
-import { useListState, useLocalStorage } from "@mantine/hooks";
+import { useLocalStorage } from "@mantine/hooks";
 import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconAlertCircle, IconGripVertical } from "@tabler/icons-react";
+import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import clsx from "clsx";
 import Head from "next/head";
 import { Fragment, type ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
-import classes from "./styles.module.css";
-
-const data = [
-	{ position: 6, mass: 12.011, symbol: "C", name: "Carbon" },
-	{ position: 7, mass: 14.007, symbol: "N", name: "Nitrogen" },
-	{ position: 39, mass: 88.906, symbol: "Y", name: "Yttrium" },
-	{ position: 56, mass: 137.33, symbol: "Ba", name: "Barium" },
-	{ position: 58, mass: 140.12, symbol: "Ce", name: "Cerium" },
-];
 
 const Page: NextPageWithLayout = () => {
 	const userPreferences = useUserPreferences();
@@ -49,7 +37,6 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: "dashboard",
 		key: "savedPreferencesTab",
 	});
-	const [state, handlers] = useListState(data);
 
 	const updateUserEnabledFeatures = useMutation({
 		mutationFn: async (variables: UpdateUserPreferenceMutationVariables) => {
@@ -63,34 +50,6 @@ const Page: NextPageWithLayout = () => {
 			userPreferences.refetch();
 		},
 	});
-
-	const items = state.map((item, index) => (
-		<Draggable key={item.symbol} index={index} draggableId={item.symbol}>
-			{(provided, snapshot) => (
-				<div
-					className={clsx(classes.item, {
-						[classes.itemDragging]: snapshot.isDragging,
-					})}
-					ref={provided.innerRef}
-					{...provided.draggableProps}
-				>
-					<div {...provided.dragHandleProps} className={classes.dragHandle}>
-						<IconGripVertical
-							style={{ width: rem(18), height: rem(18) }}
-							stroke={1.5}
-						/>
-					</div>
-					<Text className={classes.symbol}>{item.symbol}</Text>
-					<div>
-						<Text>{item.name}</Text>
-						<Text c="dimmed" size="sm">
-							Position: {item.position} • Mass: {item.mass}
-						</Text>
-					</div>
-				</div>
-			)}
-		</Draggable>
-	));
 
 	return userPreferences.data && coreDetails.data ? (
 		<>
@@ -124,23 +83,7 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="dashboard" mt="md">
-						<DragDropContext
-							onDragEnd={({ destination, source }) =>
-								handlers.reorder({
-									from: source.index,
-									to: destination?.index || 0,
-								})
-							}
-						>
-							<Droppable droppableId="dnd-list" direction="vertical">
-								{(provided) => (
-									<div {...provided.droppableProps} ref={provided.innerRef}>
-										{items}
-										{provided.placeholder}
-									</div>
-								)}
-							</Droppable>
-						</DragDropContext>
+						Hello world!
 					</Tabs.Panel>
 					<Tabs.Panel value="general" mt="md">
 						<Stack>
