@@ -262,6 +262,7 @@ pub enum UserReviewScale {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DashboardElementLot {
     Upcoming,
     InProgress,
@@ -272,6 +273,7 @@ pub enum DashboardElementLot {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct UserGeneralDashboardElement {
     pub element: DashboardElementLot,
     pub hidden: bool,
