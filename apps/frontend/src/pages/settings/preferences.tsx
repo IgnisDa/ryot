@@ -33,9 +33,7 @@ import { Fragment, type ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
 
-const EditDashboardElement = (props: {
-	lot: DashboardElementLot;
-}) => {
+function usePageHooks() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const updateUserEnabledFeatures = useMutation({
@@ -50,6 +48,14 @@ const EditDashboardElement = (props: {
 			userPreferences.refetch();
 		},
 	});
+	return { userPreferences, coreDetails, updateUserEnabledFeatures };
+}
+
+const EditDashboardElement = (props: {
+	lot: DashboardElementLot;
+}) => {
+	const { userPreferences, coreDetails, updateUserEnabledFeatures } =
+		usePageHooks();
 
 	return userPreferences.data && coreDetails.data ? (
 		<Paper withBorder p="xs">
@@ -87,24 +93,11 @@ const EditDashboardElement = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
-	const userPreferences = useUserPreferences();
-	const coreDetails = useCoreDetails();
+	const { userPreferences, coreDetails, updateUserEnabledFeatures } =
+		usePageHooks();
 	const [activeTab, setActiveTab] = useLocalStorage({
 		defaultValue: "dashboard",
 		key: "savedPreferencesTab",
-	});
-
-	const updateUserEnabledFeatures = useMutation({
-		mutationFn: async (variables: UpdateUserPreferenceMutationVariables) => {
-			const { updateUserPreference } = await gqlClient.request(
-				UpdateUserPreferenceDocument,
-				variables,
-			);
-			return updateUserPreference;
-		},
-		onSuccess: () => {
-			userPreferences.refetch();
-		},
 	});
 
 	return userPreferences.data && coreDetails.data ? (
@@ -138,6 +131,7 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.List>
 						<Tabs.Panel value="dashboard" mt="md">
 							<Stack>
+								<Text size="lg">The different sections on the dashboard.</Text>
 								<EditDashboardElement lot={DashboardElementLot.Upcoming} />
 								<EditDashboardElement lot={DashboardElementLot.InProgress} />
 								<EditDashboardElement lot={DashboardElementLot.Summary} />
