@@ -79,9 +79,9 @@ const EditDashboardElement = (props: {
 					disabled={!coreDetails.data.preferencesChangeAllowed}
 					onChange={(ev) => {
 						const newValue = ev.currentTarget.checked;
-						const newDashboardData = [
-							...userPreferences.data.general.dashboard,
-						];
+						const newDashboardData = Array.from(
+							userPreferences.data.general.dashboard,
+						);
 						newDashboardData[focusedElementIndex].hidden = newValue;
 						updateUserPreferences.mutate({
 							input: {
@@ -101,9 +101,9 @@ const EditDashboardElement = (props: {
 						disabled={!coreDetails.data.preferencesChangeAllowed}
 						onChange={(num) => {
 							if (typeof num === "number") {
-								const newDashboardData = [
-									...userPreferences.data.general.dashboard,
-								];
+								const newDashboardData = Array.from(
+									userPreferences.data.general.dashboard,
+								);
 								newDashboardData[focusedElementIndex].numElements = num;
 								updateUserPreferences.mutate({
 									input: {
