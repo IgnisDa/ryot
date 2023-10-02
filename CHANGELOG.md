@@ -1,5 +1,17 @@
 
 
+# Version 2.19.10 (2023-10-02)
+
+## Bug Fixes
+
+- **backend:** calculate correct number of shows
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.19.9 (2023-10-02)
 
 
