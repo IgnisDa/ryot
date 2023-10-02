@@ -631,10 +631,11 @@ pub mod media {
     pub struct UserSummaryUniqueItems {
         pub visual_novels: HashSet<i32>,
         pub video_games: HashSet<i32>,
-        pub shows: HashSet<i32>,
+        pub show_episodes: HashSet<(i32, i32, i32)>,
         pub show_seasons: HashSet<(i32, i32)>,
-        pub podcasts: HashSet<i32>,
+        pub shows: HashSet<i32>,
         pub podcast_episodes: HashSet<(i32, String)>,
+        pub podcasts: HashSet<i32>,
         pub creators: HashSet<i32>,
     }
 

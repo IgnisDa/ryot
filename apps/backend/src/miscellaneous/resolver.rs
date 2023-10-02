@@ -4076,7 +4076,9 @@ impl MiscellaneousService {
                                 if let Some(r) = episode.runtime {
                                     ls.media.shows.runtime += r;
                                 }
-                                ls.media.shows.watched_episodes += 1;
+                                ls.unique_items
+                                    .show_episodes
+                                    .insert((s.season, season.id, episode.id));
                                 ls.unique_items.show_seasons.insert((s.season, season.id));
                             }
                         }
@@ -4113,11 +4115,13 @@ impl MiscellaneousService {
             }
         }
 
-        ls.media.podcasts.played += ls.unique_items.podcasts.len();
         ls.media.podcasts.played_episodes += ls.unique_items.podcast_episodes.len();
+        ls.media.podcasts.played += ls.unique_items.podcasts.len();
 
-        ls.media.shows.watched += ls.unique_items.shows.len();
+        ls.media.shows.watched_episodes += ls.unique_items.show_episodes.len();
         ls.media.shows.watched_seasons += ls.unique_items.show_seasons.len();
+        ls.media.shows.watched += ls.unique_items.shows.len();
+
         ls.media.creators_interacted_with += ls.unique_items.creators.len();
 
         ls.media.video_games.played += ls.unique_items.video_games.len();
