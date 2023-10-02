@@ -498,7 +498,7 @@ pub mod media {
     )]
     pub struct BooksSummary {
         pub pages: i32,
-        pub read: i32,
+        pub read: usize,
     }
 
     #[derive(
@@ -514,7 +514,7 @@ pub mod media {
     )]
     pub struct MoviesSummary {
         pub runtime: i32,
-        pub watched: i32,
+        pub watched: usize,
     }
 
     #[derive(
@@ -565,7 +565,7 @@ pub mod media {
     )]
     pub struct MangaSummary {
         pub chapters: i32,
-        pub read: i32,
+        pub read: usize,
     }
 
     #[derive(
@@ -581,7 +581,7 @@ pub mod media {
     )]
     pub struct AnimeSummary {
         pub episodes: i32,
-        pub watched: i32,
+        pub watched: usize,
     }
 
     #[derive(
@@ -628,7 +628,14 @@ pub mod media {
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
+    // FIXME: Remove this serde attribute
+    #[serde(default)]
     pub struct UserSummaryUniqueItems {
+        pub audio_books: HashSet<i32>,
+        pub anime: HashSet<i32>,
+        pub manga: HashSet<i32>,
+        pub books: HashSet<i32>,
+        pub movies: HashSet<i32>,
         pub visual_novels: HashSet<i32>,
         pub video_games: HashSet<i32>,
         pub show_episodes: HashSet<(i32, i32, i32)>,
