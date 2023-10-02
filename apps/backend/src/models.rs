@@ -451,7 +451,7 @@ pub mod media {
     )]
     pub struct AudioBooksSummary {
         pub runtime: i32,
-        pub played: i32,
+        pub played: usize,
     }
 
     #[derive(
@@ -466,7 +466,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct VideoGamesSummary {
-        pub played: i32,
+        pub played: usize,
     }
 
     #[derive(
@@ -481,7 +481,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct VisualNovelsSummary {
-        pub played: i32,
+        pub played: usize,
         pub runtime: i32,
     }
 
@@ -530,8 +530,8 @@ pub mod media {
     )]
     pub struct PodcastsSummary {
         pub runtime: i32,
-        pub played: i32,
-        pub played_episodes: i32,
+        pub played: usize,
+        pub played_episodes: usize,
     }
 
     #[derive(
@@ -547,9 +547,9 @@ pub mod media {
     )]
     pub struct ShowsSummary {
         pub runtime: i32,
-        pub watched: i32,
-        pub watched_episodes: i32,
-        pub watched_seasons: i32,
+        pub watched: usize,
+        pub watched_episodes: usize,
+        pub watched_seasons: usize,
     }
 
     #[derive(

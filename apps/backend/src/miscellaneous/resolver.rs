@@ -3986,17 +3986,10 @@ impl MiscellaneousService {
         calculate_from_beginning: bool,
     ) -> Result<IdObject> {
         let (mut ls, start_from) = match calculate_from_beginning {
-            true => (
-                UserSummary {
-                    calculated_on: Utc::now(),
-                    ..Default::default()
-                },
-                None,
-            ),
+            true => (UserSummary::default(), None),
             false => {
-                let mut here = self.latest_user_summary(user_id).await?;
+                let here = self.latest_user_summary(user_id).await?;
                 let time = here.calculated_on.clone();
-                here.calculated_on = Utc::now();
                 (here, Some(time))
             }
         };
@@ -4120,18 +4113,18 @@ impl MiscellaneousService {
             }
         }
 
-        ls.media.podcasts.played += i32::try_from(ls.unique_items.podcasts.len()).unwrap();
-        ls.media.podcasts.played_episodes +=
-            i32::try_from(ls.unique_items.podcast_episodes.len()).unwrap();
+        ls.media.podcasts.played += ls.unique_items.podcasts.len();
+        ls.media.podcasts.played_episodes += ls.unique_items.podcast_episodes.len();
 
-        ls.media.shows.watched = i32::try_from(ls.unique_items.shows.len()).unwrap();
-        ls.media.shows.watched_seasons +=
-            i32::try_from(ls.unique_items.show_seasons.len()).unwrap();
+        ls.media.shows.watched = ls.unique_items.shows.len();
+        ls.media.shows.watched_seasons += ls.unique_items.show_seasons.len();
         ls.media.creators_interacted_with += ls.unique_items.creators.len();
 
-        ls.media.video_games.played = i32::try_from(ls.unique_items.video_games.len()).unwrap();
+        ls.media.video_games.played = ls.unique_items.video_games.len();
 
-        ls.media.visual_novels.played = i32::try_from(ls.unique_items.visual_novels.len()).unwrap();
+        ls.media.visual_novels.played = ls.unique_items.visual_novels.len();
+
+        ls.calculated_on = Utc::now();
 
         let user_model = user::ActiveModel {
             id: ActiveValue::Unchanged(user_id),
