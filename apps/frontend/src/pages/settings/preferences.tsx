@@ -6,6 +6,7 @@ import {
 	Alert,
 	Container,
 	Divider,
+	Flex,
 	Group,
 	JsonInput,
 	NumberInput,
@@ -36,7 +37,7 @@ import type { NextPageWithLayout } from "../_app";
 function usePageHooks() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const updateUserEnabledFeatures = useMutation({
+	const updateUserPreferences = useMutation({
 		mutationFn: async (variables: UpdateUserPreferenceMutationVariables) => {
 			const { updateUserPreference } = await gqlClient.request(
 				UpdateUserPreferenceDocument,
@@ -48,38 +49,41 @@ function usePageHooks() {
 			userPreferences.refetch();
 		},
 	});
-	return { userPreferences, coreDetails, updateUserEnabledFeatures };
+	return { userPreferences, coreDetails, updateUserPreferences };
 }
 
 const EditDashboardElement = (props: {
 	lot: DashboardElementLot;
 }) => {
-	const { userPreferences, coreDetails, updateUserEnabledFeatures } =
+	const { userPreferences, coreDetails, updateUserPreferences } =
 		usePageHooks();
+	const focusedElementIndex = userPreferences.data?.general.dashboard.findIndex(
+		(de) => de.element === props.lot,
+	);
+	const focusedElement =
+		typeof focusedElementIndex === "number"
+			? userPreferences.data?.general.dashboard[focusedElementIndex]
+			: undefined;
 
-	return userPreferences.data && coreDetails.data ? (
+	return typeof focusedElementIndex === "number" &&
+		focusedElement &&
+		userPreferences.data &&
+		coreDetails.data ? (
 		<Paper withBorder p="xs">
 			<Group justify="space-between">
-				<Title order={6}>{changeCase(props.lot)}</Title>
+				<Title order={3}>{changeCase(props.lot)}</Title>
 				<Switch
 					label="Hidden"
 					labelPosition="left"
-					defaultChecked={
-						userPreferences.data.general.dashboard.find(
-							(de) => de.element === props.lot,
-						)?.hidden
-					}
+					defaultChecked={focusedElement.hidden}
 					disabled={!coreDetails.data.preferencesChangeAllowed}
 					onChange={(ev) => {
 						const newValue = ev.currentTarget.checked;
-						const index = userPreferences.data.general.dashboard.findIndex(
-							(de) => de.element === props.lot,
-						);
 						const newDashboardData = [
 							...userPreferences.data.general.dashboard,
 						];
-						newDashboardData[index].hidden = newValue;
-						updateUserEnabledFeatures.mutate({
+						newDashboardData[focusedElementIndex].hidden = newValue;
+						updateUserPreferences.mutate({
 							input: {
 								property: "general.dashboard",
 								value: JSON.stringify(newDashboardData),
@@ -88,12 +92,36 @@ const EditDashboardElement = (props: {
 					}}
 				/>
 			</Group>
+			{typeof focusedElement.numElements === "number" ? (
+				<Flex>
+					<NumberInput
+						label="Number of elements"
+						size="xs"
+						defaultValue={focusedElement.numElements}
+						disabled={!coreDetails.data.preferencesChangeAllowed}
+						onChange={(num) => {
+							if (typeof num === "number") {
+								const newDashboardData = [
+									...userPreferences.data.general.dashboard,
+								];
+								newDashboardData[focusedElementIndex].numElements = num;
+								updateUserPreferences.mutate({
+									input: {
+										property: "general.dashboard",
+										value: JSON.stringify(newDashboardData),
+									},
+								});
+							}
+						}}
+					/>
+				</Flex>
+			) : undefined}
 		</Paper>
 	) : undefined;
 };
 
 const Page: NextPageWithLayout = () => {
-	const { userPreferences, coreDetails, updateUserEnabledFeatures } =
+	const { userPreferences, coreDetails, updateUserPreferences } =
 		usePageHooks();
 	const [activeTab, setActiveTab] = useLocalStorage({
 		defaultValue: "dashboard",
@@ -131,7 +159,7 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.List>
 						<Tabs.Panel value="dashboard" mt="md">
 							<Stack>
-								<Text size="lg">The different sections on the dashboard.</Text>
+								<Text size="lg">The different sections on the dashboard</Text>
 								<EditDashboardElement lot={DashboardElementLot.Upcoming} />
 								<EditDashboardElement lot={DashboardElementLot.InProgress} />
 								<EditDashboardElement lot={DashboardElementLot.Summary} />
@@ -158,7 +186,7 @@ const Page: NextPageWithLayout = () => {
 													disabled={!coreDetails.data.preferencesChangeAllowed}
 													onChange={(ev) => {
 														const lot = snakeCase(name);
-														updateUserEnabledFeatures.mutate({
+														updateUserPreferences.mutate({
 															input: {
 																property: `features_enabled.${facet}.${lot}`,
 																value: String(ev.currentTarget.checked),
@@ -186,7 +214,7 @@ const Page: NextPageWithLayout = () => {
 										disabled={!coreDetails.data.preferencesChangeAllowed}
 										onChange={(val) => {
 											if (val)
-												updateUserEnabledFeatures.mutate({
+												updateUserPreferences.mutate({
 													input: {
 														property: "general.review_scale",
 														value: val,
@@ -201,7 +229,7 @@ const Page: NextPageWithLayout = () => {
 										checked={userPreferences.data.general.displayNsfw}
 										disabled={!coreDetails.data.preferencesChangeAllowed}
 										onChange={(ev) => {
-											updateUserEnabledFeatures.mutate({
+											updateUserPreferences.mutate({
 												input: {
 													property: "general.display_nsfw",
 													value: String(ev.currentTarget.checked),
@@ -251,7 +279,7 @@ const Page: NextPageWithLayout = () => {
 												checked={isEnabled}
 												disabled={!coreDetails.data.preferencesChangeAllowed}
 												onChange={(ev) => {
-													updateUserEnabledFeatures.mutate({
+													updateUserPreferences.mutate({
 														input: {
 															property: `notifications.${snakeCase(name)}`,
 															value: String(ev.currentTarget.checked),
@@ -278,7 +306,7 @@ const Page: NextPageWithLayout = () => {
 											checked={isEnabled}
 											disabled={!coreDetails.data.preferencesChangeAllowed}
 											onChange={(ev) => {
-												updateUserEnabledFeatures.mutate({
+												updateUserPreferences.mutate({
 													input: {
 														property: `fitness.measurements.inbuilt.${snakeCase(
 															name,
@@ -302,7 +330,7 @@ const Page: NextPageWithLayout = () => {
 									autosize
 									formatOnBlur
 									onChange={(v) => {
-										updateUserEnabledFeatures.mutate({
+										updateUserPreferences.mutate({
 											input: {
 												property: "fitness.measurements.custom.dummy",
 												value: v,
@@ -339,7 +367,7 @@ const Page: NextPageWithLayout = () => {
 										disabled={!coreDetails.data.preferencesChangeAllowed}
 										onChange={(num) => {
 											if (num)
-												updateUserEnabledFeatures.mutate({
+												updateUserPreferences.mutate({
 													input: {
 														property: "fitness.exercises.save_history",
 														value: String(num),
