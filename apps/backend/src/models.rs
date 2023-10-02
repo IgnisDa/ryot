@@ -641,7 +641,7 @@ pub mod media {
         pub show_episodes: HashSet<(i32, i32, i32)>,
         pub show_seasons: HashSet<(i32, i32)>,
         pub shows: HashSet<i32>,
-        pub podcast_episodes: HashSet<(i32, String)>,
+        pub podcast_episodes: HashSet<(i32, i32)>,
         pub podcasts: HashSet<i32>,
         pub creators: HashSet<i32>,
     }

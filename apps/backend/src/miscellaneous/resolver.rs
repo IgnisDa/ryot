@@ -4076,10 +4076,14 @@ impl MiscellaneousService {
                                 if let Some(r) = episode.runtime {
                                     ls.media.shows.runtime += r;
                                 }
+                                ls.unique_items.show_episodes.insert((
+                                    meta.id,
+                                    season.season_number,
+                                    episode.episode_number,
+                                ));
                                 ls.unique_items
-                                    .show_episodes
-                                    .insert((s.season, season.id, episode.id));
-                                ls.unique_items.show_seasons.insert((s.season, season.id));
+                                    .show_seasons
+                                    .insert((meta.id, season.season_number));
                             }
                         }
                     };
@@ -4097,7 +4101,7 @@ impl MiscellaneousService {
                                 }
                                 ls.unique_items
                                     .podcast_episodes
-                                    .insert((s.episode, episode.id.clone()));
+                                    .insert((meta.id, s.episode));
                             }
                         }
                     }
