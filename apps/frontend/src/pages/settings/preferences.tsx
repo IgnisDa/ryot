@@ -96,6 +96,23 @@ const Page: NextPageWithLayout = () => {
 											)?.hidden
 										}
 										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(ev) => {
+											const newValue = ev.currentTarget.checked;
+											const index =
+												userPreferences.data.general.dashboard.findIndex(
+													(de) => de.element === DashboardElementLot.Upcoming,
+												);
+											const newDashboardData = [
+												...userPreferences.data.general.dashboard,
+											];
+											newDashboardData[index].hidden = newValue;
+											updateUserEnabledFeatures.mutate({
+												input: {
+													property: "general.dashboard",
+													value: JSON.stringify(newDashboardData),
+												},
+											});
+										}}
 									/>
 								</Group>
 							</Paper>
