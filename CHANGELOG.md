@@ -1,5 +1,17 @@
 
 
+# Version 2.19.13 (2023-10-02)
+
+## Bug Fixes
+
+- **backend:** insert correct element into hashmap
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 2.19.12 (2023-10-02)
 
 ## Bug Fixes
