@@ -117,10 +117,16 @@ pub async fn perform_application_job(
         ApplicationJob::UserCreated(user_id) => {
             misc_service.user_created_job(user_id).await.ok();
             misc_service.user_created_job(user_id).await.ok();
-            misc_service.calculate_user_summary(user_id).await.ok();
+            misc_service
+                .calculate_user_summary(user_id, true)
+                .await
+                .ok();
         }
         ApplicationJob::RecalculateUserSummary(user_id) => {
-            misc_service.calculate_user_summary(user_id).await.ok();
+            misc_service
+                .calculate_user_summary(user_id, true)
+                .await
+                .ok();
         }
         ApplicationJob::UpdateMetadata(metadata) => {
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();

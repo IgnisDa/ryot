@@ -3980,7 +3980,11 @@ impl MiscellaneousService {
         Ok(ls.summary.unwrap_or_default())
     }
 
-    pub async fn calculate_user_summary(&self, user_id: i32) -> Result<IdObject> {
+    pub async fn calculate_user_summary(
+        &self,
+        user_id: i32,
+        calculate_from_beginning: bool,
+    ) -> Result<IdObject> {
         let mut ls = UserSummary {
             calculated_on: Utc::now(),
             ..Default::default()
@@ -4269,7 +4273,7 @@ impl MiscellaneousService {
             .await
             .unwrap();
         for user_id in all_users {
-            self.calculate_user_summary(user_id).await?;
+            self.calculate_user_summary(user_id, false).await?;
         }
         Ok(())
     }
