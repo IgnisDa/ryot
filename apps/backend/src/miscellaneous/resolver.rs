@@ -4116,13 +4116,13 @@ impl MiscellaneousService {
         ls.media.podcasts.played += ls.unique_items.podcasts.len();
         ls.media.podcasts.played_episodes += ls.unique_items.podcast_episodes.len();
 
-        ls.media.shows.watched = ls.unique_items.shows.len();
+        ls.media.shows.watched += ls.unique_items.shows.len();
         ls.media.shows.watched_seasons += ls.unique_items.show_seasons.len();
         ls.media.creators_interacted_with += ls.unique_items.creators.len();
 
-        ls.media.video_games.played = ls.unique_items.video_games.len();
+        ls.media.video_games.played += ls.unique_items.video_games.len();
 
-        ls.media.visual_novels.played = ls.unique_items.visual_novels.len();
+        ls.media.visual_novels.played += ls.unique_items.visual_novels.len();
 
         ls.calculated_on = Utc::now();
 
