@@ -6147,34 +6147,12 @@ impl MiscellaneousService {
             if now - db_person.last_updated_on
                 > ChronoDuration::days(self.config.server.person_outdated_threshold)
             {
-                let provider = self.get_non_media_provider(person.source).await?;
-                let provider_person = provider.person_details(person).await?;
-                let images = provider_person.images.map(|images| {
-                    MetadataImages(
-                        images
-                            .into_iter()
-                            .map(|i| MetadataImage {
-                                url: StoredUrl::Url(i),
-                                lot: MetadataImageLot::Poster,
-                            })
-                            .collect(),
-                    )
-                });
-                let mut to_update_person: person::ActiveModel = db_person.clone().into();
-                to_update_person.last_updated_on = ActiveValue::Set(now);
-                to_update_person.description = ActiveValue::Set(provider_person.description);
-                to_update_person.gender = ActiveValue::Set(provider_person.gender);
-                to_update_person.birth_date = ActiveValue::Set(provider_person.birth_date);
-                to_update_person.death_date = ActiveValue::Set(provider_person.death_date);
-                to_update_person.place = ActiveValue::Set(provider_person.place);
-                to_update_person.website = ActiveValue::Set(provider_person.website);
-                to_update_person.images = ActiveValue::Set(images);
-                to_update_person.update(&self.db).await.ok();
+                self.update_person(&person, &db_person, now).await?;
             }
             db_person
         } else {
             let provider = self.get_non_media_provider(person.source).await?;
-            let provider_person = provider.person_details(person).await?;
+            let provider_person = provider.person_details(&person).await?;
             let images = provider_person.images.map(|images| {
                 MetadataImages(
                     images
@@ -6208,6 +6186,38 @@ impl MiscellaneousService {
             index: ActiveValue::Set(index.try_into().unwrap()),
         };
         intermediate.insert(&self.db).await.ok();
+        Ok(())
+    }
+
+    async fn update_person(
+        &self,
+        person: &PartialMetadataPerson,
+        db_person: &person::Model,
+        time: chrono::DateTime<Utc>,
+    ) -> Result<()> {
+        let provider = self.get_non_media_provider(person.source).await?;
+        let provider_person = provider.person_details(person).await?;
+        let images = provider_person.images.map(|images| {
+            MetadataImages(
+                images
+                    .into_iter()
+                    .map(|i| MetadataImage {
+                        url: StoredUrl::Url(i),
+                        lot: MetadataImageLot::Poster,
+                    })
+                    .collect(),
+            )
+        });
+        let mut to_update_person: person::ActiveModel = db_person.clone().into();
+        to_update_person.last_updated_on = ActiveValue::Set(time);
+        to_update_person.description = ActiveValue::Set(provider_person.description);
+        to_update_person.gender = ActiveValue::Set(provider_person.gender);
+        to_update_person.birth_date = ActiveValue::Set(provider_person.birth_date);
+        to_update_person.death_date = ActiveValue::Set(provider_person.death_date);
+        to_update_person.place = ActiveValue::Set(provider_person.place);
+        to_update_person.website = ActiveValue::Set(provider_person.website);
+        to_update_person.images = ActiveValue::Set(images);
+        to_update_person.update(&self.db).await.ok();
         Ok(())
     }
 }
