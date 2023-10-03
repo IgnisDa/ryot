@@ -16,6 +16,7 @@ pub mod metadata_to_person;
 pub mod partial_metadata;
 pub mod partial_metadata_to_metadata_group;
 pub mod person;
+pub mod person_to_partial_metadata;
 pub mod review;
 pub mod seen;
 pub mod user;
