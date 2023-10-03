@@ -22,6 +22,7 @@ import {
 	rem,
 } from "@mantine/core";
 import { useListState, useLocalStorage } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	DashboardElementLot,
 	UpdateUserPreferenceDocument,
@@ -91,6 +92,7 @@ const EditDashboardElement = (props: {
 									display: "flex",
 									justifyContent: "center",
 									height: "100%",
+									cursor: "grab",
 								}}
 							>
 								<IconGripVertical
@@ -203,12 +205,19 @@ const Page: NextPageWithLayout = () => {
 								The different sections on the dashboard
 							</Text>
 							<DragDropContext
-								onDragEnd={({ destination, source }) =>
-									dashboardElementsHandlers.reorder({
-										from: source.index,
-										to: destination?.index || 0,
-									})
-								}
+								onDragEnd={({ destination, source }) => {
+									if (coreDetails.data.preferencesChangeAllowed)
+										dashboardElementsHandlers.reorder({
+											from: source.index,
+											to: destination?.index || 0,
+										});
+									else
+										notifications.show({
+											title: "Invalid action",
+											color: "red",
+											message: "Preferences can not be changed",
+										});
+								}}
 							>
 								<Droppable droppableId="dnd-list">
 									{(provided) => (
