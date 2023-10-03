@@ -110,24 +110,23 @@ pub async fn perform_application_job(
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
     let start = Instant::now();
-    match information {
-        ApplicationJob::ImportMedia(user_id, input) => {
-            importer_service.import_from_lot(user_id, input).await.ok();
-        }
+    let status = match information {
+        ApplicationJob::ImportMedia(user_id, input) => importer_service
+            .import_from_lot(user_id, input)
+            .await
+            .is_ok(),
         ApplicationJob::UserCreated(user_id) => {
             misc_service.user_created_job(user_id).await.ok();
             misc_service.user_created_job(user_id).await.ok();
             misc_service
                 .calculate_user_summary(user_id, true)
                 .await
-                .ok();
+                .is_ok()
         }
-        ApplicationJob::RecalculateUserSummary(user_id) => {
-            misc_service
-                .calculate_user_summary(user_id, true)
-                .await
-                .ok();
-        }
+        ApplicationJob::RecalculateUserSummary(user_id) => misc_service
+            .calculate_user_summary(user_id, true)
+            .await
+            .is_ok(),
         ApplicationJob::UpdateMetadata(metadata) => {
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
             if !notifications.is_empty() {
@@ -144,34 +143,32 @@ pub async fn perform_application_job(
                     }
                 }
             }
+            true
         }
         ApplicationJob::UpdateExerciseJob(exercise) => {
-            exercise_service.update_exercise(exercise).await.ok();
+            exercise_service.update_exercise(exercise).await.is_ok()
         }
         ApplicationJob::AfterMediaSeen(seen) => {
-            misc_service.after_media_seen_tasks(seen).await.ok();
+            misc_service.after_media_seen_tasks(seen).await.is_ok()
         }
         ApplicationJob::RecalculateCalendarEvents => {
-            misc_service.recalculate_calendar_events().await.ok();
+            misc_service.recalculate_calendar_events().await.is_ok()
         }
-        ApplicationJob::AssociatePersonWithMetadata(metadata_id, person, index) => {
-            misc_service
-                .associate_person_with_metadata(metadata_id, person, index)
-                .await
-                .ok();
-        }
-        ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => {
-            misc_service
-                .associate_group_with_metadata(lot, source, group_identifier)
-                .await
-                .ok();
-        }
+        ApplicationJob::AssociatePersonWithMetadata(metadata_id, person, index) => misc_service
+            .associate_person_with_metadata(metadata_id, person, index)
+            .await
+            .is_ok(),
+        ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => misc_service
+            .associate_group_with_metadata(lot, source, group_identifier)
+            .await
+            .is_ok(),
     };
     let end = Instant::now();
     tracing::trace!(
-        "Job {:#?} completed in {}ms",
+        "Job {:#?} completed in {}ms, Successful = {}",
         name,
-        (end - start).as_millis()
+        (end - start).as_millis(),
+        status
     );
     Ok(())
 }
