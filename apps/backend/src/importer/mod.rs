@@ -23,7 +23,7 @@ use crate::{
     },
     traits::AuthProvider,
     users::UserReviewScale,
-    utils::user_by_id,
+    utils::partial_user_by_id,
 };
 
 mod goodreads;
@@ -260,9 +260,10 @@ impl ImporterService {
                 .await?
             }
         };
-        let preferences = user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
-            .await?
-            .preferences;
+        let preferences =
+            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
+                .await?
+                .preferences;
         import.media = import
             .media
             .into_iter()

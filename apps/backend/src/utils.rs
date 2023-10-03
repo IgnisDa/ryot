@@ -17,7 +17,7 @@ use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter,
+    DatabaseConnection, EntityTrait, PartialModelTrait, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use surf::{
@@ -209,12 +209,12 @@ pub async fn get_stored_asset(
     }
 }
 
-pub async fn user_by_id<T>(db: &DatabaseConnection, user_id: i32) -> Result<T>
+pub async fn partial_user_by_id<T>(db: &DatabaseConnection, user_id: i32) -> Result<T>
 where
-    T: FromQueryResult,
+    T: PartialModelTrait,
 {
     User::find_by_id(user_id)
-        .into_model::<T>()
+        .into_partial_model::<T>()
         .one(db)
         .await
         .unwrap()
