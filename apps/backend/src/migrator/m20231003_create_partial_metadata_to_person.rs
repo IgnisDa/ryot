@@ -20,6 +20,8 @@ pub enum PersonToPartialMetadata {
     PersonId,
     PartialMetadataId,
     Relation,
+    /// the role the person has in this metadata
+    Role,
 }
 
 #[async_trait::async_trait]
@@ -37,6 +39,11 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(PersonToPartialMetadata::Relation)
                             .string_len(2)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(PersonToPartialMetadata::Role)
+                            .string()
                             .not_null(),
                     )
                     .col(
