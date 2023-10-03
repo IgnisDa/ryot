@@ -44,6 +44,7 @@ pub use m20230622_create_exercise::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
 pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
+pub use m20231003_create_partial_metadata_to_person::PersonToPartialMetadataRelation;
 
 pub struct Migrator;
 
