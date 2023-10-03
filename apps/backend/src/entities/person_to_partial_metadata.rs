@@ -3,6 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::migrator::PersonToPartialMetadataRelation;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "person_to_partial_metadata")]
 pub struct Model {
@@ -10,7 +12,7 @@ pub struct Model {
     pub person_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub partial_metadata_id: i32,
-    pub relation: Option<String>,
+    pub relation: PersonToPartialMetadataRelation,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
