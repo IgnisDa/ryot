@@ -225,6 +225,16 @@ const Page: NextPageWithLayout = () => {
 		{ retry: false },
 	);
 
+	const getDivider = (index: number) => {
+		return index <
+			(userPreferences.data?.general.dashboard.filter(
+				(de) => de.hidden === false,
+			).length || 0) -
+				1 ? (
+			<Divider />
+		) : undefined;
+	};
+
 	return userPreferences.data &&
 		latestUserSummary.data &&
 		upcomingMedia.data &&
@@ -255,7 +265,7 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
-					{userPreferences.data.general.dashboard.map((de) =>
+					{userPreferences.data.general.dashboard.map((de, index) =>
 						match([de.element, de.hidden])
 							.with([DashboardElementLot.Upcoming, false], () =>
 								upcomingMedia.data.length > 0 ? (
@@ -266,7 +276,7 @@ const Page: NextPageWithLayout = () => {
 												<UpComingMedia um={um} key={um.calendarEventId} />
 											))}
 										</Grid>
-										<Divider />
+										{getDivider(index)}
 									</>
 								) : undefined,
 							)
@@ -291,7 +301,7 @@ const Page: NextPageWithLayout = () => {
 												/>
 											))}
 										</Grid>
-										<Divider />
+										{getDivider(index)}
 									</>
 								) : undefined,
 							)
@@ -505,7 +515,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										) : undefined}
 									</SimpleGrid>
-									<Divider />
+									{getDivider(index)}
 								</>
 							))
 							.with([DashboardElementLot.Actions, false], () => (
@@ -548,6 +558,7 @@ const Page: NextPageWithLayout = () => {
 											</Button>
 										) : undefined}
 									</SimpleGrid>
+									{getDivider(index)}
 								</>
 							))
 							.otherwise(() => undefined),
