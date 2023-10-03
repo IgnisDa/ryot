@@ -95,6 +95,17 @@ struct ItemPublisher {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct ItemPartialRecord {
+    title: String,
+    series_id: i128,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ItemPersonRelatedSeries {
+    series_list: Vec<ItemPartialRecord>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct ItemRecord {
     series_id: Option<i128>,
     related_series_id: Option<i128>,
@@ -138,6 +149,30 @@ impl MediaProvider for MangaUpdatesService {
                 .body_json()
                 .await
                 .map_err(|e| anyhow!(e))?;
+            let related_data: ItemPersonRelatedSeries = self
+                .client
+                .get(format!("publishers/{}/series", identity.identifier))
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let related = related_data
+                .series_list
+                .into_iter()
+                .map(|r| {
+                    (
+                        "Publishing".to_owned(),
+                        PartialMetadataWithoutId {
+                            title: r.title,
+                            identifier: r.series_id.to_string(),
+                            source: MetadataSource::MangaUpdates,
+                            lot: MetadataLot::Manga,
+                            image: None,
+                        },
+                    )
+                })
+                .collect_vec();
             MetadataPerson {
                 identifier: identity.identifier.to_owned(),
                 source: MetadataSource::MangaUpdates,
@@ -149,7 +184,7 @@ impl MediaProvider for MangaUpdatesService {
                 images: None,
                 death_date: None,
                 birth_date: None,
-                related: vec![],
+                related,
             }
         } else {
             let data: ItemAuthor = self
@@ -160,6 +195,32 @@ impl MediaProvider for MangaUpdatesService {
                 .body_json()
                 .await
                 .map_err(|e| anyhow!(e))?;
+            let related_data: ItemPersonRelatedSeries = self
+                .client
+                .post(format!("authors/{}/series", identity.identifier))
+                .body_json(&serde_json::json!({ "orderby": "year" }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let related = related_data
+                .series_list
+                .into_iter()
+                .map(|r| {
+                    (
+                        "Author".to_owned(),
+                        PartialMetadataWithoutId {
+                            title: r.title,
+                            identifier: r.series_id.to_string(),
+                            source: MetadataSource::MangaUpdates,
+                            lot: MetadataLot::Manga,
+                            image: None,
+                        },
+                    )
+                })
+                .collect_vec();
             MetadataPerson {
                 identifier: identity.identifier.to_owned(),
                 source: MetadataSource::MangaUpdates,
@@ -174,10 +235,10 @@ impl MediaProvider for MangaUpdatesService {
                         None
                     }
                 }),
+                related,
                 death_date: None,
                 description: None,
                 website: None,
-                related: vec![],
             }
         })
     }
