@@ -277,7 +277,7 @@ pub enum DashboardElementLot {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserGeneralDashboardElement {
-    pub element: DashboardElementLot,
+    pub section: DashboardElementLot,
     pub hidden: bool,
     pub num_elements: Option<i32>,
 }
@@ -299,22 +299,22 @@ impl Default for UserGeneralPreferences {
             display_nsfw: false,
             dashboard: vec![
                 UserGeneralDashboardElement {
-                    element: DashboardElementLot::Upcoming,
+                    section: DashboardElementLot::Upcoming,
                     hidden: false,
                     num_elements: Some(8),
                 },
                 UserGeneralDashboardElement {
-                    element: DashboardElementLot::InProgress,
+                    section: DashboardElementLot::InProgress,
                     hidden: false,
                     num_elements: Some(8),
                 },
                 UserGeneralDashboardElement {
-                    element: DashboardElementLot::Summary,
+                    section: DashboardElementLot::Summary,
                     hidden: false,
                     num_elements: None,
                 },
                 UserGeneralDashboardElement {
-                    element: DashboardElementLot::Actions,
+                    section: DashboardElementLot::Actions,
                     hidden: false,
                     num_elements: None,
                 },

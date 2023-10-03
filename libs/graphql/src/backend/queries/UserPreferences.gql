@@ -4,7 +4,7 @@ query UserPreferences {
       reviewScale
       displayNsfw
       dashboard {
-        element
+        section
         hidden
         numElements
       }

@@ -63,7 +63,7 @@ const EditDashboardElement = (props: {
 	const { userPreferences, coreDetails, updateUserPreferences } =
 		usePageHooks();
 	const focusedElementIndex = userPreferences.data?.general.dashboard.findIndex(
-		(de) => de.element === props.lot,
+		(de) => de.section === props.lot,
 	);
 	const focusedElement =
 		typeof focusedElementIndex === "number"
@@ -215,8 +215,8 @@ const Page: NextPageWithLayout = () => {
 										<Stack {...provided.droppableProps} ref={provided.innerRef}>
 											{dashboardElements.map((de, index) => (
 												<EditDashboardElement
-													key={de.element}
-													lot={de.element}
+													key={de.section}
+													lot={de.section}
 													index={index}
 												/>
 											))}

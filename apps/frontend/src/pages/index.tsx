@@ -190,7 +190,7 @@ const Page: NextPageWithLayout = () => {
 	const userPreferences = useUserPreferences();
 	const inProgressCollection = useQuery(["collections"], async () => {
 		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.element === DashboardElementLot.InProgress,
+			(de) => de.section === DashboardElementLot.InProgress,
 		)?.numElements;
 		invariant(take, "Can not get the value of take");
 		const { collections } = await gqlClient.request(CollectionsDocument, {
@@ -205,7 +205,7 @@ const Page: NextPageWithLayout = () => {
 	});
 	const upcomingMedia = useQuery(["upcomingMedia"], async () => {
 		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.element === DashboardElementLot.Upcoming,
+			(de) => de.section === DashboardElementLot.Upcoming,
 		)?.numElements;
 		invariant(take, "Can not get the value of take");
 		const { userUpcomingCalendarEvents } = await gqlClient.request(
@@ -266,7 +266,7 @@ const Page: NextPageWithLayout = () => {
 						</Alert>
 					) : undefined}
 					{userPreferences.data.general.dashboard.map((de, index) =>
-						match([de.element, de.hidden])
+						match([de.section, de.hidden])
 							.with([DashboardElementLot.Upcoming, false], () =>
 								upcomingMedia.data.length > 0 ? (
 									<>
