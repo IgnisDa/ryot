@@ -122,7 +122,8 @@ use crate::{
     utils::{
         associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
         get_first_and_last_day_of_month, get_stored_asset, get_user_and_metadata_association,
-        partial_user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR,
+        VERSION,
     },
 };
 
@@ -3981,7 +3982,7 @@ impl MiscellaneousService {
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = user_id_from_token(token, &self.config.users.jwt_secret);
         if let Ok(user_id) = found_token {
-            let user = partial_user_by_id(&self.db, user_id).await?;
+            let user = user_by_id(&self.db, user_id).await?;
             Ok(UserDetailsResult::Ok(Box::new(user)))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
@@ -4442,7 +4443,7 @@ impl MiscellaneousService {
             return Ok(false);
         }
         let err = || Error::new("Incorrect property value encountered");
-        let user_model = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+        let user_model = user_by_id(&self.db, user_id).await?;
         let mut preferences = user_model.preferences.clone();
         let (left, right) = input.property.split_once('.').ok_or_else(err)?;
         let value_bool = input.value.parse::<bool>();
@@ -4770,7 +4771,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserSinkIntegrationInput,
     ) -> Result<usize> {
-        let user = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut integrations = user.sink_integrations.clone().0;
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserSinkIntegration {
@@ -4806,7 +4807,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserYankIntegrationInput,
     ) -> Result<usize> {
-        let user = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut integrations = if let Some(i) = user.yank_integrations.clone() {
             i.0
         } else {
@@ -4838,7 +4839,7 @@ impl MiscellaneousService {
         integration_id: usize,
         integration_type: UserIntegrationLot,
     ) -> Result<bool> {
-        let user = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
         match integration_type {
             UserIntegrationLot::Yank => {
@@ -4877,7 +4878,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: CreateUserNotificationPlatformInput,
     ) -> Result<usize> {
-        let user = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut notifications = user.notifications.clone().0;
         let new_notification_id = notifications.len() + 1;
         let new_notification = UserNotification {
@@ -4927,7 +4928,7 @@ impl MiscellaneousService {
         user_id: i32,
         notification_id: usize,
     ) -> Result<bool> {
-        let user = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+        let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
         let notifications = user.notifications.clone().0;
         let remaining_notifications = notifications
@@ -5080,7 +5081,7 @@ impl MiscellaneousService {
     }
 
     async fn admin_account_guard(&self, user_id: i32) -> Result<()> {
-        let main_user = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+        let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
             return Err(Error::new("Only admins can perform this operation."));
         }
@@ -5885,7 +5886,7 @@ impl MiscellaneousService {
                 .unwrap();
             comment.liked_by.remove(&user_id);
         } else {
-            let user = partial_user_by_id::<user::Model>(&self.db, user_id).await?;
+            let user = user_by_id(&self.db, user_id).await?;
             comments.push(ImportOrExportItemReviewComment {
                 id: nanoid!(20),
                 text: input.text.unwrap(),

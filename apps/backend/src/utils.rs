@@ -30,7 +30,7 @@ use crate::{
     config::AppConfig,
     entities::{
         prelude::{User, UserToMetadata},
-        user_to_metadata,
+        user, user_to_metadata,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
@@ -209,6 +209,15 @@ pub async fn get_stored_asset(
     }
 }
 
+pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
+    User::find_by_id(user_id)
+        .one(db)
+        .await
+        .unwrap()
+        .ok_or_else(|| Error::new("No user found"))
+}
+
+// DEV: Use this wherever possible since this results in less memory consumption.
 pub async fn partial_user_by_id<T>(db: &DatabaseConnection, user_id: i32) -> Result<T>
 where
     T: PartialModelTrait,
