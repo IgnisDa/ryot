@@ -303,6 +303,8 @@ struct UpdateUserInput {
 
 #[derive(Debug, InputObject)]
 struct UpdateUserPreferenceInput {
+    /// Dot delimited path to the property that needs to be changed. Setting it\
+    /// to empty resets the preferences to default.
     property: String,
     value: String,
 }
@@ -4433,7 +4435,6 @@ impl MiscellaneousService {
         Statement::from_sql_and_values(self.db.get_database_backend(), sql, values)
     }
 
-    // TODO: Allow resetting preferences completely
     async fn update_user_preference(
         &self,
         input: UpdateUserPreferenceInput,
@@ -4445,225 +4446,293 @@ impl MiscellaneousService {
         let err = || Error::new("Incorrect property value encountered");
         let user_model = user_by_id(&self.db, user_id).await?;
         let mut preferences = user_model.preferences.clone();
-        let (left, right) = input.property.split_once('.').ok_or_else(err)?;
-        let value_bool = input.value.parse::<bool>();
-        let value_usize = input.value.parse::<usize>();
-        match left {
-            "fitness" => {
-                let (left, right) = right.split_once('.').ok_or_else(err)?;
+        match input.property.is_empty() {
+            true => {
+                preferences = UserPreferences::default();
+            }
+            false => {
+                let (left, right) = input.property.split_once('.').ok_or_else(err)?;
+                let value_bool = input.value.parse::<bool>();
+                let value_usize = input.value.parse::<usize>();
                 match left {
-                    "measurements" => {
+                    "fitness" => {
                         let (left, right) = right.split_once('.').ok_or_else(err)?;
                         match left {
-                            "custom" => {
-                                let value_vector = serde_json::from_str(&input.value).unwrap();
-                                preferences.fitness.measurements.custom = value_vector;
+                            "measurements" => {
+                                let (left, right) = right.split_once('.').ok_or_else(err)?;
+                                match left {
+                                    "custom" => {
+                                        let value_vector =
+                                            serde_json::from_str(&input.value).unwrap();
+                                        preferences.fitness.measurements.custom = value_vector;
+                                    }
+                                    "inbuilt" => match right {
+                                        "weight" => {
+                                            preferences.fitness.measurements.inbuilt.weight =
+                                                value_bool.unwrap();
+                                        }
+                                        "body_mass_index" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .body_mass_index = value_bool.unwrap();
+                                        }
+                                        "total_body_water" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .total_body_water = value_bool.unwrap();
+                                        }
+                                        "muscle" => {
+                                            preferences.fitness.measurements.inbuilt.muscle =
+                                                value_bool.unwrap();
+                                        }
+                                        "lean_body_mass" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .lean_body_mass = value_bool.unwrap();
+                                        }
+                                        "body_fat" => {
+                                            preferences.fitness.measurements.inbuilt.body_fat =
+                                                value_bool.unwrap();
+                                        }
+                                        "bone_mass" => {
+                                            preferences.fitness.measurements.inbuilt.bone_mass =
+                                                value_bool.unwrap();
+                                        }
+                                        "visceral_fat" => {
+                                            preferences.fitness.measurements.inbuilt.visceral_fat =
+                                                value_bool.unwrap();
+                                        }
+                                        "waist_circumference" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .waist_circumference = value_bool.unwrap();
+                                        }
+                                        "waist_to_height_ratio" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .waist_to_height_ratio = value_bool.unwrap();
+                                        }
+                                        "hip_circumference" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .hip_circumference = value_bool.unwrap();
+                                        }
+                                        "waist_to_hip_ratio" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .waist_to_hip_ratio = value_bool.unwrap();
+                                        }
+                                        "chest_circumference" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .chest_circumference = value_bool.unwrap();
+                                        }
+                                        "thigh_circumference" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .thigh_circumference = value_bool.unwrap();
+                                        }
+                                        "biceps_circumference" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .biceps_circumference = value_bool.unwrap();
+                                        }
+                                        "neck_circumference" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .neck_circumference = value_bool.unwrap();
+                                        }
+                                        "body_fat_caliper" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .body_fat_caliper = value_bool.unwrap();
+                                        }
+                                        "chest_skinfold" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .chest_skinfold = value_bool.unwrap();
+                                        }
+                                        "abdominal_skinfold" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .abdominal_skinfold = value_bool.unwrap();
+                                        }
+                                        "thigh_skinfold" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .thigh_skinfold = value_bool.unwrap();
+                                        }
+                                        "basal_metabolic_rate" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .basal_metabolic_rate = value_bool.unwrap();
+                                        }
+                                        "total_daily_energy_expenditure" => {
+                                            preferences
+                                                .fitness
+                                                .measurements
+                                                .inbuilt
+                                                .total_daily_energy_expenditure =
+                                                value_bool.unwrap();
+                                        }
+                                        "calories" => {
+                                            preferences.fitness.measurements.inbuilt.calories =
+                                                value_bool.unwrap();
+                                        }
+                                        _ => return Err(err()),
+                                    },
+                                    _ => return Err(err()),
+                                }
                             }
-                            "inbuilt" => match right {
-                                "weight" => {
-                                    preferences.fitness.measurements.inbuilt.weight =
-                                        value_bool.unwrap();
+                            "exercises" => match right {
+                                "save_history" => {
+                                    preferences.fitness.exercises.save_history =
+                                        value_usize.unwrap()
                                 }
-                                "body_mass_index" => {
-                                    preferences.fitness.measurements.inbuilt.body_mass_index =
-                                        value_bool.unwrap();
-                                }
-                                "total_body_water" => {
-                                    preferences.fitness.measurements.inbuilt.total_body_water =
-                                        value_bool.unwrap();
-                                }
-                                "muscle" => {
-                                    preferences.fitness.measurements.inbuilt.muscle =
-                                        value_bool.unwrap();
-                                }
-                                "lean_body_mass" => {
-                                    preferences.fitness.measurements.inbuilt.lean_body_mass =
-                                        value_bool.unwrap();
-                                }
-                                "body_fat" => {
-                                    preferences.fitness.measurements.inbuilt.body_fat =
-                                        value_bool.unwrap();
-                                }
-                                "bone_mass" => {
-                                    preferences.fitness.measurements.inbuilt.bone_mass =
-                                        value_bool.unwrap();
-                                }
-                                "visceral_fat" => {
-                                    preferences.fitness.measurements.inbuilt.visceral_fat =
-                                        value_bool.unwrap();
-                                }
-                                "waist_circumference" => {
-                                    preferences.fitness.measurements.inbuilt.waist_circumference =
-                                        value_bool.unwrap();
-                                }
-                                "waist_to_height_ratio" => {
-                                    preferences
-                                        .fitness
-                                        .measurements
-                                        .inbuilt
-                                        .waist_to_height_ratio = value_bool.unwrap();
-                                }
-                                "hip_circumference" => {
-                                    preferences.fitness.measurements.inbuilt.hip_circumference =
-                                        value_bool.unwrap();
-                                }
-                                "waist_to_hip_ratio" => {
-                                    preferences.fitness.measurements.inbuilt.waist_to_hip_ratio =
-                                        value_bool.unwrap();
-                                }
-                                "chest_circumference" => {
-                                    preferences.fitness.measurements.inbuilt.chest_circumference =
-                                        value_bool.unwrap();
-                                }
-                                "thigh_circumference" => {
-                                    preferences.fitness.measurements.inbuilt.thigh_circumference =
-                                        value_bool.unwrap();
-                                }
-                                "biceps_circumference" => {
-                                    preferences
-                                        .fitness
-                                        .measurements
-                                        .inbuilt
-                                        .biceps_circumference = value_bool.unwrap();
-                                }
-                                "neck_circumference" => {
-                                    preferences.fitness.measurements.inbuilt.neck_circumference =
-                                        value_bool.unwrap();
-                                }
-                                "body_fat_caliper" => {
-                                    preferences.fitness.measurements.inbuilt.body_fat_caliper =
-                                        value_bool.unwrap();
-                                }
-                                "chest_skinfold" => {
-                                    preferences.fitness.measurements.inbuilt.chest_skinfold =
-                                        value_bool.unwrap();
-                                }
-                                "abdominal_skinfold" => {
-                                    preferences.fitness.measurements.inbuilt.abdominal_skinfold =
-                                        value_bool.unwrap();
-                                }
-                                "thigh_skinfold" => {
-                                    preferences.fitness.measurements.inbuilt.thigh_skinfold =
-                                        value_bool.unwrap();
-                                }
-                                "basal_metabolic_rate" => {
-                                    preferences
-                                        .fitness
-                                        .measurements
-                                        .inbuilt
-                                        .basal_metabolic_rate = value_bool.unwrap();
-                                }
-                                "total_daily_energy_expenditure" => {
-                                    preferences
-                                        .fitness
-                                        .measurements
-                                        .inbuilt
-                                        .total_daily_energy_expenditure = value_bool.unwrap();
-                                }
-                                "calories" => {
-                                    preferences.fitness.measurements.inbuilt.calories =
-                                        value_bool.unwrap();
+                                "unit_system" => {
+                                    preferences.fitness.exercises.unit_system =
+                                        UserUnitSystem::from_str(&input.value).unwrap();
                                 }
                                 _ => return Err(err()),
                             },
                             _ => return Err(err()),
                         }
                     }
-                    "exercises" => match right {
-                        "save_history" => {
-                            preferences.fitness.exercises.save_history = value_usize.unwrap()
-                        }
-                        "unit_system" => {
-                            preferences.fitness.exercises.unit_system =
-                                UserUnitSystem::from_str(&input.value).unwrap();
-                        }
-                        _ => return Err(err()),
-                    },
-                    _ => return Err(err()),
-                }
-            }
-            "features_enabled" => {
-                let (left, right) = right.split_once('.').ok_or_else(err)?;
-                match left {
-                    "fitness" => match right {
-                        "enabled" => {
-                            preferences.features_enabled.fitness.enabled = value_bool.unwrap()
-                        }
-                        "measurements" => {
-                            preferences.features_enabled.fitness.measurements = value_bool.unwrap()
-                        }
-                        _ => return Err(err()),
-                    },
-                    "media" => {
-                        match right {
-                            "enabled" => {
-                                preferences.features_enabled.media.enabled = value_bool.unwrap()
-                            }
-                            "audio_book" => {
-                                preferences.features_enabled.media.audio_book = value_bool.unwrap()
-                            }
-                            "book" => preferences.features_enabled.media.book = value_bool.unwrap(),
-                            "movie" => {
-                                preferences.features_enabled.media.movie = value_bool.unwrap()
-                            }
-                            "podcast" => {
-                                preferences.features_enabled.media.podcast = value_bool.unwrap()
-                            }
-                            "show" => preferences.features_enabled.media.show = value_bool.unwrap(),
-                            "video_game" => {
-                                preferences.features_enabled.media.video_game = value_bool.unwrap()
-                            }
-                            "visual_novel" => {
-                                preferences.features_enabled.media.visual_novel =
-                                    value_bool.unwrap()
-                            }
-                            "manga" => {
-                                preferences.features_enabled.media.manga = value_bool.unwrap()
-                            }
-                            "anime" => {
-                                preferences.features_enabled.media.anime = value_bool.unwrap()
+                    "features_enabled" => {
+                        let (left, right) = right.split_once('.').ok_or_else(err)?;
+                        match left {
+                            "fitness" => match right {
+                                "enabled" => {
+                                    preferences.features_enabled.fitness.enabled =
+                                        value_bool.unwrap()
+                                }
+                                "measurements" => {
+                                    preferences.features_enabled.fitness.measurements =
+                                        value_bool.unwrap()
+                                }
+                                _ => return Err(err()),
+                            },
+                            "media" => {
+                                match right {
+                                    "enabled" => {
+                                        preferences.features_enabled.media.enabled =
+                                            value_bool.unwrap()
+                                    }
+                                    "audio_book" => {
+                                        preferences.features_enabled.media.audio_book =
+                                            value_bool.unwrap()
+                                    }
+                                    "book" => {
+                                        preferences.features_enabled.media.book =
+                                            value_bool.unwrap()
+                                    }
+                                    "movie" => {
+                                        preferences.features_enabled.media.movie =
+                                            value_bool.unwrap()
+                                    }
+                                    "podcast" => {
+                                        preferences.features_enabled.media.podcast =
+                                            value_bool.unwrap()
+                                    }
+                                    "show" => {
+                                        preferences.features_enabled.media.show =
+                                            value_bool.unwrap()
+                                    }
+                                    "video_game" => {
+                                        preferences.features_enabled.media.video_game =
+                                            value_bool.unwrap()
+                                    }
+                                    "visual_novel" => {
+                                        preferences.features_enabled.media.visual_novel =
+                                            value_bool.unwrap()
+                                    }
+                                    "manga" => {
+                                        preferences.features_enabled.media.manga =
+                                            value_bool.unwrap()
+                                    }
+                                    "anime" => {
+                                        preferences.features_enabled.media.anime =
+                                            value_bool.unwrap()
+                                    }
+                                    _ => return Err(err()),
+                                };
                             }
                             _ => return Err(err()),
-                        };
+                        }
                     }
+                    "notifications" => match right {
+                        "episode_released" => {
+                            preferences.notifications.episode_released = value_bool.unwrap()
+                        }
+                        "episode_name_changed" => {
+                            preferences.notifications.episode_name_changed = value_bool.unwrap()
+                        }
+                        "status_changed" => {
+                            preferences.notifications.status_changed = value_bool.unwrap()
+                        }
+                        "release_date_changed" => {
+                            preferences.notifications.release_date_changed = value_bool.unwrap()
+                        }
+                        "number_of_seasons_changed" => {
+                            preferences.notifications.number_of_seasons_changed =
+                                value_bool.unwrap()
+                        }
+                        "number_of_chapters_or_episodes_changed" => {
+                            preferences
+                                .notifications
+                                .number_of_chapters_or_episodes_changed = value_bool.unwrap()
+                        }
+                        _ => return Err(err()),
+                    },
+                    "general" => match right {
+                        "review_scale" => {
+                            preferences.general.review_scale =
+                                UserReviewScale::from_str(&input.value).unwrap();
+                        }
+                        "display_nsfw" => {
+                            preferences.general.display_nsfw = value_bool.unwrap();
+                        }
+                        "dashboard" => {
+                            preferences.general.dashboard =
+                                serde_json::from_str(&input.value).unwrap();
+                        }
+                        _ => return Err(err()),
+                    },
                     _ => return Err(err()),
-                }
+                };
             }
-            "notifications" => match right {
-                "episode_released" => {
-                    preferences.notifications.episode_released = value_bool.unwrap()
-                }
-                "episode_name_changed" => {
-                    preferences.notifications.episode_name_changed = value_bool.unwrap()
-                }
-                "status_changed" => preferences.notifications.status_changed = value_bool.unwrap(),
-                "release_date_changed" => {
-                    preferences.notifications.release_date_changed = value_bool.unwrap()
-                }
-                "number_of_seasons_changed" => {
-                    preferences.notifications.number_of_seasons_changed = value_bool.unwrap()
-                }
-                "number_of_chapters_or_episodes_changed" => {
-                    preferences
-                        .notifications
-                        .number_of_chapters_or_episodes_changed = value_bool.unwrap()
-                }
-                _ => return Err(err()),
-            },
-            "general" => match right {
-                "review_scale" => {
-                    preferences.general.review_scale =
-                        UserReviewScale::from_str(&input.value).unwrap();
-                }
-                "display_nsfw" => {
-                    preferences.general.display_nsfw = value_bool.unwrap();
-                }
-                "dashboard" => {
-                    preferences.general.dashboard = serde_json::from_str(&input.value).unwrap();
-                }
-                _ => return Err(err()),
-            },
-            _ => return Err(err()),
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);
