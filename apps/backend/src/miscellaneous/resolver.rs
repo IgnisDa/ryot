@@ -707,7 +707,7 @@ impl MiscellaneousQuery {
     async fn review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.review_by_id(review_id, user_id).await
+        service.review_by_id(review_id, user_id, true).await
     }
 
     /// Get all collections for the currently logged in user.
@@ -3494,10 +3494,12 @@ impl MiscellaneousService {
         }
     }
 
-    async fn review_by_id(&self, review_id: i32, user_id: i32) -> Result<ReviewItem> {
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+    async fn review_by_id(
+        &self,
+        review_id: i32,
+        user_id: i32,
+        respect_prefs: bool,
+    ) -> Result<ReviewItem> {
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
             Some(r) => {
@@ -3513,17 +3515,27 @@ impl MiscellaneousService {
                     },
                     None => (None, None, None),
                 };
+                let rating = match respect_prefs {
+                    true => {
+                        let prefs =
+                            partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+                                .await?
+                                .preferences;
+                        r.rating.map(|s| {
+                            s.checked_div(match prefs.general.review_scale {
+                                UserReviewScale::OutOfFive => dec!(20),
+                                UserReviewScale::OutOfHundred => dec!(1),
+                            })
+                            .unwrap()
+                            .round_dp(1)
+                        })
+                    }
+                    false => r.rating,
+                };
                 Ok(ReviewItem {
                     id: r.id,
                     posted_on: r.posted_on,
-                    rating: r.rating.map(|s| {
-                        s.checked_div(match preferences.general.review_scale {
-                            UserReviewScale::OutOfFive => dec!(20),
-                            UserReviewScale::OutOfHundred => dec!(1),
-                        })
-                        .unwrap()
-                        .round_dp(1)
-                    }),
+                    rating,
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
@@ -3563,7 +3575,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r_id in all_reviews {
-            reviews.push(self.review_by_id(r_id, user_id).await?);
+            reviews.push(self.review_by_id(r_id, user_id, true).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -5868,8 +5880,9 @@ impl MiscellaneousService {
                 .unwrap();
             let mut reviews = vec![];
             for review in db_reviews {
-                let review_item =
-                    get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
+                let review_item = get_review_export_item(
+                    self.review_by_id(review.id, user_id, false).await.unwrap(),
+                );
                 reviews.push(review_item);
             }
             let collections = self
@@ -5904,7 +5917,7 @@ impl MiscellaneousService {
         for (review, creator) in all_reviews {
             let creator = creator.unwrap();
             let review_item =
-                get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
+                get_review_export_item(self.review_by_id(review.id, user_id, false).await.unwrap());
             if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {
