@@ -45,6 +45,12 @@ import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
 import classes from "./styles.module.css";
 
+const notificationContent = {
+	title: "Invalid action",
+	color: "red",
+	message: "Changing preferences is disabled on this instance.",
+};
+
 function usePageHooks() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
@@ -194,15 +200,17 @@ const Page: NextPageWithLayout = () => {
 								const yes = confirm(
 									"This will reset all your preferences to default. Are you sure you want to continue?",
 								);
-								if (yes) {
-									await updateUserPreferences.mutateAsync({
-										input: {
-											property: "",
-											value: "",
-										},
-									});
-									router.reload();
-								}
+								if (coreDetails.data.preferencesChangeAllowed) {
+									if (yes) {
+										await updateUserPreferences.mutateAsync({
+											input: {
+												property: "",
+												value: "",
+											},
+										});
+										router.reload();
+									}
+								} else notifications.show(notificationContent);
 							}}
 						>
 							<IconRotate360 size="1.25rem" />
@@ -214,7 +222,7 @@ const Page: NextPageWithLayout = () => {
 							variant="outline"
 							color="violet"
 						>
-							Changing preferences is disabled on this instance.
+							{notificationContent.message}
 						</Alert>
 					) : undefined}
 					<Tabs
@@ -238,12 +246,7 @@ const Page: NextPageWithLayout = () => {
 											from: source.index,
 											to: destination?.index || 0,
 										});
-									else
-										notifications.show({
-											title: "Invalid action",
-											color: "red",
-											message: "Preferences can not be changed",
-										});
+									else notifications.show(notificationContent);
 								}}
 							>
 								<Droppable droppableId="dnd-list">
