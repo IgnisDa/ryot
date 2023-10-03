@@ -17,7 +17,7 @@ use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, QueryFilter,
+    DatabaseConnection, EntityTrait, PartialModelTrait, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use surf::{
@@ -211,6 +211,19 @@ pub async fn get_stored_asset(
 
 pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
     User::find_by_id(user_id)
+        .one(db)
+        .await
+        .unwrap()
+        .ok_or_else(|| Error::new("No user found"))
+}
+
+// DEV: Use this wherever possible since this results in less memory consumption.
+pub async fn partial_user_by_id<T>(db: &DatabaseConnection, user_id: i32) -> Result<T>
+where
+    T: PartialModelTrait,
+{
+    User::find_by_id(user_id)
+        .into_partial_model::<T>()
         .one(db)
         .await
         .unwrap()

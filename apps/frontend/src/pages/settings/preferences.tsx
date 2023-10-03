@@ -4,6 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
+	ActionIcon,
 	Alert,
 	Container,
 	Divider,
@@ -22,6 +23,7 @@ import {
 	rem,
 } from "@mantine/core";
 import { useListState, useLocalStorage } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	DashboardElementLot,
 	UpdateUserPreferenceDocument,
@@ -29,10 +31,15 @@ import {
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconAlertCircle, IconGripVertical } from "@tabler/icons-react";
+import {
+	IconAlertCircle,
+	IconGripVertical,
+	IconRotate360,
+} from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { Fragment, type ReactElement, useEffect } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
@@ -91,6 +98,7 @@ const EditDashboardElement = (props: {
 									display: "flex",
 									justifyContent: "center",
 									height: "100%",
+									cursor: "grab",
 								}}
 							>
 								<IconGripVertical
@@ -153,6 +161,7 @@ const EditDashboardElement = (props: {
 const Page: NextPageWithLayout = () => {
 	const { userPreferences, coreDetails, updateUserPreferences } =
 		usePageHooks();
+	const router = useRouter();
 	const [dashboardElements, dashboardElementsHandlers] = useListState(
 		userPreferences.data?.general.dashboard || [],
 	);
@@ -176,7 +185,29 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Title>Preferences</Title>
+					<Group justify="space-between">
+						<Title>Preferences</Title>
+						<ActionIcon
+							color="red"
+							variant="outline"
+							onClick={async () => {
+								const yes = confirm(
+									"This will reset all your preferences to default. Are you sure you want to continue?",
+								);
+								if (yes) {
+									await updateUserPreferences.mutateAsync({
+										input: {
+											property: "",
+											value: "",
+										},
+									});
+									router.reload();
+								}
+							}}
+						>
+							<IconRotate360 size="1.25rem" />
+						</ActionIcon>
+					</Group>
 					{!coreDetails.data.preferencesChangeAllowed ? (
 						<Alert
 							icon={<IconAlertCircle size="1rem" />}
@@ -199,16 +230,21 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="dashboard" mt="md">
-							<Text size="lg" mb="md">
-								The different sections on the dashboard
-							</Text>
+							<Text mb="md">The different sections on the dashboard.</Text>
 							<DragDropContext
-								onDragEnd={({ destination, source }) =>
-									dashboardElementsHandlers.reorder({
-										from: source.index,
-										to: destination?.index || 0,
-									})
-								}
+								onDragEnd={({ destination, source }) => {
+									if (coreDetails.data.preferencesChangeAllowed)
+										dashboardElementsHandlers.reorder({
+											from: source.index,
+											to: destination?.index || 0,
+										});
+									else
+										notifications.show({
+											title: "Invalid action",
+											color: "red",
+											message: "Preferences can not be changed",
+										});
+								}}
 							>
 								<Droppable droppableId="dnd-list">
 									{(provided) => (

@@ -1461,6 +1461,10 @@ export type UpdateUserInput = {
 };
 
 export type UpdateUserPreferenceInput = {
+  /**
+   * Dot delimited path to the property that needs to be changed. Setting it\
+   * to empty resets the preferences to default.
+   */
   property: Scalars['String']['input'];
   value: Scalars['String']['input'];
 };

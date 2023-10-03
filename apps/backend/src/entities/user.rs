@@ -6,7 +6,7 @@ use argon2::{
 };
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{entity::prelude::*, ActiveValue, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,6 +17,32 @@ use crate::{
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
+}
+
+#[derive(
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
+)]
+#[sea_orm(entity = "Entity")]
+pub struct UserWithOnlyPreferences {
+    pub preferences: UserPreferences,
+}
+
+#[derive(
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
+)]
+#[sea_orm(entity = "Entity")]
+pub struct UserWithOnlyIntegrationsAndNotifications {
+    pub yank_integrations: Option<UserYankIntegrations>,
+    pub sink_integrations: UserSinkIntegrations,
+    pub notifications: UserNotifications,
+}
+
+#[derive(
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
+)]
+#[sea_orm(entity = "Entity")]
+pub struct UserWithOnlySummary {
+    pub summary: Option<UserSummary>,
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]

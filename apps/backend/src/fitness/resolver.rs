@@ -19,6 +19,7 @@ use crate::{
     entities::{
         exercise,
         prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
+        user::UserWithOnlyPreferences,
         user_measurement, user_to_exercise, workout,
     },
     file_storage::FileStorageService,
@@ -34,7 +35,7 @@ use crate::{
         SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, user_by_id},
+    utils::{get_case_insensitive_like_query, partial_user_by_id},
 };
 
 use super::logic::UserWorkoutInput;
@@ -505,7 +506,7 @@ impl ExerciseService {
 
     #[instrument(skip(self))]
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
-        let user = user_by_id(&self.db, user_id).await?;
+        let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
         let sf = Sonyflake::new().unwrap();
         let id = sf.next_id().unwrap().to_string();
         tracing::trace!("Creating new workout with id: {}", id);
