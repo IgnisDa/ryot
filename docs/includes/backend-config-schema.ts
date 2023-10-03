@@ -201,6 +201,11 @@ export interface ServerConfig {
 	 */
 	max_file_size: number;
 	/**
+	 * The number of days after which details about a person are considered outdated.
+	 * @default 3
+	 */
+	person_outdated_threshold: number;
+	/**
 	 * The hours in which a media can be marked as seen again for a user. This
 	 * is used so that the same media can not be used marked as started when
 	 * it has been already marked as seen in the last `n` hours.
