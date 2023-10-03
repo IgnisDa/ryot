@@ -4,6 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
+	ActionIcon,
 	Alert,
 	Container,
 	Divider,
@@ -30,7 +31,11 @@ import {
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconAlertCircle, IconGripVertical } from "@tabler/icons-react";
+import {
+	IconAlertCircle,
+	IconGripVertical,
+	IconRotate360,
+} from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import Head from "next/head";
@@ -178,7 +183,27 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Title>Preferences</Title>
+					<Group justify="space-between">
+						<Title>Preferences</Title>
+						<ActionIcon
+							color="red"
+							variant="outline"
+							onClick={() => {
+								const yes = confirm(
+									"This will reset all your preferences to default. Are you sure you want to continue?",
+								);
+								if (yes)
+									updateUserPreferences.mutate({
+										input: {
+											property: "",
+											value: "",
+										},
+									});
+							}}
+						>
+							<IconRotate360 size="1.25rem" />
+						</ActionIcon>
+					</Group>
 					{!coreDetails.data.preferencesChangeAllowed ? (
 						<Alert
 							icon={<IconAlertCircle size="1rem" />}
