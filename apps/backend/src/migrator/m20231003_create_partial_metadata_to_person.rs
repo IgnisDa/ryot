@@ -1,18 +1,9 @@
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use super::{m20230413_create_person::Person, m20230901_create_partial_metadata::PartialMetadata};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum PersonToPartialMetadataRelation {
-    #[sea_orm(string_value = "WO")]
-    WorkedOn,
-}
 
 #[derive(Iden)]
 pub enum PersonToPartialMetadata {
@@ -36,7 +27,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(PersonToPartialMetadata::Relation)
-                            .string_len(2)
+                            .string()
                             .not_null(),
                     )
                     .col(
