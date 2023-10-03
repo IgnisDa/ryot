@@ -61,7 +61,7 @@ struct IgdbWebsite {
     url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 struct IgdbCompany {
     id: i32,
     name: String,
@@ -69,6 +69,8 @@ struct IgdbCompany {
     country: Option<i32>,
     description: Option<String>,
     websites: Option<Vec<IgdbWebsite>>,
+    developed: Option<Vec<IgdbItemResponse>>,
+    published: Option<Vec<IgdbItemResponse>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -219,7 +221,13 @@ fields
     company.logo.*,
     company.websites.url,
     company.start_date,
-    company.url;
+    company.url,
+    company.developed.id,
+    company.developed.name,
+    company.developed.cover.image_id,
+    company.published.id,
+    company.published.name,
+    company.published.cover.image_id;
 where id = {id};
             "#,
             id = identity.identifier
@@ -232,6 +240,37 @@ where id = {id};
         let mut details: Vec<IgdbInvolvedCompany> =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().map(|ic| ic.company).unwrap();
+        let mut related = detail
+            .published
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| {
+                let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
+                (
+                    "Publishing".to_owned(),
+                    PartialMetadataWithoutId {
+                        title: r.name.unwrap(),
+                        identifier: r.id.to_string(),
+                        source: MetadataSource::Igdb,
+                        lot: MetadataLot::VideoGame,
+                        image,
+                    },
+                )
+            })
+            .collect_vec();
+        related.extend(detail.developed.unwrap_or_default().into_iter().map(|r| {
+            let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
+            (
+                "Development".to_owned(),
+                PartialMetadataWithoutId {
+                    title: r.name.unwrap(),
+                    identifier: r.id.to_string(),
+                    source: MetadataSource::Igdb,
+                    lot: MetadataLot::VideoGame,
+                    image,
+                },
+            )
+        }));
         Ok(MetadataPerson {
             identifier: detail.id.to_string(),
             name: detail.name,
@@ -249,7 +288,7 @@ where id = {id};
                 .unwrap_or_default()
                 .first()
                 .map(|i| i.url.clone()),
-            related: vec![],
+            related,
             birth_date: None,
             death_date: None,
             gender: None,
