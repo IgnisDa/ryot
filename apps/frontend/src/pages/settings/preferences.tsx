@@ -2,6 +2,7 @@ import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	Alert,
 	Container,
@@ -18,8 +19,9 @@ import {
 	Tabs,
 	Text,
 	Title,
+	rem,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
+import { useListState, useLocalStorage } from "@mantine/hooks";
 import {
 	DashboardElementLot,
 	UpdateUserPreferenceDocument,
@@ -27,12 +29,14 @@ import {
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconAlertCircle } from "@tabler/icons-react";
+import { IconAlertCircle, IconGripVertical } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+import clsx from "clsx";
 import Head from "next/head";
-import { Fragment, type ReactElement } from "react";
+import { Fragment, type ReactElement, useEffect } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
+import classes from "./styles.module.css";
 
 function usePageHooks() {
 	const userPreferences = useUserPreferences();
@@ -54,6 +58,7 @@ function usePageHooks() {
 
 const EditDashboardElement = (props: {
 	lot: DashboardElementLot;
+	index: number;
 }) => {
 	const { userPreferences, coreDetails, updateUserPreferences } =
 		usePageHooks();
@@ -69,64 +74,100 @@ const EditDashboardElement = (props: {
 		focusedElement &&
 		userPreferences.data &&
 		coreDetails.data ? (
-		<Paper withBorder p="xs">
-			<Group justify="space-between">
-				<Title order={3}>{changeCase(props.lot)}</Title>
-				<Switch
-					label="Hidden"
-					labelPosition="left"
-					defaultChecked={focusedElement.hidden}
-					disabled={!coreDetails.data.preferencesChangeAllowed}
-					onChange={(ev) => {
-						const newValue = ev.currentTarget.checked;
-						const newDashboardData = Array.from(
-							userPreferences.data.general.dashboard,
-						);
-						newDashboardData[focusedElementIndex].hidden = newValue;
-						updateUserPreferences.mutate({
-							input: {
-								property: "general.dashboard",
-								value: JSON.stringify(newDashboardData),
-							},
-						});
-					}}
-				/>
-			</Group>
-			{typeof focusedElement.numElements === "number" ? (
-				<Flex>
-					<NumberInput
-						label="Number of elements"
-						size="xs"
-						defaultValue={focusedElement.numElements}
-						disabled={!coreDetails.data.preferencesChangeAllowed}
-						onChange={(num) => {
-							if (typeof num === "number") {
+		<Draggable index={props.index} draggableId={props.lot}>
+			{(provided, snapshot) => (
+				<Paper
+					withBorder
+					p="xs"
+					ref={provided.innerRef}
+					{...provided.draggableProps}
+					className={clsx({ [classes.itemDragging]: snapshot.isDragging })}
+				>
+					<Group justify="space-between">
+						<Group>
+							<div
+								{...provided.dragHandleProps}
+								style={{
+									display: "flex",
+									justifyContent: "center",
+									height: "100%",
+								}}
+							>
+								<IconGripVertical
+									style={{ width: rem(18), height: rem(18) }}
+									stroke={1.5}
+								/>
+							</div>
+							<Title order={3}>{changeCase(props.lot)}</Title>
+						</Group>
+						<Switch
+							label="Hidden"
+							labelPosition="left"
+							defaultChecked={focusedElement.hidden}
+							disabled={!coreDetails.data.preferencesChangeAllowed}
+							onChange={(ev) => {
+								const newValue = ev.currentTarget.checked;
 								const newDashboardData = Array.from(
 									userPreferences.data.general.dashboard,
 								);
-								newDashboardData[focusedElementIndex].numElements = num;
+								newDashboardData[focusedElementIndex].hidden = newValue;
 								updateUserPreferences.mutate({
 									input: {
 										property: "general.dashboard",
 										value: JSON.stringify(newDashboardData),
 									},
 								});
-							}
-						}}
-					/>
-				</Flex>
-			) : undefined}
-		</Paper>
+							}}
+						/>
+					</Group>
+					{typeof focusedElement.numElements === "number" ? (
+						<Flex>
+							<NumberInput
+								label="Number of elements"
+								size="xs"
+								defaultValue={focusedElement.numElements}
+								disabled={!coreDetails.data.preferencesChangeAllowed}
+								onChange={(num) => {
+									if (typeof num === "number") {
+										const newDashboardData = Array.from(
+											userPreferences.data.general.dashboard,
+										);
+										newDashboardData[focusedElementIndex].numElements = num;
+										updateUserPreferences.mutate({
+											input: {
+												property: "general.dashboard",
+												value: JSON.stringify(newDashboardData),
+											},
+										});
+									}
+								}}
+							/>
+						</Flex>
+					) : undefined}
+				</Paper>
+			)}
+		</Draggable>
 	) : undefined;
 };
 
 const Page: NextPageWithLayout = () => {
 	const { userPreferences, coreDetails, updateUserPreferences } =
 		usePageHooks();
+	const [dashboardElements, dashboardElementsHandlers] = useListState(
+		userPreferences.data?.general.dashboard || [],
+	);
 	const [activeTab, setActiveTab] = useLocalStorage({
 		defaultValue: "dashboard",
 		key: "savedPreferencesTab",
 	});
+	useEffect(() => {
+		updateUserPreferences.mutate({
+			input: {
+				property: "general.dashboard",
+				value: JSON.stringify(dashboardElements),
+			},
+		});
+	}, [dashboardElements]);
 
 	return userPreferences.data && coreDetails.data ? (
 		<>
@@ -158,13 +199,32 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="dashboard" mt="md">
-							<Stack>
-								<Text size="lg">The different sections on the dashboard</Text>
-								<EditDashboardElement lot={DashboardElementLot.Upcoming} />
-								<EditDashboardElement lot={DashboardElementLot.InProgress} />
-								<EditDashboardElement lot={DashboardElementLot.Summary} />
-								<EditDashboardElement lot={DashboardElementLot.Actions} />
-							</Stack>
+							<Text size="lg" mb="md">
+								The different sections on the dashboard
+							</Text>
+							<DragDropContext
+								onDragEnd={({ destination, source }) =>
+									dashboardElementsHandlers.reorder({
+										from: source.index,
+										to: destination?.index || 0,
+									})
+								}
+							>
+								<Droppable droppableId="dnd-list">
+									{(provided) => (
+										<Stack {...provided.droppableProps} ref={provided.innerRef}>
+											{dashboardElements.map((de, index) => (
+												<EditDashboardElement
+													key={de.element}
+													lot={de.element}
+													index={index}
+												/>
+											))}
+											{provided.placeholder}
+										</Stack>
+									)}
+								</Droppable>
+							</DragDropContext>
 						</Tabs.Panel>
 						<Tabs.Panel value="general" mt="md">
 							<Stack>
