@@ -190,12 +190,12 @@ const Page: NextPageWithLayout = () => {
 						<ActionIcon
 							color="red"
 							variant="outline"
-							onClick={() => {
+							onClick={async () => {
 								const yes = confirm(
 									"This will reset all your preferences to default. Are you sure you want to continue?",
 								);
 								if (yes) {
-									updateUserPreferences.mutate({
+									await updateUserPreferences.mutateAsync({
 										input: {
 											property: "",
 											value: "",
