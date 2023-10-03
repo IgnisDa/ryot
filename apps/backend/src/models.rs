@@ -737,6 +737,8 @@ pub mod media {
         pub birth_date: Option<NaiveDate>,
         pub place: Option<String>,
         pub website: Option<String>,
+        #[graphql(skip)]
+        pub related: Vec<PartialMetadataWithoutId>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]

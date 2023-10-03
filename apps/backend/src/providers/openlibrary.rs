@@ -141,6 +141,7 @@ impl MediaProvider for OpenlibraryService {
                 .and_then(|l| l.first().and_then(|a| a.url.clone())),
             birth_date: data.birth_date.and_then(|b| parse_date(&b)),
             death_date: data.death_date.and_then(|b| parse_date(&b)),
+            related: vec![],
             gender: None,
             place: None,
         })

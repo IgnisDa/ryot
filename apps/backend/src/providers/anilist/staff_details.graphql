@@ -24,6 +24,7 @@ query StaffQuery($id: Int!) {
       edges {
         node {
           id
+          type
           title {
             userPreferred
           }
@@ -37,6 +38,7 @@ query StaffQuery($id: Int!) {
       edges {
         node {
           id
+          type
           title {
             userPreferred
           }

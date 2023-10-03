@@ -214,10 +214,32 @@ async fn person_details(
             .unwrap()
             .studio
             .unwrap();
+        let related = details
+            .media
+            .unwrap()
+            .edges
+            .unwrap()
+            .into_iter()
+            .map(|r| {
+                let data = r.unwrap().node.unwrap();
+                PartialMetadataWithoutId {
+                    title: data.title.unwrap().user_preferred.unwrap(),
+                    identifier: data.id.to_string(),
+                    source: MetadataSource::Anilist,
+                    lot: match data.type_.unwrap() {
+                        studio_query::MediaType::ANIME => MetadataLot::Anime,
+                        studio_query::MediaType::MANGA => MetadataLot::Manga,
+                        studio_query::MediaType::Other(_) => unreachable!(),
+                    },
+                    image: data.cover_image.unwrap().extra_large,
+                }
+            })
+            .collect();
         MetadataPerson {
             identifier: details.id.to_string(),
             source: MetadataSource::Anilist,
             name: details.name,
+            related,
             website: None,
             description: None,
             gender: None,
@@ -268,6 +290,49 @@ async fn person_details(
                 None
             }
         });
+        let mut related = details
+            .character_media
+            .unwrap()
+            .edges
+            .unwrap()
+            .into_iter()
+            .map(|r| {
+                let data = r.unwrap().node.unwrap();
+                PartialMetadataWithoutId {
+                    title: data.title.unwrap().user_preferred.unwrap(),
+                    identifier: data.id.to_string(),
+                    source: MetadataSource::Anilist,
+                    lot: match data.type_.unwrap() {
+                        staff_query::MediaType::ANIME => MetadataLot::Anime,
+                        staff_query::MediaType::MANGA => MetadataLot::Manga,
+                        staff_query::MediaType::Other(_) => unreachable!(),
+                    },
+                    image: data.cover_image.unwrap().extra_large,
+                }
+            })
+            .collect_vec();
+        related.extend(
+            details
+                .staff_media
+                .unwrap()
+                .edges
+                .unwrap()
+                .into_iter()
+                .map(|r| {
+                    let data = r.unwrap().node.unwrap();
+                    PartialMetadataWithoutId {
+                        title: data.title.unwrap().user_preferred.unwrap(),
+                        identifier: data.id.to_string(),
+                        source: MetadataSource::Anilist,
+                        lot: match data.type_.unwrap() {
+                            staff_query::MediaType::ANIME => MetadataLot::Anime,
+                            staff_query::MediaType::MANGA => MetadataLot::Manga,
+                            staff_query::MediaType::Other(_) => unreachable!(),
+                        },
+                        image: data.cover_image.unwrap().extra_large,
+                    }
+                }),
+        );
         MetadataPerson {
             identifier: details.id.to_string(),
             source: MetadataSource::Anilist,
@@ -278,6 +343,7 @@ async fn person_details(
             images: Some(images),
             death_date,
             birth_date,
+            related,
             website: None,
         }
     };

@@ -105,6 +105,7 @@ impl MediaProvider for VndbService {
             source: MetadataSource::Vndb,
             name: item.title.unwrap(),
             description: item.description,
+            related: vec![],
             gender: None,
             images: None,
             death_date: None,

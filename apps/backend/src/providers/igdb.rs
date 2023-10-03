@@ -249,6 +249,7 @@ where id = {id};
                 .unwrap_or_default()
                 .first()
                 .map(|i| i.url.clone()),
+            related: vec![],
             birth_date: None,
             death_date: None,
             gender: None,

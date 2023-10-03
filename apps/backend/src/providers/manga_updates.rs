@@ -149,6 +149,7 @@ impl MediaProvider for MangaUpdatesService {
                 images: None,
                 death_date: None,
                 birth_date: None,
+                related: vec![],
             }
         } else {
             let data: ItemAuthor = self
@@ -176,6 +177,7 @@ impl MediaProvider for MangaUpdatesService {
                 death_date: None,
                 description: None,
                 website: None,
+                related: vec![],
             }
         })
     }

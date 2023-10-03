@@ -192,6 +192,7 @@ impl MediaProvider for NonMediaTmdbService {
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
+            related: vec![],
         })
     }
 }
