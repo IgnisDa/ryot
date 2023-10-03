@@ -92,7 +92,7 @@ impl NonMediaAnilistService {
 
 #[async_trait]
 impl MediaProvider for NonMediaAnilistService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
         person_details(&self.base.client, identity).await
     }
 }
@@ -193,7 +193,7 @@ async fn get_client_config(url: &str) -> Client {
 
 async fn person_details(
     client: &Client,
-    identity: PartialMetadataPerson,
+    identity: &PartialMetadataPerson,
 ) -> Result<MetadataPerson> {
     let data = if identity.role.as_str() == "Production" {
         let variables = studio_query::Variables {

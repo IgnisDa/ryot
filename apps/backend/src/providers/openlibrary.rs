@@ -96,7 +96,7 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryLink {
             url: Option<String>,

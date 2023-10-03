@@ -128,7 +128,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
         Ok(if identity.role.as_str() == "Publisher" {
             let data: ItemPublisher = self
                 .client
@@ -139,7 +139,7 @@ impl MediaProvider for MangaUpdatesService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             MetadataPerson {
-                identifier: identity.identifier,
+                identifier: identity.identifier.to_owned(),
                 source: MetadataSource::MangaUpdates,
                 name: data.name.unwrap(),
                 description: data.info,
@@ -160,7 +160,7 @@ impl MediaProvider for MangaUpdatesService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             MetadataPerson {
-                identifier: identity.identifier,
+                identifier: identity.identifier.to_owned(),
                 source: MetadataSource::MangaUpdates,
                 name: data.name.unwrap(),
                 gender: data.gender,
