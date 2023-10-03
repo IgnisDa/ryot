@@ -17,7 +17,7 @@ use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, QueryFilter,
+    DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use surf::{
@@ -30,7 +30,7 @@ use crate::{
     config::AppConfig,
     entities::{
         prelude::{User, UserToMetadata},
-        user, user_to_metadata,
+        user_to_metadata,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
@@ -209,8 +209,12 @@ pub async fn get_stored_asset(
     }
 }
 
-pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
+pub async fn user_by_id<T>(db: &DatabaseConnection, user_id: i32) -> Result<T>
+where
+    T: FromQueryResult,
+{
     User::find_by_id(user_id)
+        .into_model::<T>()
         .one(db)
         .await
         .unwrap()

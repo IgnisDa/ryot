@@ -14,7 +14,7 @@ use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
-    entities::{import_report, prelude::ImportReport},
+    entities::{import_report, prelude::ImportReport, user::UserWithOnlyPreferences},
     migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::media::{
@@ -260,7 +260,7 @@ impl ImporterService {
                 .await?
             }
         };
-        let preferences = user_by_id(&self.media_service.db, user_id)
+        let preferences = user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
             .await?
             .preferences;
         import.media = import
