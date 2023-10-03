@@ -86,7 +86,6 @@ type AppPropsWithLayout = AppProps & {
 
 const theme = createTheme({
 	fontFamily: "Poppins",
-	breakpoints: { "3xl": "112em" },
 	components: {
 		ActionIcon: ActionIcon.extend({
 			defaultProps: {
@@ -95,9 +94,7 @@ const theme = createTheme({
 			},
 		}),
 		Alert: Alert.extend({
-			defaultProps: {
-				p: "xs",
-			},
+			defaultProps: { p: "xs" },
 		}),
 	},
 });
