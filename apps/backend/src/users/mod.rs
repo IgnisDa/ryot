@@ -2,6 +2,7 @@ use async_graphql::{Enum, SimpleObject};
 use kinded::Kinded;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use strum::EnumString;
 
 #[derive(
@@ -270,6 +271,7 @@ pub enum DashboardElementLot {
     Actions,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
