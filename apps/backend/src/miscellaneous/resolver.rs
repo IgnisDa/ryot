@@ -6166,6 +6166,7 @@ impl MiscellaneousService {
                 description: ActiveValue::Set(provider_person.description),
                 gender: ActiveValue::Set(provider_person.gender),
                 birth_date: ActiveValue::Set(provider_person.birth_date),
+                death_date: ActiveValue::Set(provider_person.death_date),
                 place: ActiveValue::Set(provider_person.place),
                 website: ActiveValue::Set(provider_person.website),
                 images: ActiveValue::Set(images),
