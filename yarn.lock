@@ -5203,6 +5203,7 @@ __metadata:
     "@types/node": 20.7.0
     "@types/react": 18.2.23
     "@types/react-dom": 18.2.8
+    clsx: 2.0.0
     dayjs: 1.11.10
     embla-carousel-react: 8.0.0-rc14
     human-format: 1.2.0
