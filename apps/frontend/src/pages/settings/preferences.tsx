@@ -39,6 +39,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { Fragment, type ReactElement, useEffect } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
@@ -160,6 +161,7 @@ const EditDashboardElement = (props: {
 const Page: NextPageWithLayout = () => {
 	const { userPreferences, coreDetails, updateUserPreferences } =
 		usePageHooks();
+	const router = useRouter();
 	const [dashboardElements, dashboardElementsHandlers] = useListState(
 		userPreferences.data?.general.dashboard || [],
 	);
@@ -192,13 +194,15 @@ const Page: NextPageWithLayout = () => {
 								const yes = confirm(
 									"This will reset all your preferences to default. Are you sure you want to continue?",
 								);
-								if (yes)
+								if (yes) {
 									updateUserPreferences.mutate({
 										input: {
 											property: "",
 											value: "",
 										},
 									});
+									router.reload();
+								}
 							}}
 						>
 							<IconRotate360 size="1.25rem" />
