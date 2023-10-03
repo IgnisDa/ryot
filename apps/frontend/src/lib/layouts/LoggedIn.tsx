@@ -342,7 +342,7 @@ export default function ({ children }: { children: ReactElement }) {
 				</Flex>
 				<Box component={ScrollArea} style={{ flexGrow: 1 }}>
 					<LinksGroup
-						label="Home"
+						label="Dashboard"
 						icon={IconHome2}
 						href={APP_ROUTES.dashboard}
 						opened={false}

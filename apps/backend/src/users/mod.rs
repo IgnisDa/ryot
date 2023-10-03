@@ -2,6 +2,7 @@ use async_graphql::{Enum, SimpleObject};
 use kinded::Kinded;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use strum::EnumString;
 
 #[derive(
@@ -261,13 +262,65 @@ pub enum UserReviewScale {
     OutOfHundred,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DashboardElementLot {
+    Upcoming,
+    InProgress,
+    Summary,
+    Actions,
+}
+
+#[skip_serializing_none]
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct UserGeneralDashboardElement {
+    pub section: DashboardElementLot,
+    pub hidden: bool,
+    pub num_elements: Option<i32>,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 #[serde(default)]
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
+    pub dashboard: Vec<UserGeneralDashboardElement>,
+}
+
+impl Default for UserGeneralPreferences {
+    fn default() -> Self {
+        Self {
+            review_scale: UserReviewScale::default(),
+            display_nsfw: false,
+            dashboard: vec![
+                UserGeneralDashboardElement {
+                    section: DashboardElementLot::Upcoming,
+                    hidden: false,
+                    num_elements: Some(8),
+                },
+                UserGeneralDashboardElement {
+                    section: DashboardElementLot::InProgress,
+                    hidden: false,
+                    num_elements: Some(8),
+                },
+                UserGeneralDashboardElement {
+                    section: DashboardElementLot::Summary,
+                    hidden: false,
+                    num_elements: None,
+                },
+                UserGeneralDashboardElement {
+                    section: DashboardElementLot::Actions,
+                    hidden: false,
+                    num_elements: None,
+                },
+            ],
+        }
+    }
 }
 
 #[derive(

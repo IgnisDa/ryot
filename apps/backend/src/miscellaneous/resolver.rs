@@ -4119,22 +4119,22 @@ impl MiscellaneousService {
             }
         }
 
-        ls.media.creators_interacted_with += ls.unique_items.creators.len();
+        ls.media.creators_interacted_with = ls.unique_items.creators.len();
 
-        ls.media.podcasts.played_episodes += ls.unique_items.podcast_episodes.len();
-        ls.media.podcasts.played += ls.unique_items.podcasts.len();
+        ls.media.podcasts.played_episodes = ls.unique_items.podcast_episodes.len();
+        ls.media.podcasts.played = ls.unique_items.podcasts.len();
 
-        ls.media.shows.watched_episodes += ls.unique_items.show_episodes.len();
-        ls.media.shows.watched_seasons += ls.unique_items.show_seasons.len();
-        ls.media.shows.watched += ls.unique_items.shows.len();
+        ls.media.shows.watched_episodes = ls.unique_items.show_episodes.len();
+        ls.media.shows.watched_seasons = ls.unique_items.show_seasons.len();
+        ls.media.shows.watched = ls.unique_items.shows.len();
 
-        ls.media.video_games.played += ls.unique_items.video_games.len();
-        ls.media.audio_books.played += ls.unique_items.audio_books.len();
-        ls.media.anime.watched += ls.unique_items.anime.len();
-        ls.media.manga.read += ls.unique_items.manga.len();
-        ls.media.books.read += ls.unique_items.books.len();
-        ls.media.movies.watched += ls.unique_items.movies.len();
-        ls.media.visual_novels.played += ls.unique_items.visual_novels.len();
+        ls.media.video_games.played = ls.unique_items.video_games.len();
+        ls.media.audio_books.played = ls.unique_items.audio_books.len();
+        ls.media.anime.watched = ls.unique_items.anime.len();
+        ls.media.manga.read = ls.unique_items.manga.len();
+        ls.media.books.read = ls.unique_items.books.len();
+        ls.media.movies.watched = ls.unique_items.movies.len();
+        ls.media.visual_novels.played = ls.unique_items.visual_novels.len();
 
         ls.calculated_on = Utc::now();
 
@@ -4640,6 +4640,9 @@ impl MiscellaneousService {
                 }
                 "display_nsfw" => {
                     preferences.general.display_nsfw = value_bool.unwrap();
+                }
+                "dashboard" => {
+                    preferences.general.dashboard = serde_json::from_str(&input.value).unwrap();
                 }
                 _ => return Err(err()),
             },

@@ -3,6 +3,11 @@ query UserPreferences {
     general {
       reviewScale
       displayNsfw
+      dashboard {
+        section
+        hidden
+        numElements
+      }
     }
     fitness {
       measurements {

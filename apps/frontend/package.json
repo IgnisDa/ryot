@@ -2,6 +2,7 @@
 	"name": "@ryot/frontend",
 	"private": true,
 	"dependencies": {
+		"@hello-pangea/dnd": "16.3.0",
 		"@mantine/carousel": "7.1.0",
 		"@mantine/core": "7.1.0",
 		"@mantine/dates": "7.1.0",
@@ -14,6 +15,7 @@
 		"@ryot/ts-utils": "workspace:*",
 		"@tabler/icons-react": "2.35.0",
 		"@tanstack/react-query": "4.35.3",
+		"clsx": "2.0.0",
 		"dayjs": "1.11.10",
 		"embla-carousel-react": "8.0.0-rc14",
 		"human-format": "1.2.0",
@@ -41,9 +43,9 @@
 		"@types/node": "20.7.0",
 		"@types/react": "18.2.23",
 		"@types/react-dom": "18.2.8",
-		"postcss": "^8.4.31",
-		"postcss-preset-mantine": "^1.7.0",
-		"postcss-simple-vars": "^7.0.1",
-		"typescript-plugin-css-modules": "^5.0.1"
+		"postcss": "8.4.31",
+		"postcss-preset-mantine": "1.7.0",
+		"postcss-simple-vars": "7.0.1",
+		"typescript-plugin-css-modules": "5.0.1"
 	}
 }

@@ -4,6 +4,7 @@ import "@mantine/notifications/styles.css";
 import { queryClient } from "@/lib/services/api";
 import {
 	ActionIcon,
+	Alert,
 	Flex,
 	type MantineColorScheme,
 	type MantineColorSchemeManager,
@@ -85,13 +86,15 @@ type AppPropsWithLayout = AppProps & {
 
 const theme = createTheme({
 	fontFamily: "Poppins",
-	breakpoints: { "3xl": "112em" },
 	components: {
 		ActionIcon: ActionIcon.extend({
 			defaultProps: {
 				variant: "subtle",
 				color: "gray",
 			},
+		}),
+		Alert: Alert.extend({
+			defaultProps: { p: "xs" },
 		}),
 	},
 });

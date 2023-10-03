@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.19.13"
+version = "2.20.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -56,7 +56,7 @@ mime_guess = "2.0.4"
 nanoid = "0.4.0"
 quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
 rand = "0.8.5"
-regex = "1.9.5"
+regex = "1.9.6"
 retainer = "0.3.0"
 rs-utils = { path = "../../libs/rs-utils" }
 rust-embed = "8.0.0"
@@ -91,7 +91,7 @@ serde_json = "1.0.107"
 serde_with = { version = "3.3.0", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
 slug = "0.1.4"
-sqlx = "*"
+sqlx = "0.7.2"
 sonyflake = "0.2.0"
 specta = { version = "2.0.0-rc.3", features = [
     "typescript",

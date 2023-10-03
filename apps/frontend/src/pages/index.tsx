@@ -28,6 +28,7 @@ import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	CollectionsDocument,
+	DashboardElementLot,
 	LatestUserSummaryDocument,
 	MetadataLot,
 	UserUpcomingCalendarEventsDocument,
@@ -52,6 +53,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "./_app";
@@ -187,20 +189,28 @@ const Page: NextPageWithLayout = () => {
 
 	const userPreferences = useUserPreferences();
 	const inProgressCollection = useQuery(["collections"], async () => {
+		const take = userPreferences.data?.general.dashboard.find(
+			(de) => de.section === DashboardElementLot.InProgress,
+		)?.numElements;
+		invariant(take, "Can not get the value of take");
 		const { collections } = await gqlClient.request(CollectionsDocument, {
 			input: { name: "In Progress" },
 		});
 		const id = collections[0].id;
 		const { collectionContents } = await gqlClient.request(
 			CollectionContentsDocument,
-			{ input: { collectionId: id, page: 1, take: 8 } },
+			{ input: { collectionId: id, page: 1, take } },
 		);
 		return collectionContents;
 	});
 	const upcomingMedia = useQuery(["upcomingMedia"], async () => {
+		const take = userPreferences.data?.general.dashboard.find(
+			(de) => de.section === DashboardElementLot.Upcoming,
+		)?.numElements;
+		invariant(take, "Can not get the value of take");
 		const { userUpcomingCalendarEvents } = await gqlClient.request(
 			UserUpcomingCalendarEventsDocument,
-			{ input: { nextMedia: 8 } },
+			{ input: { nextMedia: take } },
 		);
 		return userUpcomingCalendarEvents;
 	});
@@ -214,6 +224,16 @@ const Page: NextPageWithLayout = () => {
 		},
 		{ retry: false },
 	);
+
+	const getDivider = (index: number) => {
+		return index <
+			(userPreferences.data?.general.dashboard.filter(
+				(de) => de.hidden === false,
+			).length || 0) -
+				1 ? (
+			<Divider />
+		) : undefined;
+	};
 
 	return userPreferences.data &&
 		latestUserSummary.data &&
@@ -245,272 +265,304 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
-					{upcomingMedia.data.length > 0 ? (
-						<>
-							<Title>Upcoming</Title>
-							<Grid>
-								{upcomingMedia.data.map((um) => (
-									<UpComingMedia um={um} key={um.calendarEventId} />
-								))}
-							</Grid>
-							<Divider />
-						</>
-					) : undefined}
-					{inProgressCollection.data.results.items.length > 0 ? (
-						<>
-							<Title>{inProgressCollection.data.details.name}</Title>
-							<Grid>
-								{inProgressCollection.data.results.items.map((lm) => (
-									<MediaItemWithoutUpdateModal
-										key={lm.details.identifier}
-										item={{
-											...lm.details,
-											publishYear: lm.details.publishYear?.toString(),
-										}}
-										lot={lm.lot}
-										href={withQuery(
-											APP_ROUTES.media.individualMediaItem.details,
-											{ id: lm.details.identifier },
-										)}
-										noRatingLink
-									/>
-								))}
-							</Grid>
-							<Divider />
-						</>
-					) : undefined}
-					<Title>Summary</Title>
-					<Text size="xs" mt={-15}>
-						Calculated {formatTimeAgo(latestUserSummary.data.calculatedOn)}
-					</Text>
-					<SimpleGrid
-						cols={{ base: 1, sm: 2, md: 3 }}
-						style={{ alignItems: "center" }}
-						spacing="lg"
-					>
-						<DisplayStatForMediaType
-							lot={MetadataLot.Movie}
-							data={[
-								{
-									label: "Movies",
-									value: latestUserSummary.data.media.movies.watched,
-									type: "number",
-								},
-								{
-									label: "Runtime",
-									value: latestUserSummary.data.media.movies.runtime,
-									type: "duration",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.Show}
-							data={[
-								{
-									label: "Shows",
-									value: latestUserSummary.data.media.shows.watched,
-									type: "number",
-								},
-								{
-									label: "Seasons",
-									value: latestUserSummary.data.media.shows.watchedSeasons,
-									type: "number",
-								},
-								{
-									label: "Episodes",
-									value: latestUserSummary.data.media.shows.watchedEpisodes,
-									type: "number",
-								},
-								{
-									label: "Runtime",
-									value: latestUserSummary.data.media.shows.runtime,
-									type: "duration",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.VideoGame}
-							data={[
-								{
-									label: "Video games",
-									value: latestUserSummary.data.media.videoGames.played,
-									type: "number",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.VisualNovel}
-							data={[
-								{
-									label: "Visual Novels",
-									value: latestUserSummary.data.media.visualNovels.played,
-									type: "number",
-								},
-								{
-									label: "Runtime",
-									value: latestUserSummary.data.media.visualNovels.runtime,
-									type: "duration",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.AudioBook}
-							data={[
-								{
-									label: "Audiobooks",
-									value: latestUserSummary.data.media.audioBooks.played,
-									type: "number",
-								},
-								{
-									label: "Runtime",
-									value: latestUserSummary.data.media.audioBooks.runtime,
-									type: "duration",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.Book}
-							data={[
-								{
-									label: "Books",
-									value: latestUserSummary.data.media.books.read,
-									type: "number",
-								},
-								{
-									label: "Pages",
-									value: latestUserSummary.data.media.books.pages,
-									type: "number",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.Podcast}
-							data={[
-								{
-									label: "Podcasts",
-									value: latestUserSummary.data.media.podcasts.played,
-									type: "number",
-								},
-								{
-									label: "Episodes",
-									value: latestUserSummary.data.media.podcasts.playedEpisodes,
-									type: "number",
-								},
-								{
-									label: "Runtime",
-									value: latestUserSummary.data.media.podcasts.runtime,
-									type: "duration",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.Manga}
-							data={[
-								{
-									label: "Manga",
-									value: latestUserSummary.data.media.manga.read,
-									type: "number",
-								},
-								{
-									label: "Chapters",
-									value: latestUserSummary.data.media.manga.chapters,
-									type: "number",
-								},
-							]}
-						/>
-						<DisplayStatForMediaType
-							lot={MetadataLot.Anime}
-							data={[
-								{
-									label: "Anime",
-									value: latestUserSummary.data.media.anime.watched,
-									type: "number",
-								},
-								{
-									label: "Episodes",
-									value: latestUserSummary.data.media.anime.episodes,
-									type: "number",
-								},
-							]}
-						/>
-						{userPreferences.data.featuresEnabled.media.enabled ? (
-							<ActualDisplayStat
-								icon={<IconFriends />}
-								lot="General stats"
-								color={theme.colors.grape[8]}
-								data={[
-									{
-										label: "Reviews",
-										value: latestUserSummary.data.media.reviewsPosted,
-										type: "number",
-										hideIfZero: true,
-									},
-									{
-										label: "People",
-										value: latestUserSummary.data.media.creatorsInteractedWith,
-										type: "number",
-									},
-								]}
-							/>
-						) : undefined}
-						{userPreferences.data.featuresEnabled.fitness.enabled ? (
-							<ActualDisplayStat
-								icon={<IconScaleOutline stroke={1.3} />}
-								lot="Fitness"
-								color={theme.colors.yellow[5]}
-								data={[
-									{
-										label: "Measurements",
-										value: latestUserSummary.data.fitness.measurementsRecorded,
-										type: "number",
-									},
-									{
-										label: "Workouts",
-										value: latestUserSummary.data.fitness.workoutsRecorded,
-										type: "number",
-										hideIfZero: true,
-									},
-								]}
-							/>
-						) : undefined}
-					</SimpleGrid>
-					<Divider />
-					<Title>Actions</Title>
-					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-						{userPreferences.data.featuresEnabled.fitness.enabled ? (
-							currentWorkout ? (
-								<Button
-									variant="outline"
-									href={APP_ROUTES.fitness.exercises.currentWorkout}
-									component={Link}
-									leftSection={<IconBarbell />}
-								>
-									Go to current workout
-								</Button>
-							) : (
-								<Button
-									variant="outline"
-									leftSection={<IconBarbell />}
-									onClick={() => {
-										setCurrentWorkout(getDefaultWorkout());
-										router.push(APP_ROUTES.fitness.exercises.currentWorkout);
-									}}
-								>
-									Start a workout
-								</Button>
+					{userPreferences.data.general.dashboard.map((de, index) =>
+						match([de.section, de.hidden])
+							.with([DashboardElementLot.Upcoming, false], () =>
+								upcomingMedia.data.length > 0 ? (
+									<>
+										<Title>Upcoming</Title>
+										<Grid>
+											{upcomingMedia.data.map((um) => (
+												<UpComingMedia um={um} key={um.calendarEventId} />
+											))}
+										</Grid>
+										{getDivider(index)}
+									</>
+								) : undefined,
 							)
-						) : undefined}
-						{userPreferences.data.featuresEnabled.media.enabled ? (
-							<Button
-								variant="outline"
-								component={Link}
-								leftSection={<IconPhotoPlus />}
-								href={APP_ROUTES.media.individualMediaItem.create}
-							>
-								Create a media item
-							</Button>
-						) : undefined}
-					</SimpleGrid>
+							.with([DashboardElementLot.InProgress, false], () =>
+								inProgressCollection.data.results.items.length > 0 ? (
+									<>
+										<Title>{inProgressCollection.data.details.name}</Title>
+										<Grid>
+											{inProgressCollection.data.results.items.map((lm) => (
+												<MediaItemWithoutUpdateModal
+													key={lm.details.identifier}
+													item={{
+														...lm.details,
+														publishYear: lm.details.publishYear?.toString(),
+													}}
+													lot={lm.lot}
+													href={withQuery(
+														APP_ROUTES.media.individualMediaItem.details,
+														{ id: lm.details.identifier },
+													)}
+													noRatingLink
+												/>
+											))}
+										</Grid>
+										{getDivider(index)}
+									</>
+								) : undefined,
+							)
+							.with([DashboardElementLot.Summary, false], () => (
+								<>
+									<Title>Summary</Title>
+									<Text size="xs" mt={-15}>
+										Calculated{" "}
+										{formatTimeAgo(latestUserSummary.data.calculatedOn)}
+									</Text>
+									<SimpleGrid
+										cols={{ base: 1, sm: 2, md: 3 }}
+										style={{ alignItems: "center" }}
+										spacing="lg"
+									>
+										<DisplayStatForMediaType
+											lot={MetadataLot.Movie}
+											data={[
+												{
+													label: "Movies",
+													value: latestUserSummary.data.media.movies.watched,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.data.media.movies.runtime,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.Show}
+											data={[
+												{
+													label: "Shows",
+													value: latestUserSummary.data.media.shows.watched,
+													type: "number",
+												},
+												{
+													label: "Seasons",
+													value:
+														latestUserSummary.data.media.shows.watchedSeasons,
+													type: "number",
+												},
+												{
+													label: "Episodes",
+													value:
+														latestUserSummary.data.media.shows.watchedEpisodes,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.data.media.shows.runtime,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.VideoGame}
+											data={[
+												{
+													label: "Video games",
+													value: latestUserSummary.data.media.videoGames.played,
+													type: "number",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.VisualNovel}
+											data={[
+												{
+													label: "Visual Novels",
+													value:
+														latestUserSummary.data.media.visualNovels.played,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value:
+														latestUserSummary.data.media.visualNovels.runtime,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.AudioBook}
+											data={[
+												{
+													label: "Audiobooks",
+													value: latestUserSummary.data.media.audioBooks.played,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value:
+														latestUserSummary.data.media.audioBooks.runtime,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.Book}
+											data={[
+												{
+													label: "Books",
+													value: latestUserSummary.data.media.books.read,
+													type: "number",
+												},
+												{
+													label: "Pages",
+													value: latestUserSummary.data.media.books.pages,
+													type: "number",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.Podcast}
+											data={[
+												{
+													label: "Podcasts",
+													value: latestUserSummary.data.media.podcasts.played,
+													type: "number",
+												},
+												{
+													label: "Episodes",
+													value:
+														latestUserSummary.data.media.podcasts
+															.playedEpisodes,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.data.media.podcasts.runtime,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.Manga}
+											data={[
+												{
+													label: "Manga",
+													value: latestUserSummary.data.media.manga.read,
+													type: "number",
+												},
+												{
+													label: "Chapters",
+													value: latestUserSummary.data.media.manga.chapters,
+													type: "number",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MetadataLot.Anime}
+											data={[
+												{
+													label: "Anime",
+													value: latestUserSummary.data.media.anime.watched,
+													type: "number",
+												},
+												{
+													label: "Episodes",
+													value: latestUserSummary.data.media.anime.episodes,
+													type: "number",
+												},
+											]}
+										/>
+										{userPreferences.data.featuresEnabled.media.enabled ? (
+											<ActualDisplayStat
+												icon={<IconFriends />}
+												lot="General stats"
+												color={theme.colors.grape[8]}
+												data={[
+													{
+														label: "Reviews",
+														value: latestUserSummary.data.media.reviewsPosted,
+														type: "number",
+														hideIfZero: true,
+													},
+													{
+														label: "People",
+														value:
+															latestUserSummary.data.media
+																.creatorsInteractedWith,
+														type: "number",
+													},
+												]}
+											/>
+										) : undefined}
+										{userPreferences.data.featuresEnabled.fitness.enabled ? (
+											<ActualDisplayStat
+												icon={<IconScaleOutline stroke={1.3} />}
+												lot="Fitness"
+												color={theme.colors.yellow[5]}
+												data={[
+													{
+														label: "Measurements",
+														value:
+															latestUserSummary.data.fitness
+																.measurementsRecorded,
+														type: "number",
+													},
+													{
+														label: "Workouts",
+														value:
+															latestUserSummary.data.fitness.workoutsRecorded,
+														type: "number",
+														hideIfZero: true,
+													},
+												]}
+											/>
+										) : undefined}
+									</SimpleGrid>
+									{getDivider(index)}
+								</>
+							))
+							.with([DashboardElementLot.Actions, false], () => (
+								<>
+									<Title>Actions</Title>
+									<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+										{userPreferences.data.featuresEnabled.fitness.enabled ? (
+											currentWorkout ? (
+												<Button
+													variant="outline"
+													href={APP_ROUTES.fitness.exercises.currentWorkout}
+													component={Link}
+													leftSection={<IconBarbell />}
+												>
+													Go to current workout
+												</Button>
+											) : (
+												<Button
+													variant="outline"
+													leftSection={<IconBarbell />}
+													onClick={() => {
+														setCurrentWorkout(getDefaultWorkout());
+														router.push(
+															APP_ROUTES.fitness.exercises.currentWorkout,
+														);
+													}}
+												>
+													Start a workout
+												</Button>
+											)
+										) : undefined}
+										{userPreferences.data.featuresEnabled.media.enabled ? (
+											<Button
+												variant="outline"
+												component={Link}
+												leftSection={<IconPhotoPlus />}
+												href={APP_ROUTES.media.individualMediaItem.create}
+											>
+												Create a media item
+											</Button>
+										) : undefined}
+									</SimpleGrid>
+									{getDivider(index)}
+								</>
+							))
+							.otherwise(() => undefined),
+					)}
 				</Stack>
 			</Container>
 		</>
