@@ -201,9 +201,7 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="dashboard" mt="md">
-							<Text size="lg" mb="md">
-								The different sections on the dashboard
-							</Text>
+							<Text mb="md">The different sections on the dashboard.</Text>
 							<DragDropContext
 								onDragEnd={({ destination, source }) => {
 									if (coreDetails.data.preferencesChangeAllowed)
