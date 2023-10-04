@@ -376,6 +376,7 @@ struct MetadataCreatorGroupedByRole {
 struct CreatorDetails {
     details: person::Model,
     contents: Vec<CreatorDetailsGroupedByRole>,
+    worked_on: Vec<partial_metadata::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -5731,7 +5732,26 @@ impl MiscellaneousService {
             .into_iter()
             .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
             .collect_vec();
-        Ok(CreatorDetails { details, contents })
+        let partial_metadata_ids = PersonToPartialMetadata::find()
+            .select_only()
+            .column(person_to_partial_metadata::Column::PartialMetadataId)
+            .filter(person_to_partial_metadata::Column::PersonId.eq(details.id))
+            .filter(
+                person_to_partial_metadata::Column::Relation
+                    .eq(PersonToPartialMetadataRelation::WorkedOn),
+            )
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await?;
+        let worked_on = PartialMetadataModel::find()
+            .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
+            .all(&self.db)
+            .await?;
+        Ok(CreatorDetails {
+            details,
+            contents,
+            worked_on,
+        })
     }
 
     async fn metadata_group_details(&self, metadata_group_id: i32) -> Result<MetadataGroupDetails> {
