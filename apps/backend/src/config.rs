@@ -369,7 +369,7 @@ pub struct ServerConfig {
     #[setting(default = 2)]
     pub progress_update_threshold: i64,
     /// The number of days after which details about a person are considered outdated.
-    #[setting(default = 3)]
+    #[setting(default = 30)]
     pub person_outdated_threshold: i64,
     /// Admin jobs take a lot of resources, so they can be disabled completely from being
     /// triggered manually. They still run as background jobs.

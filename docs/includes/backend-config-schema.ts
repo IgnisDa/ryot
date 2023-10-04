@@ -202,7 +202,7 @@ export interface ServerConfig {
 	max_file_size: number;
 	/**
 	 * The number of days after which details about a person are considered outdated.
-	 * @default 3
+	 * @default 30
 	 */
 	person_outdated_threshold: number;
 	/**
