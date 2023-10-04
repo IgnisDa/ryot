@@ -1,20 +1,3 @@
-fragment SeenPart on Seen {
-  id
-  progress
-  state
-  startedOn
-  finishedOn
-  lastUpdatedOn
-  numTimesUpdated
-  showInformation {
-    episode
-    season
-  }
-  podcastInformation {
-    episode
-  }
-}
-
 query UserMediaDetails($metadataId: Int!) {
   userMediaDetails(metadataId: $metadataId) {
     collections {

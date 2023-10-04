@@ -1,0 +1,37 @@
+fragment CalendarEventPart on GraphqlCalendarEvent {
+    calendarEventId
+    metadataId
+    metadataTitle
+    metadataLot
+    metadataImage
+    date
+    showSeasonNumber
+    showEpisodeNumber
+    podcastEpisodeNumber
+}
+
+fragment SeenPart on Seen {
+  id
+  progress
+  state
+  startedOn
+  finishedOn
+  lastUpdatedOn
+  numTimesUpdated
+  showInformation {
+    episode
+    season
+  }
+  podcastInformation {
+    episode
+  }
+}
+
+fragment PartialMetadataPart on PartialMetadata {
+  lot
+  source
+  identifier
+  title
+  image
+  metadataId
+}

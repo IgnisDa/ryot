@@ -10,12 +10,7 @@ query MetadataGroupDetails($metadataGroupId: Int!) {
     }
     sourceUrl
     contents {
-      identifier
-      title
-      image
-      metadataId
-      lot
-      source
+      ...PartialMetadataPart
     }
   }
 }
