@@ -34,6 +34,7 @@ import {
 	type CreateReviewCommentMutationVariables,
 	MetadataLot,
 	MetadataSource,
+	type PartialMetadata,
 	type ReviewItem,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -52,6 +53,40 @@ import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import classes from "./styles.module.css";
+
+export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
+	return (
+		<Anchor
+			component={Link}
+			data-media-id={props.media.identifier}
+			href={
+				props.media.metadataId
+					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
+							id: props.media.metadataId,
+					  })
+					: withQuery(APP_ROUTES.media.individualMediaItem.commit, {
+							identifier: props.media.identifier,
+							lot: props.media.lot,
+							source: props.media.source,
+					  })
+			}
+		>
+			<Avatar
+				imageProps={{ loading: "lazy" }}
+				radius={"sm"}
+				src={props.media.image}
+				h={100}
+				w={85}
+				mx="auto"
+				alt={`${props.media.title} picture`}
+				styles={{ image: { objectPosition: "top" } }}
+			/>
+			<Text c="dimmed" size="xs" ta="center" lineClamp={1} mt={4}>
+				{props.media.title}
+			</Text>
+		</Anchor>
+	);
+};
 
 export const MediaScrollArea = (props: { children: JSX.Element }) => {
 	const coreDetails = useCoreDetails();

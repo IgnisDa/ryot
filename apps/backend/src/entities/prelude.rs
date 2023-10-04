@@ -14,6 +14,7 @@ pub use super::metadata_to_person::Entity as MetadataToPerson;
 pub use super::partial_metadata::Entity as PartialMetadata;
 pub use super::partial_metadata_to_metadata_group::Entity as PartialMetadataToMetadataGroup;
 pub use super::person::Entity as Person;
+pub use super::person_to_partial_metadata::Entity as PersonToPartialMetadata;
 pub use super::review::Entity as Review;
 pub use super::seen::Entity as Seen;
 pub use super::user::Entity as User;

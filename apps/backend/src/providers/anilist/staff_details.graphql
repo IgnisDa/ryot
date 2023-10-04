@@ -20,5 +20,33 @@ query StaffQuery($id: Int!) {
       day
     }
     homeTown
+    characterMedia {
+      edges {
+        node {
+          id
+          type
+          title {
+            userPreferred
+          }
+          coverImage {
+            extraLarge
+          }
+        }
+      }
+    }
+    staffMedia {
+      edges {
+        node {
+          id
+          type
+          title {
+            userPreferred
+          }
+          coverImage {
+            extraLarge
+          }
+        }
+      }
+    }
   }
 }

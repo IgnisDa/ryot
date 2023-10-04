@@ -37,7 +37,7 @@ pub trait MediaProvider {
 
     /// Get details about a person.
     #[allow(unused_variables)]
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
     }
 

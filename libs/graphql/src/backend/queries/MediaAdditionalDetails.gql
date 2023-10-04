@@ -18,12 +18,7 @@ query MediaAdditionalDetails($metadataId: Int!) {
       }
     }
     suggestions {
-      lot
-      source
-      identifier
-      title
-      image
-      metadataId
+      ...PartialMetadataPart
     }
     animeSpecifics {
       episodes

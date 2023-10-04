@@ -92,7 +92,7 @@ impl NonMediaAnilistService {
 
 #[async_trait]
 impl MediaProvider for NonMediaAnilistService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
         person_details(&self.base.client, identity).await
     }
 }
@@ -193,7 +193,7 @@ async fn get_client_config(url: &str) -> Client {
 
 async fn person_details(
     client: &Client,
-    identity: PartialMetadataPerson,
+    identity: &PartialMetadataPerson,
 ) -> Result<MetadataPerson> {
     let data = if identity.role.as_str() == "Production" {
         let variables = studio_query::Variables {
@@ -214,10 +214,35 @@ async fn person_details(
             .unwrap()
             .studio
             .unwrap();
+        let related = details
+            .media
+            .unwrap()
+            .edges
+            .unwrap()
+            .into_iter()
+            .map(|r| {
+                let data = r.unwrap().node.unwrap();
+                (
+                    "Development".to_owned(),
+                    PartialMetadataWithoutId {
+                        title: data.title.unwrap().user_preferred.unwrap(),
+                        identifier: data.id.to_string(),
+                        source: MetadataSource::Anilist,
+                        lot: match data.type_.unwrap() {
+                            studio_query::MediaType::ANIME => MetadataLot::Anime,
+                            studio_query::MediaType::MANGA => MetadataLot::Manga,
+                            studio_query::MediaType::Other(_) => unreachable!(),
+                        },
+                        image: data.cover_image.unwrap().extra_large,
+                    },
+                )
+            })
+            .collect();
         MetadataPerson {
             identifier: details.id.to_string(),
             source: MetadataSource::Anilist,
             name: details.name,
+            related,
             website: None,
             description: None,
             gender: None,
@@ -268,6 +293,55 @@ async fn person_details(
                 None
             }
         });
+        let mut related = details
+            .character_media
+            .unwrap()
+            .edges
+            .unwrap()
+            .into_iter()
+            .map(|r| {
+                let data = r.unwrap().node.unwrap();
+                (
+                    "Voicing".to_owned(),
+                    PartialMetadataWithoutId {
+                        title: data.title.unwrap().user_preferred.unwrap(),
+                        identifier: data.id.to_string(),
+                        source: MetadataSource::Anilist,
+                        lot: match data.type_.unwrap() {
+                            staff_query::MediaType::ANIME => MetadataLot::Anime,
+                            staff_query::MediaType::MANGA => MetadataLot::Manga,
+                            staff_query::MediaType::Other(_) => unreachable!(),
+                        },
+                        image: data.cover_image.unwrap().extra_large,
+                    },
+                )
+            })
+            .collect_vec();
+        related.extend(
+            details
+                .staff_media
+                .unwrap()
+                .edges
+                .unwrap()
+                .into_iter()
+                .map(|r| {
+                    let data = r.unwrap().node.unwrap();
+                    (
+                        "Production".to_owned(),
+                        PartialMetadataWithoutId {
+                            title: data.title.unwrap().user_preferred.unwrap(),
+                            identifier: data.id.to_string(),
+                            source: MetadataSource::Anilist,
+                            lot: match data.type_.unwrap() {
+                                staff_query::MediaType::ANIME => MetadataLot::Anime,
+                                staff_query::MediaType::MANGA => MetadataLot::Manga,
+                                staff_query::MediaType::Other(_) => unreachable!(),
+                            },
+                            image: data.cover_image.unwrap().extra_large,
+                        },
+                    )
+                }),
+        );
         MetadataPerson {
             identifier: details.id.to_string(),
             source: MetadataSource::Anilist,
@@ -278,6 +352,7 @@ async fn person_details(
             images: Some(images),
             death_date,
             birth_date,
+            related,
             website: None,
         }
     };

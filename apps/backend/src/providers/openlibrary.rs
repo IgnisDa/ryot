@@ -30,6 +30,20 @@ static URL: &str = "https://openlibrary.org/";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+struct OpenlibraryEditionsResponse {
+    entries: Option<Vec<OpenlibraryEdition>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct OpenlibraryEdition {
+    title: String,
+    key: String,
+    publish_date: Option<String>,
+    number_of_pages: Option<i32>,
+    covers: Option<Vec<i64>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 enum OpenlibraryDescription {
     Text(String),
@@ -96,7 +110,7 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryLink {
             url: Option<String>,
@@ -130,6 +144,38 @@ impl MediaProvider for OpenlibraryService {
             .map(|c| self.get_author_cover_image_url(c))
             .unique()
             .collect();
+        let author_works: OpenlibraryEditionsResponse = self
+            .client
+            .get(format!("authors/{}/works.json", identity.identifier))
+            .query(&serde_json::json!({ "limit": 600 }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut related = vec![];
+        for entry in author_works.entries.unwrap_or_default() {
+            let image = entry
+                .covers
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|c| c > &0)
+                .map(|c| self.get_book_cover_image_url(c))
+                .collect_vec()
+                .first()
+                .cloned();
+            related.push((
+                "Author".to_owned(),
+                PartialMetadataWithoutId {
+                    identifier: get_key(&entry.key),
+                    title: entry.title,
+                    lot: MetadataLot::Book,
+                    source: MetadataSource::Openlibrary,
+                    image,
+                },
+            ))
+        }
         Ok(MetadataPerson {
             identifier,
             source: MetadataSource::Openlibrary,
@@ -141,6 +187,7 @@ impl MediaProvider for OpenlibraryService {
                 .and_then(|l| l.first().and_then(|a| a.url.clone())),
             birth_date: data.birth_date.and_then(|b| parse_date(&b)),
             death_date: data.death_date.and_then(|b| parse_date(&b)),
+            related,
             gender: None,
             place: None,
         })
@@ -177,17 +224,6 @@ impl MediaProvider for OpenlibraryService {
         let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
-
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryEdition {
-            publish_date: Option<String>,
-            number_of_pages: Option<i32>,
-            covers: Option<Vec<i64>>,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryEditionsResponse {
-            entries: Option<Vec<OpenlibraryEdition>>,
-        }
         let mut rsp = self
             .client
             .get(format!("works/{}/editions.json", identifier))

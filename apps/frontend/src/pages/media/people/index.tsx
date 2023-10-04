@@ -1,5 +1,6 @@
 import {
 	MediaScrollArea,
+	PartialMetadataDisplay,
 	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
@@ -29,6 +30,7 @@ import {
 	IconDeviceTv,
 	IconInfoCircle,
 	IconMessageCircle2,
+	IconPlayerPlay,
 	IconUser,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -137,9 +139,14 @@ const Page: NextPageWithLayout = () => {
 									Overview
 								</Tabs.Tab>
 							) : undefined}
-							<Tabs.Tab value="actions" leftSection={<IconUser size="1rem" />}>
-								Actions
-							</Tabs.Tab>
+							{creatorDetails.data.workedOn.length > 0 ? (
+								<Tabs.Tab
+									value="workedOn"
+									leftSection={<IconPlayerPlay size="1rem" />}
+								>
+									Worked on
+								</Tabs.Tab>
+							) : undefined}
 							{userCreatorDetails.data.reviews.length > 0 ? (
 								<Tabs.Tab
 									value="reviews"
@@ -148,6 +155,9 @@ const Page: NextPageWithLayout = () => {
 									Reviews
 								</Tabs.Tab>
 							) : undefined}
+							<Tabs.Tab value="actions" leftSection={<IconUser size="1rem" />}>
+								Actions
+							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="media">
 							<MediaScrollArea>
@@ -207,6 +217,18 @@ const Page: NextPageWithLayout = () => {
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : undefined}
+						<Tabs.Panel value="workedOn">
+							<MediaScrollArea>
+								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+									{creatorDetails.data.workedOn.map((media) => (
+										<PartialMetadataDisplay
+											key={media.identifier}
+											media={media}
+										/>
+									))}
+								</SimpleGrid>
+							</MediaScrollArea>
+						</Tabs.Panel>
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">

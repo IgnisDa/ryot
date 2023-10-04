@@ -53,12 +53,12 @@ use crate::{
         calendar_event, collection, genre, metadata, metadata_group, metadata_to_collection,
         metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
         partial_metadata::{self, PartialMetadataWithoutId},
-        partial_metadata_to_metadata_group, person,
+        partial_metadata_to_metadata_group, person, person_to_partial_metadata,
         prelude::{
             CalendarEvent, Collection, Genre, Metadata, MetadataGroup, MetadataToCollection,
             MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
-            Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
+            PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
         },
         review, seen,
         user::{
@@ -72,8 +72,8 @@ use crate::{
     jwt,
     migrator::{
         Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
-        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
-        UserToMetadata as TempUserToMetadata,
+        PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
+        UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -376,6 +376,7 @@ struct MetadataCreatorGroupedByRole {
 struct CreatorDetails {
     details: person::Model,
     contents: Vec<CreatorDetailsGroupedByRole>,
+    worked_on: Vec<partial_metadata::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -707,7 +708,7 @@ impl MiscellaneousQuery {
     async fn review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<ReviewItem> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.review_by_id(review_id, user_id).await
+        service.review_by_id(review_id, user_id, true).await
     }
 
     /// Get all collections for the currently logged in user.
@@ -3069,6 +3070,13 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
+            let num_person_associations = PersonToPartialMetadata::find()
+                .filter(
+                    person_to_partial_metadata::Column::PartialMetadataId.eq(partial_metadata.id),
+                )
+                .count(&self.db)
+                .await
+                .unwrap();
             let num_group_associations = PartialMetadataToMetadataGroup::find()
                 .filter(
                     partial_metadata_to_metadata_group::Column::PartialMetadataId
@@ -3077,7 +3085,7 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations + num_group_associations == 0 {
+            if num_associations + num_person_associations + num_group_associations == 0 {
                 partial_metadata.delete(&self.db).await.ok();
             }
         }
@@ -3494,10 +3502,12 @@ impl MiscellaneousService {
         }
     }
 
-    async fn review_by_id(&self, review_id: i32, user_id: i32) -> Result<ReviewItem> {
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+    async fn review_by_id(
+        &self,
+        review_id: i32,
+        user_id: i32,
+        respect_prefs: bool,
+    ) -> Result<ReviewItem> {
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
             Some(r) => {
@@ -3513,17 +3523,27 @@ impl MiscellaneousService {
                     },
                     None => (None, None, None),
                 };
+                let rating = match respect_prefs {
+                    true => {
+                        let prefs =
+                            partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+                                .await?
+                                .preferences;
+                        r.rating.map(|s| {
+                            s.checked_div(match prefs.general.review_scale {
+                                UserReviewScale::OutOfFive => dec!(20),
+                                UserReviewScale::OutOfHundred => dec!(1),
+                            })
+                            .unwrap()
+                            .round_dp(1)
+                        })
+                    }
+                    false => r.rating,
+                };
                 Ok(ReviewItem {
                     id: r.id,
                     posted_on: r.posted_on,
-                    rating: r.rating.map(|s| {
-                        s.checked_div(match preferences.general.review_scale {
-                            UserReviewScale::OutOfFive => dec!(20),
-                            UserReviewScale::OutOfHundred => dec!(1),
-                        })
-                        .unwrap()
-                        .round_dp(1)
-                    }),
+                    rating,
                     spoiler: r.spoiler,
                     text: r.text,
                     visibility: r.visibility,
@@ -3563,7 +3583,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r_id in all_reviews {
-            reviews.push(self.review_by_id(r_id, user_id).await?);
+            reviews.push(self.review_by_id(r_id, user_id, true).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -5712,7 +5732,26 @@ impl MiscellaneousService {
             .into_iter()
             .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
             .collect_vec();
-        Ok(CreatorDetails { details, contents })
+        let partial_metadata_ids = PersonToPartialMetadata::find()
+            .select_only()
+            .column(person_to_partial_metadata::Column::PartialMetadataId)
+            .filter(person_to_partial_metadata::Column::PersonId.eq(details.id))
+            .filter(
+                person_to_partial_metadata::Column::Relation
+                    .eq(PersonToPartialMetadataRelation::WorkedOn),
+            )
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await?;
+        let worked_on = PartialMetadataModel::find()
+            .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
+            .all(&self.db)
+            .await?;
+        Ok(CreatorDetails {
+            details,
+            contents,
+            worked_on,
+        })
     }
 
     async fn metadata_group_details(&self, metadata_group_id: i32) -> Result<MetadataGroupDetails> {
@@ -5868,8 +5907,9 @@ impl MiscellaneousService {
                 .unwrap();
             let mut reviews = vec![];
             for review in db_reviews {
-                let review_item =
-                    get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
+                let review_item = get_review_export_item(
+                    self.review_by_id(review.id, user_id, false).await.unwrap(),
+                );
                 reviews.push(review_item);
             }
             let collections = self
@@ -5904,7 +5944,7 @@ impl MiscellaneousService {
         for (review, creator) in all_reviews {
             let creator = creator.unwrap();
             let review_item =
-                get_review_export_item(self.review_by_id(review.id, user_id).await.unwrap());
+                get_review_export_item(self.review_by_id(review.id, user_id, false).await.unwrap());
             if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {
@@ -6135,6 +6175,7 @@ impl MiscellaneousService {
         person: PartialMetadataPerson,
         index: usize,
     ) -> Result<()> {
+        let mut related_media = vec![];
         let role = person.role.clone();
         let db_person = if let Some(db_person) = Person::find()
             .filter(person::Column::Identifier.eq(&person.identifier))
@@ -6143,11 +6184,17 @@ impl MiscellaneousService {
             .await
             .unwrap()
         {
-            // TODO: Deploy job to update person if older than 3 days
+            let now = Utc::now();
+            if now - db_person.last_updated_on
+                > ChronoDuration::days(self.config.server.person_outdated_threshold)
+            {
+                let new_rel = self.update_person(&person, &db_person, now).await?;
+                related_media.extend(new_rel);
+            }
             db_person
         } else {
             let provider = self.get_non_media_provider(person.source).await?;
-            let provider_person = provider.person_details(person).await?;
+            let provider_person = provider.person_details(&person).await?;
             let images = provider_person.images.map(|images| {
                 MetadataImages(
                     images
@@ -6166,11 +6213,13 @@ impl MiscellaneousService {
                 description: ActiveValue::Set(provider_person.description),
                 gender: ActiveValue::Set(provider_person.gender),
                 birth_date: ActiveValue::Set(provider_person.birth_date),
+                death_date: ActiveValue::Set(provider_person.death_date),
                 place: ActiveValue::Set(provider_person.place),
                 website: ActiveValue::Set(provider_person.website),
                 images: ActiveValue::Set(images),
                 ..Default::default()
             };
+            related_media.extend(provider_person.related);
             person.insert(&self.db).await?
         };
         let intermediate = metadata_to_person::ActiveModel {
@@ -6180,7 +6229,49 @@ impl MiscellaneousService {
             index: ActiveValue::Set(index.try_into().unwrap()),
         };
         intermediate.insert(&self.db).await.ok();
+        for (role, media) in related_media {
+            let pm = self.create_partial_metadata(media).await?;
+            let intermediate = person_to_partial_metadata::ActiveModel {
+                person_id: ActiveValue::Set(db_person.id),
+                partial_metadata_id: ActiveValue::Set(pm.id),
+                relation: ActiveValue::Set(PersonToPartialMetadataRelation::WorkedOn),
+                role: ActiveValue::Set(role),
+            };
+            intermediate.insert(&self.db).await.ok();
+        }
         Ok(())
+    }
+
+    async fn update_person(
+        &self,
+        person: &PartialMetadataPerson,
+        db_person: &person::Model,
+        time: chrono::DateTime<Utc>,
+    ) -> Result<Vec<(String, PartialMetadataWithoutId)>> {
+        let provider = self.get_non_media_provider(person.source).await?;
+        let provider_person = provider.person_details(person).await?;
+        let images = provider_person.images.map(|images| {
+            MetadataImages(
+                images
+                    .into_iter()
+                    .map(|i| MetadataImage {
+                        url: StoredUrl::Url(i),
+                        lot: MetadataImageLot::Poster,
+                    })
+                    .collect(),
+            )
+        });
+        let mut to_update_person: person::ActiveModel = db_person.clone().into();
+        to_update_person.last_updated_on = ActiveValue::Set(time);
+        to_update_person.description = ActiveValue::Set(provider_person.description);
+        to_update_person.gender = ActiveValue::Set(provider_person.gender);
+        to_update_person.birth_date = ActiveValue::Set(provider_person.birth_date);
+        to_update_person.death_date = ActiveValue::Set(provider_person.death_date);
+        to_update_person.place = ActiveValue::Set(provider_person.place);
+        to_update_person.website = ActiveValue::Set(provider_person.website);
+        to_update_person.images = ActiveValue::Set(images);
+        to_update_person.update(&self.db).await.ok();
+        Ok(provider_person.related)
     }
 }
 

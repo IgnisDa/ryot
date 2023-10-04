@@ -34,11 +34,40 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::metadata_to_person::Entity")]
     MetadataToPerson,
+    #[sea_orm(has_many = "super::person_to_partial_metadata::Entity")]
+    PersonToPartialMetadata,
+    #[sea_orm(has_many = "super::review::Entity")]
+    Review,
 }
 
 impl Related<super::metadata_to_person::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MetadataToPerson.def()
+    }
+}
+
+impl Related<super::person_to_partial_metadata::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PersonToPartialMetadata.def()
+    }
+}
+
+impl Related<super::review::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Review.def()
+    }
+}
+
+impl Related<super::partial_metadata::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::person_to_partial_metadata::Relation::PartialMetadata.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(
+            super::person_to_partial_metadata::Relation::Person
+                .def()
+                .rev(),
+        )
     }
 }
 

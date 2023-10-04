@@ -2,5 +2,19 @@ query StudioQuery($id: Int!) {
   Studio(id: $id) {
     id
     name
+    media {
+      edges {
+        node {
+          id
+          type
+          title {
+            userPreferred
+          }
+          coverImage {
+            extraLarge
+          }
+        }
+      }
+    }
   }
 }

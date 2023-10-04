@@ -86,7 +86,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
-    async fn person_details(&self, identity: PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
         let mut rsp = self
             .client
             .post("producer")
@@ -105,6 +105,7 @@ impl MediaProvider for VndbService {
             source: MetadataSource::Vndb,
             name: item.title.unwrap(),
             description: item.description,
+            related: vec![],
             gender: None,
             images: None,
             death_date: None,

@@ -33,6 +33,7 @@ mod m20230920_add_columns_to_metadata_table;
 mod m20230927_add_person_id_field_to_review;
 mod m20230927_change_faulty_index_person_table;
 mod m20230927_remove_useless_tables;
+mod m20231003_create_partial_metadata_to_person;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -43,6 +44,7 @@ pub use m20230622_create_exercise::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
 pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
+pub use m20231003_create_partial_metadata_to_person::PersonToPartialMetadataRelation;
 
 pub struct Migrator;
 
@@ -82,6 +84,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230927_add_person_id_field_to_review::Migration),
             Box::new(m20230927_change_faulty_index_person_table::Migration),
             Box::new(m20230927_remove_useless_tables::Migration),
+            Box::new(m20231003_create_partial_metadata_to_person::Migration),
         ]
     }
 }

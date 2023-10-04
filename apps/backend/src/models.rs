@@ -725,7 +725,7 @@ pub mod media {
         pub role: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
     pub struct MetadataPerson {
         pub identifier: String,
         pub source: MetadataSource,
@@ -737,6 +737,7 @@ pub mod media {
         pub birth_date: Option<NaiveDate>,
         pub place: Option<String>,
         pub website: Option<String>,
+        pub related: Vec<(String, PartialMetadataWithoutId)>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]

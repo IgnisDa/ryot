@@ -19,5 +19,13 @@ query CreatorDetails($creatorId: Int!) {
         image
       }
     }
+    workedOn {
+      lot
+      source
+      identifier
+      title
+      image
+      metadataId
+    }
   }
 }
