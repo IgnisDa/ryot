@@ -1,5 +1,6 @@
 import {
 	MediaScrollArea,
+	PartialMetadataDisplay,
 	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
@@ -1577,46 +1578,7 @@ const Page: NextPageWithLayout = () => {
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 									{mediaSpecifics.data?.suggestions.map((sug) => (
-										<Anchor
-											key={sug.identifier}
-											data-media-id={sug.identifier}
-											component={Link}
-											href={
-												sug.metadataId
-													? withQuery(
-															APP_ROUTES.media.individualMediaItem.details,
-															{ id: sug.metadataId },
-													  )
-													: withQuery(
-															APP_ROUTES.media.individualMediaItem.commit,
-															{
-																identifier: sug.identifier,
-																lot: sug.lot,
-																source: sug.source,
-															},
-													  )
-											}
-										>
-											<Avatar
-												imageProps={{ loading: "lazy" }}
-												src={sug.image}
-												h={100}
-												w={85}
-												mx="auto"
-												alt={`${sug.title} picture`}
-												styles={{ image: { objectPosition: "top" } }}
-												radius={"sm"}
-											/>
-											<Text
-												c="dimmed"
-												size="xs"
-												ta="center"
-												lineClamp={1}
-												mt={4}
-											>
-												{sug.title}
-											</Text>
-										</Anchor>
+										<PartialMetadataDisplay key={sug.identifier} media={sug} />
 									))}
 								</SimpleGrid>
 							</MediaScrollArea>
