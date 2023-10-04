@@ -162,7 +162,6 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="media">
 							<MediaScrollArea>
 								<Stack>
-									{JSON.stringify(creatorDetails.data.workedOn)}
 									{creatorDetails.data.contents.map((role) => (
 										<Box key={role.name}>
 											<Title order={3} mb="xs" ta="center">
