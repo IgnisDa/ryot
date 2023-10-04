@@ -165,7 +165,7 @@ pub async fn perform_application_job(
     };
     let end = Instant::now();
     tracing::trace!(
-        "Job {:#?} completed in {}ms, Successful = {}",
+        "Job {:#?}: Time Taken: {}ms, Successful = {}",
         name,
         (end - start).as_millis(),
         status
