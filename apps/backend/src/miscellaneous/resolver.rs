@@ -58,7 +58,7 @@ use crate::{
             CalendarEvent, Collection, Genre, Metadata, MetadataGroup, MetadataToCollection,
             MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
-            Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
+            PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
         },
         review, seen,
         user::{
@@ -3069,6 +3069,13 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
+            let num_person_associations = PersonToPartialMetadata::find()
+                .filter(
+                    person_to_partial_metadata::Column::PartialMetadataId.eq(partial_metadata.id),
+                )
+                .count(&self.db)
+                .await
+                .unwrap();
             let num_group_associations = PartialMetadataToMetadataGroup::find()
                 .filter(
                     partial_metadata_to_metadata_group::Column::PartialMetadataId
@@ -3077,7 +3084,7 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations + num_group_associations == 0 {
+            if num_associations + num_person_associations + num_group_associations == 0 {
                 partial_metadata.delete(&self.db).await.ok();
             }
         }
