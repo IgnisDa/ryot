@@ -37,9 +37,19 @@ static IMAGE_URL: OnceLock<String> = OnceLock::new();
 struct TmdbCredit {
     id: Option<i32>,
     name: Option<String>,
+    title: Option<String>,
+    media_type: Option<String>,
     known_for_department: Option<String>,
     job: Option<String>,
+    character: Option<String>,
     profile_path: Option<String>,
+    poster_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbCreditsResponse {
+    cast: Vec<TmdbCredit>,
+    crew: Vec<TmdbCredit>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -176,6 +186,37 @@ impl MediaProvider for NonMediaTmdbService {
             .map(|p| self.base.get_cover_image_url(p))
             .collect();
         let description = details.description.or(details.biography);
+        let mut related = vec![];
+        if typ.as_str() == "person" {
+            let details: TmdbCreditsResponse = self
+                .client
+                .get(format!("{}/{}/combined_credits", typ, identity.identifier))
+                .query(&json!({ "language": self.base.language }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            for media in details.crew.into_iter().chain(details.cast.into_iter()) {
+                if let Some(title) = media.title {
+                    related.push((
+                        media.character.or(media.job).unwrap(),
+                        PartialMetadataWithoutId {
+                            identifier: media.id.unwrap().to_string(),
+                            title,
+                            image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                            lot: match media.media_type.unwrap().as_ref() {
+                                "movie" => MetadataLot::Movie,
+                                "tv" => MetadataLot::Show,
+                                _ => continue,
+                            },
+                            source: MetadataSource::Tmdb,
+                        },
+                    ));
+                }
+            }
+        }
         Ok(MetadataPerson {
             name: details.name,
             images: Some(images),
@@ -192,7 +233,7 @@ impl MediaProvider for NonMediaTmdbService {
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
-            related: vec![],
+            related,
         })
     }
 }
@@ -233,9 +274,7 @@ impl MediaProvider for TmdbMovieService {
         let data: TmdbCollection = self
             .client
             .get(format!("collection/{}", &identifier))
-            .query(&json!({
-                "language": self.base.language,
-            }))
+            .query(&json!({ "language": self.base.language }))
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?
@@ -305,11 +344,6 @@ impl MediaProvider for TmdbMovieService {
                 identifier: StoredUrl::Url(vid.key),
                 source: MetadataVideoSource::Youtube,
             }))
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbCreditsResponse {
-            cast: Vec<TmdbCredit>,
-            crew: Vec<TmdbCredit>,
         }
         let mut rsp = self
             .client
