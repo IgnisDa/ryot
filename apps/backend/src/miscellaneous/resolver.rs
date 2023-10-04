@@ -53,7 +53,7 @@ use crate::{
         calendar_event, collection, genre, metadata, metadata_group, metadata_to_collection,
         metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
         partial_metadata::{self, PartialMetadataWithoutId},
-        partial_metadata_to_metadata_group, person,
+        partial_metadata_to_metadata_group, person, person_to_partial_metadata,
         prelude::{
             CalendarEvent, Collection, Genre, Metadata, MetadataGroup, MetadataToCollection,
             MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
@@ -72,8 +72,8 @@ use crate::{
     jwt,
     migrator::{
         Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
-        Review as TempReview, Seen as TempSeen, SeenState, UserLot,
-        UserToMetadata as TempUserToMetadata,
+        PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
+        UserLot, UserToMetadata as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -6148,6 +6148,7 @@ impl MiscellaneousService {
         person: PartialMetadataPerson,
         index: usize,
     ) -> Result<()> {
+        let mut related_media = vec![];
         let role = person.role.clone();
         let db_person = if let Some(db_person) = Person::find()
             .filter(person::Column::Identifier.eq(&person.identifier))
@@ -6160,7 +6161,8 @@ impl MiscellaneousService {
             if now - db_person.last_updated_on
                 > ChronoDuration::days(self.config.server.person_outdated_threshold)
             {
-                self.update_person(&person, &db_person, now).await?;
+                let new_rel = self.update_person(&person, &db_person, now).await?;
+                related_media.extend(new_rel);
             }
             db_person
         } else {
@@ -6190,6 +6192,7 @@ impl MiscellaneousService {
                 images: ActiveValue::Set(images),
                 ..Default::default()
             };
+            related_media.extend(provider_person.related);
             person.insert(&self.db).await?
         };
         let intermediate = metadata_to_person::ActiveModel {
@@ -6199,6 +6202,16 @@ impl MiscellaneousService {
             index: ActiveValue::Set(index.try_into().unwrap()),
         };
         intermediate.insert(&self.db).await.ok();
+        for (role, media) in related_media {
+            let pm = self.create_partial_metadata(media).await?;
+            let intermediate = person_to_partial_metadata::ActiveModel {
+                person_id: ActiveValue::Set(db_person.id),
+                partial_metadata_id: ActiveValue::Set(pm.id),
+                relation: ActiveValue::Set(PersonToPartialMetadataRelation::WorkedOn),
+                role: ActiveValue::Set(role),
+            };
+            intermediate.insert(&self.db).await.ok();
+        }
         Ok(())
     }
 
@@ -6207,7 +6220,7 @@ impl MiscellaneousService {
         person: &PartialMetadataPerson,
         db_person: &person::Model,
         time: chrono::DateTime<Utc>,
-    ) -> Result<()> {
+    ) -> Result<Vec<(String, PartialMetadataWithoutId)>> {
         let provider = self.get_non_media_provider(person.source).await?;
         let provider_person = provider.person_details(person).await?;
         let images = provider_person.images.map(|images| {
@@ -6231,7 +6244,7 @@ impl MiscellaneousService {
         to_update_person.website = ActiveValue::Set(provider_person.website);
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.update(&self.db).await.ok();
-        Ok(())
+        Ok(provider_person.related)
     }
 }
 
