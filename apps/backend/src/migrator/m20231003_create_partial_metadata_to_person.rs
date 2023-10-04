@@ -59,7 +59,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-person_id-metadata-to-partial-person_id")
+                            .name("fk-person_to_pm-person_id-to-pm_id")
                             .from(
                                 PersonToPartialMetadata::Table,
                                 PersonToPartialMetadata::PersonId,
@@ -70,7 +70,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-person-to-partial-person_id-partial-metadata_id")
+                            .name("fk-person_to_pm-to-partial-metadata_id")
                             .from(
                                 PersonToPartialMetadata::Table,
                                 PersonToPartialMetadata::PartialMetadataId,
