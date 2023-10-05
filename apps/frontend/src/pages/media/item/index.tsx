@@ -1393,9 +1393,7 @@ const Page: NextPageWithLayout = () => {
 														variant="outline"
 														color="red"
 														leftSection={
-															<Box mt={2}>
-																<IconX size="1rem" />
-															</Box>
+															<IconX size="1rem" style={{ marginTop: 2 }} />
 														}
 														size="compact-xs"
 														onClick={() => {
