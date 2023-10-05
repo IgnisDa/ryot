@@ -471,9 +471,10 @@ const TimerDrawer = (props: {
 			typeof currentTimer?.remainingTime === "number" &&
 			currentTimer.remainingTime <= 0
 		) {
-			setCurrentTimer(RESET);
-			interval.stop();
 			playCompleteSound();
+			props.onClose();
+			interval.stop();
+			setCurrentTimer(RESET);
 		}
 	}, [currentTimer]);
 
@@ -497,7 +498,7 @@ const TimerDrawer = (props: {
 				},
 			}}
 		>
-			<Stack>
+			<Stack align="center">
 				{currentTimer ? (
 					<>
 						<RingProgress
@@ -567,7 +568,7 @@ const TimerDrawer = (props: {
 								onClick={() => setCurrentTimer(RESET)}
 								size="compact-sm"
 							>
-								Stop
+								Skip
 							</Button>
 						</Button.Group>
 					</>
@@ -599,7 +600,10 @@ const TimerDrawer = (props: {
 							variant="outline"
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
-								if (input) startTimer(parseInt(input));
+								if (!input) return;
+								const intInput = parseInt(input);
+								if (intInput) startTimer(intInput);
+								else alert("Invalid input");
 							}}
 						>
 							Custom
