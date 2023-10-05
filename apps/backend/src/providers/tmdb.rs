@@ -199,7 +199,7 @@ impl MediaProvider for NonMediaTmdbService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for media in details.crew.into_iter().chain(details.cast.into_iter()) {
-                if let Some(title) = media.title {
+                if let Some(title) = media.title.or(media.name) {
                     related.push((
                         media.character.or(media.job).unwrap(),
                         PartialMetadataWithoutId {

@@ -504,7 +504,7 @@ impl ExerciseService {
         }
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, input))]
     async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
         let sf = Sonyflake::new().unwrap();

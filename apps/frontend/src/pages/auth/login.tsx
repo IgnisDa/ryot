@@ -38,7 +38,9 @@ export default function Page() {
 		},
 		onSuccess: (data) => {
 			if (data.__typename === "LoginResponse") {
-				router.push(APP_ROUTES.dashboard);
+				const next = router.query.next as string | undefined;
+				if (next) router.push(next);
+				else router.push(APP_ROUTES.dashboard);
 				return;
 			} else {
 				const message = match(data.error)

@@ -1392,10 +1392,15 @@ const Page: NextPageWithLayout = () => {
 													<Button
 														variant="outline"
 														color="red"
-														leftSection={<IconX size="1.2rem" />}
+														leftSection={
+															<IconX size="1rem" style={{ marginTop: 2 }} />
+														}
 														size="compact-xs"
 														onClick={() => {
-															deleteSeenItem.mutate({ seenId: h.id });
+															const yes = confirm(
+																"Are you sure you want to delete this seen item?",
+															);
+															if (yes) deleteSeenItem.mutate({ seenId: h.id });
 														}}
 													>
 														Delete

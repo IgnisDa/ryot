@@ -5220,7 +5220,6 @@ __metadata:
     react: 18.2.0
     react-cookie: 6.1.1
     react-dom: 18.2.0
-    react-timer-hook: 3.0.7
     recharts: 2.8.0
     tiny-invariant: 1.3.1
     ts-essentials: 9.4.0
@@ -12122,15 +12121,6 @@ __metadata:
   peerDependencies:
     react: ^16.8.0 || ^17.0.0 || ^18.0.0
   checksum: 48504e1c7bea01ea9632a2f663271519693926bb4dbdba7f7353178078df95a877fb298ff56e8ba41a324b212da2b3df13524de54c6a32a2de8241e46dceba98
-  languageName: node
-  linkType: hard
-
-"react-timer-hook@npm:3.0.7":
-  version: 3.0.7
-  resolution: "react-timer-hook@npm:3.0.7"
-  peerDependencies:
-    react: ">=16.8.0"
-  checksum: 800c45a7fbf181897971b15f0d7b226f35348a12c48f933afbc1112693101bf3966bd7d276e4cb9fdc922c1ea66d8cbeddb0268e1631d1e39aa4b062cba2a7d1
   languageName: node
   linkType: hard
 
