@@ -31,7 +31,7 @@ import {
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useInterval } from "@mantine/hooks";
 import {
 	CreateUserWorkoutDocument,
 	type CreateUserWorkoutMutationVariables,
@@ -55,8 +55,7 @@ import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Fragment, type ReactElement } from "react";
-import { useStopwatch } from "react-timer-hook";
+import { Fragment, useState, type ReactElement, useEffect } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
@@ -78,19 +77,23 @@ const StatDisplay = (props: { name: string; value: string }) => {
 const offsetDate = (startTime: string) => {
 	const now = DateTime.now();
 	const duration = now.diff(DateTime.fromISO(startTime));
-	return now.plus(duration).toJSDate();
+	const diff = duration.as("seconds");
+	return diff;
 };
 
 const DurationTimer = ({ startTime }: { startTime: string }) => {
-	const { totalSeconds } = useStopwatch({
-		autoStart: true,
-		offsetTimestamp: offsetDate(startTime),
-	});
+	const [seconds, setSeconds] = useState(offsetDate(startTime));
+	const interval = useInterval(() => setSeconds((s) => s + 1), 1000);
+
+	useEffect(() => {
+		interval.start();
+		return () => interval.stop();
+	}, []);
 
 	return (
 		<StatDisplay
 			name="Duration"
-			value={Duration.fromObject({ seconds: totalSeconds }).toFormat("mm:ss")}
+			value={Duration.fromObject({ seconds }).toFormat("mm:ss")}
 		/>
 	);
 };
