@@ -307,7 +307,11 @@ export default function ({ children }: { children: ReactElement }) {
 				message: "You are not logged in",
 				color: "violet",
 			});
-			router.push(APP_ROUTES.auth.login);
+			router.push(
+				withQuery(APP_ROUTES.auth.login, {
+					next: router.asPath,
+				}),
+			);
 		}
 	}, []);
 
