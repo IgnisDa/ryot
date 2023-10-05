@@ -11,10 +11,12 @@ import {
 import { getSetColor } from "@/lib/utilities";
 import {
 	ActionIcon,
+	Affix,
 	Box,
 	Button,
 	Container,
 	Divider,
+	Drawer,
 	Flex,
 	Group,
 	Menu,
@@ -29,6 +31,7 @@ import {
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	CreateUserWorkoutDocument,
 	type CreateUserWorkoutMutationVariables,
@@ -40,6 +43,7 @@ import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconClipboard,
+	IconClock,
 	IconDotsVertical,
 	IconTrash,
 } from "@tabler/icons-react";
@@ -433,10 +437,27 @@ const ExerciseDisplay = (props: {
 	);
 };
 
+const TimerDrawer = (props: {
+	opened: boolean;
+	onClose: () => void;
+}) => {
+	return (
+		<Drawer
+			onClose={props.onClose}
+			opened={props.opened}
+			withCloseButton={false}
+			position="bottom"
+		>
+			Hello
+		</Drawer>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [playCompleteSound] = useSound("/completed.mp3", { interrupt: true });
+	const [opened, { close, toggle }] = useDisclosure(false);
 
 	const finishWorkout = async () => {
 		await router.replace(APP_ROUTES.dashboard);
@@ -455,10 +476,25 @@ const Page: NextPageWithLayout = () => {
 
 	return (
 		<>
+			<TimerDrawer opened={opened} onClose={close} />
 			<Head>
 				<title>Current Workout | Ryot</title>
 			</Head>
 			<Container size="sm">
+				<Affix position={{ bottom: rem(40), right: rem(30) }} zIndex={0}>
+					<Group>
+						<Text>0:55</Text>
+						<ActionIcon
+							color="indigo"
+							variant="filled"
+							radius="xl"
+							size="xl"
+							onClick={toggle}
+						>
+							<IconClock size="2rem" style={{ marginLeft: 1 }} />
+						</ActionIcon>
+					</Group>
+				</Affix>
 				{currentWorkout ? (
 					<Stack>
 						<Flex align="end" justify={"space-between"}>
