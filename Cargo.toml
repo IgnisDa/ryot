@@ -23,3 +23,6 @@ inherits = "release"
 opt-level = 's'
 strip = true
 lto = "thin"
+
+[patch.crates-io]
+sea-orm = { git = 'https://github.com/SeaQL/sea-orm.git', branch = "rework-active-enum" }
