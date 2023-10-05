@@ -4740,7 +4740,8 @@ dependencies = [
 [[package]]
 name = "sea-orm"
 version = "0.12.3"
-source = "git+https://github.com/SeaQL/sea-orm.git?branch=rework-active-enum#b2cb51380ae9a3c8fe4d57613a04c2428395c617"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da5b2d70c255bc5cbe1d49f69c3c8eadae0fbbaeb18ee978edbf2f75775cb94d"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -4784,7 +4785,8 @@ dependencies = [
 [[package]]
 name = "sea-orm-macros"
 version = "0.12.3"
-source = "git+https://github.com/SeaQL/sea-orm.git?branch=rework-active-enum#b2cb51380ae9a3c8fe4d57613a04c2428395c617"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c8d455fad40194fb9774fdc4810c0f2700ff0dc0e93bd5ce9d641cc3f5dd75"
 dependencies = [
  "heck",
  "proc-macro2",
