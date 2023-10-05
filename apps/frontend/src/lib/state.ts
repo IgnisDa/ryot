@@ -5,7 +5,7 @@ import {
 	type UserWorkoutSetRecord,
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
-import { atomWithStorage } from "jotai/utils";
+import { atomWithReset, atomWithStorage } from "jotai/utils";
 
 export type ExerciseSetStats = Immutable<{
 	duration?: number;
@@ -91,3 +91,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 	}
 	return input;
 };
+
+type Timer = {
+	totalTime: number;
+	remainingTime: number;
+};
+
+export const timerAtom = atomWithReset<Timer | null>(null);

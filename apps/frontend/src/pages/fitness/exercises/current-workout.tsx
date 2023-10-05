@@ -7,6 +7,7 @@ import {
 	type ExerciseSet,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
+	timerAtom,
 } from "@/lib/state";
 import { getSetColor } from "@/lib/utilities";
 import {
@@ -22,6 +23,7 @@ import {
 	Menu,
 	NumberInput,
 	Paper,
+	RingProgress,
 	Skeleton,
 	Stack,
 	Text,
@@ -55,7 +57,7 @@ import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Fragment, useState, type ReactElement, useEffect } from "react";
+import { Fragment, type ReactElement, useEffect, useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
@@ -444,20 +446,109 @@ const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
+	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
+	const interval = useInterval(() => {
+		setCurrentTimer((currentTimer) =>
+			produce(currentTimer, (draft) => {
+				if (draft) draft.remainingTime -= 1;
+			}),
+		);
+	}, 1000);
+
+	const startTimer = (duration: number) => {
+		setCurrentTimer({
+			totalTime: duration,
+			remainingTime: duration,
+		});
+		interval.start();
+	};
+
+	useEffect(() => {
+		if (currentTimer?.remainingTime === 0) {
+			setCurrentTimer(RESET);
+			interval.stop();
+		}
+	}, [currentTimer]);
+
+	useEffect(() => {
+		return () => interval.stop();
+	}, []);
+
 	return (
 		<Drawer
 			onClose={props.onClose}
 			opened={props.opened}
 			withCloseButton={false}
 			position="bottom"
+			size={"xs"}
+			styles={{
+				body: {
+					display: "flex",
+					height: "100%",
+					justifyContent: "center",
+					alignItems: "center",
+				},
+			}}
 		>
-			Hello
+			<Stack>
+				{currentTimer ? (
+					<>
+						<RingProgress
+							size={200}
+							thickness={8}
+							sections={[
+								{
+									value:
+										(currentTimer.remainingTime * 100) / currentTimer.totalTime,
+									color: "orange",
+								},
+							]}
+							label={
+								<Text ta="center" fz={40}>
+									{Duration.fromObject({
+										seconds: currentTimer.remainingTime,
+									}).toFormat("mm:ss")}
+								</Text>
+							}
+						/>
+						<Button
+							color="orange"
+							onClick={() => setCurrentTimer(RESET)}
+							size="compact-sm"
+						>
+							Stop
+						</Button>
+					</>
+				) : (
+					<>
+						<Button size="compact-sm" onClick={() => startTimer(180)}>
+							3 minutes
+						</Button>
+						<Button size="compact-sm" onClick={() => startTimer(300)}>
+							5 minutes
+						</Button>
+						<Button size="compact-sm" onClick={() => startTimer(480)}>
+							8 minutes
+						</Button>
+						<Button
+							size="compact-sm"
+							onClick={() => {
+								const input = prompt("Enter duration in seconds");
+								if (input) startTimer(parseInt(input));
+							}}
+						>
+							Custom
+						</Button>
+					</>
+				)}
+			</Stack>
 		</Drawer>
 	);
 };
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
+	const [currentTimer] = useAtom(timerAtom);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [playCompleteSound] = useSound("/completed.mp3", { interrupt: true });
 	const [opened, { close, toggle }] = useDisclosure(false);
@@ -486,7 +577,13 @@ const Page: NextPageWithLayout = () => {
 			<Container size="sm">
 				<Affix position={{ bottom: rem(40), right: rem(30) }} zIndex={0}>
 					<Group>
-						<Text>0:55</Text>
+						{currentTimer ? (
+							<Text>
+								{Duration.fromObject({
+									seconds: currentTimer.remainingTime,
+								}).toFormat("mm:ss")}
+							</Text>
+						) : undefined}
 						<ActionIcon
 							color="indigo"
 							variant="filled"
