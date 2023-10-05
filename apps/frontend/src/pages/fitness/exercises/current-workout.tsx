@@ -485,7 +485,7 @@ const TimerDrawer = (props: {
 			opened={props.opened}
 			withCloseButton={false}
 			position="bottom"
-			size={"xs"}
+			size={"lg"}
 			styles={{
 				body: {
 					display: "flex",
@@ -499,7 +499,7 @@ const TimerDrawer = (props: {
 				{currentTimer ? (
 					<>
 						<RingProgress
-							size={200}
+							size={300}
 							thickness={8}
 							roundCaps
 							sections={[
@@ -511,12 +511,12 @@ const TimerDrawer = (props: {
 							]}
 							label={
 								<>
-									<Text ta="center" fz={40}>
+									<Text ta="center" fz={64}>
 										{Duration.fromObject({
 											seconds: currentTimer.remainingTime,
 										}).toFormat("m:ss")}
 									</Text>
-									<Text ta="center" fz={"xs"} c="dimmed">
+									<Text ta="center" c="dimmed" fz={"lg"} mt={"-md"}>
 										{Duration.fromObject({
 											seconds: currentTimer.totalTime,
 										}).toFormat("m:ss")}
@@ -537,7 +537,7 @@ const TimerDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-sm"
+								size="compact-lg"
 								variant="outline"
 								disabled={currentTimer.remainingTime <= 30}
 							>
@@ -555,7 +555,7 @@ const TimerDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-sm"
+								size="compact-lg"
 								variant="outline"
 							>
 								+30 sec
@@ -566,7 +566,7 @@ const TimerDrawer = (props: {
 									setCurrentTimer(RESET);
 									interval.stop();
 								}}
-								size="compact-sm"
+								size="compact-lg"
 							>
 								Skip
 							</Button>
@@ -575,28 +575,32 @@ const TimerDrawer = (props: {
 				) : (
 					<>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
 							onClick={() => startTimer(180)}
 						>
 							3 minutes
 						</Button>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
 							onClick={() => startTimer(300)}
 						>
 							5 minutes
 						</Button>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
 							onClick={() => startTimer(480)}
 						>
 							8 minutes
 						</Button>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
@@ -649,7 +653,7 @@ const Page: NextPageWithLayout = () => {
 				<Affix position={{ bottom: rem(40), right: rem(30) }} zIndex={0}>
 					<Group>
 						{currentTimer ? (
-							<Text fw="bold">
+							<Text fw="bold" fz="xl">
 								{Duration.fromObject({
 									seconds: currentTimer.remainingTime,
 								}).toFormat("m:ss")}
