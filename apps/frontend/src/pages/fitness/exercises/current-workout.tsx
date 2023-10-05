@@ -446,6 +446,9 @@ const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
+	const [playCompleteSound] = useSound("/timer-completed.mp3", {
+		interrupt: true,
+	});
 	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
 	const interval = useInterval(() => {
 		setCurrentTimer((currentTimer) =>
@@ -470,6 +473,7 @@ const TimerDrawer = (props: {
 		) {
 			setCurrentTimer(RESET);
 			interval.stop();
+			playCompleteSound();
 		}
 	}, [currentTimer]);
 
@@ -611,7 +615,9 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentTimer] = useAtom(timerAtom);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-	const [playCompleteSound] = useSound("/completed.mp3", { interrupt: true });
+	const [playCompleteSound] = useSound("/workout-completed.wav", {
+		interrupt: true,
+	});
 	const [opened, { close, toggle }] = useDisclosure(false);
 
 	const finishWorkout = async () => {
