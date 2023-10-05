@@ -464,7 +464,10 @@ const TimerDrawer = (props: {
 	};
 
 	useEffect(() => {
-		if (currentTimer?.remainingTime === 0) {
+		if (
+			typeof currentTimer?.remainingTime === "number" &&
+			currentTimer.remainingTime <= 0
+		) {
 			setCurrentTimer(RESET);
 			interval.stop();
 		}
@@ -496,6 +499,7 @@ const TimerDrawer = (props: {
 						<RingProgress
 							size={200}
 							thickness={8}
+							roundCaps
 							sections={[
 								{
 									value:
@@ -504,34 +508,91 @@ const TimerDrawer = (props: {
 								},
 							]}
 							label={
-								<Text ta="center" fz={40}>
-									{Duration.fromObject({
-										seconds: currentTimer.remainingTime,
-									}).toFormat("mm:ss")}
-								</Text>
+								<>
+									<Text ta="center" fz={40}>
+										{Duration.fromObject({
+											seconds: currentTimer.remainingTime,
+										}).toFormat("m:ss")}
+									</Text>
+									<Text ta="center" fz={"xs"} c="dimmed">
+										{Duration.fromObject({
+											seconds: currentTimer.totalTime,
+										}).toFormat("m:ss")}
+									</Text>
+								</>
 							}
 						/>
-						<Button
-							color="orange"
-							onClick={() => setCurrentTimer(RESET)}
-							size="compact-sm"
-						>
-							Stop
-						</Button>
+						<Button.Group>
+							<Button
+								color="orange"
+								onClick={() => {
+									setCurrentTimer(
+										produce(currentTimer, (draft) => {
+											if (draft) {
+												draft.remainingTime -= 30;
+												draft.totalTime -= 30;
+											}
+										}),
+									);
+								}}
+								size="compact-sm"
+								variant="outline"
+								disabled={currentTimer.remainingTime <= 30}
+							>
+								-30 sec
+							</Button>
+							<Button
+								color="orange"
+								onClick={() => {
+									setCurrentTimer(
+										produce(currentTimer, (draft) => {
+											if (draft) {
+												draft.remainingTime += 30;
+												draft.totalTime += 30;
+											}
+										}),
+									);
+								}}
+								size="compact-sm"
+								variant="outline"
+							>
+								+30 sec
+							</Button>
+							<Button
+								color="orange"
+								onClick={() => setCurrentTimer(RESET)}
+								size="compact-sm"
+							>
+								Stop
+							</Button>
+						</Button.Group>
 					</>
 				) : (
 					<>
-						<Button size="compact-sm" onClick={() => startTimer(180)}>
+						<Button
+							size="compact-sm"
+							variant="outline"
+							onClick={() => startTimer(180)}
+						>
 							3 minutes
 						</Button>
-						<Button size="compact-sm" onClick={() => startTimer(300)}>
+						<Button
+							size="compact-sm"
+							variant="outline"
+							onClick={() => startTimer(300)}
+						>
 							5 minutes
 						</Button>
-						<Button size="compact-sm" onClick={() => startTimer(480)}>
+						<Button
+							size="compact-sm"
+							variant="outline"
+							onClick={() => startTimer(480)}
+						>
 							8 minutes
 						</Button>
 						<Button
 							size="compact-sm"
+							variant="outline"
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
 								if (input) startTimer(parseInt(input));
@@ -578,10 +639,10 @@ const Page: NextPageWithLayout = () => {
 				<Affix position={{ bottom: rem(40), right: rem(30) }} zIndex={0}>
 					<Group>
 						{currentTimer ? (
-							<Text>
+							<Text fw="bold">
 								{Duration.fromObject({
 									seconds: currentTimer.remainingTime,
-								}).toFormat("mm:ss")}
+								}).toFormat("m:ss")}
 							</Text>
 						) : undefined}
 						<ActionIcon
