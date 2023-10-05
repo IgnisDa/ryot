@@ -468,7 +468,8 @@ const TimerDrawer = (props: {
 
 	useEffect(() => {
 		if (
-			typeof currentTimer?.remainingTime === "number" &&
+			currentTimer &&
+			typeof currentTimer.remainingTime === "number" &&
 			currentTimer.remainingTime <= 0
 		) {
 			playCompleteSound();
@@ -477,10 +478,6 @@ const TimerDrawer = (props: {
 			setCurrentTimer(RESET);
 		}
 	}, [currentTimer]);
-
-	useEffect(() => {
-		return () => interval.stop();
-	}, []);
 
 	return (
 		<Drawer
@@ -565,7 +562,10 @@ const TimerDrawer = (props: {
 							</Button>
 							<Button
 								color="orange"
-								onClick={() => setCurrentTimer(RESET)}
+								onClick={() => {
+									setCurrentTimer(RESET);
+									interval.stop();
+								}}
 								size="compact-sm"
 							>
 								Skip
