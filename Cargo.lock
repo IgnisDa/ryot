@@ -198,7 +198,8 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 [[package]]
 name = "apalis"
 version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#e80bb5c7a18d3db20fe4c172202e80c75e7508c5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14709cc92993cd831d8b435d9aa4afc7798c96150a3761f92eecc84ccff5bad9"
 dependencies = [
  "apalis-core",
  "apalis-cron",
@@ -209,7 +210,8 @@ dependencies = [
 [[package]]
 name = "apalis-core"
 version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#e80bb5c7a18d3db20fe4c172202e80c75e7508c5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31d1c09ff98efe3e8e02161b457c8d3ea75620915ccd1882e503d5d768166512"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -232,7 +234,8 @@ dependencies = [
 [[package]]
 name = "apalis-cron"
 version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#e80bb5c7a18d3db20fe4c172202e80c75e7508c5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "244a6309d05cf68cd1f988beb7352f5c1199f54267201c08907c7d54885d6d06"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -246,7 +249,8 @@ dependencies = [
 [[package]]
 name = "apalis-redis"
 version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#e80bb5c7a18d3db20fe4c172202e80c75e7508c5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf70069c0de5cfdc2ed975189ef3de94009d66220c6ea3742db44f14d6b555c5"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -263,7 +267,8 @@ dependencies = [
 [[package]]
 name = "apalis-sql"
 version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#e80bb5c7a18d3db20fe4c172202e80c75e7508c5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7db8e9f2e36101eb919c0111b188dc58371ec41623f9ef10a94dc83dd5a33e4"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -1304,28 +1309,6 @@ dependencies = [
  "serde",
  "wasm-bindgen",
  "windows-targets",
-]
-
-[[package]]
-name = "chrono-tz"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1369bc6b9e9a7dfdae2055f6ec151fe9c554a9d23d357c0237cee2e25eaabb7"
-dependencies = [
- "chrono",
- "chrono-tz-build",
- "phf 0.11.2",
-]
-
-[[package]]
-name = "chrono-tz-build"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2f5ebdc942f57ed96d560a6d1a459bae5851102a25d5bf89dc04ae453e31ecf"
-dependencies = [
- "parse-zoneinfo",
- "phf 0.11.2",
- "phf_codegen 0.11.2",
 ]
 
 [[package]]
@@ -3123,7 +3106,7 @@ checksum = "7a2629bb1404f3d34c2e921f21fd34ba00b206124c81f65c50b43b6aaefeb016"
 dependencies = [
  "log",
  "phf 0.10.1",
- "phf_codegen 0.10.0",
+ "phf_codegen",
  "string_cache",
  "string_cache_codegen",
  "tendril",
@@ -3583,15 +3566,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse-zoneinfo"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c705f256449c60da65e11ff6626e0c16a0a0b96aaa348de61376b249bc340f41"
-dependencies = [
- "regex",
-]
-
-[[package]]
 name = "password-hash"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3694,16 +3668,6 @@ checksum = "4fb1c3a8bc4dd4e5cfce29b44ffc14bedd2ee294559a294e2a4d4c9e9a6a13cd"
 dependencies = [
  "phf_generator 0.10.0",
  "phf_shared 0.10.0",
-]
-
-[[package]]
-name = "phf_codegen"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8d39688d359e6b34654d328e262234662d16cc0f60ec8dcbe5e718709342a5a"
-dependencies = [
- "phf_generator 0.11.2",
- "phf_shared 0.11.2",
 ]
 
 [[package]]
@@ -4596,7 +4560,6 @@ dependencies = [
  "axum-extra",
  "boilermates",
  "chrono",
- "chrono-tz",
  "const-str",
  "convert_case",
  "cookie 0.17.0",
@@ -4962,7 +4925,7 @@ dependencies = [
  "log",
  "new_debug_unreachable",
  "phf 0.10.1",
- "phf_codegen 0.10.0",
+ "phf_codegen",
  "precomputed-hash",
  "servo_arc",
  "smallvec 1.11.0",

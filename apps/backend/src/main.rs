@@ -26,7 +26,6 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
-use chrono_tz::Asia::Kolkata;
 use itertools::Itertools;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -246,7 +245,7 @@ async fn main() -> Result<()> {
                                 .unwrap(),
                         )
                         .timer(SleepTimer)
-                        .to_stream_with_timezone(Kolkata),
+                        .to_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_1.clone()))
@@ -258,7 +257,7 @@ async fn main() -> Result<()> {
                         // every day
                         CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
                             .timer(SleepTimer)
-                            .to_stream_with_timezone(Kolkata),
+                            .to_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
@@ -272,7 +271,7 @@ async fn main() -> Result<()> {
                             Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
                         )
                         .timer(SleepTimer)
-                        .to_stream_with_timezone(Kolkata),
+                        .to_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_3.clone()))
