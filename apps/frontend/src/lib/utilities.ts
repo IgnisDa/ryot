@@ -194,12 +194,3 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.VisualNovel, () => IconBook2)
 		.exhaustive();
 };
-
-export const reorderArrayElements = <T>(
-	arr: Array<T>,
-	fromIndex: number,
-	toIndex: number,
-) => {
-	[arr[fromIndex], arr[toIndex]] = [arr[toIndex], arr[fromIndex]];
-	return arr;
-};

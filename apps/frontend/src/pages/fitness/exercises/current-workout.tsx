@@ -10,7 +10,7 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/state";
-import { getSetColor, reorderArrayElements } from "@/lib/utilities";
+import { getSetColor } from "@/lib/utilities";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
@@ -34,7 +34,7 @@ import {
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useInterval } from "@mantine/hooks";
+import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
 import {
 	CreateUserWorkoutDocument,
 	type CreateUserWorkoutMutationVariables,
@@ -645,6 +645,17 @@ const ReorderDrawer = (props: {
 	onClose: () => void;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [exerciseElements, exerciseElementsHandlers] = useListState(
+		(currentWorkout?.exercises as any) || [],
+	);
+
+	useEffect(() => {
+		setCurrentWorkout(
+			produce(currentWorkout, (draft: any) => {
+				if (draft) draft.exercises = exerciseElements;
+			}),
+		);
+	}, [exerciseElements]);
 
 	return currentWorkout ? (
 		<Drawer
@@ -655,16 +666,10 @@ const ReorderDrawer = (props: {
 		>
 			<DragDropContext
 				onDragEnd={({ destination, source }) => {
-					setCurrentWorkout(
-						produce(currentWorkout, (draft) => {
-							if (destination)
-								reorderArrayElements(
-									draft.exercises,
-									source.index,
-									destination.index,
-								);
-						}),
-					);
+					exerciseElementsHandlers.reorder({
+						from: source.index,
+						to: destination?.index || 0,
+					});
 					props.onClose();
 				}}
 			>
@@ -676,7 +681,7 @@ const ReorderDrawer = (props: {
 							gap="xs"
 						>
 							<Text c="dimmed">Hold and release to reorder exercises</Text>
-							{currentWorkout.exercises.map((de, index) => (
+							{exerciseElements.map((de: any, index) => (
 								<Draggable
 									index={index}
 									draggableId={index.toString()}
