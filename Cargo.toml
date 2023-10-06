@@ -23,3 +23,6 @@ inherits = "release"
 opt-level = 's'
 strip = true
 lto = "thin"
+
+[patch.crates-io]
+apalis = { git = 'https://github.com/geofmureithi/apalis.git', branch = "chore/cron-add-timezone" }
