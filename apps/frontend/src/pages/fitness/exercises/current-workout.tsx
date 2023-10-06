@@ -643,10 +643,11 @@ const TimerDrawer = (props: {
 const ReorderDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
+	exercises: Array<Exercise>;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [exerciseElements, exerciseElementsHandlers] = useListState(
-		(currentWorkout?.exercises as any) || [],
+		props.exercises,
 	);
 
 	useEffect(() => {
@@ -744,17 +745,22 @@ const Page: NextPageWithLayout = () => {
 
 	return (
 		<>
-			<TimerDrawer opened={timerDrawerOpened} onClose={timerDrawerClose} />
-			<ReorderDrawer
-				opened={reorderDrawerOpened}
-				onClose={reorderDrawerClose}
-			/>
 			<Head>
 				<title>Current Workout | Ryot</title>
 			</Head>
 			<Container size="sm">
 				{currentWorkout ? (
 					<Stack>
+						<TimerDrawer
+							opened={timerDrawerOpened}
+							onClose={timerDrawerClose}
+						/>
+						<ReorderDrawer
+							opened={reorderDrawerOpened}
+							onClose={reorderDrawerClose}
+							exercises={currentWorkout.exercises}
+							key={currentWorkout.exercises.toString()}
+						/>
 						<Flex align="end" justify={"space-between"}>
 							<TextInput
 								style={{ flex: 0.7 }}
