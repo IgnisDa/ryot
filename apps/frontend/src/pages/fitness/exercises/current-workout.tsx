@@ -13,7 +13,6 @@ import {
 import { getSetColor } from "@/lib/utilities";
 import {
 	ActionIcon,
-	Affix,
 	Box,
 	Button,
 	Container,
@@ -46,7 +45,6 @@ import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconClipboard,
-	IconClock,
 	IconDotsVertical,
 	IconTrash,
 } from "@tabler/icons-react";
@@ -505,7 +503,7 @@ const TimerDrawer = (props: {
 			opened={props.opened}
 			withCloseButton={false}
 			position="bottom"
-			size={"lg"}
+			size={"md"}
 			styles={{
 				body: {
 					display: "flex",
@@ -670,26 +668,6 @@ const Page: NextPageWithLayout = () => {
 				<title>Current Workout | Ryot</title>
 			</Head>
 			<Container size="sm">
-				<Affix position={{ bottom: rem(40), right: rem(30) }} zIndex={0}>
-					<Group>
-						{currentTimer ? (
-							<Text fw="bold" fz="xl">
-								{Duration.fromObject({
-									seconds: currentTimer.remainingTime,
-								}).toFormat("m:ss")}
-							</Text>
-						) : undefined}
-						<ActionIcon
-							color="indigo"
-							variant="filled"
-							radius="xl"
-							size="xl"
-							onClick={toggle}
-						>
-							<IconClock size="2rem" style={{ marginLeft: 1 }} />
-						</ActionIcon>
-					</Group>
-				</Affix>
 				{currentWorkout ? (
 					<Stack>
 						<Flex align="end" justify={"space-between"}>
@@ -727,6 +705,20 @@ const Page: NextPageWithLayout = () => {
 								)
 							}
 						/>
+						<Divider />
+						<Group justify="center">
+							<Button color="orange" variant="outline" onClick={toggle}>
+								{currentTimer ? (
+									<Text fw="bold" fz="xl">
+										{Duration.fromObject({
+											seconds: currentTimer.remainingTime,
+										}).toFormat("m:ss")}
+									</Text>
+								) : (
+									"Timer"
+								)}
+							</Button>
+						</Group>
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
 							<Fragment key={ex.exerciseId + idx}>
