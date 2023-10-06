@@ -464,7 +464,7 @@ const ExerciseDisplay = (props: {
 const styles = {
 	body: {
 		display: "flex",
-		height: "100%",
+		height: "80%",
 		justifyContent: "center",
 		alignItems: "center",
 	},
@@ -650,8 +650,7 @@ const ReorderDrawer = (props: {
 		<Drawer
 			onClose={props.onClose}
 			opened={props.opened}
-			withCloseButton={false}
-			size={"md"}
+			size={"sm"}
 			styles={styles}
 		>
 			<DragDropContext
@@ -666,6 +665,7 @@ const ReorderDrawer = (props: {
 								);
 						}),
 					);
+					props.onClose();
 				}}
 			>
 				<Droppable droppableId="dnd-list">
@@ -806,6 +806,7 @@ const Page: NextPageWithLayout = () => {
 								color="lime"
 								variant="subtle"
 								onClick={reorderDrawerToggle}
+								disabled={currentWorkout.exercises.length === 0}
 							>
 								Reorder
 							</Button>

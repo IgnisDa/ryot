@@ -377,7 +377,7 @@ const Page: NextPageWithLayout = () => {
 								router.replace(APP_ROUTES.fitness.exercises.currentWorkout);
 							}}
 						>
-							<IconCheck size="1.6rem" />
+							<IconCheck size="2rem" />
 						</ActionIcon>
 						{/* TODO: Add btn to add superset exercises */}
 					</Affix>
