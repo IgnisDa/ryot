@@ -514,7 +514,7 @@ const TimerDrawer = (props: {
 			withCloseButton={false}
 			position="bottom"
 			size={"md"}
-			styles={styles}
+			styles={{ body: { ...styles.body, height: "100%" } }}
 		>
 			<Stack align="center">
 				{currentTimer ? (
@@ -758,7 +758,7 @@ const Page: NextPageWithLayout = () => {
 						<ReorderDrawer
 							opened={reorderDrawerOpened}
 							onClose={reorderDrawerClose}
-							exercises={currentWorkout.exercises}
+							exercises={currentWorkout.exercises as any}
 							key={currentWorkout.exercises.toString()}
 						/>
 						<Flex align="end" justify={"space-between"}>
