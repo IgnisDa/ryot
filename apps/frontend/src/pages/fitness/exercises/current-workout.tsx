@@ -165,7 +165,7 @@ const ExerciseDisplay = (props: {
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
 	return userPreferences.data && currentWorkout ? (
-		<Paper px="sm">
+		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 			<Stack>
 				<Menu shadow="md" width={200}>
 					<Stack>
