@@ -651,7 +651,6 @@ const ReorderDrawer = (props: {
 			onClose={props.onClose}
 			opened={props.opened}
 			withCloseButton={false}
-			position="bottom"
 			size={"md"}
 			styles={styles}
 		>
@@ -676,15 +675,17 @@ const ReorderDrawer = (props: {
 							ref={provided.innerRef}
 							gap="xs"
 						>
+							<Text c="dimmed">Hold and release to reorder exercises</Text>
 							{currentWorkout.exercises.map((de, index) => (
 								<Draggable
 									index={index}
 									draggableId={index.toString()}
 									key={index}
 								>
-									{(provided, snapshot) => (
+									{(provided) => (
 										<Paper
-											p={6}
+											py={6}
+											px={"sm"}
 											radius={"md"}
 											withBorder
 											ref={provided.innerRef}
