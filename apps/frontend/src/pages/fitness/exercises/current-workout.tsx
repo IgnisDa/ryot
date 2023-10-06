@@ -10,7 +10,8 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/state";
-import { getSetColor } from "@/lib/utilities";
+import { getSetColor, reorderArrayElements } from "@/lib/utilities";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
 	Box,
@@ -460,6 +461,15 @@ const ExerciseDisplay = (props: {
 	);
 };
 
+const styles = {
+	body: {
+		display: "flex",
+		height: "100%",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+};
+
 const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -504,14 +514,7 @@ const TimerDrawer = (props: {
 			withCloseButton={false}
 			position="bottom"
 			size={"md"}
-			styles={{
-				body: {
-					display: "flex",
-					height: "100%",
-					justifyContent: "center",
-					alignItems: "center",
-				},
-			}}
+			styles={styles}
 		>
 			<Stack align="center">
 				{currentTimer ? (
@@ -637,6 +640,71 @@ const TimerDrawer = (props: {
 	);
 };
 
+const ReorderDrawer = (props: {
+	opened: boolean;
+	onClose: () => void;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+
+	return currentWorkout ? (
+		<Drawer
+			onClose={props.onClose}
+			opened={props.opened}
+			withCloseButton={false}
+			position="bottom"
+			size={"md"}
+			styles={styles}
+		>
+			<DragDropContext
+				onDragEnd={({ destination, source }) => {
+					setCurrentWorkout(
+						produce(currentWorkout, (draft) => {
+							if (destination)
+								reorderArrayElements(
+									draft.exercises,
+									source.index,
+									destination.index,
+								);
+						}),
+					);
+				}}
+			>
+				<Droppable droppableId="dnd-list">
+					{(provided) => (
+						<Stack
+							{...provided.droppableProps}
+							ref={provided.innerRef}
+							gap="xs"
+						>
+							{currentWorkout.exercises.map((de, index) => (
+								<Draggable
+									index={index}
+									draggableId={index.toString()}
+									key={index}
+								>
+									{(provided, snapshot) => (
+										<Paper
+											p={6}
+											radius={"md"}
+											withBorder
+											ref={provided.innerRef}
+											{...provided.draggableProps}
+											{...provided.dragHandleProps}
+										>
+											<Text>{de.name}</Text>
+										</Paper>
+									)}
+								</Draggable>
+							))}
+							{provided.placeholder}
+						</Stack>
+					)}
+				</Droppable>
+			</DragDropContext>
+		</Drawer>
+	) : undefined;
+};
+
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [currentTimer] = useAtom(timerAtom);
@@ -671,6 +739,10 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<>
 			<TimerDrawer opened={timerDrawerOpened} onClose={timerDrawerClose} />
+			<ReorderDrawer
+				opened={reorderDrawerOpened}
+				onClose={reorderDrawerClose}
+			/>
 			<Head>
 				<title>Current Workout | Ryot</title>
 			</Head>
