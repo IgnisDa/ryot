@@ -16,7 +16,7 @@ use apalis::{
         Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
         TraceLayer as ApalisTraceLayer,
     },
-    prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
+    prelude::{Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
 use aws_sdk_s3::config::Region;
@@ -26,6 +26,7 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
+use chrono_tz::Asia::Kolkata;
 use itertools::Itertools;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
@@ -244,8 +245,7 @@ async fn main() -> Result<()> {
                             Schedule::from_str(&format!("0 0 */{} ? * *", user_cleanup_every))
                                 .unwrap(),
                         )
-                        .timer(SleepTimer)
-                        .to_stream(),
+                        .to_stream_with_timezone(Kolkata),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_1.clone()))
@@ -256,8 +256,7 @@ async fn main() -> Result<()> {
                     .stream(
                         // every day
                         CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
-                            .timer(SleepTimer)
-                            .to_stream(),
+                            .to_stream_with_timezone(Kolkata),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
@@ -270,8 +269,7 @@ async fn main() -> Result<()> {
                         CronStream::new(
                             Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
                         )
-                        .timer(SleepTimer)
-                        .to_stream(),
+                        .to_stream_with_timezone(Kolkata),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_3.clone()))
