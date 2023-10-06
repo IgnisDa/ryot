@@ -11,6 +11,7 @@ import { match } from "ts-pattern";
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
 	statistic: SetStatistic;
+	hideVolume?: boolean;
 }) => {
 	const [first, second] = match(props.lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
@@ -22,7 +23,9 @@ export const DisplayExerciseStats = (props: {
 		.with(ExerciseLot.Duration, () => [`${props.statistic.duration} min`, ""])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			`${props.statistic.weight} kg x ${props.statistic.reps}`,
-			`${(props.statistic.weight || 1) * (props.statistic.reps || 1)} vol`,
+			props.hideVolume
+				? undefined
+				: `${(props.statistic.weight || 1) * (props.statistic.reps || 1)} vol`,
 		])
 		.exhaustive();
 	return (

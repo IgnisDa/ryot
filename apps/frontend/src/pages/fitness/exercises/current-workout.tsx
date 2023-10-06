@@ -342,13 +342,11 @@ const ExerciseDisplay = (props: {
 							</Menu>
 							<Box w="20%">
 								<Text ta="center" fz="xs">
-									{props.exercise.alreadyDoneSets.at(props.exerciseIdx) ? (
+									{props.exercise.alreadyDoneSets[idx] ? (
 										<DisplayExerciseStats
-											statistic={
-												props.exercise.alreadyDoneSets.at(props.exerciseIdx)
-													?.statistic!
-											}
+											statistic={props.exercise.alreadyDoneSets[idx].statistic}
 											lot={props.exercise.lot}
+											hideVolume
 										/>
 									) : (
 										"—"
