@@ -198,8 +198,7 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 [[package]]
 name = "apalis"
 version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14709cc92993cd831d8b435d9aa4afc7798c96150a3761f92eecc84ccff5bad9"
+source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
 dependencies = [
  "apalis-core",
  "apalis-cron",
@@ -210,8 +209,7 @@ dependencies = [
 [[package]]
 name = "apalis-core"
 version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31d1c09ff98efe3e8e02161b457c8d3ea75620915ccd1882e503d5d768166512"
+source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -234,8 +232,7 @@ dependencies = [
 [[package]]
 name = "apalis-cron"
 version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "244a6309d05cf68cd1f988beb7352f5c1199f54267201c08907c7d54885d6d06"
+source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -249,8 +246,7 @@ dependencies = [
 [[package]]
 name = "apalis-redis"
 version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf70069c0de5cfdc2ed975189ef3de94009d66220c6ea3742db44f14d6b555c5"
+source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -267,8 +263,7 @@ dependencies = [
 [[package]]
 name = "apalis-sql"
 version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7db8e9f2e36101eb919c0111b188dc58371ec41623f9ef10a94dc83dd5a33e4"
+source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
 dependencies = [
  "apalis-core",
  "async-stream",
