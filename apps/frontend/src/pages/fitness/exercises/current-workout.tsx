@@ -346,7 +346,7 @@ const ExerciseDisplay = (props: {
 										<DisplayExerciseStats
 											statistic={props.exercise.alreadyDoneSets[idx].statistic}
 											lot={props.exercise.lot}
-											hideVolume
+											hideExtras
 										/>
 									) : (
 										"—"

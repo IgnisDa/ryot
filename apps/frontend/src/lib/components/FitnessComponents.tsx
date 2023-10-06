@@ -11,19 +11,24 @@ import { match } from "ts-pattern";
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
 	statistic: SetStatistic;
-	hideVolume?: boolean;
+	hideExtras?: boolean;
 }) => {
 	const [first, second] = match(props.lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
 			`${props.statistic.duration} km x ${props.statistic.duration} min`,
-			`${
-				(props.statistic.distance || 1) / (props.statistic.duration || 1)
-			} km/min`,
+			props.hideExtras
+				? undefined
+				: `${
+						(props.statistic.distance || 1) / (props.statistic.duration || 1)
+				  } km/min`,
 		])
-		.with(ExerciseLot.Duration, () => [`${props.statistic.duration} min`, ""])
+		.with(ExerciseLot.Duration, () => [
+			`${props.statistic.duration} min`,
+			undefined,
+		])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			`${props.statistic.weight} kg x ${props.statistic.reps}`,
-			props.hideVolume
+			props.hideExtras
 				? undefined
 				: `${(props.statistic.weight || 1) * (props.statistic.reps || 1)} vol`,
 		])
