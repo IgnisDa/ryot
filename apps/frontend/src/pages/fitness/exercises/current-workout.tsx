@@ -1,3 +1,4 @@
+import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
 import { APP_ROUTES } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -113,7 +114,7 @@ const StatInput = (props: {
 			<NumberInput
 				value={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
-						.statistic[props.stat]
+						.statistic[props.stat] ?? undefined
 				}
 				onChange={(v) => {
 					setCurrentWorkout(
@@ -243,6 +244,9 @@ const ExerciseDisplay = (props: {
 						<Text size="xs" w="5%" ta="center">
 							SET
 						</Text>
+						<Text size="xs" w="20%" ta="center">
+							PREVIOUS
+						</Text>
 						{durationCol ? (
 							<Text size="xs" style={{ flex: 1 }} ta="center">
 								DURATION (MIN)
@@ -276,7 +280,7 @@ const ExerciseDisplay = (props: {
 						<Box w="10%" />
 					</Flex>
 					{props.exercise.sets.map((s, idx) => (
-						<Flex key={`${idx}`} justify="space-between" align="start">
+						<Flex key={`${idx}`} justify="space-between" align="center">
 							<Menu>
 								<Menu.Target>
 									<UnstyledButton w="5%">
@@ -295,7 +299,7 @@ const ExerciseDisplay = (props: {
 											disabled={s.lot === lot}
 											fz="xs"
 											leftSection={
-												<Text fw="bold" fz="xs" w={10} color={getSetColor(lot)}>
+												<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
 													{lot.at(0)}
 												</Text>
 											}
@@ -336,6 +340,21 @@ const ExerciseDisplay = (props: {
 									</Menu.Item>
 								</Menu.Dropdown>
 							</Menu>
+							<Box w="20%">
+								<Text ta="center" fz="xs">
+									{props.exercise.alreadyDoneSets.at(props.exerciseIdx) ? (
+										<DisplayExerciseStats
+											statistic={
+												props.exercise.alreadyDoneSets.at(props.exerciseIdx)
+													?.statistic!
+											}
+											lot={props.exercise.lot}
+										/>
+									) : (
+										"—"
+									)}
+								</Text>
+							</Box>
 							{durationCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}

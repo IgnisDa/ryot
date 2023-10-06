@@ -1,3 +1,4 @@
+import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -19,9 +20,7 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import {
 	ExerciseDetailsDocument,
-	ExerciseLot,
 	SetLot,
-	type SetStatistic,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -36,30 +35,6 @@ import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../../_app";
-
-const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
-	const [first, second] = match(lot)
-		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${statistic.duration} km x ${statistic.duration} min`,
-			`${(statistic.distance || 1) / (statistic.duration || 1)} km/min`,
-		])
-		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, ""])
-		.with(ExerciseLot.RepsAndWeight, () => [
-			`${statistic.weight} kg x ${statistic.reps}`,
-			`${(statistic.weight || 1) * (statistic.reps || 1)} vol`,
-		])
-		.exhaustive();
-	return (
-		<>
-			<Text fz="sm">{first}</Text>
-			{second ? (
-				<Text ml="auto" fz="sm">
-					{second}
-				</Text>
-			) : undefined}
-		</>
-	);
-};
 
 const DisplayLifetimeStatistic = (props: {
 	// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -189,7 +164,7 @@ const Page: NextPageWithLayout = () => {
 												<Flex key={`${idx}`} align={"center"}>
 													<Text
 														fz="sm"
-														color={getSetColor(s.lot)}
+														c={getSetColor(s.lot)}
 														mr="md"
 														fw="bold"
 													>
@@ -197,7 +172,10 @@ const Page: NextPageWithLayout = () => {
 															.with(SetLot.Normal, () => idx + 1)
 															.otherwise(() => s.lot.at(0))}
 													</Text>
-													{getStats(exerciseDetails.data.lot, s.statistic)}
+													<DisplayExerciseStats
+														lot={exerciseDetails.data.lot}
+														statistic={s.statistic}
+													/>
 												</Flex>
 											))}
 										</Paper>
