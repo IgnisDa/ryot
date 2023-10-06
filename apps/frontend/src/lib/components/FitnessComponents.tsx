@@ -35,9 +35,9 @@ export const DisplayExerciseStats = (props: {
 		.exhaustive();
 	return (
 		<>
-			<Text fz="sm">{first}</Text>
+			<Text fz={props.hideExtras ? "xs" : "sm"}>{first}</Text>
 			{second ? (
-				<Text ml="auto" fz="sm">
+				<Text ml="auto" fz={props.hideExtras ? "xs" : "sm"}>
 					{second}
 				</Text>
 			) : undefined}

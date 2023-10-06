@@ -161,6 +161,9 @@ const ExerciseDisplay = (props: {
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
 		.exhaustive();
 
+	const toBeDisplayedColumns =
+		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
+
 	return userPreferences.data && currentWorkout ? (
 		<Paper px="sm">
 			<Stack>
@@ -244,7 +247,7 @@ const ExerciseDisplay = (props: {
 						<Text size="xs" w="5%" ta="center">
 							SET
 						</Text>
-						<Text size="xs" w="20%" ta="center">
+						<Text size="xs" w={`${85 / toBeDisplayedColumns}%`} ta="center">
 							PREVIOUS
 						</Text>
 						{durationCol ? (
@@ -340,7 +343,7 @@ const ExerciseDisplay = (props: {
 									</Menu.Item>
 								</Menu.Dropdown>
 							</Menu>
-							<Box w="20%">
+							<Box w={`${85 / toBeDisplayedColumns}%`}>
 								<Text ta="center" fz="xs">
 									{props.exercise.alreadyDoneSets[idx] ? (
 										<DisplayExerciseStats
