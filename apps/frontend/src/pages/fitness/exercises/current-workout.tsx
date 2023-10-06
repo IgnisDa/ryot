@@ -644,7 +644,14 @@ const Page: NextPageWithLayout = () => {
 	const [playCompleteSound] = useSound("/workout-completed.wav", {
 		interrupt: true,
 	});
-	const [opened, { close, toggle }] = useDisclosure(false);
+	const [
+		timerDrawerOpened,
+		{ close: timerDrawerClose, toggle: timerDrawerToggle },
+	] = useDisclosure(false);
+	const [
+		reorderDrawerOpened,
+		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
+	] = useDisclosure(false);
 
 	const finishWorkout = async () => {
 		await router.replace(APP_ROUTES.dashboard);
@@ -663,7 +670,7 @@ const Page: NextPageWithLayout = () => {
 
 	return (
 		<>
-			<TimerDrawer opened={opened} onClose={close} />
+			<TimerDrawer opened={timerDrawerOpened} onClose={timerDrawerClose} />
 			<Head>
 				<title>Current Workout | Ryot</title>
 			</Head>
@@ -707,7 +714,11 @@ const Page: NextPageWithLayout = () => {
 						/>
 						<Divider />
 						<Group justify="center">
-							<Button color="orange" variant="outline" onClick={toggle}>
+							<Button
+								color="orange"
+								variant="subtle"
+								onClick={timerDrawerToggle}
+							>
 								{currentTimer ? (
 									<Text fw="bold" fz="xl">
 										{Duration.fromObject({
@@ -717,6 +728,13 @@ const Page: NextPageWithLayout = () => {
 								) : (
 									"Timer"
 								)}
+							</Button>
+							<Button
+								color="lime"
+								variant="subtle"
+								onClick={reorderDrawerToggle}
+							>
+								Reorder
 							</Button>
 						</Group>
 						<Divider />
