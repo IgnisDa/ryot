@@ -8,10 +8,10 @@ import type { Immutable } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 
 export type ExerciseSetStats = Immutable<{
-	duration?: number;
-	weight?: number;
-	reps?: number;
-	distance?: number;
+	duration?: number | null;
+	weight?: number | null;
+	reps?: number | null;
+	distance?: number | null;
 }>;
 
 export type ExerciseSet = Immutable<{
@@ -20,12 +20,15 @@ export type ExerciseSet = Immutable<{
 	confirmed: boolean;
 }>;
 
+type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
+
 export type Exercise = Immutable<{
 	name: string;
 	exerciseId: number;
 	lot: ExerciseLot;
 	notes: Array<string>;
 	sets: Array<ExerciseSet>;
+	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 }>;
 
 type InProgressWorkout = Immutable<{

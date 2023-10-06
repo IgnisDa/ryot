@@ -38,6 +38,7 @@ import {
 	ExerciseParametersDocument,
 	ExercisesListDocument,
 	SetLot,
+	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -51,7 +52,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { produce } from "immer";
+import { createDraft, finishDraft, produce } from "immer";
 import { useAtom } from "jotai";
 import Head from "next/head";
 import Link from "next/link";
@@ -346,25 +347,33 @@ const Page: NextPageWithLayout = () => {
 							variant="light"
 							radius="xl"
 							size="xl"
-							onClick={() => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										for (const exercise of selectedExercises)
-											draft.exercises.push({
-												exerciseId: exercise.id,
-												lot: exercise.lot,
-												name: exercise.name,
-												sets: [
-													{
-														confirmed: false,
-														statistic: {},
-														lot: SetLot.Normal,
-													},
-												],
-												notes: [],
-											});
-									}),
-								);
+							onClick={async () => {
+								const draft = createDraft(currentWorkout);
+								for (const exercise of selectedExercises) {
+									const { userExerciseDetails } = await gqlClient.request(
+										UserExerciseDetailsDocument,
+										{ exerciseId: exercise.id },
+									);
+									draft.exercises.push({
+										exerciseId: exercise.id,
+										lot: exercise.lot,
+										name: exercise.name,
+										sets: [
+											{
+												confirmed: false,
+												statistic: {},
+												lot: SetLot.Normal,
+											},
+										],
+										alreadyDoneSets:
+											userExerciseDetails?.history
+												.at(-1)
+												?.sets.map((s) => ({ statistic: s.statistic })) || [],
+										notes: [],
+									});
+								}
+								const finishedDraft = finishDraft(draft);
+								setCurrentWorkout(finishedDraft);
 								router.replace(APP_ROUTES.fitness.exercises.currentWorkout);
 							}}
 						>
