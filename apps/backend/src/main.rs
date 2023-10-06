@@ -16,7 +16,7 @@ use apalis::{
         Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
         TraceLayer as ApalisTraceLayer,
     },
-    prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
+    prelude::{Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
 use aws_sdk_s3::config::Region;
@@ -245,7 +245,6 @@ async fn main() -> Result<()> {
                             Schedule::from_str(&format!("0 0 */{} ? * *", user_cleanup_every))
                                 .unwrap(),
                         )
-                        .timer(SleepTimer)
                         .to_stream_with_timezone(Kolkata),
                     )
                     .layer(ApalisTraceLayer::new())
@@ -257,7 +256,6 @@ async fn main() -> Result<()> {
                     .stream(
                         // every day
                         CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
-                            .timer(SleepTimer)
                             .to_stream_with_timezone(Kolkata),
                     )
                     .layer(ApalisTraceLayer::new())
@@ -271,7 +269,6 @@ async fn main() -> Result<()> {
                         CronStream::new(
                             Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
                         )
-                        .timer(SleepTimer)
                         .to_stream_with_timezone(Kolkata),
                     )
                     .layer(ApalisTraceLayer::new())
