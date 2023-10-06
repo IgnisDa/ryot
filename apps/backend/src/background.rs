@@ -1,8 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::{Job, JobContext, JobError};
-use chrono::DateTime;
-use chrono_tz::Tz;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
@@ -17,10 +16,11 @@ use crate::{
 
 // Cron Jobs
 
-pub struct ScheduledJob(DateTime<Tz>);
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ScheduledJob(DateTimeUtc);
 
-impl From<DateTime<Tz>> for ScheduledJob {
-    fn from(value: DateTime<Tz>) -> Self {
+impl From<DateTimeUtc> for ScheduledJob {
+    fn from(value: DateTimeUtc) -> Self {
         Self(value)
     }
 }

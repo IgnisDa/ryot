@@ -29,7 +29,6 @@ axum-extra = { version = "0.8.0", default-features = false, features = [
 ] }
 boilermates = "0.3.0"
 chrono = "0.4.31"
-chrono-tz = "0.8.3"
 convert_case = "0.6.0"
 const-str = "0.5.6"
 cookie = "0.17.0"
@@ -112,6 +111,7 @@ tracing = { version = "0.1.37", features = ["attributes"] }
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
 uuid = "1.4.1"
+chrono-tz = "0.8.3"
 
 [dev-dependencies]
 rstest = "0.18.2"
