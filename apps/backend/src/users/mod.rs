@@ -287,6 +287,7 @@ pub struct UserGeneralDashboardElement {
 )]
 #[serde(default)]
 pub struct UserGeneralPreferences {
+    pub num_genres_display: usize,
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
@@ -295,6 +296,7 @@ pub struct UserGeneralPreferences {
 impl Default for UserGeneralPreferences {
     fn default() -> Self {
         Self {
+            num_genres_display: 5,
             review_scale: UserReviewScale::default(),
             display_nsfw: false,
             dashboard: vec![

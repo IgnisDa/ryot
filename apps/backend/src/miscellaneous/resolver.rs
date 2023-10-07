@@ -4737,6 +4737,9 @@ impl MiscellaneousService {
                         _ => return Err(err()),
                     },
                     "general" => match right {
+                        "num_genres_display" => {
+                            preferences.general.num_genres_display = value_usize.unwrap();
+                        }
                         "review_scale" => {
                             preferences.general.review_scale =
                                 UserReviewScale::from_str(&input.value).unwrap();
