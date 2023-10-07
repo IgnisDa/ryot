@@ -813,7 +813,7 @@ const Page: NextPageWithLayout = () => {
 									"Timer"
 								)}
 							</Button>
-							{currentWorkout.exercises.length > 2 ? (
+							{currentWorkout.exercises.length > 1 ? (
 								<>
 									<Divider orientation="vertical" />
 									<Button
