@@ -336,6 +336,21 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									/>
+									<NumberInput
+										size="xs"
+										label="The number of genres to display for media"
+										defaultValue={userPreferences.data.general.numGenresDisplay}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(num) => {
+											if (num)
+												updateUserPreferences.mutate({
+													input: {
+														property: "general.num_genres_display",
+														value: String(num),
+													},
+												});
+										}}
+									/>
 								</SimpleGrid>
 							</Stack>
 						</Tabs.Panel>
