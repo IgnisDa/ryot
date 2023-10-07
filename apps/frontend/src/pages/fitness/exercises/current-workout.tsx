@@ -813,13 +813,49 @@ const Page: NextPageWithLayout = () => {
 									"Timer"
 								)}
 							</Button>
+							<Divider orientation="vertical" />
 							<Button
-								color="lime"
+								color="blue"
 								variant="subtle"
 								onClick={reorderDrawerToggle}
-								disabled={currentWorkout.exercises.length === 0}
 							>
 								Reorder
+							</Button>
+							{currentWorkout.exercises.length > 0 ? (
+								<>
+									<Divider orientation="vertical" />
+									<Button
+										color="green"
+										variant="subtle"
+										onClick={async () => {
+											const yes = confirm(
+												"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+											);
+											if (yes) {
+												const input =
+													currentWorkoutToCreateWorkoutInput(currentWorkout);
+												createUserWorkout.mutate(input);
+												playCompleteSound();
+												await finishWorkout();
+											}
+										}}
+									>
+										Finish
+									</Button>
+								</>
+							) : undefined}
+							<Divider orientation="vertical" />
+							<Button
+								color="red"
+								variant="subtle"
+								onClick={async () => {
+									const yes = confirm(
+										"Are you sure you want to cancel this workout?",
+									);
+									if (yes) await finishWorkout();
+								}}
+							>
+								Cancel
 							</Button>
 						</Group>
 						<Divider />
@@ -839,40 +875,6 @@ const Page: NextPageWithLayout = () => {
 							>
 								Add exercise
 							</Button>
-						</Group>
-						<Group justify="center">
-							<Button
-								color="red"
-								variant="subtle"
-								onClick={async () => {
-									const yes = confirm(
-										"Are you sure you want to cancel this workout?",
-									);
-									if (yes) await finishWorkout();
-								}}
-							>
-								Cancel workout
-							</Button>
-							{currentWorkout.exercises.length > 0 ? (
-								<Button
-									color="green"
-									variant="subtle"
-									onClick={async () => {
-										const yes = confirm(
-											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-										);
-										if (yes) {
-											const input =
-												currentWorkoutToCreateWorkoutInput(currentWorkout);
-											createUserWorkout.mutate(input);
-											playCompleteSound();
-											await finishWorkout();
-										}
-									}}
-								>
-									Finish workout
-								</Button>
-							) : undefined}
 						</Group>
 					</Stack>
 				) : (
