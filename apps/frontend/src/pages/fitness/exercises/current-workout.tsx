@@ -237,7 +237,7 @@ const ExerciseDisplay = (props: {
 									);
 							}}
 						>
-							Remove exercise
+							Remove
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
@@ -813,14 +813,18 @@ const Page: NextPageWithLayout = () => {
 									"Timer"
 								)}
 							</Button>
-							<Divider orientation="vertical" />
-							<Button
-								color="blue"
-								variant="subtle"
-								onClick={reorderDrawerToggle}
-							>
-								Reorder
-							</Button>
+							{currentWorkout.exercises.length > 2 ? (
+								<>
+									<Divider orientation="vertical" />
+									<Button
+										color="blue"
+										variant="subtle"
+										onClick={reorderDrawerToggle}
+									>
+										Reorder
+									</Button>
+								</>
+							) : undefined}
 							{currentWorkout.exercises.length > 0 ? (
 								<>
 									<Divider orientation="vertical" />
