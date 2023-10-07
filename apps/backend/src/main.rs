@@ -241,19 +241,6 @@ async fn main() -> Result<()> {
         let mn = Monitor::new()
             // cron jobs
             .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
-                    .stream(
-                        // every day
-                        CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
-                            .timer(SleepTimer)
-                            .to_stream_with_timezone(tz),
-                    )
-                    .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(importer_service_2.clone()))
-                    .layer(ApalisExtension(media_service_2.clone()))
-                    .build_fn(media_jobs)
-            })
-            .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("general_user_cleanup-{c}"))
                     .stream(
                         CronStream::new(
@@ -266,6 +253,19 @@ async fn main() -> Result<()> {
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_1.clone()))
                     .build_fn(user_jobs)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
+                    .stream(
+                        // every day
+                        CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
+                            .timer(SleepTimer)
+                            .to_stream_with_timezone(tz),
+                    )
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(importer_service_2.clone()))
+                    .layer(ApalisExtension(media_service_2.clone()))
+                    .build_fn(media_jobs)
             })
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("yank_integrations_data-{c}"))
