@@ -25,6 +25,7 @@ import {
 	Image,
 	Indicator,
 	Loader,
+	MantineThemeProvider,
 	Menu,
 	Modal,
 	NumberInput,
@@ -38,6 +39,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	createTheme,
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
@@ -103,6 +105,14 @@ import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
+
+const textTheme = createTheme({
+	components: {
+		Text: Text.extend({
+			defaultProps: { c: "dimmed", fz: { base: "sm", lg: "md" } },
+		}),
+	},
+});
 
 const service = new HumanizeDurationLanguage();
 const humanizer = new HumanizeDuration(service);
@@ -750,71 +760,71 @@ const Page: NextPageWithLayout = () => {
 							))}
 						</Group>
 					) : undefined}
-					<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
-						<Text c="dimmed">{mediaDetails.data.productionStatus}</Text>
-						{mediaDetails.data.genres.length > 0 ? (
-							<Text c="dimmed">
-								• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.bookSpecifics?.pages ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.bookSpecifics.pages} pages
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.podcastSpecifics.totalEpisodes} episodes
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.animeSpecifics?.episodes ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.animeSpecifics.episodes} episodes
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.movieSpecifics?.runtime ? (
-							<Text c="dimmed">
-								{" "}
-								•{" "}
-								{humanizer.humanize(
-									mediaSpecifics.data.movieSpecifics.runtime * 1000 * 60,
-								)}
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.showSpecifics ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
-							<Text c="dimmed">
-								{" "}
-								•{" "}
-								{humanizer.humanize(
-									mediaSpecifics.data.audioBookSpecifics.runtime * 1000 * 60,
-								)}
-							</Text>
-						) : undefined}
-						{mediaDetails.data.publishYear ? (
-							<Text c="dimmed"> • {mediaDetails.data.publishYear}</Text>
-						) : undefined}
-					</Flex>
+					<MantineThemeProvider theme={textTheme}>
+						<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
+							<Text>{mediaDetails.data.productionStatus}</Text>
+							{mediaSpecifics.data?.bookSpecifics?.pages ? (
+								<Text> • {mediaSpecifics.data.bookSpecifics.pages} pages</Text>
+							) : undefined}
+							{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.podcastSpecifics.totalEpisodes}{" "}
+									episodes
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.animeSpecifics?.episodes ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.animeSpecifics.episodes} episodes
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.movieSpecifics?.runtime ? (
+								<Text>
+									{" "}
+									•{" "}
+									{humanizer.humanize(
+										mediaSpecifics.data.movieSpecifics.runtime * 1000 * 60,
+									)}
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.showSpecifics ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
+								<Text>
+									{" "}
+									•{" "}
+									{humanizer.humanize(
+										mediaSpecifics.data.audioBookSpecifics.runtime * 1000 * 60,
+									)}
+								</Text>
+							) : undefined}
+							{mediaDetails.data.publishYear ? (
+								<Text> • {mediaDetails.data.publishYear}</Text>
+							) : undefined}
+							{mediaDetails.data.genres.length > 0 ? (
+								<Text>
+									• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
+								</Text>
+							) : undefined}
+						</Flex>
+					</MantineThemeProvider>
 					{mediaDetails.data.providerRating ||
 					userMediaDetails.data?.averageRating ? (
 						<Group>
