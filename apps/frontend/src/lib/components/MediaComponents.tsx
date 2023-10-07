@@ -73,7 +73,7 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 		>
 			<Avatar
 				imageProps={{ loading: "lazy" }}
-				radius={"sm"}
+				radius="sm"
 				src={props.media.image}
 				h={100}
 				w={85}
@@ -128,7 +128,7 @@ export const ReviewItemDisplay = ({
 	return userPreferences.data ? (
 		<>
 			<Box key={review.id} data-review-id={review.id}>
-				<Flex align={"center"} gap={"sm"}>
+				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
 						{getInitials(review.postedBy?.name || "")}{" "}
 					</Avatar>
@@ -155,7 +155,7 @@ export const ReviewItemDisplay = ({
 						</Anchor>
 					) : undefined}
 				</Flex>
-				<Box ml={"sm"} mt={"xs"}>
+				<Box ml="sm" mt="xs">
 					{typeof review.showSeason === "number" ? (
 						<Text c="dimmed">
 							S{review.showSeason}-E
@@ -166,8 +166,8 @@ export const ReviewItemDisplay = ({
 						<Text c="dimmed">EP-{review.podcastEpisode}</Text>
 					) : undefined}
 					{(review.rating || 0) > 0 ? (
-						<Flex align={"center"} gap={4}>
-							<IconStarFilled size={"1rem"} style={{ color: "#EBE600FF" }} />
+						<Flex align="center" gap={4}>
+							<IconStarFilled size="1rem" style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
 								{review.rating}
 								{userPreferences.data.general.reviewScale ===
@@ -186,7 +186,7 @@ export const ReviewItemDisplay = ({
 						) : (
 							<>
 								{!opened ? (
-									<Button onClick={toggle} variant={"subtle"} size="compact-md">
+									<Button onClick={toggle} variant="subtle" size="compact-md">
 										Show spoiler
 									</Button>
 								) : undefined}
@@ -211,12 +211,12 @@ export const ReviewItemDisplay = ({
 						Leave comment
 					</Button>
 					{(review.comments?.length || 0) > 0 ? (
-						<Paper withBorder ml={"xl"} mt={"sm"} p="xs">
+						<Paper withBorder ml="xl" mt="sm" p="xs">
 							<Stack>
 								{review.comments
 									? review.comments.map((c) => (
 											<Stack key={c?.id}>
-												<Flex align={"center"} gap={"sm"}>
+												<Flex align="center" gap="sm">
 													<Avatar color="cyan" radius="xl">
 														{getInitials(c?.user?.name || "")}{" "}
 													</Avatar>
@@ -300,9 +300,9 @@ export const BaseDisplayItem = (props: {
 		<Flex
 			key={`${props.bottomLeft}-${props.bottomRight}-${props.name}`}
 			align="center"
-			justify={"center"}
-			direction={"column"}
-			pos={"relative"}
+			justify="center"
+			direction="column"
+			pos="relative"
 		>
 			{props.topLeft}
 			<Anchor
@@ -313,7 +313,7 @@ export const BaseDisplayItem = (props: {
 			>
 				<Image
 					src={props.imageLink}
-					radius={"md"}
+					radius="md"
 					style={{ cursor: "pointer" }}
 					alt={`Image for ${props.name}`}
 					className={classes.mediaImage}
@@ -333,8 +333,8 @@ export const BaseDisplayItem = (props: {
 				/>
 				{props.topRight}
 			</Anchor>
-			<Flex w={"100%"} direction={"column"} px={{ base: 10, md: 3 }}>
-				<Flex justify={"space-between"} direction={"row"} w="100%">
+			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }}>
+				<Flex justify="space-between" direction="row" w="100%">
 					<Text c="dimmed" size="sm">
 						{props.bottomLeft}
 					</Text>
@@ -349,7 +349,7 @@ export const BaseDisplayItem = (props: {
 					</Tooltip>
 				</Flex>
 				<Tooltip label={props.name} position="right">
-					<Text w="100%" truncate fw={"bold"} mb="xs">
+					<Text w="100%" truncate fw="bold" mb="xs">
 						{props.name}
 					</Text>
 				</Tooltip>
@@ -388,7 +388,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			topLeft={
 				props.imageOverlayForLoadingIndicator ? (
 					<Loader
-						pos={"absolute"}
+						pos="absolute"
 						style={{ zIndex: 999 }}
 						top={10}
 						left={10}
@@ -402,7 +402,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.averageRating ? (
 					<Box
 						p={2}
-						pos={"absolute"}
+						pos="absolute"
 						top={5}
 						right={5}
 						style={{
@@ -410,8 +410,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 							borderRadius: 3,
 						}}
 					>
-						<Flex align={"center"} gap={4}>
-							<IconStarFilled size={"0.8rem"} style={{ color: "#EBE600FF" }} />
+						<Flex align="center" gap={4}>
+							<IconStarFilled size="0.8rem" style={{ color: "#EBE600FF" }} />
 							<Text c="white" size="xs" fw="bold" pr={4}>
 								{match(userPreferences.data.general.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
@@ -436,7 +436,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					>
 						<Box
 							p={3}
-							pos={"absolute"}
+							pos="absolute"
 							top={5}
 							right={5}
 							style={{
@@ -444,8 +444,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 								borderRadius: 3,
 							}}
 						>
-							<Flex align={"center"} gap={4}>
-								<IconStarFilled size={"1rem"} className={classes.starIcon} />
+							<Flex align="center" gap={4}>
+								<IconStarFilled size="1rem" className={classes.starIcon} />
 							</Flex>
 						</Box>
 					</Link>

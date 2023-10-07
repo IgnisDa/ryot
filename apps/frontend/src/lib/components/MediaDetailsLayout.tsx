@@ -83,8 +83,8 @@ export default function (props: {
 						color="dark"
 						variant="filled"
 					>
-						<Flex gap={4} align={"center"}>
-							<Text size={"10"}>
+						<Flex gap={4} align="center">
+							<Text size="10">
 								{snakeCase(props.externalLink.source)}:
 								{snakeCase(props.externalLink.lot)}
 							</Text>
