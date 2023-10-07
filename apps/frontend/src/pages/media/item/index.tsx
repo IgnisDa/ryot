@@ -820,7 +820,13 @@ const Page: NextPageWithLayout = () => {
 							) : undefined}
 							{mediaDetails.data.genres.length > 0 ? (
 								<Text>
-									• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
+									•{" "}
+									{formatter.format(
+										mediaDetails.data.genres.slice(
+											0,
+											preferences.data.general.numGenresDisplay,
+										),
+									)}
 								</Text>
 							) : undefined}
 						</Flex>
