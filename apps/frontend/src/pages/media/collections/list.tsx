@@ -108,7 +108,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<Flex align={"center"} gap={"md"}>
+					<Flex align="center" gap="md">
 						<Title>Collections</Title>
 						<ActionIcon
 							color="green"
@@ -126,13 +126,13 @@ const Page: NextPageWithLayout = () => {
 						{collections.data.map((c) => (
 							<Flex
 								key={c?.id}
-								align={"center"}
-								justify={"space-between"}
+								align="center"
+								justify="space-between"
 								gap="md"
 								mr="lg"
 							>
 								<Box>
-									<Flex align={"center"} gap="xs">
+									<Flex align="center" gap="xs">
 										<Anchor
 											component={Link}
 											href={withQuery(APP_ROUTES.media.collections.details, {
@@ -141,7 +141,7 @@ const Page: NextPageWithLayout = () => {
 										>
 											<Title order={4}>{c?.name}</Title>
 										</Anchor>
-										<Text c="dimmed" size={"xs"}>
+										<Text c="dimmed" size="xs">
 											{c?.numItems} items, {changeCase(c?.visibility || "")}
 										</Text>
 									</Flex>

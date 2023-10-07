@@ -263,7 +263,7 @@ const Page: NextPageWithLayout = () => {
 						if (v === "mine" || v === "search") setActiveTab(v);
 					}}
 				>
-					<Tabs.List mb={"xs"}>
+					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="mine"
 							leftSection={<IconListCheck size="1.5rem" />}
@@ -273,7 +273,7 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Tab value="search" leftSection={<IconSearch size="1.5rem" />}>
 							<Text>Search</Text>
 						</Tabs.Tab>
-						<Flex style={{ flexGrow: 1 }} justify={"end"}>
+						<Flex style={{ flexGrow: 1 }} justify="end">
 							<ActionIcon
 								size="lg"
 								mt={4}
@@ -331,7 +331,7 @@ const Page: NextPageWithLayout = () => {
 												if (v) setMineGeneralFilter(v as MediaGeneralFilter);
 											}}
 										/>
-										<Flex gap={"xs"} align={"center"}>
+										<Flex gap="xs" align="center">
 											<Select
 												w="100%"
 												data={[
@@ -387,7 +387,7 @@ const Page: NextPageWithLayout = () => {
 							{listMedia.data && listMedia.data.details.total > 0 ? (
 								<>
 									<Box>
-										<Text display={"inline"} fw="bold">
+										<Text display="inline" fw="bold">
 											{listMedia.data.details.total}
 										</Text>{" "}
 										items found
@@ -432,7 +432,7 @@ const Page: NextPageWithLayout = () => {
 
 					<Tabs.Panel value="search">
 						<Stack>
-							<Flex gap={"xs"}>
+							<Flex gap="xs">
 								{SearchInput({
 									placeholder: `Search for ${changeCase(
 										lot.toLowerCase(),
@@ -456,7 +456,7 @@ const Page: NextPageWithLayout = () => {
 							{searchQuery.data && searchQuery.data.details.total > 0 ? (
 								<>
 									<Box>
-										<Text display={"inline"} fw="bold">
+										<Text display="inline" fw="bold">
 											{searchQuery.data.details.total}
 										</Text>{" "}
 										items found

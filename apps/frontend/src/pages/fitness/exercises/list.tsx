@@ -151,9 +151,9 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Exercises | Ryot</title>
 			</Head>
-			<Container size={"md"}>
-				<Stack gap={"xl"}>
-					<Flex align={"center"} gap={"md"}>
+			<Container size="md">
+				<Stack gap="xl">
+					<Flex align="center" gap="md">
 						<Title>Exercises</Title>
 						<ActionIcon
 							color="green"
@@ -252,7 +252,7 @@ const Page: NextPageWithLayout = () => {
 							{exercisesList.data && exercisesList.data.details.total > 0 ? (
 								<>
 									<Box>
-										<Text display={"inline"} fw="bold">
+										<Text display="inline" fw="bold">
 											{exercisesList.data.details.total}
 										</Text>{" "}
 										items found
@@ -260,7 +260,7 @@ const Page: NextPageWithLayout = () => {
 											<>
 												{" "}
 												and{" "}
-												<Text display={"inline"} fw="bold">
+												<Text display="inline" fw="bold">
 													{selectedExercises.length}
 												</Text>{" "}
 												selected
@@ -272,7 +272,7 @@ const Page: NextPageWithLayout = () => {
 											<Flex
 												key={exercise.id}
 												gap="lg"
-												align={"center"}
+												align="center"
 												data-exercise-id={exercise.id}
 											>
 												{selectionEnabled ? (
@@ -294,7 +294,7 @@ const Page: NextPageWithLayout = () => {
 												<Avatar
 													imageProps={{ loading: "lazy" }}
 													src={exercise.attributes.images.at(0)}
-													radius={"xl"}
+													radius="xl"
 													size="lg"
 												/>
 												<Link
@@ -304,7 +304,7 @@ const Page: NextPageWithLayout = () => {
 													)}
 													style={{ all: "unset", cursor: "pointer" }}
 												>
-													<Flex direction={"column"} justify={"space-around"}>
+													<Flex direction="column" justify="space-around">
 														<Text>{exercise.name}</Text>
 														{exercise.attributes.muscles.at(0) ? (
 															<Text size="xs">

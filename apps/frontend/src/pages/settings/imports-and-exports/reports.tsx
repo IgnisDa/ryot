@@ -38,7 +38,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="sm">
 				<Stack>
-					<Flex justify={"space-between"} align={"center"}>
+					<Flex justify="space-between" align="center">
 						<Title>Import Reports</Title>
 						<Anchor
 							size="xs"

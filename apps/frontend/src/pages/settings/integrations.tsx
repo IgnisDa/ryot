@@ -126,7 +126,7 @@ const Page: NextPageWithLayout = () => {
 					{userIntegrations.data.length > 0 ? (
 						userIntegrations.data.map((i) => (
 							<Paper p="xs" withBorder key={i.id}>
-								<Flex align={"center"} justify={"space-between"}>
+								<Flex align="center" justify="space-between">
 									<Box>
 										<Text size="xs">{i.description}</Text>
 										<Text size="xs">{formatTimeAgo(i.timestamp)}</Text>

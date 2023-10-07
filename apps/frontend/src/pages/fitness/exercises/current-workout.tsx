@@ -109,7 +109,7 @@ const StatInput = (props: {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	return currentWorkout ? (
-		<Flex style={{ flex: 1 }} justify={"center"}>
+		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
 				value={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
@@ -321,7 +321,7 @@ const ExerciseDisplay = (props: {
 									<Menu.Label>Actions</Menu.Label>
 									<Menu.Item
 										color="red"
-										fz={"xs"}
+										fz="xs"
 										leftSection={<IconTrash size={14} />}
 										onClick={() => {
 											const yes = confirm(
@@ -513,7 +513,7 @@ const TimerDrawer = (props: {
 			opened={props.opened}
 			withCloseButton={false}
 			position="bottom"
-			size={"md"}
+			size="md"
 			styles={{ body: { ...styles.body, height: "100%" } }}
 		>
 			<Stack align="center">
@@ -537,7 +537,7 @@ const TimerDrawer = (props: {
 											seconds: currentTimer.remainingTime,
 										}).toFormat("m:ss")}
 									</Text>
-									<Text ta="center" c="dimmed" fz={"lg"} mt={"-md"}>
+									<Text ta="center" c="dimmed" fz="lg" mt="-md">
 										{Duration.fromObject({
 											seconds: currentTimer.totalTime,
 										}).toFormat("m:ss")}
@@ -662,7 +662,7 @@ const ReorderDrawer = (props: {
 		<Drawer
 			onClose={props.onClose}
 			opened={props.opened}
-			size={"sm"}
+			size="sm"
 			styles={styles}
 		>
 			<DragDropContext
@@ -691,8 +691,8 @@ const ReorderDrawer = (props: {
 									{(provided) => (
 										<Paper
 											py={6}
-											px={"sm"}
-											radius={"md"}
+											px="sm"
+											radius="md"
 											withBorder
 											ref={provided.innerRef}
 											{...provided.draggableProps}
@@ -761,7 +761,7 @@ const Page: NextPageWithLayout = () => {
 							exercises={currentWorkout.exercises as any}
 							key={currentWorkout.exercises.toString()}
 						/>
-						<Flex align="end" justify={"space-between"}>
+						<Flex align="end" justify="space-between">
 							<TextInput
 								style={{ flex: 0.7 }}
 								size="sm"

@@ -137,7 +137,7 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 							modalProps={{ centered: true, title: "Confirmation" }}
 						>
 							<Notifications />
-							<Flex direction={"column"} style={{ minHeight: "100vh" }}>
+							<Flex direction="column" style={{ minHeight: "100vh" }}>
 								<Flex style={{ flexGrow: 1 }}>
 									{getLayout(<Component {...pageProps} />)}
 								</Flex>

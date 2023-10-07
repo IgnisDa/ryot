@@ -150,7 +150,7 @@ const Page: NextPageWithLayout = () => {
 					{userNotificationPlatform.data.length > 0 ? (
 						userNotificationPlatform.data.map((notif) => (
 							<Paper p="xs" withBorder key={notif.id}>
-								<Flex align={"center"} justify={"space-between"}>
+								<Flex align="center" justify="space-between">
 									<Box w="80%">
 										<Text size="xs" lineClamp={1}>
 											{notif.description}
@@ -183,7 +183,7 @@ const Page: NextPageWithLayout = () => {
 						<Text>No notification platforms configured</Text>
 					)}
 					<Box>
-						<Flex justify={"end"}>
+						<Flex justify="end">
 							<Group>
 								{userNotificationPlatform.data.length > 0 ? (
 									<Button

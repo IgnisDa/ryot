@@ -166,7 +166,7 @@ const ProgressModal = (props: {
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
-			size={"sm"}
+			size="sm"
 		>
 			<Stack>
 				<Title order={3}>Set progress</Title>
@@ -183,17 +183,17 @@ const ProgressModal = (props: {
 						max={100}
 						min={0}
 						step={1}
-						w={"20%"}
+						w="20%"
 						hideControls
 						rightSection={<IconPercentage size="1rem" />}
 					/>
 				</Group>
 				{props.total ? (
 					<>
-						<Text ta="center" fw={"bold"}>
+						<Text ta="center" fw="bold">
 							OR
 						</Text>
-						<Flex align={"center"} gap="xs">
+						<Flex align="center" gap="xs">
 							<NumberInput
 								value={Math.ceil(((props.total || 1) * value) / 100)}
 								onChange={(v) => {
@@ -240,7 +240,7 @@ const MetadataCreator = (props: { name: string; image?: string | null }) => {
 				src={props.image}
 				h={100}
 				w={85}
-				radius={"sm"}
+				radius="sm"
 				mx="auto"
 				alt={`${props.name} profile picture`}
 				styles={{ image: { objectPosition: "top" } }}
@@ -419,7 +419,7 @@ const AccordionLabel = ({
 }) => {
 	return (
 		<Stack data-episode-id={id}>
-			<Flex align={"center"} gap="sm">
+			<Flex align="center" gap="sm">
 				<Indicator
 					disabled={displayIndicator === 0}
 					label={displayIndicator === 1 ? "Seen" : `Seen X${displayIndicator}`}
@@ -440,7 +440,7 @@ const AccordionLabel = ({
 			<Group gap={6}>
 				<Text>{name}</Text>
 				{runtime ? (
-					<Text size={"xs"} color="dimmed">
+					<Text size="xs" c="dimmed">
 						({humanizer.humanize(runtime * 1000 * 60)}
 						{publishDate
 							? `, ${DateTime.fromISO(publishDate).toLocaleString(
@@ -761,7 +761,7 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 					) : undefined}
 					<MantineThemeProvider theme={textTheme}>
-						<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
+						<Flex id="media-details" wrap="wrap" gap={6} align="center">
 							<Text>{mediaDetails.data.productionStatus}</Text>
 							{mediaSpecifics.data?.bookSpecifics?.pages ? (
 								<Text> • {mediaSpecifics.data.bookSpecifics.pages} pages</Text>
@@ -837,7 +837,7 @@ const Page: NextPageWithLayout = () => {
 							{mediaDetails.data.providerRating ? (
 								<Paper
 									p={4}
-									display={"flex"}
+									display="flex"
 									style={{
 										flexDirection: "column",
 										alignItems: "center",
@@ -908,7 +908,7 @@ const Page: NextPageWithLayout = () => {
 							{userMediaDetails.data?.averageRating ? (
 								<Paper
 									p={4}
-									display={"flex"}
+									display="flex"
 									style={{
 										flexDirection: "column",
 										alignItems: "center",
@@ -953,7 +953,7 @@ const Page: NextPageWithLayout = () => {
 							if (v) setActiveTab(v);
 						}}
 					>
-						<Tabs.List mb={"xs"}>
+						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
 								leftSection={<IconInfoCircle size="1rem" />}
@@ -1353,7 +1353,7 @@ const Page: NextPageWithLayout = () => {
 									{userMediaDetails.data?.history.map((h) => (
 										<Flex
 											key={h.id}
-											direction={"column"}
+											direction="column"
 											ml="md"
 											data-seen-id={h.id}
 											data-seen-num-times-updated={h.numTimesUpdated}
@@ -1375,9 +1375,9 @@ const Page: NextPageWithLayout = () => {
 													</Text>
 												) : undefined}
 											</Flex>
-											<Flex ml="sm" direction={"column"} gap={4}>
+											<Flex ml="sm" direction="column" gap={4}>
 												<Flex gap="xl">
-													<Flex gap={"xs"}>
+													<Flex gap="xs">
 														<Text size="sm">Started:</Text>
 														<Text size="sm" fw="bold">
 															{h.startedOn
@@ -1385,7 +1385,7 @@ const Page: NextPageWithLayout = () => {
 																: "N/A"}
 														</Text>
 													</Flex>
-													<Flex gap={"xs"}>
+													<Flex gap="xs">
 														<Text size="sm">Ended:</Text>
 														<Text size="sm" fw="bold">
 															{h.finishedOn
@@ -1396,8 +1396,8 @@ const Page: NextPageWithLayout = () => {
 														</Text>
 													</Flex>
 												</Flex>
-												<Flex gap={"md"}>
-													<Flex gap={"xs"}>
+												<Flex gap="md">
+													<Flex gap="xs">
 														<Text size="sm">Updated:</Text>
 														<Text size="sm" fw="bold">
 															{DateTime.fromJSDate(
@@ -1488,7 +1488,7 @@ const Page: NextPageWithLayout = () => {
 												<Accordion.Panel>
 													{s.episodes.length > 0 ? (
 														s.episodes.map((e) => (
-															<Box mb={"xs"} ml={"md"} key={e.id}>
+															<Box mb="xs" ml="md" key={e.id}>
 																<AccordionLabel
 																	{...e}
 																	key={e.episodeNumber}
@@ -1611,7 +1611,7 @@ const Page: NextPageWithLayout = () => {
 										{mediaSpecifics.data?.assets.videos.map((v) => (
 											<Box key={v.videoId}>
 												<iframe
-													width={"100%"}
+													width="100%"
 													height={200}
 													src={
 														match(v.source)

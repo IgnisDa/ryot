@@ -106,7 +106,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Flex align={"center"} gap={"md"}>
+					<Flex align="center" gap="md">
 						<Title>Users settings</Title>
 						<ActionIcon
 							color="green"
@@ -166,13 +166,13 @@ const Page: NextPageWithLayout = () => {
 					{users.data
 						? users.data.map((user) => (
 								<Paper p="xs" withBorder key={user.id}>
-									<Flex align={"center"} justify={"space-between"}>
+									<Flex align="center" justify="space-between">
 										<Box>
 											<Text>{user.name}</Text>
 											<Text size="xs">Role: {changeCase(user.lot)}</Text>
 										</Box>
 										<ActionIcon
-											color={"red"}
+											color="red"
 											variant="outline"
 											onClick={() => {
 												const yes = confirm(

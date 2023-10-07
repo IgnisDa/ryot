@@ -43,7 +43,7 @@ const DisplayLifetimeStatistic = (props: {
 	stat: string;
 }) => {
 	return parseFloat(props.val) !== 0 ? (
-		<Flex mt={6} align={"center"} justify={"space-between"}>
+		<Flex mt={6} align="center" justify="space-between">
 			<Text size="sm">Total {props.stat}</Text>
 			<Text size="sm">
 				{props.val} {props.unit}
@@ -103,7 +103,7 @@ const Page: NextPageWithLayout = () => {
 						}}
 						variant="outline"
 					>
-						<Tabs.List mb={"xs"}>
+						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
 								leftSection={<IconInfoCircle size="1rem" />}
@@ -129,20 +129,14 @@ const Page: NextPageWithLayout = () => {
 								<ScrollArea>
 									<Flex gap={6}>
 										{exerciseDetails.data.attributes.images.map((i) => (
-											<Image
-												key={i}
-												radius={"md"}
-												src={i}
-												h="200px"
-												w="248px"
-											/>
+											<Image key={i} radius="md" src={i} h="200px" w="248px" />
 										))}
 									</Flex>
 								</ScrollArea>
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>
-								<List type="ordered" spacing={"xs"}>
+								<List type="ordered" spacing="xs">
 									{exerciseDetails.data.attributes.instructions.map((d) => (
 										<List.Item key={d}>{d}</List.Item>
 									))}
@@ -161,7 +155,7 @@ const Page: NextPageWithLayout = () => {
 												)}
 											</Text>
 											{h.sets.map((s, idx) => (
-												<Flex key={`${idx}`} align={"center"}>
+												<Flex key={`${idx}`} align="center">
 													<Text
 														fz="sm"
 														c={getSetColor(s.lot)}

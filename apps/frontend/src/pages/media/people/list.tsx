@@ -120,13 +120,13 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<Flex align={"center"} gap={"md"}>
+					<Flex align="center" gap="md">
 						<Title>People</Title>
 					</Flex>
 					<Group wrap="nowrap">
 						<TextInput
 							name="query"
-							placeholder={"Search for people"}
+							placeholder="Search for people"
 							leftSection={<IconSearch />}
 							onChange={(e) => setQuery(e.currentTarget.value)}
 							value={query}
@@ -160,7 +160,7 @@ const Page: NextPageWithLayout = () => {
 										<IconFilterOff size="1.5rem" />
 									</ActionIcon>
 								</Group>
-								<Flex gap={"xs"} align={"center"}>
+								<Flex gap="xs" align="center">
 									<Select
 										w="100%"
 										data={Object.values(CreatorSortBy).map((o) => ({
@@ -192,7 +192,7 @@ const Page: NextPageWithLayout = () => {
 					{listCreators.data && listCreators.data.details.total > 0 ? (
 						<>
 							<Box>
-								<Text display={"inline"} fw="bold">
+								<Text display="inline" fw="bold">
 									{listCreators.data.details.total}
 								</Text>{" "}
 								items found

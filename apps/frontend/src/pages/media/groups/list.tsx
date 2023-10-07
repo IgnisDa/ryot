@@ -77,13 +77,13 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<Flex align={"center"} gap={"md"}>
+					<Flex align="center" gap="md">
 						<Title>Groups</Title>
 					</Flex>
 					<Group wrap="nowrap">
 						<TextInput
 							name="query"
-							placeholder={"Search for groups"}
+							placeholder="Search for groups"
 							leftSection={<IconSearch />}
 							onChange={(e) => setQuery(e.currentTarget.value)}
 							value={query}
@@ -103,7 +103,7 @@ const Page: NextPageWithLayout = () => {
 					listMetadataGroups.data.details.total > 0 ? (
 						<>
 							<Box>
-								<Text display={"inline"} fw="bold">
+								<Text display="inline" fw="bold">
 									{listMetadataGroups.data.details.total}
 								</Text>{" "}
 								items found

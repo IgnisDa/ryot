@@ -324,7 +324,7 @@ const Page: NextPageWithLayout = () => {
 									<Switch
 										size="xs"
 										mt="md"
-										label={"Whether NSFW will be displayed"}
+										label="Whether NSFW will be displayed"
 										checked={userPreferences.data.general.displayNsfw}
 										disabled={!coreDetails.data.preferencesChangeAllowed}
 										onChange={(ev) => {

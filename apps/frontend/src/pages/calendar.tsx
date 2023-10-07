@@ -40,8 +40,8 @@ const CalendarEvent = (props: {
 		<Card
 			data-calendar-date={props.day.date}
 			withBorder
-			radius={"sm"}
-			padding={"xs"}
+			radius="sm"
+			padding="xs"
 			mt="sm"
 		>
 			<Card.Section withBorder p="sm">
@@ -151,7 +151,7 @@ const Page: NextPageWithLayout = () => {
 						calendarEvents.data.length > 0 ? (
 							<Box>
 								<Box>
-									<Text display={"inline"} fw="bold">
+									<Text display="inline" fw="bold">
 										{sum(calendarEvents.data.map((e) => e.events.length))}
 									</Text>{" "}
 									items found

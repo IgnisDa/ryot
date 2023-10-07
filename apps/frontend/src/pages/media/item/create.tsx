@@ -171,13 +171,13 @@ const Page: NextPageWithLayout = () => {
 									/>
 									<Switch
 										mt="md"
-										label={"Is it NSFW?"}
+										label="Is it NSFW?"
 										{...form.getInputProps("isNsfw")}
 									/>
 								</Group>
 								<Textarea
 									label="Description"
-									description={"Markdown is supported"}
+									description="Markdown is supported"
 									{...form.getInputProps("description")}
 								/>
 								<FileInput

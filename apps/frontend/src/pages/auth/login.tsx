@@ -77,8 +77,7 @@ export default function Page() {
 			</Head>
 			<Box
 				component="form"
-				my={"auto"}
-				mx={"auto"}
+				m="auto"
 				onSubmit={form.onSubmit((values) => {
 					loginUser.mutate(values);
 				})}

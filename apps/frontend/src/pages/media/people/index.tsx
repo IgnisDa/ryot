@@ -83,7 +83,7 @@ const Page: NextPageWithLayout = () => {
 			<Container>
 				<MediaDetailsLayout images={creatorDetails.data.details.displayImages}>
 					<Title id="creator-title">{creatorDetails.data.details.name}</Title>
-					<Flex id="creator-details" wrap={"wrap"} gap={4}>
+					<Flex id="creator-details" wrap="wrap" gap={4}>
 						<Text>
 							{creatorDetails.data.contents.flatMap((c) => c.items).length}{" "}
 							media items
@@ -124,7 +124,7 @@ const Page: NextPageWithLayout = () => {
 						}}
 						variant="outline"
 					>
-						<Tabs.List mb={"xs"}>
+						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="media"
 								leftSection={<IconDeviceTv size="1rem" />}
@@ -181,7 +181,7 @@ const Page: NextPageWithLayout = () => {
 														<Avatar
 															imageProps={{ loading: "lazy" }}
 															src={item.image}
-															radius={"sm"}
+															radius="sm"
 															h={100}
 															w={85}
 															mx="auto"
