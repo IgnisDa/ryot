@@ -150,6 +150,7 @@ const StatInput = (props: {
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
+	startTimer: (duration: number) => void;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
@@ -488,9 +489,11 @@ const ExerciseDisplay = (props: {
 													)
 													.exhaustive()
 											}
-											onMouseDown={() => playCheckSound()}
 											color="green"
 											onClick={() => {
+												playCheckSound();
+												if (props.exercise.restTimer?.enabled)
+													props.startTimer(props.exercise.restTimer.duration);
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
 														draft.exercises[props.exerciseIdx].sets[
@@ -936,7 +939,11 @@ const Page: NextPageWithLayout = () => {
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
 							<Fragment key={ex.exerciseId + idx}>
-								<ExerciseDisplay exercise={ex} exerciseIdx={idx} />
+								<ExerciseDisplay
+									exercise={ex}
+									exerciseIdx={idx}
+									startTimer={startTimer}
+								/>
 								<Divider />
 							</Fragment>
 						))}
