@@ -473,39 +473,10 @@ const styles = {
 const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
+	startTimer: (duration: number) => void;
+	stopTimer: () => void;
 }) => {
-	const [playCompleteSound] = useSound("/timer-completed.mp3", {
-		interrupt: true,
-	});
 	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
-	const interval = useInterval(() => {
-		setCurrentTimer((currentTimer) =>
-			produce(currentTimer, (draft) => {
-				if (draft) draft.remainingTime -= 1;
-			}),
-		);
-	}, 1000);
-
-	const startTimer = (duration: number) => {
-		setCurrentTimer({
-			totalTime: duration,
-			remainingTime: duration,
-		});
-		interval.start();
-	};
-
-	useEffect(() => {
-		if (
-			currentTimer &&
-			typeof currentTimer.remainingTime === "number" &&
-			currentTimer.remainingTime <= 0
-		) {
-			playCompleteSound();
-			props.onClose();
-			interval.stop();
-			setCurrentTimer(RESET);
-		}
-	}, [currentTimer]);
 
 	return (
 		<Drawer
@@ -583,10 +554,7 @@ const TimerDrawer = (props: {
 							</Button>
 							<Button
 								color="orange"
-								onClick={() => {
-									setCurrentTimer(RESET);
-									interval.stop();
-								}}
+								onClick={props.stopTimer}
 								size="compact-lg"
 							>
 								Skip
@@ -599,7 +567,7 @@ const TimerDrawer = (props: {
 							size="compact-xl"
 							w={160}
 							variant="outline"
-							onClick={() => startTimer(180)}
+							onClick={() => props.startTimer(180)}
 						>
 							3 minutes
 						</Button>
@@ -607,7 +575,7 @@ const TimerDrawer = (props: {
 							size="compact-xl"
 							w={160}
 							variant="outline"
-							onClick={() => startTimer(300)}
+							onClick={() => props.startTimer(300)}
 						>
 							5 minutes
 						</Button>
@@ -615,7 +583,7 @@ const TimerDrawer = (props: {
 							size="compact-xl"
 							w={160}
 							variant="outline"
-							onClick={() => startTimer(480)}
+							onClick={() => props.startTimer(480)}
 						>
 							8 minutes
 						</Button>
@@ -627,7 +595,7 @@ const TimerDrawer = (props: {
 								const input = prompt("Enter duration in seconds");
 								if (!input) return;
 								const intInput = parseInt(input);
-								if (intInput) startTimer(intInput);
+								if (intInput) props.startTimer(intInput);
 								else alert("Invalid input");
 							}}
 						>
@@ -714,9 +682,8 @@ const ReorderDrawer = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const [currentTimer] = useAtom(timerAtom);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-	const [playCompleteSound] = useSound("/workout-completed.wav", {
+	const [playCompleteWorkoutSound] = useSound("/workout-completed.wav", {
 		interrupt: true,
 	});
 	const [
@@ -727,6 +694,25 @@ const Page: NextPageWithLayout = () => {
 		reorderDrawerOpened,
 		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
 	] = useDisclosure(false);
+	const [playCompleteTimerSound] = useSound("/timer-completed.mp3", {
+		interrupt: true,
+	});
+	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
+	const interval = useInterval(() => {
+		setCurrentTimer((currentTimer) =>
+			produce(currentTimer, (draft) => {
+				if (draft) draft.remainingTime -= 1;
+			}),
+		);
+	}, 1000);
+
+	const startTimer = (duration: number) => {
+		setCurrentTimer({
+			totalTime: duration,
+			remainingTime: duration,
+		});
+		interval.start();
+	};
 
 	const finishWorkout = async () => {
 		await router.replace(APP_ROUTES.dashboard);
@@ -743,6 +729,19 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	useEffect(() => {
+		if (
+			currentTimer &&
+			typeof currentTimer.remainingTime === "number" &&
+			currentTimer.remainingTime <= 0
+		) {
+			playCompleteTimerSound();
+			timerDrawerClose();
+			interval.stop();
+			setCurrentTimer(RESET);
+		}
+	}, [currentTimer]);
+
 	return (
 		<>
 			<Head>
@@ -754,6 +753,11 @@ const Page: NextPageWithLayout = () => {
 						<TimerDrawer
 							opened={timerDrawerOpened}
 							onClose={timerDrawerClose}
+							startTimer={startTimer}
+							stopTimer={() => {
+								setCurrentTimer(RESET);
+								interval.stop();
+							}}
 						/>
 						<ReorderDrawer
 							opened={reorderDrawerOpened}
@@ -839,7 +843,7 @@ const Page: NextPageWithLayout = () => {
 												const input =
 													currentWorkoutToCreateWorkoutInput(currentWorkout);
 												createUserWorkout.mutate(input);
-												playCompleteSound();
+												playCompleteWorkoutSound();
 												await finishWorkout();
 											}
 										}}
