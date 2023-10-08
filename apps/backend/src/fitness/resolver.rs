@@ -118,7 +118,8 @@ impl ExerciseQuery {
         input: ExercisesListInput,
     ) -> Result<SearchResults<exercise::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.exercises_list(input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.exercises_list(input, user_id).await
     }
 
     /// Get details about an exercise.
@@ -320,6 +321,7 @@ impl ExerciseService {
     async fn exercises_list(
         &self,
         input: ExercisesListInput,
+        user_id: i32,
     ) -> Result<SearchResults<exercise::Model>> {
         let query = Exercise::find()
             .apply_if(input.filter, |query, q| {
@@ -345,6 +347,16 @@ impl ExerciseService {
                     Condition::any().add(get_ilike_query(Expr::col(exercise::Column::Name), &v)),
                 )
             })
+            .join(
+                JoinType::LeftJoin,
+                user_to_exercise::Relation::Exercise
+                    .def()
+                    .rev()
+                    .on_condition(move |_left, right| {
+                        Condition::all()
+                            .add(Expr::col((right, user_to_exercise::Column::UserId)).eq(user_id))
+                    }),
+            )
             .order_by_asc(exercise::Column::Name);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
