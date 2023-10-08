@@ -16,6 +16,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	MantineThemeProvider,
 	Modal,
 	Pagination,
 	Select,
@@ -213,40 +214,50 @@ const Page: NextPageWithLayout = () => {
 									centered
 									withCloseButton={false}
 								>
-									<Stack>
-										<Group>
-											<Title order={3}>Filters</Title>
-											<ActionIcon onClick={resetFilters}>
-												<IconFilterOff size="1.5rem" />
-											</ActionIcon>
-										</Group>
-										{Object.keys(defaultFilterValue).map((f) => (
-											<Select
-												key={f}
-												clearable
-												// biome-ignore lint/suspicious/noExplicitAny: required heres
-												data={(exerciseInformation.data.filters as any)[f].map(
+									<MantineThemeProvider
+										theme={{
+											components: {
+												Select: Select.extend({ defaultProps: { size: "xs" } }),
+											},
+										}}
+									>
+										<Stack gap={4}>
+											<Group>
+												<Title order={3}>Filters</Title>
+												<ActionIcon onClick={resetFilters}>
+													<IconFilterOff size="1.5rem" />
+												</ActionIcon>
+											</Group>
+											{Object.keys(defaultFilterValue).map((f) => (
+												<Select
+													key={f}
+													clearable
 													// biome-ignore lint/suspicious/noExplicitAny: required heres
-													(v: any) => ({
-														label: startCase(snakeCase(v)),
-														value: v,
-													}),
-												)}
-												label={startCase(f)}
-												// biome-ignore lint/suspicious/noExplicitAny: required heres
-												value={(exerciseFilters as any)[f]}
-												onChange={(v) => {
-													if (exerciseFilters)
-														setExerciseFilters(
-															produce(exerciseFilters, (draft) => {
-																// biome-ignore lint/suspicious/noExplicitAny: required heres
-																(draft as any)[f] = v;
-															}),
-														);
-												}}
-											/>
-										))}
-									</Stack>
+													data={(exerciseInformation.data.filters as any)[
+														f
+													].map(
+														// biome-ignore lint/suspicious/noExplicitAny: required heres
+														(v: any) => ({
+															label: startCase(snakeCase(v)),
+															value: v,
+														}),
+													)}
+													label={startCase(f)}
+													// biome-ignore lint/suspicious/noExplicitAny: required heres
+													value={(exerciseFilters as any)[f]}
+													onChange={(v) => {
+														if (exerciseFilters)
+															setExerciseFilters(
+																produce(exerciseFilters, (draft) => {
+																	// biome-ignore lint/suspicious/noExplicitAny: required heres
+																	(draft as any)[f] = v;
+																}),
+															);
+													}}
+												/>
+											))}
+										</Stack>
+									</MantineThemeProvider>
 								</Modal>
 							</Group>
 							{exercisesList.data && exercisesList.data.details.total > 0 ? (
