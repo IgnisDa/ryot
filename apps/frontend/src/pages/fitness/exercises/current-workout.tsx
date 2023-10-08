@@ -48,6 +48,7 @@ import {
 	IconClipboard,
 	IconDotsVertical,
 	IconTrash,
+	IconZzz,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
@@ -166,7 +167,7 @@ const ExerciseDisplay = (props: {
 	return userPreferences.data && currentWorkout ? (
 		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 			<Stack>
-				<Menu shadow="md" width={150} position="left-end">
+				<Menu shadow="md" width={180} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
@@ -221,6 +222,9 @@ const ExerciseDisplay = (props: {
 							}}
 						>
 							Add note
+						</Menu.Item>
+						<Menu.Item leftSection={<IconZzz size={14} />} onClick={() => {}}>
+							Rest timer
 						</Menu.Item>
 						<Menu.Item
 							color="red"
