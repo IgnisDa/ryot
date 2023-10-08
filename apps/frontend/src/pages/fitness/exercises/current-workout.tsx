@@ -189,7 +189,7 @@ const ExerciseDisplay = (props: {
 								produce(currentWorkout, (draft) => {
 									draft.exercises[props.exerciseIdx].restTimer = {
 										enabled: v.currentTarget.checked,
-										duration: 20,
+										duration: props.exercise.restTimer?.duration ?? 20,
 									};
 								}),
 							);
@@ -227,7 +227,7 @@ const ExerciseDisplay = (props: {
 				</Stack>
 			</Modal>
 			<Stack>
-				<Menu shadow="md" width={180} position="left-end">
+				<Menu shadow="md" width={200} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
@@ -286,6 +286,11 @@ const ExerciseDisplay = (props: {
 						<Menu.Item
 							leftSection={<IconZzz size={14} />}
 							onClick={timerModalToggle}
+							rightSection={
+								props.exercise.restTimer?.enabled
+									? `${props.exercise.restTimer.duration}s`
+									: "Off"
+							}
 						>
 							Rest timer
 						</Menu.Item>
