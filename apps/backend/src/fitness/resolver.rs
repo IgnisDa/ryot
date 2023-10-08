@@ -35,7 +35,7 @@ use crate::{
         SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, partial_user_by_id},
+    utils::{get_ilike_query, partial_user_by_id},
 };
 
 use super::logic::UserWorkoutInput;
@@ -326,7 +326,7 @@ impl ExerciseService {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
                     .apply_if(q.muscle, |q, v| {
-                        q.filter(get_case_insensitive_like_query(
+                        q.filter(get_ilike_query(
                             Func::cast_as(Expr::col(exercise::Column::Muscles), Alias::new("text")),
                             &v.to_string(),
                         ))
@@ -342,18 +342,7 @@ impl ExerciseService {
             })
             .apply_if(input.search.query, |query, v| {
                 query.filter(
-                    Condition::any()
-                        .add(get_case_insensitive_like_query(
-                            Expr::col(exercise::Column::Name),
-                            &v,
-                        ))
-                        .add(get_case_insensitive_like_query(
-                            Func::cast_as(
-                                Expr::col(exercise::Column::Attributes),
-                                Alias::new("text"),
-                            ),
-                            &v,
-                        )),
+                    Condition::any().add(get_ilike_query(Expr::col(exercise::Column::Name), &v)),
                 )
             })
             .order_by_asc(exercise::Column::Name);

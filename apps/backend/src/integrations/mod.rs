@@ -10,7 +10,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 use crate::{
     entities::{metadata, prelude::Metadata},
     migrator::{MetadataLot, MetadataSource},
-    utils::{get_base_http_client, get_case_insensitive_like_query},
+    utils::{get_base_http_client, get_ilike_query},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,7 +200,7 @@ impl IntegrationService {
                 let db_show = Metadata::find()
                     .filter(metadata::Column::Lot.eq(MetadataLot::Show))
                     .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
-                    .filter(get_case_insensitive_like_query(
+                    .filter(get_ilike_query(
                         Func::cast_as(Expr::col(metadata::Column::Specifics), Alias::new("text")),
                         identifier,
                     ))
@@ -220,7 +220,7 @@ impl IntegrationService {
             None => match payload.event_type.as_str() {
                 "media.scrobble" => 100,
                 _ => bail!("No position associated with this media"),
-            }
+            },
         };
 
         Ok(IntegrationMedia {

@@ -120,10 +120,9 @@ use crate::{
         UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
-        associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_first_and_last_day_of_month, get_stored_asset, get_user_and_metadata_association,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR,
-        VERSION,
+        associate_user_with_metadata, convert_naive_to_utc, get_first_and_last_day_of_month,
+        get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
+        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -1988,7 +1987,7 @@ impl MiscellaneousService {
 
         if let Some(v) = input.search.query {
             let get_contains_expr = |col: metadata::Column| {
-                get_case_insensitive_like_query(
+                get_ilike_query(
                     Func::cast_as(Expr::col((metadata_alias.clone(), col)), Alias::new("text")),
                     &v,
                 )
@@ -5582,7 +5581,7 @@ impl MiscellaneousService {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let query = MetadataGroup::find()
             .apply_if(input.query, |query, v| {
-                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                query.filter(Condition::all().add(get_ilike_query(
                     Expr::col(metadata_group::Column::Title),
                     &v,
                 )))
@@ -5650,10 +5649,9 @@ impl MiscellaneousService {
         };
         let query = Person::find()
             .apply_if(input.search.query, |query, v| {
-                query.filter(Condition::all().add(get_case_insensitive_like_query(
-                    Expr::col(person::Column::Name),
-                    &v,
-                )))
+                query.filter(
+                    Condition::all().add(get_ilike_query(Expr::col(person::Column::Name), &v)),
+                )
             })
             .column_as(
                 Expr::expr(Func::count(Expr::col(
