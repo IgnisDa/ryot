@@ -519,8 +519,10 @@ const ExerciseDisplay = (props: {
 					onClick={() => {
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
+								const currentSet =
+									draft.exercises[props.exerciseIdx].sets.at(-1);
 								draft.exercises[props.exerciseIdx].sets.push({
-									statistic: {},
+									statistic: currentSet?.statistic ?? {},
 									lot: SetLot.Normal,
 									confirmed: false,
 								});
