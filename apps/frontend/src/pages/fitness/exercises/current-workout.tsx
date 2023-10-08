@@ -204,7 +204,8 @@ const ExerciseDisplay = (props: {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
 									const value = typeof v === "number" ? v : undefined;
-									let restTimer = draft.exercises[props.exerciseIdx].restTimer;
+									const restTimer =
+										draft.exercises[props.exerciseIdx].restTimer;
 									if (restTimer && value) restTimer.duration = value;
 								}),
 							);
@@ -695,6 +696,7 @@ const ReorderDrawer = (props: {
 
 	useEffect(() => {
 		setCurrentWorkout(
+			// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
 			produce(currentWorkout, (draft: any) => {
 				if (draft) draft.exercises = exerciseElements;
 			}),
@@ -725,11 +727,11 @@ const ReorderDrawer = (props: {
 							gap="xs"
 						>
 							<Text c="dimmed">Hold and release to reorder exercises</Text>
-							{exerciseElements.map((de: any, index) => (
+							{exerciseElements.map((de, index) => (
 								<Draggable
 									index={index}
 									draggableId={index.toString()}
-									key={index}
+									key={`${index}-${de.name}`}
 								>
 									{(provided) => (
 										<Paper
@@ -837,6 +839,7 @@ const Page: NextPageWithLayout = () => {
 						<ReorderDrawer
 							opened={reorderDrawerOpened}
 							onClose={reorderDrawerClose}
+							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
 							exercises={currentWorkout.exercises as any}
 							key={currentWorkout.exercises.toString()}
 						/>
