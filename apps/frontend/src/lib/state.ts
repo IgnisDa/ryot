@@ -29,6 +29,7 @@ export type Exercise = Immutable<{
 	notes: Array<string>;
 	sets: Array<ExerciseSet>;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
+	restTimer?: { enabled: boolean; duration: number } | null;
 }>;
 
 type InProgressWorkout = Immutable<{

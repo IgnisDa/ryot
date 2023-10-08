@@ -22,11 +22,13 @@ import {
 	Flex,
 	Group,
 	Menu,
+	Modal,
 	NumberInput,
 	Paper,
 	RingProgress,
 	Skeleton,
 	Stack,
+	Switch,
 	Text,
 	TextInput,
 	Textarea,
@@ -152,6 +154,10 @@ const ExerciseDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
 	const [playCheckSound] = useSound("/pop.mp3", { interrupt: true });
+	const [
+		timerModalOpened,
+		{ close: timerModalClose, toggle: timerModalToggle },
+	] = useDisclosure(false);
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -166,6 +172,31 @@ const ExerciseDisplay = (props: {
 
 	return userPreferences.data && currentWorkout ? (
 		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
+			<Modal
+				opened={timerModalOpened}
+				onClose={timerModalClose}
+				withCloseButton={false}
+				size="xs"
+			>
+				<Stack>
+					<Switch
+						label="Enabled"
+						labelPosition="left"
+						styles={{ body: { justifyContent: "space-between" } }}
+						defaultChecked={props.exercise.restTimer?.enabled}
+						onChange={(v) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									draft.exercises[props.exerciseIdx].restTimer = {
+										enabled: v.currentTarget.checked,
+										duration: 20,
+									};
+								}),
+							);
+						}}
+					/>
+				</Stack>
+			</Modal>
 			<Stack>
 				<Menu shadow="md" width={180} position="left-end">
 					<Stack>
@@ -223,7 +254,10 @@ const ExerciseDisplay = (props: {
 						>
 							Add note
 						</Menu.Item>
-						<Menu.Item leftSection={<IconZzz size={14} />} onClick={() => {}}>
+						<Menu.Item
+							leftSection={<IconZzz size={14} />}
+							onClick={timerModalToggle}
+						>
 							Rest timer
 						</Menu.Item>
 						<Menu.Item
