@@ -195,6 +195,35 @@ const ExerciseDisplay = (props: {
 							);
 						}}
 					/>
+					<NumberInput
+						value={
+							currentWorkout.exercises[props.exerciseIdx].restTimer?.duration
+						}
+						onChange={(v) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									const value = typeof v === "number" ? v : undefined;
+									let restTimer = draft.exercises[props.exerciseIdx].restTimer;
+									if (restTimer && value) restTimer.duration = value;
+								}),
+							);
+						}}
+						disabled={
+							!currentWorkout.exercises[props.exerciseIdx].restTimer?.enabled
+						}
+						hideControls
+						suffix="s"
+						label="Duration"
+						styles={{
+							root: {
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+							},
+							label: { flex: "none" },
+							input: { width: "90px", textAlign: "right" },
+						}}
+					/>
 				</Stack>
 			</Modal>
 			<Stack>
