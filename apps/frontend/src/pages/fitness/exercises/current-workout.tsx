@@ -166,7 +166,7 @@ const ExerciseDisplay = (props: {
 	return userPreferences.data && currentWorkout ? (
 		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 			<Stack>
-				<Menu shadow="md" width={200}>
+				<Menu shadow="md" width={150} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
@@ -801,25 +801,22 @@ const Page: NextPageWithLayout = () => {
 							}
 						/>
 						<Divider />
-						<Group justify="center">
+						<Button.Group
+							styles={{ group: { justifyContent: "space-around" } }}
+						>
 							<Button
 								color="orange"
 								variant="subtle"
 								onClick={timerDrawerToggle}
 							>
-								{currentTimer ? (
-									<Text fw="bold" fz="xl">
-										{Duration.fromObject({
+								{currentTimer
+									? Duration.fromObject({
 											seconds: currentTimer.remainingTime,
-										}).toFormat("m:ss")}
-									</Text>
-								) : (
-									"Timer"
-								)}
+									  }).toFormat("m:ss")
+									: "Timer"}
 							</Button>
 							{currentWorkout.exercises.length > 1 ? (
 								<>
-									<Divider orientation="vertical" />
 									<Button
 										color="blue"
 										variant="subtle"
@@ -831,7 +828,6 @@ const Page: NextPageWithLayout = () => {
 							) : undefined}
 							{currentWorkout.exercises.length > 0 ? (
 								<>
-									<Divider orientation="vertical" />
 									<Button
 										color="green"
 										variant="subtle"
@@ -852,7 +848,6 @@ const Page: NextPageWithLayout = () => {
 									</Button>
 								</>
 							) : undefined}
-							<Divider orientation="vertical" />
 							<Button
 								color="red"
 								variant="subtle"
@@ -865,7 +860,7 @@ const Page: NextPageWithLayout = () => {
 							>
 								Cancel
 							</Button>
-						</Group>
+						</Button.Group>
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
 							<Fragment key={ex.exerciseId + idx}>
