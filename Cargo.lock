@@ -678,9 +678,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-s3"
-version = "0.31.2"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c681fef332c3462634cd97fced8d1ac3cfdf790829bd7bfb4006cfba76712053"
+checksum = "73018483d9cb78e1a0d4dcbc94327b01d532e7cb28f26c5bceff97f8f0e4c6eb"
 dependencies = [
  "aws-credential-types",
  "aws-http",
@@ -1705,9 +1705,9 @@ dependencies = [
 
 [[package]]
 name = "csv"
-version = "1.2.2"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "626ae34994d3d8d668f4269922248239db4ae42d538b14c398b74a52208e8086"
+checksum = "ac574ff4d437a7b5ad237ef331c17ccca63c46479e5b5453eb8e10bb99a759fe"
 dependencies = [
  "csv-core",
  "itoa",
@@ -1717,9 +1717,9 @@ dependencies = [
 
 [[package]]
 name = "csv-core"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
+checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
 dependencies = [
  "memchr",
 ]
@@ -4458,9 +4458,9 @@ dependencies = [
 
 [[package]]
 name = "rust_iso3166"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e19f23f46e5d2f3f1e917ecf5cc988e23ba7fc2a2ce3ef09cb17033842d0ef8"
+checksum = "cc46f436f726b768364d35d099f43a94f22fd34857ff4f679b1f5cbcb03b9f71"
 dependencies = [
  "js-sys",
  "phf 0.11.2",
@@ -5290,9 +5290,9 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "2.0.0-rc.3"
+version = "2.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "689a2d3b1beae0a9193032b513120d652d2ba43a0f5667f7238a853ef1ed706b"
+checksum = "876497bbccdf310b7bb2bf8892f77fd00e606974eaf491eb035a3eb7c844c8a2"
 dependencies = [
  "chrono",
  "ctor",
@@ -5306,9 +5306,9 @@ dependencies = [
 
 [[package]]
 name = "specta-macros"
-version = "2.0.0-rc.3"
+version = "2.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4838492006a583780c8c439484be4faedf26859fd338486a579d4dbaa87c5110"
+checksum = "90d0f2e40494548bae05e3b59d6a26298bab89c2af8b2c83bc966352f3cb12f5"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -5766,9 +5766,9 @@ dependencies = [
 
 [[package]]
 name = "surf-retry"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87c34782fd571396ae03c0caaecdd5a0da2f10a150e2205fe6ad469bfb097d8d"
+checksum = "f2e3978e963c08fdff9eb3f074227b47bedbf7be064dffa7ec356fce25298081"
 dependencies = [
  "async-std",
  "chrono",
