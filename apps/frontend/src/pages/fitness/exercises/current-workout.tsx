@@ -121,7 +121,7 @@ const StatInput = (props: {
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
-							const value = typeof v === "number" ? v : undefined;
+							const value = Number(v) ?? undefined;
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 								props.stat
 							] = value;
@@ -630,7 +630,10 @@ const TimerDrawer = (props: {
 							</Button>
 							<Button
 								color="orange"
-								onClick={props.stopTimer}
+								onClick={() => {
+									props.onClose();
+									props.stopTimer();
+								}}
 								size="compact-lg"
 							>
 								Skip
