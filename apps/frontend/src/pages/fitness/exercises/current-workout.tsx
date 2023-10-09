@@ -884,9 +884,7 @@ const Page: NextPageWithLayout = () => {
 							}
 						/>
 						<Divider />
-						<Button.Group
-							styles={{ group: { justifyContent: "space-around" } }}
-						>
+						<Group justify="space-around">
 							<Button
 								color="orange"
 								variant="subtle"
@@ -947,7 +945,7 @@ const Page: NextPageWithLayout = () => {
 							>
 								Cancel
 							</Button>
-						</Button.Group>
+						</Group>
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
 							<Fragment key={ex.exerciseId + idx}>
