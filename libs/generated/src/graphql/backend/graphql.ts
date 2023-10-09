@@ -284,6 +284,14 @@ export type DeployTraktImportInput = {
   username: Scalars['String']['input'];
 };
 
+/** The assets that were uploaded for an entity. */
+export type EntityAssetsInput = {
+  /** The keys of the S3 images. */
+  images: Array<Scalars['String']['input']>;
+  /** The keys of the S3 videos. */
+  videos: Array<Scalars['String']['input']>;
+};
+
 export type Exercise = {
   attributes: ExerciseAttributes;
   equipment?: Maybe<ExerciseEquipment>;
@@ -1537,6 +1545,7 @@ export type UserExerciseInformation = {
 };
 
 export type UserExerciseInput = {
+  assets: EntityAssetsInput;
   exerciseId: Scalars['Int']['input'];
   notes: Array<Scalars['String']['input']>;
   restTime?: InputMaybe<Scalars['Int']['input']>;
@@ -1847,6 +1856,7 @@ export type UserUpcomingCalendarEventInput = {
 };
 
 export type UserWorkoutInput = {
+  assets: EntityAssetsInput;
   comment?: InputMaybe<Scalars['String']['input']>;
   endTime: Scalars['DateTime']['input'];
   exercises: Array<UserExerciseInput>;

@@ -1344,6 +1344,27 @@ pub mod fitness {
         pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
     }
 
+    /// The assets that were uploaded for an entity.
+    #[derive(
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        InputObject,
+        Default,
+    )]
+    #[graphql(input_name = "EntityAssetsInput")]
+    pub struct EntityAssets {
+        /// The keys of the S3 images.
+        pub images: Vec<String>,
+        /// The keys of the S3 videos.
+        pub videos: Vec<String>,
+    }
+
     #[derive(
         Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
     )]
@@ -1354,6 +1375,8 @@ pub mod fitness {
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
         pub total: TotalMeasurement,
+        #[serde(default)]
+        pub assets: EntityAssets,
     }
 
     #[derive(
@@ -1364,6 +1387,8 @@ pub mod fitness {
         /// the `exercise.idx`.
         pub supersets: Vec<Vec<u16>>,
         pub exercises: Vec<ProcessedExercise>,
+        #[serde(default)]
+        pub assets: EntityAssets,
     }
 
     #[derive(

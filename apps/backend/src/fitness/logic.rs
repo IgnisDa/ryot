@@ -19,8 +19,8 @@ use crate::{
     },
     migrator::ExerciseLot,
     models::fitness::{
-        ExerciseBestSetRecord, ProcessedExercise, SetLot, SetStatistic, TotalMeasurement,
-        UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
+        EntityAssets, ExerciseBestSetRecord, ProcessedExercise, SetLot, SetStatistic,
+        TotalMeasurement, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutInformation, WorkoutSetPersonalBest,
         WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
     },
@@ -94,6 +94,7 @@ pub struct UserExerciseInput {
     pub sets: Vec<UserWorkoutSetRecord>,
     pub notes: Vec<String>,
     pub rest_time: Option<u16>,
+    pub assets: EntityAssets,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
@@ -104,6 +105,7 @@ pub struct UserWorkoutInput {
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
     pub supersets: Vec<Vec<u16>>,
+    pub assets: EntityAssets,
 }
 
 impl UserWorkoutInput {
@@ -245,6 +247,7 @@ impl UserWorkoutInput {
                 sets,
                 notes: ex.notes,
                 rest_time: ex.rest_time,
+                assets: ex.assets,
                 total,
             });
         }
@@ -270,6 +273,7 @@ impl UserWorkoutInput {
             },
             information: WorkoutInformation {
                 supersets: self.supersets,
+                assets: self.assets,
                 exercises,
             },
         };
