@@ -27,7 +27,7 @@ use axum::{
     Extension, Server,
 };
 use itertools::Itertools;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::try_join;
@@ -42,6 +42,7 @@ use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
     config::load_app_config,
     config::AppConfig,
+    entities::prelude::Exercise,
     graphql::get_schema,
     migrator::Migrator,
     routes::{
@@ -164,6 +165,14 @@ async fn main() -> Result<()> {
         &perform_application_job_storage,
     )
     .await;
+
+    if Exercise::find().count(&db).await? == 0 {
+        app_services
+            .exercise_service
+            .deploy_update_exercise_library_job()
+            .await
+            .unwrap();
+    }
 
     if cfg!(debug_assertions) {
         use specta::export;

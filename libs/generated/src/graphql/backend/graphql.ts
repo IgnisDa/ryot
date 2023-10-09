@@ -822,8 +822,6 @@ export type MutationRoot = {
   deployImportJob: Scalars['String']['output'];
   /** Recalculate all calendar events. User must an `Admin`. */
   deployRecalculateCalendarEventsJob: Scalars['Boolean']['output'];
-  /** Deploy a job to download and update the exercise library. */
-  deployUpdateExerciseLibraryJob: Scalars['Int']['output'];
   /** Deploy a job to update a media item's metadata. */
   deployUpdateMetadataJob: Scalars['String']['output'];
   /** Generate an auth token without any expiry. */

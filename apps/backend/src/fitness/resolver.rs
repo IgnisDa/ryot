@@ -170,12 +170,6 @@ pub struct ExerciseMutation;
 
 #[Object]
 impl ExerciseMutation {
-    /// Deploy a job to download and update the exercise library.
-    async fn deploy_update_exercise_library_job(&self, gql_ctx: &Context<'_>) -> Result<i32> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.deploy_update_exercise_library_job().await
-    }
-
     /// Create a user measurement.
     async fn create_user_measurement(
         &self,
@@ -412,7 +406,7 @@ impl ExerciseService {
     }
 
     #[instrument(skip(self))]
-    async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
+    pub async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
         for exercise in exercises {
