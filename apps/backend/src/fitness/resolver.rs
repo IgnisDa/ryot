@@ -332,7 +332,9 @@ impl ExerciseService {
         let order_by_col = match input.sort_by {
             None => Expr::col((ex, exercise::Column::Name)),
             Some(sb) => match sb {
-                ExerciseSortBy::Name => Expr::col((ex, exercise::Column::Name)),
+                // DEV: This is just a small hack to reduce duplicated code. We
+                // are ordering by name for the other `sort_by` anyway.
+                ExerciseSortBy::Name => Expr::val("1"),
                 ExerciseSortBy::NumTimesPerformed => Expr::expr(Func::coalesce([
                     Expr::col((etu.clone(), user_to_exercise::Column::NumTimesPerformed)).into(),
                     Expr::val(0).into(),
