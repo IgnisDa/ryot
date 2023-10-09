@@ -334,9 +334,17 @@ impl ExerciseService {
         user_id: i32,
     ) -> Result<SearchResults<ExerciseSearchItem>> {
         let ex = Alias::new("exercise");
+        let etu = Alias::new("user_to_exercise");
         let order_by_col = match input.sort_by {
             None => Expr::col((ex, exercise::Column::Name)),
-            Some(sb) => todo!(),
+            Some(sb) => match sb {
+                ExerciseSortBy::Name => Expr::col((ex, exercise::Column::Name)),
+                ExerciseSortBy::NumTimesPerformed => Expr::expr(Func::coalesce([
+                    Expr::col((etu, user_to_exercise::Column::NumTimesPerformed)).into(),
+                    Expr::val(0).into(),
+                ])),
+                _ => todo!(),
+            },
         };
         let query = Exercise::find()
             .apply_if(input.filter, |query, q| {
@@ -372,7 +380,7 @@ impl ExerciseService {
                             .add(Expr::col((right, user_to_exercise::Column::UserId)).eq(user_id))
                     }),
             )
-            .order_by_asc(order_by_col);
+            .order_by_desc(order_by_col);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
         let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
