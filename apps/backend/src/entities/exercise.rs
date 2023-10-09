@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     file_storage::FileStorageService,
-    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
+    migrator::{
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+        ExerciseMuscle,
+    },
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
     utils::get_stored_asset,
 };
@@ -52,8 +55,11 @@ pub struct ExerciseSearchItem {
     pub id: i32,
     pub lot: ExerciseLot,
     pub name: String,
+    #[graphql(skip)]
     pub attributes: ExerciseAttributes,
     pub num_times_performed: Option<i32>,
+    pub muscle: Option<ExerciseMuscle>,
+    pub image: Option<String>,
     #[graphql(skip)]
     pub muscles: ExerciseMuscles,
 }
@@ -61,13 +67,11 @@ pub struct ExerciseSearchItem {
 impl ExerciseSearchItem {
     pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
         let mut converted_exercise = self.clone();
-        let mut images = vec![];
-        for image in self.attributes.internal_images.iter() {
-            images.push(get_stored_asset(image.clone(), file_storage_service).await);
+        if let Some(img) = self.attributes.internal_images.first() {
+            converted_exercise.image =
+                Some(get_stored_asset(img.clone(), file_storage_service).await);
         }
-        converted_exercise.attributes.images = images;
-        // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
-        converted_exercise.attributes.muscles = self.muscles.0;
+        converted_exercise.muscle = self.muscles.0.first().cloned();
         converted_exercise
     }
 }
