@@ -43,6 +43,8 @@ pub struct Model {
     #[boilermates(not_in("ExerciseSearchItem"))]
     #[graphql(skip)]
     pub muscles: ExerciseMuscles,
+    #[sea_orm(ignore)]
+    pub num_times_performed: Option<i32>,
 }
 
 impl Model {

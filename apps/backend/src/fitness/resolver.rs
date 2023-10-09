@@ -340,13 +340,17 @@ impl ExerciseService {
             Some(sb) => match sb {
                 ExerciseSortBy::Name => Expr::col((ex, exercise::Column::Name)),
                 ExerciseSortBy::NumTimesPerformed => Expr::expr(Func::coalesce([
-                    Expr::col((etu, user_to_exercise::Column::NumTimesPerformed)).into(),
+                    Expr::col((etu.clone(), user_to_exercise::Column::NumTimesPerformed)).into(),
                     Expr::val(0).into(),
                 ])),
                 _ => todo!(),
             },
         };
         let query = Exercise::find()
+            .column_as(
+                Expr::col((etu, user_to_exercise::Column::NumTimesPerformed)),
+                "num_times_performed",
+            )
             .apply_if(input.filter, |query, q| {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
