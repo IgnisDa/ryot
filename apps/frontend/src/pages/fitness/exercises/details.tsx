@@ -134,7 +134,7 @@ const Page: NextPageWithLayout = () => {
 												<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
 													Muscles
 												</Text>
-												<Text ta="center" fz={{ base: "xs", md: "md" }}>
+												<Text ta="center" fz={{ base: "sm", md: "md" }}>
 													{exerciseDetails.data.attributes.muscles
 														.map((s) => startCase(s.toLowerCase()))
 														.join(", ")}
@@ -158,7 +158,7 @@ const Page: NextPageWithLayout = () => {
 															<Text
 																ta="center"
 																tt="capitalize"
-																fz={{ base: "xs", md: "md" }}
+																fz={{ base: "sm", md: "md" }}
 															>
 																{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
 																{(exerciseDetails.data as any)[f]
