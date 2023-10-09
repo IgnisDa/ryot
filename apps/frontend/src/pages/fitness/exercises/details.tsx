@@ -12,6 +12,7 @@ import {
 	List,
 	Paper,
 	ScrollArea,
+	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -36,6 +37,19 @@ import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../../_app";
+
+const DisplayData = (props: { name: string; data: string[] }) => {
+	return (
+		<Box>
+			<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
+				{startCase(props.name)}
+			</Text>
+			<Text ta="center" fz={{ base: "sm", md: "md" }}>
+				{props.data.map((s) => startCase(s.toLowerCase())).join(", ")}
+			</Text>
+		</Box>
+	);
+};
 
 const DisplayLifetimeStatistic = (props: {
 	// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -127,51 +141,6 @@ const Page: NextPageWithLayout = () => {
 
 						<Tabs.Panel value="overview">
 							<Stack>
-								<Paper p="xs">
-									<Stack gap="xs">
-										{exerciseDetails.data.attributes.muscles.length > 0 ? (
-											<Box>
-												<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
-													Muscles
-												</Text>
-												<Text ta="center" fz={{ base: "sm", md: "md" }}>
-													{exerciseDetails.data.attributes.muscles
-														.map((s) => startCase(s.toLowerCase()))
-														.join(", ")}
-												</Text>
-											</Box>
-										) : undefined}
-										<Flex wrap="nowrap" justify="space-between">
-											{["level", "force", "mechanic", "equipment"].map((f) => (
-												<>
-													{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
-													{(exerciseDetails.data as any)[f] ? (
-														<Box key={f} w="100%">
-															<Text
-																ta="center"
-																c="dimmed"
-																tt="capitalize"
-																fz="xs"
-															>
-																{f}
-															</Text>
-															<Text
-																ta="center"
-																tt="capitalize"
-																fz={{ base: "sm", md: "md" }}
-															>
-																{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
-																{(exerciseDetails.data as any)[f]
-																	?.toString()
-																	.toLowerCase()}
-															</Text>
-														</Box>
-													) : undefined}
-												</>
-											))}
-										</Flex>
-									</Stack>
-								</Paper>
 								<ScrollArea>
 									<Flex gap={6}>
 										{exerciseDetails.data.attributes.images.map((i) => (
@@ -179,6 +148,29 @@ const Page: NextPageWithLayout = () => {
 										))}
 									</Flex>
 								</ScrollArea>
+								<Paper p="xs">
+									<SimpleGrid cols={3}>
+										{exerciseDetails.data.attributes.muscles.length > 0 ? (
+											<DisplayData
+												name="muscles"
+												data={exerciseDetails.data.attributes.muscles}
+											/>
+										) : undefined}
+										{["level", "force", "mechanic", "equipment"].map((f) => (
+											<>
+												{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
+												{(exerciseDetails.data as any)[f] ? (
+													<DisplayData
+														name={f}
+														// biome-ignore lint/suspicious/noExplicitAny: required here
+														data={[(exerciseDetails.data as any)[f]]}
+														key={f}
+													/>
+												) : undefined}
+											</>
+										))}
+									</SimpleGrid>
+								</Paper>
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>
