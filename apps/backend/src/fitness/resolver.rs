@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
+    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    RelationTrait,
 };
-use sea_query::{Alias, Condition, Expr, Func};
+use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
@@ -17,7 +18,7 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        exercise,
+        exercise::{self, ExerciseSearchItem},
         prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
         user::UserWithOnlyPreferences,
         user_measurement, user_to_exercise, workout,
@@ -56,10 +57,19 @@ struct ExerciseListFilter {
     muscle: Option<ExerciseMuscle>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum ExerciseSortBy {
+    #[default]
+    LastPerformed,
+    NumTimesPerformed,
+    Name,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct ExercisesListInput {
     search: SearchInput,
     filter: Option<ExerciseListFilter>,
+    sort_by: Option<ExerciseSortBy>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -116,7 +126,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
-    ) -> Result<SearchResults<exercise::Model>> {
+    ) -> Result<SearchResults<ExerciseSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.exercises_list(input, user_id).await
@@ -322,7 +332,7 @@ impl ExerciseService {
         &self,
         input: ExercisesListInput,
         user_id: i32,
-    ) -> Result<SearchResults<exercise::Model>> {
+    ) -> Result<SearchResults<ExerciseSearchItem>> {
         let query = Exercise::find()
             .apply_if(input.filter, |query, q| {
                 query
@@ -366,7 +376,8 @@ impl ExerciseService {
             .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
             .await?
         {
-            items.push(ex.graphql_repr(&self.file_storage_service).await);
+            let gql_repr = ex.graphql_repr(&self.file_storage_service).await;
+            items.push(ExerciseSearchItem::from(gql_repr));
         }
         let next_page =
             if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {

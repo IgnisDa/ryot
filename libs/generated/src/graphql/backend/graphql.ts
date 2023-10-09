@@ -390,14 +390,28 @@ export type ExerciseParameters = {
   filters: ExerciseFilters;
 };
 
+export type ExerciseSearchItem = {
+  attributes: ExerciseAttributes;
+  id: Scalars['Int']['output'];
+  lot: ExerciseLot;
+  name: Scalars['String']['output'];
+};
+
 export type ExerciseSearchResults = {
   details: SearchDetails;
-  items: Array<Exercise>;
+  items: Array<ExerciseSearchItem>;
 };
+
+export enum ExerciseSortBy {
+  LastPerformed = 'LAST_PERFORMED',
+  Name = 'NAME',
+  NumTimesPerformed = 'NUM_TIMES_PERFORMED'
+}
 
 export type ExercisesListInput = {
   filter?: InputMaybe<ExerciseListFilter>;
   search: SearchInput;
+  sortBy?: InputMaybe<ExerciseSortBy>;
 };
 
 export type GeneralFeatures = {
