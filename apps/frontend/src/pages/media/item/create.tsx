@@ -177,6 +177,21 @@ const Page: NextPageWithLayout = () => {
 										{...form.getInputProps("isNsfw")}
 									/>
 								</Group>
+								<JsonInput
+									label="Specifics"
+									{...form.getInputProps("specifics")}
+									formatOnBlur
+									required
+									description={
+										<>
+											Please search for <Code>Specfics</Code> inputs at the{" "}
+											<Anchor href="/graphql" size="xs">
+												graphql endpoint
+											</Anchor>{" "}
+											for the required JSON structure
+										</>
+									}
+								/>
 								<Textarea
 									label="Description"
 									description="Markdown is supported"
@@ -221,23 +236,6 @@ const Page: NextPageWithLayout = () => {
 									{...form.getInputProps("genres")}
 									placeholder="Comma separated values"
 								/>
-								<Box>
-									<JsonInput
-										label="Specifics (JSON)"
-										{...form.getInputProps("specifics")}
-										formatOnBlur
-										required
-										description={
-											<>
-												Please search for <Code>Specfics</Code> inputs at the{" "}
-												<Anchor href="/graphql" size="xs">
-													graphql endpoint
-												</Anchor>{" "}
-												for the JSON structure.
-											</>
-										}
-									/>
-								</Box>
 								<Button type="submit">Create</Button>
 							</Stack>
 						</Box>
