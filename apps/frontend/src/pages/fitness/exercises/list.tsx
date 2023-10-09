@@ -37,6 +37,7 @@ import {
 	type ExerciseListFilter,
 	ExerciseLot,
 	ExerciseParametersDocument,
+	ExerciseSortBy,
 	ExercisesListDocument,
 	SetLot,
 	UserExerciseDetailsDocument,
@@ -94,6 +95,11 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: defaultFilterValue,
 		getInitialValueInEffect: true,
 	});
+	const [exerciseSortBy, setExerciseSortBy] = useLocalStorage<ExerciseSortBy>({
+		key: "savedExerciseSortBy",
+		defaultValue: ExerciseSortBy.NumTimesPerformed,
+		getInitialValueInEffect: true,
+	});
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -113,7 +119,13 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	const exercisesList = useQuery({
-		queryKey: ["exercisesList", activePage, debouncedQuery, exerciseFilters],
+		queryKey: [
+			"exercisesList",
+			activePage,
+			debouncedQuery,
+			exerciseFilters,
+			exerciseSortBy,
+		],
 		queryFn: async () => {
 			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
 				input: {
@@ -122,6 +134,7 @@ const Page: NextPageWithLayout = () => {
 						query: debouncedQuery || undefined,
 					},
 					filter: exerciseFilters,
+					sortBy: exerciseSortBy,
 				},
 			});
 			return exercisesList;
@@ -228,34 +241,50 @@ const Page: NextPageWithLayout = () => {
 													<IconFilterOff size="1.5rem" />
 												</ActionIcon>
 											</Group>
-											{Object.keys(defaultFilterValue).map((f) => (
-												<Select
-													key={f}
-													clearable
-													// biome-ignore lint/suspicious/noExplicitAny: required heres
-													data={(exerciseInformation.data.filters as any)[
-														f
-													].map(
+											<Select
+												clearable
+												data={Object.values(ExerciseSortBy).map((v) => ({
+													label: startCase(snakeCase(v)),
+													value: v,
+												}))}
+												label="Sort by"
+												value={exerciseSortBy}
+												onChange={(v) => {
+													if (v)
 														// biome-ignore lint/suspicious/noExplicitAny: required heres
-														(v: any) => ({
-															label: startCase(snakeCase(v)),
-															value: v,
-														}),
-													)}
-													label={startCase(f)}
-													// biome-ignore lint/suspicious/noExplicitAny: required heres
-													value={(exerciseFilters as any)[f]}
-													onChange={(v) => {
-														if (exerciseFilters)
-															setExerciseFilters(
-																produce(exerciseFilters, (draft) => {
-																	// biome-ignore lint/suspicious/noExplicitAny: required heres
-																	(draft as any)[f] = v;
-																}),
-															);
-													}}
-												/>
-											))}
+														setExerciseSortBy(v as any);
+												}}
+											/>
+											{Object.keys(defaultFilterValue)
+												.filter((f) => f !== "sortBy")
+												.map((f) => (
+													<Select
+														key={f}
+														clearable
+														// biome-ignore lint/suspicious/noExplicitAny: required heres
+														data={(exerciseInformation.data.filters as any)[
+															f
+														].map(
+															// biome-ignore lint/suspicious/noExplicitAny: required heres
+															(v: any) => ({
+																label: startCase(snakeCase(v)),
+																value: v,
+															}),
+														)}
+														label={startCase(f)}
+														// biome-ignore lint/suspicious/noExplicitAny: required heres
+														value={(exerciseFilters as any)[f]}
+														onChange={(v) => {
+															if (exerciseFilters)
+																setExerciseFilters(
+																	produce(exerciseFilters, (draft) => {
+																		// biome-ignore lint/suspicious/noExplicitAny: required heres
+																		(draft as any)[f] = v;
+																	}),
+																);
+														}}
+													/>
+												))}
 										</Stack>
 									</MantineThemeProvider>
 								</Modal>
