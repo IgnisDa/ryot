@@ -133,6 +133,24 @@ const Page: NextPageWithLayout = () => {
 										))}
 									</Flex>
 								</ScrollArea>
+								<Paper withBorder p="xs">
+									<Flex wrap="nowrap" justify="space-between">
+										{["level", "force", "mechanic"].map((f) =>
+											(exerciseDetails.data as any)[f] ? (
+												<Box key={f} w="100%">
+													<Text ta="center" c="dimmed" tt="capitalize">
+														{f}
+													</Text>
+													<Text ta="center" tt="capitalize">
+														{(exerciseDetails.data as any)[f]
+															?.toString()
+															.toLowerCase()}
+													</Text>
+												</Box>
+											) : undefined,
+										)}
+									</Flex>
+								</Paper>
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>
