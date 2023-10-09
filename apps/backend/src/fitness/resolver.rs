@@ -337,7 +337,24 @@ impl ExerciseService {
                     Expr::col((etu.clone(), user_to_exercise::Column::NumTimesPerformed)).into(),
                     Expr::val(0).into(),
                 ])),
-                _ => todo!(),
+                ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
+                    Expr::col((etu.clone(), user_to_exercise::Column::LastUpdatedOn)).into(),
+                    // DEV: For some reason this does not work without explicit casting on postgres
+                    Func::cast_as(
+                        Expr::val("1900-01-01"),
+                        match self.db {
+                            DatabaseConnection::SqlxMySqlPoolConnection(_) => {
+                                Alias::new("datetime")
+                            }
+                            DatabaseConnection::SqlxPostgresPoolConnection(_) => {
+                                Alias::new("timestamptz")
+                            }
+                            DatabaseConnection::SqlxSqlitePoolConnection(_) => Alias::new("text"),
+                            DatabaseConnection::Disconnected => unreachable!(),
+                        },
+                    )
+                    .into(),
+                ])),
             },
         };
         let query = Exercise::find()
