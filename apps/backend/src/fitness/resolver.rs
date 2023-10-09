@@ -333,6 +333,11 @@ impl ExerciseService {
         input: ExercisesListInput,
         user_id: i32,
     ) -> Result<SearchResults<ExerciseSearchItem>> {
+        let ex = Alias::new("exercise");
+        let order_by_col = match input.sort_by {
+            None => Expr::col((ex, exercise::Column::Name)),
+            Some(sb) => todo!(),
+        };
         let query = Exercise::find()
             .apply_if(input.filter, |query, q| {
                 query
@@ -367,7 +372,7 @@ impl ExerciseService {
                             .add(Expr::col((right, user_to_exercise::Column::UserId)).eq(user_id))
                     }),
             )
-            .order_by_asc(exercise::Column::Name);
+            .order_by_asc(order_by_col);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
         let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
