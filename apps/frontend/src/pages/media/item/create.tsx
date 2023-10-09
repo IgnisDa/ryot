@@ -4,8 +4,10 @@ import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	Anchor,
 	Box,
 	Button,
+	Code,
 	Container,
 	FileInput,
 	Group,
@@ -225,9 +227,14 @@ const Page: NextPageWithLayout = () => {
 										{...form.getInputProps("specifics")}
 										formatOnBlur
 										required
-										error={
-											createCustomMedia.isError &&
-											"JSON data does not conform to the expected schema. Please look at the `*Specfics` inputs at the `/graphql` endpoint."
+										description={
+											<>
+												Please search for <Code>Specfics</Code> inputs at the{" "}
+												<Anchor href="/graphql" size="xs">
+													graphql endpoint
+												</Anchor>{" "}
+												for the JSON structure.
+											</>
 										}
 									/>
 								</Box>
