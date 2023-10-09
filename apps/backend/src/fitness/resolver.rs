@@ -388,14 +388,16 @@ impl ExerciseService {
             .order_by_asc(exercise::Column::Name);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let data = query
+            .into_model::<ExerciseSearchItem>()
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let mut items = vec![];
         for ex in data
             .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
             .await?
         {
             let gql_repr = ex.graphql_repr(&self.file_storage_service).await;
-            items.push(ExerciseSearchItem::from(gql_repr));
+            items.push(gql_repr);
         }
         let next_page =
             if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {

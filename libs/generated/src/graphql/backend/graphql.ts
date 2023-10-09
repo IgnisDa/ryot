@@ -294,7 +294,6 @@ export type Exercise = {
   lot: ExerciseLot;
   mechanic?: Maybe<ExerciseMechanic>;
   name: Scalars['String']['output'];
-  numTimesPerformed?: Maybe<Scalars['Int']['output']>;
 };
 
 export type ExerciseAttributes = {

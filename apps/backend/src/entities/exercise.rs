@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use async_graphql::SimpleObject;
-use boilermates::boilermates;
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,37 +16,49 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "exercise")]
 #[graphql(name = "Exercise")]
-#[boilermates("ExerciseSearchItem")]
-#[boilermates(attr_for(
-    "ExerciseSearchItem",
-    "#[derive(Clone, Debug, Deserialize, SimpleObject)]"
-))]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     #[sea_orm(unique)]
     pub name: String,
-    #[boilermates(not_in("ExerciseSearchItem"))]
     #[sea_orm(unique)]
     pub identifier: String,
     pub lot: ExerciseLot,
-    #[boilermates(not_in("ExerciseSearchItem"))]
     pub level: ExerciseLevel,
-    #[boilermates(not_in("ExerciseSearchItem"))]
     pub force: Option<ExerciseForce>,
-    #[boilermates(not_in("ExerciseSearchItem"))]
     pub mechanic: Option<ExerciseMechanic>,
-    #[boilermates(not_in("ExerciseSearchItem"))]
     pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
-    #[boilermates(not_in("ExerciseSearchItem"))]
     #[graphql(skip)]
     pub muscles: ExerciseMuscles,
-    #[sea_orm(ignore)]
-    pub num_times_performed: Option<i32>,
 }
 
 impl Model {
+    pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
+        let mut converted_exercise = self.clone();
+        let mut images = vec![];
+        for image in self.attributes.internal_images.iter() {
+            images.push(get_stored_asset(image.clone(), file_storage_service).await);
+        }
+        converted_exercise.attributes.images = images;
+        // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
+        converted_exercise.attributes.muscles = self.muscles.0;
+        converted_exercise
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
+pub struct ExerciseSearchItem {
+    pub id: i32,
+    pub lot: ExerciseLot,
+    pub name: String,
+    pub attributes: ExerciseAttributes,
+    pub num_times_performed: Option<i32>,
+    #[graphql(skip)]
+    pub muscles: ExerciseMuscles,
+}
+
+impl ExerciseSearchItem {
     pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
         let mut converted_exercise = self.clone();
         let mut images = vec![];
