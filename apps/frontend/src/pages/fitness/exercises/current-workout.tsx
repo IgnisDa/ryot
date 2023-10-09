@@ -891,6 +891,7 @@ const Page: NextPageWithLayout = () => {
 								color="orange"
 								variant="subtle"
 								onClick={timerDrawerToggle}
+								radius="md"
 							>
 								{currentTimer
 									? Duration.fromObject({
@@ -904,6 +905,7 @@ const Page: NextPageWithLayout = () => {
 										color="blue"
 										variant="subtle"
 										onClick={reorderDrawerToggle}
+										radius="md"
 									>
 										Reorder
 									</Button>
@@ -914,6 +916,7 @@ const Page: NextPageWithLayout = () => {
 									<Button
 										color="green"
 										variant="subtle"
+										radius="md"
 										onClick={async () => {
 											const yes = confirm(
 												"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
@@ -934,6 +937,7 @@ const Page: NextPageWithLayout = () => {
 							<Button
 								color="red"
 								variant="subtle"
+								radius="md"
 								onClick={async () => {
 									const yes = confirm(
 										"Are you sure you want to cancel this workout?",
