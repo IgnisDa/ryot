@@ -380,7 +380,8 @@ impl ExerciseService {
                             .add(Expr::col((right, user_to_exercise::Column::UserId)).eq(user_id))
                     }),
             )
-            .order_by_desc(order_by_col);
+            .order_by_desc(order_by_col)
+            .order_by_asc(exercise::Column::Name);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
         let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
