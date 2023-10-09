@@ -185,7 +185,12 @@ const Page: NextPageWithLayout = () => {
 									description={
 										<>
 											Please search for <Code>Specfics</Code> inputs at the{" "}
-											<Anchor href="/graphql" size="xs">
+											<Anchor
+												href="/graphql"
+												size="xs"
+												target="_blank"
+												rel="noopener noreferrer"
+											>
 												graphql endpoint
 											</Anchor>{" "}
 											for the required JSON structure
