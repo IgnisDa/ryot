@@ -337,11 +337,12 @@ const Page: NextPageWithLayout = () => {
 													label={exercise.numTimesPerformed ?? ""}
 													position="top-start"
 													size={16}
-													offset={10}
+													offset={8}
+													color="grape"
 												>
 													<Avatar
 														imageProps={{ loading: "lazy" }}
-														src={exercise.attributes.images.at(0)}
+														src={exercise.image}
 														radius="xl"
 														size="lg"
 													/>
@@ -355,11 +356,9 @@ const Page: NextPageWithLayout = () => {
 												>
 													<Flex direction="column" justify="space-around">
 														<Text>{exercise.name}</Text>
-														{exercise.attributes.muscles.at(0) ? (
+														{exercise.muscle ? (
 															<Text size="xs">
-																{startCase(
-																	snakeCase(exercise.attributes.muscles.at(0)),
-																)}
+																{startCase(snakeCase(exercise.muscle))}
 															</Text>
 														) : undefined}
 													</Flex>
