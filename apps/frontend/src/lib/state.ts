@@ -30,6 +30,8 @@ export type Exercise = Immutable<{
 	sets: Array<ExerciseSet>;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 	restTimer?: { enabled: boolean; duration: number } | null;
+	videos: string[];
+	images: string[];
 }>;
 
 type InProgressWorkout = Immutable<{
@@ -38,6 +40,8 @@ type InProgressWorkout = Immutable<{
 	name: string;
 	comment?: string;
 	exercises: Array<Exercise>;
+	videos: Array<string>;
+	images: Array<string>;
 	// TODO: Superset support pending
 	// supersets: Array<Array<number>>;
 }>;
@@ -61,6 +65,8 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 		name: `${getTimeOfDay(date)} Workout`,
 		startTime: date.toISOString(),
 		exercises: [],
+		images: [],
+		videos: [],
 		// supersets: [],
 	};
 };
@@ -76,6 +82,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 			comment: currentWorkout.comment,
 			supersets: [],
 			exercises: [],
+			assets: {
+				images: [...currentWorkout.images],
+				videos: [...currentWorkout.videos],
+			},
 		},
 	};
 	for (const exercise of currentWorkout.exercises) {
@@ -91,6 +101,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			exerciseId: exercise.exerciseId,
 			notes,
 			sets,
+			assets: { images: [...exercise.images], videos: [...exercise.videos] },
 		});
 	}
 	return input;
