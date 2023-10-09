@@ -39,7 +39,6 @@ import {
 	Text,
 	TextInput,
 	Title,
-	createTheme,
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
@@ -105,14 +104,6 @@ import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
-
-const textTheme = createTheme({
-	components: {
-		Text: Text.extend({
-			defaultProps: { c: "dimmed", fz: { base: "sm", lg: "md" } },
-		}),
-	},
-});
 
 const service = new HumanizeDurationLanguage();
 const humanizer = new HumanizeDuration(service);
@@ -760,7 +751,15 @@ const Page: NextPageWithLayout = () => {
 							))}
 						</Group>
 					) : undefined}
-					<MantineThemeProvider theme={textTheme}>
+					<MantineThemeProvider
+						theme={{
+							components: {
+								Text: Text.extend({
+									defaultProps: { c: "dimmed", fz: { base: "sm", lg: "md" } },
+								}),
+							},
+						}}
+					>
 						<Flex id="media-details" wrap="wrap" gap={6} align="center">
 							<Text>{mediaDetails.data.productionStatus}</Text>
 							{mediaSpecifics.data?.bookSpecifics?.pages ? (
