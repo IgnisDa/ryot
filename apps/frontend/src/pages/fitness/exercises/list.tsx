@@ -16,6 +16,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Indicator,
 	MantineThemeProvider,
 	Modal,
 	Pagination,
@@ -331,12 +332,20 @@ const Page: NextPageWithLayout = () => {
 														}}
 													/>
 												) : undefined}
-												<Avatar
-													imageProps={{ loading: "lazy" }}
-													src={exercise.attributes.images.at(0)}
-													radius="xl"
-													size="lg"
-												/>
+												<Indicator
+													disabled={!exercise.numTimesPerformed}
+													label={exercise.numTimesPerformed ?? ""}
+													position="top-start"
+													size={16}
+													offset={10}
+												>
+													<Avatar
+														imageProps={{ loading: "lazy" }}
+														src={exercise.attributes.images.at(0)}
+														radius="xl"
+														size="lg"
+													/>
+												</Indicator>
 												<Link
 													href={withQuery(
 														APP_ROUTES.fitness.exercises.details,
