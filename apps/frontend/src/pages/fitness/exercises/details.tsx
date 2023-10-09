@@ -23,6 +23,7 @@ import {
 	SetLot,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -126,6 +127,51 @@ const Page: NextPageWithLayout = () => {
 
 						<Tabs.Panel value="overview">
 							<Stack>
+								<Paper p="xs">
+									<Stack gap="xs">
+										{exerciseDetails.data.attributes.muscles.length > 0 ? (
+											<Box>
+												<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
+													Muscles
+												</Text>
+												<Text ta="center" fz={{ base: "xs", md: "md" }}>
+													{exerciseDetails.data.attributes.muscles
+														.map((s) => startCase(s.toLowerCase()))
+														.join(", ")}
+												</Text>
+											</Box>
+										) : undefined}
+										<Flex wrap="nowrap" justify="space-between">
+											{["level", "force", "mechanic", "equipment"].map((f) => (
+												<>
+													{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
+													{(exerciseDetails.data as any)[f] ? (
+														<Box key={f} w="100%">
+															<Text
+																ta="center"
+																c="dimmed"
+																tt="capitalize"
+																fz="xs"
+															>
+																{f}
+															</Text>
+															<Text
+																ta="center"
+																tt="capitalize"
+																fz={{ base: "xs", md: "md" }}
+															>
+																{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
+																{(exerciseDetails.data as any)[f]
+																	?.toString()
+																	.toLowerCase()}
+															</Text>
+														</Box>
+													) : undefined}
+												</>
+											))}
+										</Flex>
+									</Stack>
+								</Paper>
 								<ScrollArea>
 									<Flex gap={6}>
 										{exerciseDetails.data.attributes.images.map((i) => (
@@ -133,24 +179,6 @@ const Page: NextPageWithLayout = () => {
 										))}
 									</Flex>
 								</ScrollArea>
-								<Paper withBorder p="xs">
-									<Flex wrap="nowrap" justify="space-between">
-										{["level", "force", "mechanic"].map((f) =>
-											(exerciseDetails.data as any)[f] ? (
-												<Box key={f} w="100%">
-													<Text ta="center" c="dimmed" tt="capitalize">
-														{f}
-													</Text>
-													<Text ta="center" tt="capitalize">
-														{(exerciseDetails.data as any)[f]
-															?.toString()
-															.toLowerCase()}
-													</Text>
-												</Box>
-											) : undefined,
-										)}
-									</Flex>
-								</Paper>
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>
