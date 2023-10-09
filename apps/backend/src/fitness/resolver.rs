@@ -18,7 +18,7 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        exercise::{self, ExerciseSearchItem},
+        exercise::{self, ExerciseListItem},
         prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
         user::UserWithOnlyPreferences,
         user_measurement, user_to_exercise, workout,
@@ -126,7 +126,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
-    ) -> Result<SearchResults<ExerciseSearchItem>> {
+    ) -> Result<SearchResults<ExerciseListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.exercises_list(input, user_id).await
@@ -332,7 +332,7 @@ impl ExerciseService {
         &self,
         input: ExercisesListInput,
         user_id: i32,
-    ) -> Result<SearchResults<ExerciseSearchItem>> {
+    ) -> Result<SearchResults<ExerciseListItem>> {
         let ex = Alias::new("exercise");
         let etu = Alias::new("user_to_exercise");
         let order_by_col = match input.sort_by {
@@ -389,7 +389,7 @@ impl ExerciseService {
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
         let data = query
-            .into_model::<ExerciseSearchItem>()
+            .into_model::<ExerciseListItem>()
             .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let mut items = vec![];
         for ex in data

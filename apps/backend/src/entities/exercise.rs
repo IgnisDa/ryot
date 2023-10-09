@@ -51,7 +51,7 @@ impl Model {
 }
 
 #[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
-pub struct ExerciseSearchItem {
+pub struct ExerciseListItem {
     pub id: i32,
     pub lot: ExerciseLot,
     pub name: String,
@@ -64,7 +64,7 @@ pub struct ExerciseSearchItem {
     pub muscles: ExerciseMuscles,
 }
 
-impl ExerciseSearchItem {
+impl ExerciseListItem {
     pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
         let mut converted_exercise = self.clone();
         if let Some(img) = self.attributes.internal_images.first() {

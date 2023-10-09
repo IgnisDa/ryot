@@ -353,6 +353,20 @@ export type ExerciseListFilter = {
   type?: InputMaybe<ExerciseLot>;
 };
 
+export type ExerciseListItem = {
+  id: Scalars['Int']['output'];
+  image?: Maybe<Scalars['String']['output']>;
+  lot: ExerciseLot;
+  muscle?: Maybe<ExerciseMuscle>;
+  name: Scalars['String']['output'];
+  numTimesPerformed?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ExerciseListResults = {
+  details: SearchDetails;
+  items: Array<ExerciseListItem>;
+};
+
 export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
   Duration = 'DURATION',
@@ -388,20 +402,6 @@ export type ExerciseParameters = {
   downloadRequired: Scalars['Boolean']['output'];
   /** All filters applicable to an exercises query. */
   filters: ExerciseFilters;
-};
-
-export type ExerciseSearchItem = {
-  id: Scalars['Int']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  lot: ExerciseLot;
-  muscle?: Maybe<ExerciseMuscle>;
-  name: Scalars['String']['output'];
-  numTimesPerformed?: Maybe<Scalars['Int']['output']>;
-};
-
-export type ExerciseSearchResults = {
-  details: SearchDetails;
-  items: Array<ExerciseSearchItem>;
 };
 
 export enum ExerciseSortBy {
@@ -1159,7 +1159,7 @@ export type QueryRoot = {
   /** Get all the parameters related to exercises. */
   exerciseParameters: ExerciseParameters;
   /** Get a paginated list of exercises in the database. */
-  exercisesList: ExerciseSearchResults;
+  exercisesList: ExerciseListResults;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedUrl: Scalars['String']['output'];
   /** Get all the import jobs deployed by the user. */

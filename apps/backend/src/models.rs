@@ -20,7 +20,7 @@ use specta::Type;
 
 use crate::{
     entities::{
-        exercise::ExerciseSearchItem, partial_metadata::PartialMetadataWithoutId, user_measurement,
+        exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, user_measurement,
     },
     file_storage::FileStorageService,
     migrator::{
@@ -76,7 +76,7 @@ pub struct SearchDetails {
     name = "MetadataGroupListResults",
     params(media::MetadataGroupListItem)
 ))]
-#[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseSearchItem)))]
+#[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
