@@ -5856,7 +5856,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem<String>>> {
+    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem>> {
         let related_metadata = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -5924,6 +5924,7 @@ impl MiscellaneousService {
                 lot: m.lot,
                 source: m.source,
                 identifier: m.identifier,
+                internal_identifier: None,
                 seen_history,
                 reviews,
                 collections,

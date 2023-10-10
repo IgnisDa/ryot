@@ -224,7 +224,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
 fn process_item(
     i: &ListItemResponse,
-) -> std::result::Result<ImportOrExportMediaItem<ImportOrExportItemIdentifier>, ImportFailedItem> {
+) -> std::result::Result<ImportOrExportMediaItem, ImportFailedItem> {
     let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MetadataLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
@@ -241,7 +241,8 @@ fn process_item(
         Some(i) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),
             lot,
-            identifier: ImportOrExportItemIdentifier::NeedsDetails(i.to_string()),
+            identifier: "".to_string(),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(i.to_string())),
             source: MetadataSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],

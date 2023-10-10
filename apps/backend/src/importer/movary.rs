@@ -65,9 +65,10 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             source_id: record.common.title,
             lot,
             source,
-            identifier: ImportOrExportItemIdentifier::NeedsDetails(
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
                 record.common.tmdb_id.to_string(),
-            ),
+            )),
+            identifier: "".to_string(),
             seen_history: vec![],
             reviews: vec![ImportOrExportItemRating {
                 // DEV: Rates items out of 10
@@ -95,7 +96,10 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             source_id: record.title,
             lot,
             source,
-            identifier: ImportOrExportItemIdentifier::NeedsDetails(record.tmdb_id.to_string()),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                record.tmdb_id.to_string(),
+            )),
+            identifier: "".to_string(),
             seen_history: vec![],
             reviews: vec![],
             collections: vec![DefaultCollection::Watchlist.to_string()],
@@ -153,9 +157,10 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 source_id: record.common.title,
                 lot,
                 source,
-                identifier: ImportOrExportItemIdentifier::NeedsDetails(
+                identifier: "".to_string(),
+                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
                     record.common.tmdb_id.to_string(),
-                ),
+                )),
                 seen_history: vec![seen_item],
                 reviews,
                 collections: vec![],

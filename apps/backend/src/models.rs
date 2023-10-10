@@ -827,7 +827,7 @@ pub mod media {
     /// Details about a specific media item that needs to be imported or exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone)]
-    pub struct ImportOrExportMediaItem<T> {
+    pub struct ImportOrExportMediaItem {
         /// An string to help identify it in the original source.
         pub source_id: String,
         /// The type of media.
@@ -835,7 +835,10 @@ pub mod media {
         /// The source of media.
         pub source: MetadataSource,
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
-        pub identifier: T,
+        pub identifier: String,
+        // DEV: Only to be used internally.
+        #[serde(skip)]
+        pub internal_identifier: Option<ImportOrExportItemIdentifier>,
         /// The seen history for the user.
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.
@@ -849,7 +852,7 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ExportAllResponse {
         /// Data about user's media.
-        pub media: Vec<ImportOrExportMediaItem<String>>,
+        pub media: Vec<ImportOrExportMediaItem>,
         /// Data about user's people.
         pub people: Vec<ImportOrExportPersonItem>,
         /// Data about user's measurements.
