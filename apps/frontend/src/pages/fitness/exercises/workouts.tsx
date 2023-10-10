@@ -4,6 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Accordion,
+	Box,
 	Center,
 	Container,
 	Pagination,
@@ -46,16 +47,24 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Title>Workouts</Title>
 					{userWorkoutList.data.items.length > 0 ? (
-						<Accordion>
-							{userWorkoutList.data.items.map((workout) => (
-								<Accordion.Item key={workout.id} value={workout.id}>
-									<Accordion.Control>{workout.name}</Accordion.Control>
-									<Accordion.Panel>
-										{JSON.stringify(workout, null, 2)}
-									</Accordion.Panel>
-								</Accordion.Item>
-							))}
-						</Accordion>
+						<>
+							<Box>
+								<Text display="inline" fw="bold">
+									{userWorkoutList.data.details.total}{" "}
+								</Text>
+								items found
+							</Box>
+							<Accordion>
+								{userWorkoutList.data.items.map((workout) => (
+									<Accordion.Item key={workout.id} value={workout.id}>
+										<Accordion.Control>{workout.name}</Accordion.Control>
+										<Accordion.Panel>
+											{JSON.stringify(workout, null, 2)}
+										</Accordion.Panel>
+									</Accordion.Item>
+								))}
+							</Accordion>
+						</>
 					) : (
 						<Text>No workouts found</Text>
 					)}
