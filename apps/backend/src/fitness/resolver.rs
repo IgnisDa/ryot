@@ -99,7 +99,7 @@ struct UserMeasurementsListInput {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseHistoryInformation {
     workout_id: String,
-    workout_name: Option<String>,
+    workout_name: String,
     workout_time: DateTimeUtc,
     sets: Vec<WorkoutSetRecord>,
 }

@@ -24,7 +24,7 @@ pub struct Model {
     pub user_id: i32,
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,
-    pub name: Option<String>,
+    pub name: String,
     pub comment: Option<String>,
 }
 

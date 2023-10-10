@@ -100,7 +100,7 @@ pub struct UserExerciseInput {
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutInput {
-    pub name: Option<String>,
+    pub name: String,
     pub comment: Option<String>,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
