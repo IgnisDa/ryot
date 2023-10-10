@@ -31,7 +31,7 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
-            GithubExerciseAttributes, WorkoutSetRecord,
+            GithubExerciseAttributes, WorkoutListItem, WorkoutSetRecord,
         },
         SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -130,6 +130,17 @@ impl ExerciseQuery {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.exercises_list(input, user_id).await
+    }
+
+    /// Get a paginated list of workouts done by the user.
+    async fn user_workout_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        page: i32,
+    ) -> Result<SearchResults<WorkoutListItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_workout_list(page, user_id).await
     }
 
     /// Get details about an exercise.
@@ -344,6 +355,31 @@ impl ExerciseService {
         } else {
             Ok(None)
         }
+    }
+
+    async fn user_workout_list(
+        &self,
+        page: i32,
+        user_id: i32,
+    ) -> Result<SearchResults<WorkoutListItem>> {
+        let query = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .order_by_desc(workout::Column::Id);
+        let total = query.clone().count(&self.db).await?;
+        let total: i32 = total.try_into().unwrap();
+        let data = query
+            .into_partial_model::<WorkoutListItem>()
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
+        let next_page = if total - (page * self.config.frontend.page_size) > 0 {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails { total, next_page },
+            items,
+        })
     }
 
     async fn exercises_list(
