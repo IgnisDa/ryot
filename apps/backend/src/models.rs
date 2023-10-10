@@ -16,7 +16,6 @@ use sea_orm::{
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use specta::Type;
 
 use crate::{
     entities::{
@@ -779,7 +778,7 @@ pub mod media {
 
     /// A specific instance when an entity was seen.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
         pub progress: Option<i32>,
@@ -797,7 +796,7 @@ pub mod media {
 
     /// Review data associated to a rating.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
@@ -809,7 +808,7 @@ pub mod media {
 
     /// A rating given to an entity.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
@@ -827,7 +826,7 @@ pub mod media {
 
     /// Details about a specific media item that needs to be imported or exported.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ImportOrExportMediaItem<T> {
         /// An string to help identify it in the original source.
         pub source_id: String,
@@ -847,7 +846,7 @@ pub mod media {
 
     /// Complete export of the user.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ExportAllResponse {
         /// Data about user's media.
         pub media: Vec<ImportOrExportMediaItem<String>>,
@@ -859,7 +858,7 @@ pub mod media {
 
     /// Details about a specific creator item that needs to be exported.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ImportOrExportPersonItem {
         /// The name of the creator.
         pub name: String,
@@ -991,7 +990,6 @@ pub mod media {
         Default,
         Hash,
         SimpleObject,
-        Type,
     )]
     pub struct ReviewCommentUser {
         pub id: i32,
@@ -1010,7 +1008,6 @@ pub mod media {
         Deserialize,
         Default,
         SimpleObject,
-        Type,
     )]
     pub struct ImportOrExportItemReviewComment {
         pub id: String,
@@ -1141,7 +1138,6 @@ pub mod fitness {
         PartialEq,
         SimpleObject,
         InputObject,
-        Type,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     pub struct UserMeasurementStats {

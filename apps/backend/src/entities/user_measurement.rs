@@ -4,7 +4,6 @@ use async_graphql::{InputObject, SimpleObject};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use specta::Type;
 
 use crate::models::fitness::UserMeasurementStats;
 
@@ -20,10 +19,8 @@ use crate::models::fitness::UserMeasurementStats;
     Deserialize,
     SimpleObject,
     InputObject,
-    Type,
 )]
 #[graphql(name = "UserMeasurement", input_name = "UserMeasurementInput")]
-#[specta(rename = "ExportUserMeasurementItem")]
 #[sea_orm(table_name = "user_measurement")]
 pub struct Model {
     /// The date and time this measurement was made.

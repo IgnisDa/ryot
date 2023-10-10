@@ -96,12 +96,6 @@ serde-xml-rs = "0.6.0"
 slug = "0.1.4"
 sqlx = "0.7.2"
 sonyflake = "0.2.0"
-specta = { version = "2.0.0-rc.5", features = [
-    "typescript",
-    "chrono",
-    "rust_decimal",
-    "export",
-] }
 strum = { version = "0.25.0", features = ["derive"] }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",

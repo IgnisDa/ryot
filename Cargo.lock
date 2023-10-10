@@ -1725,16 +1725,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ctor"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f34ba9a9bcb8645379e9de8cb3ecfcf4d1c85ba66d90deb3259206fa5aa193b"
-dependencies = [
- "quote",
- "syn 2.0.38",
-]
-
-[[package]]
 name = "ctr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4680,7 +4670,6 @@ dependencies = [
  "serde_with",
  "slug",
  "sonyflake",
- "specta",
  "sqlx",
  "strum",
  "surf",
@@ -5330,34 +5319,6 @@ dependencies = [
  "chrono",
  "pnet",
  "thiserror",
-]
-
-[[package]]
-name = "specta"
-version = "2.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876497bbccdf310b7bb2bf8892f77fd00e606974eaf491eb035a3eb7c844c8a2"
-dependencies = [
- "chrono",
- "ctor",
- "once_cell",
- "paste",
- "rust_decimal",
- "serde",
- "specta-macros",
- "thiserror",
-]
-
-[[package]]
-name = "specta-macros"
-version = "2.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90d0f2e40494548bae05e3b59d6a26298bab89c2af8b2c83bc966352f3cb12f5"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

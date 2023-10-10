@@ -175,7 +175,6 @@ async fn main() -> Result<()> {
     }
 
     if cfg!(debug_assertions) {
-        use specta::export;
 
         // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
@@ -195,7 +194,7 @@ async fn main() -> Result<()> {
             .unwrap();
         let export_path = base_dir.join("export-schema.ts");
         if !export_path.exists() {
-            export::ts(export_path.to_str().unwrap()).unwrap();
+            // export::ts(export_path.to_str().unwrap()).unwrap();
         }
     }
 
