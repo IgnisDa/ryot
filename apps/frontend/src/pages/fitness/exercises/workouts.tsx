@@ -3,11 +3,10 @@ import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	Accordion,
 	Center,
 	Container,
-	Flex,
 	Pagination,
-	SimpleGrid,
 	Stack,
 	Text,
 	Title,
@@ -43,23 +42,20 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Workouts | Ryot</title>
 			</Head>
-			<Container>
+			<Container size="xs">
 				<Stack>
 					<Title>Workouts</Title>
 					{userWorkoutList.data.items.length > 0 ? (
-						<SimpleGrid cols={{ base: 1, md: 2 }}>
+						<Accordion>
 							{userWorkoutList.data.items.map((workout) => (
-								<Flex
-									key={workout.id}
-									align="center"
-									justify="space-between"
-									gap="md"
-									mr="lg"
-								>
-									{JSON.stringify(workout, null, 2)}
-								</Flex>
+								<Accordion.Item key={workout.id} value={workout.id}>
+									<Accordion.Control>{workout.name}</Accordion.Control>
+									<Accordion.Panel>
+										{JSON.stringify(workout, null, 2)}
+									</Accordion.Panel>
+								</Accordion.Item>
 							))}
-						</SimpleGrid>
+						</Accordion>
 					) : (
 						<Text>No workouts found</Text>
 					)}
