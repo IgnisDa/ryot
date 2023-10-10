@@ -46,7 +46,7 @@ import {
 	type CreateUserWorkoutMutationVariables,
 	DeleteS3ObjectDocument,
 	ExerciseLot,
-	GetPresignedUrlDocument,
+	GetPresignedS3UrlDocument,
 	SetLot,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -172,11 +172,11 @@ const ImageDisplay = (props: {
 	const imageUrl = useQuery(
 		["presignedUrl", props.imageKey],
 		async () => {
-			const { getPresignedUrl } = await gqlClient.request(
-				GetPresignedUrlDocument,
+			const { getPresignedS3Url } = await gqlClient.request(
+				GetPresignedS3UrlDocument,
 				{ key: props.imageKey },
 			);
-			return getPresignedUrl;
+			return getPresignedS3Url;
 		},
 		{ staleTime: Infinity },
 	);

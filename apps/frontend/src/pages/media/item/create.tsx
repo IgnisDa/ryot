@@ -28,7 +28,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMediaDocument,
 	type CreateCustomMediaMutationVariables,
-	GetPresignedUrlDocument,
+	GetPresignedS3UrlDocument,
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -70,11 +70,11 @@ const Page: NextPageWithLayout = () => {
 			const imageUrls = [];
 			const videoUrls = [];
 			const getUrl = async (key: string) => {
-				const { getPresignedUrl } = await gqlClient.request(
-					GetPresignedUrlDocument,
+				const { getPresignedS3Url } = await gqlClient.request(
+					GetPresignedS3UrlDocument,
 					{ key },
 				);
-				return getPresignedUrl;
+				return getPresignedS3Url;
 			};
 			for (const image of images) imageUrls.push(await getUrl(image));
 			for (const video of videos) videoUrls.push(await getUrl(video));

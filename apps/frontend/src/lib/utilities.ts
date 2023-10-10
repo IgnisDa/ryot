@@ -2,7 +2,7 @@ import type { MantineColorScheme } from "@mantine/core";
 import {
 	MetadataLot,
 	MetadataSource,
-	PresignedPutUrlDocument,
+	PresignedPutS3UrlDocument,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -202,13 +202,16 @@ export const uploadFileAndGetKey = async (
 	contentType: string,
 	body: ArrayBuffer | Buffer,
 ) => {
-	const { presignedPutUrl } = await gqlClient.request(PresignedPutUrlDocument, {
-		fileName,
-	});
-	await fetch(presignedPutUrl.uploadUrl, {
+	const { presignedPutS3Url } = await gqlClient.request(
+		PresignedPutS3UrlDocument,
+		{
+			fileName,
+		},
+	);
+	await fetch(presignedPutS3Url.uploadUrl, {
 		method: "PUT",
 		body,
 		headers: { "Content-Type": contentType },
 	});
-	return presignedPutUrl.key;
+	return presignedPutS3Url.key;
 };
