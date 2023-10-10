@@ -1,4 +1,5 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -37,7 +38,6 @@ import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../../_app";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const DisplayData = (props: { name: string; data: string[] }) => {
 	return (

@@ -1,6 +1,7 @@
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { queryClient } from "@/lib/services/api";
 import {
 	ActionIcon,
@@ -21,7 +22,6 @@ import { NextSeo } from "next-seo";
 import type { AppProps } from "next/app";
 import Head from "next/head";
 import { type ReactElement, type ReactNode } from "react";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 export interface LocalStorageColorSchemeManagerOptions {
 	key?: string;

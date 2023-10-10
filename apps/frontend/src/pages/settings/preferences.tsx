@@ -1,3 +1,4 @@
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -44,7 +45,6 @@ import { Fragment, type ReactElement, useEffect } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
 import classes from "./styles.module.css";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const notificationContent = {
 	title: "Invalid action",

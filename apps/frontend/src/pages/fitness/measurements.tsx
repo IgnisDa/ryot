@@ -1,3 +1,4 @@
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -51,7 +52,6 @@ import {
 } from "recharts";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const getValues = (m: UserMeasurement["stats"]) => {
 	const vals: { name: string; value: string }[] = [];

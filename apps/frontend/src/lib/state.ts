@@ -6,6 +6,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import { LOCAL_STORAGE_KEYS } from "./constants";
 
 export type ExerciseSetStats = Immutable<{
 	duration?: number | null;
@@ -47,7 +48,7 @@ type InProgressWorkout = Immutable<{
 }>;
 
 export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
-	"currentWorkoutAtom",
+	LOCAL_STORAGE_KEYS.currentWorkout,
 	null,
 );
 

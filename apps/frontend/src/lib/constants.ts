@@ -52,6 +52,7 @@ export const APP_ROUTES = {
 
 export const LOCAL_STORAGE_KEYS = {
 	colorScheme: "mantine-color-scheme",
+	currentWorkout: "currentWorkout",
 	savedCalendarDay: "1",
 	savedMeasurementsDisplaySelectedStats: "2",
 	savedMeasurementsDisplaySelectedTimespan: "3",
