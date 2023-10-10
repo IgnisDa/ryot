@@ -304,7 +304,6 @@ const ExerciseDisplay = (props: {
 			>
 				<Stack>
 					<Text c="dimmed">Images for {props.exercise.name}</Text>
-
 					{enabledCoreFeatures.data.fileStorage ? (
 						<>
 							{props.exercise.images.length > 0 ? (
@@ -1025,6 +1024,7 @@ const Page: NextPageWithLayout = () => {
 								label="Name"
 								placeholder="A name for your workout"
 								value={currentWorkout.name}
+								required
 								onChange={(e) =>
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
