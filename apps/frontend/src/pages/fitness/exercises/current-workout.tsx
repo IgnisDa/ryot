@@ -41,6 +41,7 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CreateUserWorkoutDocument,
 	type CreateUserWorkoutMutationVariables,
@@ -1086,6 +1087,13 @@ const Page: NextPageWithLayout = () => {
 										variant="subtle"
 										radius="md"
 										onClick={async () => {
+											if (!currentWorkout.name) {
+												notifications.show({
+													color: "red",
+													message: "Please give a name to the workout",
+												});
+												return;
+											}
 											const yes = confirm(
 												"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 											);

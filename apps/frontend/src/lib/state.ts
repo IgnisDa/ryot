@@ -78,9 +78,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 		input: {
 			endTime: new Date(),
 			startTime: new Date(currentWorkout.startTime),
-			name: currentWorkout.name
-				? currentWorkout.name
-				: `${getTimeOfDay(new Date())} Workout`,
+			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			supersets: [],
 			exercises: [],
