@@ -44,6 +44,7 @@ import { Fragment, type ReactElement, useEffect } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
 import classes from "./styles.module.css";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const notificationContent = {
 	title: "Invalid action",
@@ -173,7 +174,7 @@ const Page: NextPageWithLayout = () => {
 	);
 	const [activeTab, setActiveTab] = useLocalStorage({
 		defaultValue: "dashboard",
-		key: "savedPreferencesTab",
+		key: LOCAL_STORAGE_KEYS.savedPreferencesTab,
 	});
 	useEffect(() => {
 		updateUserPreferences.mutate({

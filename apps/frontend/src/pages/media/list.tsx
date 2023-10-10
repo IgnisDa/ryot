@@ -3,7 +3,7 @@ import {
 	MediaItemWithoutUpdateModal,
 	MediaSearchItem,
 } from "@/lib/components/MediaComponents";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -72,24 +72,24 @@ const Page: NextPageWithLayout = () => {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
-		key: "mineSortOrder",
+		key: LOCAL_STORAGE_KEYS.mineMediaSortOrder,
 		defaultValue: defaultFilters.mineSortOrder,
 		getInitialValueInEffect: false,
 	});
 	const [mineSortBy, setMineSortBy] = useLocalStorage({
-		key: "mineSortBy",
+		key: LOCAL_STORAGE_KEYS.mineMediaSortBy,
 		defaultValue: defaultFilters.mineSortBy,
 		getInitialValueInEffect: false,
 	});
 	const [mineGeneralFilter, setMineGeneralFilter] = useLocalStorage({
-		key: "mineGeneralFilter",
+		key: LOCAL_STORAGE_KEYS.mineMediaGeneralFilter,
 		defaultValue: defaultFilters.mineGeneralFilter,
 		getInitialValueInEffect: false,
 	});
 	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage<
 		string | undefined
 	>({
-		key: "mineCollectionFilter",
+		key: LOCAL_STORAGE_KEYS.mineMediaCollectionFilter,
 		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,
 		deserialize: (value) => {
@@ -103,22 +103,22 @@ const Page: NextPageWithLayout = () => {
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedSearchPage",
+		key: LOCAL_STORAGE_KEYS.savedMediaSearchPage,
 	});
 	const [query, setQuery] = useLocalStorage({
-		key: "savedQuery",
+		key: LOCAL_STORAGE_KEYS.savedMediaQuery,
 		getInitialValueInEffect: false,
 	});
 	const [searchSource, setSearchSource] = useLocalStorage({
-		key: "savedSearchSource",
+		key: LOCAL_STORAGE_KEYS.savedMediaSearchSource,
 	});
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedMinePage",
+		key: LOCAL_STORAGE_KEYS.savedMediaMinePage,
 		getInitialValueInEffect: false,
 	});
 	const [activeTab, setActiveTab] = useLocalStorage<"mine" | "search">({
-		key: "savedActiveTab",
+		key: LOCAL_STORAGE_KEYS.savedMediaActiveTab,
 		getInitialValueInEffect: false,
 		defaultValue: "mine",
 	});

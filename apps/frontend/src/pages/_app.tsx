@@ -21,6 +21,7 @@ import { NextSeo } from "next-seo";
 import type { AppProps } from "next/app";
 import Head from "next/head";
 import { type ReactElement, type ReactNode } from "react";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 export interface LocalStorageColorSchemeManagerOptions {
 	key?: string;
@@ -72,7 +73,7 @@ export function localStorageColorSchemeManager({
 }
 
 const colorSchemeManager = localStorageColorSchemeManager({
-	key: "mantine-color-scheme",
+	key: LOCAL_STORAGE_KEYS.colorScheme,
 });
 
 // biome-ignore lint/complexity/noBannedTypes: taken from NextJS docs

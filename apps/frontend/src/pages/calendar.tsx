@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -91,7 +91,7 @@ const Page: NextPageWithLayout = () => {
 	const coreDetails = useCoreDetails();
 	const [selectedMonth, setMonth] = useLocalStorage({
 		defaultValue: DateTime.now(),
-		key: "savedCalendarDay",
+		key: LOCAL_STORAGE_KEYS.savedCalendarDay,
 		getInitialValueInEffect: false,
 		serialize: (value) => {
 			return value.toISO() as string;

@@ -51,6 +51,7 @@ import {
 } from "recharts";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const getValues = (m: UserMeasurement["stats"]) => {
 	const vals: { name: string; value: string }[] = [];
@@ -146,12 +147,12 @@ enum TimeSpan {
 const Page: NextPageWithLayout = () => {
 	const [selectedStats, setselectedStats] = useLocalStorage<string[]>({
 		defaultValue: [],
-		key: "measurementsDisplaySelectedStats",
+		key: LOCAL_STORAGE_KEYS.measurementsDisplaySelectedStats,
 		getInitialValueInEffect: true,
 	});
 	const [selectedTimeSpan, setselectedTimespan] = useLocalStorage({
 		defaultValue: TimeSpan.Last30Days,
-		key: "measurementsDisplaySelectedTimespan",
+		key: LOCAL_STORAGE_KEYS.measurementsDisplaySelectedTimespan,
 		getInitialValueInEffect: true,
 	});
 	const [opened, { open, close }] = useDisclosure(false);

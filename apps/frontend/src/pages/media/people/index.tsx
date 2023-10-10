@@ -4,7 +4,7 @@ import {
 	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -46,7 +46,7 @@ const Page: NextPageWithLayout = () => {
 	const creatorId = parseInt(router.query.id?.toString() || "0");
 
 	const [activeTab, setActiveTab] = useLocalStorage({
-		key: "savedActiveCreatorDetailsTab",
+		key: LOCAL_STORAGE_KEYS.savedActiveCreatorDetailsTab,
 		getInitialValueInEffect: false,
 		defaultValue: "media",
 	});

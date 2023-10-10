@@ -37,6 +37,7 @@ import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../../_app";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const DisplayData = (props: { name: string; data: string[] }) => {
 	return (
@@ -72,7 +73,7 @@ const Page: NextPageWithLayout = () => {
 	const exerciseId = parseInt(router.query.id?.toString() || "0");
 
 	const [activeTab, setActiveTab] = useLocalStorage({
-		key: "savedActiveExerciseDetailsTab",
+		key: LOCAL_STORAGE_KEYS.savedActiveExerciseDetailsTab,
 		getInitialValueInEffect: false,
 		defaultValue: "overview",
 	});

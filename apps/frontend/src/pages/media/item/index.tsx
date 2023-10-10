@@ -4,7 +4,7 @@ import {
 	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -478,7 +478,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	] = useDisclosure(false);
 	const [activeTab, setActiveTab] = useLocalStorage({
-		key: "savedActiveItemDetailsTab",
+		key: LOCAL_STORAGE_KEYS.savedActiveItemDetailsTab,
 		getInitialValueInEffect: true,
 		defaultValue: "overview",
 	});

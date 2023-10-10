@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -85,19 +85,19 @@ const Page: NextPageWithLayout = () => {
 	}>([]);
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedExercisesPage",
+		key: LOCAL_STORAGE_KEYS.savedExercisesPage,
 	});
 	const [query, setQuery] = useLocalStorage({
-		key: "savedExercisesQuery",
+		key: LOCAL_STORAGE_KEYS.savedExercisesQuery,
 		getInitialValueInEffect: false,
 	});
 	const [exerciseFilters, setExerciseFilters] = useLocalStorage({
-		key: "savedExerciseFilters",
+		key: LOCAL_STORAGE_KEYS.savedExerciseFilters,
 		defaultValue: defaultFilterValue,
 		getInitialValueInEffect: true,
 	});
 	const [exerciseSortBy, setExerciseSortBy] = useLocalStorage<ExerciseSortBy>({
-		key: "savedExerciseSortBy",
+		key: LOCAL_STORAGE_KEYS.savedExerciseSortBy,
 		defaultValue: ExerciseSortBy.NumTimesPerformed,
 		getInitialValueInEffect: true,
 	});

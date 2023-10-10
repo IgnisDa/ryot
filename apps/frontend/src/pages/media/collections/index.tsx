@@ -1,6 +1,6 @@
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -31,7 +31,7 @@ const Page: NextPageWithLayout = () => {
 
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedCollectionPage",
+		key: LOCAL_STORAGE_KEYS.savedCollectionPage,
 		getInitialValueInEffect: false,
 	});
 

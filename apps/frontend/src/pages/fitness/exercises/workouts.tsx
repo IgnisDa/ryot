@@ -18,11 +18,12 @@ import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../../_app";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const Page: NextPageWithLayout = () => {
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedWorkoutListPage",
+		key: LOCAL_STORAGE_KEYS.savedWorkoutListPage,
 		getInitialValueInEffect: false,
 	});
 	const coreDetails = useCoreDetails();

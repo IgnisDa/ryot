@@ -1,6 +1,6 @@
 import Grid from "@/lib/components/Grid";
 import { BaseDisplayItem } from "@/lib/components/MediaComponents";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -53,12 +53,12 @@ const defaultFilters = {
 
 const Page: NextPageWithLayout = () => {
 	const [query, setQuery] = useLocalStorage({
-		key: "savedCreatorsQuery",
+		key: LOCAL_STORAGE_KEYS.savedCreatorsQuery,
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedCreatorPage",
+		key: LOCAL_STORAGE_KEYS.savedCreatorPage,
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
@@ -68,12 +68,12 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const coreDetails = useCoreDetails();
 	const [sortBy, setSortBy] = useLocalStorage({
-		key: "creatorSortBy",
+		key: LOCAL_STORAGE_KEYS.creatorSortBy,
 		defaultValue: defaultFilters.sortBy,
 		getInitialValueInEffect: false,
 	});
 	const [sortOrder, setSortOrder] = useLocalStorage({
-		key: "creatorSortOrder",
+		key: LOCAL_STORAGE_KEYS.creatorSortOrder,
 		defaultValue: defaultFilters.sortOrder,
 		getInitialValueInEffect: false,
 	});
