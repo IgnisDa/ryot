@@ -12,14 +12,16 @@ use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
+    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
+    FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use crate::{
     entities::{
-        exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, user_measurement,
+        exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, prelude::Workout,
+        user_measurement,
     },
     file_storage::FileStorageService,
     migrator::{
@@ -61,6 +63,7 @@ pub struct SearchDetails {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media::MediaSearchItemWithLot)
@@ -75,7 +78,7 @@ pub struct SearchDetails {
     name = "MetadataGroupListResults",
     params(media::MetadataGroupListItem)
 ))]
-#[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
+#[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
@@ -1405,5 +1408,25 @@ pub mod fitness {
     pub struct WorkoutSummary {
         pub total: WorkoutTotalMeasurement,
         pub exercises: Vec<WorkoutSummaryExercise>,
+    }
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Serialize,
+        Deserialize,
+        FromQueryResult,
+        DerivePartialModel,
+        SimpleObject,
+    )]
+    #[sea_orm(entity = "Workout")]
+    pub struct WorkoutListItem {
+        pub id: String,
+        pub start_time: DateTimeUtc,
+        pub end_time: DateTimeUtc,
+        pub summary: WorkoutSummary,
+        pub name: Option<String>,
     }
 }
