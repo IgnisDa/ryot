@@ -161,7 +161,10 @@ const StatInput = (props: {
 
 const fileType = "image/jpeg";
 
-const ImageDisplay = (props: { imageKey: string }) => {
+const ImageDisplay = (props: {
+	imageKey: string;
+	removeImage: (imageKey: string) => void;
+}) => {
 	const imageUrl = useQuery(
 		["presignedUrl", props.imageKey],
 		async () => {
@@ -175,9 +178,19 @@ const ImageDisplay = (props: { imageKey: string }) => {
 	);
 
 	return imageUrl.data ? (
-		<>
+		<Box pos="relative">
 			<Avatar src={imageUrl.data} size="lg" />
-		</>
+			<ActionIcon
+				pos="absolute"
+				top={0}
+				left={-12}
+				color="red"
+				size="xs"
+				onClick={() => props.removeImage(props.imageKey)}
+			>
+				<IconTrash />
+			</ActionIcon>
+		</Box>
 	) : undefined;
 };
 
@@ -280,7 +293,20 @@ const ExerciseDisplay = (props: {
 					{props.exercise.images.length > 0 ? (
 						<Avatar.Group spacing="xs">
 							{props.exercise.images.map((i) => (
-								<ImageDisplay key={i} imageKey={i} />
+								<ImageDisplay
+									key={i}
+									imageKey={i}
+									removeImage={() => {
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.exerciseIdx].images =
+													draft.exercises[props.exerciseIdx].images.filter(
+														(image) => image !== i,
+													);
+											}),
+										);
+									}}
+								/>
 							))}
 						</Avatar.Group>
 					) : undefined}
