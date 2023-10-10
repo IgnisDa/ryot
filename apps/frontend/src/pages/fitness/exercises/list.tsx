@@ -418,6 +418,8 @@ const Page: NextPageWithLayout = () => {
 												.at(-1)
 												?.sets.map((s) => ({ statistic: s.statistic })) || [],
 										notes: [],
+										images: [],
+										videos: [],
 									});
 								}
 								const finishedDraft = finishDraft(draft);
