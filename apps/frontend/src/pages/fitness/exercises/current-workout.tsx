@@ -10,7 +10,7 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/state";
-import { getSetColor } from "@/lib/utilities";
+import { getSetColor, uploadFileAndGetKey } from "@/lib/utilities";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
@@ -159,6 +159,8 @@ const StatInput = (props: {
 	) : undefined;
 };
 
+const fileType = "image/jpeg";
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
@@ -195,10 +197,19 @@ const ExerciseDisplay = (props: {
 	const capture = useCallback(async () => {
 		const imageSrc = webcamRef.current?.getScreenshot();
 		if (imageSrc) {
-			// TODO: Generate presigned URL and upload to S3
+			const buffer = Buffer.from(
+				imageSrc.replace(/^data:image\/\w+;base64,/, ""),
+				"base64",
+			);
+			const uploadedKey = await uploadFileAndGetKey(
+				"image.jpeg",
+				fileType,
+				buffer,
+			);
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					if (draft) draft.exercises[props.exerciseIdx].images.push(imageSrc);
+					if (draft)
+						draft.exercises[props.exerciseIdx].images.push(uploadedKey);
 				}),
 			);
 			webcamToggle();
@@ -293,7 +304,7 @@ const ExerciseDisplay = (props: {
 									height={180}
 									width={240}
 									videoConstraints={{ facingMode: cameraFacing }}
-									screenshotFormat="image/jpeg"
+									screenshotFormat={fileType}
 								/>
 							</Paper>
 							<Stack>
