@@ -1,6 +1,9 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
 import { APP_ROUTES } from "@/lib/constants";
-import { useUserPreferences } from "@/lib/hooks/graphql";
+import {
+	useEnabledCoreFeatures,
+	useUserPreferences,
+} from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -209,6 +212,7 @@ const ExerciseDisplay = (props: {
 	exercise: Exercise;
 	startTimer: (duration: number) => void;
 }) => {
+	const enabledCoreFeatures = useEnabledCoreFeatures();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
 	const [playCheckSound] = useSound("/pop.mp3", { interrupt: true });
@@ -236,7 +240,7 @@ const ExerciseDisplay = (props: {
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
-	return userPreferences.data && currentWorkout ? (
+	return enabledCoreFeatures.data && userPreferences.data && currentWorkout ? (
 		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 			<Modal
 				opened={restTimerModalOpened}
@@ -300,78 +304,87 @@ const ExerciseDisplay = (props: {
 			>
 				<Stack>
 					<Text c="dimmed">Images for {props.exercise.name}</Text>
-					{props.exercise.images.length > 0 ? (
-						<Avatar.Group spacing="xs">
-							{props.exercise.images.map((i) => (
-								<ImageDisplay
-									key={i}
-									imageKey={i}
-									removeImage={() => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].images =
-													draft.exercises[props.exerciseIdx].images.filter(
-														(image) => image !== i,
-													);
-											}),
-										);
-									}}
-								/>
-							))}
-						</Avatar.Group>
-					) : undefined}
-					<Group justify="center" gap={4}>
-						<Paper radius="md" style={{ overflow: "hidden" }}>
-							<Webcam
-								ref={webcamRef}
-								height={180}
-								width={240}
-								videoConstraints={{ facingMode: cameraFacing }}
-								screenshotFormat={fileType}
-							/>
-						</Paper>
-						<Stack>
-							<ActionIcon
-								size="xl"
-								onClick={() => {
-									setCameraFacing(
-										cameraFacing === "user" ? "environment" : "user",
-									);
-								}}
-							>
-								<IconCameraRotate size="2rem" />
-							</ActionIcon>
-							<ActionIcon
-								size="xl"
-								onClick={async () => {
-									const imageSrc = webcamRef.current?.getScreenshot();
-									if (imageSrc) {
-										const buffer = Buffer.from(
-											imageSrc.replace(/^data:image\/\w+;base64,/, ""),
-											"base64",
-										);
-										const uploadedKey = await uploadFileAndGetKey(
-											"image.jpeg",
-											fileType,
-											buffer,
-										);
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].images.push(
-													uploadedKey,
+
+					{enabledCoreFeatures.data.fileStorage ? (
+						<>
+							{props.exercise.images.length > 0 ? (
+								<Avatar.Group spacing="xs">
+									{props.exercise.images.map((i) => (
+										<ImageDisplay
+											key={i}
+											imageKey={i}
+											removeImage={() => {
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].images =
+															draft.exercises[props.exerciseIdx].images.filter(
+																(image) => image !== i,
+															);
+													}),
 												);
-											}),
-										);
-									}
-								}}
-							>
-								<IconCamera size="2rem" />
-							</ActionIcon>
-						</Stack>
-					</Group>
-					<Button fullWidth variant="outline" onClick={assetsModalClose}>
-						Done
-					</Button>
+											}}
+										/>
+									))}
+								</Avatar.Group>
+							) : undefined}
+							<Group justify="center" gap={4}>
+								<Paper radius="md" style={{ overflow: "hidden" }}>
+									<Webcam
+										ref={webcamRef}
+										height={180}
+										width={240}
+										videoConstraints={{ facingMode: cameraFacing }}
+										screenshotFormat={fileType}
+									/>
+								</Paper>
+								<Stack>
+									<ActionIcon
+										size="xl"
+										onClick={() => {
+											setCameraFacing(
+												cameraFacing === "user" ? "environment" : "user",
+											);
+										}}
+									>
+										<IconCameraRotate size="2rem" />
+									</ActionIcon>
+									<ActionIcon
+										size="xl"
+										onClick={async () => {
+											const imageSrc = webcamRef.current?.getScreenshot();
+											if (imageSrc) {
+												const buffer = Buffer.from(
+													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
+													"base64",
+												);
+												const uploadedKey = await uploadFileAndGetKey(
+													"image.jpeg",
+													fileType,
+													buffer,
+												);
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].images.push(
+															uploadedKey,
+														);
+													}),
+												);
+											}
+										}}
+									>
+										<IconCamera size="2rem" />
+									</ActionIcon>
+								</Stack>
+							</Group>
+							<Button fullWidth variant="outline" onClick={assetsModalClose}>
+								Done
+							</Button>
+						</>
+					) : (
+						<Text c="red" size="sm">
+							Please set the S3 variables required to enable file uploading
+						</Text>
+					)}
 				</Stack>
 			</Modal>
 			<Stack>
