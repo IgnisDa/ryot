@@ -423,9 +423,14 @@ const ExerciseDisplay = (props: {
 						</Menu.Item>
 						<Menu.Item
 							leftSection={<IconPhoto size={14} />}
+							rightSection={
+								props.exercise.images.length > 0
+									? props.exercise.images.length
+									: undefined
+							}
 							onClick={assetsModalToggle}
 						>
-							Add image/video
+							Add image
 						</Menu.Item>
 						<Menu.Item
 							leftSection={<IconZzz size={14} />}
