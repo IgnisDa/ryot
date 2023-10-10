@@ -47,6 +47,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconCamera,
+	IconCameraRotate,
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
@@ -62,12 +64,19 @@ import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Fragment, type ReactElement, useEffect, useState } from "react";
+import {
+	Fragment,
+	type ReactElement,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
+import Webcam from "react-webcam";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
 import type { NextPageWithLayout } from "../../_app";
-import Webcam from "react-webcam";
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
@@ -162,12 +171,15 @@ const ExerciseDisplay = (props: {
 		restTimerModalOpened,
 		{ close: restTimerModalClose, toggle: restTimerModalToggle },
 	] = useDisclosure(false);
+	const [cameraFacing, setCameraFacing] = useState<"user" | "environment">(
+		"user",
+	);
+	const webcamRef = useRef<Webcam>(null);
 	const [
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
-	const [webcamOpened, { close: webcamClose, toggle: webcamToggle }] =
-		useDisclosure(false);
+	const [webcamOpened, { toggle: webcamToggle }] = useDisclosure(false);
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -179,6 +191,20 @@ const ExerciseDisplay = (props: {
 
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
+
+	const capture = useCallback(async () => {
+		const imageSrc = webcamRef.current?.getScreenshot();
+		if (imageSrc) {
+			// TODO: Generate presigned URL and upload to S3
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					if (draft) draft.exercises[props.exerciseIdx].images.push(imageSrc);
+				}),
+			);
+			webcamToggle();
+			assetsModalClose();
+		}
+	}, [webcamRef]);
 
 	return userPreferences.data && currentWorkout ? (
 		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
@@ -251,17 +277,46 @@ const ExerciseDisplay = (props: {
 						<Button
 							fullWidth
 							variant="outline"
+							disabled={webcamOpened}
 							onClick={() => {
 								webcamToggle();
 							}}
 						>
-							{webcamOpened ? "Click picture" : "Upload new image"}
+							{webcamOpened ? "Taking a picture" : "Upload new image"}
 						</Button>
 					</Button.Group>
-					{webcamOpened ? <Webcam height={180} /> : undefined}
+					{webcamOpened ? (
+						<Group justify="center" gap={4}>
+							<Paper radius="md" style={{ overflow: "hidden" }}>
+								<Webcam
+									ref={webcamRef}
+									height={180}
+									width={240}
+									videoConstraints={{ facingMode: cameraFacing }}
+									screenshotFormat="image/jpeg"
+								/>
+							</Paper>
+							<Stack>
+								<ActionIcon
+									size="xl"
+									onClick={() => {
+										setCameraFacing(
+											cameraFacing === "user" ? "environment" : "user",
+										);
+									}}
+								>
+									<IconCameraRotate size="2rem" />
+								</ActionIcon>
+								<ActionIcon size="xl" onClick={capture}>
+									<IconCamera size="2rem" />
+								</ActionIcon>
+							</Stack>
+						</Group>
+					) : undefined}
 				</Stack>
 			</Modal>
 			<Stack>
+				{JSON.stringify(currentWorkout)}
 				<Menu shadow="md" width={200} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
