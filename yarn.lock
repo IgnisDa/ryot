@@ -5220,6 +5220,7 @@ __metadata:
     react: 18.2.0
     react-cookie: 6.1.1
     react-dom: 18.2.0
+    react-webcam: 7.1.1
     recharts: 2.8.0
     tiny-invariant: 1.3.1
     ts-essentials: 9.4.1
@@ -12139,6 +12140,16 @@ __metadata:
     react: ">=16.6.0"
     react-dom: ">=16.6.0"
   checksum: 75602840106aa9c6545149d6d7ae1502fb7b7abadcce70a6954c4b64a438ff1cd16fc77a0a1e5197cdd72da398f39eb929ea06f9005c45b132ed34e056ebdeb1
+  languageName: node
+  linkType: hard
+
+"react-webcam@npm:7.1.1":
+  version: 7.1.1
+  resolution: "react-webcam@npm:7.1.1"
+  peerDependencies:
+    react: ">=16.2.0"
+    react-dom: ">=16.2.0"
+  checksum: 98310037b477ff8a99ca9ee67151389cbc24fe1d3f2fd5ff8afabca7b703c88d8a4275d85c2f1a4ac428602f4e1f0f9375a23379efc88b6ed88cd25e988a4e65
   languageName: node
   linkType: hard
 

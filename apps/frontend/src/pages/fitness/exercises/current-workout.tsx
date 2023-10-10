@@ -32,6 +32,7 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	Title,
 	Transition,
 	UnstyledButton,
 	rem,
@@ -49,6 +50,7 @@ import {
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
+	IconPhoto,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -65,6 +67,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
 import type { NextPageWithLayout } from "../../_app";
+import Webcam from "react-webcam";
 
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
@@ -156,9 +159,15 @@ const ExerciseDisplay = (props: {
 	const userPreferences = useUserPreferences();
 	const [playCheckSound] = useSound("/pop.mp3", { interrupt: true });
 	const [
-		timerModalOpened,
-		{ close: timerModalClose, toggle: timerModalToggle },
+		restTimerModalOpened,
+		{ close: restTimerModalClose, toggle: restTimerModalToggle },
 	] = useDisclosure(false);
+	const [
+		assetsModalOpened,
+		{ close: assetsModalClose, toggle: assetsModalToggle },
+	] = useDisclosure(false);
+	const [webcamOpened, { close: webcamClose, toggle: webcamToggle }] =
+		useDisclosure(false);
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -174,8 +183,8 @@ const ExerciseDisplay = (props: {
 	return userPreferences.data && currentWorkout ? (
 		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 			<Modal
-				opened={timerModalOpened}
-				onClose={timerModalClose}
+				opened={restTimerModalOpened}
+				onClose={restTimerModalClose}
 				withCloseButton={false}
 				size="xs"
 			>
@@ -226,6 +235,30 @@ const ExerciseDisplay = (props: {
 							input: { width: "90px", textAlign: "right" },
 						}}
 					/>
+				</Stack>
+			</Modal>
+			<Modal
+				opened={assetsModalOpened}
+				onClose={assetsModalClose}
+				withCloseButton={false}
+			>
+				<Stack>
+					<Box>
+						<Title order={3}>Images and videos</Title>
+						<Text c="dimmed">For {props.exercise.name}</Text>
+					</Box>
+					<Button.Group w="100%">
+						<Button
+							fullWidth
+							variant="outline"
+							onClick={() => {
+								webcamToggle();
+							}}
+						>
+							{webcamOpened ? "Click picture" : "Upload new image"}
+						</Button>
+					</Button.Group>
+					{webcamOpened ? <Webcam height={180} /> : undefined}
 				</Stack>
 			</Modal>
 			<Stack>
@@ -286,8 +319,14 @@ const ExerciseDisplay = (props: {
 							Add note
 						</Menu.Item>
 						<Menu.Item
+							leftSection={<IconPhoto size={14} />}
+							onClick={assetsModalToggle}
+						>
+							Add image/video
+						</Menu.Item>
+						<Menu.Item
 							leftSection={<IconZzz size={14} />}
-							onClick={timerModalToggle}
+							onClick={restTimerModalToggle}
 							rightSection={
 								props.exercise.restTimer?.enabled
 									? `${props.exercise.restTimer.duration}s`
