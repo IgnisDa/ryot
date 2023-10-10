@@ -1,7 +1,7 @@
 import { Text } from "@mantine/core";
 import {
 	ExerciseLot,
-	type SetStatistic,
+	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 
@@ -10,7 +10,7 @@ import { match } from "ts-pattern";
  **/
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
-	statistic: SetStatistic;
+	statistic: WorkoutSetStatistic;
 	hideExtras?: boolean;
 }) => {
 	const [first, second] = match(props.lot)
