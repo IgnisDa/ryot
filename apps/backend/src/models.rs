@@ -11,6 +11,7 @@ use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use schematic::Schematic;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
@@ -797,7 +798,7 @@ pub mod media {
 
     /// Review data associated to a rating.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default, Schematic)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
@@ -809,7 +810,7 @@ pub mod media {
 
     /// A rating given to an entity.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default, Schematic)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
@@ -847,7 +848,7 @@ pub mod media {
 
     /// Complete export of the user.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type, Schematic)]
     pub struct ExportAllResponse {
         /// Data about user's media.
         pub media: Vec<ImportOrExportMediaItem<String>>,
@@ -859,7 +860,7 @@ pub mod media {
 
     /// Details about a specific creator item that needs to be exported.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Type, Schematic)]
     pub struct ImportOrExportPersonItem {
         /// The name of the creator.
         pub name: String,
@@ -992,6 +993,7 @@ pub mod media {
         Hash,
         SimpleObject,
         Type,
+        Schematic,
     )]
     pub struct ReviewCommentUser {
         pub id: i32,
@@ -1011,6 +1013,7 @@ pub mod media {
         Default,
         SimpleObject,
         Type,
+        Schematic,
     )]
     pub struct ImportOrExportItemReviewComment {
         pub id: String,
@@ -1142,6 +1145,7 @@ pub mod fitness {
         SimpleObject,
         InputObject,
         Type,
+        Schematic,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     pub struct UserMeasurementStats {
