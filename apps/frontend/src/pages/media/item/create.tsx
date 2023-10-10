@@ -3,6 +3,7 @@ import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { uploadFileAndGetKey } from "@/lib/utilities";
 import {
 	Anchor,
 	Box,
@@ -30,7 +31,6 @@ import {
 	GetPresignedUrlDocument,
 	MetadataLot,
 	MetadataSource,
-	PresignedPutUrlDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -107,17 +107,13 @@ const Page: NextPageWithLayout = () => {
 		if (files.length > 0) {
 			let totalFiles = 0;
 			for (const file of files) {
-				const uploadUrl = await gqlClient.request(PresignedPutUrlDocument, {
-					fileName: file.name,
-				});
-				await fetch(uploadUrl.presignedPutUrl.uploadUrl, {
-					method: "PUT",
-					body: file,
-					headers: { "Content-Type": file.type },
-				});
-				if (to === "image") setImages.append(uploadUrl.presignedPutUrl.key);
-				else if (to === "video")
-					setVideos.append(uploadUrl.presignedPutUrl.key);
+				const uploadedKey = await uploadFileAndGetKey(
+					file.name,
+					file.type,
+					await file.arrayBuffer(),
+				);
+				if (to === "image") setImages.append(uploadedKey);
+				else if (to === "video") setVideos.append(uploadedKey);
 				totalFiles++;
 			}
 			notifications.show({
