@@ -21,6 +21,7 @@ query UserExerciseDetails($exerciseId: Int!) {
           reps
           distance
           duration
+          personalBestsAchieved
         }
         personalBests {
           lot
