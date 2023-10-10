@@ -35,3 +35,23 @@ fragment PartialMetadataPart on PartialMetadata {
   image
   metadataId
 }
+
+fragment WorkoutTotalMeasurementPart on WorkoutTotalMeasurement {
+    personalBestsAchieved
+    weight
+    reps
+    distance
+    duration
+}
+
+fragment EntityAssetsPart on EntityAssets {
+    images
+    videos
+}
+
+fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
+    duration
+    distance
+    reps
+    weight
+}

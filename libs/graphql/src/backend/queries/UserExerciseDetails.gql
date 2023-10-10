@@ -7,10 +7,7 @@ query UserExerciseDetails($exerciseId: Int!) {
       sets {
         lot
         statistic {
-          duration
-          distance
-          reps
-          weight
+          ...WorkoutSetStatisticPart
         }
       }
     }
@@ -32,10 +29,7 @@ query UserExerciseDetails($exerciseId: Int!) {
             setIdx
             data {
               statistic {
-                duration
-                distance
-                reps
-                weight
+                ...WorkoutSetStatisticPart
               }
               lot
               personalBests

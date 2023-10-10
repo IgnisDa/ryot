@@ -19,10 +19,11 @@ use crate::{
     },
     migrator::ExerciseLot,
     models::fitness::{
-        EntityAssets, ExerciseBestSetRecord, ProcessedExercise, SetLot, SetStatistic,
-        TotalMeasurement, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
+        EntityAssets, ExerciseBestSetRecord, ProcessedExercise, SetLot,
+        UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutInformation, WorkoutSetPersonalBest,
-        WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
+        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSummary, WorkoutSummaryExercise,
+        WorkoutTotalMeasurement,
     },
     users::{UserExercisePreferences, UserUnitSystem},
 };
@@ -66,7 +67,7 @@ fn get_index_of_highest_pb(
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutSetRecord {
-    pub statistic: SetStatistic,
+    pub statistic: WorkoutSetStatistic,
     pub lot: SetLot,
 }
 
@@ -125,7 +126,7 @@ impl UserWorkoutInput {
                 .await?
                 .ok_or_else(|| anyhow!("No exercise found!"))?;
             let mut sets = vec![];
-            let mut total = TotalMeasurement::default();
+            let mut total = WorkoutTotalMeasurement::default();
             let association = UserToExercise::find()
                 .filter(user_to_exercise::Column::UserId.eq(user_id))
                 .filter(user_to_exercise::Column::ExerciseId.eq(ex.exercise_id))
@@ -146,7 +147,7 @@ impl UserWorkoutInput {
                         last_updated_on: ActiveValue::Set(Utc::now()),
                         extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
                             history: vec![history_item],
-                            lifetime_stats: TotalMeasurement::default(),
+                            lifetime_stats: WorkoutTotalMeasurement::default(),
                             personal_bests: vec![],
                         }),
                     };

@@ -1185,7 +1185,7 @@ pub mod fitness {
         Add,
         AddAssign,
     )]
-    pub struct TotalMeasurement {
+    pub struct WorkoutTotalMeasurement {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
         pub weight: Decimal,
@@ -1223,7 +1223,7 @@ pub mod fitness {
         InputObject,
     )]
     #[graphql(input_name = "SetStatisticInput")]
-    pub struct SetStatistic {
+    pub struct WorkoutSetStatistic {
         pub duration: Option<Decimal>,
         pub distance: Option<Decimal>,
         pub reps: Option<usize>,
@@ -1265,7 +1265,7 @@ pub mod fitness {
         Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
     )]
     pub struct WorkoutSetRecord {
-        pub statistic: SetStatistic,
+        pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
     }
@@ -1339,7 +1339,7 @@ pub mod fitness {
     )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
-        pub lifetime_stats: TotalMeasurement,
+        pub lifetime_stats: WorkoutTotalMeasurement,
         pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
     }
 
@@ -1373,7 +1373,7 @@ pub mod fitness {
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
-        pub total: TotalMeasurement,
+        pub total: WorkoutTotalMeasurement,
         #[serde(default)]
         pub assets: EntityAssets,
     }
@@ -1403,7 +1403,7 @@ pub mod fitness {
         Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
     )]
     pub struct WorkoutSummary {
-        pub total: TotalMeasurement,
+        pub total: WorkoutTotalMeasurement,
         pub exercises: Vec<WorkoutSummaryExercise>,
     }
 }

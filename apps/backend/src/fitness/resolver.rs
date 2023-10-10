@@ -142,6 +142,17 @@ impl ExerciseQuery {
         service.exercise_details(exercise_id).await
     }
 
+    /// Get details about a workout.
+    async fn workout_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        workout_id: String,
+    ) -> Result<workout::Model> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.workout_details(workout_id, user_id).await
+    }
+
     /// Get information about an exercise for a user.
     async fn user_exercise_details(
         &self,
@@ -274,6 +285,19 @@ impl ExerciseService {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
+            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
+        }
+    }
+
+    async fn workout_details(&self, workout_id: String, user_id: i32) -> Result<workout::Model> {
+        let maybe_workout = Workout::find_by_id(workout_id)
+            .filter(workout::Column::UserId.eq(user_id))
+            .one(&self.db)
+            .await?;
+        match maybe_workout {
+            None => Err(Error::new(
+                "Workout with the given ID could not be found for this user.",
+            )),
             Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
         }
     }
