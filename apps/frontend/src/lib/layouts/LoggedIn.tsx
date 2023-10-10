@@ -279,7 +279,6 @@ export default function ({ children }: { children: ReactElement }) {
 				}`,
 			})) || []),
 		{ label: "Exercises", href: APP_ROUTES.fitness.exercises.list },
-		{ label: "Workouts", href: APP_ROUTES.fitness.exercises.workouts },
 	].map((link) => ({
 		label: link.label,
 		link: link.href,

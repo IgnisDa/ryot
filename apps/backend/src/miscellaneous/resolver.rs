@@ -4668,6 +4668,10 @@ impl MiscellaneousService {
                                     preferences.features_enabled.fitness.measurements =
                                         value_bool.unwrap()
                                 }
+                                "workouts" => {
+                                    preferences.features_enabled.fitness.workouts =
+                                        value_bool.unwrap()
+                                }
                                 _ => return Err(err()),
                             },
                             "media" => {

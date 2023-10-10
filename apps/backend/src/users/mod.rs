@@ -75,6 +75,7 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
+    pub workouts: bool,
 }
 
 impl Default for UserFitnessFeaturesEnabledPreferences {
@@ -82,6 +83,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
         Self {
             enabled: true,
             measurements: true,
+            workouts: true,
         }
     }
 }

@@ -59,6 +59,7 @@ query UserPreferences {
       fitness {
         enabled
         measurements
+        workouts
       }
       media {
         enabled
