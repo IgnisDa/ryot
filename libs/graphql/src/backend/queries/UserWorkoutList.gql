@@ -5,6 +5,7 @@ query UserWorkoutList($page: Int!) {
       nextPage
     }
     items {
+      id
       name
       startTime
       endTime
