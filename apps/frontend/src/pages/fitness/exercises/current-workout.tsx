@@ -14,6 +14,7 @@ import { getSetColor, uploadFileAndGetKey } from "@/lib/utilities";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
+	Avatar,
 	Box,
 	Button,
 	Container,
@@ -44,6 +45,7 @@ import {
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
+	GetPresignedUrlDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -56,7 +58,7 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -161,6 +163,22 @@ const StatInput = (props: {
 
 const fileType = "image/jpeg";
 
+const ImageDisplay = (props: { imageKey: string }) => {
+	const imageUrl = useQuery(
+		["presignedUrl"],
+		async () => {
+			const { getPresignedUrl } = await gqlClient.request(
+				GetPresignedUrlDocument,
+				{ key: props.imageKey },
+			);
+			return getPresignedUrl;
+		},
+		{ staleTime: Infinity },
+	);
+
+	return imageUrl.data ? <Avatar src={imageUrl.data} size="lg" /> : undefined;
+};
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
@@ -212,8 +230,6 @@ const ExerciseDisplay = (props: {
 						draft.exercises[props.exerciseIdx].images.push(uploadedKey);
 				}),
 			);
-			webcamToggle();
-			assetsModalClose();
 		}
 	}, [webcamRef]);
 
@@ -284,6 +300,11 @@ const ExerciseDisplay = (props: {
 						<Title order={3}>Images and videos</Title>
 						<Text c="dimmed">For {props.exercise.name}</Text>
 					</Box>
+					<Group>
+						{props.exercise.images.map((i) => (
+							<ImageDisplay key={i} imageKey={i} />
+						))}
+					</Group>
 					<Button.Group w="100%">
 						<Button
 							fullWidth
