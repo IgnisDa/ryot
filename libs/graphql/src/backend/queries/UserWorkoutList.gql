@@ -1,0 +1,16 @@
+query UserWorkoutList($page: Int!) {
+  userWorkoutList(page: $page) {
+    details {
+      total
+      nextPage
+    }
+    items {
+      name
+      startTime
+      endTime
+      summary {
+        ...WorkoutSummaryPart
+      }
+    }
+  }
+}

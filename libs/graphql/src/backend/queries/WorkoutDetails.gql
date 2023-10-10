@@ -5,20 +5,7 @@ query WorkoutDetails($workoutId: String!) {
     startTime
     endTime
     summary {
-      total {
-        ...WorkoutTotalMeasurementPart
-      }
-      exercises {
-        numSets
-        name
-        bestSet {
-          statistic {
-            ...WorkoutSetStatisticPart
-          }
-          lot
-          personalBests
-        }
-      }
+      ...WorkoutSummaryPart
     }
     information {
       assets {

@@ -55,3 +55,20 @@ fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
   reps
   weight
 }
+
+fragment WorkoutSummaryPart on WorkoutSummary {
+  total {
+    ...WorkoutTotalMeasurementPart
+  }
+  exercises {
+    numSets
+    name
+    bestSet {
+      statistic {
+        ...WorkoutSetStatisticPart
+      }
+      lot
+      personalBests
+    }
+  }
+}
