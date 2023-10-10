@@ -163,7 +163,7 @@ const fileType = "image/jpeg";
 
 const ImageDisplay = (props: { imageKey: string }) => {
 	const imageUrl = useQuery(
-		["presignedUrl"],
+		["presignedUrl", props.imageKey],
 		async () => {
 			const { getPresignedUrl } = await gqlClient.request(
 				GetPresignedUrlDocument,
