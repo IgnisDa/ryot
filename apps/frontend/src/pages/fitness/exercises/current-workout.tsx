@@ -33,7 +33,6 @@ import {
 	Text,
 	TextInput,
 	Textarea,
-	Title,
 	Transition,
 	UnstyledButton,
 	rem,
@@ -69,7 +68,6 @@ import { useRouter } from "next/router";
 import {
 	Fragment,
 	type ReactElement,
-	useCallback,
 	useEffect,
 	useRef,
 	useState,
@@ -176,7 +174,11 @@ const ImageDisplay = (props: { imageKey: string }) => {
 		{ staleTime: Infinity },
 	);
 
-	return imageUrl.data ? <Avatar src={imageUrl.data} size="lg" /> : undefined;
+	return imageUrl.data ? (
+		<>
+			<Avatar src={imageUrl.data} size="lg" />
+		</>
+	) : undefined;
 };
 
 const ExerciseDisplay = (props: {
@@ -199,7 +201,6 @@ const ExerciseDisplay = (props: {
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
-	const [webcamOpened, { toggle: webcamToggle }] = useDisclosure(false);
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -211,27 +212,6 @@ const ExerciseDisplay = (props: {
 
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
-
-	const capture = useCallback(async () => {
-		const imageSrc = webcamRef.current?.getScreenshot();
-		if (imageSrc) {
-			const buffer = Buffer.from(
-				imageSrc.replace(/^data:image\/\w+;base64,/, ""),
-				"base64",
-			);
-			const uploadedKey = await uploadFileAndGetKey(
-				"image.jpeg",
-				fileType,
-				buffer,
-			);
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					if (draft)
-						draft.exercises[props.exerciseIdx].images.push(uploadedKey);
-				}),
-			);
-		}
-	}, [webcamRef]);
 
 	return userPreferences.data && currentWorkout ? (
 		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
@@ -296,59 +276,69 @@ const ExerciseDisplay = (props: {
 				withCloseButton={false}
 			>
 				<Stack>
-					<Box>
-						<Title order={3}>Images and videos</Title>
-						<Text c="dimmed">For {props.exercise.name}</Text>
-					</Box>
-					<Group>
-						{props.exercise.images.map((i) => (
-							<ImageDisplay key={i} imageKey={i} />
-						))}
-					</Group>
-					<Button.Group w="100%">
-						<Button
-							fullWidth
-							variant="outline"
-							disabled={webcamOpened}
-							onClick={() => {
-								webcamToggle();
-							}}
-						>
-							{webcamOpened ? "Taking a picture" : "Upload new image"}
-						</Button>
-					</Button.Group>
-					{webcamOpened ? (
-						<Group justify="center" gap={4}>
-							<Paper radius="md" style={{ overflow: "hidden" }}>
-								<Webcam
-									ref={webcamRef}
-									height={180}
-									width={240}
-									videoConstraints={{ facingMode: cameraFacing }}
-									screenshotFormat={fileType}
-								/>
-							</Paper>
-							<Stack>
-								<ActionIcon
-									size="xl"
-									onClick={() => {
-										setCameraFacing(
-											cameraFacing === "user" ? "environment" : "user",
-										);
-									}}
-								>
-									<IconCameraRotate size="2rem" />
-								</ActionIcon>
-								<ActionIcon size="xl" onClick={capture}>
-									<IconCamera size="2rem" />
-								</ActionIcon>
-							</Stack>
-						</Group>
+					<Text c="dimmed">Images for {props.exercise.name}</Text>
+					{props.exercise.images.length > 0 ? (
+						<Avatar.Group spacing="xs">
+							{props.exercise.images.map((i) => (
+								<ImageDisplay key={i} imageKey={i} />
+							))}
+						</Avatar.Group>
 					) : undefined}
+					<Group justify="center" gap={4}>
+						<Paper radius="md" style={{ overflow: "hidden" }}>
+							<Webcam
+								ref={webcamRef}
+								height={180}
+								width={240}
+								videoConstraints={{ facingMode: cameraFacing }}
+								screenshotFormat={fileType}
+							/>
+						</Paper>
+						<Stack>
+							<ActionIcon
+								size="xl"
+								onClick={() => {
+									setCameraFacing(
+										cameraFacing === "user" ? "environment" : "user",
+									);
+								}}
+							>
+								<IconCameraRotate size="2rem" />
+							</ActionIcon>
+							<ActionIcon
+								size="xl"
+								onClick={async () => {
+									const imageSrc = webcamRef.current?.getScreenshot();
+									if (imageSrc) {
+										const buffer = Buffer.from(
+											imageSrc.replace(/^data:image\/\w+;base64,/, ""),
+											"base64",
+										);
+										const uploadedKey = await uploadFileAndGetKey(
+											"image.jpeg",
+											fileType,
+											buffer,
+										);
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.exerciseIdx].images.push(
+													uploadedKey,
+												);
+											}),
+										);
+									}
+								}}
+							>
+								<IconCamera size="2rem" />
+							</ActionIcon>
+						</Stack>
+					</Group>
+					<Button fullWidth variant="outline" onClick={assetsModalClose}>
+						Done
+					</Button>
 				</Stack>
 			</Modal>
 			<Stack>
-				{JSON.stringify(currentWorkout)}
 				<Menu shadow="md" width={200} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
