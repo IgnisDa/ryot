@@ -42,7 +42,7 @@ const documents = {
     "mutation LogoutUser {\n  logoutUser\n}": types.LogoutUserDocument,
     "mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {\n  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)\n}": types.MergeMetadataDocument,
     "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
-    "mutation PresignedPutUrl($fileName: String!) {\n  presignedPutUrl(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}": types.PresignedPutUrlDocument,
+    "mutation PresignedPutS3Url($fileName: String!) {\n  presignedPutS3Url(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}": types.PresignedPutS3UrlDocument,
     "mutation ProgressUpdate($input: ProgressUpdateInput!) {\n  progressUpdate(input: $input) {\n    ... on IdObject {\n      id\n    }\n    ... on ProgressUpdateError {\n      error\n    }\n  }\n}": types.ProgressUpdateDocument,
     "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
@@ -62,7 +62,7 @@ const documents = {
     "query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n    level\n    force\n    mechanic\n    equipment\n    attributes {\n      instructions\n      images\n      muscles\n    }\n  }\n}": types.ExerciseDetailsDocument,
     "query ExerciseParameters {\n  exerciseParameters {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}": types.ExerciseParametersDocument,
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      lot\n      image\n      muscle\n      numTimesPerformed\n    }\n  }\n}": types.ExercisesListDocument,
-    "query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}": types.GetPresignedUrlDocument,
+    "query GetPresignedS3Url($key: String!) {\n  getPresignedS3Url(key: $key)\n}": types.GetPresignedS3UrlDocument,
     "query ImportReports {\n  importReports {\n    id\n    source\n    startedOn\n    finishedOn\n    success\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n        error\n      }\n    }\n  }\n}": types.ImportReportsDocument,
     "query LatestUserSummary {\n  latestUserSummary {\n    calculatedOn\n    fitness {\n      measurementsRecorded\n      workoutsRecorded\n    }\n    media {\n      reviewsPosted\n      creatorsInteractedWith\n      manga {\n        chapters\n        read\n      }\n      books {\n        pages\n        read\n      }\n      movies {\n        runtime\n        watched\n      }\n      anime {\n        episodes\n        watched\n      }\n      podcasts {\n        runtime\n        played\n        playedEpisodes\n      }\n      visualNovels {\n        played\n        runtime\n      }\n      videoGames {\n        played\n      }\n      shows {\n        runtime\n        watchedEpisodes\n        watchedSeasons\n        watched\n      }\n      audioBooks {\n        runtime\n        played\n      }\n    }\n  }\n}": types.LatestUserSummaryDocument,
     "query MediaAdditionalDetails($metadataId: Int!) {\n  mediaDetails(metadataId: $metadataId) {\n    title\n    lot\n    creators {\n      name\n      items {\n        id\n        name\n        image\n      }\n    }\n    assets {\n      images\n      videos {\n        videoId\n        source\n      }\n    }\n    suggestions {\n      ...PartialMetadataPart\n    }\n    animeSpecifics {\n      episodes\n    }\n    audioBookSpecifics {\n      runtime\n    }\n    bookSpecifics {\n      pages\n    }\n    movieSpecifics {\n      runtime\n    }\n    mangaSpecifics {\n      volumes\n      chapters\n    }\n    podcastSpecifics {\n      episodes {\n        title\n        overview\n        thumbnail\n        number\n        runtime\n        publishDate\n      }\n      totalEpisodes\n    }\n    showSpecifics {\n      seasons {\n        seasonNumber\n        name\n        overview\n        backdropImages\n        posterImages\n        episodes {\n          id\n          name\n          posterImages\n          episodeNumber\n          publishDate\n          name\n          overview\n          runtime\n        }\n      }\n    }\n    visualNovelSpecifics {\n      length\n    }\n    videoGameSpecifics {\n      platforms\n    }\n  }\n}": types.MediaAdditionalDetailsDocument,
@@ -221,7 +221,7 @@ export function graphql(source: "mutation PostReview($input: PostReviewInput!) {
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation PresignedPutUrl($fileName: String!) {\n  presignedPutUrl(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"): (typeof documents)["mutation PresignedPutUrl($fileName: String!) {\n  presignedPutUrl(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"];
+export function graphql(source: "mutation PresignedPutS3Url($fileName: String!) {\n  presignedPutS3Url(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"): (typeof documents)["mutation PresignedPutS3Url($fileName: String!) {\n  presignedPutS3Url(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -301,7 +301,7 @@ export function graphql(source: "query ExercisesList($input: ExercisesListInput!
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}"): (typeof documents)["query GetPresignedUrl($key: String!) {\n  getPresignedUrl(key: $key)\n}"];
+export function graphql(source: "query GetPresignedS3Url($key: String!) {\n  getPresignedS3Url(key: $key)\n}"): (typeof documents)["query GetPresignedS3Url($key: String!) {\n  getPresignedS3Url(key: $key)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

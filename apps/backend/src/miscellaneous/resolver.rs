@@ -774,7 +774,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a presigned URL (valid for 90 minutes) for a given key.
-    async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
+    async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.file_storage_service.get_presigned_url(key).await
     }
@@ -1249,7 +1249,7 @@ impl MiscellaneousMutation {
     }
 
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
-    async fn presigned_put_url(
+    async fn presigned_put_s3_url(
         &self,
         gql_ctx: &Context<'_>,
         file_name: String,
