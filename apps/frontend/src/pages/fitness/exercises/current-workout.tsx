@@ -41,10 +41,11 @@ import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
 import {
 	CreateUserWorkoutDocument,
 	type CreateUserWorkoutMutationVariables,
+	DeleteS3ObjectDocument,
 	ExerciseLot,
+	GetPresignedUrlDocument,
 	SetLot,
 	UserUnitSystem,
-	GetPresignedUrlDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -186,7 +187,16 @@ const ImageDisplay = (props: {
 				left={-12}
 				color="red"
 				size="xs"
-				onClick={() => props.removeImage(props.imageKey)}
+				onClick={async () => {
+					const yes = confirm("Are you sure you want to remove this image?");
+					if (yes) {
+						const { deleteS3Object } = await gqlClient.request(
+							DeleteS3ObjectDocument,
+							{ key: props.imageKey },
+						);
+						if (deleteS3Object) props.removeImage(props.imageKey);
+					}
+				}}
 			>
 				<IconTrash />
 			</ActionIcon>
