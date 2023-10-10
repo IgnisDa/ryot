@@ -1262,6 +1262,13 @@ impl MiscellaneousMutation {
         Ok(PresignedPutUrlResponse { upload_url, key })
     }
 
+    /// Delete an S3 object by the given key.
+    async fn delete_s3_object(&self, gql_ctx: &Context<'_>, key: String) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let resp = service.file_storage_service.delete_object(key).await;
+        Ok(resp)
+    }
+
     /// Generate an auth token without any expiry.
     async fn generate_auth_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
