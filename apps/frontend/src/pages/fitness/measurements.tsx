@@ -147,12 +147,12 @@ enum TimeSpan {
 const Page: NextPageWithLayout = () => {
 	const [selectedStats, setselectedStats] = useLocalStorage<string[]>({
 		defaultValue: [],
-		key: LOCAL_STORAGE_KEYS.measurementsDisplaySelectedStats,
+		key: LOCAL_STORAGE_KEYS.savedMeasurementsDisplaySelectedStats,
 		getInitialValueInEffect: true,
 	});
 	const [selectedTimeSpan, setselectedTimespan] = useLocalStorage({
 		defaultValue: TimeSpan.Last30Days,
-		key: LOCAL_STORAGE_KEYS.measurementsDisplaySelectedTimespan,
+		key: LOCAL_STORAGE_KEYS.savedMeasurementsDisplaySelectedTimespan,
 		getInitialValueInEffect: true,
 	});
 	const [opened, { open, close }] = useDisclosure(false);

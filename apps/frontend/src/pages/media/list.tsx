@@ -72,24 +72,24 @@ const Page: NextPageWithLayout = () => {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.mineMediaSortOrder,
+		key: LOCAL_STORAGE_KEYS.savedMineMediaSortOrder,
 		defaultValue: defaultFilters.mineSortOrder,
 		getInitialValueInEffect: false,
 	});
 	const [mineSortBy, setMineSortBy] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.mineMediaSortBy,
+		key: LOCAL_STORAGE_KEYS.savedMineMediaSortBy,
 		defaultValue: defaultFilters.mineSortBy,
 		getInitialValueInEffect: false,
 	});
 	const [mineGeneralFilter, setMineGeneralFilter] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.mineMediaGeneralFilter,
+		key: LOCAL_STORAGE_KEYS.savedMineMediaGeneralFilter,
 		defaultValue: defaultFilters.mineGeneralFilter,
 		getInitialValueInEffect: false,
 	});
 	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage<
 		string | undefined
 	>({
-		key: LOCAL_STORAGE_KEYS.mineMediaCollectionFilter,
+		key: LOCAL_STORAGE_KEYS.savedMineMediaCollectionFilter,
 		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,
 		deserialize: (value) => {

@@ -68,12 +68,12 @@ const Page: NextPageWithLayout = () => {
 	] = useDisclosure(false);
 	const coreDetails = useCoreDetails();
 	const [sortBy, setSortBy] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.creatorSortBy,
+		key: LOCAL_STORAGE_KEYS.savedCreatorSortBy,
 		defaultValue: defaultFilters.sortBy,
 		getInitialValueInEffect: false,
 	});
 	const [sortOrder, setSortOrder] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.creatorSortOrder,
+		key: LOCAL_STORAGE_KEYS.savedCreatorSortOrder,
 		defaultValue: defaultFilters.sortOrder,
 		getInitialValueInEffect: false,
 	});
