@@ -64,13 +64,15 @@ rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
-schematic = { version = "0.11.8", features = [
+schematic = { version = "0.12.0", features = [
+    "config",
     "json",
     "schema",
     "toml",
     "typescript",
+    "type_chrono",
+    "url",
     "yaml",
-    "valid_url",
 ], default-features = false }
 scraper = "0.17.1"
 sea-orm = { version = "0.12.3", features = [
