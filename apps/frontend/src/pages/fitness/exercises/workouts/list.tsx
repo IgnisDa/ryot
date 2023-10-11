@@ -87,7 +87,7 @@ const Page: NextPageWithLayout = () => {
 	return coreDetails.data && userWorkoutList.data ? (
 		<>
 			<Head>
-				<title>Workouts | Ryot</title>
+				<title>Your Workouts | Ryot</title>
 			</Head>
 			<Container size="xs">
 				<Stack>
@@ -136,7 +136,7 @@ const Page: NextPageWithLayout = () => {
 													/>
 													<DisplayStat
 														icon={<IconTrophy size="1rem" />}
-														data={workout.summary.total.personalBestsAchieved.toString()}
+														data={`${workout.summary.total.personalBestsAchieved.toString()} PRs`}
 													/>
 												</Group>
 											</Accordion.Control>
