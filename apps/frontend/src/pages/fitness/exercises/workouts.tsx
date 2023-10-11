@@ -96,14 +96,14 @@ const Page: NextPageWithLayout = () => {
 								<Text display="inline" fw="bold">
 									{userWorkoutList.data.details.total}{" "}
 								</Text>
-								items found
+								workouts
 							</Box>
 							<Accordion>
 								{userWorkoutList.data.items.map((workout) => (
 									<Accordion.Item key={workout.id} value={workout.id}>
 										<Accordion.Control>
-											<Text size="sm">{workout.name}</Text>
-											<Text size="xs" c="dimmed">
+											<Text>{workout.name}</Text>
+											<Text size="sm" c="dimmed">
 												{DateTime.fromJSDate(workout.startTime).toLocaleString({
 													month: "long",
 													day: "numeric",
