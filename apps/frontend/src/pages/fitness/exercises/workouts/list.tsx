@@ -94,44 +94,64 @@ const Page: NextPageWithLayout = () => {
 					<Title>Workouts</Title>
 					{userWorkoutList.data.items.length > 0 ? (
 						<>
-							<Accordion multiple>
+							<Accordion multiple chevronPosition="left">
 								{userWorkoutList.data.items.map((workout) => (
 									<Accordion.Item
 										key={workout.id}
 										value={workout.id}
 										data-workout-id={workout.id}
 									>
-										<Accordion.Control>
-											<Text>{workout.name}</Text>
-											<Text size="sm" c="dimmed">
-												{DateTime.fromJSDate(workout.startTime).toLocaleString({
-													month: "long",
-													day: "numeric",
+										<Center>
+											<Accordion.Control>
+												<Group wrap="nowrap">
+													<Text fz={{ base: "sm", md: "md" }}>
+														{workout.name}
+													</Text>
+													<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
+														{DateTime.fromJSDate(
+															workout.startTime,
+														).toLocaleString({
+															month: "long",
+															year: "numeric",
+															day: "numeric",
+														})}
+													</Text>
+												</Group>
+												<Group mt="xs" gap="lg">
+													<DisplayStat
+														icon={<IconClock size="1rem" />}
+														data={`${DateTime.fromJSDate(workout.endTime)
+															.diff(
+																DateTime.fromJSDate(workout.startTime),
+																"minutes",
+															)
+															.minutes.toFixed()} minutes`}
+													/>
+													<DisplayStat
+														icon={<IconWeight size="1rem" />}
+														data={new Intl.NumberFormat("en-us", {
+															style: "unit",
+															unit: "kilogram",
+														}).format(Number(workout.summary.total.weight))}
+													/>
+													<DisplayStat
+														icon={<IconTrophy size="1rem" />}
+														data={workout.summary.total.personalBestsAchieved.toString()}
+													/>
+												</Group>
+											</Accordion.Control>
+											<Anchor
+												component={Link}
+												href={withQuery(APP_ROUTES.fitness.workoutDetails, {
+													id: workout.id,
 												})}
-											</Text>
-											<Group mt="xs" gap="lg">
-												<DisplayStat
-													icon={<IconClock size="1rem" />}
-													data={`${DateTime.fromJSDate(workout.endTime)
-														.diff(
-															DateTime.fromJSDate(workout.startTime),
-															"minutes",
-														)
-														.minutes.toFixed()} minutes`}
-												/>
-												<DisplayStat
-													icon={<IconWeight size="1rem" />}
-													data={new Intl.NumberFormat("en-us", {
-														style: "unit",
-														unit: "kilogram",
-													}).format(Number(workout.summary.total.weight))}
-												/>
-												<DisplayStat
-													icon={<IconTrophy size="1rem" />}
-													data={workout.summary.total.personalBestsAchieved.toString()}
-												/>
-											</Group>
-										</Accordion.Control>
+												fz="xs"
+												ta="right"
+												pr="md"
+											>
+												View details
+											</Anchor>
+										</Center>
 										<Accordion.Panel>
 											<Group justify="space-between">
 												<Text fw="bold">Exercise</Text>
@@ -143,18 +163,6 @@ const Page: NextPageWithLayout = () => {
 													key={`${idx}-${exercise.name}`}
 												/>
 											))}
-											<Anchor
-												mt="xs"
-												display="block"
-												w="100%"
-												ta="right"
-												component={Link}
-												href={withQuery(APP_ROUTES.fitness.workoutDetails, {
-													id: workout.id,
-												})}
-											>
-												View details
-											</Anchor>
 										</Accordion.Panel>
 									</Accordion.Item>
 								))}
