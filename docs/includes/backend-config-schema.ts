@@ -201,6 +201,11 @@ export interface ServerConfig {
 	 */
 	max_file_size: number;
 	/**
+	 * Whether "monitored" media will be updated.
+	 * @default true
+	 */
+	monitored_media_updated: boolean;
+	/**
 	 * The number of days after which details about a person are considered outdated.
 	 * @default 30
 	 */
