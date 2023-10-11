@@ -247,6 +247,7 @@ impl UserWorkoutInput {
                 ProcessedExercise {
                     exercise_id: ex.exercise_id,
                     exercise_name: db_ex.name,
+                    exercise_lot: db_ex.lot,
                     sets,
                     notes: ex.notes,
                     rest_time: ex.rest_time,

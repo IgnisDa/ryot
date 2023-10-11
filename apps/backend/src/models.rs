@@ -1380,6 +1380,7 @@ pub mod fitness {
     pub struct ProcessedExercise {
         pub exercise_name: String,
         pub exercise_id: i32,
+        pub exercise_lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
