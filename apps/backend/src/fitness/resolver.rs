@@ -24,6 +24,7 @@ use crate::{
         user_measurement, user_to_exercise, workout,
     },
     file_storage::FileStorageService,
+    fitness::logic::UserWorkoutInput,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle,
@@ -38,8 +39,6 @@ use crate::{
     traits::AuthProvider,
     utils::{get_ilike_query, partial_user_by_id},
 };
-
-use super::logic::UserWorkoutInput;
 
 static JSON_URL: &str =
     "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
