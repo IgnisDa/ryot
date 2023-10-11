@@ -5,6 +5,23 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 
+export const getSetStatisticsTextToDisplay = (
+	lot: ExerciseLot,
+	statistic: WorkoutSetStatistic,
+) => {
+	return match(lot)
+		.with(ExerciseLot.DistanceAndDuration, () => [
+			`${statistic.duration} km x ${statistic.duration} min`,
+			`${(statistic.distance || 1) / (statistic.duration || 1)} km/min`,
+		])
+		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
+		.with(ExerciseLot.RepsAndWeight, () => [
+			`${statistic.weight} kg x ${statistic.reps}`,
+			`${(statistic.weight || 1) * (statistic.reps || 1)} vol`,
+		])
+		.exhaustive();
+};
+
 /**
  * Display statistics for an exercise set.
  **/
@@ -13,30 +30,14 @@ export const DisplayExerciseStats = (props: {
 	statistic: WorkoutSetStatistic;
 	hideExtras?: boolean;
 }) => {
-	const [first, second] = match(props.lot)
-		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${props.statistic.duration} km x ${props.statistic.duration} min`,
-			props.hideExtras
-				? undefined
-				: `${
-						(props.statistic.distance || 1) / (props.statistic.duration || 1)
-				  } km/min`,
-		])
-		.with(ExerciseLot.Duration, () => [
-			`${props.statistic.duration} min`,
-			undefined,
-		])
-		.with(ExerciseLot.RepsAndWeight, () => [
-			`${props.statistic.weight} kg x ${props.statistic.reps}`,
-			props.hideExtras
-				? undefined
-				: `${(props.statistic.weight || 1) * (props.statistic.reps || 1)} vol`,
-		])
-		.exhaustive();
+	const [first, second] = getSetStatisticsTextToDisplay(
+		props.lot,
+		props.statistic,
+	);
 	return (
 		<>
 			<Text fz={props.hideExtras ? "xs" : "sm"}>{first}</Text>
-			{second ? (
+			{!props.hideExtras && second ? (
 				<Text ml="auto" fz={props.hideExtras ? "xs" : "sm"}>
 					{second}
 				</Text>
