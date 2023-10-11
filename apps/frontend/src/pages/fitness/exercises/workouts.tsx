@@ -8,6 +8,8 @@ import {
 	Box,
 	Center,
 	Container,
+	Flex,
+	Group,
 	Pagination,
 	Stack,
 	Text,
@@ -15,11 +17,26 @@ import {
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import { UserWorkoutListDocument } from "@ryot/generated/graphql/backend/graphql";
+import { IconClock, IconTrophy, IconWeight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../../_app";
+
+const DisplayStat = (props: {
+	icon: ReactElement;
+	data: string;
+}) => {
+	return (
+		<Flex gap={4} align="center">
+			{props.icon}
+			<Text size="sm" span>
+				{props.data}
+			</Text>
+		</Flex>
+	);
+};
 
 const Page: NextPageWithLayout = () => {
 	const [activePage, setPage] = useLocalStorage({
@@ -60,17 +77,35 @@ const Page: NextPageWithLayout = () => {
 								{userWorkoutList.data.items.map((workout) => (
 									<Accordion.Item key={workout.id} value={workout.id}>
 										<Accordion.Control>
-											<Box>
-												<Text size="sm">{workout.name}</Text>
-												<Text size="xs" c="dimmed">
-													{DateTime.fromJSDate(
-														workout.startTime,
-													).toLocaleString({
-														month: "long",
-														day: "numeric",
-													})}
-												</Text>
-											</Box>
+											<Text size="sm">{workout.name}</Text>
+											<Text size="xs" c="dimmed">
+												{DateTime.fromJSDate(workout.startTime).toLocaleString({
+													month: "long",
+													day: "numeric",
+												})}
+											</Text>
+											<Group mt="xs" gap="lg">
+												<DisplayStat
+													icon={<IconClock size="1rem" />}
+													data={`${DateTime.fromJSDate(workout.endTime)
+														.diff(
+															DateTime.fromJSDate(workout.startTime),
+															"minutes",
+														)
+														.minutes.toFixed()} minutes`}
+												/>
+												<DisplayStat
+													icon={<IconWeight size="1rem" />}
+													data={new Intl.NumberFormat("en-us", {
+														style: "unit",
+														unit: "kilogram",
+													}).format(Number(workout.summary.total.weight))}
+												/>
+												<DisplayStat
+													icon={<IconTrophy size="1rem" />}
+													data={workout.summary.total.personalBestsAchieved.toString()}
+												/>
+											</Group>
 										</Accordion.Control>
 										<Accordion.Panel>
 											{JSON.stringify(workout, null, 2)}
