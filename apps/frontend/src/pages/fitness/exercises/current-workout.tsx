@@ -1132,7 +1132,7 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
-							<Fragment key={ex.exerciseId + idx}>
+							<Fragment key={`${ex.exerciseId}-${idx}`}>
 								<ExerciseDisplay
 									exercise={ex}
 									exerciseIdx={idx}
