@@ -1,8 +1,8 @@
 use async_graphql::Enum;
+use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
-use strum::Display;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -23,6 +23,7 @@ pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique
     Enum,
     Default,
     Hash,
+    ConfigEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataSource {
@@ -66,8 +67,8 @@ pub enum MetadataSource {
     Serialize,
     Enum,
     Default,
-    Display,
     Hash,
+    ConfigEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum MetadataLot {

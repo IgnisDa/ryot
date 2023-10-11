@@ -45,6 +45,7 @@ use crate::{
     entities::prelude::Exercise,
     graphql::get_schema,
     migrator::Migrator,
+    models::media::ExportAllResponse,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
         static_handler, upload_file,
@@ -175,6 +176,7 @@ async fn main() -> Result<()> {
     }
 
     if cfg!(debug_assertions) {
+        use schematic::schema::{typescript::TypeScriptRenderer, SchemaGenerator};
 
         // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
@@ -184,18 +186,24 @@ async fn main() -> Result<()> {
             .unwrap()
             .join("docs")
             .join("includes");
-        let mut generator = schematic::schema::SchemaGenerator::default();
+
+        let mut generator = SchemaGenerator::default();
         generator.add::<AppConfig>();
         generator
             .generate(
                 base_dir.join("backend-config-schema.ts"),
-                schematic::schema::typescript::TypeScriptRenderer::default(),
+                TypeScriptRenderer::default(),
             )
             .unwrap();
-        let export_path = base_dir.join("export-schema.ts");
-        if !export_path.exists() {
-            // export::ts(export_path.to_str().unwrap()).unwrap();
-        }
+
+        let mut generator = SchemaGenerator::default();
+        generator.add::<ExportAllResponse>();
+        generator
+            .generate(
+                base_dir.join("export-schema.ts"),
+                TypeScriptRenderer::default(),
+            )
+            .unwrap();
     }
 
     let schema = get_schema(&app_services).await;

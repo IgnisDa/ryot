@@ -11,6 +11,7 @@ use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use schematic::Schematic;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
     FromQueryResult,
@@ -781,7 +782,7 @@ pub mod media {
 
     /// A specific instance when an entity was seen.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
         pub progress: Option<i32>,
@@ -799,7 +800,7 @@ pub mod media {
 
     /// Review data associated to a rating.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
@@ -811,7 +812,7 @@ pub mod media {
 
     /// A rating given to an entity.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
@@ -829,7 +830,7 @@ pub mod media {
 
     /// Details about a specific media item that needs to be imported or exported.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
     pub struct ImportOrExportMediaItem {
         /// An string to help identify it in the original source.
         pub source_id: String,
@@ -841,6 +842,7 @@ pub mod media {
         pub identifier: String,
         // DEV: Only to be used internally.
         #[serde(skip)]
+        #[schema(exclude)]
         pub internal_identifier: Option<ImportOrExportItemIdentifier>,
         /// The seen history for the user.
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
@@ -852,7 +854,7 @@ pub mod media {
 
     /// Complete export of the user.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
     pub struct ExportAllResponse {
         /// Data about user's media.
         pub media: Vec<ImportOrExportMediaItem>,
@@ -864,7 +866,7 @@ pub mod media {
 
     /// Details about a specific creator item that needs to be exported.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
     pub struct ImportOrExportPersonItem {
         /// The name of the creator.
         pub name: String,
@@ -996,6 +998,7 @@ pub mod media {
         Default,
         Hash,
         SimpleObject,
+        Schematic,
     )]
     pub struct ReviewCommentUser {
         pub id: i32,
@@ -1014,6 +1017,7 @@ pub mod media {
         Deserialize,
         Default,
         SimpleObject,
+        Schematic,
     )]
     pub struct ImportOrExportItemReviewComment {
         pub id: String,
@@ -1144,6 +1148,7 @@ pub mod fitness {
         PartialEq,
         SimpleObject,
         InputObject,
+        Schematic,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     pub struct UserMeasurementStats {
