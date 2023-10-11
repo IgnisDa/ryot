@@ -102,6 +102,14 @@ const Page: NextPageWithLayout = () => {
 							/>
 						</Group>
 					</Box>
+					{workoutDetails.data.comment ? (
+						<Box>
+							<Text c="dimmed" span>
+								Commented:{" "}
+							</Text>
+							<Text span>{workoutDetails.data.comment}</Text>
+						</Box>
+					) : undefined}
 					{workoutDetails.data.information.exercises.map((exercise, idx) => (
 						<Paper key={`${exercise.exerciseId}-${idx}`} withBorder p="xs">
 							<Box mb="xs">
