@@ -8,12 +8,14 @@ import { getSetColor } from "@/lib/utilities";
 import {
 	Box,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Image,
 	List,
 	Paper,
 	ScrollArea,
+	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -39,16 +41,16 @@ import type { ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../../_app";
 
-const DisplayData = (props: { name: string; data: string[] }) => {
+const DisplayData = (props: { name: string; data: string }) => {
 	return (
-		<Group wrap="nowrap" gap="xs">
-			<Text c="dimmed" tt="capitalize" fz="xs" span>
+		<Box>
+			<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
 				{startCase(props.name)}
 			</Text>
-			<Text fz={{ base: "sm", md: "md" }} truncate span>
-				{props.data.map((s) => startCase(s.toLowerCase())).join(", ")}
+			<Text ta="center" fz={{ base: "sm", md: "md" }}>
+				{startCase(props.data.toLowerCase())}
 			</Text>
-		</Group>
+		</Box>
 	);
 };
 
@@ -149,13 +151,7 @@ const Page: NextPageWithLayout = () => {
 										))}
 									</Flex>
 								</ScrollArea>
-								<Stack py="xs" gap={2}>
-									{exerciseDetails.data.attributes.muscles.length > 0 ? (
-										<DisplayData
-											name="muscles"
-											data={exerciseDetails.data.attributes.muscles}
-										/>
-									) : undefined}
+								<SimpleGrid py="xs" cols={4}>
 									{["level", "force", "mechanic", "equipment"].map((f) => (
 										<>
 											{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
@@ -163,13 +159,25 @@ const Page: NextPageWithLayout = () => {
 												<DisplayData
 													name={f}
 													// biome-ignore lint/suspicious/noExplicitAny: required here
-													data={[(exerciseDetails.data as any)[f]]}
+													data={(exerciseDetails.data as any)[f]}
 													key={f}
 												/>
 											) : undefined}
 										</>
 									))}
-								</Stack>
+								</SimpleGrid>
+								<Divider />
+								<Group wrap="nowrap">
+									<Text c="dimmed" fz="sm">
+										Muscles
+									</Text>
+									<Text fz="sm">
+										{exerciseDetails.data.attributes.muscles
+											.map((s) => startCase(s.toLowerCase()))
+											.join(", ")}
+									</Text>
+								</Group>
+								<Divider />
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>
