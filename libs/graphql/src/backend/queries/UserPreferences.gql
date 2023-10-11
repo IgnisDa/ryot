@@ -58,8 +58,8 @@ query UserPreferences {
     featuresEnabled {
       fitness {
         enabled
-        measurements
         workouts
+        measurements
       }
       media {
         enabled

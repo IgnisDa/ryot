@@ -26,7 +26,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import { type ReactElement } from "react";
-import type { NextPageWithLayout } from "../../_app";
+import type { NextPageWithLayout } from "../../../_app";
 
 const DisplayStat = (props: {
 	icon: ReactElement;
