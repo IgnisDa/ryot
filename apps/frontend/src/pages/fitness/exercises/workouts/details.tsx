@@ -1,39 +1,20 @@
-import { getSetStatisticsTextToDisplay } from "@/lib/components/FitnessComponents";
+import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Box, Container, Flex, Stack, Text } from "@mantine/core";
+import { getSetColor } from "@/lib/utilities";
+import { Container, Flex, Paper, Stack, Text } from "@mantine/core";
 import {
+	SetLot,
 	WorkoutDetailsDocument,
-	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
-import { type ReactElement } from "react";
-import type { NextPageWithLayout } from "../../../_app";
 import { useRouter } from "next/router";
+import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
-
-const ExerciseDisplay = (props: {
-	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
-}) => {
-	const [stat, _] = getSetStatisticsTextToDisplay(
-		props.exercise.lot,
-		props.exercise.bestSet.statistic,
-	);
-
-	return (
-		<Flex gap="xs">
-			<Text fz="sm" ff="monospace">
-				{props.exercise.numSets} ×
-			</Text>
-			<Text style={{ flex: 1 }} fz="sm">
-				{props.exercise.name}
-			</Text>
-			<Text fz="sm">{stat}</Text>
-		</Flex>
-	);
-};
+import { match } from "ts-pattern";
+import type { NextPageWithLayout } from "../../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -54,7 +35,32 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Box>{JSON.stringify(workoutDetails.data)}</Box>
+					{workoutDetails.data.information.exercises.map((exercise, idx) => (
+						<Paper key={`${exercise.exerciseId}-${idx}`} withBorder p="xs">
+							<Text fw="bold" mb="xs">
+								{exercise.exerciseName}
+							</Text>
+							{exercise.sets.map((s, idx) => (
+								<Flex key={`${idx}`} align="center">
+									<Text
+										fz="sm"
+										c={getSetColor(s.lot)}
+										mr="md"
+										fw="bold"
+										ff="monospace"
+									>
+										{match(s.lot)
+											.with(SetLot.Normal, () => idx + 1)
+											.otherwise(() => s.lot.at(0))}
+									</Text>
+									<DisplayExerciseStats
+										lot={exercise.exerciseLot}
+										statistic={s.statistic}
+									/>
+								</Flex>
+							))}
+						</Paper>
+					))}
 				</Stack>
 			</Container>
 		</>
