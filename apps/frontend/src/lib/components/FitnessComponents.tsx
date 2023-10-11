@@ -1,9 +1,13 @@
-import { Text } from "@mantine/core";
+import { Badge, Group, Text, useMantineTheme } from "@mantine/core";
 import {
 	ExerciseLot,
+	WorkoutSetPersonalBest,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
+import { startCase } from "@ryot/ts-utils";
+import { IconTrophy } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+import { getStringAsciiValue } from "../utilities";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
@@ -28,8 +32,12 @@ export const getSetStatisticsTextToDisplay = (
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
 	statistic: WorkoutSetStatistic;
+	personalBests?: WorkoutSetPersonalBest[];
 	hideExtras?: boolean;
 }) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+
 	const [first, second] = getSetStatisticsTextToDisplay(
 		props.lot,
 		props.statistic,
@@ -37,6 +45,24 @@ export const DisplayExerciseStats = (props: {
 	return (
 		<>
 			<Text fz={props.hideExtras ? "xs" : "sm"}>{first}</Text>
+			{props.personalBests ? (
+				<Group gap="xs" ml="xs">
+					{props.personalBests.map((pb) => (
+						<Badge
+							variant="light"
+							size="xs"
+							leftSection={<IconTrophy size="0.6rem" />}
+							color={
+								colors[
+									(getStringAsciiValue(pb) + colors.length) % colors.length
+								]
+							}
+						>
+							{startCase(pb)}
+						</Badge>
+					))}
+				</Group>
+			) : undefined}
 			{!props.hideExtras && second ? (
 				<Text ml="auto" fz={props.hideExtras ? "xs" : "sm"}>
 					{second}

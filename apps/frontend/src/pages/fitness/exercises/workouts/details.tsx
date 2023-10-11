@@ -62,7 +62,10 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					<Title>{workoutDetails.data.name}</Title>
 					<Box>
-						<Text c="dimmed">
+						<Text c="dimmed" span>
+							Done on{" "}
+						</Text>
+						<Text span>
 							{DateTime.fromJSDate(
 								workoutDetails.data.startTime,
 							).toLocaleString(DateTime.DATETIME_MED)}
@@ -111,6 +114,7 @@ const Page: NextPageWithLayout = () => {
 									<DisplayExerciseStats
 										lot={exercise.exerciseLot}
 										statistic={s.statistic}
+										personalBests={s.personalBests}
 									/>
 								</Flex>
 							))}
