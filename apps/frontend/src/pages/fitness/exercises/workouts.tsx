@@ -16,6 +16,7 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { UserWorkoutListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
+import { DateTime } from "luxon";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../../_app";
@@ -58,7 +59,19 @@ const Page: NextPageWithLayout = () => {
 							<Accordion>
 								{userWorkoutList.data.items.map((workout) => (
 									<Accordion.Item key={workout.id} value={workout.id}>
-										<Accordion.Control>{workout.name}</Accordion.Control>
+										<Accordion.Control>
+											<Box>
+												<Text size="sm">{workout.name}</Text>
+												<Text size="xs" c="dimmed">
+													{DateTime.fromJSDate(
+														workout.startTime,
+													).toLocaleString({
+														month: "long",
+														day: "numeric",
+													})}
+												</Text>
+											</Box>
+										</Accordion.Control>
 										<Accordion.Panel>
 											{JSON.stringify(workout, null, 2)}
 										</Accordion.Panel>
