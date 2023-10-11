@@ -222,7 +222,7 @@ dependencies = [
  "serde",
  "strum",
  "thiserror",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tower",
  "tracing",
  "tracing-futures",
@@ -239,7 +239,7 @@ dependencies = [
  "chrono",
  "cron",
  "futures 0.3.28",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tower",
 ]
 
@@ -257,7 +257,7 @@ dependencies = [
  "redis",
  "serde",
  "serde_json",
- "tokio 1.32.0",
+ "tokio 1.33.0",
 ]
 
 [[package]]
@@ -275,7 +275,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
- "tokio 1.32.0",
+ "tokio 1.33.0",
 ]
 
 [[package]]
@@ -419,7 +419,7 @@ dependencies = [
  "bytes 1.4.0",
  "futures-util",
  "serde_json",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-stream",
  "tokio-util",
  "tower-service",
@@ -630,7 +630,7 @@ dependencies = [
  "aws-smithy-async",
  "aws-smithy-types",
  "fastrand 2.0.0",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tracing",
  "zeroize",
 ]
@@ -737,7 +737,7 @@ checksum = "2cdb73f85528b9d19c23a496034ac53703955a59323d581c06aa27b4e4e247af"
 dependencies = [
  "futures-util",
  "pin-project-lite",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-stream",
 ]
 
@@ -781,7 +781,7 @@ dependencies = [
  "lazy_static",
  "pin-project-lite",
  "rustls 0.21.7",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tower",
  "tracing",
 ]
@@ -815,7 +815,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "pin-utils",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-util",
  "tracing",
 ]
@@ -863,7 +863,7 @@ dependencies = [
  "once_cell",
  "pin-project-lite",
  "pin-utils",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tracing",
 ]
 
@@ -878,7 +878,7 @@ dependencies = [
  "aws-smithy-types",
  "bytes 1.4.0",
  "http",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tracing",
 ]
 
@@ -952,7 +952,7 @@ dependencies = [
  "serde_urlencoded",
  "sha1 0.10.5",
  "sync_wrapper",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-tungstenite",
  "tower",
  "tower-layer",
@@ -992,7 +992,7 @@ dependencies = [
  "mime",
  "pin-project-lite",
  "serde",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tower",
  "tower-layer",
  "tower-service",
@@ -1416,7 +1416,7 @@ dependencies = [
  "futures-core",
  "memchr",
  "pin-project-lite",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-util",
 ]
 
@@ -1504,6 +1504,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7efb37c3e1ccb1ff97164ad95ac1606e8ccd35b3fa0a7d99a304c7f4a428cc24"
 dependencies = [
  "percent-encoding",
+ "time 0.3.22",
+ "version_check",
+]
+
+[[package]]
+name = "cookie"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cd91cf61412820176e137621345ee43b3f4423e589e7ae4e50d601d93e35ef8"
+dependencies = [
  "time 0.3.22",
  "version_check",
 ]
@@ -1798,7 +1808,7 @@ dependencies = [
  "crossbeam-queue 0.3.8",
  "num_cpus",
  "serde",
- "tokio 1.32.0",
+ "tokio 1.33.0",
 ]
 
 [[package]]
@@ -2397,7 +2407,7 @@ checksum = "3effbaf774a1da3462925bb182ccf975c284cf46edca5569ea93420a657af484"
 dependencies = [
  "futures-core",
  "pin-project-lite",
- "tokio 1.32.0",
+ "tokio 1.33.0",
 ]
 
 [[package]]
@@ -2472,7 +2482,7 @@ dependencies = [
  "http",
  "indexmap 1.9.3",
  "slab",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-util",
  "tracing",
 ]
@@ -2746,7 +2756,7 @@ dependencies = [
  "itoa",
  "pin-project-lite",
  "socket2 0.4.9",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tower-service",
  "tracing",
  "want",
@@ -2764,7 +2774,7 @@ dependencies = [
  "log",
  "rustls 0.21.7",
  "rustls-native-certs",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-rustls",
 ]
 
@@ -4171,7 +4181,7 @@ dependencies = [
  "pin-project-lite",
  "ryu",
  "sha1_smol",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-util",
  "url",
 ]
@@ -4213,14 +4223,14 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.9.6"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebee201405406dbf528b8b672104ae6d6d63e6d118cb10e4d51abbc7b58044ff"
+checksum = "d119d7c7ca818f8a53c300863d4f87566aac09943aef5b355bb83969dae75d87"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.3.9",
- "regex-syntax 0.7.5",
+ "regex-automata 0.4.1",
+ "regex-syntax 0.8.0",
 ]
 
 [[package]]
@@ -4234,13 +4244,13 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.3.9"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59b23e92ee4318893fa3fe3e6fb365258efbfe6ac6ab30f090cdcbb7aa37efa9"
+checksum = "465c6fc0621e4abc4187a2bda0937bfd4f722c2730b29562e19689ea796c9a4b"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-syntax 0.7.5",
+ "regex-syntax 0.8.0",
 ]
 
 [[package]]
@@ -4251,9 +4261,9 @@ checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 
 [[package]]
 name = "regex-syntax"
-version = "0.7.5"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbb5fb1acd8a1a18b3dd5be62d25485eb770e05afb408a9627d14d451bae12da"
+checksum = "c3cbb081b9784b07cceb8824c8583f86db4814d172ab043f3c23f7dc600bf83d"
 
 [[package]]
 name = "relative-path"
@@ -4296,7 +4306,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "system-configuration",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -4519,7 +4529,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.19",
+ "semver 1.0.20",
 ]
 
 [[package]]
@@ -4629,7 +4639,7 @@ dependencies = [
  "chrono-tz",
  "const-str",
  "convert_case",
- "cookie 0.17.0",
+ "cookie 0.18.0",
  "csv",
  "derive_more 1.0.0-beta.3",
  "dotenvy",
@@ -4663,7 +4673,7 @@ dependencies = [
  "sea-orm",
  "sea-orm-migration",
  "sea-query",
- "semver 1.0.19",
+ "semver 1.0.20",
  "serde",
  "serde-xml-rs",
  "serde_json",
@@ -4675,7 +4685,7 @@ dependencies = [
  "surf",
  "surf-governor",
  "surf-retry",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tower-http",
  "tracing",
  "tracing-appender",
@@ -5013,9 +5023,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.19"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad977052201c6de01a8ef2aa3378c4bd23217a056337d1d6da40468d267a4fb0"
+checksum = "836fa6a3e1e547f9a2c4040802ec865b5d85f4014efe00555d7090a3dcaa1090"
 
 [[package]]
 name = "semver-parser"
@@ -5411,7 +5421,7 @@ dependencies = [
  "sqlformat",
  "thiserror",
  "time 0.3.22",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-stream",
  "tracing",
  "url",
@@ -5454,7 +5464,7 @@ dependencies = [
  "sqlx-sqlite",
  "syn 1.0.109",
  "tempfile",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "url",
 ]
 
@@ -6011,9 +6021,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.32.0"
+version = "1.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17ed6077ed6cd6c74735e21f37eb16dc3935f96878b1fe961074089cc80893f9"
+checksum = "4f38200e3ef7995e5ef13baec2f432a6da0aa9ac495b2c0e8f3b7eec2c92d653"
 dependencies = [
  "backtrace",
  "bytes 1.4.0",
@@ -6118,7 +6128,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
 dependencies = [
  "rustls 0.21.7",
- "tokio 1.32.0",
+ "tokio 1.33.0",
 ]
 
 [[package]]
@@ -6129,7 +6139,7 @@ checksum = "397c988d37662c7dda6d2208364a706264bf3d6138b11d436cbac0ad38832842"
 dependencies = [
  "futures-core",
  "pin-project-lite",
- "tokio 1.32.0",
+ "tokio 1.33.0",
 ]
 
 [[package]]
@@ -6193,7 +6203,7 @@ checksum = "2b2dbec703c26b00d74844519606ef15d09a7d6857860f84ad223dec002ddea2"
 dependencies = [
  "futures-util",
  "log",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tungstenite",
 ]
 
@@ -6241,7 +6251,7 @@ dependencies = [
  "futures-io",
  "futures-sink",
  "pin-project-lite",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tracing",
 ]
 
@@ -6309,7 +6319,7 @@ dependencies = [
  "futures-util",
  "pin-project",
  "pin-project-lite",
- "tokio 1.32.0",
+ "tokio 1.33.0",
  "tokio-util",
  "tower-layer",
  "tower-service",

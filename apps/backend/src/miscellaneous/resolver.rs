@@ -668,7 +668,7 @@ fn create_cookie(
     insecure_cookie: bool,
     same_site_none: bool,
 ) -> Result<()> {
-    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
+    let mut cookie = Cookie::build((COOKIE_NAME, api_key.to_string())).secure(!insecure_cookie);
     cookie = if expires {
         cookie.expires(OffsetDateTime::now_utc())
     } else {
@@ -679,7 +679,7 @@ fn create_cookie(
     } else {
         cookie.same_site(SameSite::Strict)
     };
-    let cookie = cookie.finish();
+    let cookie = cookie.build();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
     Ok(())
 }
