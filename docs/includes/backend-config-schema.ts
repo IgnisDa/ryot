@@ -215,6 +215,11 @@ export interface ServerConfig {
 	/** This will set SameSite=None on the auth cookies. */
 	samesite_none: boolean;
 	/**
+	 * Whether monitored media will be updated.
+	 * @default true
+	 */
+	update_monitored_media: boolean;
+	/**
 	 * Whether videos will be displayed in the media details.
 	 * @default false
 	 */
