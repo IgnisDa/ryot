@@ -1,3 +1,4 @@
+import { getSetStatisticsTextToDisplay } from "@/lib/components/FitnessComponents";
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -16,7 +17,10 @@ import {
 	Title,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { UserWorkoutListDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	UserWorkoutListDocument,
+	type UserWorkoutListQuery,
+} from "@ryot/generated/graphql/backend/graphql";
 import { IconClock, IconTrophy, IconWeight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -34,6 +38,27 @@ const DisplayStat = (props: {
 			<Text size="sm" span>
 				{props.data}
 			</Text>
+		</Flex>
+	);
+};
+
+const ExerciseDisplay = (props: {
+	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
+}) => {
+	const [stat, _] = getSetStatisticsTextToDisplay(
+		props.exercise.lot,
+		props.exercise.bestSet.statistic,
+	);
+
+	return (
+		<Flex gap="xs">
+			<Text fz="sm" ff="monospace">
+				{props.exercise.numSets} ×
+			</Text>
+			<Text style={{ flex: 1 }} fz="sm">
+				{props.exercise.name}
+			</Text>
+			<Text fz="sm">{stat}</Text>
 		</Flex>
 	);
 };
@@ -108,7 +133,16 @@ const Page: NextPageWithLayout = () => {
 											</Group>
 										</Accordion.Control>
 										<Accordion.Panel>
-											{JSON.stringify(workout, null, 2)}
+											<Group justify="space-between">
+												<Text fw="bold">Exercise</Text>
+												<Text fw="bold">Best set</Text>
+											</Group>
+											{workout.summary.exercises.map((exercise, idx) => (
+												<ExerciseDisplay
+													exercise={exercise}
+													key={`${idx}-${exercise.name}`}
+												/>
+											))}
 										</Accordion.Panel>
 									</Accordion.Item>
 								))}
