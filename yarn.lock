@@ -5177,7 +5177,7 @@ __metadata:
   resolution: "@ryot/browser-extension@workspace:apps/browser-extension"
   dependencies:
     "@types/chrome": 0.0.246
-    "@types/node": 20.8.3
+    "@types/node": 20.8.4
     plasmo: 0.83.0
   languageName: unknown
   linkType: soft
@@ -5197,12 +5197,12 @@ __metadata:
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
-    "@tabler/icons-react": 2.38.0
+    "@tabler/icons-react": 2.39.0
     "@tanstack/react-query": 4.36.1
     "@types/luxon": 3.3.2
-    "@types/node": 20.8.3
-    "@types/react": 18.2.25
-    "@types/react-dom": 18.2.11
+    "@types/node": 20.8.4
+    "@types/react": 18.2.28
+    "@types/react-dom": 18.2.13
     clsx: 2.0.0
     dayjs: 1.11.10
     embla-carousel-react: 8.0.0-rc14
@@ -5249,7 +5249,7 @@ __metadata:
   dependencies:
     "@ryot/generated": "workspace:*"
     graphql-request: 6.1.0
-    graphql-scalars: 1.22.2
+    graphql-scalars: 1.22.4
   languageName: unknown
   linkType: soft
 
@@ -5687,22 +5687,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tabler/icons-react@npm:2.38.0":
-  version: 2.38.0
-  resolution: "@tabler/icons-react@npm:2.38.0"
+"@tabler/icons-react@npm:2.39.0":
+  version: 2.39.0
+  resolution: "@tabler/icons-react@npm:2.39.0"
   dependencies:
-    "@tabler/icons": 2.38.0
+    "@tabler/icons": 2.39.0
     prop-types: ^15.7.2
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0
-  checksum: 82ff7c59c365b4b7cb74e511cdc5cb1630915d7aa7e9522483aed307d9688a6b8b8510a3765aef3e8694483ea44ef32232285b9e5b0ebe1c2beddbd7f619167a
+  checksum: d3d671e5d3d265b1eefa773d45bb101bc9de228c7ac24d1c486cf86339b5ad4ce55a4225cb3fe04f45d260763dbf6e9712f3c208e4c7898731700f3eb716b8e0
   languageName: node
   linkType: hard
 
-"@tabler/icons@npm:2.38.0":
-  version: 2.38.0
-  resolution: "@tabler/icons@npm:2.38.0"
-  checksum: 030af0ed999103334a9d823aae7069a308b2fffb79b89ac6b7a46ba27eed4f9527b07c77c961c688234808ba93bc1e7b7c401dfff3e386cf342e426754ceb096
+"@tabler/icons@npm:2.39.0":
+  version: 2.39.0
+  resolution: "@tabler/icons@npm:2.39.0"
+  checksum: 72a5593454bb89c5d0301362a6586dd21d486ef86b87a02d76a12c94e101a8afacde2d66c1dbcf8ed12f5899d50b38b2e8670163c1b80538b9fd4835597ff89b
   languageName: node
   linkType: hard
 
@@ -5945,10 +5945,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:20.8.3":
-  version: 20.8.3
-  resolution: "@types/node@npm:20.8.3"
-  checksum: bfb88b341faeb19f8fd37306a3bf433721b876c6491d10fcb0b13fd26601fa36ee45113dd82b1e1c23e3c957dff5b99f81a16493cefa03abe797e41a2487a4f7
+"@types/node@npm:20.8.4":
+  version: 20.8.4
+  resolution: "@types/node@npm:20.8.4"
+  dependencies:
+    undici-types: ~5.25.1
+  checksum: 2106b9ef9750297cac68249428d7067c4d22c26908854165b70a164e34e900f4c34bb9bf3887c9391206b500d3e87171d03b1846e25788925236a0354390d278
   languageName: node
   linkType: hard
 
@@ -5984,12 +5986,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:18.2.11":
-  version: 18.2.11
-  resolution: "@types/react-dom@npm:18.2.11"
+"@types/react-dom@npm:18.2.13":
+  version: 18.2.13
+  resolution: "@types/react-dom@npm:18.2.13"
   dependencies:
     "@types/react": "*"
-  checksum: 70dbdd2f8836a797ab8a3771c773f51023aab187d4d88ed3733bb3f2cbc2146057788a0095a03637101aeab9a48fce0ea369f96a35fc07e785ef53b8ab870885
+  checksum: 22ba066b141dca5a5a9227fae0afc7c94b470fff8e8a38ade72649da57a8ea04d0cb2ba3e22005e7d8e772d49bddd28855b1dd98e6defd033bba6afb6edff883
   languageName: node
   linkType: hard
 
@@ -6004,14 +6006,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:18.2.25":
-  version: 18.2.25
-  resolution: "@types/react@npm:18.2.25"
+"@types/react@npm:18.2.28":
+  version: 18.2.28
+  resolution: "@types/react@npm:18.2.28"
   dependencies:
     "@types/prop-types": "*"
     "@types/scheduler": "*"
     csstype: ^3.0.2
-  checksum: 177515cd44135d56191ec6c5c10edd490c96c175d37624d9c37bc2007c3abcf6cc2d2137d2a073d692cdc5129d5d5785bd60a6ddd315f695da5d8b989fa2afc5
+  checksum: 81381bedeba83278f4c9febb0b83e0bd3f42a25897a50b9cb36ef53651d34b3d50f87ebf11211ea57ea575131f85d31e93e496ce46478a00b0f9bf7b26b5917a
   languageName: node
   linkType: hard
 
@@ -8920,14 +8922,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql-scalars@npm:1.22.2":
-  version: 1.22.2
-  resolution: "graphql-scalars@npm:1.22.2"
+"graphql-scalars@npm:1.22.4":
+  version: 1.22.4
+  resolution: "graphql-scalars@npm:1.22.4"
   dependencies:
     tslib: ^2.5.0
   peerDependencies:
     graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
-  checksum: 4a5e7aa2d81fbdeeef10ca77b44b4d171f5798640db4b57f65dd3285ce9d17e55714cc3e0460e917041c0432f25881955204552937876397f135fd95eddb8b0a
+  checksum: 4688610c90f6b4de466c57c656ca3fc2a3c2dded2b61d5ecc8882051c7ab0cc1c8db85774fe30aa3f13d534d3c8c202ec23c2e504afcf65f102259ea82a22e7e
   languageName: node
   linkType: hard
 
@@ -13789,6 +13791,13 @@ __metadata:
   version: 0.1.2
   resolution: "unc-path-regex@npm:0.1.2"
   checksum: a05fa2006bf4606051c10fc7968f08ce7b28fa646befafa282813aeb1ac1a56f65cb1b577ca7851af2726198d59475bb49b11776036257b843eaacee2860a4ec
+  languageName: node
+  linkType: hard
+
+"undici-types@npm:~5.25.1":
+  version: 5.25.3
+  resolution: "undici-types@npm:5.25.3"
+  checksum: ec9d2cc36520cbd9fbe3b3b6c682a87fe5be214699e1f57d1e3d9a2cb5be422e62735f06e0067dc325fd3dd7404c697e4d479f9147dc8a804e049e29f357f2ff
   languageName: node
   linkType: hard
 
