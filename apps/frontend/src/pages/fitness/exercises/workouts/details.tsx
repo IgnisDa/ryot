@@ -4,6 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getSetColor } from "@/lib/utilities";
 import {
+	Anchor,
 	Avatar,
 	Box,
 	Container,
@@ -46,13 +47,20 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const workoutId = router.query.id?.toString();
 
-	const workoutDetails = useQuery(["workoutDetails"], async () => {
-		invariant(workoutId);
-		const { workoutDetails } = await gqlClient.request(WorkoutDetailsDocument, {
-			workoutId,
-		});
-		return workoutDetails;
-	});
+	const workoutDetails = useQuery(
+		["workoutDetails"],
+		async () => {
+			invariant(workoutId);
+			const { workoutDetails } = await gqlClient.request(
+				WorkoutDetailsDocument,
+				{
+					workoutId,
+				},
+			);
+			return workoutDetails;
+		},
+		{ staleTime: Infinity },
+	);
 
 	return workoutDetails.data ? (
 		<>
@@ -114,7 +122,14 @@ const Page: NextPageWithLayout = () => {
 									{exercise.assets.images.length > 0 ? (
 										<Avatar.Group>
 											{exercise.assets.images.map((i) => (
-												<Avatar src={i} key={i} />
+												<Anchor
+													key={i}
+													href={i}
+													target="_blank"
+													rel="noopener noreferrer"
+												>
+													<Avatar src={i} />
+												</Anchor>
 											))}
 										</Avatar.Group>
 									) : undefined}
