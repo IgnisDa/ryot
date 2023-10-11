@@ -63,6 +63,7 @@ fragment WorkoutSummaryPart on WorkoutSummary {
   exercises {
     numSets
     name
+    lot
     bestSet {
       statistic {
         ...WorkoutSetStatisticPart

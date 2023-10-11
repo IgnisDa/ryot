@@ -1073,6 +1073,8 @@ pub mod media {
 }
 
 pub mod fitness {
+    use crate::migrator::ExerciseLot;
+
     use super::*;
 
     #[derive(
@@ -1404,6 +1406,7 @@ pub mod fitness {
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
         pub name: String,
+        pub lot: ExerciseLot,
         pub best_set: WorkoutSetRecord,
     }
 

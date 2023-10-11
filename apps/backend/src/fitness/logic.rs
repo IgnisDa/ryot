@@ -242,15 +242,18 @@ impl UserWorkoutInput {
             association_extra_information.personal_bests = personal_bests;
             association.extra_information = ActiveValue::Set(association_extra_information);
             association.update(db).await?;
-            exercises.push(ProcessedExercise {
-                exercise_id: ex.exercise_id,
-                exercise_name: db_ex.name,
-                sets,
-                notes: ex.notes,
-                rest_time: ex.rest_time,
-                assets: ex.assets,
-                total,
-            });
+            exercises.push((
+                db_ex.lot,
+                ProcessedExercise {
+                    exercise_id: ex.exercise_id,
+                    exercise_name: db_ex.name,
+                    sets,
+                    notes: ex.notes,
+                    rest_time: ex.rest_time,
+                    assets: ex.assets,
+                    total,
+                },
+            ));
         }
         let summary_total = workout_totals.into_iter().sum();
         let model = workout::Model {
@@ -265,9 +268,10 @@ impl UserWorkoutInput {
                 total: summary_total,
                 exercises: exercises
                     .iter()
-                    .map(|e| WorkoutSummaryExercise {
+                    .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
                         name: e.exercise_name.clone(),
+                        lot: lot.clone(),
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
                     .collect(),
@@ -275,7 +279,7 @@ impl UserWorkoutInput {
             information: WorkoutInformation {
                 supersets: self.supersets,
                 assets: self.assets,
-                exercises,
+                exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
             },
         };
         let insert: workout::ActiveModel = model.into();
