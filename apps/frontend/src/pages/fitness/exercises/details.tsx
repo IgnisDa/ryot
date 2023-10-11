@@ -13,7 +13,6 @@ import {
 	List,
 	Paper,
 	ScrollArea,
-	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -42,10 +41,10 @@ import type { NextPageWithLayout } from "../../_app";
 const DisplayData = (props: { name: string; data: string[] }) => {
 	return (
 		<Box>
-			<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
+			<Text c="dimmed" tt="capitalize" fz="xs">
 				{startCase(props.name)}
 			</Text>
-			<Text ta="center" fz={{ base: "sm", md: "md" }}>
+			<Text fz={{ base: "sm", md: "md" }}>
 				{props.data.map((s) => startCase(s.toLowerCase())).join(", ")}
 			</Text>
 		</Box>
@@ -149,29 +148,27 @@ const Page: NextPageWithLayout = () => {
 										))}
 									</Flex>
 								</ScrollArea>
-								<Paper p="xs">
-									<SimpleGrid cols={3}>
-										{exerciseDetails.data.attributes.muscles.length > 0 ? (
-											<DisplayData
-												name="muscles"
-												data={exerciseDetails.data.attributes.muscles}
-											/>
-										) : undefined}
-										{["level", "force", "mechanic", "equipment"].map((f) => (
-											<>
-												{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
-												{(exerciseDetails.data as any)[f] ? (
-													<DisplayData
-														name={f}
-														// biome-ignore lint/suspicious/noExplicitAny: required here
-														data={[(exerciseDetails.data as any)[f]]}
-														key={f}
-													/>
-												) : undefined}
-											</>
-										))}
-									</SimpleGrid>
-								</Paper>
+								<Stack py="xs" gap="xs">
+									{exerciseDetails.data.attributes.muscles.length > 0 ? (
+										<DisplayData
+											name="muscles"
+											data={exerciseDetails.data.attributes.muscles}
+										/>
+									) : undefined}
+									{["level", "force", "mechanic", "equipment"].map((f) => (
+										<>
+											{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
+											{(exerciseDetails.data as any)[f] ? (
+												<DisplayData
+													name={f}
+													// biome-ignore lint/suspicious/noExplicitAny: required here
+													data={[(exerciseDetails.data as any)[f]]}
+													key={f}
+												/>
+											) : undefined}
+										</>
+									))}
+								</Stack>
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>
@@ -222,7 +219,7 @@ const Page: NextPageWithLayout = () => {
 							{userExerciseDetails.data ? (
 								<Stack>
 									<Box>
-										<Text size="xs" color="dimmed">
+										<Text size="xs" c="dimmed">
 											LIFETIME STATS
 										</Text>
 										<DisplayLifetimeStatistic
