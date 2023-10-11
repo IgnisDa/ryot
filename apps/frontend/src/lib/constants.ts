@@ -47,6 +47,7 @@ export const APP_ROUTES = {
 		},
 		measurements: "/fitness/measurements",
 		workouts: "/fitness/exercises/workouts/list",
+		workoutDetails: "/fitness/exercises/workouts/details",
 	},
 } as const;
 

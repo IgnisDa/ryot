@@ -1,11 +1,12 @@
 import { getSetStatisticsTextToDisplay } from "@/lib/components/FitnessComponents";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Accordion,
+	Anchor,
 	Box,
 	Center,
 	Container,
@@ -27,6 +28,8 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../../../_app";
+import Link from "next/link";
+import { withQuery } from "ufo";
 
 const DisplayStat = (props: {
 	icon: ReactElement;
@@ -100,7 +103,11 @@ const Page: NextPageWithLayout = () => {
 							</Box>
 							<Accordion>
 								{userWorkoutList.data.items.map((workout) => (
-									<Accordion.Item key={workout.id} value={workout.id}>
+									<Accordion.Item
+										key={workout.id}
+										value={workout.id}
+										data-workout-id={workout.id}
+									>
 										<Accordion.Control>
 											<Text>{workout.name}</Text>
 											<Text size="sm" c="dimmed">
@@ -143,6 +150,18 @@ const Page: NextPageWithLayout = () => {
 													key={`${idx}-${exercise.name}`}
 												/>
 											))}
+											<Anchor
+												mt="xs"
+												display="block"
+												w="100%"
+												ta="right"
+												component={Link}
+												href={withQuery(APP_ROUTES.fitness.workoutDetails, {
+													id: workout.id,
+												})}
+											>
+												View details
+											</Anchor>
 										</Accordion.Panel>
 									</Accordion.Item>
 								))}
