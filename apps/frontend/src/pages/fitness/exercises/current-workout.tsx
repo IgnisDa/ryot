@@ -149,6 +149,7 @@ const StatInput = (props: {
 						}),
 					);
 				}}
+				onFocus={(e) => e.target.select()}
 				size="xs"
 				styles={{ input: { width: rem(72), textAlign: "center" } }}
 				decimalScale={
