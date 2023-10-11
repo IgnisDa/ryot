@@ -4,6 +4,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getSetColor } from "@/lib/utilities";
 import {
+	Avatar,
 	Box,
 	Container,
 	Flex,
@@ -99,24 +100,48 @@ const Page: NextPageWithLayout = () => {
 								<Text fw="bold">{exercise.exerciseName}</Text>
 							</Box>
 							{exercise.sets.map((s, idx) => (
-								<Flex key={`${idx}`} align="center">
-									<Text
-										fz="sm"
-										c={getSetColor(s.lot)}
-										mr="md"
-										fw="bold"
-										ff="monospace"
-									>
-										{match(s.lot)
-											.with(SetLot.Normal, () => idx + 1)
-											.otherwise(() => s.lot.at(0))}
-									</Text>
-									<DisplayExerciseStats
-										lot={exercise.exerciseLot}
-										statistic={s.statistic}
-										personalBests={s.personalBests}
-									/>
-								</Flex>
+								<Box
+									key={`${idx}`}
+									pt={
+										idx !== 0 &&
+										(exercise.assets.images.length > 0 ||
+											exercise.assets.videos.length > 0 ||
+											exercise.notes.length > 0)
+											? "xs"
+											: undefined
+									}
+								>
+									{exercise.assets.images.length > 0 ? (
+										<Avatar.Group>
+											{exercise.assets.images.map((i) => (
+												<Avatar src={i} key={i} />
+											))}
+										</Avatar.Group>
+									) : undefined}
+									{exercise.notes.map((n) => (
+										<Text c="dimmed" key={n} size="xs">
+											{n}
+										</Text>
+									))}
+									<Flex align="center">
+										<Text
+											fz="sm"
+											c={getSetColor(s.lot)}
+											mr="md"
+											fw="bold"
+											ff="monospace"
+										>
+											{match(s.lot)
+												.with(SetLot.Normal, () => idx + 1)
+												.otherwise(() => s.lot.at(0))}
+										</Text>
+										<DisplayExerciseStats
+											lot={exercise.exerciseLot}
+											statistic={s.statistic}
+											personalBests={s.personalBests}
+										/>
+									</Flex>
+								</Box>
 							))}
 						</Paper>
 					))}
