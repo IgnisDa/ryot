@@ -400,7 +400,7 @@ const Page: NextPageWithLayout = () => {
 													...lm.data,
 													publishYear: lm.data.publishYear?.toString(),
 												}}
-												averageRating={lm.averageRating}
+												averageRating={lm.averageRating ?? undefined}
 												lot={lot}
 												href={withQuery(
 													APP_ROUTES.media.individualMediaItem.details,

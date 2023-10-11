@@ -874,7 +874,7 @@ const Page: NextPageWithLayout = () => {
 									/>
 
 									<Text fz="sm">
-										{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
+										{Number(mediaDetails.data.providerRating).toFixed(1)}
 										{match(mediaDetails.data.source)
 											.with(
 												MetadataSource.Anilist,
@@ -919,7 +919,7 @@ const Page: NextPageWithLayout = () => {
 										style={{ color: "#EBE600FF" }}
 									/>
 									<Text fz="sm">
-										{parseFloat(userMediaDetails.data.averageRating).toFixed(1)}
+										{Number(userMediaDetails.data.averageRating).toFixed(1)}
 										{preferences.data.general.reviewScale ===
 										UserReviewScale.OutOfFive
 											? undefined
