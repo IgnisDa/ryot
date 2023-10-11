@@ -11,12 +11,12 @@ export const getSetStatisticsTextToDisplay = (
 ) => {
 	return match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${statistic.duration} km x ${statistic.duration} min`,
+			`${statistic.duration} km  × ${statistic.duration} min`,
 			`${(statistic.distance || 1) / (statistic.duration || 1)} km/min`,
 		])
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
-			`${statistic.weight} kg x ${statistic.reps}`,
+			`${statistic.weight} kg  × ${statistic.reps}`,
 			`${(statistic.weight || 1) * (statistic.reps || 1)} vol`,
 		])
 		.exhaustive();
