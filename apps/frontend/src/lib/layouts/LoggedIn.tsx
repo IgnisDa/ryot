@@ -90,22 +90,22 @@ const Footer = () => {
 					{text}
 				</Text>
 			) : undefined}
-			<Flex gap={80} justify={"center"}>
+			<Flex gap={80} justify="center">
 				<Anchor
 					href={`${coreDetails.data.repositoryLink}/releases/v${coreDetails.data.version}`}
 					target="_blank"
 				>
-					<Text c="red" fw={"bold"}>
+					<Text c="red" fw="bold">
 						v{coreDetails.data.version}
 					</Text>
 				</Anchor>
 				<Anchor href="https://diptesh.me" target="_blank">
-					<Text c="indigo" fw={"bold"}>
+					<Text c="indigo" fw="bold">
 						{coreDetails.data.authorName}
 					</Text>
 				</Anchor>
 				<Anchor href={coreDetails.data.repositoryLink} target="_blank">
-					<Text c="orange" fw={"bold"}>
+					<Text c="orange" fw="bold">
 						Github
 					</Text>
 				</Anchor>
@@ -279,7 +279,7 @@ export default function ({ children }: { children: ReactElement }) {
 				}`,
 			})) || []),
 		{ label: "Exercises", href: APP_ROUTES.fitness.exercises.list },
-	].map((link, _index) => ({
+	].map((link) => ({
 		label: link.label,
 		link: link.href,
 	}));
@@ -337,7 +337,7 @@ export default function ({ children }: { children: ReactElement }) {
 			}}
 		>
 			<AppShell.Navbar py="md" px="md">
-				<Flex justify={"end"} hiddenFrom="sm">
+				<Flex justify="end" hiddenFrom="sm">
 					<Burger
 						opened={opened}
 						onClick={toggle}
@@ -433,7 +433,7 @@ export default function ({ children }: { children: ReactElement }) {
 					/>
 				</Box>
 				<Box>
-					<Flex direction={"column"} justify={"center"} gap="md">
+					<Flex direction="column" justify="center" gap="md">
 						<ThemeToggle />
 						<UnstyledButton
 							mx="auto"
@@ -448,8 +448,8 @@ export default function ({ children }: { children: ReactElement }) {
 					</Flex>
 				</Box>
 			</AppShell.Navbar>
-			<Flex direction={"column"} h="90%">
-				<Flex justify={"space-between"} p="md" hiddenFrom="sm">
+			<Flex direction="column" h="90%">
+				<Flex justify="space-between" p="md" hiddenFrom="sm">
 					<Link href={APP_ROUTES.dashboard} style={{ all: "unset" }}>
 						<Group>
 							<Image
@@ -462,7 +462,7 @@ export default function ({ children }: { children: ReactElement }) {
 								w={40}
 								radius="md"
 							/>
-							<Text size={"xl"} className={classes.logoText}>
+							<Text size="xl" className={classes.logoText}>
 								Ryot
 							</Text>
 						</Group>

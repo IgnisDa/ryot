@@ -1,6 +1,7 @@
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { queryClient } from "@/lib/services/api";
 import {
 	ActionIcon,
@@ -72,7 +73,7 @@ export function localStorageColorSchemeManager({
 }
 
 const colorSchemeManager = localStorageColorSchemeManager({
-	key: "mantine-color-scheme",
+	key: LOCAL_STORAGE_KEYS.colorScheme,
 });
 
 // biome-ignore lint/complexity/noBannedTypes: taken from NextJS docs
@@ -137,7 +138,7 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 							modalProps={{ centered: true, title: "Confirmation" }}
 						>
 							<Notifications />
-							<Flex direction={"column"} style={{ minHeight: "100vh" }}>
+							<Flex direction="column" style={{ minHeight: "100vh" }}>
 								<Flex style={{ flexGrow: 1 }}>
 									{getLayout(<Component {...pageProps} />)}
 								</Flex>

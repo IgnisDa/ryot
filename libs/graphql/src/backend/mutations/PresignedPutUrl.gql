@@ -1,6 +1,0 @@
-mutation PresignedPutUrl($fileName: String!) {
-  presignedPutUrl(fileName: $fileName) {
-    key
-    uploadUrl
-  }
-}

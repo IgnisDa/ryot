@@ -184,8 +184,8 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Perform a new import | Ryot</title>
 			</Head>
-			<Container size={"xs"}>
-				<Tabs defaultValue={"import"}>
+			<Container size="xs">
+				<Tabs defaultValue="import">
 					<Tabs.List>
 						<Tabs.Tab value="import">Import</Tabs.Tab>
 						<Tabs.Tab value="export">Export</Tabs.Tab>
@@ -259,7 +259,7 @@ const Page: NextPageWithLayout = () => {
 					>
 						<Tabs.Panel value="export">
 							<Stack>
-								<Flex justify={"space-between"} align={"center"}>
+								<Flex justify="space-between" align="center">
 									<Title order={2}>Export data</Title>
 									<Group>
 										<Anchor
@@ -288,7 +288,7 @@ const Page: NextPageWithLayout = () => {
 											title="This token will be shown only once"
 											color="yellow"
 										>
-											<Flex align={"center"}>
+											<Flex align="center">
 												<CopyButton value={generateAuthToken.data}>
 													{({ copied, copy }) => (
 														<Tooltip
@@ -321,7 +321,7 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
 							<Stack>
-								<Flex justify={"space-between"} align={"center"}>
+								<Flex justify="space-between" align="center">
 									<Title order={2}>Import data</Title>
 									<Group>
 										<Anchor
@@ -346,7 +346,7 @@ const Page: NextPageWithLayout = () => {
 										striped
 										// TODO: Bring this back when mantine supports it
 										// animate
-										size={"sm"}
+										size="sm"
 										color="orange"
 									/>
 								) : undefined}

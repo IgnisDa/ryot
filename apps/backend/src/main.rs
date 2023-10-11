@@ -27,7 +27,7 @@ use axum::{
     Extension, Server,
 };
 use itertools::Itertools;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::try_join;
@@ -42,8 +42,10 @@ use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
     config::load_app_config,
     config::AppConfig,
+    entities::prelude::Exercise,
     graphql::get_schema,
     migrator::Migrator,
+    models::media::ExportAllResponse,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
         static_handler, upload_file,
@@ -165,8 +167,17 @@ async fn main() -> Result<()> {
     )
     .await;
 
+    if Exercise::find().count(&db).await? == 0 {
+        tracing::info!("Instance does not have exercises data. Deploying job to download them.");
+        app_services
+            .exercise_service
+            .deploy_update_exercise_library_job()
+            .await
+            .unwrap();
+    }
+
     if cfg!(debug_assertions) {
-        use specta::export;
+        use schematic::schema::{typescript::TypeScriptRenderer, SchemaGenerator};
 
         // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
@@ -176,18 +187,24 @@ async fn main() -> Result<()> {
             .unwrap()
             .join("docs")
             .join("includes");
-        let mut generator = schematic::schema::SchemaGenerator::default();
+
+        let mut generator = SchemaGenerator::default();
         generator.add::<AppConfig>();
         generator
             .generate(
                 base_dir.join("backend-config-schema.ts"),
-                schematic::schema::typescript::TypeScriptRenderer::default(),
+                TypeScriptRenderer::default(),
             )
             .unwrap();
-        let export_path = base_dir.join("export-schema.ts");
-        if !export_path.exists() {
-            export::ts(export_path.to_str().unwrap()).unwrap();
-        }
+
+        let mut generator = SchemaGenerator::default();
+        generator.add::<ExportAllResponse>();
+        generator
+            .generate(
+                base_dir.join("export-schema.ts"),
+                TypeScriptRenderer::default(),
+            )
+            .unwrap();
     }
 
     let schema = get_schema(&app_services).await;
@@ -235,6 +252,9 @@ async fn main() -> Result<()> {
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
+        let tz: chrono_tz::Tz = env::var("TZ")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| chrono_tz::Etc::GMT);
         let mn = Monitor::new()
             // cron jobs
             .register_with_count(1, move |c| {
@@ -245,7 +265,7 @@ async fn main() -> Result<()> {
                                 .unwrap(),
                         )
                         .timer(SleepTimer)
-                        .to_stream(),
+                        .to_stream_with_timezone(tz),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_1.clone()))
@@ -257,7 +277,7 @@ async fn main() -> Result<()> {
                         // every day
                         CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
                             .timer(SleepTimer)
-                            .to_stream(),
+                            .to_stream_with_timezone(tz),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(importer_service_2.clone()))
@@ -271,7 +291,7 @@ async fn main() -> Result<()> {
                             Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
                         )
                         .timer(SleepTimer)
-                        .to_stream(),
+                        .to_stream_with_timezone(tz),
                     )
                     .layer(ApalisTraceLayer::new())
                     .layer(ApalisExtension(media_service_3.clone()))

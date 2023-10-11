@@ -34,6 +34,7 @@ mod m20230927_add_person_id_field_to_review;
 mod m20230927_change_faulty_index_person_table;
 mod m20230927_remove_useless_tables;
 mod m20231003_create_partial_metadata_to_person;
+mod m20231010_change_name_field_workout_table;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -85,6 +86,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230927_change_faulty_index_person_table::Migration),
             Box::new(m20230927_remove_useless_tables::Migration),
             Box::new(m20231003_create_partial_metadata_to_person::Migration),
+            Box::new(m20231010_change_name_field_workout_table::Migration),
         ]
     }
 }

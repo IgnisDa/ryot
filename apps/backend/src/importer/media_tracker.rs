@@ -269,7 +269,8 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             source,
             lot,
             collections,
-            identifier: match need_details {
+            identifier: "".to_string(),
+            internal_identifier: Some(match need_details {
                 false => ImportOrExportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
                     identifier,
                     title: details.title,
@@ -301,7 +302,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     s3_images: vec![],
                 })),
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
-            },
+            }),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {

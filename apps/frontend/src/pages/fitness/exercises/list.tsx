@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -16,6 +16,8 @@ import {
 	Container,
 	Flex,
 	Group,
+	Indicator,
+	MantineThemeProvider,
 	Modal,
 	Pagination,
 	Select,
@@ -36,8 +38,10 @@ import {
 	type ExerciseListFilter,
 	ExerciseLot,
 	ExerciseParametersDocument,
+	ExerciseSortBy,
 	ExercisesListDocument,
 	SetLot,
+	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -51,7 +55,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { produce } from "immer";
+import { createDraft, finishDraft, produce } from "immer";
 import { useAtom } from "jotai";
 import Head from "next/head";
 import Link from "next/link";
@@ -81,15 +85,20 @@ const Page: NextPageWithLayout = () => {
 	}>([]);
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedExercisesPage",
+		key: LOCAL_STORAGE_KEYS.savedExercisesPage,
 	});
 	const [query, setQuery] = useLocalStorage({
-		key: "savedExercisesQuery",
+		key: LOCAL_STORAGE_KEYS.savedExercisesQuery,
 		getInitialValueInEffect: false,
 	});
 	const [exerciseFilters, setExerciseFilters] = useLocalStorage({
-		key: "savedExerciseFilters",
+		key: LOCAL_STORAGE_KEYS.savedExerciseFilters,
 		defaultValue: defaultFilterValue,
+		getInitialValueInEffect: true,
+	});
+	const [exerciseSortBy, setExerciseSortBy] = useLocalStorage<ExerciseSortBy>({
+		key: LOCAL_STORAGE_KEYS.savedExerciseSortBy,
+		defaultValue: ExerciseSortBy.NumTimesPerformed,
 		getInitialValueInEffect: true,
 	});
 	const [
@@ -111,7 +120,13 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 	const exercisesList = useQuery({
-		queryKey: ["exercisesList", activePage, debouncedQuery, exerciseFilters],
+		queryKey: [
+			"exercisesList",
+			activePage,
+			debouncedQuery,
+			exerciseFilters,
+			exerciseSortBy,
+		],
 		queryFn: async () => {
 			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
 				input: {
@@ -120,6 +135,7 @@ const Page: NextPageWithLayout = () => {
 						query: debouncedQuery || undefined,
 					},
 					filter: exerciseFilters,
+					sortBy: exerciseSortBy,
 				},
 			});
 			return exercisesList;
@@ -150,9 +166,9 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Exercises | Ryot</title>
 			</Head>
-			<Container size={"md"}>
-				<Stack gap={"xl"}>
-					<Flex align={"center"} gap={"md"}>
+			<Container size="md">
+				<Stack gap="xl">
+					<Flex align="center" gap="md">
 						<Title>Exercises</Title>
 						<ActionIcon
 							color="green"
@@ -212,46 +228,72 @@ const Page: NextPageWithLayout = () => {
 									centered
 									withCloseButton={false}
 								>
-									<Stack>
-										<Group>
-											<Title order={3}>Filters</Title>
-											<ActionIcon onClick={resetFilters}>
-												<IconFilterOff size="1.5rem" />
-											</ActionIcon>
-										</Group>
-										{Object.keys(defaultFilterValue).map((f) => (
+									<MantineThemeProvider
+										theme={{
+											components: {
+												Select: Select.extend({ defaultProps: { size: "xs" } }),
+											},
+										}}
+									>
+										<Stack gap={4}>
+											<Group>
+												<Title order={3}>Filters</Title>
+												<ActionIcon onClick={resetFilters}>
+													<IconFilterOff size="1.5rem" />
+												</ActionIcon>
+											</Group>
 											<Select
-												key={f}
 												clearable
-												// biome-ignore lint/suspicious/noExplicitAny: required heres
-												data={(exerciseInformation.data.filters as any)[f].map(
-													// biome-ignore lint/suspicious/noExplicitAny: required heres
-													(v: any) => ({
-														label: startCase(snakeCase(v)),
-														value: v,
-													}),
-												)}
-												label={startCase(f)}
-												// biome-ignore lint/suspicious/noExplicitAny: required heres
-												value={(exerciseFilters as any)[f]}
+												data={Object.values(ExerciseSortBy).map((v) => ({
+													label: startCase(snakeCase(v)),
+													value: v,
+												}))}
+												label="Sort by"
+												value={exerciseSortBy}
 												onChange={(v) => {
-													if (exerciseFilters)
-														setExerciseFilters(
-															produce(exerciseFilters, (draft) => {
-																// biome-ignore lint/suspicious/noExplicitAny: required heres
-																(draft as any)[f] = v;
-															}),
-														);
+													if (v)
+														// biome-ignore lint/suspicious/noExplicitAny: required heres
+														setExerciseSortBy(v as any);
 												}}
 											/>
-										))}
-									</Stack>
+											{Object.keys(defaultFilterValue)
+												.filter((f) => f !== "sortBy")
+												.map((f) => (
+													<Select
+														key={f}
+														clearable
+														// biome-ignore lint/suspicious/noExplicitAny: required heres
+														data={(exerciseInformation.data.filters as any)[
+															f
+														].map(
+															// biome-ignore lint/suspicious/noExplicitAny: required heres
+															(v: any) => ({
+																label: startCase(snakeCase(v)),
+																value: v,
+															}),
+														)}
+														label={startCase(f)}
+														// biome-ignore lint/suspicious/noExplicitAny: required heres
+														value={(exerciseFilters as any)[f]}
+														onChange={(v) => {
+															if (exerciseFilters)
+																setExerciseFilters(
+																	produce(exerciseFilters, (draft) => {
+																		// biome-ignore lint/suspicious/noExplicitAny: required heres
+																		(draft as any)[f] = v;
+																	}),
+																);
+														}}
+													/>
+												))}
+										</Stack>
+									</MantineThemeProvider>
 								</Modal>
 							</Group>
 							{exercisesList.data && exercisesList.data.details.total > 0 ? (
 								<>
 									<Box>
-										<Text display={"inline"} fw="bold">
+										<Text display="inline" fw="bold">
 											{exercisesList.data.details.total}
 										</Text>{" "}
 										items found
@@ -259,7 +301,7 @@ const Page: NextPageWithLayout = () => {
 											<>
 												{" "}
 												and{" "}
-												<Text display={"inline"} fw="bold">
+												<Text display="inline" fw="bold">
 													{selectedExercises.length}
 												</Text>{" "}
 												selected
@@ -271,7 +313,7 @@ const Page: NextPageWithLayout = () => {
 											<Flex
 												key={exercise.id}
 												gap="lg"
-												align={"center"}
+												align="center"
 												data-exercise-id={exercise.id}
 											>
 												{selectionEnabled ? (
@@ -290,12 +332,21 @@ const Page: NextPageWithLayout = () => {
 														}}
 													/>
 												) : undefined}
-												<Avatar
-													imageProps={{ loading: "lazy" }}
-													src={exercise.attributes.images.at(0)}
-													radius={"xl"}
-													size="lg"
-												/>
+												<Indicator
+													disabled={!exercise.numTimesPerformed}
+													label={exercise.numTimesPerformed ?? ""}
+													position="top-start"
+													size={16}
+													offset={8}
+													color="grape"
+												>
+													<Avatar
+														imageProps={{ loading: "lazy" }}
+														src={exercise.image}
+														radius="xl"
+														size="lg"
+													/>
+												</Indicator>
 												<Link
 													href={withQuery(
 														APP_ROUTES.fitness.exercises.details,
@@ -303,13 +354,11 @@ const Page: NextPageWithLayout = () => {
 													)}
 													style={{ all: "unset", cursor: "pointer" }}
 												>
-													<Flex direction={"column"} justify={"space-around"}>
+													<Flex direction="column" justify="space-around">
 														<Text>{exercise.name}</Text>
-														{exercise.attributes.muscles.at(0) ? (
+														{exercise.muscle ? (
 															<Text size="xs">
-																{startCase(
-																	snakeCase(exercise.attributes.muscles.at(0)),
-																)}
+																{startCase(snakeCase(exercise.muscle))}
 															</Text>
 														) : undefined}
 													</Flex>
@@ -346,29 +395,39 @@ const Page: NextPageWithLayout = () => {
 							variant="light"
 							radius="xl"
 							size="xl"
-							onClick={() => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										for (const exercise of selectedExercises)
-											draft.exercises.push({
-												exerciseId: exercise.id,
-												lot: exercise.lot,
-												name: exercise.name,
-												sets: [
-													{
-														confirmed: false,
-														statistic: {},
-														lot: SetLot.Normal,
-													},
-												],
-												notes: [],
-											});
-									}),
-								);
+							onClick={async () => {
+								const draft = createDraft(currentWorkout);
+								for (const exercise of selectedExercises) {
+									const { userExerciseDetails } = await gqlClient.request(
+										UserExerciseDetailsDocument,
+										{ exerciseId: exercise.id },
+									);
+									draft.exercises.push({
+										exerciseId: exercise.id,
+										lot: exercise.lot,
+										name: exercise.name,
+										sets: [
+											{
+												confirmed: false,
+												statistic: {},
+												lot: SetLot.Normal,
+											},
+										],
+										alreadyDoneSets:
+											userExerciseDetails?.history
+												.at(-1)
+												?.sets.map((s) => ({ statistic: s.statistic })) || [],
+										notes: [],
+										images: [],
+										videos: [],
+									});
+								}
+								const finishedDraft = finishDraft(draft);
+								setCurrentWorkout(finishedDraft);
 								router.replace(APP_ROUTES.fitness.exercises.currentWorkout);
 							}}
 						>
-							<IconCheck size="1.6rem" />
+							<IconCheck size="2rem" />
 						</ActionIcon>
 						{/* TODO: Add btn to add superset exercises */}
 					</Affix>

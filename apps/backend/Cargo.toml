@@ -1,13 +1,13 @@
 [package]
 name = "ryot"
-version = "2.21.2"
+version = "2.22.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
 
 [dependencies]
 anyhow = "1.0.75"
-apalis = { version = "0.4.4", features = [
+apalis = { version = "0.4.5", features = [
     "cron",
     "extensions",
     "limit",
@@ -22,17 +22,18 @@ async-graphql = { version = "6.0.7", features = [
 ] }
 async-graphql-axum = "6.0.7"
 async-trait = "0.1.73"
-aws-sdk-s3 = "0.31.2"
+aws-sdk-s3 = "0.33.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
 axum-extra = { version = "0.8.0", default-features = false, features = [
     "cookie",
 ] }
 boilermates = "0.3.0"
 chrono = "0.4.31"
+chrono-tz = "0.8.3"
 convert_case = "0.6.0"
 const-str = "0.5.6"
-cookie = "0.17.0"
-csv = "1.2.2"
+cookie = "0.18.0"
+csv = "1.3.0"
 derive_more = { version = "1.0.0-beta.3", features = [
     "add",
     "sum",
@@ -56,20 +57,23 @@ mime_guess = "2.0.4"
 nanoid = "0.4.0"
 quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
 rand = "0.8.5"
-regex = "1.9.6"
+regex = "1.10.0"
 retainer = "0.3.0"
 rs-utils = { path = "../../libs/rs-utils" }
 rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
-rust_iso3166 = "0.1.10"
-schematic = { version = "0.11.8", features = [
+rust_iso3166 = "0.1.11"
+schematic = { version = "0.12.2", features = [
+    "config",
     "json",
     "schema",
     "toml",
     "typescript",
+    "type_chrono",
+    "type_rust_decimal",
+    "url",
     "yaml",
-    "valid_url",
 ], default-features = false }
 scraper = "0.17.1"
 sea-orm = { version = "0.12.3", features = [
@@ -85,7 +89,7 @@ sea-orm = { version = "0.12.3", features = [
 ] }
 sea-orm-migration = "0.12.3"
 sea-query = "0.30.2"
-semver = "1.0.19"
+semver = "1.0.20"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 serde_with = { version = "3.3.0", features = ["chrono_0_4"] }
@@ -93,19 +97,13 @@ serde-xml-rs = "0.6.0"
 slug = "0.1.4"
 sqlx = "0.7.2"
 sonyflake = "0.2.0"
-specta = { version = "2.0.0-rc.3", features = [
-    "typescript",
-    "chrono",
-    "rust_decimal",
-    "export",
-] }
 strum = { version = "0.25.0", features = ["derive"] }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
 surf-governor = "0.2.0"
-surf-retry = "0.3.1"
-tokio = { version = "1.32.0", features = ["full"] }
+surf-retry = "0.3.2"
+tokio = { version = "1.33.0", features = ["full"] }
 tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "0.1.37", features = ["attributes"] }
 tracing-appender = "0.2.2"

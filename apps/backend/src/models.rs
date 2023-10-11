@@ -11,16 +11,17 @@ use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DeriveActiveEnum, EnumIter, FromJsonQueryResult, FromQueryResult,
+    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
+    FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use specta::Type;
 
 use crate::{
     entities::{
-        exercise::Model as ExerciseModel, partial_metadata::PartialMetadataWithoutId,
+        exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, prelude::Workout,
         user_measurement,
     },
     file_storage::FileStorageService,
@@ -63,6 +64,7 @@ pub struct SearchDetails {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media::MediaSearchItemWithLot)
@@ -77,7 +79,7 @@ pub struct SearchDetails {
     name = "MetadataGroupListResults",
     params(media::MetadataGroupListItem)
 ))]
-#[graphql(concrete(name = "ExerciseSearchResults", params(ExerciseModel)))]
+#[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
@@ -780,7 +782,7 @@ pub mod media {
 
     /// A specific instance when an entity was seen.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
         pub progress: Option<i32>,
@@ -798,7 +800,7 @@ pub mod media {
 
     /// Review data associated to a rating.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportItemReview {
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
@@ -810,7 +812,7 @@ pub mod media {
 
     /// A rating given to an entity.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
@@ -828,8 +830,8 @@ pub mod media {
 
     /// Details about a specific media item that needs to be imported or exported.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
-    pub struct ImportOrExportMediaItem<T> {
+    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+    pub struct ImportOrExportMediaItem {
         /// An string to help identify it in the original source.
         pub source_id: String,
         /// The type of media.
@@ -837,7 +839,11 @@ pub mod media {
         /// The source of media.
         pub source: MetadataSource,
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
-        pub identifier: T,
+        pub identifier: String,
+        // DEV: Only to be used internally.
+        #[serde(skip)]
+        #[schema(exclude)]
+        pub internal_identifier: Option<ImportOrExportItemIdentifier>,
         /// The seen history for the user.
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.
@@ -848,10 +854,10 @@ pub mod media {
 
     /// Complete export of the user.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
     pub struct ExportAllResponse {
         /// Data about user's media.
-        pub media: Vec<ImportOrExportMediaItem<String>>,
+        pub media: Vec<ImportOrExportMediaItem>,
         /// Data about user's people.
         pub people: Vec<ImportOrExportPersonItem>,
         /// Data about user's measurements.
@@ -860,7 +866,7 @@ pub mod media {
 
     /// Details about a specific creator item that needs to be exported.
     #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Type)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
     pub struct ImportOrExportPersonItem {
         /// The name of the creator.
         pub name: String,
@@ -992,7 +998,7 @@ pub mod media {
         Default,
         Hash,
         SimpleObject,
-        Type,
+        Schematic,
     )]
     pub struct ReviewCommentUser {
         pub id: i32,
@@ -1011,7 +1017,7 @@ pub mod media {
         Deserialize,
         Default,
         SimpleObject,
-        Type,
+        Schematic,
     )]
     pub struct ImportOrExportItemReviewComment {
         pub id: String,
@@ -1067,6 +1073,8 @@ pub mod media {
 }
 
 pub mod fitness {
+    use crate::migrator::ExerciseLot;
+
     use super::*;
 
     #[derive(
@@ -1142,7 +1150,7 @@ pub mod fitness {
         PartialEq,
         SimpleObject,
         InputObject,
-        Type,
+        Schematic,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     pub struct UserMeasurementStats {
@@ -1187,7 +1195,7 @@ pub mod fitness {
         Add,
         AddAssign,
     )]
-    pub struct TotalMeasurement {
+    pub struct WorkoutTotalMeasurement {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
         pub weight: Decimal,
@@ -1225,7 +1233,7 @@ pub mod fitness {
         InputObject,
     )]
     #[graphql(input_name = "SetStatisticInput")]
-    pub struct SetStatistic {
+    pub struct WorkoutSetStatistic {
         pub duration: Option<Decimal>,
         pub distance: Option<Decimal>,
         pub reps: Option<usize>,
@@ -1267,7 +1275,7 @@ pub mod fitness {
         Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
     )]
     pub struct WorkoutSetRecord {
-        pub statistic: SetStatistic,
+        pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
     }
@@ -1341,8 +1349,29 @@ pub mod fitness {
     )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
-        pub lifetime_stats: TotalMeasurement,
+        pub lifetime_stats: WorkoutTotalMeasurement,
         pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
+    }
+
+    /// The assets that were uploaded for an entity.
+    #[derive(
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        InputObject,
+        Default,
+    )]
+    #[graphql(input_name = "EntityAssetsInput")]
+    pub struct EntityAssets {
+        /// The keys of the S3 images.
+        pub images: Vec<String>,
+        /// The keys of the S3 videos.
+        pub videos: Vec<String>,
     }
 
     #[derive(
@@ -1351,10 +1380,13 @@ pub mod fitness {
     pub struct ProcessedExercise {
         pub exercise_name: String,
         pub exercise_id: i32,
+        pub exercise_lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
-        pub total: TotalMeasurement,
+        pub total: WorkoutTotalMeasurement,
+        #[serde(default)]
+        pub assets: EntityAssets,
     }
 
     #[derive(
@@ -1365,6 +1397,8 @@ pub mod fitness {
         /// the `exercise.idx`.
         pub supersets: Vec<Vec<u16>>,
         pub exercises: Vec<ProcessedExercise>,
+        #[serde(default)]
+        pub assets: EntityAssets,
     }
 
     #[derive(
@@ -1373,6 +1407,7 @@ pub mod fitness {
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
         pub name: String,
+        pub lot: ExerciseLot,
         pub best_set: WorkoutSetRecord,
     }
 
@@ -1380,7 +1415,27 @@ pub mod fitness {
         Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
     )]
     pub struct WorkoutSummary {
-        pub total: TotalMeasurement,
+        pub total: WorkoutTotalMeasurement,
         pub exercises: Vec<WorkoutSummaryExercise>,
+    }
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Serialize,
+        Deserialize,
+        FromQueryResult,
+        DerivePartialModel,
+        SimpleObject,
+    )]
+    #[sea_orm(entity = "Workout")]
+    pub struct WorkoutListItem {
+        pub id: String,
+        pub start_time: DateTimeUtc,
+        pub end_time: DateTimeUtc,
+        pub summary: WorkoutSummary,
+        pub name: Option<String>,
     }
 }

@@ -3,9 +3,12 @@ import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { uploadFileAndGetKey } from "@/lib/utilities";
 import {
+	Anchor,
 	Box,
 	Button,
+	Code,
 	Container,
 	FileInput,
 	Group,
@@ -25,10 +28,9 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMediaDocument,
 	type CreateCustomMediaMutationVariables,
-	GetPresignedUrlDocument,
+	GetPresignedS3UrlDocument,
 	MetadataLot,
 	MetadataSource,
-	PresignedPutUrlDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -68,11 +70,11 @@ const Page: NextPageWithLayout = () => {
 			const imageUrls = [];
 			const videoUrls = [];
 			const getUrl = async (key: string) => {
-				const { getPresignedUrl } = await gqlClient.request(
-					GetPresignedUrlDocument,
+				const { getPresignedS3Url } = await gqlClient.request(
+					GetPresignedS3UrlDocument,
 					{ key },
 				);
-				return getPresignedUrl;
+				return getPresignedS3Url;
 			};
 			for (const image of images) imageUrls.push(await getUrl(image));
 			for (const video of videos) videoUrls.push(await getUrl(video));
@@ -105,17 +107,13 @@ const Page: NextPageWithLayout = () => {
 		if (files.length > 0) {
 			let totalFiles = 0;
 			for (const file of files) {
-				const uploadUrl = await gqlClient.request(PresignedPutUrlDocument, {
-					fileName: file.name,
-				});
-				await fetch(uploadUrl.presignedPutUrl.uploadUrl, {
-					method: "PUT",
-					body: file,
-					headers: { "Content-Type": file.type },
-				});
-				if (to === "image") setImages.append(uploadUrl.presignedPutUrl.key);
-				else if (to === "video")
-					setVideos.append(uploadUrl.presignedPutUrl.key);
+				const uploadedKey = await uploadFileAndGetKey(
+					file.name,
+					file.type,
+					await file.arrayBuffer(),
+				);
+				if (to === "image") setImages.append(uploadedKey);
+				else if (to === "video") setVideos.append(uploadedKey);
 				totalFiles++;
 			}
 			notifications.show({
@@ -171,13 +169,33 @@ const Page: NextPageWithLayout = () => {
 									/>
 									<Switch
 										mt="md"
-										label={"Is it NSFW?"}
+										label="Is it NSFW?"
 										{...form.getInputProps("isNsfw")}
 									/>
 								</Group>
+								<JsonInput
+									label="Specifics"
+									{...form.getInputProps("specifics")}
+									formatOnBlur
+									required
+									description={
+										<>
+											Please search for <Code>Specfics</Code> inputs at the{" "}
+											<Anchor
+												href="/graphql"
+												size="xs"
+												target="_blank"
+												rel="noopener noreferrer"
+											>
+												graphql endpoint
+											</Anchor>{" "}
+											for the required JSON structure
+										</>
+									}
+								/>
 								<Textarea
 									label="Description"
-									description={"Markdown is supported"}
+									description="Markdown is supported"
 									{...form.getInputProps("description")}
 								/>
 								<FileInput
@@ -219,18 +237,6 @@ const Page: NextPageWithLayout = () => {
 									{...form.getInputProps("genres")}
 									placeholder="Comma separated values"
 								/>
-								<Box>
-									<JsonInput
-										label="Specifics (JSON)"
-										{...form.getInputProps("specifics")}
-										formatOnBlur
-										required
-										error={
-											createCustomMedia.isError &&
-											"JSON data does not conform to the expected schema. Please look at the `*Specfics` inputs at the `/graphql` endpoint."
-										}
-									/>
-								</Box>
 								<Button type="submit">Create</Button>
 							</Stack>
 						</Box>

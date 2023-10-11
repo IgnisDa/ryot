@@ -1,0 +1,6 @@
+mutation PresignedPutS3Url($fileName: String!) {
+  presignedPutS3Url(fileName: $fileName) {
+    key
+    uploadUrl
+  }
+}

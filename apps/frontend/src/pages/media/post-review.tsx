@@ -190,7 +190,7 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Post Review | Ryot</title>
 			</Head>
-			<Container size={"xs"}>
+			<Container size="xs">
 				<Box
 					component="form"
 					onSubmit={form.onSubmit((values) => {
@@ -206,10 +206,10 @@ const Page: NextPageWithLayout = () => {
 				>
 					<Stack>
 						<Title order={3}>Reviewing "{title}"</Title>
-						<Flex align={"center"} gap="xl">
+						<Flex align="center" gap="xl">
 							{match(userPreferences.data.general.reviewScale)
 								.with(UserReviewScale.OutOfFive, () => (
-									<Flex gap="sm" mt={"lg"}>
+									<Flex gap="sm" mt="lg">
 										<Input.Label>Rating:</Input.Label>
 										<Rating {...form.getInputProps("rating")} fractions={2} />
 									</Flex>
@@ -221,7 +221,7 @@ const Page: NextPageWithLayout = () => {
 										min={0}
 										max={100}
 										step={1}
-										w={"40%"}
+										w="40%"
 										hideControls
 										rightSection={<IconPercentage size="1rem" />}
 									/>
@@ -258,7 +258,7 @@ const Page: NextPageWithLayout = () => {
 						) : undefined}
 						<Textarea
 							label="Review"
-							description={"Markdown is supported"}
+							description="Markdown is supported"
 							{...form.getInputProps("text")}
 							autoFocus
 							minRows={10}

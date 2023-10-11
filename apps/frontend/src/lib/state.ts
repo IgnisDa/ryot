@@ -6,12 +6,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Immutable } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import { LOCAL_STORAGE_KEYS } from "./constants";
 
 export type ExerciseSetStats = Immutable<{
-	duration?: number;
-	weight?: number;
-	reps?: number;
-	distance?: number;
+	duration?: number | null;
+	weight?: number | null;
+	reps?: number | null;
+	distance?: number | null;
 }>;
 
 export type ExerciseSet = Immutable<{
@@ -20,12 +21,18 @@ export type ExerciseSet = Immutable<{
 	confirmed: boolean;
 }>;
 
+type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
+
 export type Exercise = Immutable<{
 	name: string;
 	exerciseId: number;
 	lot: ExerciseLot;
 	notes: Array<string>;
 	sets: Array<ExerciseSet>;
+	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
+	restTimer?: { enabled: boolean; duration: number } | null;
+	videos: string[];
+	images: string[];
 }>;
 
 type InProgressWorkout = Immutable<{
@@ -34,12 +41,14 @@ type InProgressWorkout = Immutable<{
 	name: string;
 	comment?: string;
 	exercises: Array<Exercise>;
+	videos: Array<string>;
+	images: Array<string>;
 	// TODO: Superset support pending
 	// supersets: Array<Array<number>>;
 }>;
 
 export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
-	"currentWorkoutAtom",
+	LOCAL_STORAGE_KEYS.currentWorkout,
 	null,
 );
 
@@ -57,6 +66,8 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 		name: `${getTimeOfDay(date)} Workout`,
 		startTime: date.toISOString(),
 		exercises: [],
+		images: [],
+		videos: [],
 		// supersets: [],
 	};
 };
@@ -72,6 +83,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 			comment: currentWorkout.comment,
 			supersets: [],
 			exercises: [],
+			assets: {
+				images: [...currentWorkout.images],
+				videos: [...currentWorkout.videos],
+			},
 		},
 	};
 	for (const exercise of currentWorkout.exercises) {
@@ -87,6 +102,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			exerciseId: exercise.exerciseId,
 			notes,
 			sets,
+			assets: { images: [...exercise.images], videos: [...exercise.videos] },
 		});
 	}
 	return input;

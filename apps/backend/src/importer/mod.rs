@@ -136,7 +136,7 @@ pub struct ImportDetails {
 #[derive(Debug)]
 pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
-    media: Vec<ImportOrExportMediaItem<ImportOrExportItemIdentifier>>,
+    media: Vec<ImportOrExportMediaItem>,
     failed_items: Vec<ImportFailedItem>,
 }
 
@@ -282,10 +282,11 @@ impl ImporterService {
                 "Importing media with identifier = {iden}",
                 iden = item.source_id
             );
-            let data = match &item.identifier {
+            let identifier = item.internal_identifier.clone().unwrap();
+            let data = match identifier {
                 ImportOrExportItemIdentifier::NeedsDetails(i) => {
                     self.media_service
-                        .commit_media(item.lot, item.source, i)
+                        .commit_media(item.lot, item.source, &i)
                         .await
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {

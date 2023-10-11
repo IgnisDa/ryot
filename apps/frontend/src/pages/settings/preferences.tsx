@@ -1,3 +1,4 @@
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -173,7 +174,7 @@ const Page: NextPageWithLayout = () => {
 	);
 	const [activeTab, setActiveTab] = useLocalStorage({
 		defaultValue: "dashboard",
-		key: "savedPreferencesTab",
+		key: LOCAL_STORAGE_KEYS.savedPreferencesTab,
 	});
 	useEffect(() => {
 		updateUserPreferences.mutate({
@@ -324,7 +325,7 @@ const Page: NextPageWithLayout = () => {
 									<Switch
 										size="xs"
 										mt="md"
-										label={"Whether NSFW will be displayed"}
+										label="Whether NSFW will be displayed"
 										checked={userPreferences.data.general.displayNsfw}
 										disabled={!coreDetails.data.preferencesChangeAllowed}
 										onChange={(ev) => {
@@ -334,6 +335,21 @@ const Page: NextPageWithLayout = () => {
 													value: String(ev.currentTarget.checked),
 												},
 											});
+										}}
+									/>
+									<NumberInput
+										size="xs"
+										label="The number of genres to display for media"
+										defaultValue={userPreferences.data.general.numGenresDisplay}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(num) => {
+											if (num)
+												updateUserPreferences.mutate({
+													input: {
+														property: "general.num_genres_display",
+														value: String(num),
+													},
+												});
 										}}
 									/>
 								</SimpleGrid>

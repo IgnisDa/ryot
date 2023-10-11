@@ -40,6 +40,16 @@ impl FileStorageService {
             .to_string()
     }
 
+    pub async fn delete_object(&self, key: String) -> bool {
+        self.s3_client
+            .delete_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .send()
+            .await
+            .is_ok()
+    }
+
     pub async fn get_presigned_put_url(&self, filename: String) -> (String, String) {
         let key = format!("uploads/{}-{}", Uuid::new_v4(), filename);
         let url = self

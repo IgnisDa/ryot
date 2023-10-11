@@ -1,13 +1,13 @@
 fragment CalendarEventPart on GraphqlCalendarEvent {
-    calendarEventId
-    metadataId
-    metadataTitle
-    metadataLot
-    metadataImage
-    date
-    showSeasonNumber
-    showEpisodeNumber
-    podcastEpisodeNumber
+  calendarEventId
+  metadataId
+  metadataTitle
+  metadataLot
+  metadataImage
+  date
+  showSeasonNumber
+  showEpisodeNumber
+  podcastEpisodeNumber
 }
 
 fragment SeenPart on Seen {
@@ -34,4 +34,42 @@ fragment PartialMetadataPart on PartialMetadata {
   title
   image
   metadataId
+}
+
+fragment WorkoutTotalMeasurementPart on WorkoutTotalMeasurement {
+  personalBestsAchieved
+  weight
+  reps
+  distance
+  duration
+}
+
+fragment EntityAssetsPart on EntityAssets {
+  images
+  videos
+}
+
+fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
+  duration
+  distance
+  reps
+  weight
+}
+
+fragment WorkoutSummaryPart on WorkoutSummary {
+  total {
+    ...WorkoutTotalMeasurementPart
+  }
+  exercises {
+    numSets
+    name
+    lot
+    bestSet {
+      statistic {
+        ...WorkoutSetStatisticPart
+      }
+      lot
+      personalBests
+    }
+  }
 }

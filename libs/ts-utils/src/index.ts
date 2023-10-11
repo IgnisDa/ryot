@@ -9,11 +9,12 @@ import {
 	sum,
 } from "lodash";
 
+TimeAgo.addDefaultLocale(en);
+
 /**
  * Format a `Date` into a human readable format.
  */
 export const formatTimeAgo = (time: Date) => {
-	TimeAgo.addDefaultLocale(en);
 	const timeAgo = new TimeAgo("en-US");
 	return timeAgo.format(time);
 };

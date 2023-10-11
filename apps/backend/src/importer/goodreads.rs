@@ -105,8 +105,8 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                     source_id: d.book_id.to_string(),
                     source: MetadataSource::Custom,
                     lot: MetadataLot::Book,
-                    identifier: ImportOrExportItemIdentifier::AlreadyFilled(Box::new(
-                        MediaDetails {
+                    internal_identifier: Some(ImportOrExportItemIdentifier::AlreadyFilled(
+                        Box::new(MediaDetails {
                             identifier: d.book_id.to_string(),
                             title: d.title,
                             description: Some(d.book_description),
@@ -135,8 +135,9 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             is_nsfw: None,
                             people: vec![],
                             s3_images: vec![],
-                        },
+                        }),
                     )),
+                    identifier: "".to_string(),
                     seen_history,
                     collections: default_collections,
                     reviews,

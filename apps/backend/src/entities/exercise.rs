@@ -3,12 +3,15 @@
 use std::sync::Arc;
 
 use async_graphql::SimpleObject;
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     file_storage::FileStorageService,
-    migrator::{ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic},
+    migrator::{
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+        ExerciseMuscle,
+    },
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
     utils::get_stored_asset,
 };
@@ -43,6 +46,32 @@ impl Model {
         converted_exercise.attributes.images = images;
         // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
         converted_exercise.attributes.muscles = self.muscles.0;
+        converted_exercise
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
+pub struct ExerciseListItem {
+    pub id: i32,
+    pub lot: ExerciseLot,
+    pub name: String,
+    #[graphql(skip)]
+    pub attributes: ExerciseAttributes,
+    pub num_times_performed: Option<i32>,
+    pub muscle: Option<ExerciseMuscle>,
+    pub image: Option<String>,
+    #[graphql(skip)]
+    pub muscles: ExerciseMuscles,
+}
+
+impl ExerciseListItem {
+    pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
+        let mut converted_exercise = self.clone();
+        if let Some(img) = self.attributes.internal_images.first() {
+            converted_exercise.image =
+                Some(get_stored_asset(img.clone(), file_storage_service).await);
+        }
+        converted_exercise.muscle = self.muscles.0.first().cloned();
         converted_exercise
     }
 }

@@ -1,40 +1,19 @@
-# fly.toml app configuration file generated for ryot on 2023-06-03T10:08:53+05:30
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
 app = "ryot"
 primary_region = "ord"
-kill_signal = "SIGINT"
-kill_timeout = "5s"
 
 [build]
-  image = "ghcr.io/ignisda/ryot:unstable"
-
-[env]
-  PORT = "8080"
-
-[[services]]
-  protocol = "tcp"
-  internal_port = 8080
-
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-  [services.concurrency]
-    hard_limit = 25
-    soft_limit = 20
-
-  [[services.tcp_checks]]
-    interval = "15s"
-    timeout = "2s"
-    grace_period = "1s"
-    restart_limit = 6
+image = "ghcr.io/ignisda/ryot:unstable"
 
 [http_service]
-auto_start_machines = true
-auto_stop_machines = true
+internal_port = 8000
+force_https = true
+min_machines_running = 0
+max_machines_running = 1
+processes = ["app"]
+
+[[http_service.checks]]
+grace_period = "5s"
+interval = "5s"
+method = "GET"
+timeout = "5s"
+path = "/config"

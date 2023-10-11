@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -40,8 +40,8 @@ const CalendarEvent = (props: {
 		<Card
 			data-calendar-date={props.day.date}
 			withBorder
-			radius={"sm"}
-			padding={"xs"}
+			radius="sm"
+			padding="xs"
 			mt="sm"
 		>
 			<Card.Section withBorder p="sm">
@@ -91,7 +91,7 @@ const Page: NextPageWithLayout = () => {
 	const coreDetails = useCoreDetails();
 	const [selectedMonth, setMonth] = useLocalStorage({
 		defaultValue: DateTime.now(),
-		key: "savedCalendarDay",
+		key: LOCAL_STORAGE_KEYS.savedCalendarDay,
 		getInitialValueInEffect: false,
 		serialize: (value) => {
 			return value.toISO() as string;
@@ -151,7 +151,7 @@ const Page: NextPageWithLayout = () => {
 						calendarEvents.data.length > 0 ? (
 							<Box>
 								<Box>
-									<Text display={"inline"} fw="bold">
+									<Text display="inline" fw="bold">
 										{sum(calendarEvents.data.map((e) => e.events.length))}
 									</Text>{" "}
 									items found

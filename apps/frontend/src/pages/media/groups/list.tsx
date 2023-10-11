@@ -1,6 +1,6 @@
 import Grid from "@/lib/components/Grid";
 import { BaseDisplayItem } from "@/lib/components/MediaComponents";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -30,12 +30,12 @@ import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const [query, setQuery] = useLocalStorage({
-		key: "savedGroupsQuery",
+		key: LOCAL_STORAGE_KEYS.savedGroupsQuery,
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedGroupsPage",
+		key: LOCAL_STORAGE_KEYS.savedGroupsPage,
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
@@ -77,13 +77,13 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<Flex align={"center"} gap={"md"}>
+					<Flex align="center" gap="md">
 						<Title>Groups</Title>
 					</Flex>
 					<Group wrap="nowrap">
 						<TextInput
 							name="query"
-							placeholder={"Search for groups"}
+							placeholder="Search for groups"
 							leftSection={<IconSearch />}
 							onChange={(e) => setQuery(e.currentTarget.value)}
 							value={query}
@@ -103,7 +103,7 @@ const Page: NextPageWithLayout = () => {
 					listMetadataGroups.data.details.total > 0 ? (
 						<>
 							<Box>
-								<Text display={"inline"} fw="bold">
+								<Text display="inline" fw="bold">
 									{listMetadataGroups.data.details.total}
 								</Text>{" "}
 								items found

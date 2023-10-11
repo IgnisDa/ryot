@@ -1,3 +1,4 @@
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -90,8 +91,8 @@ const DisplayMeasurement = (props: {
 
 	return (
 		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
-			<Flex direction={"column"} justify={"center"} gap="xs">
-				<Flex justify={"space-around"}>
+			<Flex direction="column" justify="center" gap="xs">
+				<Flex justify="space-around">
 					<Button onClick={toggle} variant="default" size="compact-xs">
 						{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
 							DateTime.DATETIME_SHORT,
@@ -146,12 +147,12 @@ enum TimeSpan {
 const Page: NextPageWithLayout = () => {
 	const [selectedStats, setselectedStats] = useLocalStorage<string[]>({
 		defaultValue: [],
-		key: "measurementsDisplaySelectedStats",
+		key: LOCAL_STORAGE_KEYS.savedMeasurementsDisplaySelectedStats,
 		getInitialValueInEffect: true,
 	});
 	const [selectedTimeSpan, setselectedTimespan] = useLocalStorage({
 		defaultValue: TimeSpan.Last30Days,
-		key: "measurementsDisplaySelectedTimespan",
+		key: LOCAL_STORAGE_KEYS.savedMeasurementsDisplaySelectedTimespan,
 		getInitialValueInEffect: true,
 	});
 	const [opened, { open, close }] = useDisclosure(false);
@@ -262,7 +263,7 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 				</Drawer>
 				<Stack>
-					<Flex align={"center"} gap={"md"}>
+					<Flex align="center" gap="md">
 						<Title>Measurements</Title>
 						<ActionIcon color="green" variant="outline" onClick={open}>
 							<IconPlus size="1.25rem" />
@@ -300,7 +301,7 @@ const Page: NextPageWithLayout = () => {
 							}}
 						/>
 					</SimpleGrid>
-					<Box w={"100%"} ml={-15}>
+					<Box w="100%" ml={-15}>
 						{selectedStats ? (
 							<ResponsiveContainer width="100%" height={300}>
 								<LineChart

@@ -1,5 +1,9 @@
+import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
 import { APP_ROUTES } from "@/lib/constants";
-import { useUserPreferences } from "@/lib/hooks/graphql";
+import {
+	useEnabledCoreFeatures,
+	useUserPreferences,
+} from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -9,10 +13,11 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/state";
-import { getSetColor } from "@/lib/utilities";
+import { getSetColor, uploadFileAndGetKey } from "@/lib/utilities";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
-	Affix,
+	Avatar,
 	Box,
 	Button,
 	Container,
@@ -21,11 +26,13 @@ import {
 	Flex,
 	Group,
 	Menu,
+	Modal,
 	NumberInput,
 	Paper,
 	RingProgress,
 	Skeleton,
 	Stack,
+	Switch,
 	Text,
 	TextInput,
 	Textarea,
@@ -33,23 +40,29 @@ import {
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useInterval } from "@mantine/hooks";
+import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CreateUserWorkoutDocument,
 	type CreateUserWorkoutMutationVariables,
+	DeleteS3ObjectDocument,
 	ExerciseLot,
+	GetPresignedS3UrlDocument,
 	SetLot,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconCamera,
+	IconCameraRotate,
 	IconCheck,
 	IconClipboard,
-	IconClock,
 	IconDotsVertical,
+	IconPhoto,
 	IconTrash,
+	IconZzz,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -57,7 +70,14 @@ import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Fragment, type ReactElement, useEffect, useState } from "react";
+import {
+	Fragment,
+	type ReactElement,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
+import Webcam from "react-webcam";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import useSound from "use-sound";
@@ -109,16 +129,16 @@ const StatInput = (props: {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	return currentWorkout ? (
-		<Flex style={{ flex: 1 }} justify={"center"}>
+		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
 				value={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
-						.statistic[props.stat]
+						.statistic[props.stat] ?? undefined
 				}
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
-							const value = typeof v === "number" ? v : undefined;
+							const value = Number(v) ?? undefined;
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 								props.stat
 							] = value;
@@ -129,6 +149,7 @@ const StatInput = (props: {
 						}),
 					);
 				}}
+				onFocus={(e) => e.target.select()}
 				size="xs"
 				styles={{ input: { width: rem(72), textAlign: "center" } }}
 				decimalScale={
@@ -144,13 +165,71 @@ const StatInput = (props: {
 	) : undefined;
 };
 
+const fileType = "image/jpeg";
+
+const ImageDisplay = (props: {
+	imageKey: string;
+	removeImage: (imageKey: string) => void;
+}) => {
+	const imageUrl = useQuery(
+		["presignedUrl", props.imageKey],
+		async () => {
+			const { getPresignedS3Url } = await gqlClient.request(
+				GetPresignedS3UrlDocument,
+				{ key: props.imageKey },
+			);
+			return getPresignedS3Url;
+		},
+		{ staleTime: Infinity },
+	);
+
+	return imageUrl.data ? (
+		<Box pos="relative">
+			<Avatar src={imageUrl.data} size="lg" />
+			<ActionIcon
+				pos="absolute"
+				top={0}
+				left={-12}
+				color="red"
+				size="xs"
+				onClick={async () => {
+					const yes = confirm("Are you sure you want to remove this image?");
+					if (yes) {
+						const { deleteS3Object } = await gqlClient.request(
+							DeleteS3ObjectDocument,
+							{ key: props.imageKey },
+						);
+						if (deleteS3Object) props.removeImage(props.imageKey);
+					}
+				}}
+			>
+				<IconTrash />
+			</ActionIcon>
+		</Box>
+	) : undefined;
+};
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
+	startTimer: (duration: number) => void;
 }) => {
+	const enabledCoreFeatures = useEnabledCoreFeatures();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
 	const [playCheckSound] = useSound("/pop.mp3", { interrupt: true });
+	const [
+		restTimerModalOpened,
+		{ close: restTimerModalClose, toggle: restTimerModalToggle },
+	] = useDisclosure(false);
+	const [cameraFacing, setCameraFacing] = useState<"user" | "environment">(
+		"user",
+	);
+	const webcamRef = useRef<Webcam>(null);
+	const [
+		assetsModalOpened,
+		{ close: assetsModalClose, toggle: assetsModalToggle },
+	] = useDisclosure(false);
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -160,10 +239,157 @@ const ExerciseDisplay = (props: {
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
 		.exhaustive();
 
-	return userPreferences.data && currentWorkout ? (
-		<Paper px="sm">
+	const toBeDisplayedColumns =
+		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
+
+	return enabledCoreFeatures.data && userPreferences.data && currentWorkout ? (
+		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
+			<Modal
+				opened={restTimerModalOpened}
+				onClose={restTimerModalClose}
+				withCloseButton={false}
+				size="xs"
+			>
+				<Stack>
+					<Switch
+						label="Enabled"
+						labelPosition="left"
+						styles={{ body: { justifyContent: "space-between" } }}
+						defaultChecked={props.exercise.restTimer?.enabled}
+						onChange={(v) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									draft.exercises[props.exerciseIdx].restTimer = {
+										enabled: v.currentTarget.checked,
+										duration: props.exercise.restTimer?.duration ?? 20,
+									};
+								}),
+							);
+						}}
+					/>
+					<NumberInput
+						value={
+							currentWorkout.exercises[props.exerciseIdx].restTimer?.duration
+						}
+						onChange={(v) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									const value = typeof v === "number" ? v : undefined;
+									const restTimer =
+										draft.exercises[props.exerciseIdx].restTimer;
+									if (restTimer && value) restTimer.duration = value;
+								}),
+							);
+						}}
+						disabled={
+							!currentWorkout.exercises[props.exerciseIdx].restTimer?.enabled
+						}
+						hideControls
+						suffix="s"
+						label="Duration"
+						styles={{
+							root: {
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+							},
+							label: { flex: "none" },
+							input: { width: "90px", textAlign: "right" },
+						}}
+					/>
+				</Stack>
+			</Modal>
+			<Modal
+				opened={assetsModalOpened}
+				onClose={assetsModalClose}
+				withCloseButton={false}
+			>
+				<Stack>
+					<Text c="dimmed">Images for {props.exercise.name}</Text>
+					{enabledCoreFeatures.data.fileStorage ? (
+						<>
+							{props.exercise.images.length > 0 ? (
+								<Avatar.Group spacing="xs">
+									{props.exercise.images.map((i) => (
+										<ImageDisplay
+											key={i}
+											imageKey={i}
+											removeImage={() => {
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].images =
+															draft.exercises[props.exerciseIdx].images.filter(
+																(image) => image !== i,
+															);
+													}),
+												);
+											}}
+										/>
+									))}
+								</Avatar.Group>
+							) : undefined}
+							<Group justify="center" gap={4}>
+								<Paper radius="md" style={{ overflow: "hidden" }}>
+									<Webcam
+										ref={webcamRef}
+										height={180}
+										width={240}
+										videoConstraints={{ facingMode: cameraFacing }}
+										screenshotFormat={fileType}
+									/>
+								</Paper>
+								<Stack>
+									<ActionIcon
+										size="xl"
+										onClick={() => {
+											setCameraFacing(
+												cameraFacing === "user" ? "environment" : "user",
+											);
+										}}
+									>
+										<IconCameraRotate size="2rem" />
+									</ActionIcon>
+									<ActionIcon
+										size="xl"
+										onClick={async () => {
+											const imageSrc = webcamRef.current?.getScreenshot();
+											if (imageSrc) {
+												const buffer = Buffer.from(
+													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
+													"base64",
+												);
+												const uploadedKey = await uploadFileAndGetKey(
+													"image.jpeg",
+													fileType,
+													buffer,
+												);
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].images.push(
+															uploadedKey,
+														);
+													}),
+												);
+											}
+										}}
+									>
+										<IconCamera size="2rem" />
+									</ActionIcon>
+								</Stack>
+							</Group>
+							<Button fullWidth variant="outline" onClick={assetsModalClose}>
+								Done
+							</Button>
+						</>
+					) : (
+						<Text c="red" size="sm">
+							Please set the S3 variables required to enable file uploading
+						</Text>
+					)}
+				</Stack>
+			</Modal>
 			<Stack>
-				<Menu shadow="md" width={200}>
+				<Menu shadow="md" width={200} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
 							<Text>{props.exercise.name}</Text>
@@ -220,6 +446,28 @@ const ExerciseDisplay = (props: {
 							Add note
 						</Menu.Item>
 						<Menu.Item
+							leftSection={<IconPhoto size={14} />}
+							rightSection={
+								props.exercise.images.length > 0
+									? props.exercise.images.length
+									: undefined
+							}
+							onClick={assetsModalToggle}
+						>
+							Add image
+						</Menu.Item>
+						<Menu.Item
+							leftSection={<IconZzz size={14} />}
+							onClick={restTimerModalToggle}
+							rightSection={
+								props.exercise.restTimer?.enabled
+									? `${props.exercise.restTimer.duration}s`
+									: "Off"
+							}
+						>
+							Rest timer
+						</Menu.Item>
+						<Menu.Item
 							color="red"
 							leftSection={<IconTrash size={14} />}
 							onClick={() => {
@@ -234,7 +482,7 @@ const ExerciseDisplay = (props: {
 									);
 							}}
 						>
-							Remove exercise
+							Remove
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
@@ -242,6 +490,9 @@ const ExerciseDisplay = (props: {
 					<Flex justify="space-between" align="center">
 						<Text size="xs" w="5%" ta="center">
 							SET
+						</Text>
+						<Text size="xs" w={`${85 / toBeDisplayedColumns}%`} ta="center">
+							PREVIOUS
 						</Text>
 						{durationCol ? (
 							<Text size="xs" style={{ flex: 1 }} ta="center">
@@ -276,7 +527,7 @@ const ExerciseDisplay = (props: {
 						<Box w="10%" />
 					</Flex>
 					{props.exercise.sets.map((s, idx) => (
-						<Flex key={`${idx}`} justify="space-between" align="start">
+						<Flex key={`${idx}`} justify="space-between" align="center">
 							<Menu>
 								<Menu.Target>
 									<UnstyledButton w="5%">
@@ -295,7 +546,7 @@ const ExerciseDisplay = (props: {
 											disabled={s.lot === lot}
 											fz="xs"
 											leftSection={
-												<Text fw="bold" fz="xs" w={10} color={getSetColor(lot)}>
+												<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
 													{lot.at(0)}
 												</Text>
 											}
@@ -315,7 +566,7 @@ const ExerciseDisplay = (props: {
 									<Menu.Label>Actions</Menu.Label>
 									<Menu.Item
 										color="red"
-										fz={"xs"}
+										fz="xs"
 										leftSection={<IconTrash size={14} />}
 										onClick={() => {
 											const yes = confirm(
@@ -336,6 +587,19 @@ const ExerciseDisplay = (props: {
 									</Menu.Item>
 								</Menu.Dropdown>
 							</Menu>
+							<Box w={`${85 / toBeDisplayedColumns}%`}>
+								<Text ta="center" fz="xs">
+									{props.exercise.alreadyDoneSets[idx] ? (
+										<DisplayExerciseStats
+											statistic={props.exercise.alreadyDoneSets[idx].statistic}
+											lot={props.exercise.lot}
+											hideExtras
+										/>
+									) : (
+										"—"
+									)}
+								</Text>
+							</Box>
 							{durationCol ? (
 								<StatInput
 									exerciseIdx={props.exerciseIdx}
@@ -397,9 +661,11 @@ const ExerciseDisplay = (props: {
 													)
 													.exhaustive()
 											}
-											onMouseDown={() => playCheckSound()}
 											color="green"
 											onClick={() => {
+												playCheckSound();
+												if (props.exercise.restTimer?.enabled)
+													props.startTimer(props.exercise.restTimer.duration);
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
 														draft.exercises[props.exerciseIdx].sets[
@@ -424,8 +690,10 @@ const ExerciseDisplay = (props: {
 					onClick={() => {
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
+								const currentSet =
+									draft.exercises[props.exerciseIdx].sets.at(-1);
 								draft.exercises[props.exerciseIdx].sets.push({
-									statistic: {},
+									statistic: currentSet?.statistic ?? {},
 									lot: SetLot.Normal,
 									confirmed: false,
 								});
@@ -442,42 +710,22 @@ const ExerciseDisplay = (props: {
 	);
 };
 
+const styles = {
+	body: {
+		display: "flex",
+		height: "80%",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+};
+
 const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
+	startTimer: (duration: number) => void;
+	stopTimer: () => void;
 }) => {
-	const [playCompleteSound] = useSound("/timer-completed.mp3", {
-		interrupt: true,
-	});
 	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
-	const interval = useInterval(() => {
-		setCurrentTimer((currentTimer) =>
-			produce(currentTimer, (draft) => {
-				if (draft) draft.remainingTime -= 1;
-			}),
-		);
-	}, 1000);
-
-	const startTimer = (duration: number) => {
-		setCurrentTimer({
-			totalTime: duration,
-			remainingTime: duration,
-		});
-		interval.start();
-	};
-
-	useEffect(() => {
-		if (
-			currentTimer &&
-			typeof currentTimer.remainingTime === "number" &&
-			currentTimer.remainingTime <= 0
-		) {
-			playCompleteSound();
-			props.onClose();
-			interval.stop();
-			setCurrentTimer(RESET);
-		}
-	}, [currentTimer]);
 
 	return (
 		<Drawer
@@ -485,21 +733,14 @@ const TimerDrawer = (props: {
 			opened={props.opened}
 			withCloseButton={false}
 			position="bottom"
-			size={"xs"}
-			styles={{
-				body: {
-					display: "flex",
-					height: "100%",
-					justifyContent: "center",
-					alignItems: "center",
-				},
-			}}
+			size="md"
+			styles={{ body: { ...styles.body, height: "100%" } }}
 		>
 			<Stack align="center">
 				{currentTimer ? (
 					<>
 						<RingProgress
-							size={200}
+							size={300}
 							thickness={8}
 							roundCaps
 							sections={[
@@ -511,12 +752,12 @@ const TimerDrawer = (props: {
 							]}
 							label={
 								<>
-									<Text ta="center" fz={40}>
+									<Text ta="center" fz={64}>
 										{Duration.fromObject({
 											seconds: currentTimer.remainingTime,
 										}).toFormat("m:ss")}
 									</Text>
-									<Text ta="center" fz={"xs"} c="dimmed">
+									<Text ta="center" c="dimmed" fz="lg" mt="-md">
 										{Duration.fromObject({
 											seconds: currentTimer.totalTime,
 										}).toFormat("m:ss")}
@@ -537,7 +778,7 @@ const TimerDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-sm"
+								size="compact-lg"
 								variant="outline"
 								disabled={currentTimer.remainingTime <= 30}
 							>
@@ -555,7 +796,7 @@ const TimerDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-sm"
+								size="compact-lg"
 								variant="outline"
 							>
 								+30 sec
@@ -563,10 +804,10 @@ const TimerDrawer = (props: {
 							<Button
 								color="orange"
 								onClick={() => {
-									setCurrentTimer(RESET);
-									interval.stop();
+									props.onClose();
+									props.stopTimer();
 								}}
-								size="compact-sm"
+								size="compact-lg"
 							>
 								Skip
 							</Button>
@@ -575,34 +816,38 @@ const TimerDrawer = (props: {
 				) : (
 					<>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
-							onClick={() => startTimer(180)}
+							onClick={() => props.startTimer(180)}
 						>
 							3 minutes
 						</Button>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
-							onClick={() => startTimer(300)}
+							onClick={() => props.startTimer(300)}
 						>
 							5 minutes
 						</Button>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
-							onClick={() => startTimer(480)}
+							onClick={() => props.startTimer(480)}
 						>
 							8 minutes
 						</Button>
 						<Button
-							size="compact-sm"
+							size="compact-xl"
+							w={160}
 							variant="outline"
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
 								if (!input) return;
 								const intInput = parseInt(input);
-								if (intInput) startTimer(intInput);
+								if (intInput) props.startTimer(intInput);
 								else alert("Invalid input");
 							}}
 						>
@@ -615,14 +860,117 @@ const TimerDrawer = (props: {
 	);
 };
 
+const ReorderDrawer = (props: {
+	opened: boolean;
+	onClose: () => void;
+	exercises: Array<Exercise>;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [exerciseElements, exerciseElementsHandlers] = useListState(
+		props.exercises,
+	);
+
+	useEffect(() => {
+		setCurrentWorkout(
+			// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+			produce(currentWorkout, (draft: any) => {
+				if (draft) {
+					draft.exercises = exerciseElements.map((de) =>
+						// biome-ignore lint/suspicious/noExplicitAny: required here
+						draft.exercises.find((e: any) => e.name === de.name),
+					);
+				}
+			}),
+		);
+	}, [exerciseElements]);
+
+	return currentWorkout ? (
+		<Drawer
+			onClose={props.onClose}
+			opened={props.opened}
+			size="sm"
+			styles={styles}
+		>
+			<DragDropContext
+				onDragEnd={({ destination, source }) => {
+					exerciseElementsHandlers.reorder({
+						from: source.index,
+						to: destination?.index || 0,
+					});
+					props.onClose();
+				}}
+			>
+				<Droppable droppableId="dnd-list">
+					{(provided) => (
+						<Stack
+							{...provided.droppableProps}
+							ref={provided.innerRef}
+							gap="xs"
+						>
+							<Text c="dimmed">Hold and release to reorder exercises</Text>
+							{exerciseElements.map((de, index) => (
+								<Draggable
+									index={index}
+									draggableId={index.toString()}
+									key={`${index}-${de.name}`}
+								>
+									{(provided) => (
+										<Paper
+											py={6}
+											px="sm"
+											radius="md"
+											withBorder
+											ref={provided.innerRef}
+											{...provided.draggableProps}
+											{...provided.dragHandleProps}
+										>
+											<Text>{de.name}</Text>
+										</Paper>
+									)}
+								</Draggable>
+							))}
+							{provided.placeholder}
+						</Stack>
+					)}
+				</Droppable>
+			</DragDropContext>
+		</Drawer>
+	) : undefined;
+};
+
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const [currentTimer] = useAtom(timerAtom);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-	const [playCompleteSound] = useSound("/workout-completed.wav", {
+	const [playCompleteWorkoutSound] = useSound("/workout-completed.wav", {
 		interrupt: true,
 	});
-	const [opened, { close, toggle }] = useDisclosure(false);
+	const [
+		timerDrawerOpened,
+		{ close: timerDrawerClose, toggle: timerDrawerToggle },
+	] = useDisclosure(false);
+	const [
+		reorderDrawerOpened,
+		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
+	] = useDisclosure(false);
+	const [playCompleteTimerSound] = useSound("/timer-completed.mp3", {
+		interrupt: true,
+	});
+	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
+	const interval = useInterval(() => {
+		setCurrentTimer((currentTimer) =>
+			produce(currentTimer, (draft) => {
+				if (draft) draft.remainingTime -= 1;
+			}),
+		);
+	}, 1000);
+
+	const startTimer = (duration: number) => {
+		setCurrentTimer({
+			totalTime: duration,
+			remainingTime: duration,
+		});
+		interval.start();
+	};
 
 	const finishWorkout = async () => {
 		await router.replace(APP_ROUTES.dashboard);
@@ -639,42 +987,51 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	useEffect(() => {
+		if (
+			currentTimer &&
+			typeof currentTimer.remainingTime === "number" &&
+			currentTimer.remainingTime <= 0
+		) {
+			playCompleteTimerSound();
+			timerDrawerClose();
+			interval.stop();
+			setCurrentTimer(RESET);
+		}
+	}, [currentTimer]);
+
 	return (
 		<>
-			<TimerDrawer opened={opened} onClose={close} />
 			<Head>
 				<title>Current Workout | Ryot</title>
 			</Head>
 			<Container size="sm">
-				<Affix position={{ bottom: rem(40), right: rem(30) }} zIndex={0}>
-					<Group>
-						{currentTimer ? (
-							<Text fw="bold">
-								{Duration.fromObject({
-									seconds: currentTimer.remainingTime,
-								}).toFormat("m:ss")}
-							</Text>
-						) : undefined}
-						<ActionIcon
-							color="indigo"
-							variant="filled"
-							radius="xl"
-							size="xl"
-							onClick={toggle}
-						>
-							<IconClock size="2rem" style={{ marginLeft: 1 }} />
-						</ActionIcon>
-					</Group>
-				</Affix>
 				{currentWorkout ? (
 					<Stack>
-						<Flex align="end" justify={"space-between"}>
+						<TimerDrawer
+							opened={timerDrawerOpened}
+							onClose={timerDrawerClose}
+							startTimer={startTimer}
+							stopTimer={() => {
+								setCurrentTimer(RESET);
+								interval.stop();
+							}}
+						/>
+						<ReorderDrawer
+							opened={reorderDrawerOpened}
+							onClose={reorderDrawerClose}
+							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+							exercises={currentWorkout.exercises as any}
+							key={currentWorkout.exercises.toString()}
+						/>
+						<Flex align="end" justify="space-between">
 							<TextInput
 								style={{ flex: 0.7 }}
 								size="sm"
 								label="Name"
 								placeholder="A name for your workout"
 								value={currentWorkout.name}
+								required
 								onChange={(e) =>
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
@@ -704,9 +1061,83 @@ const Page: NextPageWithLayout = () => {
 							}
 						/>
 						<Divider />
+						<Group justify="space-around">
+							<Button
+								color="orange"
+								variant="subtle"
+								onClick={timerDrawerToggle}
+								radius="md"
+							>
+								{currentTimer
+									? Duration.fromObject({
+											seconds: currentTimer.remainingTime,
+									  }).toFormat("m:ss")
+									: "Timer"}
+							</Button>
+							{currentWorkout.exercises.length > 1 ? (
+								<>
+									<Button
+										color="blue"
+										variant="subtle"
+										onClick={reorderDrawerToggle}
+										radius="md"
+									>
+										Reorder
+									</Button>
+								</>
+							) : undefined}
+							{currentWorkout.exercises.length > 0 ? (
+								<>
+									<Button
+										color="green"
+										variant="subtle"
+										radius="md"
+										onClick={async () => {
+											if (!currentWorkout.name) {
+												notifications.show({
+													color: "red",
+													message: "Please give a name to the workout",
+												});
+												return;
+											}
+											const yes = confirm(
+												"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+											);
+											if (yes) {
+												const input =
+													currentWorkoutToCreateWorkoutInput(currentWorkout);
+												createUserWorkout.mutate(input);
+												playCompleteWorkoutSound();
+												await finishWorkout();
+											}
+										}}
+									>
+										Finish
+									</Button>
+								</>
+							) : undefined}
+							<Button
+								color="red"
+								variant="subtle"
+								radius="md"
+								onClick={async () => {
+									const yes = confirm(
+										"Are you sure you want to cancel this workout?",
+									);
+									if (yes) await finishWorkout();
+								}}
+							>
+								Cancel
+							</Button>
+						</Group>
+						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
-							<Fragment key={ex.exerciseId + idx}>
-								<ExerciseDisplay exercise={ex} exerciseIdx={idx} />
+							<Fragment key={`${ex.exerciseId}-${idx}`}>
+								<ExerciseDisplay
+									exercise={ex}
+									exerciseIdx={idx}
+									startTimer={startTimer}
+								/>
 								<Divider />
 							</Fragment>
 						))}
@@ -720,40 +1151,6 @@ const Page: NextPageWithLayout = () => {
 							>
 								Add exercise
 							</Button>
-						</Group>
-						<Group justify="center">
-							<Button
-								color="red"
-								variant="subtle"
-								onClick={async () => {
-									const yes = confirm(
-										"Are you sure you want to cancel this workout?",
-									);
-									if (yes) await finishWorkout();
-								}}
-							>
-								Cancel workout
-							</Button>
-							{currentWorkout.exercises.length > 0 ? (
-								<Button
-									color="green"
-									variant="subtle"
-									onClick={async () => {
-										const yes = confirm(
-											"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-										);
-										if (yes) {
-											const input =
-												currentWorkoutToCreateWorkoutInput(currentWorkout);
-											createUserWorkout.mutate(input);
-											playCompleteSound();
-											await finishWorkout();
-										}
-									}}
-								>
-									Finish workout
-								</Button>
-							) : undefined}
 						</Group>
 					</Stack>
 				) : (

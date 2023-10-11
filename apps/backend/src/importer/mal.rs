@@ -40,10 +40,7 @@ fn get_date(date: String) -> Option<DateTimeUtc> {
     }
 }
 
-fn convert_to_format(
-    item: Item,
-    lot: MetadataLot,
-) -> ImportOrExportMediaItem<ImportOrExportItemIdentifier> {
+fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
     let progress = if item.done != 0 && item.total != 0 {
         Some(item.done / item.total)
     } else {
@@ -68,7 +65,10 @@ fn convert_to_format(
         source_id: item.title,
         lot,
         source: MetadataSource::Mal,
-        identifier: ImportOrExportItemIdentifier::NeedsDetails(item.identifier.to_string()),
+        identifier: "".to_string(),
+        internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+            item.identifier.to_string(),
+        )),
         seen_history: vec![seen_item],
         reviews: vec![review_item],
         collections: vec![],

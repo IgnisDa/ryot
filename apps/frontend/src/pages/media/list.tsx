@@ -3,7 +3,7 @@ import {
 	MediaItemWithoutUpdateModal,
 	MediaSearchItem,
 } from "@/lib/components/MediaComponents";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -72,24 +72,24 @@ const Page: NextPageWithLayout = () => {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
-		key: "mineSortOrder",
+		key: LOCAL_STORAGE_KEYS.savedMineMediaSortOrder,
 		defaultValue: defaultFilters.mineSortOrder,
 		getInitialValueInEffect: false,
 	});
 	const [mineSortBy, setMineSortBy] = useLocalStorage({
-		key: "mineSortBy",
+		key: LOCAL_STORAGE_KEYS.savedMineMediaSortBy,
 		defaultValue: defaultFilters.mineSortBy,
 		getInitialValueInEffect: false,
 	});
 	const [mineGeneralFilter, setMineGeneralFilter] = useLocalStorage({
-		key: "mineGeneralFilter",
+		key: LOCAL_STORAGE_KEYS.savedMineMediaGeneralFilter,
 		defaultValue: defaultFilters.mineGeneralFilter,
 		getInitialValueInEffect: false,
 	});
 	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage<
 		string | undefined
 	>({
-		key: "mineCollectionFilter",
+		key: LOCAL_STORAGE_KEYS.savedMineMediaCollectionFilter,
 		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,
 		deserialize: (value) => {
@@ -103,22 +103,22 @@ const Page: NextPageWithLayout = () => {
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedSearchPage",
+		key: LOCAL_STORAGE_KEYS.savedMediaSearchPage,
 	});
 	const [query, setQuery] = useLocalStorage({
-		key: "savedQuery",
+		key: LOCAL_STORAGE_KEYS.savedMediaQuery,
 		getInitialValueInEffect: false,
 	});
 	const [searchSource, setSearchSource] = useLocalStorage({
-		key: "savedSearchSource",
+		key: LOCAL_STORAGE_KEYS.savedMediaSearchSource,
 	});
 	const [activeMinePage, setMinePage] = useLocalStorage({
 		defaultValue: "1",
-		key: "savedMinePage",
+		key: LOCAL_STORAGE_KEYS.savedMediaMinePage,
 		getInitialValueInEffect: false,
 	});
 	const [activeTab, setActiveTab] = useLocalStorage<"mine" | "search">({
-		key: "savedActiveTab",
+		key: LOCAL_STORAGE_KEYS.savedMediaActiveTab,
 		getInitialValueInEffect: false,
 		defaultValue: "mine",
 	});
@@ -263,7 +263,7 @@ const Page: NextPageWithLayout = () => {
 						if (v === "mine" || v === "search") setActiveTab(v);
 					}}
 				>
-					<Tabs.List mb={"xs"}>
+					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="mine"
 							leftSection={<IconListCheck size="1.5rem" />}
@@ -273,7 +273,7 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Tab value="search" leftSection={<IconSearch size="1.5rem" />}>
 							<Text>Search</Text>
 						</Tabs.Tab>
-						<Flex style={{ flexGrow: 1 }} justify={"end"}>
+						<Flex style={{ flexGrow: 1 }} justify="end">
 							<ActionIcon
 								size="lg"
 								mt={4}
@@ -331,7 +331,7 @@ const Page: NextPageWithLayout = () => {
 												if (v) setMineGeneralFilter(v as MediaGeneralFilter);
 											}}
 										/>
-										<Flex gap={"xs"} align={"center"}>
+										<Flex gap="xs" align="center">
 											<Select
 												w="100%"
 												data={[
@@ -387,7 +387,7 @@ const Page: NextPageWithLayout = () => {
 							{listMedia.data && listMedia.data.details.total > 0 ? (
 								<>
 									<Box>
-										<Text display={"inline"} fw="bold">
+										<Text display="inline" fw="bold">
 											{listMedia.data.details.total}
 										</Text>{" "}
 										items found
@@ -400,7 +400,7 @@ const Page: NextPageWithLayout = () => {
 													...lm.data,
 													publishYear: lm.data.publishYear?.toString(),
 												}}
-												averageRating={lm.averageRating}
+												averageRating={lm.averageRating ?? undefined}
 												lot={lot}
 												href={withQuery(
 													APP_ROUTES.media.individualMediaItem.details,
@@ -432,7 +432,7 @@ const Page: NextPageWithLayout = () => {
 
 					<Tabs.Panel value="search">
 						<Stack>
-							<Flex gap={"xs"}>
+							<Flex gap="xs">
 								{SearchInput({
 									placeholder: `Search for ${changeCase(
 										lot.toLowerCase(),
@@ -456,7 +456,7 @@ const Page: NextPageWithLayout = () => {
 							{searchQuery.data && searchQuery.data.details.total > 0 ? (
 								<>
 									<Box>
-										<Text display={"inline"} fw="bold">
+										<Text display="inline" fw="bold">
 											{searchQuery.data.details.total}
 										</Text>{" "}
 										items found

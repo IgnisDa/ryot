@@ -64,7 +64,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Workout::Summary).json().not_null())
                     .col(ColumnDef::new(Workout::Information).json().not_null())
-                    .col(ColumnDef::new(Workout::Name).string().null())
+                    .col(ColumnDef::new(Workout::Name).string().not_null())
                     .col(ColumnDef::new(Workout::Comment).string().null())
                     .to_owned(),
             )

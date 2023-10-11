@@ -120,10 +120,9 @@ use crate::{
         UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
-        associate_user_with_metadata, convert_naive_to_utc, get_case_insensitive_like_query,
-        get_first_and_last_day_of_month, get_stored_asset, get_user_and_metadata_association,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR,
-        VERSION,
+        associate_user_with_metadata, convert_naive_to_utc, get_first_and_last_day_of_month,
+        get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
+        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -669,7 +668,7 @@ fn create_cookie(
     insecure_cookie: bool,
     same_site_none: bool,
 ) -> Result<()> {
-    let mut cookie = Cookie::build(COOKIE_NAME, api_key.to_string()).secure(!insecure_cookie);
+    let mut cookie = Cookie::build((COOKIE_NAME, api_key.to_string())).secure(!insecure_cookie);
     cookie = if expires {
         cookie.expires(OffsetDateTime::now_utc())
     } else {
@@ -680,7 +679,7 @@ fn create_cookie(
     } else {
         cookie.same_site(SameSite::Strict)
     };
-    let cookie = cookie.finish();
+    let cookie = cookie.build();
     ctx.insert_http_header(SET_COOKIE, cookie.to_string());
     Ok(())
 }
@@ -775,7 +774,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a presigned URL (valid for 90 minutes) for a given key.
-    async fn get_presigned_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
+    async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.file_storage_service.get_presigned_url(key).await
     }
@@ -1250,7 +1249,7 @@ impl MiscellaneousMutation {
     }
 
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
-    async fn presigned_put_url(
+    async fn presigned_put_s3_url(
         &self,
         gql_ctx: &Context<'_>,
         file_name: String,
@@ -1261,6 +1260,13 @@ impl MiscellaneousMutation {
             .get_presigned_put_url(file_name)
             .await;
         Ok(PresignedPutUrlResponse { upload_url, key })
+    }
+
+    /// Delete an S3 object by the given key.
+    async fn delete_s3_object(&self, gql_ctx: &Context<'_>, key: String) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let resp = service.file_storage_service.delete_object(key).await;
+        Ok(resp)
     }
 
     /// Generate an auth token without any expiry.
@@ -1988,7 +1994,7 @@ impl MiscellaneousService {
 
         if let Some(v) = input.search.query {
             let get_contains_expr = |col: metadata::Column| {
-                get_case_insensitive_like_query(
+                get_ilike_query(
                     Func::cast_as(Expr::col((metadata_alias.clone(), col)), Alias::new("text")),
                     &v,
                 )
@@ -4662,6 +4668,10 @@ impl MiscellaneousService {
                                     preferences.features_enabled.fitness.measurements =
                                         value_bool.unwrap()
                                 }
+                                "workouts" => {
+                                    preferences.features_enabled.fitness.workouts =
+                                        value_bool.unwrap()
+                                }
                                 _ => return Err(err()),
                             },
                             "media" => {
@@ -4737,6 +4747,9 @@ impl MiscellaneousService {
                         _ => return Err(err()),
                     },
                     "general" => match right {
+                        "num_genres_display" => {
+                            preferences.general.num_genres_display = value_usize.unwrap();
+                        }
                         "review_scale" => {
                             preferences.general.review_scale =
                                 UserReviewScale::from_str(&input.value).unwrap();
@@ -5583,7 +5596,7 @@ impl MiscellaneousService {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let query = MetadataGroup::find()
             .apply_if(input.query, |query, v| {
-                query.filter(Condition::all().add(get_case_insensitive_like_query(
+                query.filter(Condition::all().add(get_ilike_query(
                     Expr::col(metadata_group::Column::Title),
                     &v,
                 )))
@@ -5651,10 +5664,9 @@ impl MiscellaneousService {
         };
         let query = Person::find()
             .apply_if(input.search.query, |query, v| {
-                query.filter(Condition::all().add(get_case_insensitive_like_query(
-                    Expr::col(person::Column::Name),
-                    &v,
-                )))
+                query.filter(
+                    Condition::all().add(get_ilike_query(Expr::col(person::Column::Name), &v)),
+                )
             })
             .column_as(
                 Expr::expr(Func::count(Expr::col(
@@ -5859,7 +5871,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem<String>>> {
+    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem>> {
         let related_metadata = UserToMetadata::find()
             .filter(user_to_metadata::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -5927,6 +5939,7 @@ impl MiscellaneousService {
                 lot: m.lot,
                 source: m.source,
                 identifier: m.identifier,
+                internal_identifier: None,
                 seen_history,
                 reviews,
                 collections,

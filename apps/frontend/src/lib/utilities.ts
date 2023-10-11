@@ -2,6 +2,7 @@ import type { MantineColorScheme } from "@mantine/core";
 import {
 	MetadataLot,
 	MetadataSource,
+	PresignedPutS3UrlDocument,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -16,6 +17,7 @@ import {
 	IconMicrophone,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+import { gqlClient } from "./services/api";
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
@@ -193,4 +195,23 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.Anime, () => IconBooks)
 		.with(MetadataLot.VisualNovel, () => IconBook2)
 		.exhaustive();
+};
+
+export const uploadFileAndGetKey = async (
+	fileName: string,
+	contentType: string,
+	body: ArrayBuffer | Buffer,
+) => {
+	const { presignedPutS3Url } = await gqlClient.request(
+		PresignedPutS3UrlDocument,
+		{
+			fileName,
+		},
+	);
+	await fetch(presignedPutS3Url.uploadUrl, {
+		method: "PUT",
+		body,
+		headers: { "Content-Type": contentType },
+	});
+	return presignedPutS3Url.key;
 };

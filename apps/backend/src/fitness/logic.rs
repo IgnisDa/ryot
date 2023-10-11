@@ -19,10 +19,11 @@ use crate::{
     },
     migrator::ExerciseLot,
     models::fitness::{
-        ExerciseBestSetRecord, ProcessedExercise, SetLot, SetStatistic, TotalMeasurement,
+        EntityAssets, ExerciseBestSetRecord, ProcessedExercise, SetLot,
         UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
         UserToExerciseHistoryExtraInformation, WorkoutInformation, WorkoutSetPersonalBest,
-        WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
+        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSummary, WorkoutSummaryExercise,
+        WorkoutTotalMeasurement,
     },
     users::{UserExercisePreferences, UserUnitSystem},
 };
@@ -66,7 +67,7 @@ fn get_index_of_highest_pb(
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutSetRecord {
-    pub statistic: SetStatistic,
+    pub statistic: WorkoutSetStatistic,
     pub lot: SetLot,
 }
 
@@ -94,16 +95,18 @@ pub struct UserExerciseInput {
     pub sets: Vec<UserWorkoutSetRecord>,
     pub notes: Vec<String>,
     pub rest_time: Option<u16>,
+    pub assets: EntityAssets,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutInput {
-    pub name: Option<String>,
+    pub name: String,
     pub comment: Option<String>,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
     pub exercises: Vec<UserExerciseInput>,
     pub supersets: Vec<Vec<u16>>,
+    pub assets: EntityAssets,
 }
 
 impl UserWorkoutInput {
@@ -123,7 +126,7 @@ impl UserWorkoutInput {
                 .await?
                 .ok_or_else(|| anyhow!("No exercise found!"))?;
             let mut sets = vec![];
-            let mut total = TotalMeasurement::default();
+            let mut total = WorkoutTotalMeasurement::default();
             let association = UserToExercise::find()
                 .filter(user_to_exercise::Column::UserId.eq(user_id))
                 .filter(user_to_exercise::Column::ExerciseId.eq(ex.exercise_id))
@@ -144,7 +147,7 @@ impl UserWorkoutInput {
                         last_updated_on: ActiveValue::Set(Utc::now()),
                         extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
                             history: vec![history_item],
-                            lifetime_stats: TotalMeasurement::default(),
+                            lifetime_stats: WorkoutTotalMeasurement::default(),
                             personal_bests: vec![],
                         }),
                     };
@@ -239,14 +242,19 @@ impl UserWorkoutInput {
             association_extra_information.personal_bests = personal_bests;
             association.extra_information = ActiveValue::Set(association_extra_information);
             association.update(db).await?;
-            exercises.push(ProcessedExercise {
-                exercise_id: ex.exercise_id,
-                exercise_name: db_ex.name,
-                sets,
-                notes: ex.notes,
-                rest_time: ex.rest_time,
-                total,
-            });
+            exercises.push((
+                db_ex.lot,
+                ProcessedExercise {
+                    exercise_id: ex.exercise_id,
+                    exercise_name: db_ex.name,
+                    exercise_lot: db_ex.lot,
+                    sets,
+                    notes: ex.notes,
+                    rest_time: ex.rest_time,
+                    assets: ex.assets,
+                    total,
+                },
+            ));
         }
         let summary_total = workout_totals.into_iter().sum();
         let model = workout::Model {
@@ -261,16 +269,18 @@ impl UserWorkoutInput {
                 total: summary_total,
                 exercises: exercises
                     .iter()
-                    .map(|e| WorkoutSummaryExercise {
+                    .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
                         name: e.exercise_name.clone(),
+                        lot: lot.clone(),
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
                     .collect(),
             },
             information: WorkoutInformation {
                 supersets: self.supersets,
-                exercises,
+                assets: self.assets,
+                exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
             },
         };
         let insert: workout::ActiveModel = model.into();

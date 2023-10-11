@@ -4,7 +4,7 @@ import {
 	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -25,6 +25,7 @@ import {
 	Image,
 	Indicator,
 	Loader,
+	MantineThemeProvider,
 	Menu,
 	Modal,
 	NumberInput,
@@ -156,7 +157,7 @@ const ProgressModal = (props: {
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
-			size={"sm"}
+			size="sm"
 		>
 			<Stack>
 				<Title order={3}>Set progress</Title>
@@ -173,17 +174,17 @@ const ProgressModal = (props: {
 						max={100}
 						min={0}
 						step={1}
-						w={"20%"}
+						w="20%"
 						hideControls
 						rightSection={<IconPercentage size="1rem" />}
 					/>
 				</Group>
 				{props.total ? (
 					<>
-						<Text ta="center" fw={"bold"}>
+						<Text ta="center" fw="bold">
 							OR
 						</Text>
-						<Flex align={"center"} gap="xs">
+						<Flex align="center" gap="xs">
 							<NumberInput
 								value={Math.ceil(((props.total || 1) * value) / 100)}
 								onChange={(v) => {
@@ -230,7 +231,7 @@ const MetadataCreator = (props: { name: string; image?: string | null }) => {
 				src={props.image}
 				h={100}
 				w={85}
-				radius={"sm"}
+				radius="sm"
 				mx="auto"
 				alt={`${props.name} profile picture`}
 				styles={{ image: { objectPosition: "top" } }}
@@ -409,7 +410,7 @@ const AccordionLabel = ({
 }) => {
 	return (
 		<Stack data-episode-id={id}>
-			<Flex align={"center"} gap="sm">
+			<Flex align="center" gap="sm">
 				<Indicator
 					disabled={displayIndicator === 0}
 					label={displayIndicator === 1 ? "Seen" : `Seen X${displayIndicator}`}
@@ -430,7 +431,7 @@ const AccordionLabel = ({
 			<Group gap={6}>
 				<Text>{name}</Text>
 				{runtime ? (
-					<Text size={"xs"} color="dimmed">
+					<Text size="xs" c="dimmed">
 						({humanizer.humanize(runtime * 1000 * 60)}
 						{publishDate
 							? `, ${DateTime.fromISO(publishDate).toLocaleString(
@@ -477,7 +478,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	] = useDisclosure(false);
 	const [activeTab, setActiveTab] = useLocalStorage({
-		key: "savedActiveItemDetailsTab",
+		key: LOCAL_STORAGE_KEYS.savedActiveItemDetailsTab,
 		getInitialValueInEffect: true,
 		defaultValue: "overview",
 	});
@@ -750,78 +751,92 @@ const Page: NextPageWithLayout = () => {
 							))}
 						</Group>
 					) : undefined}
-					<Flex id="media-details" wrap={"wrap"} gap={6} align={"center"}>
-						<Text c="dimmed">{mediaDetails.data.productionStatus}</Text>
-						{mediaDetails.data.genres.length > 0 ? (
-							<Text c="dimmed">
-								• {formatter.format(mediaDetails.data.genres.slice(0, 5))}
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.bookSpecifics?.pages ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.bookSpecifics.pages} pages
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.podcastSpecifics.totalEpisodes} episodes
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.animeSpecifics?.episodes ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.animeSpecifics.episodes} episodes
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.movieSpecifics?.runtime ? (
-							<Text c="dimmed">
-								{" "}
-								•{" "}
-								{humanizer.humanize(
-									mediaSpecifics.data.movieSpecifics.runtime * 1000 * 60,
-								)}
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.showSpecifics ? (
-							<Text c="dimmed">
-								{" "}
-								• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
-							</Text>
-						) : undefined}
-						{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
-							<Text c="dimmed">
-								{" "}
-								•{" "}
-								{humanizer.humanize(
-									mediaSpecifics.data.audioBookSpecifics.runtime * 1000 * 60,
-								)}
-							</Text>
-						) : undefined}
-						{mediaDetails.data.publishYear ? (
-							<Text c="dimmed"> • {mediaDetails.data.publishYear}</Text>
-						) : undefined}
-					</Flex>
+					<MantineThemeProvider
+						theme={{
+							components: {
+								Text: Text.extend({
+									defaultProps: { c: "dimmed", fz: { base: "sm", lg: "md" } },
+								}),
+							},
+						}}
+					>
+						<Flex id="media-details" wrap="wrap" gap={6} align="center">
+							<Text>{mediaDetails.data.productionStatus}</Text>
+							{mediaSpecifics.data?.bookSpecifics?.pages ? (
+								<Text> • {mediaSpecifics.data.bookSpecifics.pages} pages</Text>
+							) : undefined}
+							{mediaSpecifics.data?.podcastSpecifics?.totalEpisodes ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.podcastSpecifics.totalEpisodes}{" "}
+									episodes
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.animeSpecifics?.episodes ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.animeSpecifics.episodes} episodes
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.mangaSpecifics?.chapters ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.mangaSpecifics.chapters} chapters
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.mangaSpecifics?.volumes ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.mangaSpecifics.volumes} volumes
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.movieSpecifics?.runtime ? (
+								<Text>
+									{" "}
+									•{" "}
+									{humanizer.humanize(
+										mediaSpecifics.data.movieSpecifics.runtime * 1000 * 60,
+									)}
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.showSpecifics ? (
+								<Text>
+									{" "}
+									• {mediaSpecifics.data.showSpecifics.seasons.length} seasons
+								</Text>
+							) : undefined}
+							{mediaSpecifics.data?.audioBookSpecifics?.runtime ? (
+								<Text>
+									{" "}
+									•{" "}
+									{humanizer.humanize(
+										mediaSpecifics.data.audioBookSpecifics.runtime * 1000 * 60,
+									)}
+								</Text>
+							) : undefined}
+							{mediaDetails.data.publishYear ? (
+								<Text> • {mediaDetails.data.publishYear}</Text>
+							) : undefined}
+							{mediaDetails.data.genres.length > 0 ? (
+								<Text>
+									•{" "}
+									{formatter.format(
+										mediaDetails.data.genres.slice(
+											0,
+											preferences.data.general.numGenresDisplay,
+										),
+									)}
+								</Text>
+							) : undefined}
+						</Flex>
+					</MantineThemeProvider>
 					{mediaDetails.data.providerRating ||
 					userMediaDetails.data?.averageRating ? (
 						<Group>
 							{mediaDetails.data.providerRating ? (
 								<Paper
 									p={4}
-									display={"flex"}
+									display="flex"
 									style={{
 										flexDirection: "column",
 										alignItems: "center",
@@ -859,7 +874,7 @@ const Page: NextPageWithLayout = () => {
 									/>
 
 									<Text fz="sm">
-										{parseFloat(mediaDetails.data.providerRating).toFixed(1)}
+										{Number(mediaDetails.data.providerRating).toFixed(1)}
 										{match(mediaDetails.data.source)
 											.with(
 												MetadataSource.Anilist,
@@ -892,7 +907,7 @@ const Page: NextPageWithLayout = () => {
 							{userMediaDetails.data?.averageRating ? (
 								<Paper
 									p={4}
-									display={"flex"}
+									display="flex"
 									style={{
 										flexDirection: "column",
 										alignItems: "center",
@@ -904,7 +919,7 @@ const Page: NextPageWithLayout = () => {
 										style={{ color: "#EBE600FF" }}
 									/>
 									<Text fz="sm">
-										{parseFloat(userMediaDetails.data.averageRating).toFixed(1)}
+										{Number(userMediaDetails.data.averageRating).toFixed(1)}
 										{preferences.data.general.reviewScale ===
 										UserReviewScale.OutOfFive
 											? undefined
@@ -937,7 +952,7 @@ const Page: NextPageWithLayout = () => {
 							if (v) setActiveTab(v);
 						}}
 					>
-						<Tabs.List mb={"xs"}>
+						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
 								leftSection={<IconInfoCircle size="1rem" />}
@@ -1337,7 +1352,7 @@ const Page: NextPageWithLayout = () => {
 									{userMediaDetails.data?.history.map((h) => (
 										<Flex
 											key={h.id}
-											direction={"column"}
+											direction="column"
 											ml="md"
 											data-seen-id={h.id}
 											data-seen-num-times-updated={h.numTimesUpdated}
@@ -1359,9 +1374,9 @@ const Page: NextPageWithLayout = () => {
 													</Text>
 												) : undefined}
 											</Flex>
-											<Flex ml="sm" direction={"column"} gap={4}>
+											<Flex ml="sm" direction="column" gap={4}>
 												<Flex gap="xl">
-													<Flex gap={"xs"}>
+													<Flex gap="xs">
 														<Text size="sm">Started:</Text>
 														<Text size="sm" fw="bold">
 															{h.startedOn
@@ -1369,7 +1384,7 @@ const Page: NextPageWithLayout = () => {
 																: "N/A"}
 														</Text>
 													</Flex>
-													<Flex gap={"xs"}>
+													<Flex gap="xs">
 														<Text size="sm">Ended:</Text>
 														<Text size="sm" fw="bold">
 															{h.finishedOn
@@ -1380,8 +1395,8 @@ const Page: NextPageWithLayout = () => {
 														</Text>
 													</Flex>
 												</Flex>
-												<Flex gap={"md"}>
-													<Flex gap={"xs"}>
+												<Flex gap="md">
+													<Flex gap="xs">
 														<Text size="sm">Updated:</Text>
 														<Text size="sm" fw="bold">
 															{DateTime.fromJSDate(
@@ -1472,7 +1487,7 @@ const Page: NextPageWithLayout = () => {
 												<Accordion.Panel>
 													{s.episodes.length > 0 ? (
 														s.episodes.map((e) => (
-															<Box mb={"xs"} ml={"md"} key={e.id}>
+															<Box mb="xs" ml="md" key={e.id}>
 																<AccordionLabel
 																	{...e}
 																	key={e.episodeNumber}
@@ -1595,7 +1610,7 @@ const Page: NextPageWithLayout = () => {
 										{mediaSpecifics.data?.assets.videos.map((v) => (
 											<Box key={v.videoId}>
 												<iframe
-													width={"100%"}
+													width="100%"
 													height={200}
 													src={
 														match(v.source)

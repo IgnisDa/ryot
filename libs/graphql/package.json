@@ -3,6 +3,6 @@
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
 		"graphql-request": "6.1.0",
-		"graphql-scalars": "1.22.2"
+		"graphql-scalars": "1.22.4"
 	}
 }

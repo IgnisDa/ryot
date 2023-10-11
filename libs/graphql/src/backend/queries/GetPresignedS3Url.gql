@@ -1,0 +1,3 @@
+query GetPresignedS3Url($key: String!) {
+  getPresignedS3Url(key: $key)
+}

@@ -1,3 +1,5 @@
+import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -6,11 +8,14 @@ import { getSetColor } from "@/lib/utilities";
 import {
 	Box,
 	Container,
+	Divider,
 	Flex,
+	Group,
 	Image,
 	List,
 	Paper,
 	ScrollArea,
+	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -19,11 +24,10 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import {
 	ExerciseDetailsDocument,
-	ExerciseLot,
 	SetLot,
-	type SetStatistic,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -37,27 +41,16 @@ import type { ReactElement } from "react";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../../_app";
 
-const getStats = (lot: ExerciseLot, statistic: SetStatistic) => {
-	const [first, second] = match(lot)
-		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${statistic.duration} km x ${statistic.duration} min`,
-			`${(statistic.distance || 1) / (statistic.duration || 1)} km/min`,
-		])
-		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, ""])
-		.with(ExerciseLot.RepsAndWeight, () => [
-			`${statistic.weight} kg x ${statistic.reps}`,
-			`${(statistic.weight || 1) * (statistic.reps || 1)} vol`,
-		])
-		.exhaustive();
+const DisplayData = (props: { name: string; data: string }) => {
 	return (
-		<>
-			<Text fz="sm">{first}</Text>
-			{second ? (
-				<Text ml="auto" fz="sm">
-					{second}
-				</Text>
-			) : undefined}
-		</>
+		<Box>
+			<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
+				{startCase(props.name)}
+			</Text>
+			<Text ta="center" fz={{ base: "sm", md: "md" }}>
+				{startCase(props.data.toLowerCase())}
+			</Text>
+		</Box>
 	);
 };
 
@@ -68,7 +61,7 @@ const DisplayLifetimeStatistic = (props: {
 	stat: string;
 }) => {
 	return parseFloat(props.val) !== 0 ? (
-		<Flex mt={6} align={"center"} justify={"space-between"}>
+		<Flex mt={6} align="center" justify="space-between">
 			<Text size="sm">Total {props.stat}</Text>
 			<Text size="sm">
 				{props.val} {props.unit}
@@ -82,7 +75,7 @@ const Page: NextPageWithLayout = () => {
 	const exerciseId = parseInt(router.query.id?.toString() || "0");
 
 	const [activeTab, setActiveTab] = useLocalStorage({
-		key: "savedActiveExerciseDetailsTab",
+		key: LOCAL_STORAGE_KEYS.savedActiveExerciseDetailsTab,
 		getInitialValueInEffect: false,
 		defaultValue: "overview",
 	});
@@ -128,7 +121,7 @@ const Page: NextPageWithLayout = () => {
 						}}
 						variant="outline"
 					>
-						<Tabs.List mb={"xs"}>
+						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
 								leftSection={<IconInfoCircle size="1rem" />}
@@ -154,20 +147,41 @@ const Page: NextPageWithLayout = () => {
 								<ScrollArea>
 									<Flex gap={6}>
 										{exerciseDetails.data.attributes.images.map((i) => (
-											<Image
-												key={i}
-												radius={"md"}
-												src={i}
-												h="200px"
-												w="248px"
-											/>
+											<Image key={i} radius="md" src={i} h="200px" w="248px" />
 										))}
 									</Flex>
 								</ScrollArea>
+								<SimpleGrid py="xs" cols={4}>
+									{["level", "force", "mechanic", "equipment"].map((f) => (
+										<>
+											{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
+											{(exerciseDetails.data as any)[f] ? (
+												<DisplayData
+													name={f}
+													// biome-ignore lint/suspicious/noExplicitAny: required here
+													data={(exerciseDetails.data as any)[f]}
+													key={f}
+												/>
+											) : undefined}
+										</>
+									))}
+								</SimpleGrid>
+								<Divider />
+								<Group wrap="nowrap">
+									<Text c="dimmed" fz="sm">
+										Muscles
+									</Text>
+									<Text fz="sm">
+										{exerciseDetails.data.attributes.muscles
+											.map((s) => startCase(s.toLowerCase()))
+											.join(", ")}
+									</Text>
+								</Group>
+								<Divider />
 								<Text size="xl" fw="bold">
 									Instructions
 								</Text>
-								<List type="ordered" spacing={"xs"}>
+								<List type="ordered" spacing="xs">
 									{exerciseDetails.data.attributes.instructions.map((d) => (
 										<List.Item key={d}>{d}</List.Item>
 									))}
@@ -186,18 +200,22 @@ const Page: NextPageWithLayout = () => {
 												)}
 											</Text>
 											{h.sets.map((s, idx) => (
-												<Flex key={`${idx}`} align={"center"}>
+												<Flex key={`${idx}`} align="center">
 													<Text
 														fz="sm"
-														color={getSetColor(s.lot)}
+														c={getSetColor(s.lot)}
 														mr="md"
 														fw="bold"
+														ff="monospace"
 													>
 														{match(s.lot)
 															.with(SetLot.Normal, () => idx + 1)
 															.otherwise(() => s.lot.at(0))}
 													</Text>
-													{getStats(exerciseDetails.data.lot, s.statistic)}
+													<DisplayExerciseStats
+														lot={exerciseDetails.data.lot}
+														statistic={s.statistic}
+													/>
 												</Flex>
 											))}
 										</Paper>
@@ -211,7 +229,7 @@ const Page: NextPageWithLayout = () => {
 							{userExerciseDetails.data ? (
 								<Stack>
 									<Box>
-										<Text size="xs" color="dimmed">
+										<Text size="xs" c="dimmed">
 											LIFETIME STATS
 										</Text>
 										<DisplayLifetimeStatistic

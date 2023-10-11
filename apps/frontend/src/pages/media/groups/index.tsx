@@ -46,7 +46,7 @@ const Page: NextPageWithLayout = () => {
 					}}
 				>
 					<Title id="group-title">{groupDetails.data.details.title}</Title>
-					<Flex id="group-details" wrap={"wrap"} gap={4}>
+					<Flex id="group-details" wrap="wrap" gap={4}>
 						<Text>{groupDetails.data.details.parts} media items</Text>
 					</Flex>
 					<MediaScrollArea>

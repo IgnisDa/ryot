@@ -8,10 +8,9 @@ query ExercisesList($input: ExercisesListInput!) {
       id
       name
       lot
-      attributes {
-        images
-        muscles
-      }
+      image
+      muscle
+      numTimesPerformed
     }
   }
 }

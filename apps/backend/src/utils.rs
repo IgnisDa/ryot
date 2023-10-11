@@ -188,7 +188,7 @@ pub fn get_base_http_client(
         .unwrap()
 }
 
-pub fn get_case_insensitive_like_query<E>(expr: E, v: &str) -> SimpleExpr
+pub fn get_ilike_query<E>(expr: E, v: &str) -> SimpleExpr
 where
     E: Into<SimpleExpr>,
 {

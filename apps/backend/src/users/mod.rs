@@ -75,6 +75,7 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
+    pub workouts: bool,
 }
 
 impl Default for UserFitnessFeaturesEnabledPreferences {
@@ -82,6 +83,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
         Self {
             enabled: true,
             measurements: true,
+            workouts: true,
         }
     }
 }
@@ -287,6 +289,7 @@ pub struct UserGeneralDashboardElement {
 )]
 #[serde(default)]
 pub struct UserGeneralPreferences {
+    pub num_genres_display: usize,
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
@@ -295,6 +298,7 @@ pub struct UserGeneralPreferences {
 impl Default for UserGeneralPreferences {
     fn default() -> Self {
         Self {
+            num_genres_display: 5,
             review_scale: UserReviewScale::default(),
             display_nsfw: false,
             dashboard: vec![

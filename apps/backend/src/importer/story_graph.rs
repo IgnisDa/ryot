@@ -109,7 +109,10 @@ pub async fn import(
                     source_id: record.title,
                     lot,
                     source,
-                    identifier: ImportOrExportItemIdentifier::NeedsDetails(identifier),
+                    identifier: "".to_string(),
+                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                        identifier,
+                    )),
                     seen_history,
                     reviews: vec![ImportOrExportItemRating {
                         rating: record

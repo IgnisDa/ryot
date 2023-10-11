@@ -112,7 +112,7 @@ const ActualDisplayStat = (props: {
 	const colors = Object.keys(theme.colors);
 
 	return (
-		<Paper component={Flex} align={"center"}>
+		<Paper component={Flex} align="center">
 			<RingProgress
 				size={60}
 				thickness={4}
@@ -120,13 +120,13 @@ const ActualDisplayStat = (props: {
 				label={<Center>{props.icon}</Center>}
 				rootColor={props.color ?? colors[11]}
 			/>
-			<Flex wrap={"wrap"} ml="xs">
+			<Flex wrap="wrap" ml="xs">
 				{props.data.map((d, idx) =>
 					d.type === "number" && d.value === 0 && d.hideIfZero ? undefined : (
-						<Box key={idx.toString()} mx={"xs"}>
+						<Box key={idx.toString()} mx="xs">
 							<Text
 								fw={d.label !== "Runtime" ? "bold" : undefined}
-								display={"inline"}
+								display="inline"
 								fz={{ base: "md", md: "sm" }}
 							>
 								{d.type === "duration"
@@ -136,7 +136,7 @@ const ActualDisplayStat = (props: {
 									  })
 									: humanFormat(d.value)}
 							</Text>
-							<Text display={"inline"} ml="4px" fz={{ base: "md", md: "sm" }}>
+							<Text display="inline" ml="4px" fz={{ base: "md", md: "sm" }}>
 								{d.label === "Runtime" ? "" : d.label}
 							</Text>
 						</Box>

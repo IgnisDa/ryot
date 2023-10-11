@@ -1,0 +1,36 @@
+query WorkoutDetails($workoutId: String!) {
+  workoutDetails(workoutId: $workoutId) {
+    name
+    comment
+    startTime
+    endTime
+    summary {
+      ...WorkoutSummaryPart
+    }
+    information {
+      assets {
+        ...EntityAssetsPart
+      }
+      exercises {
+        exerciseId
+        exerciseName
+        exerciseLot
+        notes
+        restTime
+        total {
+          ...WorkoutTotalMeasurementPart
+        }
+        assets {
+          ...EntityAssetsPart
+        }
+        sets {
+          statistic {
+            ...WorkoutSetStatisticPart
+          }
+          lot
+          personalBests
+        }
+      }
+    }
+  }
+}

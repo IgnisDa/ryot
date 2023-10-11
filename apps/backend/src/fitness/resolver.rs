@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
-use async_graphql::{Context, Error, InputObject, Object, Result, SimpleObject};
+use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QueryTrait,
+    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    RelationTrait,
 };
-use sea_query::{Alias, Condition, Expr, Func};
+use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
@@ -17,12 +18,13 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        exercise,
+        exercise::{self, ExerciseListItem},
         prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
         user::UserWithOnlyPreferences,
         user_measurement, user_to_exercise, workout,
     },
     file_storage::FileStorageService,
+    fitness::logic::UserWorkoutInput,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle,
@@ -30,15 +32,13 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
-            GithubExerciseAttributes, WorkoutSetRecord,
+            GithubExerciseAttributes, WorkoutListItem, WorkoutSetRecord,
         },
         SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_case_insensitive_like_query, partial_user_by_id},
+    utils::{get_ilike_query, partial_user_by_id},
 };
-
-use super::logic::UserWorkoutInput;
 
 static JSON_URL: &str =
     "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
@@ -56,10 +56,19 @@ struct ExerciseListFilter {
     muscle: Option<ExerciseMuscle>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum ExerciseSortBy {
+    #[default]
+    LastPerformed,
+    NumTimesPerformed,
+    Name,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct ExercisesListInput {
     search: SearchInput,
     filter: Option<ExerciseListFilter>,
+    sort_by: Option<ExerciseSortBy>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -89,7 +98,7 @@ struct UserMeasurementsListInput {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseHistoryInformation {
     workout_id: String,
-    workout_name: Option<String>,
+    workout_name: String,
     workout_time: DateTimeUtc,
     sets: Vec<WorkoutSetRecord>,
 }
@@ -116,9 +125,21 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
-    ) -> Result<SearchResults<exercise::Model>> {
+    ) -> Result<SearchResults<ExerciseListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.exercises_list(input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.exercises_list(input, user_id).await
+    }
+
+    /// Get a paginated list of workouts done by the user.
+    async fn user_workout_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        page: i32,
+    ) -> Result<SearchResults<WorkoutListItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_workout_list(page, user_id).await
     }
 
     /// Get details about an exercise.
@@ -129,6 +150,17 @@ impl ExerciseQuery {
     ) -> Result<exercise::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         service.exercise_details(exercise_id).await
+    }
+
+    /// Get details about a workout.
+    async fn workout_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        workout_id: String,
+    ) -> Result<workout::Model> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.workout_details(workout_id, user_id).await
     }
 
     /// Get information about an exercise for a user.
@@ -159,12 +191,6 @@ pub struct ExerciseMutation;
 
 #[Object]
 impl ExerciseMutation {
-    /// Deploy a job to download and update the exercise library.
-    async fn deploy_update_exercise_library_job(&self, gql_ctx: &Context<'_>) -> Result<i32> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.deploy_update_exercise_library_job().await
-    }
-
     /// Create a user measurement.
     async fn create_user_measurement(
         &self,
@@ -273,6 +299,19 @@ impl ExerciseService {
         }
     }
 
+    async fn workout_details(&self, workout_id: String, user_id: i32) -> Result<workout::Model> {
+        let maybe_workout = Workout::find_by_id(workout_id)
+            .filter(workout::Column::UserId.eq(user_id))
+            .one(&self.db)
+            .await?;
+        match maybe_workout {
+            None => Err(Error::new(
+                "Workout with the given ID could not be found for this user.",
+            )),
+            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
+        }
+    }
+
     async fn user_exercise_details(
         &self,
         exercise_id: i32,
@@ -317,16 +356,78 @@ impl ExerciseService {
         }
     }
 
+    async fn user_workout_list(
+        &self,
+        page: i32,
+        user_id: i32,
+    ) -> Result<SearchResults<WorkoutListItem>> {
+        let query = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .order_by_desc(workout::Column::Id);
+        let total = query.clone().count(&self.db).await?;
+        let total: i32 = total.try_into().unwrap();
+        let data = query
+            .into_partial_model::<WorkoutListItem>()
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
+        let next_page = if total - (page * self.config.frontend.page_size) > 0 {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails { total, next_page },
+            items,
+        })
+    }
+
     async fn exercises_list(
         &self,
         input: ExercisesListInput,
-    ) -> Result<SearchResults<exercise::Model>> {
+        user_id: i32,
+    ) -> Result<SearchResults<ExerciseListItem>> {
+        let ex = Alias::new("exercise");
+        let etu = Alias::new("user_to_exercise");
+        let order_by_col = match input.sort_by {
+            None => Expr::col((ex, exercise::Column::Name)),
+            Some(sb) => match sb {
+                // DEV: This is just a small hack to reduce duplicated code. We
+                // are ordering by name for the other `sort_by` anyway.
+                ExerciseSortBy::Name => Expr::val("1"),
+                ExerciseSortBy::NumTimesPerformed => Expr::expr(Func::coalesce([
+                    Expr::col((etu.clone(), user_to_exercise::Column::NumTimesPerformed)).into(),
+                    Expr::val(0).into(),
+                ])),
+                ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
+                    Expr::col((etu.clone(), user_to_exercise::Column::LastUpdatedOn)).into(),
+                    // DEV: For some reason this does not work without explicit casting on postgres
+                    Func::cast_as(
+                        Expr::val("1900-01-01"),
+                        match self.db {
+                            DatabaseConnection::SqlxMySqlPoolConnection(_) => {
+                                Alias::new("datetime")
+                            }
+                            DatabaseConnection::SqlxPostgresPoolConnection(_) => {
+                                Alias::new("timestamptz")
+                            }
+                            DatabaseConnection::SqlxSqlitePoolConnection(_) => Alias::new("text"),
+                            DatabaseConnection::Disconnected => unreachable!(),
+                        },
+                    )
+                    .into(),
+                ])),
+            },
+        };
         let query = Exercise::find()
+            .column_as(
+                Expr::col((etu, user_to_exercise::Column::NumTimesPerformed)),
+                "num_times_performed",
+            )
             .apply_if(input.filter, |query, q| {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
                     .apply_if(q.muscle, |q, v| {
-                        q.filter(get_case_insensitive_like_query(
+                        q.filter(get_ilike_query(
                             Func::cast_as(Expr::col(exercise::Column::Muscles), Alias::new("text")),
                             &v.to_string(),
                         ))
@@ -342,30 +443,33 @@ impl ExerciseService {
             })
             .apply_if(input.search.query, |query, v| {
                 query.filter(
-                    Condition::any()
-                        .add(get_case_insensitive_like_query(
-                            Expr::col(exercise::Column::Name),
-                            &v,
-                        ))
-                        .add(get_case_insensitive_like_query(
-                            Func::cast_as(
-                                Expr::col(exercise::Column::Attributes),
-                                Alias::new("text"),
-                            ),
-                            &v,
-                        )),
+                    Condition::any().add(get_ilike_query(Expr::col(exercise::Column::Name), &v)),
                 )
             })
+            .join(
+                JoinType::LeftJoin,
+                user_to_exercise::Relation::Exercise
+                    .def()
+                    .rev()
+                    .on_condition(move |_left, right| {
+                        Condition::all()
+                            .add(Expr::col((right, user_to_exercise::Column::UserId)).eq(user_id))
+                    }),
+            )
+            .order_by_desc(order_by_col)
             .order_by_asc(exercise::Column::Name);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let data = query
+            .into_model::<ExerciseListItem>()
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let mut items = vec![];
         for ex in data
             .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
             .await?
         {
-            items.push(ex.graphql_repr(&self.file_storage_service).await);
+            let gql_repr = ex.graphql_repr(&self.file_storage_service).await;
+            items.push(gql_repr);
         }
         let next_page =
             if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
@@ -380,7 +484,7 @@ impl ExerciseService {
     }
 
     #[instrument(skip(self))]
-    async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
+    pub async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
         for exercise in exercises {
