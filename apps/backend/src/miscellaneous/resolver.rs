@@ -5464,7 +5464,7 @@ impl MiscellaneousService {
     }
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
-        if !self.config.server.monitored_media_updated {
+        if !self.config.server.update_monitored_media {
             tracing::trace!("Monitored media updating has been disabled.");
             return Ok(());
         }

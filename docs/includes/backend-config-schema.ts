@@ -201,11 +201,6 @@ export interface ServerConfig {
 	 */
 	max_file_size: number;
 	/**
-	 * Whether "monitored" media will be updated.
-	 * @default true
-	 */
-	monitored_media_updated: boolean;
-	/**
 	 * The number of days after which details about a person are considered outdated.
 	 * @default 30
 	 */
@@ -219,6 +214,11 @@ export interface ServerConfig {
 	progress_update_threshold: number;
 	/** This will set SameSite=None on the auth cookies. */
 	samesite_none: boolean;
+	/**
+	 * Whether monitored media will be updated.
+	 * @default true
+	 */
+	update_monitored_media: boolean;
 	/**
 	 * Whether videos will be displayed in the media details.
 	 * @default false
