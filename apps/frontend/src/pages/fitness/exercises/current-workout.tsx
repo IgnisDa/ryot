@@ -874,7 +874,12 @@ const ReorderDrawer = (props: {
 		setCurrentWorkout(
 			// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
 			produce(currentWorkout, (draft: any) => {
-				if (draft) draft.exercises = exerciseElements;
+				if (draft) {
+					draft.exercises = exerciseElements.map((de) =>
+						// biome-ignore lint/suspicious/noExplicitAny: required here
+						draft.exercises.find((e: any) => e.name === de.name),
+					);
+				}
 			}),
 		);
 	}, [exerciseElements]);
