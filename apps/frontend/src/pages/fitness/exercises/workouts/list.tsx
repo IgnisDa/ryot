@@ -7,7 +7,6 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	Accordion,
 	Anchor,
-	Box,
 	Center,
 	Container,
 	Flex,
@@ -95,13 +94,7 @@ const Page: NextPageWithLayout = () => {
 					<Title>Workouts</Title>
 					{userWorkoutList.data.items.length > 0 ? (
 						<>
-							<Box>
-								<Text display="inline" fw="bold">
-									{userWorkoutList.data.details.total}{" "}
-								</Text>
-								workouts
-							</Box>
-							<Accordion>
+							<Accordion multiple>
 								{userWorkoutList.data.items.map((workout) => (
 									<Accordion.Item
 										key={workout.id}
