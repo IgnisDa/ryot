@@ -197,8 +197,9 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "apalis"
-version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0de190b82710849b13d11316b838cff99b3300d77bfb290615cbbd4b928b754"
 dependencies = [
  "apalis-core",
  "apalis-cron",
@@ -208,8 +209,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-core"
-version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af556741a1b045fcd872fcd3aff18242a6ab0a410ca45a53c8e8799bcfc573e9"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -231,8 +233,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-cron"
-version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c33e327ddea67cc44e46017b46840b04e6f9df471575935c68a16635dd02f78d"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -245,8 +248,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-redis"
-version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "285b59115b1ec6b87fe55dabfb38a719bead0173b92fd9576d237a81a148d411"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -262,8 +266,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-sql"
-version = "0.4.4"
-source = "git+https://github.com/geofmureithi/apalis.git?branch=chore/cron-add-timezone#147bd3da00875bd611086f38d7760084cff2f222"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de9dcf2371c2e156f971afc9610b1927b97fcd03368f10a19c65685d39fbf1cf"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -3784,9 +3789,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12cc1b0bf1727a77a54b6654e7b5f1af8604923edc8b81885f8ec92f9e3f0a05"
+checksum = "8afb450f006bf6385ca15ef45d71d2288452bc3683ce2e2cacc0d18e4be60b58"
 
 [[package]]
 name = "pin-utils"
@@ -6478,9 +6483,9 @@ checksum = "ed646292ffc8188ef8ea4d1e0e0150fb15a5c2e12ad9b8fc191ae7a8a7f3c4b9"
 
 [[package]]
 name = "ulid"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13a3aaa69b04e5b66cc27309710a569ea23593612387d67daaf102e73aa974fd"
+checksum = "7e37c4b6cbcc59a8dcd09a6429fbc7890286bcbb79215cea7b38a3c4c0921d93"
 dependencies = [
  "rand 0.8.5",
 ]

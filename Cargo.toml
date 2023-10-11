@@ -23,7 +23,3 @@ inherits = "release"
 opt-level = 's'
 strip = true
 lto = "thin"
-
-# FIXME: Remove this and upgrade apalis directly
-[patch.crates-io]
-apalis = { git = 'https://github.com/geofmureithi/apalis.git', branch = "chore/cron-add-timezone" }
