@@ -9,6 +9,7 @@ import {
 	Box,
 	Container,
 	Flex,
+	Group,
 	Image,
 	List,
 	Paper,
@@ -40,14 +41,14 @@ import type { NextPageWithLayout } from "../../_app";
 
 const DisplayData = (props: { name: string; data: string[] }) => {
 	return (
-		<Box>
-			<Text c="dimmed" tt="capitalize" fz="xs">
+		<Group wrap="nowrap" gap="xs">
+			<Text c="dimmed" tt="capitalize" fz="xs" span>
 				{startCase(props.name)}
 			</Text>
-			<Text fz={{ base: "sm", md: "md" }}>
+			<Text fz={{ base: "sm", md: "md" }} truncate span>
 				{props.data.map((s) => startCase(s.toLowerCase())).join(", ")}
 			</Text>
-		</Box>
+		</Group>
 	);
 };
 
@@ -148,7 +149,7 @@ const Page: NextPageWithLayout = () => {
 										))}
 									</Flex>
 								</ScrollArea>
-								<Stack py="xs" gap="xs">
+								<Stack py="xs" gap={2}>
 									{exerciseDetails.data.attributes.muscles.length > 0 ? (
 										<DisplayData
 											name="muscles"
