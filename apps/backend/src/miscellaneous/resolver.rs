@@ -5464,6 +5464,10 @@ impl MiscellaneousService {
     }
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
+        if !self.config.server.monitored_media_updated {
+            tracing::trace!("Monitored media updating has been disabled.");
+            return Ok(());
+        }
         let mut meta_map = HashMap::new();
         for metadata_id in Metadata::find()
             .select_only()
