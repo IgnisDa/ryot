@@ -30,10 +30,12 @@ import {
 	GenerateAuthTokenDocument,
 	type GenerateAuthTokenMutationVariables,
 	ImportSource,
+	ExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+import { parse } from "csv-parse/sync";
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement, useState } from "react";
@@ -486,7 +488,29 @@ const Page: NextPageWithLayout = () => {
 																		{ type: file.type },
 																	);
 																	const text = await fileToText(clonedFile);
-																	alert(text);
+																	const csvText: { "Exercise Name": string }[] =
+																		parse(text, {
+																			columns: true,
+																			skip_empty_lines: true,
+																			delimiter: ";",
+																		});
+																	const exerciseNames = new Set(
+																		csvText.map((s) =>
+																			s["Exercise Name"].trim(),
+																		),
+																	);
+																	for (const e of exerciseNames) {
+																		const { exercisesList } =
+																			await gqlClient.request(
+																				ExercisesListDocument,
+																				{
+																					input: {
+																						search: { page: 1, query: e },
+																					},
+																				},
+																			);
+																		console.log(e, exercisesList.items);
+																	}
 																	const path = await uploadFile(file);
 																	strongAppImportForm.setFieldValue(
 																		"exportPath",
