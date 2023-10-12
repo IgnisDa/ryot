@@ -607,6 +607,7 @@ export enum ImportSource {
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
   StoryGraph = 'STORY_GRAPH',
+  StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT'
 }
 

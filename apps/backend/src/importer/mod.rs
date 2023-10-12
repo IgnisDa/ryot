@@ -259,6 +259,7 @@ impl ImporterService {
                 )
                 .await?
             }
+            _ => unreachable!(),
         };
         let preferences =
             partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
