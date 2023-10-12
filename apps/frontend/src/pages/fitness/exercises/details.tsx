@@ -181,15 +181,19 @@ const Page: NextPageWithLayout = () => {
 										</Group>
 									</>
 								) : undefined}
-								<Divider />
-								<Text size="xl" fw="bold">
-									Instructions
-								</Text>
-								<List type="ordered" spacing="xs">
-									{exerciseDetails.data.attributes.instructions.map((d) => (
-										<List.Item key={d}>{d}</List.Item>
-									))}
-								</List>
+								{exerciseDetails.data.attributes.instructions.length > 0 ? (
+									<>
+										<Divider />
+										<Text size="xl" fw="bold">
+											Instructions
+										</Text>
+										<List type="ordered" spacing="xs">
+											{exerciseDetails.data.attributes.instructions.map((d) => (
+												<List.Item key={d}>{d}</List.Item>
+											))}
+										</List>
+									</>
+								) : undefined}
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
