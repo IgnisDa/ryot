@@ -112,7 +112,7 @@ pub async fn perform_application_job(
     let start = Instant::now();
     let status = match information {
         ApplicationJob::ImportMedia(user_id, input) => importer_service
-            .import_from_lot(user_id, input)
+            .start_importing(user_id, input)
             .await
             .is_ok(),
         ApplicationJob::UserCreated(user_id) => {

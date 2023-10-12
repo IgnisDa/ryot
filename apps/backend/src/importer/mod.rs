@@ -84,15 +84,8 @@ pub struct DeployMediaJsonImportInput {
     export: String,
 }
 
-#[derive(Debug, Enum, Serialize, Deserialize, Clone, Eq, PartialEq, Copy)]
-pub enum ImportLot {
-    Media,
-    Exercise,
-}
-
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
-    pub lot: ImportLot,
     pub source: ImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
@@ -233,10 +226,10 @@ impl ImporterService {
         Ok(reports)
     }
 
-    pub async fn import_from_lot(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
-        match input.lot {
-            ImportLot::Media => self.import_media(user_id, input).await,
-            ImportLot::Exercise => todo!(),
+    pub async fn start_importing(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
+        match input.source {
+            ImportSource::StrongApp => todo!(),
+            _ => self.import_media(user_id, input).await,
         }
     }
 

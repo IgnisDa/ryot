@@ -242,7 +242,6 @@ export type DeployGoodreadsImportInput = {
 
 export type DeployImportJobInput = {
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
-  lot: ImportLot;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaJson?: InputMaybe<DeployMediaJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
@@ -569,11 +568,6 @@ export type ImportFailedItem = {
   lot: MetadataLot;
   step: ImportFailStep;
 };
-
-export enum ImportLot {
-  Exercise = 'EXERCISE',
-  Media = 'MEDIA'
-}
 
 /** Comments left in replies to posted reviews. */
 export type ImportOrExportItemReviewComment = {

@@ -29,7 +29,6 @@ import {
 	type DeployImportJobMutationVariables,
 	GenerateAuthTokenDocument,
 	type GenerateAuthTokenMutationVariables,
-	ImportLot,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -77,6 +76,11 @@ const storyGraphImportFormSchema = z.object({
 	export: z.any(),
 });
 type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
+
+const strongAppImportFormSchema = z.object({
+	exportPath: z.any(),
+});
+type StrongAppImportFormSchema = z.infer<typeof strongAppImportFormSchema>;
 
 const mediaJsonImportFormSchema = z.object({
 	export: z.any(),
@@ -127,6 +131,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const storyGraphImportForm = useForm<StoryGraphImportFormSchema>({
 		validate: zodResolver(storyGraphImportFormSchema),
+	});
+	const strongAppImportForm = useForm<StrongAppImportFormSchema>({
+		validate: zodResolver(strongAppImportFormSchema),
 	});
 	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
 		validate: zodResolver(mediaJsonImportFormSchema),
@@ -294,11 +301,15 @@ const Page: NextPageWithLayout = () => {
 														mangaPath: malImportForm.values.mangaPath,
 													},
 												}))
+												.with(ImportSource.StrongApp, async () => ({
+													strongApp: {
+														exportPath: strongAppImportForm.values.exportPath,
+													},
+												}))
 												.exhaustive();
 											if (values) {
 												deployImportJob.mutate({
 													input: {
-														lot: ImportLot.Media,
 														source: deployImportSource,
 														...values,
 													},
@@ -458,6 +469,18 @@ const Page: NextPageWithLayout = () => {
 																	);
 																}
 															}}
+														/>
+													</>
+												))
+												.with(ImportSource.StrongApp, () => (
+													<>
+														<FileInput
+															label="CSV export file"
+															accept=".csv"
+															required
+															{...strongAppImportForm.getInputProps(
+																"exportPath",
+															)}
 														/>
 													</>
 												))
