@@ -59,7 +59,7 @@ const documents = {
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query CreatorDetails($creatorId: Int!) {\n  creatorDetails(creatorId: $creatorId) {\n    details {\n      id\n      name\n      description\n      birthDate\n      deathDate\n      place\n      website\n      gender\n      displayImages\n    }\n    contents {\n      name\n      items {\n        metadataId\n        title\n        image\n      }\n    }\n    workedOn {\n      lot\n      source\n      identifier\n      title\n      image\n      metadataId\n    }\n  }\n}": types.CreatorDetailsDocument,
     "query CreatorsList($input: CreatorsListInput!) {\n  creatorsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.CreatorsListDocument,
-    "query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n    level\n    force\n    mechanic\n    equipment\n    attributes {\n      instructions\n      images\n      muscles\n    }\n  }\n}": types.ExerciseDetailsDocument,
+    "query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n    source\n    level\n    force\n    mechanic\n    equipment\n    attributes {\n      instructions\n      images\n      muscles\n    }\n  }\n}": types.ExerciseDetailsDocument,
     "query ExerciseParameters {\n  exerciseParameters {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}": types.ExerciseParametersDocument,
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      lot\n      image\n      muscle\n      numTimesPerformed\n    }\n  }\n}": types.ExercisesListDocument,
     "query GetPresignedS3Url($key: String!) {\n  getPresignedS3Url(key: $key)\n}": types.GetPresignedS3UrlDocument,
@@ -291,7 +291,7 @@ export function graphql(source: "query CreatorsList($input: CreatorsListInput!) 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n    level\n    force\n    mechanic\n    equipment\n    attributes {\n      instructions\n      images\n      muscles\n    }\n  }\n}"): (typeof documents)["query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n    level\n    force\n    mechanic\n    equipment\n    attributes {\n      instructions\n      images\n      muscles\n    }\n  }\n}"];
+export function graphql(source: "query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n    source\n    level\n    force\n    mechanic\n    equipment\n    attributes {\n      instructions\n      images\n      muscles\n    }\n  }\n}"): (typeof documents)["query ExerciseDetails($exerciseId: Int!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    name\n    lot\n    source\n    level\n    force\n    mechanic\n    equipment\n    attributes {\n      instructions\n      images\n      muscles\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
