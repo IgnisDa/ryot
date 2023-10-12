@@ -16,7 +16,7 @@ const documents = {
     "mutation AddMediaToCollection($input: AddMediaToCollection!) {\n  addMediaToCollection(input: $input)\n}": types.AddMediaToCollectionDocument,
     "mutation BulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  bulkProgressUpdate(input: $input)\n}": types.BulkProgressUpdateDocument,
     "mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}": types.CommitMediaDocument,
-    "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    id\n  }\n}": types.CreateCustomExerciseDocument,
+    "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    __typename\n  }\n}": types.CreateCustomExerciseDocument,
     "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}": types.CreateCustomMediaDocument,
     "mutation CreateMediaReminder($input: CreateMediaReminderInput!) {\n  createMediaReminder(input: $input)\n}": types.CreateMediaReminderDocument,
     "mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {\n  createOrUpdateCollection(input: $input) {\n    id\n  }\n}": types.CreateOrUpdateCollectionDocument,
@@ -120,7 +120,7 @@ export function graphql(source: "mutation CommitMedia($lot: MetadataLot!, $sourc
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    id\n  }\n}"];
+export function graphql(source: "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    __typename\n  }\n}"): (typeof documents)["mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    __typename\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
