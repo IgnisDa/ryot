@@ -646,6 +646,7 @@ impl ExerciseService {
         input.muscles = ExerciseMuscles(input.attributes.muscles.clone());
         input.attributes.muscles = vec![];
         let mut input: exercise::ActiveModel = input.into();
+        // FIXME: Blocked by https://github.com/async-graphql/async-graphql/issues/1396
         input.id = ActiveValue::NotSet;
         let exercise = input.insert(&self.db).await?;
         Ok(exercise.id)
