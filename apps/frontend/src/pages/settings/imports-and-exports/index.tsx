@@ -1,7 +1,7 @@
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { BASE_URL, gqlClient } from "@/lib/services/api";
-import { fileToText } from "@/lib/utilities";
+import { gqlClient } from "@/lib/services/api";
+import { fileToText, uploadFileToServiceAndGetPath } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Alert,
@@ -158,24 +158,12 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const uploadFileToServiceAndGetPath = async (file: File) => {
-		const formData = new FormData();
-		formData.append("files[]", file, file.name);
-		const data: string = await new Promise((resolve) => {
-			const xhr = new XMLHttpRequest();
-			xhr.upload.addEventListener("progress", (event) => {
-				if (event.lengthComputable) {
-					setProgress((event.loaded / event.total) * 100);
-				}
-			});
-			xhr.addEventListener("load", () => {
-				setProgress(null);
-				const data: string[] = JSON.parse(xhr.responseText);
-				resolve(data[0]);
-			});
-			xhr.open("POST", `${BASE_URL}/upload`, true);
-			xhr.send(formData);
-		});
+	const uploadFile = async (file: File) => {
+		const data = await uploadFileToServiceAndGetPath(
+			file,
+			(event) => setProgress((event.loaded / event.total) * 100),
+			() => setProgress(null),
+		);
 		return data;
 	};
 
@@ -446,8 +434,7 @@ const Page: NextPageWithLayout = () => {
 														required
 														onChange={async (file) => {
 															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(file);
+																const path = await uploadFile(file);
 																malImportForm.setFieldValue("animePath", path);
 															}
 														}}
@@ -457,8 +444,7 @@ const Page: NextPageWithLayout = () => {
 														required
 														onChange={async (file) => {
 															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(file);
+																const path = await uploadFile(file);
 																malImportForm.setFieldValue("mangaPath", path);
 															}
 														}}
