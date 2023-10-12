@@ -1061,12 +1061,13 @@ const Page: NextPageWithLayout = () => {
 							}
 						/>
 						<Divider />
-						<Group justify="space-around">
+						<Group justify="space-around" wrap="nowrap">
 							<Button
 								color="orange"
 								variant="subtle"
 								onClick={timerDrawerToggle}
 								radius="md"
+								size="compact-md"
 							>
 								{currentTimer
 									? Duration.fromObject({
@@ -1081,6 +1082,7 @@ const Page: NextPageWithLayout = () => {
 										variant="subtle"
 										onClick={reorderDrawerToggle}
 										radius="md"
+										size="compact-md"
 									>
 										Reorder
 									</Button>
@@ -1092,6 +1094,7 @@ const Page: NextPageWithLayout = () => {
 										color="green"
 										variant="subtle"
 										radius="md"
+										size="compact-md"
 										onClick={async () => {
 											if (!currentWorkout.name) {
 												notifications.show({
@@ -1120,6 +1123,7 @@ const Page: NextPageWithLayout = () => {
 								color="red"
 								variant="subtle"
 								radius="md"
+								size="compact-md"
 								onClick={async () => {
 									const yes = confirm(
 										"Are you sure you want to cancel this workout?",
