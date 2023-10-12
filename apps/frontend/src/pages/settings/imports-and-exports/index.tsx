@@ -478,9 +478,22 @@ const Page: NextPageWithLayout = () => {
 															label="CSV export file"
 															accept=".csv"
 															required
-															{...strongAppImportForm.getInputProps(
-																"exportPath",
-															)}
+															onChange={async (file) => {
+																if (file) {
+																	const clonedFile = new File(
+																		[file],
+																		file.name,
+																		{ type: file.type },
+																	);
+																	const text = await fileToText(clonedFile);
+																	alert(text);
+																	const path = await uploadFile(file);
+																	strongAppImportForm.setFieldValue(
+																		"exportPath",
+																		path,
+																	);
+																}
+															}}
 														/>
 													</>
 												))
