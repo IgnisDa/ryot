@@ -17,6 +17,7 @@ import { getSetColor, uploadFileAndGetKey } from "@/lib/utilities";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
+	Anchor,
 	Avatar,
 	Box,
 	Button,
@@ -392,7 +393,15 @@ const ExerciseDisplay = (props: {
 				<Menu shadow="md" width={200} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
-							<Text>{props.exercise.name}</Text>
+							<Anchor
+								component={Link}
+								href={withQuery(APP_ROUTES.fitness.exercises.details, {
+									id: props.exercise.exerciseId,
+								})}
+								fw="bold"
+							>
+								{props.exercise.name}
+							</Anchor>
 							<Menu.Target>
 								<ActionIcon color="blue">
 									<IconDotsVertical />
