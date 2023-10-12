@@ -166,17 +166,21 @@ const Page: NextPageWithLayout = () => {
 										</>
 									))}
 								</SimpleGrid>
-								<Divider />
-								<Group wrap="nowrap">
-									<Text c="dimmed" fz="sm">
-										Muscles
-									</Text>
-									<Text fz="sm">
-										{exerciseDetails.data.attributes.muscles
-											.map((s) => startCase(s.toLowerCase()))
-											.join(", ")}
-									</Text>
-								</Group>
+								{exerciseDetails.data.attributes.muscles.length > 0 ? (
+									<>
+										<Divider />
+										<Group wrap="nowrap">
+											<Text c="dimmed" fz="sm">
+												Muscles
+											</Text>
+											<Text fz="sm">
+												{exerciseDetails.data.attributes.muscles
+													.map((s) => startCase(s.toLowerCase()))
+													.join(", ")}
+											</Text>
+										</Group>
+									</>
+								) : undefined}
 								<Divider />
 								<Text size="xl" fw="bold">
 									Instructions
