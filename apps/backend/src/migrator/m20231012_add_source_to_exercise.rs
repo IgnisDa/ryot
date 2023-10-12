@@ -33,6 +33,14 @@ impl MigrationTrait for Migration {
                 )
                 .await?;
         }
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Exercise::Table)
+                    .modify_column(ColumnDef::new(Exercise::Identifier).null())
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 

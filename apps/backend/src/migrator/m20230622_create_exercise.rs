@@ -190,12 +190,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Exercise::Force).string_len(3).null())
                     .col(ColumnDef::new(Exercise::Mechanic).string_len(1).null())
                     .col(ColumnDef::new(Exercise::Equipment).string_len(3).null())
-                    .col(
-                        ColumnDef::new(Exercise::Identifier)
-                            .string()
-                            .unique_key()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Exercise::Identifier).string().unique_key())
                     .col(ColumnDef::new(Exercise::Attributes).json().not_null())
                     .col(ColumnDef::new(Exercise::Source).string_len(2).not_null())
                     .to_owned(),
