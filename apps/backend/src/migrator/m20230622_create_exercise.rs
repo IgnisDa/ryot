@@ -137,6 +137,17 @@ pub enum ExerciseLot {
     RepsAndWeight,
 }
 
+#[derive(
+    Clone, Debug, Deserialize, Serialize, DeriveActiveEnum, Eq, PartialEq, Enum, Copy, EnumIter,
+)]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
+pub enum ExerciseSource {
+    #[sea_orm(string_value = "GH")]
+    Github,
+    #[sea_orm(string_value = "CU")]
+    Custom,
+}
+
 #[derive(Iden)]
 pub enum Exercise {
     Table,
@@ -150,6 +161,7 @@ pub enum Exercise {
     Muscles,
     Identifier,
     Attributes,
+    Source,
 }
 
 #[async_trait::async_trait]
@@ -185,6 +197,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Exercise::Attributes).json().not_null())
+                    .col(ColumnDef::new(Exercise::Source).string_len(2).not_null())
                     .to_owned(),
             )
             .await?;

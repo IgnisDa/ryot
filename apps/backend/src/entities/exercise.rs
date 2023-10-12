@@ -10,7 +10,7 @@ use crate::{
     file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle,
+        ExerciseMuscle, ExerciseSource,
     },
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
     utils::get_stored_asset,
@@ -32,6 +32,7 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub attributes: ExerciseAttributes,
+    pub source: ExerciseSource,
     #[graphql(skip)]
     pub muscles: ExerciseMuscles,
 }
