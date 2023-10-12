@@ -223,6 +223,16 @@ impl ExerciseMutation {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_user_workout(user_id, input).await
     }
+
+    /// Create a custom exercise.
+    async fn create_custom_exercise(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: exercise::Model,
+    ) -> Result<i32> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.create_custom_exercise(input).await
+    }
 }
 
 pub struct ExerciseService {
@@ -514,6 +524,7 @@ impl ExerciseService {
         };
         if let Some(e) = Exercise::find()
             .filter(exercise::Column::Identifier.eq(&ex.identifier))
+            .filter(exercise::Column::Source.eq(ExerciseSource::Github))
             .one(&self.db)
             .await?
         {
@@ -539,7 +550,8 @@ impl ExerciseService {
             muscles.sort_unstable();
             let db_exercise = exercise::ActiveModel {
                 name: ActiveValue::Set(ex.name),
-                identifier: ActiveValue::Set(ex.identifier),
+                source: ActiveValue::Set(ExerciseSource::Github),
+                identifier: ActiveValue::Set(Some(ex.identifier)),
                 muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
                 attributes: ActiveValue::Set(attributes),
                 lot: ActiveValue::Set(lot),
@@ -547,7 +559,6 @@ impl ExerciseService {
                 force: ActiveValue::Set(ex.attributes.force),
                 equipment: ActiveValue::Set(ex.attributes.equipment),
                 mechanic: ActiveValue::Set(ex.attributes.mechanic),
-                source: ActiveValue::Set(ExerciseSource::Github),
                 ..Default::default()
             };
             let created_exercise = db_exercise.insert(&self.db).await?;
@@ -619,5 +630,24 @@ impl ExerciseService {
             .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
             .await?;
         Ok(identifier)
+    }
+
+    async fn create_custom_exercise(&self, input: exercise::Model) -> Result<i32> {
+        let mut input = input;
+        input.source = ExerciseSource::Custom;
+        input.attributes.internal_images = input
+            .attributes
+            .images
+            .clone()
+            .into_iter()
+            .map(StoredUrl::S3)
+            .collect();
+        input.attributes.images = vec![];
+        input.muscles = ExerciseMuscles(input.attributes.muscles.clone());
+        input.attributes.muscles = vec![];
+        let mut input: exercise::ActiveModel = input.into();
+        input.id = ActiveValue::NotSet;
+        let exercise = input.insert(&self.db).await?;
+        Ok(exercise.id)
     }
 }

@@ -1097,9 +1097,18 @@ pub mod fitness {
     pub struct ExerciseMuscles(pub Vec<ExerciseMuscle>);
 
     #[derive(
-        Debug, Clone, Serialize, SimpleObject, Deserialize, FromJsonQueryResult, Eq, PartialEq,
+        Debug,
+        Clone,
+        Serialize,
+        SimpleObject,
+        Deserialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        InputObject,
     )]
     #[serde(rename_all = "camelCase")]
+    #[graphql(input_name = "ExerciseAttributesInput")]
     pub struct ExerciseAttributes {
         pub instructions: Vec<String>,
         #[graphql(skip)]
