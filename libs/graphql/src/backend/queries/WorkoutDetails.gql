@@ -12,9 +12,9 @@ query WorkoutDetails($workoutId: String!) {
         ...EntityAssetsPart
       }
       exercises {
-        exerciseId
-        exerciseName
-        exerciseLot
+        id
+        name
+        lot
         notes
         restTime
         total {

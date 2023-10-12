@@ -111,9 +111,9 @@ const Page: NextPageWithLayout = () => {
 						</Box>
 					) : undefined}
 					{workoutDetails.data.information.exercises.map((exercise, idx) => (
-						<Paper key={`${exercise.exerciseId}-${idx}`} withBorder p="xs">
+						<Paper key={`${exercise.id}-${idx}`} withBorder p="xs">
 							<Box mb="xs">
-								<Text fw="bold">{exercise.exerciseName}</Text>
+								<Text fw="bold">{exercise.name}</Text>
 							</Box>
 							{exercise.sets.map((s, idx) => (
 								<Box
@@ -159,7 +159,7 @@ const Page: NextPageWithLayout = () => {
 												.otherwise(() => s.lot.at(0))}
 										</Text>
 										<DisplayExerciseStats
-											lot={exercise.exerciseLot}
+											lot={exercise.lot}
 											statistic={s.statistic}
 											personalBests={s.personalBests}
 										/>

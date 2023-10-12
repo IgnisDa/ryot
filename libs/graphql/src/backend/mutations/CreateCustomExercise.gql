@@ -1,0 +1,5 @@
+mutation CreateCustomExercise($input: ExerciseInput!) {
+  createCustomExercise(input: $input) {
+    id
+  }
+}

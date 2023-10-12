@@ -2,6 +2,7 @@ query ExerciseDetails($exerciseId: Int!) {
   exerciseDetails(exerciseId: $exerciseId) {
     name
     lot
+    source
     level
     force
     mechanic

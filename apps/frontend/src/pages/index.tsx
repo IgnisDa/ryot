@@ -40,6 +40,7 @@ import {
 	IconFriends,
 	IconPhotoPlus,
 	IconScaleOutline,
+	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import humanFormat from "human-format";
@@ -555,6 +556,16 @@ const Page: NextPageWithLayout = () => {
 												href={APP_ROUTES.media.individualMediaItem.create}
 											>
 												Create a media item
+											</Button>
+										) : undefined}
+										{userPreferences.data.featuresEnabled.fitness.enabled ? (
+											<Button
+												variant="outline"
+												component={Link}
+												leftSection={<IconWeight />}
+												href={APP_ROUTES.fitness.exercises.createOrEdit}
+											>
+												Create an exercise
 											</Button>
 										) : undefined}
 									</SimpleGrid>

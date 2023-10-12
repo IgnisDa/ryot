@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use async_graphql::SimpleObject;
+use async_graphql::{InputObject, SimpleObject};
 use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
@@ -10,30 +10,42 @@ use crate::{
     file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle,
+        ExerciseMuscle, ExerciseSource,
     },
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
     utils::get_stored_asset,
 };
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    DeriveEntityModel,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    InputObject,
+)]
 #[sea_orm(table_name = "exercise")]
-#[graphql(name = "Exercise")]
+#[graphql(name = "Exercise", input_name = "ExerciseInput")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     #[sea_orm(unique)]
     pub name: String,
+    #[graphql(skip)]
     #[sea_orm(unique)]
-    pub identifier: String,
+    pub identifier: Option<String>,
     pub lot: ExerciseLot,
     pub level: ExerciseLevel,
     pub force: Option<ExerciseForce>,
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
-    pub attributes: ExerciseAttributes,
+    pub source: ExerciseSource,
     #[graphql(skip)]
     pub muscles: ExerciseMuscles,
+    pub attributes: ExerciseAttributes,
 }
 
 impl Model {

@@ -32,8 +32,8 @@ export default function (props: {
 	children: JSX.Element | (JSX.Element | undefined)[];
 	images: (string | null | undefined)[];
 	externalLink?: {
-		lot: MetadataLot;
 		source: MetadataSource;
+		lot?: MetadataLot;
 		href?: string | null;
 	};
 }) {
@@ -85,8 +85,10 @@ export default function (props: {
 					>
 						<Flex gap={4} align="center">
 							<Text size="10">
-								{snakeCase(props.externalLink.source)}:
-								{snakeCase(props.externalLink.lot)}
+								{snakeCase(props.externalLink.source)}
+								{props.externalLink.lot
+									? `:${snakeCase(props.externalLink.lot)}`
+									: undefined}
 							</Text>
 							{props.externalLink.href ? (
 								<Anchor href={props.externalLink.href} target="_blank" mt={2}>

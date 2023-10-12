@@ -13,10 +13,15 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/state";
-import { getSetColor, uploadFileAndGetKey } from "@/lib/utilities";
+import {
+	getPresignedGetUrl,
+	getSetColor,
+	uploadFileAndGetKey,
+} from "@/lib/utilities";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
+	Anchor,
 	Avatar,
 	Box,
 	Button,
@@ -47,7 +52,6 @@ import {
 	type CreateUserWorkoutMutationVariables,
 	DeleteS3ObjectDocument,
 	ExerciseLot,
-	GetPresignedS3UrlDocument,
 	SetLot,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -174,11 +178,7 @@ const ImageDisplay = (props: {
 	const imageUrl = useQuery(
 		["presignedUrl", props.imageKey],
 		async () => {
-			const { getPresignedS3Url } = await gqlClient.request(
-				GetPresignedS3UrlDocument,
-				{ key: props.imageKey },
-			);
-			return getPresignedS3Url;
+			return await getPresignedGetUrl(props.imageKey);
 		},
 		{ staleTime: Infinity },
 	);
@@ -392,7 +392,15 @@ const ExerciseDisplay = (props: {
 				<Menu shadow="md" width={200} position="left-end">
 					<Stack>
 						<Flex justify="space-between">
-							<Text>{props.exercise.name}</Text>
+							<Anchor
+								component={Link}
+								href={withQuery(APP_ROUTES.fitness.exercises.details, {
+									id: props.exercise.exerciseId,
+								})}
+								fw="bold"
+							>
+								{props.exercise.name}
+							</Anchor>
 							<Menu.Target>
 								<ActionIcon color="blue">
 									<IconDotsVertical />
@@ -1061,12 +1069,13 @@ const Page: NextPageWithLayout = () => {
 							}
 						/>
 						<Divider />
-						<Group justify="space-around">
+						<Group justify="space-around" wrap="nowrap">
 							<Button
 								color="orange"
 								variant="subtle"
 								onClick={timerDrawerToggle}
 								radius="md"
+								size="compact-md"
 							>
 								{currentTimer
 									? Duration.fromObject({
@@ -1081,6 +1090,7 @@ const Page: NextPageWithLayout = () => {
 										variant="subtle"
 										onClick={reorderDrawerToggle}
 										radius="md"
+										size="compact-md"
 									>
 										Reorder
 									</Button>
@@ -1092,6 +1102,7 @@ const Page: NextPageWithLayout = () => {
 										color="green"
 										variant="subtle"
 										radius="md"
+										size="compact-md"
 										onClick={async () => {
 											if (!currentWorkout.name) {
 												notifications.show({
@@ -1120,6 +1131,7 @@ const Page: NextPageWithLayout = () => {
 								color="red"
 								variant="subtle"
 								radius="md"
+								size="compact-md"
 								onClick={async () => {
 									const yes = confirm(
 										"Are you sure you want to cancel this workout?",
