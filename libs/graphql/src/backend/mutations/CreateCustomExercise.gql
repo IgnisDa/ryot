@@ -1,3 +1,5 @@
 mutation CreateCustomExercise($input: ExerciseInput!) {
-  createCustomExercise(input: $input)
+  createCustomExercise(input: $input) {
+    id
+  }
 }

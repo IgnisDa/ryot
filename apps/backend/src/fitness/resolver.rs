@@ -34,7 +34,7 @@ use crate::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes, WorkoutListItem, WorkoutSetRecord,
         },
-        SearchDetails, SearchInput, SearchResults, StoredUrl,
+        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
     utils::{get_ilike_query, partial_user_by_id},
@@ -229,7 +229,7 @@ impl ExerciseMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: exercise::Model,
-    ) -> Result<i32> {
+    ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         service.create_custom_exercise(input).await
     }
@@ -632,7 +632,7 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    async fn create_custom_exercise(&self, input: exercise::Model) -> Result<i32> {
+    async fn create_custom_exercise(&self, input: exercise::Model) -> Result<IdObject> {
         let mut input = input;
         input.source = ExerciseSource::Custom;
         input.attributes.internal_images = input
@@ -649,6 +649,6 @@ impl ExerciseService {
         // FIXME: Blocked by https://github.com/async-graphql/async-graphql/issues/1396
         input.id = ActiveValue::NotSet;
         let exercise = input.insert(&self.db).await?;
-        Ok(exercise.id)
+        Ok(IdObject { id: exercise.id })
     }
 }
