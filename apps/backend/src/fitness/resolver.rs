@@ -10,6 +10,7 @@ use sea_orm::{
 };
 use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
+use slug::slugify;
 use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
 use tracing::instrument;
@@ -453,7 +454,12 @@ impl ExerciseService {
             })
             .apply_if(input.search.query, |query, v| {
                 query.filter(
-                    Condition::any().add(get_ilike_query(Expr::col(exercise::Column::Name), &v)),
+                    Condition::any()
+                        .add(get_ilike_query(Expr::col(exercise::Column::Name), &v))
+                        .add(get_ilike_query(
+                            Expr::col(exercise::Column::Identifier),
+                            &slugify(v),
+                        )),
                 )
             })
             .join(
