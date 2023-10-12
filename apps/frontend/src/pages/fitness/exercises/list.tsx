@@ -172,10 +172,9 @@ const Page: NextPageWithLayout = () => {
 						<Title>Exercises</Title>
 						<ActionIcon
 							color="green"
+							component={Link}
 							variant="outline"
-							onClick={() => {
-								alert("TODO: Create an exercise.");
-							}}
+							href={APP_ROUTES.fitness.exercises.createOrEdit}
 						>
 							<IconPlus size="1rem" />
 						</ActionIcon>
