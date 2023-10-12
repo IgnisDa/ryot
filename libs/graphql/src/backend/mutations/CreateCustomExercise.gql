@@ -1,5 +1,5 @@
 mutation CreateCustomExercise($input: ExerciseInput!) {
   createCustomExercise(input: $input) {
-    __typename
+    id
   }
 }
