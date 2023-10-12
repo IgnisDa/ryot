@@ -124,20 +124,17 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
-								leftSection={<IconInfoCircle size="1rem" />}
+								leftSection={<IconInfoCircle size={16} />}
 							>
 								Overview
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="history"
-								leftSection={<IconHistoryToggle size="1rem" />}
+								leftSection={<IconHistoryToggle size={16} />}
 							>
 								History
 							</Tabs.Tab>
-							<Tabs.Tab
-								value="records"
-								leftSection={<IconTrophy size="1rem" />}
-							>
+							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
 								Records
 							</Tabs.Tab>
 						</Tabs.List>

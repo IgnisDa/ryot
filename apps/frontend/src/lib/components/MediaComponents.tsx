@@ -150,7 +150,7 @@ export const ReviewItemDisplay = ({
 							})}
 						>
 							<ActionIcon>
-								<IconEdit size="1rem" />
+								<IconEdit size={16} />
 							</ActionIcon>
 						</Anchor>
 					) : undefined}
@@ -167,7 +167,7 @@ export const ReviewItemDisplay = ({
 					) : undefined}
 					{(review.rating || 0) > 0 ? (
 						<Flex align="center" gap={4}>
-							<IconStarFilled size="1rem" style={{ color: "#EBE600FF" }} />
+							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
 								{review.rating}
 								{userPreferences.data.general.reviewScale ===
@@ -245,7 +245,7 @@ export const ReviewItemDisplay = ({
 																	});
 															}}
 														>
-															<IconTrash size="1rem" />
+															<IconTrash size={16} />
 														</ActionIcon>
 													) : undefined}
 													<ActionIcon
@@ -264,7 +264,7 @@ export const ReviewItemDisplay = ({
 																});
 														}}
 													>
-														<IconArrowBigUp size="1rem" />
+														<IconArrowBigUp size={16} />
 														<Text>{c?.likedBy?.length}</Text>
 													</ActionIcon>
 												</Flex>
@@ -411,7 +411,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						}}
 					>
 						<Flex align="center" gap={4}>
-							<IconStarFilled size="0.8rem" style={{ color: "#EBE600FF" }} />
+							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 							<Text c="white" size="xs" fw="bold" pr={4}>
 								{match(userPreferences.data.general.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
@@ -445,7 +445,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 							}}
 						>
 							<Flex align="center" gap={4}>
-								<IconStarFilled size="1rem" className={classes.starIcon} />
+								<IconStarFilled size={16} className={classes.starIcon} />
 							</Flex>
 						</Box>
 					</Link>

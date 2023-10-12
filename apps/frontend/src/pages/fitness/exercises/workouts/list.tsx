@@ -119,7 +119,7 @@ const Page: NextPageWithLayout = () => {
 												</Group>
 												<Group mt="xs" gap="lg">
 													<DisplayStat
-														icon={<IconClock size="1rem" />}
+														icon={<IconClock size={16} />}
 														data={`${DateTime.fromJSDate(workout.endTime)
 															.diff(
 																DateTime.fromJSDate(workout.startTime),
@@ -128,14 +128,14 @@ const Page: NextPageWithLayout = () => {
 															.minutes.toFixed()} minutes`}
 													/>
 													<DisplayStat
-														icon={<IconWeight size="1rem" />}
+														icon={<IconWeight size={16} />}
 														data={new Intl.NumberFormat("en-us", {
 															style: "unit",
 															unit: "kilogram",
 														}).format(Number(workout.summary.total.weight))}
 													/>
 													<DisplayStat
-														icon={<IconTrophy size="1rem" />}
+														icon={<IconTrophy size={16} />}
 														data={`${workout.summary.total.personalBestsAchieved.toString()} PRs`}
 													/>
 												</Group>

@@ -111,7 +111,7 @@ const DisplayMeasurement = (props: {
 								});
 						}}
 					>
-						<IconTrash size="1rem" />
+						<IconTrash size={16} />
 					</ActionIcon>
 				</Flex>
 				<Collapse in={opened}>
@@ -266,7 +266,7 @@ const Page: NextPageWithLayout = () => {
 					<Flex align="center" gap="md">
 						<Title>Measurements</Title>
 						<ActionIcon color="green" variant="outline" onClick={open}>
-							<IconPlus size="1.25rem" />
+							<IconPlus size={20} />
 						</ActionIcon>
 					</Flex>
 					<SimpleGrid cols={{ base: 1, md: 2 }}>

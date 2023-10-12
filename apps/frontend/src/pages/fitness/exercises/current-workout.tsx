@@ -347,7 +347,7 @@ const ExerciseDisplay = (props: {
 											);
 										}}
 									>
-										<IconCameraRotate size="2rem" />
+										<IconCameraRotate size={32} />
 									</ActionIcon>
 									<ActionIcon
 										size="xl"
@@ -373,7 +373,7 @@ const ExerciseDisplay = (props: {
 											}
 										}}
 									>
-										<IconCamera size="2rem" />
+										<IconCamera size={32} />
 									</ActionIcon>
 								</Stack>
 							</Group>

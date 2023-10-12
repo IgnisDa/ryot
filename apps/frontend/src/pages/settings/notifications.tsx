@@ -172,7 +172,7 @@ const Page: NextPageWithLayout = () => {
 														});
 												}}
 											>
-												<IconTrash size="1rem" />
+												<IconTrash size={16} />
 											</ActionIcon>
 										</Tooltip>
 									</Group>

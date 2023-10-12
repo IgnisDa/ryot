@@ -137,17 +137,14 @@ const ProgressModal = (props: {
 	});
 
 	const [updateIcon, text] = match(props.lot)
-		.with(MetadataLot.Book, () => [<IconBook size="1.5rem" />, "Pages"])
-		.with(MetadataLot.Anime, () => [<IconDeviceTv size="1.5rem" />, "Episodes"])
-		.with(MetadataLot.Manga, () => [
-			<IconBrandPagekit size="1.5rem" />,
-			"Chapters",
-		])
+		.with(MetadataLot.Book, () => [<IconBook size={24} />, "Pages"])
+		.with(MetadataLot.Anime, () => [<IconDeviceTv size={24} />, "Episodes"])
+		.with(MetadataLot.Manga, () => [<IconBrandPagekit size={24} />, "Chapters"])
 		.with(
 			MetadataLot.Movie,
 			MetadataLot.VisualNovel,
 			MetadataLot.AudioBook,
-			() => [<IconClock size="1.5rem" />, "Minutes"],
+			() => [<IconClock size={24} />, "Minutes"],
 		)
 		.otherwise(() => [null, null]);
 
@@ -176,7 +173,7 @@ const ProgressModal = (props: {
 						step={1}
 						w="20%"
 						hideControls
-						rightSection={<IconPercentage size="1rem" />}
+						rightSection={<IconPercentage size={16} />}
 					/>
 				</Group>
 				{props.total ? (
@@ -732,7 +729,7 @@ const Page: NextPageWithLayout = () => {
 											{col.name}
 										</Anchor>
 										<ActionIcon
-											size="1rem"
+											size={16}
 											onClick={() => {
 												const yes = confirm(
 													"Are you sure you want to remove this media from this collection?",
@@ -914,10 +911,7 @@ const Page: NextPageWithLayout = () => {
 										gap: 6,
 									}}
 								>
-									<IconStarFilled
-										size="1.2rem"
-										style={{ color: "#EBE600FF" }}
-									/>
+									<IconStarFilled size={19.2} style={{ color: "#EBE600FF" }} />
 									<Text fz="sm">
 										{Number(userMediaDetails.data.averageRating).toFixed(1)}
 										{preferences.data.general.reviewScale ===
@@ -931,7 +925,7 @@ const Page: NextPageWithLayout = () => {
 					) : undefined}
 					{userMediaDetails.data?.reminder ? (
 						<Alert
-							icon={<IconAlertCircle size="1rem" />}
+							icon={<IconAlertCircle size={16} />}
 							variant="outline"
 							color="violet"
 						>
@@ -940,7 +934,7 @@ const Page: NextPageWithLayout = () => {
 						</Alert>
 					) : undefined}
 					{userMediaDetails.data?.inProgress ? (
-						<Alert icon={<IconAlertCircle size="1rem" />} variant="outline">
+						<Alert icon={<IconAlertCircle size={16} />} variant="outline">
 							You are currently {getVerb(Verb.Read, mediaDetails.data.lot)}
 							ing this ({userMediaDetails.data.inProgress.progress}%)
 						</Alert>
@@ -955,18 +949,18 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
-								leftSection={<IconInfoCircle size="1rem" />}
+								leftSection={<IconInfoCircle size={16} />}
 							>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" leftSection={<IconUser size="1rem" />}>
+							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
 							{userMediaDetails.data &&
 							userMediaDetails.data.history.length > 0 ? (
 								<Tabs.Tab
 									value="history"
-									leftSection={<IconRotateClockwise size="1rem" />}
+									leftSection={<IconRotateClockwise size={16} />}
 								>
 									History
 								</Tabs.Tab>
@@ -974,7 +968,7 @@ const Page: NextPageWithLayout = () => {
 							{mediaSpecifics.data?.showSpecifics ? (
 								<Tabs.Tab
 									value="seasons"
-									leftSection={<IconPlayerPlay size="1rem" />}
+									leftSection={<IconPlayerPlay size={16} />}
 								>
 									Seasons
 								</Tabs.Tab>
@@ -982,7 +976,7 @@ const Page: NextPageWithLayout = () => {
 							{mediaSpecifics.data?.podcastSpecifics ? (
 								<Tabs.Tab
 									value="episodes"
-									leftSection={<IconPlayerPlay size="1rem" />}
+									leftSection={<IconPlayerPlay size={16} />}
 								>
 									Episodes
 								</Tabs.Tab>
@@ -992,7 +986,7 @@ const Page: NextPageWithLayout = () => {
 							userMediaDetails.data.reviews.length > 0 ? (
 								<Tabs.Tab
 									value="reviews"
-									leftSection={<IconMessageCircle2 size="1rem" />}
+									leftSection={<IconMessageCircle2 size={16} />}
 								>
 									Reviews
 								</Tabs.Tab>
@@ -1000,17 +994,14 @@ const Page: NextPageWithLayout = () => {
 							{(mediaSpecifics.data?.suggestions.length || 0) > 0 ? (
 								<Tabs.Tab
 									value="suggestions"
-									leftSection={<IconBulb size="1rem" />}
+									leftSection={<IconBulb size={16} />}
 								>
 									Suggestions
 								</Tabs.Tab>
 							) : undefined}
 							{!coreDetails.data.videosDisabled &&
 							(mediaSpecifics.data?.assets.videos.length || 0) > 0 ? (
-								<Tabs.Tab
-									value="videos"
-									leftSection={<IconVideo size="1rem" />}
-								>
+								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
 								</Tabs.Tab>
 							) : undefined}
@@ -1408,7 +1399,7 @@ const Page: NextPageWithLayout = () => {
 														variant="outline"
 														color="red"
 														leftSection={
-															<IconX size="1rem" style={{ marginTop: 2 }} />
+															<IconX size={16} style={{ marginTop: 2 }} />
 														}
 														size="compact-xs"
 														onClick={() => {

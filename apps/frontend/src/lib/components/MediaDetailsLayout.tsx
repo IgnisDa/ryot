@@ -92,7 +92,7 @@ export default function (props: {
 							</Text>
 							{props.externalLink.href ? (
 								<Anchor href={props.externalLink.href} target="_blank" mt={2}>
-									<IconExternalLink size="0.8rem" />
+									<IconExternalLink size={12.8} />
 								</Anchor>
 							) : undefined}
 						</Flex>

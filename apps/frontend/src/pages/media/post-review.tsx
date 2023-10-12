@@ -223,7 +223,7 @@ const Page: NextPageWithLayout = () => {
 										step={1}
 										w="40%"
 										hideControls
-										rightSection={<IconPercentage size="1rem" />}
+										rightSection={<IconPercentage size={16} />}
 									/>
 								))
 								.exhaustive()}

@@ -159,7 +159,7 @@ const DisplayStatForMediaType = (props: {
 		userPreferences.data?.featuresEnabled.media || {},
 	).find(([name, _]) => getLot(name) === props.lot);
 	const Icon = getMetadataIcon(props.lot);
-	const icon = <Icon size="1.5rem" stroke={1.5} />;
+	const icon = <Icon size={24} stroke={1.5} />;
 	return isEnabled ? (
 		isEnabled[1] && userPreferences.data?.featuresEnabled.media.enabled ? (
 			<Link
@@ -250,7 +250,7 @@ const Page: NextPageWithLayout = () => {
 				<Stack>
 					{currentWorkout ? (
 						<Alert
-							icon={<IconAlertCircle size="1rem" />}
+							icon={<IconAlertCircle size={16} />}
 							variant="outline"
 							color="yellow"
 						>

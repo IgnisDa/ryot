@@ -230,9 +230,9 @@ const Page: NextPageWithLayout = () => {
 																onClick={copy}
 															>
 																{copied ? (
-																	<IconCheck size="1rem" />
+																	<IconCheck size={16} />
 																) : (
-																	<IconCopy size="1rem" />
+																	<IconCopy size={16} />
 																)}
 															</ActionIcon>
 														</Tooltip>

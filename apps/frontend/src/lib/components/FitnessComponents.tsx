@@ -53,7 +53,7 @@ export const DisplayExerciseStats = (props: {
 						<Badge
 							variant="light"
 							size="xs"
-							leftSection={<IconTrophy size="0.6rem" />}
+							leftSection={<IconTrophy size={16} />}
 							color={
 								colors[
 									(getStringAsciiValue(pb) + colors.length) % colors.length

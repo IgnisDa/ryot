@@ -116,7 +116,7 @@ const Page: NextPageWithLayout = () => {
 								openRegisterUserModal();
 							}}
 						>
-							<IconPlus size="1.25rem" />
+							<IconPlus size={20} />
 						</ActionIcon>
 					</Flex>
 					<Modal
@@ -152,7 +152,7 @@ const Page: NextPageWithLayout = () => {
 												);
 											}}
 										>
-											<IconRefresh size="1rem" />
+											<IconRefresh size={16} />
 										</ActionIcon>
 									}
 									{...registerUserForm.getInputProps("password")}
@@ -184,7 +184,7 @@ const Page: NextPageWithLayout = () => {
 													});
 											}}
 										>
-											<IconTrash size="1rem" />
+											<IconTrash size={16} />
 										</ActionIcon>
 									</Flex>
 								</Paper>

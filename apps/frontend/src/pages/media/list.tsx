@@ -217,7 +217,7 @@ const Page: NextPageWithLayout = () => {
 	const ClearButton = () =>
 		query ? (
 			<ActionIcon onClick={() => setQuery("")}>
-				<IconX size="1rem" />
+				<IconX size={16} />
 			</ActionIcon>
 		) : undefined;
 
@@ -264,13 +264,10 @@ const Page: NextPageWithLayout = () => {
 					}}
 				>
 					<Tabs.List mb="xs">
-						<Tabs.Tab
-							value="mine"
-							leftSection={<IconListCheck size="1.5rem" />}
-						>
+						<Tabs.Tab value="mine" leftSection={<IconListCheck size={24} />}>
 							<Text>My {changeCase(lot.toLowerCase())}s</Text>
 						</Tabs.Tab>
-						<Tabs.Tab value="search" leftSection={<IconSearch size="1.5rem" />}>
+						<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
 							<Text>Search</Text>
 						</Tabs.Tab>
 						<Flex style={{ flexGrow: 1 }} justify="end">
@@ -283,7 +280,7 @@ const Page: NextPageWithLayout = () => {
 									listMedia.refetch();
 								}}
 							>
-								<IconRefresh size="1.625rem" />
+								<IconRefresh size={26} />
 							</ActionIcon>
 						</Flex>
 					</Tabs.List>
@@ -301,7 +298,7 @@ const Page: NextPageWithLayout = () => {
 									onClick={openFiltersModal}
 									color={isFilterChanged ? "blue" : "gray"}
 								>
-									<IconFilter size="1.5rem" />
+									<IconFilter size={24} />
 								</ActionIcon>
 								<Modal
 									opened={filtersModalOpened}
@@ -313,7 +310,7 @@ const Page: NextPageWithLayout = () => {
 										<Group>
 											<Title order={3}>Filters</Title>
 											<ActionIcon onClick={resetFilters}>
-												<IconFilterOff size="1.5rem" />
+												<IconFilterOff size={24} />
 											</ActionIcon>
 										</Group>
 										<Select
