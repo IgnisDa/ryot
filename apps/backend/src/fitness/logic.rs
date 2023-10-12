@@ -245,9 +245,9 @@ impl UserWorkoutInput {
             exercises.push((
                 db_ex.lot,
                 ProcessedExercise {
-                    exercise_id: ex.exercise_id,
-                    exercise_name: db_ex.name,
-                    exercise_lot: db_ex.lot,
+                    id: ex.exercise_id,
+                    name: db_ex.name,
+                    lot: db_ex.lot,
                     sets,
                     notes: ex.notes,
                     rest_time: ex.rest_time,
@@ -271,7 +271,7 @@ impl UserWorkoutInput {
                     .iter()
                     .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
-                        name: e.exercise_name.clone(),
+                        name: e.name.clone(),
                         lot: lot.clone(),
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })

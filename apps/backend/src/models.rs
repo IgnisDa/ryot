@@ -1378,9 +1378,9 @@ pub mod fitness {
         Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
     )]
     pub struct ProcessedExercise {
-        pub exercise_name: String,
-        pub exercise_id: i32,
-        pub exercise_lot: ExerciseLot,
+        pub id: i32,
+        pub name: String,
+        pub lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
