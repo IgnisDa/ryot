@@ -3,7 +3,7 @@ import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { uploadFileAndGetKey } from "@/lib/utilities";
+import { getPresignedGetUrl, uploadFileAndGetKey } from "@/lib/utilities";
 import {
 	Anchor,
 	Box,
@@ -28,7 +28,6 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateCustomMediaDocument,
 	type CreateCustomMediaMutationVariables,
-	GetPresignedS3UrlDocument,
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -69,15 +68,10 @@ const Page: NextPageWithLayout = () => {
 		async () => {
 			const imageUrls = [];
 			const videoUrls = [];
-			const getUrl = async (key: string) => {
-				const { getPresignedS3Url } = await gqlClient.request(
-					GetPresignedS3UrlDocument,
-					{ key },
-				);
-				return getPresignedS3Url;
-			};
-			for (const image of images) imageUrls.push(await getUrl(image));
-			for (const video of videos) videoUrls.push(await getUrl(video));
+			for (const image of images)
+				imageUrls.push(await getPresignedGetUrl(image));
+			for (const video of videos)
+				videoUrls.push(await getPresignedGetUrl(video));
 			return { imageUrls, videoUrls };
 		},
 		{ staleTime: Infinity },

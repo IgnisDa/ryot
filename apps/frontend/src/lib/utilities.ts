@@ -1,5 +1,6 @@
 import type { MantineColorScheme } from "@mantine/core";
 import {
+	GetPresignedS3UrlDocument,
 	MetadataLot,
 	MetadataSource,
 	PresignedPutS3UrlDocument,
@@ -214,4 +215,12 @@ export const uploadFileAndGetKey = async (
 		headers: { "Content-Type": contentType },
 	});
 	return presignedPutS3Url.key;
+};
+
+export const getPresignedGetUrl = async (key: string) => {
+	const { getPresignedS3Url } = await gqlClient.request(
+		GetPresignedS3UrlDocument,
+		{ key },
+	);
+	return getPresignedS3Url;
 };

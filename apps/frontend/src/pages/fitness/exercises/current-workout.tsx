@@ -13,7 +13,11 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/state";
-import { getSetColor, uploadFileAndGetKey } from "@/lib/utilities";
+import {
+	getPresignedGetUrl,
+	getSetColor,
+	uploadFileAndGetKey,
+} from "@/lib/utilities";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
@@ -48,7 +52,6 @@ import {
 	type CreateUserWorkoutMutationVariables,
 	DeleteS3ObjectDocument,
 	ExerciseLot,
-	GetPresignedS3UrlDocument,
 	SetLot,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -175,11 +178,7 @@ const ImageDisplay = (props: {
 	const imageUrl = useQuery(
 		["presignedUrl", props.imageKey],
 		async () => {
-			const { getPresignedS3Url } = await gqlClient.request(
-				GetPresignedS3UrlDocument,
-				{ key: props.imageKey },
-			);
-			return getPresignedS3Url;
+			return await getPresignedGetUrl(props.imageKey);
 		},
 		{ staleTime: Infinity },
 	);
