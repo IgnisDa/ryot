@@ -156,14 +156,15 @@ const Page: NextPageWithLayout = () => {
 								/>
 								<Group wrap="nowrap">
 									<Select
-										label="Force"
-										{...form.getInputProps("force")}
-										data={Object.values(ExerciseForce)}
-									/>
-									<Select
 										label="Level"
 										{...form.getInputProps("level")}
 										data={Object.values(ExerciseLevel)}
+										required
+									/>
+									<Select
+										label="Force"
+										{...form.getInputProps("force")}
+										data={Object.values(ExerciseForce)}
 									/>
 								</Group>
 								<Group wrap="nowrap">
