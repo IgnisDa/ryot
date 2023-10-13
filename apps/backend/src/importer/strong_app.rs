@@ -1,4 +1,4 @@
-use std::fs::read_to_string;
+use std::fs;
 
 use async_graphql::Result;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
@@ -36,7 +36,12 @@ struct Entry {
 }
 
 pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
-    let file_string = read_to_string(&input.export_path)?;
+    fs::write(
+        "tmp/strong_app_mappings.json",
+        serde_json::to_string_pretty(&input.mapping).unwrap(),
+    )
+    .unwrap();
+    let file_string = fs::read_to_string(&input.export_path)?;
     let mut workouts = vec![];
     let mut entries_reader = ReaderBuilder::new()
         .delimiter(b';')
