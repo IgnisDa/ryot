@@ -91,7 +91,9 @@ translates "Read Status" in the following manner:
 
 ## Strong App
 
-You can import your completed workouts from [StrongApp](https://www.strong.app/).
+You can import your completed workouts from [StrongApp](https://www.strong.app/). Make sure
+you do the import process on a desktop/laptop since the process needs to have multiple tabs
+open at once.
 
 ### Steps
 
@@ -99,10 +101,10 @@ You can import your completed workouts from [StrongApp](https://www.strong.app/)
 - Scroll down to the "General" section and click on "Export data".
 - Upload this file in the input.
 - A new section will appear where you will have to map each exercise from your export. For
-  example: "Arnold Press (Dumbbell)" -> "Arnold Dumbbell Press". Exercises which are not
-  mapped will be ignored.
-- If an exercise does not exist in your instance, open a new tab and create it. Then come
-  back and change the input to the new exercise.
+  example: "Arnold Press (Dumbbell)" -> "Arnold Dumbbell Press". All exercises need to be
+  mapped.
+- If an exercise does not exist in your instance, open a new tab and create it from the
+  "Exercises" page. Then come back and change the input to the new exercise.
 - Once you have mapped all the exercises, click on "Import".
 
 ## Trakt
