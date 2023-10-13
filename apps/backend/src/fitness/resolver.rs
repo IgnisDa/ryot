@@ -671,8 +671,8 @@ impl ExerciseService {
             .all(&self.db)
             .await?;
         let mut workouts = vec![];
-        for id in workout_ids {
-            workouts.push(self.workout_details(id, user_id).await?);
+        for workout_id in workout_ids {
+            workouts.push(self.workout_details(workout_id, user_id).await?);
         }
         Ok(workouts)
     }
