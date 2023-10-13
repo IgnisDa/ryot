@@ -4034,7 +4034,7 @@ impl MiscellaneousService {
             true => (UserSummary::default(), None),
             false => {
                 let here = self.latest_user_summary(user_id).await?;
-                let time = here.calculated_on.clone();
+                let time = here.calculated_on;
                 (here, Some(time))
             }
         };

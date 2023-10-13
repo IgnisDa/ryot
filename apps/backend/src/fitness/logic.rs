@@ -242,7 +242,7 @@ impl UserWorkoutInput {
                     .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
                         name: e.name.clone(),
-                        lot: lot.clone(),
+                        lot: *lot,
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
                     .collect(),
