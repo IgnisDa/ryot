@@ -153,16 +153,22 @@ const Page: NextPageWithLayout = () => {
 											</Anchor>
 										</Center>
 										<Accordion.Panel>
-											<Group justify="space-between">
-												<Text fw="bold">Exercise</Text>
-												<Text fw="bold">Best set</Text>
-											</Group>
-											{workout.summary.exercises.map((exercise, idx) => (
-												<ExerciseDisplay
-													exercise={exercise}
-													key={`${idx}-${exercise.name}`}
-												/>
-											))}
+											{workout.summary.exercises.length > 0 ? (
+												<>
+													<Group justify="space-between">
+														<Text fw="bold">Exercise</Text>
+														<Text fw="bold">Best set</Text>
+													</Group>
+													{workout.summary.exercises.map((exercise, idx) => (
+														<ExerciseDisplay
+															exercise={exercise}
+															key={`${idx}-${exercise.name}`}
+														/>
+													))}
+												</>
+											) : (
+												<Text>No exercises done</Text>
+											)}
 										</Accordion.Panel>
 									</Accordion.Item>
 								))}
