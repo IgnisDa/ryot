@@ -38,6 +38,8 @@ pub enum ImportSource {
     Movary,
     #[sea_orm(string_value = "ST")]
     StoryGraph,
+    #[sea_orm(string_value = "SA")]
+    StrongApp,
 }
 
 #[derive(Iden)]

@@ -15,11 +15,15 @@ use tracing::instrument;
 use crate::{
     background::ApplicationJob,
     entities::{import_report, prelude::ImportReport, user::UserWithOnlyPreferences},
+    fitness::resolver::ExerciseService,
     migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
-    models::media::{
-        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-        ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
+    models::{
+        fitness::UserWorkoutInput,
+        media::{
+            AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+            ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
+        },
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -32,6 +36,7 @@ mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
+mod strong_app;
 mod trakt;
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -79,20 +84,27 @@ pub struct DeployStoryGraphImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct StrongAppImportMapping {
+    source_name: String,
+    target_name: String,
+    target_id: i32,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployStrongAppImportInput {
+    // The path to the CSV file in the local file system.
+    export_path: String,
+    mapping: Vec<StrongAppImportMapping>,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMediaJsonImportInput {
     // The contents of the JSON export.
     export: String,
 }
 
-#[derive(Debug, Enum, Serialize, Deserialize, Clone, Eq, PartialEq, Copy)]
-pub enum ImportLot {
-    Media,
-    Exercise,
-}
-
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
-    pub lot: ImportLot,
     pub source: ImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
     pub goodreads: Option<DeployGoodreadsImportInput>,
@@ -100,6 +112,7 @@ pub struct DeployImportJobInput {
     pub movary: Option<DeployMovaryImportInput>,
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
+    pub strong_app: Option<DeployStrongAppImportInput>,
     pub media_json: Option<DeployMediaJsonImportInput>,
 }
 
@@ -138,6 +151,7 @@ pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
     media: Vec<ImportOrExportMediaItem>,
     failed_items: Vec<ImportFailedItem>,
+    workouts: Vec<UserWorkoutInput>,
 }
 
 #[derive(
@@ -180,13 +194,20 @@ impl ImporterMutation {
 
 pub struct ImporterService {
     media_service: Arc<MiscellaneousService>,
+    exercise_service: Arc<ExerciseService>,
 }
 
 impl AuthProvider for ImporterService {}
 
 impl ImporterService {
-    pub fn new(media_service: Arc<MiscellaneousService>) -> Self {
-        Self { media_service }
+    pub fn new(
+        media_service: Arc<MiscellaneousService>,
+        exercise_service: Arc<ExerciseService>,
+    ) -> Self {
+        Self {
+            media_service,
+            exercise_service,
+        }
     }
 
     pub async fn deploy_import_job(
@@ -233,11 +254,34 @@ impl ImporterService {
         Ok(reports)
     }
 
-    pub async fn import_from_lot(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
-        match input.lot {
-            ImportLot::Media => self.import_media(user_id, input).await,
-            ImportLot::Exercise => todo!(),
+    pub async fn start_importing(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
+        match input.source {
+            ImportSource::StrongApp => self.import_exercises(user_id, input).await,
+            _ => self.import_media(user_id, input).await,
         }
+    }
+
+    #[instrument(skip(self, input))]
+    async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let import = match input.source {
+            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await?,
+            _ => unreachable!(),
+        };
+        let details = ImportResultResponse {
+            import: ImportDetails {
+                total: import.workouts.len(),
+            },
+            failed_items: vec![],
+        };
+        for workout in import.workouts {
+            self.exercise_service
+                .create_user_workout(user_id, workout)
+                .await
+                .ok();
+        }
+        self.finish_import_job(db_import_job, details).await?;
+        Ok(())
     }
 
     #[instrument(skip(self, input))]
@@ -259,6 +303,7 @@ impl ImporterService {
                 )
                 .await?
             }
+            _ => unreachable!(),
         };
         let preferences =
             partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)

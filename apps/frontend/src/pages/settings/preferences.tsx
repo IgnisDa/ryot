@@ -214,12 +214,12 @@ const Page: NextPageWithLayout = () => {
 								} else notifications.show(notificationContent);
 							}}
 						>
-							<IconRotate360 size="1.25rem" />
+							<IconRotate360 size={20} />
 						</ActionIcon>
 					</Group>
 					{!coreDetails.data.preferencesChangeAllowed ? (
 						<Alert
-							icon={<IconAlertCircle size="1rem" />}
+							icon={<IconAlertCircle size={16} />}
 							variant="outline"
 							color="violet"
 						>

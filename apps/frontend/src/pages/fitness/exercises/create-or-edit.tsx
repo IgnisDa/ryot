@@ -37,7 +37,7 @@ import { IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import type { NextPageWithLayout } from "../../_app";
@@ -58,7 +58,17 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 
 	const [images, setImages] = useListState<string>([]);
-	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
+	const form = useForm<FormSchema>({
+		validate: zodResolver(formSchema),
+	});
+
+	useEffect(() => {
+		const name = router.query.name?.toString();
+		if (name) {
+			form.setFieldValue("name", name);
+			form.setFieldValue("level", ExerciseLevel.Intermediate);
+		}
+	}, [router.query]);
 
 	const enabledFeatures = useEnabledCoreFeatures();
 	const imageUrls = useQuery(
@@ -92,7 +102,6 @@ const Page: NextPageWithLayout = () => {
 
 	const uploadFiles = async (files: File[]) => {
 		if (files.length > 0) {
-			const totalFiles = 0;
 			for (const file of files) {
 				const uploadedKey = await uploadFileAndGetKey(
 					file.name,
@@ -103,7 +112,7 @@ const Page: NextPageWithLayout = () => {
 			}
 			notifications.show({
 				title: "Success",
-				message: `Uploaded ${totalFiles} files`,
+				message: `Uploaded ${files.length} files`,
 			});
 		}
 	};
@@ -156,14 +165,15 @@ const Page: NextPageWithLayout = () => {
 								/>
 								<Group wrap="nowrap">
 									<Select
-										label="Force"
-										{...form.getInputProps("force")}
-										data={Object.values(ExerciseForce)}
-									/>
-									<Select
 										label="Level"
 										{...form.getInputProps("level")}
 										data={Object.values(ExerciseLevel)}
+										required
+									/>
+									<Select
+										label="Force"
+										{...form.getInputProps("force")}
+										data={Object.values(ExerciseForce)}
 									/>
 								</Group>
 								<Group wrap="nowrap">

@@ -66,7 +66,7 @@ const Page: NextPageWithLayout = () => {
 	const ClearButton = () =>
 		query ? (
 			<ActionIcon onClick={() => setQuery("")}>
-				<IconX size="1rem" />
+				<IconX size={16} />
 			</ActionIcon>
 		) : undefined;
 

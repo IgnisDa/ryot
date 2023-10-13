@@ -349,5 +349,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         media: final_data,
         failed_items,
         collections: all_collections,
+        workouts: vec![],
     })
 }

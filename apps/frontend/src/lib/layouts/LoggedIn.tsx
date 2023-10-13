@@ -127,7 +127,7 @@ function ThemeToggle() {
 				title="Ctrl + J"
 			>
 				<Center className={classes.iconWrapper}>
-					<Icon size="1.05rem" stroke={1.5} />
+					<Icon size={16.8} stroke={1.5} />
 				</Center>
 				<Text size="sm" className={classes.value}>
 					{upperFirst(colorScheme === "light" ? "dark" : "light")} theme
@@ -182,14 +182,14 @@ export function LinksGroup({
 				<Group justify="space-between" gap={0}>
 					<Box style={{ display: "flex", alignItems: "center" }}>
 						<ThemeIcon variant="light" size={30}>
-							<Icon size="1.1rem" />
+							<Icon size={17.6} />
 						</ThemeIcon>
 						<Box ml="md">{label}</Box>
 					</Box>
 					{hasLinks ? (
 						<ChevronIcon
 							className={classes.chevron}
-							size="1rem"
+							size={16}
 							stroke={1.5}
 							style={{
 								transform: opened
@@ -441,7 +441,7 @@ export default function ({ children }: { children: ReactElement }) {
 							className={classes.oldLink}
 						>
 							<Group>
-								<IconLogout size="1.2rem" />
+								<IconLogout size={19.2} />
 								<Text>Logout</Text>
 							</Group>
 						</UnstyledButton>

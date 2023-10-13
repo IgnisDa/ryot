@@ -99,7 +99,6 @@ const Page: NextPageWithLayout = () => {
 
 	const uploadFiles = async (files: File[], to: "image" | "video") => {
 		if (files.length > 0) {
-			let totalFiles = 0;
 			for (const file of files) {
 				const uploadedKey = await uploadFileAndGetKey(
 					file.name,
@@ -108,11 +107,10 @@ const Page: NextPageWithLayout = () => {
 				);
 				if (to === "image") setImages.append(uploadedKey);
 				else if (to === "video") setVideos.append(uploadedKey);
-				totalFiles++;
 			}
 			notifications.show({
 				title: "Success",
-				message: `Uploaded ${totalFiles} files`,
+				message: `Uploaded ${files.length} files`,
 			});
 		}
 	};

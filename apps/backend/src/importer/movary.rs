@@ -171,5 +171,6 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         collections: vec![],
         media,
         failed_items,
+        workouts: vec![],
     })
 }

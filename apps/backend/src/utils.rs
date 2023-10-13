@@ -95,7 +95,10 @@ pub async fn create_app_services(
         )
         .await,
     );
-    let importer_service = Arc::new(ImporterService::new(media_service.clone()));
+    let importer_service = Arc::new(ImporterService::new(
+        media_service.clone(),
+        exercise_service.clone(),
+    ));
     AppServices {
         config,
         media_service,

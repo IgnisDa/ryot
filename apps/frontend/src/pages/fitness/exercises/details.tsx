@@ -1,11 +1,12 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getSetColor } from "@/lib/utilities";
 import {
+	Anchor,
 	Box,
 	Container,
 	Divider,
@@ -36,9 +37,11 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const DisplayData = (props: { name: string; data: string }) => {
@@ -124,20 +127,17 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
-								leftSection={<IconInfoCircle size="1rem" />}
+								leftSection={<IconInfoCircle size={16} />}
 							>
 								Overview
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="history"
-								leftSection={<IconHistoryToggle size="1rem" />}
+								leftSection={<IconHistoryToggle size={16} />}
 							>
 								History
 							</Tabs.Tab>
-							<Tabs.Tab
-								value="records"
-								leftSection={<IconTrophy size="1rem" />}
-							>
+							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
 								Records
 							</Tabs.Tab>
 						</Tabs.List>
@@ -166,26 +166,34 @@ const Page: NextPageWithLayout = () => {
 										</>
 									))}
 								</SimpleGrid>
-								<Divider />
-								<Group wrap="nowrap">
-									<Text c="dimmed" fz="sm">
-										Muscles
-									</Text>
-									<Text fz="sm">
-										{exerciseDetails.data.attributes.muscles
-											.map((s) => startCase(s.toLowerCase()))
-											.join(", ")}
-									</Text>
-								</Group>
-								<Divider />
-								<Text size="xl" fw="bold">
-									Instructions
-								</Text>
-								<List type="ordered" spacing="xs">
-									{exerciseDetails.data.attributes.instructions.map((d) => (
-										<List.Item key={d}>{d}</List.Item>
-									))}
-								</List>
+								{exerciseDetails.data.attributes.muscles.length > 0 ? (
+									<>
+										<Divider />
+										<Group wrap="nowrap">
+											<Text c="dimmed" fz="sm">
+												Muscles
+											</Text>
+											<Text fz="sm">
+												{exerciseDetails.data.attributes.muscles
+													.map((s) => startCase(s.toLowerCase()))
+													.join(", ")}
+											</Text>
+										</Group>
+									</>
+								) : undefined}
+								{exerciseDetails.data.attributes.instructions.length > 0 ? (
+									<>
+										<Divider />
+										<Text size="xl" fw="bold">
+											Instructions
+										</Text>
+										<List type="ordered" spacing="xs">
+											{exerciseDetails.data.attributes.instructions.map((d) => (
+												<List.Item key={d}>{d}</List.Item>
+											))}
+										</List>
+									</>
+								) : undefined}
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
@@ -193,7 +201,15 @@ const Page: NextPageWithLayout = () => {
 								<Stack>
 									{userExerciseDetails.data.history.map((h) => (
 										<Paper key={h.workoutId} withBorder p="xs">
-											<Text fw="bold">{h.workoutName}</Text>
+											<Anchor
+												component={Link}
+												href={withQuery(APP_ROUTES.fitness.workoutDetails, {
+													id: h.workoutId,
+												})}
+												fw="bold"
+											>
+												{h.workoutName}
+											</Anchor>
 											<Text c="dimmed" fz="sm" mb="xs">
 												{DateTime.fromJSDate(h.workoutTime).toLocaleString(
 													DateTime.DATETIME_MED_WITH_WEEKDAY,

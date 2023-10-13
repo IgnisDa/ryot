@@ -172,7 +172,7 @@ const Page: NextPageWithLayout = () => {
 					{mediaSpecifics.data.showSpecifics ? (
 						<>
 							{onlySeason || completeShow ? (
-								<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
+								<Alert color="yellow" icon={<IconAlertCircle size={16} />}>
 									{onlySeason
 										? `This will mark all episodes of season ${selectedShowSeasonNumber} as seen`
 										: completeShow
@@ -226,7 +226,7 @@ const Page: NextPageWithLayout = () => {
 					) : undefined}
 					{mediaSpecifics.data.podcastSpecifics ? (
 						completePodcast ? (
-							<Alert color="yellow" icon={<IconAlertCircle size="1rem" />}>
+							<Alert color="yellow" icon={<IconAlertCircle size={16} />}>
 								This will mark all episodes for this podcast as seen
 							</Alert>
 						) : (

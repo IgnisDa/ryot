@@ -101,7 +101,7 @@ pub async fn upload_file(
         let tmp_dir = PathBuf::new().join("tmp");
         let path = tmp_dir.join(name);
         write(&path, data).unwrap();
-        res.push(path);
+        res.push(path.canonicalize().unwrap());
     }
     Ok(Json(json!(res)))
 }

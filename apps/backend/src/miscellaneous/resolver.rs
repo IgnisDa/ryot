@@ -376,6 +376,7 @@ struct CreatorDetails {
     details: person::Model,
     contents: Vec<CreatorDetailsGroupedByRole>,
     worked_on: Vec<partial_metadata::Model>,
+    source_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -2900,7 +2901,7 @@ impl MiscellaneousService {
                 image: ActiveValue::Set(data.image),
                 ..Default::default()
             };
-            c.insert(&self.db).await.unwrap()
+            c.insert(&self.db).await?
         };
         Ok(model)
     }
@@ -4033,7 +4034,7 @@ impl MiscellaneousService {
             true => (UserSummary::default(), None),
             false => {
                 let here = self.latest_user_summary(user_id).await?;
-                let time = here.calculated_on.clone();
+                let time = here.calculated_on;
                 (here, Some(time))
             }
         };
@@ -5763,10 +5764,31 @@ impl MiscellaneousService {
             .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
             .all(&self.db)
             .await?;
+        let slug = slug::slugify(&details.name);
+        let identifier = &details.identifier;
+        let source_url = match details.source {
+            MetadataSource::Custom
+            | MetadataSource::Anilist
+            | MetadataSource::Listennotes
+            | MetadataSource::Itunes
+            | MetadataSource::MangaUpdates
+            | MetadataSource::Mal
+            | MetadataSource::Vndb
+            | MetadataSource::Audible
+            | MetadataSource::GoogleBooks => None,
+            MetadataSource::Openlibrary => Some(format!(
+                "https://openlibrary.org/authors/{identifier}/{slug}"
+            )),
+            MetadataSource::Tmdb => Some(format!(
+                "https://www.themoviedb.org/person/{identifier}-{slug}"
+            )),
+            MetadataSource::Igdb => Some(format!("https://www.igdb.com/company/{slug}")),
+        };
         Ok(CreatorDetails {
             details,
             contents,
             worked_on,
+            source_url,
         })
     }
 

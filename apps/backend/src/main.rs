@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
     }
     let _guard = init_tracing();
 
-    tracing::info!("Running version {}", VERSION);
+    tracing::info!("Running version: {}", VERSION);
 
     let config = Arc::new(load_app_config()?);
     let cors_origins = config
@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
         DatabaseConnection::SqlxPostgresPoolConnection(_) => "PostgreSQL",
         _ => "Unrecognized",
     };
-    tracing::info!("Using database backend: {selected_database:?}");
+    tracing::info!("Using database backend: {selected_database}");
 
     Migrator::up(&db, None).await?;
 
@@ -236,12 +236,17 @@ async fn main() -> Result<()> {
         .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
         .layer(cors);
 
+    let tz: chrono_tz::Tz = env::var("TZ")
+        .map(|s| s.parse().unwrap())
+        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
+    tracing::info!("Using timezone: {}", tz);
+
     let port = env::var("PORT")
         .unwrap_or_else(|_| "8000".to_owned())
         .parse()
         .unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
-    tracing::info!("Listening on {}", addr);
+    tracing::info!("Listening on: {}", addr);
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
@@ -252,9 +257,6 @@ async fn main() -> Result<()> {
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
-        let tz: chrono_tz::Tz = env::var("TZ")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| chrono_tz::Etc::GMT);
         let mn = Monitor::new()
             // cron jobs
             .register_with_count(1, move |c| {

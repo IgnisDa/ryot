@@ -1,16 +1,13 @@
 use std::cmp::Ordering;
 
 use anyhow::{anyhow, Result};
-use async_graphql::InputObject;
 use chrono::Utc;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{
@@ -19,11 +16,10 @@ use crate::{
     },
     migrator::ExerciseLot,
     models::fitness::{
-        EntityAssets, ExerciseBestSetRecord, ProcessedExercise, SetLot,
-        UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-        UserToExerciseHistoryExtraInformation, WorkoutInformation, WorkoutSetPersonalBest,
-        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSummary, WorkoutSummaryExercise,
-        WorkoutTotalMeasurement,
+        ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
+        UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+        UserWorkoutSetRecord, WorkoutInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
+        WorkoutSummary, WorkoutSummaryExercise, WorkoutTotalMeasurement,
     },
     users::{UserExercisePreferences, UserUnitSystem},
 };
@@ -65,12 +61,6 @@ fn get_index_of_highest_pb(
         .map(|(index, _)| index)
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-pub struct UserWorkoutSetRecord {
-    pub statistic: WorkoutSetStatistic,
-    pub lot: SetLot,
-}
-
 impl UserWorkoutSetRecord {
     pub fn translate_units(self, unit_type: UserUnitSystem) -> Self {
         let mut du = self;
@@ -87,26 +77,6 @@ impl UserWorkoutSetRecord {
             }
         }
     }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-pub struct UserExerciseInput {
-    pub exercise_id: i32,
-    pub sets: Vec<UserWorkoutSetRecord>,
-    pub notes: Vec<String>,
-    pub rest_time: Option<u16>,
-    pub assets: EntityAssets,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-pub struct UserWorkoutInput {
-    pub name: String,
-    pub comment: Option<String>,
-    pub start_time: DateTimeUtc,
-    pub end_time: DateTimeUtc,
-    pub exercises: Vec<UserExerciseInput>,
-    pub supersets: Vec<Vec<u16>>,
-    pub assets: EntityAssets,
 }
 
 impl UserWorkoutInput {
@@ -194,6 +164,7 @@ impl UserWorkoutInput {
                     WorkoutSetPersonalBest::Weight,
                     WorkoutSetPersonalBest::OneRm,
                     WorkoutSetPersonalBest::Volume,
+                    WorkoutSetPersonalBest::Reps,
                 ],
             };
             for best_type in types_of_prs.iter() {
@@ -272,7 +243,7 @@ impl UserWorkoutInput {
                     .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
                         name: e.name.clone(),
-                        lot: lot.clone(),
+                        lot: *lot,
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
                     .collect(),

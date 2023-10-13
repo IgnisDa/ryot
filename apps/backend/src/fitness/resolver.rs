@@ -10,6 +10,7 @@ use sea_orm::{
 };
 use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
+use slug::slugify;
 use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
 use tracing::instrument;
@@ -24,7 +25,6 @@ use crate::{
         user_measurement, user_to_exercise, workout,
     },
     file_storage::FileStorageService,
-    fitness::logic::UserWorkoutInput,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle, ExerciseSource,
@@ -32,7 +32,7 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
-            GithubExerciseAttributes, WorkoutListItem, WorkoutSetRecord,
+            GithubExerciseAttributes, UserWorkoutInput, WorkoutListItem, WorkoutSetRecord,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -453,7 +453,12 @@ impl ExerciseService {
             })
             .apply_if(input.search.query, |query, v| {
                 query.filter(
-                    Condition::any().add(get_ilike_query(Expr::col(exercise::Column::Name), &v)),
+                    Condition::any()
+                        .add(get_ilike_query(Expr::col(exercise::Column::Name), &v))
+                        .add(get_ilike_query(
+                            Expr::col(exercise::Column::Identifier),
+                            &slugify(v),
+                        )),
                 )
             })
             .join(
@@ -537,13 +542,14 @@ impl ExerciseService {
             db_ex.update(&self.db).await?;
         } else {
             let lot = match ex.attributes.category {
-                ExerciseCategory::Stretching => ExerciseLot::Duration,
-                ExerciseCategory::Plyometrics => ExerciseLot::Duration,
                 ExerciseCategory::Cardio => ExerciseLot::DistanceAndDuration,
-                ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
-                ExerciseCategory::Strength => ExerciseLot::RepsAndWeight,
-                ExerciseCategory::OlympicWeightlifting => ExerciseLot::RepsAndWeight,
-                ExerciseCategory::Strongman => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::Stretching | ExerciseCategory::Plyometrics => {
+                    ExerciseLot::Duration
+                }
+                ExerciseCategory::Strongman
+                | ExerciseCategory::OlympicWeightlifting
+                | ExerciseCategory::Strength
+                | ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
             };
             let mut muscles = ex.attributes.primary_muscles;
             muscles.extend(ex.attributes.secondary_muscles);
@@ -621,10 +627,13 @@ impl ExerciseService {
     }
 
     #[instrument(skip(self, input))]
-    async fn create_user_workout(&self, user_id: i32, input: UserWorkoutInput) -> Result<String> {
+    pub async fn create_user_workout(
+        &self,
+        user_id: i32,
+        input: UserWorkoutInput,
+    ) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
-        let sf = Sonyflake::new().unwrap();
-        let id = sf.next_id().unwrap().to_string();
+        let id = Sonyflake::new().unwrap().next_id().unwrap().to_string();
         tracing::trace!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)

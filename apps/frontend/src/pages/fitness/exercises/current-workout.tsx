@@ -347,7 +347,7 @@ const ExerciseDisplay = (props: {
 											);
 										}}
 									>
-										<IconCameraRotate size="2rem" />
+										<IconCameraRotate size={32} />
 									</ActionIcon>
 									<ActionIcon
 										size="xl"
@@ -373,7 +373,7 @@ const ExerciseDisplay = (props: {
 											}
 										}}
 									>
-										<IconCamera size="2rem" />
+										<IconCamera size={32} />
 									</ActionIcon>
 								</Stack>
 							</Group>
@@ -980,8 +980,12 @@ const Page: NextPageWithLayout = () => {
 		interval.start();
 	};
 
-	const finishWorkout = async () => {
-		await router.replace(APP_ROUTES.dashboard);
+	const finishWorkout = async (newWorkoutId?: string) => {
+		await router.replace(
+			newWorkoutId
+				? withQuery(APP_ROUTES.fitness.workoutDetails, { id: newWorkoutId })
+				: APP_ROUTES.dashboard,
+		);
 		setCurrentWorkout(RESET);
 	};
 
@@ -1117,9 +1121,9 @@ const Page: NextPageWithLayout = () => {
 											if (yes) {
 												const input =
 													currentWorkoutToCreateWorkoutInput(currentWorkout);
-												createUserWorkout.mutate(input);
 												playCompleteWorkoutSound();
-												await finishWorkout();
+												const done = await createUserWorkout.mutateAsync(input);
+												await finishWorkout(done);
 											}
 										}}
 									>

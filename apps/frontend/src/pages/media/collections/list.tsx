@@ -119,7 +119,7 @@ const Page: NextPageWithLayout = () => {
 								open();
 							}}
 						>
-							<IconPlus size="1.25rem" />
+							<IconPlus size={20} />
 						</ActionIcon>
 					</Flex>
 					<SimpleGrid cols={{ base: 1, md: 2 }}>
@@ -161,7 +161,7 @@ const Page: NextPageWithLayout = () => {
 											open();
 										}}
 									>
-										<IconEdit size="1.125rem" />
+										<IconEdit size={18} />
 									</ActionIcon>
 									<ActionIcon
 										color="red"
@@ -176,7 +176,7 @@ const Page: NextPageWithLayout = () => {
 												});
 										}}
 									>
-										<IconTrashFilled size="1.125rem" />
+										<IconTrashFilled size={18} />
 									</ActionIcon>
 								</Flex>
 							</Flex>

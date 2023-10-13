@@ -81,7 +81,13 @@ const Page: NextPageWithLayout = () => {
 				<title>{creatorDetails.data.details.name} | Ryot</title>
 			</Head>
 			<Container>
-				<MediaDetailsLayout images={creatorDetails.data.details.displayImages}>
+				<MediaDetailsLayout
+					images={creatorDetails.data.details.displayImages}
+					externalLink={{
+						source: creatorDetails.data.details.source,
+						href: creatorDetails.data.sourceUrl,
+					}}
+				>
 					<Title id="creator-title">{creatorDetails.data.details.name}</Title>
 					<Flex id="creator-details" wrap="wrap" gap={4}>
 						<Text>
@@ -125,16 +131,13 @@ const Page: NextPageWithLayout = () => {
 						variant="outline"
 					>
 						<Tabs.List mb="xs">
-							<Tabs.Tab
-								value="media"
-								leftSection={<IconDeviceTv size="1rem" />}
-							>
+							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
 								Media
 							</Tabs.Tab>
 							{creatorDetails.data.details.description ? (
 								<Tabs.Tab
 									value="overview"
-									leftSection={<IconInfoCircle size="1rem" />}
+									leftSection={<IconInfoCircle size={16} />}
 								>
 									Overview
 								</Tabs.Tab>
@@ -142,7 +145,7 @@ const Page: NextPageWithLayout = () => {
 							{creatorDetails.data.workedOn.length > 0 ? (
 								<Tabs.Tab
 									value="workedOn"
-									leftSection={<IconPlayerPlay size="1rem" />}
+									leftSection={<IconPlayerPlay size={16} />}
 								>
 									Worked on
 								</Tabs.Tab>
@@ -150,12 +153,12 @@ const Page: NextPageWithLayout = () => {
 							{userCreatorDetails.data.reviews.length > 0 ? (
 								<Tabs.Tab
 									value="reviews"
-									leftSection={<IconMessageCircle2 size="1rem" />}
+									leftSection={<IconMessageCircle2 size={16} />}
 								>
 									Reviews
 								</Tabs.Tab>
 							) : undefined}
-							<Tabs.Tab value="actions" leftSection={<IconUser size="1rem" />}>
+							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
 						</Tabs.List>

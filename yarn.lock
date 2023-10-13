@@ -5204,6 +5204,7 @@ __metadata:
     "@types/react": 18.2.28
     "@types/react-dom": 18.2.13
     clsx: 2.0.0
+    csv-parse: 5.5.2
     dayjs: 1.11.10
     embla-carousel-react: 8.0.0-rc14
     human-format: 1.2.0
@@ -7529,6 +7530,13 @@ __metadata:
   version: 3.1.2
   resolution: "csstype@npm:3.1.2"
   checksum: e1a52e6c25c1314d6beef5168da704ab29c5186b877c07d822bd0806717d9a265e8493a2e35ca7e68d0f5d472d43fac1cdce70fd79fd0853dff81f3028d857b5
+  languageName: node
+  linkType: hard
+
+"csv-parse@npm:5.5.2":
+  version: 5.5.2
+  resolution: "csv-parse@npm:5.5.2"
+  checksum: de2eb0c29b049783ef101b7eb843456200dc9a4fc9f4b400473bb0521b41aadb77af560cf4edc49bac65cc457b32596519860120181b26ec3b372109ddf8e8ea
   languageName: node
   linkType: hard
 

@@ -1,8 +1,10 @@
 query CreatorDetails($creatorId: Int!) {
   creatorDetails(creatorId: $creatorId) {
+    sourceUrl
     details {
       id
       name
+      source
       description
       birthDate
       deathDate

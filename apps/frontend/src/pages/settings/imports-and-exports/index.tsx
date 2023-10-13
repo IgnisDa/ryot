@@ -1,11 +1,12 @@
 import { APP_ROUTES } from "@/lib/constants";
 import LoggedIn from "@/lib/layouts/LoggedIn";
-import { BASE_URL, gqlClient } from "@/lib/services/api";
-import { fileToText } from "@/lib/utilities";
+import { gqlClient } from "@/lib/services/api";
+import { fileToText, uploadFileToServiceAndGetPath } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Alert,
 	Anchor,
+	Autocomplete,
 	Box,
 	Button,
 	Container,
@@ -13,32 +14,38 @@ import {
 	FileInput,
 	Flex,
 	Group,
+	Loader,
 	PasswordInput,
 	Progress,
 	Select,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
 	Title,
 	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { useDebouncedState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
+	ExercisesListDocument,
 	GenerateAuthTokenDocument,
 	type GenerateAuthTokenMutationVariables,
-	ImportLot,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { parse } from "csv-parse/sync";
+import { produce } from "immer";
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import type { NextPageWithLayout } from "../../_app";
 
@@ -78,6 +85,11 @@ const storyGraphImportFormSchema = z.object({
 });
 type StoryGraphImportFormSchema = z.infer<typeof storyGraphImportFormSchema>;
 
+const strongAppImportFormSchema = z.object({
+	exportPath: z.any(),
+});
+type StrongAppImportFormSchema = z.infer<typeof strongAppImportFormSchema>;
+
 const mediaJsonImportFormSchema = z.object({
 	export: z.any(),
 });
@@ -109,7 +121,75 @@ export const ImportSourceElement = (props: {
 	);
 };
 
+const ExerciseWarning = () => {
+	return (
+		<Alert color="yellow">
+			Importing from this source is an involved process. Please make sure you
+			read the docs before continuing.
+		</Alert>
+	);
+};
+
+const ExerciseMap = (props: {
+	name: string;
+	onOptionSubmit: ([idx, name]: [number, string]) => void;
+	isNotSelected?: boolean;
+}) => {
+	const [searched, setSearched] = useDebouncedState(props.name, 500);
+	const exerciseSearch = useQuery(
+		["exerciseSearch", searched],
+		async () => {
+			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
+				input: { search: { page: 1, query: searched } },
+			});
+			return exercisesList.items;
+		},
+		{ staleTime: Infinity },
+	);
+
+	return (
+		<Group justify="space-between" wrap="nowrap">
+			<Box>
+				<Text size="xs">{props.name}</Text>
+				<Anchor
+					display={"block"}
+					mt={-2}
+					target="_blank"
+					fz="xs"
+					href={withQuery(APP_ROUTES.fitness.exercises.createOrEdit, {
+						name: props.name,
+					})}
+				>
+					Create
+				</Anchor>
+			</Box>
+			<Autocomplete
+				size="xs"
+				data={(exerciseSearch.data || []).map((e) => `${e.id}) ${e.name}`)}
+				onChange={(v) => setSearched(v)}
+				onOptionSubmit={(v) => {
+					const id = parseInt(v.split(")")[0]);
+					const name = v.split(")")[1].trim();
+					props.onOptionSubmit([id, name]);
+				}}
+				rightSection={
+					exerciseSearch.isLoading ? <Loader size="xs" /> : undefined
+				}
+				required
+				error={props.isNotSelected ? "Nothing selected" : undefined}
+			/>
+		</Group>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
+	const [uniqueExercises, setUniqueExercises] = useState<
+		{
+			sourceName: string;
+			targetName?: string;
+			targetId?: number;
+		}[]
+	>([]);
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
 
@@ -127,6 +207,9 @@ const Page: NextPageWithLayout = () => {
 	});
 	const storyGraphImportForm = useForm<StoryGraphImportFormSchema>({
 		validate: zodResolver(storyGraphImportFormSchema),
+	});
+	const strongAppImportForm = useForm<StrongAppImportFormSchema>({
+		validate: zodResolver(strongAppImportFormSchema),
 	});
 	const mediaJsonImportForm = useForm<MediaJsonImportFormSchema>({
 		validate: zodResolver(mediaJsonImportFormSchema),
@@ -158,31 +241,19 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const uploadFileToServiceAndGetPath = async (file: File) => {
-		const formData = new FormData();
-		formData.append("files[]", file, file.name);
-		const data: string = await new Promise((resolve) => {
-			const xhr = new XMLHttpRequest();
-			xhr.upload.addEventListener("progress", (event) => {
-				if (event.lengthComputable) {
-					setProgress((event.loaded / event.total) * 100);
-				}
-			});
-			xhr.addEventListener("load", () => {
-				setProgress(null);
-				const data: string[] = JSON.parse(xhr.responseText);
-				resolve(data[0]);
-			});
-			xhr.open("POST", `${BASE_URL}/upload`, true);
-			xhr.send(formData);
-		});
+	const uploadFile = async (file: File) => {
+		const data = await uploadFileToServiceAndGetPath(
+			file,
+			(event) => setProgress((event.loaded / event.total) * 100),
+			() => setProgress(null),
+		);
 		return data;
 	};
 
 	return (
 		<>
 			<Head>
-				<title>Perform a new import | Ryot</title>
+				<title>Importing and Exporting | Ryot</title>
 			</Head>
 			<Container size="xs">
 				<Tabs defaultValue="import">
@@ -190,73 +261,7 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Tab value="import">Import</Tabs.Tab>
 						<Tabs.Tab value="export">Export</Tabs.Tab>
 					</Tabs.List>
-					<Box
-						mt="xl"
-						component="form"
-						onSubmit={async (e) => {
-							e.preventDefault();
-							const yes = confirm(
-								"Are you sure you want to deploy an import job? This action is irreversible.",
-							);
-							if (yes) {
-								if (deployImportSource) {
-									const values = await match(deployImportSource)
-										.with(ImportSource.Goodreads, () => ({
-											goodreads: goodreadsImportForm.values,
-										}))
-										.with(ImportSource.Trakt, () => ({
-											trakt: traktImportForm.values,
-										}))
-										.with(ImportSource.MediaTracker, () => ({
-											mediaTracker: mediaTrackerImportForm.values,
-										}))
-										.with(ImportSource.Movary, async () => ({
-											movary: {
-												ratings: await fileToText(
-													movaryImportForm.values.ratings,
-												),
-												history: await fileToText(
-													movaryImportForm.values.history,
-												),
-												watchlist: await fileToText(
-													movaryImportForm.values.watchlist,
-												),
-											},
-										}))
-										.with(ImportSource.StoryGraph, async () => ({
-											storyGraph: {
-												export: await fileToText(
-													storyGraphImportForm.values.export,
-												),
-											},
-										}))
-										.with(ImportSource.MediaJson, async () => ({
-											mediaJson: {
-												export: await fileToText(
-													mediaJsonImportForm.values.export,
-												),
-											},
-										}))
-										.with(ImportSource.Mal, async () => ({
-											mal: {
-												animePath: malImportForm.values.mangaPath,
-												mangaPath: malImportForm.values.mangaPath,
-											},
-										}))
-										.exhaustive();
-									if (values) {
-										deployImportJob.mutate({
-											input: {
-												lot: ImportLot.Media,
-												source: deployImportSource,
-												...values,
-											},
-										});
-									}
-								}
-							}
-						}}
-					>
+					<Box mt="xl">
 						<Tabs.Panel value="export">
 							<Stack>
 								<Flex justify="space-between" align="center">
@@ -301,9 +306,9 @@ const Page: NextPageWithLayout = () => {
 																onClick={copy}
 															>
 																{copied ? (
-																	<IconCheck size="1rem" />
+																	<IconCheck size={16} />
 																) : (
-																	<IconCopy size="1rem" />
+																	<IconCopy size={16} />
 																)}
 															</ActionIcon>
 														</Tooltip>
@@ -320,155 +325,307 @@ const Page: NextPageWithLayout = () => {
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value="import">
-							<Stack>
-								<Flex justify="space-between" align="center">
-									<Title order={2}>Import data</Title>
-									<Group>
-										<Anchor
-											href={APP_ROUTES.settings.imports.reports}
-											component={Link}
-											size="xs"
-										>
-											Reports
-										</Anchor>
-										<Anchor
-											size="xs"
-											href="https://ignisda.github.io/ryot/importing.html"
-											target="_blank"
-										>
-											Docs
-										</Anchor>
-									</Group>
-								</Flex>
-								{progress ? (
-									<Progress
-										value={progress}
-										striped
-										// TODO: Bring this back when mantine supports it
-										// animate
-										size="sm"
-										color="orange"
+							<Box
+								component="form"
+								onSubmit={async (e) => {
+									e.preventDefault();
+									const yes = confirm(
+										"Are you sure you want to deploy an import job? This action is irreversible.",
+									);
+									if (yes) {
+										if (deployImportSource) {
+											const values = await match(deployImportSource)
+												.with(ImportSource.Goodreads, () => ({
+													goodreads: goodreadsImportForm.values,
+												}))
+												.with(ImportSource.Trakt, () => ({
+													trakt: traktImportForm.values,
+												}))
+												.with(ImportSource.MediaTracker, () => ({
+													mediaTracker: mediaTrackerImportForm.values,
+												}))
+												.with(ImportSource.Movary, async () => ({
+													movary: {
+														ratings: await fileToText(
+															movaryImportForm.values.ratings,
+														),
+														history: await fileToText(
+															movaryImportForm.values.history,
+														),
+														watchlist: await fileToText(
+															movaryImportForm.values.watchlist,
+														),
+													},
+												}))
+												.with(ImportSource.StoryGraph, async () => ({
+													storyGraph: {
+														export: await fileToText(
+															storyGraphImportForm.values.export,
+														),
+													},
+												}))
+												.with(ImportSource.MediaJson, async () => ({
+													mediaJson: {
+														export: await fileToText(
+															mediaJsonImportForm.values.export,
+														),
+													},
+												}))
+												.with(ImportSource.Mal, async () => ({
+													mal: {
+														animePath: malImportForm.values.mangaPath,
+														mangaPath: malImportForm.values.mangaPath,
+													},
+												}))
+												.with(ImportSource.StrongApp, async () => ({
+													strongApp: {
+														exportPath: strongAppImportForm.values.exportPath,
+														// biome-ignore lint/suspicious/noExplicitAny: required here
+														mapping: uniqueExercises as any,
+													},
+												}))
+												.exhaustive();
+											if (values) {
+												deployImportJob.mutate({
+													input: {
+														source: deployImportSource,
+														...values,
+													},
+												});
+											}
+										}
+									}
+								}}
+							>
+								<Stack>
+									<Flex justify="space-between" align="center">
+										<Title order={2}>Import data</Title>
+										<Group>
+											<Anchor
+												href={APP_ROUTES.settings.imports.reports}
+												component={Link}
+												size="xs"
+											>
+												Reports
+											</Anchor>
+											<Anchor
+												size="xs"
+												href="https://ignisda.github.io/ryot/importing.html"
+												target="_blank"
+											>
+												Docs
+											</Anchor>
+										</Group>
+									</Flex>
+									{progress ? (
+										<Progress
+											value={progress}
+											striped
+											// TODO: Bring this back when mantine supports it
+											// animate
+											size="sm"
+											color="orange"
+										/>
+									) : undefined}
+									<Select
+										label="Select a source"
+										required
+										data={Object.values(ImportSource).map((is) => ({
+											label: changeCase(is),
+											value: is,
+										}))}
+										onChange={(v) => {
+											if (v) setDeployImportSource(v as ImportSource);
+										}}
 									/>
-								) : undefined}
-								<Select
-									label="Select a source"
-									required
-									data={Object.values(ImportSource).map((is) => ({
-										label: changeCase(is),
-										value: is,
-									}))}
-									onChange={(v) => {
-										if (v) setDeployImportSource(v as ImportSource);
-									}}
-								/>
-								{deployImportSource ? (
-									<ImportSourceElement>
-										{match(deployImportSource)
-											.with(ImportSource.MediaTracker, () => (
-												<>
-													<TextInput
-														label="Instance Url"
-														required
-														{...mediaTrackerImportForm.getInputProps("apiUrl")}
-													/>
-													<PasswordInput
-														mt="sm"
-														label="API Key"
-														required
-														{...mediaTrackerImportForm.getInputProps("apiKey")}
-													/>
-												</>
-											))
-											.with(ImportSource.Goodreads, () => (
-												<>
-													<TextInput
-														label="RSS URL"
-														required
-														{...goodreadsImportForm.getInputProps("rssUrl")}
-													/>
-												</>
-											))
-											.with(ImportSource.Trakt, () => (
-												<>
-													<TextInput
-														label="Username"
-														required
-														{...traktImportForm.getInputProps("username")}
-													/>
-												</>
-											))
-											.with(ImportSource.Movary, () => (
-												<>
-													<FileInput
-														label="History CSV file"
-														accept=".csv"
-														required
-														{...movaryImportForm.getInputProps("history")}
-													/>
-													<FileInput
-														label="Ratings CSV file"
-														accept=".csv"
-														required
-														{...movaryImportForm.getInputProps("ratings")}
-													/>
-													<FileInput
-														label="Watchlist CSV file"
-														accept=".csv"
-														required
-														{...movaryImportForm.getInputProps("watchlist")}
-													/>
-												</>
-											))
-											.with(ImportSource.StoryGraph, () => (
-												<>
-													<FileInput
-														label="CSV export file"
-														accept=".csv"
-														required
-														{...storyGraphImportForm.getInputProps("export")}
-													/>
-												</>
-											))
-											.with(ImportSource.MediaJson, () => (
-												<>
-													<FileInput
-														label="JSON export file"
-														accept=".json"
-														required
-														{...mediaJsonImportForm.getInputProps("export")}
-													/>
-												</>
-											))
-											.with(ImportSource.Mal, () => (
-												<>
-													<FileInput
-														label="Anime export file"
-														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(file);
-																malImportForm.setFieldValue("animePath", path);
-															}
-														}}
-													/>
-													<FileInput
-														label="Manga export file"
-														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(file);
-																malImportForm.setFieldValue("mangaPath", path);
-															}
-														}}
-													/>
-												</>
-											))
-											.exhaustive()}
-									</ImportSourceElement>
-								) : undefined}
-							</Stack>
+									{deployImportSource ? (
+										<ImportSourceElement>
+											{match(deployImportSource)
+												.with(ImportSource.MediaTracker, () => (
+													<>
+														<TextInput
+															label="Instance Url"
+															required
+															{...mediaTrackerImportForm.getInputProps(
+																"apiUrl",
+															)}
+														/>
+														<PasswordInput
+															mt="sm"
+															label="API Key"
+															required
+															{...mediaTrackerImportForm.getInputProps(
+																"apiKey",
+															)}
+														/>
+													</>
+												))
+												.with(ImportSource.Goodreads, () => (
+													<>
+														<TextInput
+															label="RSS URL"
+															required
+															{...goodreadsImportForm.getInputProps("rssUrl")}
+														/>
+													</>
+												))
+												.with(ImportSource.Trakt, () => (
+													<>
+														<TextInput
+															label="Username"
+															required
+															{...traktImportForm.getInputProps("username")}
+														/>
+													</>
+												))
+												.with(ImportSource.Movary, () => (
+													<>
+														<FileInput
+															label="History CSV file"
+															accept=".csv"
+															required
+															{...movaryImportForm.getInputProps("history")}
+														/>
+														<FileInput
+															label="Ratings CSV file"
+															accept=".csv"
+															required
+															{...movaryImportForm.getInputProps("ratings")}
+														/>
+														<FileInput
+															label="Watchlist CSV file"
+															accept=".csv"
+															required
+															{...movaryImportForm.getInputProps("watchlist")}
+														/>
+													</>
+												))
+												.with(ImportSource.StoryGraph, () => (
+													<>
+														<FileInput
+															label="CSV export file"
+															accept=".csv"
+															required
+															{...storyGraphImportForm.getInputProps("export")}
+														/>
+													</>
+												))
+												.with(ImportSource.MediaJson, () => (
+													<>
+														<FileInput
+															label="JSON export file"
+															accept=".json"
+															required
+															{...mediaJsonImportForm.getInputProps("export")}
+														/>
+													</>
+												))
+												.with(ImportSource.Mal, () => (
+													<>
+														<FileInput
+															label="Anime export file"
+															required
+															onChange={async (file) => {
+																if (file) {
+																	const path = await uploadFile(file);
+																	malImportForm.setFieldValue(
+																		"animePath",
+																		path,
+																	);
+																}
+															}}
+														/>
+														<FileInput
+															label="Manga export file"
+															required
+															onChange={async (file) => {
+																if (file) {
+																	const path = await uploadFile(file);
+																	malImportForm.setFieldValue(
+																		"mangaPath",
+																		path,
+																	);
+																}
+															}}
+														/>
+													</>
+												))
+												.with(ImportSource.StrongApp, () => (
+													<>
+														{uniqueExercises.length === 0 ? (
+															<>
+																<ExerciseWarning />
+																<FileInput
+																	label="CSV export file"
+																	accept=".csv"
+																	required
+																	onChange={async (file) => {
+																		if (file) {
+																			const clonedFile = new File(
+																				[file],
+																				file.name,
+																				{ type: file.type },
+																			);
+																			const text = await fileToText(clonedFile);
+																			const csvText: {
+																				"Exercise Name": string;
+																			}[] = parse(text, {
+																				columns: true,
+																				skip_empty_lines: true,
+																				delimiter: ";",
+																			});
+																			const exerciseNames = new Set(
+																				csvText.map((s) =>
+																					s["Exercise Name"].trim(),
+																				),
+																			);
+																			setUniqueExercises(
+																				[...exerciseNames]
+																					.toSorted()
+																					.map((e) => ({ sourceName: e })),
+																			);
+																			const path = await uploadFile(file);
+																			strongAppImportForm.setFieldValue(
+																				"exportPath",
+																				path,
+																			);
+																		}
+																	}}
+																/>
+															</>
+														) : (
+															<Stack gap="xs">
+																<Text>
+																	Map {uniqueExercises.length} exercises
+																</Text>
+																{uniqueExercises.map((e) => (
+																	<ExerciseMap
+																		key={e.sourceName}
+																		name={e.sourceName}
+																		isNotSelected={e.targetId === undefined}
+																		onOptionSubmit={([id, name]) => {
+																			setUniqueExercises(
+																				produce(uniqueExercises, (draft) => {
+																					const index = draft.findIndex(
+																						(d) =>
+																							d.sourceName === e.sourceName,
+																					);
+																					draft[index].targetId = id;
+																					draft[index].targetName = name;
+																				}),
+																			);
+																		}}
+																	/>
+																))}
+															</Stack>
+														)}
+													</>
+												))
+												.exhaustive()}
+										</ImportSourceElement>
+									) : undefined}
+								</Stack>
+							</Box>
 						</Tabs.Panel>
 					</Box>
 				</Tabs>

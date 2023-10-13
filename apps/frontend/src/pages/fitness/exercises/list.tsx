@@ -157,7 +157,7 @@ const Page: NextPageWithLayout = () => {
 	const ClearButton = () =>
 		query ? (
 			<ActionIcon onClick={() => setQuery("")}>
-				<IconX size="1rem" />
+				<IconX size={16} />
 			</ActionIcon>
 		) : undefined;
 
@@ -176,12 +176,12 @@ const Page: NextPageWithLayout = () => {
 							variant="outline"
 							href={APP_ROUTES.fitness.exercises.createOrEdit}
 						>
-							<IconPlus size="1rem" />
+							<IconPlus size={16} />
 						</ActionIcon>
 					</Flex>
 					{exerciseInformation.data.downloadRequired ? (
 						<Alert
-							icon={<IconAlertCircle size="1rem" />}
+							icon={<IconAlertCircle size={16} />}
 							variant="outline"
 							color="violet"
 						>
@@ -213,13 +213,13 @@ const Page: NextPageWithLayout = () => {
 									loading={exercisesList.isLoading}
 									onClick={() => exercisesList.refetch()}
 								>
-									<IconRefresh size="1.625rem" />
+									<IconRefresh size={26} />
 								</ActionIcon>
 								<ActionIcon
 									onClick={openFiltersModal}
 									color={isFilterChanged ? "blue" : "gray"}
 								>
-									<IconFilter size="1.5rem" />
+									<IconFilter size={24} />
 								</ActionIcon>
 								<Modal
 									opened={filtersModalOpened}
@@ -238,7 +238,7 @@ const Page: NextPageWithLayout = () => {
 											<Group>
 												<Title order={3}>Filters</Title>
 												<ActionIcon onClick={resetFilters}>
-													<IconFilterOff size="1.5rem" />
+													<IconFilterOff size={24} />
 												</ActionIcon>
 											</Group>
 											<Select
@@ -426,7 +426,7 @@ const Page: NextPageWithLayout = () => {
 								router.replace(APP_ROUTES.fitness.exercises.currentWorkout);
 							}}
 						>
-							<IconCheck size="2rem" />
+							<IconCheck size={32} />
 						</ActionIcon>
 						{/* TODO: Add btn to add superset exercises */}
 					</Affix>

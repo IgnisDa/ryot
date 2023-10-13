@@ -22,8 +22,10 @@ export const getSetStatisticsTextToDisplay = (
 		])
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
-			`${statistic.weight} kg  × ${statistic.reps}`,
-			`${(statistic.weight || 1) * (statistic.reps || 1)} vol`,
+			statistic.weight
+				? `${statistic.weight} kg  × ${statistic.reps}`
+				: `${statistic.reps} reps`,
+			`${((statistic.weight || 1) * (statistic.reps || 1)).toFixed(2)} vol`,
 		])
 		.exhaustive();
 };
@@ -53,7 +55,7 @@ export const DisplayExerciseStats = (props: {
 						<Badge
 							variant="light"
 							size="xs"
-							leftSection={<IconTrophy size="0.6rem" />}
+							leftSection={<IconTrophy size={16} />}
 							color={
 								colors[
 									(getStringAsciiValue(pb) + colors.length) % colors.length

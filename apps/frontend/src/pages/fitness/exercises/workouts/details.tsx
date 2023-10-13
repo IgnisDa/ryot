@@ -1,4 +1,5 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -23,10 +24,12 @@ import { IconClock, IconTrophy, IconWeight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../../_app";
 
 const DisplayStat = (props: {
@@ -81,7 +84,7 @@ const Page: NextPageWithLayout = () => {
 						</Text>
 						<Group mt={3} gap="lg">
 							<DisplayStat
-								icon={<IconClock size="1rem" />}
+								icon={<IconClock size={16} />}
 								data={`${DateTime.fromJSDate(workoutDetails.data.endTime)
 									.diff(
 										DateTime.fromJSDate(workoutDetails.data.startTime),
@@ -90,14 +93,14 @@ const Page: NextPageWithLayout = () => {
 									.minutes.toFixed()} minutes`}
 							/>
 							<DisplayStat
-								icon={<IconWeight size="1rem" />}
+								icon={<IconWeight size={16} />}
 								data={new Intl.NumberFormat("en-us", {
 									style: "unit",
 									unit: "kilogram",
 								}).format(Number(workoutDetails.data.summary.total.weight))}
 							/>
 							<DisplayStat
-								icon={<IconTrophy size="1rem" />}
+								icon={<IconTrophy size={16} />}
 								data={`${workoutDetails.data.summary.total.personalBestsAchieved.toString()} PRs`}
 							/>
 						</Group>
@@ -113,7 +116,15 @@ const Page: NextPageWithLayout = () => {
 					{workoutDetails.data.information.exercises.map((exercise, idx) => (
 						<Paper key={`${exercise.id}-${idx}`} withBorder p="xs">
 							<Box mb="xs">
-								<Text fw="bold">{exercise.name}</Text>
+								<Anchor
+									component={Link}
+									href={withQuery(APP_ROUTES.fitness.exercises.details, {
+										id: exercise.id,
+									})}
+									fw="bold"
+								>
+									{exercise.name}
+								</Anchor>
 							</Box>
 							{exercise.sets.map((s, idx) => (
 								<Box

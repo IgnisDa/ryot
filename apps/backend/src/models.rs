@@ -1278,6 +1278,7 @@ pub mod fitness {
         Volume,
         Time,
         Pace,
+        Reps,
     }
 
     #[derive(
@@ -1292,27 +1293,27 @@ pub mod fitness {
     impl WorkoutSetRecord {
         // DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
         pub fn calculate_one_rm(&self) -> Option<Decimal> {
-            let weight = self.statistic.weight?;
-            let reps = self.statistic.reps?;
-            Some(weight * dec!(36.0) / (dec!(37.0) - Decimal::from_usize(reps).unwrap()))
+            Some(
+                self.statistic.weight? * dec!(36.0)
+                    / (dec!(37.0) - Decimal::from_usize(self.statistic.reps?).unwrap()),
+            )
         }
 
         pub fn calculate_volume(&self) -> Option<Decimal> {
-            let weight = self.statistic.weight?;
-            let reps = self.statistic.reps?;
-            Some(weight * Decimal::from_usize(reps).unwrap())
+            Some(self.statistic.weight? * Decimal::from_usize(self.statistic.reps?).unwrap())
         }
 
         pub fn calculate_pace(&self) -> Option<Decimal> {
-            let distance = self.statistic.distance?;
-            let duration = self.statistic.duration?;
-            Some(distance / duration)
+            Some(self.statistic.distance? / self.statistic.duration?)
         }
 
         pub fn get_personal_best(&self, pb_type: &WorkoutSetPersonalBest) -> Option<Decimal> {
             match pb_type {
                 WorkoutSetPersonalBest::Weight => self.statistic.weight,
                 WorkoutSetPersonalBest::Time => self.statistic.duration,
+                WorkoutSetPersonalBest::Reps => {
+                    self.statistic.reps.map(Decimal::from_usize).flatten()
+                }
                 WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
                 WorkoutSetPersonalBest::Volume => self.calculate_volume(),
                 WorkoutSetPersonalBest::Pace => self.calculate_pace(),
@@ -1446,5 +1447,31 @@ pub mod fitness {
         pub end_time: DateTimeUtc,
         pub summary: WorkoutSummary,
         pub name: Option<String>,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+    pub struct UserWorkoutSetRecord {
+        pub statistic: WorkoutSetStatistic,
+        pub lot: SetLot,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+    pub struct UserExerciseInput {
+        pub exercise_id: i32,
+        pub sets: Vec<UserWorkoutSetRecord>,
+        pub notes: Vec<String>,
+        pub rest_time: Option<u16>,
+        pub assets: EntityAssets,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+    pub struct UserWorkoutInput {
+        pub name: String,
+        pub comment: Option<String>,
+        pub start_time: DateTimeUtc,
+        pub end_time: DateTimeUtc,
+        pub exercises: Vec<UserExerciseInput>,
+        pub supersets: Vec<Vec<u16>>,
+        pub assets: EntityAssets,
     }
 }

@@ -104,7 +104,7 @@ const Page: NextPageWithLayout = () => {
 	const ClearButton = () =>
 		query ? (
 			<ActionIcon onClick={() => setQuery("")}>
-				<IconX size="1rem" />
+				<IconX size={16} />
 			</ActionIcon>
 		) : undefined;
 
@@ -145,7 +145,7 @@ const Page: NextPageWithLayout = () => {
 							onClick={openFiltersModal}
 							color={isFilterChanged ? "blue" : "gray"}
 						>
-							<IconFilter size="1.5rem" />
+							<IconFilter size={24} />
 						</ActionIcon>
 						<Modal
 							opened={filtersModalOpened}
@@ -157,7 +157,7 @@ const Page: NextPageWithLayout = () => {
 								<Group>
 									<Title order={3}>Sort by</Title>
 									<ActionIcon onClick={resetFilters}>
-										<IconFilterOff size="1.5rem" />
+										<IconFilterOff size={24} />
 									</ActionIcon>
 								</Group>
 								<Flex gap="xs" align="center">
