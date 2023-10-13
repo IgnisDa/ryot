@@ -679,7 +679,7 @@ impl MediaProvider for TmdbShowService {
                 })
                 .collect_vec(),
         );
-        let people: HashBag<PartialMetadataPerson> = HashBag::from_iter(people.into_iter());
+        let people: HashBag<PartialMetadataPerson> = HashBag::from_iter(people);
         let people = Vec::from_iter(people.set_iter())
             .into_iter()
             .sorted_by_key(|c| c.1)
