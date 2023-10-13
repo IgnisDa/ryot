@@ -1,7 +1,7 @@
 use std::fs::read_to_string;
 
 use async_graphql::Result;
-use chrono::Utc;
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use csv::ReaderBuilder;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -78,11 +78,18 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
             sets = vec![];
         }
         if next_entry.date != entry.date {
+            let ndt = NaiveDateTime::parse_from_str(&entry.date, "%Y-%m-%d %H:%M:%S")
+                .expect("Failed to parse input string");
+            let ndt = DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc);
+            let parts: Vec<&str> = entry.workout_duration.split_whitespace().collect();
+            let hours = parts[0].trim_matches('h').parse::<i64>().unwrap_or(0);
+            let minutes = parts[1].trim_matches('m').parse::<i64>().unwrap_or(0);
+            let workout_duration = Duration::hours(hours) + Duration::minutes(minutes);
             workouts.push(UserWorkoutInput {
                 name: entry.workout_name,
                 comment: entry.workout_notes,
-                start_time: Utc::now(),
-                end_time: Utc::now(),
+                start_time: ndt,
+                end_time: ndt + workout_duration,
                 exercises,
                 supersets: vec![],
                 assets: EntityAssets::default(),
