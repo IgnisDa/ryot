@@ -2004,6 +2004,7 @@ export type WorkoutListResults = {
 export enum WorkoutSetPersonalBest {
   OneRm = 'ONE_RM',
   Pace = 'PACE',
+  Reps = 'REPS',
   Time = 'TIME',
   Volume = 'VOLUME',
   Weight = 'WEIGHT'
