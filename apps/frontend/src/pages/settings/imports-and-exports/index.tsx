@@ -131,7 +131,7 @@ const ExerciseWarning = () => {
 
 const ExerciseMap = (props: {
 	name: string;
-	onOptionSubmit: (v: number) => void;
+	onOptionSubmit: ([idx, name]: [number, string]) => void;
 	isNotSelected?: boolean;
 }) => {
 	const [searched, setSearched] = useDebouncedState(props.name, 500);
@@ -155,7 +155,8 @@ const ExerciseMap = (props: {
 				onChange={(v) => setSearched(v)}
 				onOptionSubmit={(v) => {
 					const id = parseInt(v.split(")")[0]);
-					props.onOptionSubmit(id);
+					const name = v.split(")")[1].trim();
+					props.onOptionSubmit([id, name]);
 				}}
 				rightSection={
 					exerciseSearch.isLoading ? <Loader size="xs" /> : undefined
@@ -171,6 +172,7 @@ const Page: NextPageWithLayout = () => {
 	const [uniqueExercises, uniqueExercisesHandler] = useListState<{
 		name: string;
 		selectedId?: number;
+		selectedName?: string;
 	}>([]);
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
@@ -583,13 +585,14 @@ const Page: NextPageWithLayout = () => {
 																		key={e.name}
 																		name={e.name}
 																		isNotSelected={e.selectedId === undefined}
-																		onOptionSubmit={(v) => {
+																		onOptionSubmit={([id, name]) => {
 																			uniqueExercisesHandler.setState(
 																				produce(uniqueExercises, (draft) => {
 																					const index = draft.findIndex(
 																						(d) => d.name === e.name,
 																					);
-																					draft[index].selectedId = v;
+																					draft[index].selectedId = id;
+																					draft[index].selectedName = name;
 																				}),
 																			);
 																		}}
