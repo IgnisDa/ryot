@@ -125,7 +125,7 @@ const ExerciseWarning = () => {
 	return (
 		<Alert color="yellow">
 			Importing from this source is an involved process. Please make sure you
-			read the docs before continuing.
+			read the docs (linked above) before continuing.
 		</Alert>
 	);
 };
@@ -410,7 +410,22 @@ const Page: NextPageWithLayout = () => {
 											</Anchor>
 											<Anchor
 												size="xs"
-												href="https://ignisda.github.io/ryot/importing.html"
+												href={
+													"https://ignisda.github.io/ryot/importing.html#" +
+													match(deployImportSource)
+														.with(ImportSource.Goodreads, () => "goodreads")
+														.with(ImportSource.Mal, () => "myanimelist")
+														.with(ImportSource.MediaJson, () => "media-json")
+														.with(
+															ImportSource.MediaTracker,
+															() => "mediatracker",
+														)
+														.with(ImportSource.Movary, () => "movary")
+														.with(ImportSource.StoryGraph, () => "storygraph")
+														.with(ImportSource.StrongApp, () => "strong-app")
+														.with(ImportSource.Trakt, () => "trakt")
+														.otherwise(() => "")
+												}
 												target="_blank"
 											>
 												Docs
