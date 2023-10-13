@@ -4,9 +4,21 @@ Importing is meant to be a one-time operation. They are irreversible. Ryot
 supports importing media from a number of sources. To start importing, click on
 "Imports and Exports" link under the "Settings" section in the sidebar.
 
-An import can fail at various steps. Ryot creates a report when an import is
-complete. You can go to the reports page by click on "Reports" link on the imports
-page.
+An import can fail at various steps. Ryot creates a report when an import completes/fails.
+You can go to the reports page by click on "Reports" link on the imports page.
+
+## Goodreads
+
+Ryot translates [Goodreads](https://www.goodreads.com/) shelves in the
+following manner:
+
+- Want To Read -> Watchlist
+
+### Steps
+
+- Login to your Goodreads account and go to the "My Books" section.
+- Right click on the RSS Link on the bottom right of the screen and copy it.
+- Enter this URL in the input.
 
 ## MediaTracker
 
@@ -25,39 +37,14 @@ the following caveats:
 - Copy the token that was just generated.
 - Enter the details in the inputs.
 
-## Goodreads
+## Media JSON
 
-Ryot translates [Goodreads](https://www.goodreads.com/) shelves in the
-following manner:
+This can be used to import data from a generic JSON file. The import format
+required is described in the [exporting](guides/exporting.md#media-typemedia)
+documentation.
 
-- Want To Read -> Watchlist
-
-### Steps
-
-- Login to your Goodreads account and go to the "My Books" section.
-- Right click on the RSS Link on the bottom right of the screen and copy it.
-- Enter this URL in the input.
-
-## Trakt
-
-All movies and shows can be imported from [Trakt](https://trakt.tv) along with
-their ratings, history, comments and lists. A few points to note.
-
-- It is necessary to set your account's privacy to public during the
-  duration of the import. The Trakt authentication flow is pretty complicated
-  and I don't think it would be worth implementing.
-- Items that have been "check(ed) in" will not be imported.
-
-### Steps
-
-- Login to your Trakt account and go to the settings page.
-- If your account is set to private, uncheck the box next to it. You can revert
-  this change once the import is complete.
-- If you have any lists that are private, you need to change them to public.
-  Otherwise they will not be imported.
-- Find your profile slug. This is usually your username. You can find it by
-  going to your profile page, and checking the URL.
-- Enter this username in the input.
+You can see an example file by exporting from the demo instance as described
+in the [exporting](guides/exporting.md) documentation example.
 
 ## Movary
 
@@ -102,15 +89,6 @@ translates "Read Status" in the following manner:
 - Optionally, you can edit the CSV file and manually add the missing ISBN.
 - Upload this file in the input.
 
-## Media JSON
-
-This can be used to import data from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#media-typemedia)
-documentation.
-
-You can see an example file by exporting from the demo instance as described
-in the [exporting](guides/exporting.md) documentation example.
-
 ## Strong App
 
 You can import your completed workouts from [StrongApp](https://www.strong.app/).
@@ -126,6 +104,27 @@ You can import your completed workouts from [StrongApp](https://www.strong.app/)
 - If an exercise does not exist in your instance, open a new tab and create it. Then come
   back and change the input to the new exercise.
 - Once you have mapped all the exercises, click on "Import".
+
+## Trakt
+
+All movies and shows can be imported from [Trakt](https://trakt.tv) along with
+their ratings, history, comments and lists. A few points to note.
+
+- It is necessary to set your account's privacy to public during the
+  duration of the import. The Trakt authentication flow is pretty complicated
+  and I don't think it would be worth implementing.
+- Items that have been "check(ed) in" will not be imported.
+
+### Steps
+
+- Login to your Trakt account and go to the settings page.
+- If your account is set to private, uncheck the box next to it. You can revert
+  this change once the import is complete.
+- If you have any lists that are private, you need to change them to public.
+  Otherwise they will not be imported.
+- Find your profile slug. This is usually your username. You can find it by
+  going to your profile page, and checking the URL.
+- Enter this username in the input.
 
 ## Notes
 
