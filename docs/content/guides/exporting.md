@@ -37,6 +37,12 @@ This will return all measurements made by the user.
 
 The export has the following type: `ExportUserMeasurementItem[]`.
 
+## Workouts (`type=workouts`)
+
+This will return all workouts performed by the user.
+
+The export has the following type: `Workout[]`.
+
 ## Type definition
 
 ```ts
