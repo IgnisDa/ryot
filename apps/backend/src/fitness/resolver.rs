@@ -633,8 +633,7 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
-        let sf = Sonyflake::new().unwrap();
-        let id = sf.next_id().unwrap().to_string();
+        let id = Sonyflake::new().unwrap().next_id().unwrap().to_string();
         tracing::trace!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
