@@ -37,7 +37,7 @@ import { IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import type { NextPageWithLayout } from "../../_app";
@@ -58,7 +58,14 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 
 	const [images, setImages] = useListState<string>([]);
-	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
+	const form = useForm<FormSchema>({
+		validate: zodResolver(formSchema),
+	});
+
+	useEffect(() => {
+		const name = router.query.name?.toString();
+		if (name) form.setFieldValue("name", name);
+	}, [router.query]);
 
 	const enabledFeatures = useEnabledCoreFeatures();
 	const imageUrls = useQuery(

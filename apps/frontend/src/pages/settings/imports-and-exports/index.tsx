@@ -45,6 +45,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import type { NextPageWithLayout } from "../../_app";
 
@@ -148,7 +149,20 @@ const ExerciseMap = (props: {
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
-			<Text size="xs">{props.name}</Text>
+			<Box>
+				<Text size="xs">{props.name}</Text>
+				<Anchor
+					display={"block"}
+					mt={-2}
+					target="_blank"
+					fz="xs"
+					href={withQuery(APP_ROUTES.fitness.exercises.createOrEdit, {
+						name: props.name,
+					})}
+				>
+					Create
+				</Anchor>
+			</Box>
 			<Autocomplete
 				size="xs"
 				data={(exerciseSearch.data || []).map((e) => `${e.id}) ${e.name}`)}
@@ -366,6 +380,7 @@ const Page: NextPageWithLayout = () => {
 												.with(ImportSource.StrongApp, async () => ({
 													strongApp: {
 														exportPath: strongAppImportForm.values.exportPath,
+														// biome-ignore lint/suspicious/noExplicitAny: required here
 														mapping: uniqueExercises as any,
 													},
 												}))
