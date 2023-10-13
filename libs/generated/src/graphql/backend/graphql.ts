@@ -248,6 +248,7 @@ export type DeployImportJobInput = {
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
   storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
+  strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
 };
 
@@ -277,6 +278,11 @@ export type DeployMovaryImportInput = {
 
 export type DeployStoryGraphImportInput = {
   export: Scalars['String']['input'];
+};
+
+export type DeployStrongAppImportInput = {
+  exportPath: Scalars['String']['input'];
+  mapping: Array<StrongAppImportMapping>;
 };
 
 export type DeployTraktImportInput = {
@@ -1524,6 +1530,12 @@ export type ShowsSummary = {
   watched: Scalars['Int']['output'];
   watchedEpisodes: Scalars['Int']['output'];
   watchedSeasons: Scalars['Int']['output'];
+};
+
+export type StrongAppImportMapping = {
+  sourceName: Scalars['String']['input'];
+  targetId: Scalars['Int']['input'];
+  targetName: Scalars['String']['input'];
 };
 
 export type UpdateUserInput = {

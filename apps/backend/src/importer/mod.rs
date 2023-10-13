@@ -32,6 +32,7 @@ mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
+mod strong_app;
 mod trakt;
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -79,6 +80,20 @@ pub struct DeployStoryGraphImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct StrongAppImportMapping {
+    source_name: String,
+    target_name: String,
+    target_id: i32,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployStrongAppImportInput {
+    // The path to the CSV file in the local file system.
+    export_path: String,
+    mapping: Vec<StrongAppImportMapping>,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMediaJsonImportInput {
     // The contents of the JSON export.
     export: String,
@@ -93,6 +108,7 @@ pub struct DeployImportJobInput {
     pub movary: Option<DeployMovaryImportInput>,
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
+    pub strong_app: Option<DeployStrongAppImportInput>,
     pub media_json: Option<DeployMediaJsonImportInput>,
 }
 
@@ -228,9 +244,19 @@ impl ImporterService {
 
     pub async fn start_importing(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         match input.source {
-            ImportSource::StrongApp => todo!(),
+            ImportSource::StrongApp => self.import_exercises(user_id, input).await,
             _ => self.import_media(user_id, input).await,
         }
+    }
+
+    #[instrument(skip(self, input))]
+    async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let mut import = match input.source {
+            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await?,
+            _ => unreachable!(),
+        };
+        todo!()
     }
 
     #[instrument(skip(self, input))]
