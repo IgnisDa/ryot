@@ -660,4 +660,20 @@ impl ExerciseService {
         let exercise = input.insert(&self.db).await?;
         Ok(IdObject { id: exercise.id })
     }
+
+    pub async fn export_workouts(&self, user_id: i32) -> Result<Vec<workout::Model>> {
+        let workout_ids = Workout::find()
+            .select_only()
+            .column(workout::Column::Id)
+            .filter(workout::Column::UserId.eq(user_id))
+            .order_by_desc(workout::Column::Id)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        let mut workouts = vec![];
+        for id in workout_ids {
+            workouts.push(self.workout_details(id, user_id).await?);
+        }
+        Ok(workouts)
+    }
 }
