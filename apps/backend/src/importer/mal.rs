@@ -89,6 +89,7 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         collections: vec![],
         failed_items: vec![],
         media,
+        workouts: vec![],
     })
 }
 

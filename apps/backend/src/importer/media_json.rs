@@ -8,5 +8,6 @@ pub async fn import(input: DeployMediaJsonImportInput) -> Result<ImportResult> {
         collections: vec![],
         media,
         failed_items: vec![],
+        workouts: vec![],
     })
 }

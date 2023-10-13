@@ -152,5 +152,6 @@ pub async fn import(
         collections: vec![],
         media,
         failed_items,
+        workouts: vec![],
     })
 }

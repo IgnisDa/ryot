@@ -15,11 +15,15 @@ use tracing::instrument;
 use crate::{
     background::ApplicationJob,
     entities::{import_report, prelude::ImportReport, user::UserWithOnlyPreferences},
+    fitness::resolver::ExerciseService,
     migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
-    models::media::{
-        AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-        ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
+    models::{
+        fitness::UserWorkoutInput,
+        media::{
+            AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+            ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
+        },
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -147,6 +151,7 @@ pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
     media: Vec<ImportOrExportMediaItem>,
     failed_items: Vec<ImportFailedItem>,
+    workouts: Vec<UserWorkoutInput>,
 }
 
 #[derive(
@@ -189,13 +194,20 @@ impl ImporterMutation {
 
 pub struct ImporterService {
     media_service: Arc<MiscellaneousService>,
+    exercise_service: Arc<ExerciseService>,
 }
 
 impl AuthProvider for ImporterService {}
 
 impl ImporterService {
-    pub fn new(media_service: Arc<MiscellaneousService>) -> Self {
-        Self { media_service }
+    pub fn new(
+        media_service: Arc<MiscellaneousService>,
+        exercise_service: Arc<ExerciseService>,
+    ) -> Self {
+        Self {
+            media_service,
+            exercise_service,
+        }
     }
 
     pub async fn deploy_import_job(
@@ -252,11 +264,26 @@ impl ImporterService {
     #[instrument(skip(self, input))]
     async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
-        let mut import = match input.source {
+        let import = match input.source {
             ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await?,
             _ => unreachable!(),
         };
-        todo!()
+        let details = ImportResultResponse {
+            import: ImportDetails {
+                total: import.workouts.len(),
+            },
+            failed_items: vec![],
+        };
+        for workout in import.workouts {
+            if self
+                .exercise_service
+                .create_user_workout(user_id, workout)
+                .await
+                .is_ok()
+            {}
+        }
+        self.finish_import_job(db_import_job, details).await?;
+        Ok(())
     }
 
     #[instrument(skip(self, input))]

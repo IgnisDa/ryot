@@ -90,5 +90,10 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
             exercises = vec![];
         }
     }
-    todo!()
+    Ok(ImportResult {
+        collections: vec![],
+        media: vec![],
+        failed_items: vec![],
+        workouts,
+    })
 }
