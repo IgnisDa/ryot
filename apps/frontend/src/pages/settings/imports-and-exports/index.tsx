@@ -26,7 +26,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
-import { useDebouncedState, useListState } from "@mantine/hooks";
+import { useDebouncedState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
@@ -169,11 +169,13 @@ const ExerciseMap = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
-	const [uniqueExercises, uniqueExercisesHandler] = useListState<{
-		name: string;
-		selectedId?: number;
-		selectedName?: string;
-	}>([]);
+	const [uniqueExercises, setUniqueExercises] = useState<
+		{
+			sourceName: string;
+			targetName?: string;
+			targetId?: number;
+		}[]
+	>([]);
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
 
@@ -561,10 +563,10 @@ const Page: NextPageWithLayout = () => {
 																					s["Exercise Name"].trim(),
 																				),
 																			);
-																			uniqueExercisesHandler.setState(
+																			setUniqueExercises(
 																				[...exerciseNames]
 																					.toSorted()
-																					.map((e) => ({ name: e })),
+																					.map((e) => ({ sourceName: e })),
 																			);
 																			const path = await uploadFile(file);
 																			strongAppImportForm.setFieldValue(
@@ -582,17 +584,18 @@ const Page: NextPageWithLayout = () => {
 																</Text>
 																{uniqueExercises.map((e) => (
 																	<ExerciseMap
-																		key={e.name}
-																		name={e.name}
-																		isNotSelected={e.selectedId === undefined}
+																		key={e.sourceName}
+																		name={e.sourceName}
+																		isNotSelected={e.targetId === undefined}
 																		onOptionSubmit={([id, name]) => {
-																			uniqueExercisesHandler.setState(
+																			setUniqueExercises(
 																				produce(uniqueExercises, (draft) => {
 																					const index = draft.findIndex(
-																						(d) => d.name === e.name,
+																						(d) =>
+																							d.sourceName === e.sourceName,
 																					);
-																					draft[index].selectedId = id;
-																					draft[index].selectedName = name;
+																					draft[index].targetId = id;
+																					draft[index].targetName = name;
 																				}),
 																			);
 																		}}
