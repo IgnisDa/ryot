@@ -1278,6 +1278,7 @@ pub mod fitness {
         Volume,
         Time,
         Pace,
+        Reps,
     }
 
     #[derive(
@@ -1313,6 +1314,9 @@ pub mod fitness {
             match pb_type {
                 WorkoutSetPersonalBest::Weight => self.statistic.weight,
                 WorkoutSetPersonalBest::Time => self.statistic.duration,
+                WorkoutSetPersonalBest::Reps => {
+                    self.statistic.reps.map(Decimal::from_usize).flatten()
+                }
                 WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
                 WorkoutSetPersonalBest::Volume => self.calculate_volume(),
                 WorkoutSetPersonalBest::Pace => self.calculate_pace(),

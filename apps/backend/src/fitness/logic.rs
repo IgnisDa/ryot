@@ -164,6 +164,7 @@ impl UserWorkoutInput {
                     WorkoutSetPersonalBest::Weight,
                     WorkoutSetPersonalBest::OneRm,
                     WorkoutSetPersonalBest::Volume,
+                    WorkoutSetPersonalBest::Reps,
                 ],
             };
             for best_type in types_of_prs.iter() {
