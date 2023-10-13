@@ -25,7 +25,6 @@ use crate::{
         user_measurement, user_to_exercise, workout,
     },
     file_storage::FileStorageService,
-    fitness::logic::UserWorkoutInput,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle, ExerciseSource,
@@ -33,7 +32,7 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
-            GithubExerciseAttributes, WorkoutListItem, WorkoutSetRecord,
+            GithubExerciseAttributes, UserWorkoutInput, WorkoutListItem, WorkoutSetRecord,
         },
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },

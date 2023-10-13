@@ -1447,4 +1447,30 @@ pub mod fitness {
         pub summary: WorkoutSummary,
         pub name: Option<String>,
     }
+
+    #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+    pub struct UserWorkoutSetRecord {
+        pub statistic: WorkoutSetStatistic,
+        pub lot: SetLot,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+    pub struct UserExerciseInput {
+        pub exercise_id: i32,
+        pub sets: Vec<UserWorkoutSetRecord>,
+        pub notes: Vec<String>,
+        pub rest_time: Option<u16>,
+        pub assets: EntityAssets,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+    pub struct UserWorkoutInput {
+        pub name: String,
+        pub comment: Option<String>,
+        pub start_time: DateTimeUtc,
+        pub end_time: DateTimeUtc,
+        pub exercises: Vec<UserExerciseInput>,
+        pub supersets: Vec<Vec<u16>>,
+        pub assets: EntityAssets,
+    }
 }
