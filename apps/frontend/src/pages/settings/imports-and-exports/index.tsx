@@ -6,6 +6,7 @@ import {
 	ActionIcon,
 	Alert,
 	Anchor,
+	Autocomplete,
 	Box,
 	Button,
 	Container,
@@ -13,28 +14,31 @@ import {
 	FileInput,
 	Flex,
 	Group,
+	Loader,
 	PasswordInput,
 	Progress,
 	Select,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
 	Title,
 	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
+import { useDebouncedState, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
 	type DeployImportJobMutationVariables,
+	ExercisesListDocument,
 	GenerateAuthTokenDocument,
 	type GenerateAuthTokenMutationVariables,
 	ImportSource,
-	ExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { parse } from "csv-parse/sync";
 import Head from "next/head";
 import Link from "next/link";
@@ -115,7 +119,55 @@ export const ImportSourceElement = (props: {
 	);
 };
 
+const ExerciseWarning = () => {
+	return (
+		<Alert color="yellow">
+			Importing from this source is an involved process. Please make sure you
+			read the docs before continuing.
+		</Alert>
+	);
+};
+
+const ExerciseMap = (props: {
+	name: string;
+	onOptionSubmit: (v: number) => void;
+	isNotSelected?: boolean;
+}) => {
+	const [searched, setSearched] = useDebouncedState(props.name, 500);
+	const exerciseSearch = useQuery(
+		["exerciseSearch", searched],
+		async () => {
+			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
+				input: { search: { page: 1, query: searched } },
+			});
+			return exercisesList.items;
+		},
+		{ staleTime: Infinity },
+	);
+
+	return (
+		<Group justify="space-between" wrap="nowrap">
+			<Text size="xs">{props.name}</Text>
+			<Autocomplete
+				size="xs"
+				data={(exerciseSearch.data || []).map((e) => `${e.id}) ${e.name}`)}
+				onChange={(v) => setSearched(v)}
+				onOptionSubmit={(v) => console.log(v)}
+				rightSection={
+					exerciseSearch.isLoading ? <Loader size="xs" /> : undefined
+				}
+				required
+				error={props.isNotSelected ? "Nothing selected" : undefined}
+			/>
+		</Group>
+	);
+};
+
 const Page: NextPageWithLayout = () => {
+	const [uniqueExercises, uniqueExercisesHandler] = useListState<{
+		name: string;
+		selectedId?: number;
+	}>([]);
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
 
@@ -179,7 +231,7 @@ const Page: NextPageWithLayout = () => {
 	return (
 		<>
 			<Head>
-				<title>Perform a new import | Ryot</title>
+				<title>Importing and Exporting | Ryot</title>
 			</Head>
 			<Container size="xs">
 				<Tabs defaultValue="import">
@@ -476,49 +528,61 @@ const Page: NextPageWithLayout = () => {
 												))
 												.with(ImportSource.StrongApp, () => (
 													<>
-														<FileInput
-															label="CSV export file"
-															accept=".csv"
-															required
-															onChange={async (file) => {
-																if (file) {
-																	const clonedFile = new File(
-																		[file],
-																		file.name,
-																		{ type: file.type },
-																	);
-																	const text = await fileToText(clonedFile);
-																	const csvText: { "Exercise Name": string }[] =
-																		parse(text, {
-																			columns: true,
-																			skip_empty_lines: true,
-																			delimiter: ";",
-																		});
-																	const exerciseNames = new Set(
-																		csvText.map((s) =>
-																			s["Exercise Name"].trim(),
-																		),
-																	);
-																	for (const e of exerciseNames) {
-																		const { exercisesList } =
-																			await gqlClient.request(
-																				ExercisesListDocument,
-																				{
-																					input: {
-																						search: { page: 1, query: e },
-																					},
-																				},
+														{uniqueExercises.length === 0 ? (
+															<>
+																<ExerciseWarning />
+																<FileInput
+																	label="CSV export file"
+																	accept=".csv"
+																	required
+																	onChange={async (file) => {
+																		if (file) {
+																			const clonedFile = new File(
+																				[file],
+																				file.name,
+																				{ type: file.type },
 																			);
-																		console.log(e, exercisesList.items);
-																	}
-																	const path = await uploadFile(file);
-																	strongAppImportForm.setFieldValue(
-																		"exportPath",
-																		path,
-																	);
-																}
-															}}
-														/>
+																			const text = await fileToText(clonedFile);
+																			const csvText: {
+																				"Exercise Name": string;
+																			}[] = parse(text, {
+																				columns: true,
+																				skip_empty_lines: true,
+																				delimiter: ";",
+																			});
+																			const exerciseNames = new Set(
+																				csvText.map((s) =>
+																					s["Exercise Name"].trim(),
+																				),
+																			);
+																			uniqueExercisesHandler.setState(
+																				[...exerciseNames]
+																					.toSorted()
+																					.map((e) => ({ name: e })),
+																			);
+																			const path = await uploadFile(file);
+																			strongAppImportForm.setFieldValue(
+																				"exportPath",
+																				path,
+																			);
+																		}
+																	}}
+																/>
+															</>
+														) : (
+															<Stack gap="xs">
+																<Text>
+																	Map {uniqueExercises.length} exercises
+																</Text>
+																{uniqueExercises.map((e) => (
+																	<ExerciseMap
+																		key={e.name}
+																		name={e.name}
+																		isNotSelected={e.selectedId === undefined}
+																	/>
+																))}
+															</Stack>
+														)}
 													</>
 												))
 												.exhaustive()}
