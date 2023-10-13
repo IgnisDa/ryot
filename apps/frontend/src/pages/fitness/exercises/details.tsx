@@ -1,11 +1,12 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getSetColor } from "@/lib/utilities";
 import {
+	Anchor,
 	Box,
 	Container,
 	Divider,
@@ -36,9 +37,11 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const DisplayData = (props: { name: string; data: string }) => {
@@ -198,7 +201,15 @@ const Page: NextPageWithLayout = () => {
 								<Stack>
 									{userExerciseDetails.data.history.map((h) => (
 										<Paper key={h.workoutId} withBorder p="xs">
-											<Text fw="bold">{h.workoutName}</Text>
+											<Anchor
+												component={Link}
+												href={withQuery(APP_ROUTES.fitness.workoutDetails, {
+													id: h.workoutId,
+												})}
+												fw="bold"
+											>
+												{h.workoutName}
+											</Anchor>
 											<Text c="dimmed" fz="sm" mb="xs">
 												{DateTime.fromJSDate(h.workoutTime).toLocaleString(
 													DateTime.DATETIME_MED_WITH_WEEKDAY,
