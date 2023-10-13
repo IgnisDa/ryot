@@ -64,7 +64,10 @@ const Page: NextPageWithLayout = () => {
 
 	useEffect(() => {
 		const name = router.query.name?.toString();
-		if (name) form.setFieldValue("name", name);
+		if (name) {
+			form.setFieldValue("name", name);
+			form.setFieldValue("level", ExerciseLevel.Intermediate);
+		}
 	}, [router.query]);
 
 	const enabledFeatures = useEnabledCoreFeatures();
