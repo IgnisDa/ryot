@@ -275,12 +275,10 @@ impl ImporterService {
             failed_items: vec![],
         };
         for workout in import.workouts {
-            if self
-                .exercise_service
+            self.exercise_service
                 .create_user_workout(user_id, workout)
                 .await
-                .is_ok()
-            {}
+                .ok();
         }
         self.finish_import_job(db_import_job, details).await?;
         Ok(())
