@@ -1,23 +1,30 @@
 use std::fs::read_to_string;
 
 use async_graphql::Result;
+use chrono::Utc;
 use csv::ReaderBuilder;
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+
+use crate::models::fitness::{
+    EntityAssets, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
+    WorkoutSetStatistic,
+};
 
 use super::{DeployStrongAppImportInput, ImportResult};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
 struct Entry {
     date: String,
     notes: Option<String>,
-    weight: Option<f32>,
-    reps: Option<f32>,
-    distance: Option<f32>,
-    seconds: Option<f32>,
+    weight: Option<Decimal>,
+    reps: Option<usize>,
+    distance: Option<Decimal>,
+    seconds: Option<Decimal>,
     #[serde(alias = "Set Order")]
-    set_order: Option<u8>,
+    set_order: u8,
     #[serde(alias = "Workout Duration")]
     workout_duration: String,
     #[serde(alias = "Workout Name")]
@@ -30,13 +37,66 @@ struct Entry {
 
 pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
     let file_string = read_to_string(&input.export_path)?;
-    let entries_reader = ReaderBuilder::new()
+    let mut workouts = vec![];
+    let mut entries_reader = ReaderBuilder::new()
         .delimiter(b';')
         .from_reader(file_string.as_bytes())
         .deserialize::<Entry>()
         .collect_vec();
-    for (idx, result) in entries_reader.into_iter().enumerate() {
-        dbg!(&result);
+    // DEV: without this, the last workout does not get appended
+    entries_reader.push(Ok(Entry {
+        date: "invalid".to_string(),
+        set_order: 0,
+        ..Default::default()
+    }));
+    let mut last_exercise = entries_reader.first().unwrap().as_ref().unwrap().to_owned();
+    let mut exercises = vec![];
+    let mut sets = vec![];
+    for result in entries_reader.into_iter() {
+        let entry = result.unwrap();
+        dbg!(&entry);
+        if entry.set_order < last_exercise.set_order {
+            exercises.push(UserExerciseInput {
+                exercise_id: input
+                    .mapping
+                    .iter()
+                    .find(|m| m.source_name == last_exercise.exercise_name)
+                    .unwrap()
+                    .target_id,
+                sets,
+                notes: Vec::from_iter(last_exercise.notes.clone()),
+                rest_time: None,
+                assets: EntityAssets::default(),
+            });
+            sets = vec![];
+        }
+        sets.push(UserWorkoutSetRecord {
+            statistic: WorkoutSetStatistic {
+                duration: entry.seconds,
+                distance: entry.distance,
+                reps: entry.reps,
+                weight: entry.weight,
+            },
+            lot: SetLot::Normal,
+        });
+        if entry.date != last_exercise.date {
+            workouts.push(UserWorkoutInput {
+                name: last_exercise.workout_name,
+                comment: last_exercise.workout_notes,
+                start_time: Utc::now(),
+                end_time: Utc::now(),
+                exercises,
+                supersets: vec![],
+                assets: EntityAssets::default(),
+            });
+            exercises = vec![];
+        }
+        last_exercise = entry;
     }
+    std::fs::write(
+        "tmp/output.json",
+        serde_json::to_string_pretty(&workouts).unwrap(),
+    )
+    .unwrap();
     todo!()
 }
