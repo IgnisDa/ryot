@@ -1293,21 +1293,18 @@ pub mod fitness {
     impl WorkoutSetRecord {
         // DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
         pub fn calculate_one_rm(&self) -> Option<Decimal> {
-            let weight = self.statistic.weight?;
-            let reps = self.statistic.reps?;
-            Some(weight * dec!(36.0) / (dec!(37.0) - Decimal::from_usize(reps).unwrap()))
+            Some(
+                self.statistic.weight? * dec!(36.0)
+                    / (dec!(37.0) - Decimal::from_usize(self.statistic.reps?).unwrap()),
+            )
         }
 
         pub fn calculate_volume(&self) -> Option<Decimal> {
-            let weight = self.statistic.weight?;
-            let reps = self.statistic.reps?;
-            Some(weight * Decimal::from_usize(reps).unwrap())
+            Some(self.statistic.weight? * Decimal::from_usize(self.statistic.reps?).unwrap())
         }
 
         pub fn calculate_pace(&self) -> Option<Decimal> {
-            let distance = self.statistic.distance?;
-            let duration = self.statistic.duration?;
-            Some(distance / duration)
+            Some(self.statistic.distance? / self.statistic.duration?)
         }
 
         pub fn get_personal_best(&self, pb_type: &WorkoutSetPersonalBest) -> Option<Decimal> {
