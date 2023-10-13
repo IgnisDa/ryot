@@ -542,13 +542,14 @@ impl ExerciseService {
             db_ex.update(&self.db).await?;
         } else {
             let lot = match ex.attributes.category {
-                ExerciseCategory::Stretching => ExerciseLot::Duration,
-                ExerciseCategory::Plyometrics => ExerciseLot::Duration,
                 ExerciseCategory::Cardio => ExerciseLot::DistanceAndDuration,
-                ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
-                ExerciseCategory::Strength => ExerciseLot::RepsAndWeight,
-                ExerciseCategory::OlympicWeightlifting => ExerciseLot::RepsAndWeight,
-                ExerciseCategory::Strongman => ExerciseLot::RepsAndWeight,
+                ExerciseCategory::Stretching | ExerciseCategory::Plyometrics => {
+                    ExerciseLot::Duration
+                }
+                ExerciseCategory::Strongman
+                | ExerciseCategory::OlympicWeightlifting
+                | ExerciseCategory::Strength
+                | ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
             };
             let mut muscles = ex.attributes.primary_muscles;
             muscles.extend(ex.attributes.secondary_muscles);
