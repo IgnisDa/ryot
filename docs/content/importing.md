@@ -91,15 +91,15 @@ translates "Read Status" in the following manner:
 
 ## Strong App
 
-You can import your completed workouts from [StrongApp](https://www.strong.app/). Make sure
+You can import your completed workouts from [Strong](https://www.strong.app/) app. Make sure
 you do the import process on a desktop/laptop since the process needs to have multiple tabs
 open at once.
 
 ### Steps
 
-- Login to your account and go to the "Settings" page.
+- Login to your Strong account on the app and go to the "Settings" page.
 - Scroll down to the "General" section and click on "Export data".
-- Upload this file in the input.
+- Send the file to your desktop/laptop and upload it in the input.
 - A new section will appear where you will have to map each exercise from your export. For
   example: "Arnold Press (Dumbbell)" -> "Arnold Dumbbell Press". All exercises need to be
   mapped.
