@@ -366,6 +366,7 @@ const Page: NextPageWithLayout = () => {
 												.with(ImportSource.StrongApp, async () => ({
 													strongApp: {
 														exportPath: strongAppImportForm.values.exportPath,
+														mapping: uniqueExercises as any,
 													},
 												}))
 												.exhaustive();
