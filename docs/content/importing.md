@@ -111,6 +111,22 @@ documentation.
 You can see an example file by exporting from the demo instance as described
 in the [exporting](guides/exporting.md) documentation example.
 
+## Strong App
+
+You can import your completed workouts from [StrongApp](https://www.strong.app/).
+
+### Steps
+
+- Login to your account and go to the "Settings" page.
+- Scroll down to the "General" section and click on "Export data".
+- Upload this file in the input.
+- A new section will appear where you will have to map each exercise from your export. For
+  example: "Arnold Press (Dumbbell)" -> "Arnold Dumbbell Press". Exercises which are not
+  mapped will be ignored.
+- If an exercise does not exist in your instance, open a new tab and create it. Then come
+  back and change the input to the new exercise.
+- Once you have mapped all the exercises, click on "Import".
+
 ## Notes
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
