@@ -40,6 +40,7 @@ import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { parse } from "csv-parse/sync";
+import { produce } from "immer";
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement, useState } from "react";
@@ -152,7 +153,10 @@ const ExerciseMap = (props: {
 				size="xs"
 				data={(exerciseSearch.data || []).map((e) => `${e.id}) ${e.name}`)}
 				onChange={(v) => setSearched(v)}
-				onOptionSubmit={(v) => console.log(v)}
+				onOptionSubmit={(v) => {
+					const id = parseInt(v.split(")")[0]);
+					props.onOptionSubmit(id);
+				}}
 				rightSection={
 					exerciseSearch.isLoading ? <Loader size="xs" /> : undefined
 				}
@@ -579,6 +583,16 @@ const Page: NextPageWithLayout = () => {
 																		key={e.name}
 																		name={e.name}
 																		isNotSelected={e.selectedId === undefined}
+																		onOptionSubmit={(v) => {
+																			uniqueExercisesHandler.setState(
+																				produce(uniqueExercises, (draft) => {
+																					const index = draft.findIndex(
+																						(d) => d.name === e.name,
+																					);
+																					draft[index].selectedId = v;
+																				}),
+																			);
+																		}}
 																	/>
 																))}
 															</Stack>
