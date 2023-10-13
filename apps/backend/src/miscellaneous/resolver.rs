@@ -2901,7 +2901,7 @@ impl MiscellaneousService {
                 image: ActiveValue::Set(data.image),
                 ..Default::default()
             };
-            c.insert(&self.db).await.unwrap()
+            c.insert(&self.db).await?
         };
         Ok(model)
     }
