@@ -23,7 +23,7 @@ export const getSetStatisticsTextToDisplay = (
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			`${statistic.weight} kg  × ${statistic.reps}`,
-			`${(statistic.weight || 1) * (statistic.reps || 1)} vol`,
+			`${((statistic.weight || 1) * (statistic.reps || 1)).toFixed(2)} vol`,
 		])
 		.exhaustive();
 };
