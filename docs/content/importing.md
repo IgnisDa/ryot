@@ -103,8 +103,8 @@ open at once.
 - A new section will appear where you will have to map each exercise from your export. For
   example: "Arnold Press (Dumbbell)" -> "Arnold Dumbbell Press". All exercises need to be
   mapped.
-- If an exercise does not exist in your instance, open a new tab and create it from the
-  "Exercises" page. Then come back and change the input to the new exercise.
+- If an exercise does not exist in your instance, you need to create it. Then
+  come back and change the input to the new exercise.
 - Once you have mapped all the exercises, click on "Import".
 
 ## Trakt
