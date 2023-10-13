@@ -42,34 +42,17 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
         .delimiter(b';')
         .from_reader(file_string.as_bytes())
         .deserialize::<Entry>()
+        .map(|r| r.unwrap())
         .collect_vec();
     // DEV: without this, the last workout does not get appended
-    entries_reader.push(Ok(Entry {
+    entries_reader.push(Entry {
         date: "invalid".to_string(),
         set_order: 0,
         ..Default::default()
-    }));
-    let mut last_exercise = entries_reader.first().unwrap().as_ref().unwrap().to_owned();
+    });
     let mut exercises = vec![];
     let mut sets = vec![];
-    for result in entries_reader.into_iter() {
-        let entry = result.unwrap();
-        dbg!(&entry);
-        if entry.set_order < last_exercise.set_order {
-            exercises.push(UserExerciseInput {
-                exercise_id: input
-                    .mapping
-                    .iter()
-                    .find(|m| m.source_name == last_exercise.exercise_name)
-                    .unwrap()
-                    .target_id,
-                sets,
-                notes: Vec::from_iter(last_exercise.notes.clone()),
-                rest_time: None,
-                assets: EntityAssets::default(),
-            });
-            sets = vec![];
-        }
+    for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
                 duration: entry.seconds,
@@ -79,10 +62,25 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
             },
             lot: SetLot::Normal,
         });
-        if entry.date != last_exercise.date {
+        if next_entry.set_order <= entry.set_order {
+            exercises.push(UserExerciseInput {
+                exercise_id: input
+                    .mapping
+                    .iter()
+                    .find(|m| m.source_name == entry.exercise_name)
+                    .unwrap()
+                    .target_id,
+                sets,
+                notes: Vec::from_iter(entry.notes.clone()),
+                rest_time: None,
+                assets: EntityAssets::default(),
+            });
+            sets = vec![];
+        }
+        if next_entry.date != entry.date {
             workouts.push(UserWorkoutInput {
-                name: last_exercise.workout_name,
-                comment: last_exercise.workout_notes,
+                name: entry.workout_name,
+                comment: entry.workout_notes,
                 start_time: Utc::now(),
                 end_time: Utc::now(),
                 exercises,
@@ -91,12 +89,6 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
             });
             exercises = vec![];
         }
-        last_exercise = entry;
     }
-    std::fs::write(
-        "tmp/output.json",
-        serde_json::to_string_pretty(&workouts).unwrap(),
-    )
-    .unwrap();
     todo!()
 }
