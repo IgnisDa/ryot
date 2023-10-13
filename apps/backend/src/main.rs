@@ -236,6 +236,11 @@ async fn main() -> Result<()> {
         .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
         .layer(cors);
 
+    let tz: chrono_tz::Tz = env::var("TZ")
+        .map(|s| s.parse().unwrap())
+        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
+    tracing::info!("Using timezone: {:?}", tz);
+
     let port = env::var("PORT")
         .unwrap_or_else(|_| "8000".to_owned())
         .parse()
@@ -252,9 +257,6 @@ async fn main() -> Result<()> {
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
-        let tz: chrono_tz::Tz = env::var("TZ")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| chrono_tz::Etc::GMT);
         let mn = Monitor::new()
             // cron jobs
             .register_with_count(1, move |c| {
