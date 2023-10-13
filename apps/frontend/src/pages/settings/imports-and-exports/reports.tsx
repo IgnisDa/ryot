@@ -81,16 +81,18 @@ const Page: NextPageWithLayout = () => {
 													Total imported: {report.details.import.total}
 												</Text>
 												<Text>Failed: {report.details.failedItems.length}</Text>
-												<JsonInput
-													size="xs"
-													defaultValue={JSON.stringify(
-														report.details.failedItems,
-														null,
-														4,
-													)}
-													disabled
-													autosize
-												/>
+												{report.details.failedItems.length > 0 ? (
+													<JsonInput
+														size="xs"
+														defaultValue={JSON.stringify(
+															report.details.failedItems,
+															null,
+															4,
+														)}
+														disabled
+														autosize
+													/>
+												) : undefined}
 											</>
 										) : (
 											<Text>This import never finished</Text>
