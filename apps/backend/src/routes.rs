@@ -140,6 +140,9 @@ pub async fn json_export(
         "measurements" => {
             json!(exercise_service.export_measurements(user_id).await.unwrap())
         }
+        "workouts" => {
+            json!(exercise_service.export_workouts(user_id).await.unwrap())
+        }
         _ => Err((
             StatusCode::BAD_REQUEST,
             Json(json!({"err": "This type of export is not supported"})),

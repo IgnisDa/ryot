@@ -23,11 +23,13 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     #[schema(exclude)]
+    #[serde(skip)]
     pub processed: bool,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
     #[schema(exclude)]
     #[graphql(skip)]
+    #[serde(skip)]
     pub user_id: i32,
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,
