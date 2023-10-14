@@ -72,7 +72,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 exercise_id: input
                     .mapping
                     .iter()
-                    .find(|m| m.source_name == entry.exercise_name)
+                    .find(|m| m.source_name == entry.exercise_name.trim())
                     .unwrap()
                     .target_id,
                 sets,
@@ -87,9 +87,28 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 .expect("Failed to parse input string");
             let ndt = DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc);
             let parts: Vec<&str> = entry.workout_duration.split_whitespace().collect();
-            let hours = parts[0].trim_matches('h').parse::<i64>().unwrap_or(0);
-            let minutes = parts[1].trim_matches('m').parse::<i64>().unwrap_or(0);
-            let workout_duration = Duration::hours(hours) + Duration::minutes(minutes);
+            let workout_duration = if parts.len() == 2 {
+                let hours = parts[0]
+                    .trim_end_matches('h')
+                    .parse::<i64>()
+                    .ok()
+                    .unwrap_or_default();
+                let minutes = parts[1]
+                    .trim_end_matches('m')
+                    .parse::<i64>()
+                    .ok()
+                    .unwrap_or_default();
+                Duration::hours(hours) + Duration::minutes(minutes)
+            } else if parts.len() == 1 {
+                let minutes = parts[0]
+                    .trim_end_matches('m')
+                    .parse::<i64>()
+                    .ok()
+                    .unwrap_or_default();
+                Duration::minutes(minutes)
+            } else {
+                Duration::seconds(0)
+            };
             workouts.push(UserWorkoutInput {
                 name: entry.workout_name,
                 comment: entry.workout_notes,
