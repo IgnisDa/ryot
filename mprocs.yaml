@@ -1,6 +1,6 @@
 procs:
   Backend:
-    shell: "cargo watch -qx 'run --package ryot --features development'"
+    shell: "cargo watch -qx 'run --package ryot'"
   Frontend:
     shell: "moon run frontend:dev"
   Minio Proxy:

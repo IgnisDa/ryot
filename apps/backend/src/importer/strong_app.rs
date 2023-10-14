@@ -5,6 +5,7 @@ use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use csv::ReaderBuilder;
 use itertools::Itertools;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::models::fitness::{
@@ -57,39 +58,63 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
     });
     let mut exercises = vec![];
     let mut sets = vec![];
+    let mut notes = vec![];
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
-                duration: entry.seconds,
+                duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
                 distance: entry.distance,
                 reps: entry.reps,
                 weight: entry.weight,
             },
             lot: SetLot::Normal,
         });
+        if let Some(n) = entry.notes {
+            notes.push(n);
+        }
         if next_entry.set_order <= entry.set_order {
             exercises.push(UserExerciseInput {
                 exercise_id: input
                     .mapping
                     .iter()
-                    .find(|m| m.source_name == entry.exercise_name)
+                    .find(|m| m.source_name == entry.exercise_name.trim())
                     .unwrap()
                     .target_id,
                 sets,
-                notes: Vec::from_iter(entry.notes.clone()),
+                notes,
                 rest_time: None,
                 assets: EntityAssets::default(),
             });
             sets = vec![];
+            notes = vec![];
         }
         if next_entry.date != entry.date {
             let ndt = NaiveDateTime::parse_from_str(&entry.date, "%Y-%m-%d %H:%M:%S")
                 .expect("Failed to parse input string");
             let ndt = DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc);
             let parts: Vec<&str> = entry.workout_duration.split_whitespace().collect();
-            let hours = parts[0].trim_matches('h').parse::<i64>().unwrap_or(0);
-            let minutes = parts[1].trim_matches('m').parse::<i64>().unwrap_or(0);
-            let workout_duration = Duration::hours(hours) + Duration::minutes(minutes);
+            let workout_duration = if parts.len() == 2 {
+                let hours = parts[0]
+                    .trim_end_matches('h')
+                    .parse::<i64>()
+                    .ok()
+                    .unwrap_or_default();
+                let minutes = parts[1]
+                    .trim_end_matches('m')
+                    .parse::<i64>()
+                    .ok()
+                    .unwrap_or_default();
+                Duration::hours(hours) + Duration::minutes(minutes)
+            } else if parts.len() == 1 {
+                let minutes = parts[0]
+                    .trim_end_matches('m')
+                    .parse::<i64>()
+                    .ok()
+                    .unwrap_or_default();
+                Duration::minutes(minutes)
+            } else {
+                Duration::seconds(0)
+            };
             workouts.push(UserWorkoutInput {
                 name: entry.workout_name,
                 comment: entry.workout_notes,

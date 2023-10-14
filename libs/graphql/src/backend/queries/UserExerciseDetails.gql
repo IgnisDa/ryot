@@ -33,7 +33,6 @@ query UserExerciseDetails($input: UserExerciseDetailsInput!) {
                 ...WorkoutSetStatisticPart
               }
               lot
-              personalBests
             }
           }
         }

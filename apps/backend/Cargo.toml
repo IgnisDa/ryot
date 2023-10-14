@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.23.1"
+version = "2.23.2"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -41,7 +41,7 @@ derive_more = { version = "1.0.0-beta.3", features = [
 ], default-features = false }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
-flate2 = "1.0.27"
+flate2 = "1.0.28"
 futures = "0.3.28"
 graphql_client = "0.13.0"
 harsh = "0.2.2"
@@ -90,7 +90,7 @@ sea-orm = { version = "0.12.3", features = [
 sea-orm-migration = "0.12.3"
 sea-query = "0.30.2"
 semver = "1.0.20"
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.189", features = ["derive"] }
 serde_json = "1.0.107"
 serde_with = { version = "3.3.0", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
@@ -105,13 +105,10 @@ surf-governor = "0.2.0"
 surf-retry = "0.3.2"
 tokio = { version = "1.33.0", features = ["full"] }
 tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
-tracing = { version = "0.1.37", features = ["attributes"] }
+tracing = { version = "0.1.39", features = ["attributes"] }
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
 uuid = "1.4.1"
 
 [dev-dependencies]
 rstest = "0.18.2"
-
-[features]
-development = []

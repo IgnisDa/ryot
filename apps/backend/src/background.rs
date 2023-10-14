@@ -86,7 +86,7 @@ pub async fn yank_integrations_data(
 
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
-    ImportMedia(i32, DeployImportJobInput),
+    ImportFromExternalSource(i32, DeployImportJobInput),
     UserCreated(i32),
     RecalculateUserSummary(i32),
     UpdateMetadata(metadata::Model),
@@ -111,7 +111,7 @@ pub async fn perform_application_job(
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
     let start = Instant::now();
     let status = match information {
-        ApplicationJob::ImportMedia(user_id, input) => importer_service
+        ApplicationJob::ImportFromExternalSource(user_id, input) => importer_service
             .start_importing(user_id, input)
             .await
             .is_ok(),

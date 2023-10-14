@@ -7,25 +7,30 @@ import {
 import { startCase } from "@ryot/ts-utils";
 import { IconTrophy } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+import type { ExerciseSetStats } from "../state";
 import { getStringAsciiValue } from "../utilities";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
-	statistic: WorkoutSetStatistic,
+	statistic: WorkoutSetStatistic | ExerciseSetStats,
 ) => {
 	return match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${statistic.duration} km  × ${statistic.duration} min`,
-			`${((statistic.distance || 1) / (statistic.duration || 1)).toFixed(
-				2,
-			)} km/min`,
+			`${Number(statistic.duration).toFixed(2)} km  × ${Number(
+				statistic.duration,
+			).toFixed(2)} min`,
+			`${(
+				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1)
+			).toFixed(2)} km/min`,
 		])
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
-			statistic.weight
+			statistic.weight && statistic.weight !== "0"
 				? `${statistic.weight} kg  × ${statistic.reps}`
 				: `${statistic.reps} reps`,
-			`${((statistic.weight || 1) * (statistic.reps || 1)).toFixed(2)} vol`,
+			`${((Number(statistic.weight) || 1) * (statistic.reps || 1)).toFixed(
+				2,
+			)} vol`,
 		])
 		.exhaustive();
 };
@@ -35,7 +40,7 @@ export const getSetStatisticsTextToDisplay = (
  **/
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
-	statistic: WorkoutSetStatistic;
+	statistic: ExerciseSetStats | WorkoutSetStatistic;
 	personalBests?: WorkoutSetPersonalBest[];
 	hideExtras?: boolean;
 }) => {

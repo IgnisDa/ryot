@@ -22,6 +22,10 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconClock, IconTrophy, IconWeight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+} from "humanize-duration-ts";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
@@ -31,6 +35,9 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../../_app";
+
+const service = new HumanizeDurationLanguage();
+const humanizer = new HumanizeDuration(service);
 
 const DisplayStat = (props: {
 	icon: ReactElement;
@@ -82,15 +89,14 @@ const Page: NextPageWithLayout = () => {
 								workoutDetails.data.startTime,
 							).toLocaleString(DateTime.DATETIME_MED)}
 						</Text>
-						<Group mt={3} gap="lg">
+						<Group mt="xs" gap="lg">
 							<DisplayStat
 								icon={<IconClock size={16} />}
-								data={`${DateTime.fromJSDate(workoutDetails.data.endTime)
-									.diff(
-										DateTime.fromJSDate(workoutDetails.data.startTime),
-										"minutes",
-									)
-									.minutes.toFixed()} minutes`}
+								data={humanizer.humanize(
+									workoutDetails.data.endTime.getTime() -
+										workoutDetails.data.startTime.getTime(),
+									{ round: true },
+								)}
 							/>
 							<DisplayStat
 								icon={<IconWeight size={16} />}
@@ -125,6 +131,11 @@ const Page: NextPageWithLayout = () => {
 								>
 									{exercise.name}
 								</Anchor>
+								{exercise.notes.map((n) => (
+									<Text c="dimmed" key={n} size="xs">
+										{n}
+									</Text>
+								))}
 							</Box>
 							{exercise.sets.map((s, idx) => (
 								<Box
@@ -152,11 +163,6 @@ const Page: NextPageWithLayout = () => {
 											))}
 										</Avatar.Group>
 									) : undefined}
-									{exercise.notes.map((n) => (
-										<Text c="dimmed" key={n} size="xs">
-											{n}
-										</Text>
-									))}
 									<Flex align="center">
 										<Text
 											fz="sm"

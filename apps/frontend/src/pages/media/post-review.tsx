@@ -200,6 +200,7 @@ const Page: NextPageWithLayout = () => {
 								creatorId,
 								...values,
 								reviewId,
+								rating: values.rating?.toString(),
 							},
 						});
 					})}
