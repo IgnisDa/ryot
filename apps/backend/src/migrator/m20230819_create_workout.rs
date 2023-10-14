@@ -11,8 +11,6 @@ pub enum Workout {
     /// We will use https://github.com/bahlo/sonyflake-rs here so that workouts
     /// are time sortable.
     Id,
-    /// Whether this workout has its records (PRs) calculated.
-    Processed,
     UserId,
     Name,
     Comment,
@@ -36,12 +34,6 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .string()
                             .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(Workout::Processed)
-                            .boolean()
-                            .not_null()
-                            .default(true),
                     )
                     .col(
                         ColumnDef::new(Workout::StartTime)

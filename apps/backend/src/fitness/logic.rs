@@ -235,7 +235,6 @@ impl UserWorkoutInput {
             user_id,
             name: self.name,
             comment: self.comment,
-            processed: true,
             summary: WorkoutSummary {
                 total: summary_total,
                 exercises: exercises
