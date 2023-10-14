@@ -12,7 +12,7 @@ pub enum Workout {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if !manager.has_column("workout", "processed").await? {
+        if manager.has_column("workout", "processed").await? {
             manager
                 .alter_table(
                     Table::alter()
