@@ -5,6 +5,7 @@ use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use csv::ReaderBuilder;
 use itertools::Itertools;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::models::fitness::{
@@ -60,7 +61,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
-                duration: entry.seconds,
+                duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
                 distance: entry.distance,
                 reps: entry.reps,
                 weight: entry.weight,
