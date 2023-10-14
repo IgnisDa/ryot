@@ -399,7 +399,7 @@ const Page: NextPageWithLayout = () => {
 								for (const exercise of selectedExercises) {
 									const { userExerciseDetails } = await gqlClient.request(
 										UserExerciseDetailsDocument,
-										{ exerciseId: exercise.id },
+										{ input: { exerciseId: exercise.id, takeHistory: 1 } },
 									);
 									draft.exercises.push({
 										exerciseId: exercise.id,
