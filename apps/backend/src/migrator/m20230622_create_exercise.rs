@@ -1,4 +1,5 @@
 use async_graphql::Enum;
+use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -125,7 +126,17 @@ pub enum ExerciseEquipment {
 }
 
 #[derive(
-    Clone, Debug, Deserialize, Serialize, DeriveActiveEnum, Eq, PartialEq, Enum, Copy, EnumIter,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    DeriveActiveEnum,
+    Eq,
+    PartialEq,
+    Enum,
+    Copy,
+    EnumIter,
+    ConfigEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum ExerciseLot {

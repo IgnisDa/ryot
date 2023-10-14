@@ -29,7 +29,7 @@ export interface UserMeasurementStats {
 	weight: string | null;
 }
 
-export interface Model {
+export interface UserMeasurement {
 	/** Any comment associated entered by the user. */
 	comment: string | null;
 	/** The name given to this measurement by the user. */
@@ -121,11 +121,91 @@ export interface ImportOrExportPersonItem {
 	reviews: ImportOrExportItemRating[];
 }
 
+export interface EntityAssets {
+	/** The keys of the S3 images. */
+	images: string[];
+	/** The keys of the S3 videos. */
+	videos: string[];
+}
+
+export type ExerciseLot = 'duration' | 'distance-and-duration' | 'reps-and-weight';
+
+export type SetLot = 'normal' | 'warm-up' | 'drop' | 'failure';
+
+export type WorkoutSetPersonalBest = 'weight' | 'one-rm' | 'volume' | 'time' | 'pace' | 'reps';
+
+export interface WorkoutSetStatistic {
+	distance: string | null;
+	duration: string | null;
+	reps: number | null;
+	weight: string | null;
+}
+
+export interface WorkoutSetRecord {
+	lot: SetLot;
+	personalBests: WorkoutSetPersonalBest[];
+	statistic: WorkoutSetStatistic;
+}
+
+export interface WorkoutTotalMeasurement {
+	distance: string;
+	duration: string;
+	/** The number of personal bests achieved. */
+	personalBestsAchieved: number;
+	reps: number;
+	weight: string;
+}
+
+export interface ProcessedExercise {
+	assets: EntityAssets;
+	id: number;
+	lot: ExerciseLot;
+	name: string;
+	notes: string[];
+	restTime: number | null;
+	sets: WorkoutSetRecord[];
+	total: WorkoutTotalMeasurement;
+}
+
+export interface WorkoutInformation {
+	assets: EntityAssets;
+	exercises: ProcessedExercise[];
+	/**
+	 * Each grouped superset of exercises will be in a vector. They will contain
+	 * the `exercise.idx`.
+	 */
+	supersets: number[][];
+}
+
+export interface WorkoutSummaryExercise {
+	bestSet: WorkoutSetRecord;
+	lot: ExerciseLot;
+	name: string;
+	numSets: number;
+}
+
+export interface WorkoutSummary {
+	exercises: WorkoutSummaryExercise[];
+	total: WorkoutTotalMeasurement;
+}
+
+export interface Workout {
+	comment: string | null;
+	endTime: string;
+	id: string;
+	information: WorkoutInformation;
+	name: string;
+	startTime: string;
+	summary: WorkoutSummary;
+}
+
 export interface ExportAllResponse {
 	/** Data about user's measurements. */
-	measurements: Model[];
+	measurements: UserMeasurement[];
 	/** Data about user's media. */
 	media: ImportOrExportMediaItem[];
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[];
+	/** Data about user's workouts. */
+	workouts: Workout[];
 }

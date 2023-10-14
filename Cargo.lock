@@ -4628,7 +4628,7 @@ checksum = "dc31bd9b61a32c31f9650d18add92aa83a49ba979c143eefd27fe7177b05bd5f"
 
 [[package]]
 name = "ryot"
-version = "2.23.0"
+version = "2.23.1"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4724,9 +4724,9 @@ dependencies = [
 
 [[package]]
 name = "schematic"
-version = "0.12.2"
+version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "465ccae4898e70eaa27cc6eda5483a799eea7224a589db4675c94c37cde1e4ef"
+checksum = "4319815119a3c61cb1ebea503bde2f19f3ae636de1db6982345c10cbdf3b95d5"
 dependencies = [
  "garde",
  "indexmap 2.0.2",
@@ -4746,9 +4746,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_macros"
-version = "0.12.2"
+version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0593ff54ac6b46fe5f61c344924730caaf960fe4658a04d93956e8d6fc34b6bd"
+checksum = "e42afd7352a9915f20bdce3e1bfb63030dedefce9d371db7b7b54a4960618797"
 dependencies = [
  "convert_case",
  "darling",
@@ -4759,9 +4759,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_types"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4e8ae141940ae9948c562b9809d210ce19d20e8b70b56cf338c013f117bf502"
+checksum = "62ef6073b16a3870336d3cbbc69ab15d3abb089afc0c53944866079aa2578f59"
 dependencies = [
  "chrono",
  "rust_decimal",

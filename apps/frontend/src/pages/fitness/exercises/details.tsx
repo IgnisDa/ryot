@@ -89,7 +89,7 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { userExerciseDetails } = await gqlClient.request(
 				UserExerciseDetailsDocument,
-				{ exerciseId },
+				{ input: { exerciseId } },
 			);
 			return userExerciseDetails;
 		},

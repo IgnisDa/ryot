@@ -37,7 +37,7 @@ import {
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconExternalLink } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { parse } from "csv-parse/sync";
 import { produce } from "immer";
@@ -125,7 +125,7 @@ const ExerciseWarning = () => {
 	return (
 		<Alert color="yellow">
 			Importing from this source is an involved process. Please make sure you
-			read the docs before continuing.
+			read the docs (linked above) before continuing.
 		</Alert>
 	);
 };
@@ -133,7 +133,7 @@ const ExerciseWarning = () => {
 const ExerciseMap = (props: {
 	name: string;
 	onOptionSubmit: ([idx, name]: [number, string]) => void;
-	isNotSelected?: boolean;
+	selectedId?: number;
 }) => {
 	const [searched, setSearched] = useDebouncedState(props.name, 500);
 	const exerciseSearch = useQuery(
@@ -153,7 +153,7 @@ const ExerciseMap = (props: {
 				<Text size="xs">{props.name}</Text>
 				<Anchor
 					display={"block"}
-					mt={-2}
+					mt={-3}
 					target="_blank"
 					fz="xs"
 					href={withQuery(APP_ROUTES.fitness.exercises.createOrEdit, {
@@ -164,19 +164,41 @@ const ExerciseMap = (props: {
 				</Anchor>
 			</Box>
 			<Autocomplete
+				style={{ flex: "none" }}
 				size="xs"
-				data={(exerciseSearch.data || []).map((e) => `${e.id}) ${e.name}`)}
+				data={(exerciseSearch.data || []).map((e) => ({
+					value: `${e.id}) ${e.name}`,
+					label: e.name,
+				}))}
+				wrapperProps={{ "data-exercise-source": props.name }}
 				onChange={(v) => setSearched(v)}
 				onOptionSubmit={(v) => {
-					const id = parseInt(v.split(")")[0]);
+					const id = parseInt(v);
 					const name = v.split(")")[1].trim();
 					props.onOptionSubmit([id, name]);
 				}}
 				rightSection={
-					exerciseSearch.isLoading ? <Loader size="xs" /> : undefined
+					<Box>
+						{exerciseSearch.isLoading ? (
+							<Loader size={14} />
+						) : props.selectedId ? (
+							<Anchor
+								href={withQuery(APP_ROUTES.fitness.exercises.details, {
+									id: props.selectedId,
+								})}
+								target="_blank"
+							>
+								<IconExternalLink size={14} />
+							</Anchor>
+						) : undefined}
+					</Box>
 				}
 				required
-				error={props.isNotSelected ? "Nothing selected" : undefined}
+				error={
+					typeof props.selectedId === "undefined"
+						? "Nothing selected"
+						: undefined
+				}
 			/>
 		</Group>
 	);
@@ -410,7 +432,18 @@ const Page: NextPageWithLayout = () => {
 											</Anchor>
 											<Anchor
 												size="xs"
-												href="https://ignisda.github.io/ryot/importing.html"
+												href={`https://ignisda.github.io/ryot/importing.html#${match(
+													deployImportSource,
+												)
+													.with(ImportSource.Goodreads, () => "goodreads")
+													.with(ImportSource.Mal, () => "myanimelist")
+													.with(ImportSource.MediaJson, () => "media-json")
+													.with(ImportSource.MediaTracker, () => "mediatracker")
+													.with(ImportSource.Movary, () => "movary")
+													.with(ImportSource.StoryGraph, () => "storygraph")
+													.with(ImportSource.StrongApp, () => "strong-app")
+													.with(ImportSource.Trakt, () => "trakt")
+													.otherwise(() => "")}`}
 												target="_blank"
 											>
 												Docs
@@ -428,6 +461,7 @@ const Page: NextPageWithLayout = () => {
 										/>
 									) : undefined}
 									<Select
+										id="import-source"
 										label="Select a source"
 										required
 										data={Object.values(ImportSource).map((is) => ({
@@ -594,7 +628,7 @@ const Page: NextPageWithLayout = () => {
 																/>
 															</>
 														) : (
-															<Stack gap="xs">
+															<Stack gap="xs" id="exercise-map-container">
 																<Text>
 																	Map {uniqueExercises.length} exercises
 																</Text>
@@ -602,7 +636,7 @@ const Page: NextPageWithLayout = () => {
 																	<ExerciseMap
 																		key={e.sourceName}
 																		name={e.sourceName}
-																		isNotSelected={e.targetId === undefined}
+																		selectedId={e.targetId}
 																		onOptionSubmit={([id, name]) => {
 																			setUniqueExercises(
 																				produce(uniqueExercises, (draft) => {

@@ -104,9 +104,16 @@ struct UserExerciseHistoryInformation {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct UserExerciseInformation {
+struct UserExerciseDetails {
     details: user_to_exercise::Model,
     history: Vec<UserExerciseHistoryInformation>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct UserExerciseDetailsInput {
+    exercise_id: i32,
+    /// The number of elements to return in the history.
+    take_history: Option<usize>,
 }
 
 #[derive(Default)]
@@ -167,11 +174,11 @@ impl ExerciseQuery {
     async fn user_exercise_details(
         &self,
         gql_ctx: &Context<'_>,
-        exercise_id: i32,
-    ) -> Result<Option<UserExerciseInformation>> {
+        input: UserExerciseDetailsInput,
+    ) -> Result<Option<UserExerciseDetails>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_exercise_details(exercise_id, user_id).await
+        service.user_exercise_details(user_id, input).await
     }
 
     /// Get all the measurements for a user.
@@ -324,10 +331,10 @@ impl ExerciseService {
 
     async fn user_exercise_details(
         &self,
-        exercise_id: i32,
         user_id: i32,
-    ) -> Result<Option<UserExerciseInformation>> {
-        if let Some(details) = UserToExercise::find_by_id((user_id, exercise_id))
+        input: UserExerciseDetailsInput,
+    ) -> Result<Option<UserExerciseDetails>> {
+        if let Some(details) = UserToExercise::find_by_id((user_id, input.exercise_id))
             .one(&self.db)
             .await?
         {
@@ -343,7 +350,7 @@ impl ExerciseService {
                 )
                 .all(&self.db)
                 .await?;
-            let history = workouts
+            let mut history = workouts
                 .into_iter()
                 .map(|w| {
                     let element = details
@@ -359,8 +366,11 @@ impl ExerciseService {
                         sets: w.information.exercises[element.idx].sets.clone(),
                     }
                 })
-                .collect();
-            Ok(Some(UserExerciseInformation { details, history }))
+                .collect_vec();
+            if let Some(take) = input.take_history {
+                history = history.into_iter().take(take).collect_vec();
+            }
+            Ok(Some(UserExerciseDetails { details, history }))
         } else {
             Ok(None)
         }
@@ -659,5 +669,21 @@ impl ExerciseService {
         input.id = ActiveValue::NotSet;
         let exercise = input.insert(&self.db).await?;
         Ok(IdObject { id: exercise.id })
+    }
+
+    pub async fn export_workouts(&self, user_id: i32) -> Result<Vec<workout::Model>> {
+        let workout_ids = Workout::find()
+            .select_only()
+            .column(workout::Column::Id)
+            .filter(workout::Column::UserId.eq(user_id))
+            .order_by_desc(workout::Column::Id)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        let mut workouts = vec![];
+        for workout_id in workout_ids {
+            workouts.push(self.workout_details(workout_id, user_id).await?);
+        }
+        Ok(workouts)
     }
 }

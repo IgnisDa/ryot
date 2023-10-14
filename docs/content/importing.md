@@ -95,6 +95,10 @@ You can import your completed workouts from [Strong](https://www.strong.app/) ap
 you do the import process on a desktop/laptop since the process needs to have multiple tabs
 open at once.
 
+There is also an automated script that will be able to migrate most of your data. Please
+follow [this](https://gist.github.com/IgnisDa/c21c28dd83571ca07f1a7a824b5e8139?permalink_comment_id=4725066#gistcomment-4725066)
+guide.
+
 ### Steps
 
 - Login to your Strong account on the app and go to the "Settings" page.

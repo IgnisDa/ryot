@@ -14,7 +14,7 @@ RUN moon docker setup
 COPY --from=frontend-workspace /app/.moon/docker/sources .
 RUN moon run frontend:build
 
-FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef:0.1.61-rust-1.70.0 AS chef
+FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef AS chef
 RUN apt-get update && apt-get install -y --no-install-recommends musl-tools musl-dev clang llvm ca-certificates
 RUN update-ca-certificates
 WORKDIR app

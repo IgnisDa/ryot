@@ -158,7 +158,7 @@ impl IntegrationService {
             }
         }
 
-        let payload_regex = Regex::new(r#"\{.*\}"#).unwrap();
+        let payload_regex = Regex::new(r"\{.*\}").unwrap();
         let json_payload = payload_regex
             .find(payload)
             .map(|x| x.as_str())

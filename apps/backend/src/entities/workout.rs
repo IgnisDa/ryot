@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use async_graphql::SimpleObject;
+use schematic::Schematic;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -11,16 +12,23 @@ use crate::{
     models::fitness::{WorkoutInformation, WorkoutSummary},
 };
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
+#[derive(
+    Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Schematic,
+)]
 #[sea_orm(table_name = "workout")]
 #[graphql(name = "Workout")]
+#[schematic(rename = "Workout")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    #[schema(exclude)]
+    #[serde(skip)]
     pub processed: bool,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
+    #[schema(exclude)]
     #[graphql(skip)]
+    #[serde(skip)]
     pub user_id: i32,
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,

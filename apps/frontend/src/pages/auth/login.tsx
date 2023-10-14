@@ -84,12 +84,14 @@ export default function Page() {
 				className={classes.form}
 			>
 				<TextInput
+					id="username-input"
 					label="Username"
 					{...form.getInputProps("username")}
 					required
 					autoFocus
 				/>
 				<PasswordInput
+					id="password-input"
 					label="Password"
 					mt="md"
 					{...form.getInputProps("password")}
@@ -99,7 +101,13 @@ export default function Page() {
 					style={{ display: "none" }}
 					{...form.getInputProps("honeypot")}
 				/>
-				<Button mt="md" type="submit" loading={loginUser.isLoading} w="100%">
+				<Button
+					id="submit-button"
+					mt="md"
+					type="submit"
+					loading={loginUser.isLoading}
+					w="100%"
+				>
 					Login
 				</Button>
 				{enabledFeatures.data?.signupAllowed ? (

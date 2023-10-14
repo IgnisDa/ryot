@@ -91,6 +91,8 @@ pub struct IdObject {
 }
 
 pub mod media {
+    use crate::entities::workout;
+
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -862,6 +864,8 @@ pub mod media {
         pub people: Vec<ImportOrExportPersonItem>,
         /// Data about user's measurements.
         pub measurements: Vec<user_measurement::Model>,
+        /// Data about user's workouts.
+        pub workouts: Vec<workout::Model>,
     }
 
     /// Details about a specific creator item that needs to be exported.
@@ -1073,6 +1077,8 @@ pub mod media {
 }
 
 pub mod fitness {
+    use schematic::ConfigEnum;
+
     use crate::migrator::ExerciseLot;
 
     use super::*;
@@ -1203,6 +1209,7 @@ pub mod fitness {
         Sum,
         Add,
         AddAssign,
+        Schematic,
     )]
     pub struct WorkoutTotalMeasurement {
         /// The number of personal bests achieved.
@@ -1240,6 +1247,7 @@ pub mod fitness {
         PartialEq,
         SimpleObject,
         InputObject,
+        Schematic,
     )]
     #[graphql(input_name = "SetStatisticInput")]
     pub struct WorkoutSetStatistic {
@@ -1250,7 +1258,16 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Enum,
+        Copy,
+        ConfigEnum,
     )]
     pub enum SetLot {
         Normal,
@@ -1270,6 +1287,7 @@ pub mod fitness {
         Enum,
         Copy,
         Default,
+        ConfigEnum,
     )]
     pub enum WorkoutSetPersonalBest {
         #[default]
@@ -1282,7 +1300,15 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Schematic,
     )]
     pub struct WorkoutSetRecord {
         pub statistic: WorkoutSetStatistic,
@@ -1311,9 +1337,7 @@ pub mod fitness {
             match pb_type {
                 WorkoutSetPersonalBest::Weight => self.statistic.weight,
                 WorkoutSetPersonalBest::Time => self.statistic.duration,
-                WorkoutSetPersonalBest::Reps => {
-                    self.statistic.reps.map(Decimal::from_usize).flatten()
-                }
+                WorkoutSetPersonalBest::Reps => self.statistic.reps.and_then(Decimal::from_usize),
                 WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
                 WorkoutSetPersonalBest::Volume => self.calculate_volume(),
                 WorkoutSetPersonalBest::Pace => self.calculate_pace(),
@@ -1375,6 +1399,7 @@ pub mod fitness {
         SimpleObject,
         InputObject,
         Default,
+        Schematic,
     )]
     #[graphql(input_name = "EntityAssetsInput")]
     pub struct EntityAssets {
@@ -1385,7 +1410,15 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Schematic,
     )]
     pub struct ProcessedExercise {
         pub id: i32,
@@ -1400,7 +1433,15 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Schematic,
     )]
     pub struct WorkoutInformation {
         /// Each grouped superset of exercises will be in a vector. They will contain
@@ -1412,7 +1453,15 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Schematic,
     )]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
@@ -1422,7 +1471,15 @@ pub mod fitness {
     }
 
     #[derive(
-        Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Schematic,
     )]
     pub struct WorkoutSummary {
         pub total: WorkoutTotalMeasurement,
