@@ -170,6 +170,7 @@ const ExerciseMap = (props: {
 					value: `${e.id}) ${e.name}`,
 					label: e.name,
 				}))}
+				wrapperProps={{ "data-exercise-source": props.name }}
 				onChange={(v) => setSearched(v)}
 				onOptionSubmit={(v) => {
 					const id = parseInt(v);
