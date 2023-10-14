@@ -16,14 +16,16 @@ export const getSetStatisticsTextToDisplay = (
 ) => {
 	return match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${statistic.duration} km  × ${statistic.duration} min`,
+			`${Number(statistic.duration).toFixed(2)} km  × ${Number(
+				statistic.duration,
+			).toFixed(2)} min`,
 			`${(
 				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1)
 			).toFixed(2)} km/min`,
 		])
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
-			statistic.weight !== "0"
+			statistic.weight && statistic.weight !== "0"
 				? `${statistic.weight} kg  × ${statistic.reps}`
 				: `${statistic.reps} reps`,
 			`${((Number(statistic.weight) || 1) * (statistic.reps || 1)).toFixed(
