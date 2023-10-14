@@ -23,12 +23,19 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconClock, IconTrophy, IconWeight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+} from "humanize-duration-ts";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../../_app";
+
+const service = new HumanizeDurationLanguage();
+const humanizer = new HumanizeDuration(service);
 
 const DisplayStat = (props: {
 	icon: ReactElement;
@@ -120,12 +127,11 @@ const Page: NextPageWithLayout = () => {
 												<Group mt="xs" gap="lg">
 													<DisplayStat
 														icon={<IconClock size={16} />}
-														data={`${DateTime.fromJSDate(workout.endTime)
-															.diff(
-																DateTime.fromJSDate(workout.startTime),
-																"minutes",
-															)
-															.minutes.toFixed()} minutes`}
+														data={humanizer.humanize(
+															workout.endTime.getTime() -
+																workout.startTime.getTime(),
+															{ round: true },
+														)}
 													/>
 													<DisplayStat
 														icon={<IconWeight size={16} />}
