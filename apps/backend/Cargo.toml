@@ -64,7 +64,7 @@ rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
-schematic = { version = "0.12.2", features = [
+schematic = { version = "0.12.3", features = [
     "config",
     "json",
     "schema",

@@ -35,7 +35,7 @@ The export has the following type: `ImportOrExportPersonItem[]`.
 
 This will return all measurements made by the user.
 
-The export has the following type: `ExportUserMeasurementItem[]`.
+The export has the following type: `UserMeasurement[]`.
 
 ## Workouts (`type=workouts`)
 

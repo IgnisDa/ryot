@@ -29,14 +29,15 @@ export interface UserMeasurementStats {
 	weight: string | null;
 }
 
-export interface Model {
+export interface UserMeasurement {
+	/** Any comment associated entered by the user. */
 	comment: string | null;
-	endTime: string;
-	id: string;
-	information: WorkoutInformation;
-	name: string;
-	startTime: string;
-	summary: WorkoutSummary;
+	/** The name given to this measurement by the user. */
+	name: string | null;
+	/** The contents of the actual measurement. */
+	stats: UserMeasurementStats;
+	/** The date and time this measurement was made. */
+	timestamp: string;
 }
 
 export type MetadataLot = 'audio-book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video-game' | 'visual-novel';
@@ -188,13 +189,23 @@ export interface WorkoutSummary {
 	total: WorkoutTotalMeasurement;
 }
 
+export interface Workout {
+	comment: string | null;
+	endTime: string;
+	id: string;
+	information: WorkoutInformation;
+	name: string;
+	startTime: string;
+	summary: WorkoutSummary;
+}
+
 export interface ExportAllResponse {
 	/** Data about user's measurements. */
-	measurements: Model[];
+	measurements: UserMeasurement[];
 	/** Data about user's media. */
 	media: ImportOrExportMediaItem[];
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[];
 	/** Data about user's workouts. */
-	workouts: Model[];
+	workouts: Workout[];
 }

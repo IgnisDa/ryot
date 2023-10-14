@@ -24,7 +24,6 @@ use crate::models::fitness::UserMeasurementStats;
 )]
 #[graphql(name = "UserMeasurement", input_name = "UserMeasurementInput")]
 #[schematic(rename = "UserMeasurement")]
-// FIXME: This is not respected: https://github.com/moonrepo/schematic/issues/76
 #[sea_orm(table_name = "user_measurement")]
 pub struct Model {
     /// The date and time this measurement was made.

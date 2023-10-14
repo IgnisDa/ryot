@@ -17,7 +17,6 @@ use crate::{
 )]
 #[sea_orm(table_name = "workout")]
 #[graphql(name = "Workout")]
-// FIXME: This is not respected: https://github.com/moonrepo/schematic/issues/76
 #[schematic(rename = "Workout")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
