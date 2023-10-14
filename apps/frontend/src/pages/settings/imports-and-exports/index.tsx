@@ -180,7 +180,7 @@ const ExerciseMap = (props: {
 				rightSection={
 					<Box>
 						{exerciseSearch.isLoading ? (
-							<Loader size="xs" />
+							<Loader size={14} />
 						) : props.selectedId ? (
 							<Anchor
 								href={withQuery(APP_ROUTES.fitness.exercises.details, {
@@ -461,6 +461,7 @@ const Page: NextPageWithLayout = () => {
 										/>
 									) : undefined}
 									<Select
+										id="import-source"
 										label="Select a source"
 										required
 										data={Object.values(ImportSource).map((is) => ({
@@ -627,7 +628,7 @@ const Page: NextPageWithLayout = () => {
 																/>
 															</>
 														) : (
-															<Stack gap="xs">
+															<Stack gap="xs" id="exercise-map-container">
 																<Text>
 																	Map {uniqueExercises.length} exercises
 																</Text>
