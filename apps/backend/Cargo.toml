@@ -112,6 +112,3 @@ uuid = "1.4.1"
 
 [dev-dependencies]
 rstest = "0.18.2"
-
-[features]
-development = []
