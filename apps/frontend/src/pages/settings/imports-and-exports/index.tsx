@@ -43,19 +43,11 @@ import { parse } from "csv-parse/sync";
 import { produce } from "immer";
 import Head from "next/head";
 import Link from "next/link";
-import {
-	type CSSProperties,
-	type ComponentType,
-	type ReactElement,
-	useState,
-} from "react";
-import { FixedSizeList, type FixedSizeListProps } from "react-window";
+import { type ReactElement, useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import type { NextPageWithLayout } from "../../_app";
-
-const List = FixedSizeList as ComponentType<FixedSizeListProps>;
 
 const message = {
 	title: "Success",
@@ -141,7 +133,6 @@ const ExerciseWarning = () => {
 const ExerciseMap = (props: {
 	name: string;
 	onOptionSubmit: ([idx, name]: [number, string]) => void;
-	style: CSSProperties;
 	selectedId?: number;
 }) => {
 	const [searched, setSearched] = useDebouncedState(props.name, 500);
@@ -157,7 +148,7 @@ const ExerciseMap = (props: {
 	);
 
 	return (
-		<Group justify="space-between" wrap="nowrap" style={props.style}>
+		<Group justify="space-between" wrap="nowrap">
 			<Box>
 				<Text size="xs">{props.name}</Text>
 				<Anchor
@@ -640,41 +631,25 @@ const Page: NextPageWithLayout = () => {
 																<Text>
 																	Map {uniqueExercises.length} exercises
 																</Text>
-																<List
-																	height={300}
-																	itemCount={uniqueExercises.length}
-																	itemSize={50}
-																	width={"100%"}
-																>
-																	{({ index, style }) => {
-																		return (
-																			<ExerciseMap
-																				style={style}
-																				name={uniqueExercises[index].sourceName}
-																				selectedId={
-																					uniqueExercises[index].targetId
-																				}
-																				onOptionSubmit={([id, name]) => {
-																					setUniqueExercises(
-																						produce(
-																							uniqueExercises,
-																							(draft) => {
-																								const idx = draft.findIndex(
-																									(d) =>
-																										d.sourceName ===
-																										uniqueExercises[index]
-																											.sourceName,
-																								);
-																								draft[idx].targetId = id;
-																								draft[idx].targetName = name;
-																							},
-																						),
+																{uniqueExercises.map((e) => (
+																	<ExerciseMap
+																		key={e.sourceName}
+																		name={e.sourceName}
+																		selectedId={e.targetId}
+																		onOptionSubmit={([id, name]) => {
+																			setUniqueExercises(
+																				produce(uniqueExercises, (draft) => {
+																					const index = draft.findIndex(
+																						(d) =>
+																							d.sourceName === e.sourceName,
 																					);
-																				}}
-																			/>
-																		);
-																	}}
-																</List>
+																					draft[index].targetId = id;
+																					draft[index].targetName = name;
+																				}),
+																			);
+																		}}
+																	/>
+																))}
 															</Stack>
 														)}
 													</>
