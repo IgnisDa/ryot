@@ -1,5 +1,5 @@
-query UserExerciseDetails($exerciseId: Int!) {
-  userExerciseDetails(exerciseId: $exerciseId) {
+query UserExerciseDetails($input: UserExerciseDetailsInput!) {
+  userExerciseDetails(input: $input) {
     history {
       workoutId
       workoutName
