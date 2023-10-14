@@ -165,7 +165,7 @@ export const ReviewItemDisplay = ({
 					{typeof review.podcastEpisode === "number" ? (
 						<Text c="dimmed">EP-{review.podcastEpisode}</Text>
 					) : undefined}
-					{(review.rating || 0) > 0 ? (
+					{(Number(review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
@@ -373,7 +373,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	imageOverlayForLoadingIndicator?: boolean;
 	href: string;
 	existsInDatabase?: boolean;
-	averageRating?: number;
+	averageRating?: string;
 	noRatingLink?: boolean;
 }) => {
 	const userPreferences = useUserPreferences();

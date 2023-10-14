@@ -93,7 +93,15 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
 			if (set.confirmed) {
-				sets.push({ lot: set.lot, statistic: set.statistic });
+				sets.push({
+					lot: set.lot,
+					statistic: {
+						...set.statistic,
+						distance: set.statistic.distance?.toString(),
+						duration: set.statistic.duration?.toString(),
+						weight: set.statistic.weight?.toString(),
+					},
+				});
 			}
 		if (sets.length === 0) continue;
 		const notes = Array<string>();
