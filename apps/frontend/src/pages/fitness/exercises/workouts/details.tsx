@@ -131,6 +131,11 @@ const Page: NextPageWithLayout = () => {
 								>
 									{exercise.name}
 								</Anchor>
+								{exercise.notes.map((n) => (
+									<Text c="dimmed" key={n} size="xs">
+										{n}
+									</Text>
+								))}
 							</Box>
 							{exercise.sets.map((s, idx) => (
 								<Box
@@ -158,11 +163,6 @@ const Page: NextPageWithLayout = () => {
 											))}
 										</Avatar.Group>
 									) : undefined}
-									{exercise.notes.map((n) => (
-										<Text c="dimmed" key={n} size="xs">
-											{n}
-										</Text>
-									))}
 									<Flex align="center">
 										<Text
 											fz="sm"
