@@ -684,10 +684,18 @@ pub mod media {
         pub unique_items: UserSummaryUniqueItems,
     }
 
+    #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+    pub enum EntityLot {
+        Metadata,
+        Person,
+        MetadataGroup,
+    }
+
     #[derive(Debug, InputObject)]
     pub struct AddMediaToCollection {
         pub collection_name: String,
-        pub media_id: i32,
+        pub entity_id: i32,
+        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, InputObject)]

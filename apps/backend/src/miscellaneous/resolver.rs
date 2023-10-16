@@ -79,10 +79,10 @@ use crate::{
     models::{
         media::{
             AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
-            CreateOrUpdateCollectionInput, FreeMetadataCreator, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
-            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            CreateOrUpdateCollectionInput, EntityLot, FreeMetadataCreator,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemReviewComment,
+            ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
+            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
             MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataImages, MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
@@ -3918,10 +3918,20 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-        let created_collection = entity_to_collection::ActiveModel {
-            metadata_id: ActiveValue::Set(Some(input.media_id)),
+        let mut created_collection = entity_to_collection::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
             ..Default::default()
+        };
+        match input.entity_lot {
+            EntityLot::Metadata => {
+                created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::Person => {
+                created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::MetadataGroup => {
+                created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
+            }
         };
         Ok(created_collection.clone().insert(&self.db).await.is_ok())
     }
@@ -4447,7 +4457,8 @@ impl MiscellaneousService {
             user_id,
             AddMediaToCollection {
                 collection_name: DefaultCollection::Custom.to_string(),
-                media_id: media.id,
+                entity_id: media.id,
+                entity_lot: EntityLot::Metadata,
             },
         )
         .await?;
@@ -5329,7 +5340,8 @@ impl MiscellaneousService {
                     seen.user_id,
                     AddMediaToCollection {
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        media_id: seen.metadata_id,
+                        entity_id: seen.metadata_id,
+                        entity_lot: EntityLot::Metadata,
                     },
                 )
                 .await
@@ -5403,7 +5415,8 @@ impl MiscellaneousService {
                             seen.user_id,
                             AddMediaToCollection {
                                 collection_name: DefaultCollection::InProgress.to_string(),
-                                media_id: seen.metadata_id,
+                                entity_id: seen.metadata_id,
+                                entity_lot: EntityLot::Metadata,
                             },
                         )
                         .await
