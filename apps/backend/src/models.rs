@@ -1098,10 +1098,6 @@ pub mod fitness {
         Plyometrics,
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct ExerciseMuscles(pub Vec<ExerciseMuscle>);
-
     #[derive(
         Debug,
         Clone,
@@ -1122,8 +1118,6 @@ pub mod fitness {
         pub internal_images: Vec<StoredUrl>,
         #[serde(default)]
         pub images: Vec<String>,
-        #[serde(default)]
-        pub muscles: Vec<ExerciseMuscle>,
     }
 
     #[derive(

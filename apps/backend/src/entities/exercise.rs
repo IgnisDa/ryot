@@ -12,7 +12,7 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle, ExerciseSource,
     },
-    models::fitness::{ExerciseAttributes, ExerciseMuscles},
+    models::fitness::ExerciseAttributes,
     utils::get_stored_asset,
 };
 
@@ -43,8 +43,7 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub source: ExerciseSource,
-    #[graphql(skip)]
-    pub muscles: ExerciseMuscles,
+    pub muscles: Vec<ExerciseMuscle>,
     pub attributes: ExerciseAttributes,
 }
 
@@ -56,8 +55,6 @@ impl Model {
             images.push(get_stored_asset(image.clone(), file_storage_service).await);
         }
         converted_exercise.attributes.images = images;
-        // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
-        converted_exercise.attributes.muscles = self.muscles.0;
         converted_exercise
     }
 }
@@ -73,7 +70,7 @@ pub struct ExerciseListItem {
     pub muscle: Option<ExerciseMuscle>,
     pub image: Option<String>,
     #[graphql(skip)]
-    pub muscles: ExerciseMuscles,
+    pub muscles: Vec<ExerciseMuscle>,
 }
 
 impl ExerciseListItem {
@@ -83,7 +80,7 @@ impl ExerciseListItem {
             converted_exercise.image =
                 Some(get_stored_asset(img.clone(), file_storage_service).await);
         }
-        converted_exercise.muscle = self.muscles.0.first().cloned();
+        converted_exercise.muscle = self.muscles.first().cloned();
         converted_exercise
     }
 }

@@ -7,10 +7,10 @@ query ExerciseDetails($exerciseId: Int!) {
     force
     mechanic
     equipment
+    muscles
     attributes {
       instructions
       images
-      muscles
     }
   }
 }
