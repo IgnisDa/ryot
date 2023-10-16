@@ -23,11 +23,11 @@ import { useForm, zodResolver } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	CollectionsDocument,
 	CreateOrUpdateCollectionDocument,
 	type CreateOrUpdateCollectionMutationVariables,
 	DeleteCollectionDocument,
 	type DeleteCollectionMutationVariables,
+	UserCollectionsDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -56,8 +56,11 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const collections = useQuery(["collections"], async () => {
-		const { collections } = await gqlClient.request(CollectionsDocument, {});
-		return collections;
+		const { userCollections } = await gqlClient.request(
+			UserCollectionsDocument,
+			{ input: {} },
+		);
+		return userCollections;
 	});
 
 	const createOrUpdateCollection = useMutation({

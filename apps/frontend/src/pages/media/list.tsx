@@ -31,7 +31,6 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	CollectionsDocument,
 	GraphqlSortOrder,
 	MediaGeneralFilter,
 	MediaListDocument,
@@ -39,6 +38,7 @@ import {
 	MediaSortBy,
 	MediaSourcesForLotDocument,
 	MetadataSource,
+	UserCollectionsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -163,8 +163,11 @@ const Page: NextPageWithLayout = () => {
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections;
+			const { userCollections } = await gqlClient.request(
+				UserCollectionsDocument,
+				{ input: {} },
+			);
+			return userCollections;
 		},
 		staleTime: Infinity,
 	});

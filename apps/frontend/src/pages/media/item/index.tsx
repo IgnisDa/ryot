@@ -47,7 +47,6 @@ import { notifications } from "@mantine/notifications";
 import {
 	AddMediaToCollectionDocument,
 	type AddMediaToCollectionMutationVariables,
-	CollectionsDocument,
 	CreateMediaReminderDocument,
 	type CreateMediaReminderMutationVariables,
 	DeleteMediaReminderDocument,
@@ -70,6 +69,7 @@ import {
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
+	UserCollectionsDocument,
 	UserMediaDetailsDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -253,8 +253,11 @@ const SelectCollectionModal = (props: {
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections.map((c) => c.name);
+			const { userCollections } = await gqlClient.request(
+				UserCollectionsDocument,
+				{ input: {} },
+			);
+			return userCollections.map((c) => c.name);
 		},
 	});
 	const addMediaToCollection = useMutation({
