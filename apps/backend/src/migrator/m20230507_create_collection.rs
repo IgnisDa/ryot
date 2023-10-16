@@ -8,6 +8,7 @@ use crate::{
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+// FIXME: Delete this
 #[derive(Iden)]
 pub enum MetadataToCollection {
     Table,
