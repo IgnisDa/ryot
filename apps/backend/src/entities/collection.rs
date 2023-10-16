@@ -22,6 +22,10 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::entity_to_collection::Entity")]
+    EntityToCollection,
+    #[sea_orm(has_many = "super::metadata_to_collection::Entity")]
+    MetadataToCollection,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -30,6 +34,18 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+}
+
+impl Related<super::entity_to_collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::EntityToCollection.def()
+    }
+}
+
+impl Related<super::metadata_to_collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToCollection.def()
+    }
 }
 
 impl Related<super::user::Entity> for Entity {
