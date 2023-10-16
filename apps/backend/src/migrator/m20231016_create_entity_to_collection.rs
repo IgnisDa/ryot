@@ -47,7 +47,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-collection_id-metadata_id")
+                            .name("entity_to_collection-fk1")
                             .from(EntityToCollection::Table, EntityToCollection::CollectionId)
                             .to(Collection::Table, Collection::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -56,7 +56,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(EntityToCollection::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-metadata_id-collection_id")
+                            .name("entity_to_collection-fk2")
                             .from(EntityToCollection::Table, EntityToCollection::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -65,7 +65,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(EntityToCollection::PersonId).integer())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-person_id-collection_id")
+                            .name("entity_to_collection-fk3")
                             .from(EntityToCollection::Table, EntityToCollection::PersonId)
                             .to(Person::Table, Person::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -74,7 +74,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(EntityToCollection::MetadataGroupId).integer())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-metadata_group_id-collection_id")
+                            .name("entity_to_collection-fk4")
                             .from(
                                 EntityToCollection::Table,
                                 EntityToCollection::MetadataGroupId,
