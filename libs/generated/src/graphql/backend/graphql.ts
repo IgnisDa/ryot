@@ -37,7 +37,8 @@ export type Scalars = {
 
 export type AddMediaToCollection = {
   collectionName: Scalars['String']['input'];
-  mediaId: Scalars['Int']['input'];
+  entityId: Scalars['Int']['input'];
+  entityLot: EntityLot;
 };
 
 export type AnimeSpecifics = {
@@ -301,6 +302,12 @@ export type EntityAssetsInput = {
   /** The keys of the S3 videos. */
   videos: Array<Scalars['String']['input']>;
 };
+
+export enum EntityLot {
+  Metadata = 'METADATA',
+  MetadataGroup = 'METADATA_GROUP',
+  Person = 'PERSON'
+}
 
 export type Exercise = {
   attributes: ExerciseAttributes;

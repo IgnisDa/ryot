@@ -55,6 +55,7 @@ import {
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
+	EntityLot,
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
 	MergeMetadataDocument,
@@ -298,7 +299,8 @@ const SelectCollectionModal = (props: {
 							addMediaToCollection.mutate({
 								input: {
 									collectionName: selectedCollection || "",
-									mediaId: props.metadataId,
+									entityId: props.metadataId,
+									entityLot: EntityLot.Metadata,
 								},
 							});
 						}}

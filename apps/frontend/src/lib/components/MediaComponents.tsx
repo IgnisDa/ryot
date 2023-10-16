@@ -32,6 +32,7 @@ import {
 	type AddMediaToCollectionMutationVariables,
 	CreateReviewCommentDocument,
 	type CreateReviewCommentMutationVariables,
+	EntityLot,
 	MetadataLot,
 	MetadataSource,
 	type PartialMetadata,
@@ -567,7 +568,11 @@ export const MediaSearchItem = (props: {
 					onClick={async () => {
 						const id = await commitFunction();
 						addMediaToCollection.mutate({
-							input: { collectionName: "Watchlist", mediaId: id },
+							input: {
+								collectionName: "Watchlist",
+								entityId: id,
+								entityLot: EntityLot.Metadata,
+							},
 						});
 					}}
 					disabled={addMediaToCollection.isLoading}
