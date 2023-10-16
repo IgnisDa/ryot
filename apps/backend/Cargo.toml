@@ -84,6 +84,7 @@ sea-orm = { version = "0.12.3", features = [
     "sqlx-postgres",
     "sqlx-sqlite",
     "with-chrono",
+    "with-json",
     "with-uuid",
     "with-rust_decimal",
 ] }
