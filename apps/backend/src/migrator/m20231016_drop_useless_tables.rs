@@ -2,11 +2,17 @@ use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::m20230507_create_collection::MetadataToCollection;
 use crate::entities::entity_to_collection;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
+
+#[derive(Iden)]
+pub enum MetadataToCollection {
+    Table,
+    MetadataId,
+    CollectionId,
+}
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "metadata_to_collection")]

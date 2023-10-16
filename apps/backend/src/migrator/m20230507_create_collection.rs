@@ -8,14 +8,6 @@ use crate::{
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-// FIXME: Delete this
-#[derive(Iden)]
-pub enum MetadataToCollection {
-    Table,
-    MetadataId,
-    CollectionId,
-}
-
 #[derive(Iden)]
 pub enum Collection {
     Table,
@@ -84,51 +76,6 @@ impl MigrationTrait for Migration {
                     .table(Collection::Table)
                     .col(Collection::Name)
                     .col(Collection::UserId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_table(
-                Table::create()
-                    .table(MetadataToCollection::Table)
-                    .col(
-                        ColumnDef::new(MetadataToCollection::MetadataId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataToCollection::CollectionId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .primary_key(
-                        Index::create()
-                            .name("pk-metadata_collection")
-                            .col(MetadataToCollection::MetadataId)
-                            .col(MetadataToCollection::CollectionId),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-metadata_id-collection_id")
-                            .from(
-                                MetadataToCollection::Table,
-                                MetadataToCollection::MetadataId,
-                            )
-                            .to(Metadata::Table, Metadata::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-collection_id-metadata_id")
-                            .from(
-                                MetadataToCollection::Table,
-                                MetadataToCollection::CollectionId,
-                            )
-                            .to(Collection::Table, Collection::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
