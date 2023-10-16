@@ -24,8 +24,6 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::entity_to_collection::Entity")]
     EntityToCollection,
-    #[sea_orm(has_many = "super::metadata_to_collection::Entity")]
-    MetadataToCollection,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -42,28 +40,9 @@ impl Related<super::entity_to_collection::Entity> for Entity {
     }
 }
 
-impl Related<super::metadata_to_collection::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::MetadataToCollection.def()
-    }
-}
-
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
-    }
-}
-
-impl Related<super::metadata::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::metadata_to_collection::Relation::Metadata.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(
-            super::metadata_to_collection::Relation::Collection
-                .def()
-                .rev(),
-        )
     }
 }
 

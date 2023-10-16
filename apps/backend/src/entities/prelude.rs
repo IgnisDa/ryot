@@ -8,7 +8,6 @@ pub use super::genre::Entity as Genre;
 pub use super::import_report::Entity as ImportReport;
 pub use super::metadata::Entity as Metadata;
 pub use super::metadata_group::Entity as MetadataGroup;
-pub use super::metadata_to_collection::Entity as MetadataToCollection;
 pub use super::metadata_to_genre::Entity as MetadataToGenre;
 pub use super::metadata_to_partial_metadata::Entity as MetadataToPartialMetadata;
 pub use super::metadata_to_person::Entity as MetadataToPerson;
