@@ -10,8 +10,6 @@ pub struct Migration;
 #[derive(Iden)]
 pub enum MetadataToCollection {
     Table,
-    MetadataId,
-    CollectionId,
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]

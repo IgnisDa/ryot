@@ -1,9 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::{
-    migrator::{m20230417_create_user::User, Metadata},
-    models::media::Visibility,
-};
+use crate::{migrator::m20230417_create_user::User, models::media::Visibility};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
