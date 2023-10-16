@@ -50,12 +50,12 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        calendar_event, collection, genre, metadata, metadata_group, metadata_to_collection,
+        calendar_event, collection, entity_to_collection, genre, metadata, metadata_group,
         metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
         partial_metadata::{self, PartialMetadataWithoutId},
         partial_metadata_to_metadata_group, person, person_to_partial_metadata,
         prelude::{
-            CalendarEvent, Collection, Genre, Metadata, MetadataGroup, MetadataToCollection,
+            CalendarEvent, Collection, EntityToCollection, Genre, Metadata, MetadataGroup,
             MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
             PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
@@ -529,7 +529,7 @@ struct CreatorsListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CollectionInput {
+struct UserCollectionInput {
     name: Option<String>,
 }
 
@@ -712,14 +712,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get all collections for the currently logged in user.
-    async fn collections(
+    async fn user_collections(
         &self,
         gql_ctx: &Context<'_>,
-        input: Option<CollectionInput>,
+        input: UserCollectionInput,
     ) -> Result<Vec<CollectionItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.collections(user_id, input).await
+        service.user_collections(user_id, input).await
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -2115,8 +2115,9 @@ impl MiscellaneousService {
 
         if let Some(f) = input.filter {
             if let Some(s) = f.collection {
-                let all_media = MetadataToCollection::find()
-                    .filter(metadata_to_collection::Column::CollectionId.eq(s))
+                let all_media = EntityToCollection::find()
+                    .filter(entity_to_collection::Column::CollectionId.eq(s))
+                    .filter(entity_to_collection::Column::MetadataId.is_not_null())
                     .all(&self.db)
                     .await?;
                 let collections = all_media.into_iter().map(|m| m.metadata_id).collect_vec();
@@ -2548,10 +2549,10 @@ impl MiscellaneousService {
                 .all(&self.db)
                 .await
                 .unwrap();
-            let meta_ids: Vec<i32> = MetadataToCollection::find()
+            let meta_ids: Vec<i32> = EntityToCollection::find()
                 .select_only()
-                .column(metadata_to_collection::Column::MetadataId)
-                .filter(metadata_to_collection::Column::CollectionId.is_in(collection_ids))
+                .column(entity_to_collection::Column::MetadataId)
+                .filter(entity_to_collection::Column::CollectionId.is_in(collection_ids))
                 .into_tuple()
                 .all(&self.db)
                 .await
@@ -3144,10 +3145,10 @@ impl MiscellaneousService {
             new_review.insert(&self.db).await?;
             old_review.delete(&self.db).await?;
         }
-        MetadataToCollection::update_many()
-            .filter(metadata_to_collection::Column::MetadataId.eq(merge_from))
-            .set(metadata_to_collection::ActiveModel {
-                metadata_id: ActiveValue::Set(merge_into),
+        EntityToCollection::update_many()
+            .filter(entity_to_collection::Column::MetadataId.eq(merge_from))
+            .set(entity_to_collection::ActiveModel {
+                metadata_id: ActiveValue::Set(Some(merge_into)),
                 ..Default::default()
             })
             .exec(&self.db)
@@ -3606,14 +3607,14 @@ impl MiscellaneousService {
         Ok(all_reviews)
     }
 
-    async fn collections(
+    async fn user_collections(
         &self,
         user_id: i32,
-        input: Option<CollectionInput>,
+        input: UserCollectionInput,
     ) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(user_id))
-            .apply_if(input.clone().and_then(|i| i.name), |query, v| {
+            .apply_if(input.name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
             .order_by_asc(collection::Column::CreatedOn)
@@ -3644,10 +3645,10 @@ impl MiscellaneousService {
             .all(&self.db)
             .await
             .unwrap();
-        let mtc = MetadataToCollection::find()
-            .filter(metadata_to_collection::Column::MetadataId.eq(metadata_id))
+        let mtc = EntityToCollection::find()
+            .filter(entity_to_collection::Column::MetadataId.eq(metadata_id))
             .filter(
-                metadata_to_collection::Column::CollectionId
+                entity_to_collection::Column::CollectionId
                     .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
             )
             .find_also_related(Collection)
@@ -3894,13 +3895,12 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-        let col = metadata_to_collection::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            collection_id: ActiveValue::Set(collect.id),
-        };
-        let id = col.collection_id.clone().unwrap();
-        col.delete(&self.db).await.ok();
-        Ok(IdObject { id })
+        EntityToCollection::delete_many()
+            .filter(entity_to_collection::Column::MetadataId.eq(metadata_id.to_owned()))
+            .filter(entity_to_collection::Column::CollectionId.eq(collect.id))
+            .exec(&self.db)
+            .await?;
+        Ok(IdObject { id: collect.id })
     }
 
     pub async fn add_media_to_collection(
@@ -3915,11 +3915,12 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-        let col = metadata_to_collection::ActiveModel {
-            metadata_id: ActiveValue::Set(input.media_id),
+        let created_collection = entity_to_collection::ActiveModel {
+            metadata_id: ActiveValue::Set(Some(input.media_id)),
             collection_id: ActiveValue::Set(collection.id),
+            ..Default::default()
         };
-        Ok(col.clone().insert(&self.db).await.is_ok())
+        Ok(created_collection.clone().insert(&self.db).await.is_ok())
     }
 
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
@@ -5450,16 +5451,19 @@ impl MiscellaneousService {
         metadata_id: i32,
     ) -> Result<Vec<i32>> {
         let mut user_ids = vec![];
+        // DEV: This is very inefficient but since we are running this once a day, it does not matter
         for your_col in [DefaultCollection::Watchlist, DefaultCollection::InProgress] {
             let collections = Collection::find()
                 .filter(collection::Column::Name.eq(your_col.to_string()))
-                .find_with_related(Metadata)
                 .all(&self.db)
                 .await?;
-            for (col, metadatas) in collections {
-                for metadata in metadatas {
-                    if metadata.id == metadata_id {
-                        user_ids.push(col.user_id);
+            for col in collections {
+                let related_meta = col.find_related(EntityToCollection).all(&self.db).await?;
+                for rel in related_meta {
+                    if let Some(metadata) = rel.find_related(Metadata).one(&self.db).await? {
+                        if metadata.id == metadata_id {
+                            user_ids.push(col.user_id);
+                        }
                     }
                 }
             }
@@ -5671,7 +5675,7 @@ impl MiscellaneousService {
             })
             .column_as(
                 Expr::expr(Func::count(Expr::col(
-                    metadata_to_collection::Column::MetadataId,
+                    metadata_to_person::Column::MetadataId,
                 ))),
                 alias,
             )
