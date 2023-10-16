@@ -3623,7 +3623,10 @@ impl MiscellaneousService {
             .unwrap();
         let mut data = vec![];
         for collection in collections.into_iter() {
-            let num_items = collection.find_related(Metadata).count(&self.db).await?;
+            let num_items = collection
+                .find_related(EntityToCollection)
+                .count(&self.db)
+                .await?;
             data.push(CollectionItem {
                 id: collection.id,
                 name: collection.name,
@@ -3697,9 +3700,9 @@ impl MiscellaneousService {
             )
             .join(
                 JoinType::Join,
-                metadata_to_collection::Relation::Metadata.def().rev(),
+                entity_to_collection::Relation::Metadata.def().rev(),
             )
-            .filter(metadata_to_collection::Column::CollectionId.eq(collection.id))
+            .filter(entity_to_collection::Column::CollectionId.eq(collection.id))
             .order_by_desc(user_to_metadata::Column::LastUpdatedOn)
             .paginate(
                 &self.db,
