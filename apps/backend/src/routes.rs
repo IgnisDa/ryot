@@ -15,8 +15,7 @@ use serde_json::json;
 
 use crate::{
     config::AppConfig, fitness::resolver::ExerciseService, graphql::GraphqlSchema,
-    miscellaneous::resolver::MiscellaneousService, models::media::ExportAllResponse,
-    utils::AuthContext,
+    miscellaneous::resolver::MiscellaneousService, models::ExportAllResponse, utils::AuthContext,
 };
 
 static INDEX_HTML: &str = "index.html";
