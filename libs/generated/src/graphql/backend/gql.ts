@@ -55,7 +55,6 @@ const documents = {
     "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}": types.UpdateUserPreferenceDocument,
     "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
     "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    results {\n      details {\n        total\n        nextPage\n      }\n      items {\n        lot\n        details {\n          identifier\n          title\n          image\n          publishYear\n        }\n      }\n    }\n    details {\n      name\n      description\n      visibility\n      createdOn\n    }\n  }\n}": types.CollectionContentsDocument,
-    "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.CollectionsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n    videosDisabled\n    upgrade\n    pageLimit\n    deployAdminJobsAllowed\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query CreatorDetails($creatorId: Int!) {\n  creatorDetails(creatorId: $creatorId) {\n    sourceUrl\n    details {\n      id\n      name\n      source\n      description\n      birthDate\n      deathDate\n      place\n      website\n      gender\n      displayImages\n    }\n    contents {\n      name\n      items {\n        metadataId\n        title\n        image\n      }\n    }\n    workedOn {\n      lot\n      source\n      identifier\n      title\n      image\n      metadataId\n    }\n  }\n}": types.CreatorDetailsDocument,
@@ -76,6 +75,7 @@ const documents = {
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
     "query Review($reviewId: Int!) {\n  review(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n    showSeason\n    showEpisode\n    podcastEpisode\n  }\n}": types.ReviewDocument,
     "query UserCalendarEvents($input: UserCalendarEventInput!) {\n  userCalendarEvents(input: $input) {\n    date\n    events {\n      ...CalendarEventPart\n    }\n  }\n}": types.UserCalendarEventsDocument,
+    "query UserCollections($input: UserCollectionInput!) {\n  userCollections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.UserCollectionsDocument,
     "query UserCreatorDetails($creatorId: Int!) {\n  userCreatorDetails(creatorId: $creatorId) {\n    reviews {\n      id\n      rating\n      text\n      spoiler\n      visibility\n      postedOn\n      postedBy {\n        id\n        name\n      }\n      comments {\n        id\n        text\n        createdOn\n        user {\n          id\n          name\n        }\n        likedBy\n      }\n    }\n  }\n}": types.UserCreatorDetailsDocument,
     "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
     "query UserExerciseDetails($input: UserExerciseDetailsInput!) {\n  userExerciseDetails(input: $input) {\n    history {\n      workoutId\n      workoutName\n      workoutTime\n      sets {\n        lot\n        statistic {\n          ...WorkoutSetStatisticPart\n        }\n      }\n    }\n    details {\n      exerciseId\n      numTimesPerformed\n      lastUpdatedOn\n      extraInformation {\n        lifetimeStats {\n          weight\n          reps\n          distance\n          duration\n          personalBestsAchieved\n        }\n        personalBests {\n          lot\n          sets {\n            workoutId\n            setIdx\n            data {\n              statistic {\n                ...WorkoutSetStatisticPart\n              }\n              lot\n            }\n          }\n        }\n      }\n    }\n  }\n}": types.UserExerciseDetailsDocument,
@@ -276,10 +276,6 @@ export function graphql(source: "query CollectionContents($input: CollectionCont
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"): (typeof documents)["query Collections($input: CollectionInput) {\n  collections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n    videosDisabled\n    upgrade\n    pageLimit\n    deployAdminJobsAllowed\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n    videosDisabled\n    upgrade\n    pageLimit\n    deployAdminJobsAllowed\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -357,6 +353,10 @@ export function graphql(source: "query Review($reviewId: Int!) {\n  review(revie
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query UserCalendarEvents($input: UserCalendarEventInput!) {\n  userCalendarEvents(input: $input) {\n    date\n    events {\n      ...CalendarEventPart\n    }\n  }\n}"): (typeof documents)["query UserCalendarEvents($input: UserCalendarEventInput!) {\n  userCalendarEvents(input: $input) {\n    date\n    events {\n      ...CalendarEventPart\n    }\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query UserCollections($input: UserCollectionInput!) {\n  userCollections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"): (typeof documents)["query UserCollections($input: UserCollectionInput!) {\n  userCollections(input: $input) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
