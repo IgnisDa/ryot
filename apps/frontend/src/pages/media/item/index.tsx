@@ -309,18 +309,10 @@ const CreateReminderModal = (props: {
 	);
 };
 
-const AccordionLabel = ({
-	name,
-	id,
-	posterImages,
-	overview,
-	children,
-	displayIndicator,
-	runtime,
-	publishDate,
-}: {
+const AccordionLabel = (props: {
 	name: string;
 	id?: number | null;
+	numEpisodes?: number | null;
 	posterImages: string[];
 	overview?: string | null;
 	children: JSX.Element;
@@ -329,45 +321,49 @@ const AccordionLabel = ({
 	publishDate?: string | null;
 }) => {
 	return (
-		<Stack data-episode-id={id}>
+		<Stack data-episode-id={props.id}>
 			<Flex align="center" gap="sm">
 				<Indicator
-					disabled={displayIndicator === 0}
-					label={displayIndicator === 1 ? "Seen" : `Seen X${displayIndicator}`}
+					disabled={props.displayIndicator === 0}
+					label={
+						props.displayIndicator === 1
+							? "Seen"
+							: `Seen X${props.displayIndicator}`
+					}
 					offset={7}
 					position="bottom-end"
 					size={16}
 					color="red"
 				>
 					<Avatar
-						src={posterImages[0]}
+						src={props.posterImages[0]}
 						radius="xl"
 						size="lg"
 						imageProps={{ loading: "lazy" }}
 					/>
 				</Indicator>
-				{children}
+				{props.children}
 			</Flex>
 			<Group gap={6}>
-				<Text>{name}</Text>
-				{runtime ? (
+				<Text>{props.name}</Text>
+				{props.runtime ? (
 					<Text size="xs" c="dimmed">
-						({humanizer.humanize(runtime * 1000 * 60)}
-						{publishDate
-							? `, ${DateTime.fromISO(publishDate).toLocaleString(
+						({humanizer.humanize(props.runtime * 1000 * 60)}
+						{props.publishDate
+							? `, ${DateTime.fromISO(props.publishDate).toLocaleString(
 									DateTime.DATE_MED,
 							  )}`
 							: undefined}
-						)
+						{props.numEpisodes ? `, ${props.numEpisodes} episodes` : undefined})
 					</Text>
 				) : undefined}
 			</Group>
-			{overview ? (
+			{props.overview ? (
 				<Text
 					size="sm"
 					c="dimmed"
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-					dangerouslySetInnerHTML={{ __html: overview }}
+					dangerouslySetInnerHTML={{ __html: props.overview }}
 				/>
 			) : undefined}
 		</Stack>
@@ -1308,6 +1304,7 @@ const Page: NextPageWithLayout = () => {
 													<AccordionLabel
 														{...s}
 														name={`${s.seasonNumber}. ${s.name}`}
+														numEpisodes={s.episodes.length}
 														displayIndicator={
 															s.episodes.length > 0 &&
 															s.episodes.every((e) =>
