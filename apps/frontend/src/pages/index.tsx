@@ -294,7 +294,8 @@ const Page: NextPageWithLayout = () => {
 														...lm.details,
 														publishYear: lm.details.publishYear?.toString(),
 													}}
-													lot={lm.lot}
+													lot={lm.metadataLot}
+													entityLot={lm.entityLot}
 													href={withQuery(
 														APP_ROUTES.media.individualMediaItem.details,
 														{ id: lm.details.identifier },

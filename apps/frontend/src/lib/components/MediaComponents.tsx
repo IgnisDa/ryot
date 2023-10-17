@@ -369,7 +369,8 @@ type Item = {
 
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
-	lot: MetadataLot;
+	entityLot?: EntityLot | null;
+	lot?: MetadataLot | null;
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
 	href: string;
@@ -453,7 +454,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 				)
 			}
 			bottomLeft={props.item.publishYear}
-			bottomRight={changeCase(props.lot || "")}
+			bottomRight={changeCase(
+				props.lot ? props.lot : props.entityLot ? props.entityLot : "",
+			)}
 			highlightRightText={
 				props.existsInDatabase ? "This media exists in the database" : undefined
 			}
