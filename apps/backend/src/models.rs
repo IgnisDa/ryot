@@ -871,7 +871,7 @@ pub mod media {
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
-        /// The collections to add this media to.
+        /// The collections this entity was added to.
         pub collections: Vec<String>,
     }
 
@@ -883,6 +883,8 @@ pub mod media {
         pub name: String,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
+        /// The collections this entity was added to.
+        pub collections: Vec<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]

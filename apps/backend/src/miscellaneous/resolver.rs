@@ -6033,9 +6033,16 @@ impl MiscellaneousService {
             if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {
+                let collections = self
+                    .entity_in_collections(user_id, creator.id, EntityLot::Person)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
                 resp.push(ImportOrExportPersonItem {
                     name: creator.name,
                     reviews: vec![review_item],
+                    collections,
                 });
             }
         }
