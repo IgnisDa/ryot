@@ -228,8 +228,15 @@ export default function ({ children }: { children: ReactElement }) {
 			const { userDetails } = await gqlClient.request(UserDetailsDocument);
 			return userDetails;
 		},
-		onSuccess: async (data) => {
-			if (data.__typename === "UserDetailsError") {
+		staleTime: Infinity,
+	});
+
+	useEffect(() => {
+		(async () => {
+			if (
+				userDetails.data &&
+				userDetails.data.__typename === "UserDetailsError"
+			) {
 				await logoutUser.mutateAsync();
 				notifications.show({
 					color: "red",
@@ -238,9 +245,9 @@ export default function ({ children }: { children: ReactElement }) {
 				});
 				router.push(APP_ROUTES.auth.login);
 			}
-		},
-		staleTime: Infinity,
-	});
+		})();
+	}, [userDetails.data]);
+
 	const userPreferences = useUserPreferences();
 
 	const mediaLinks = [

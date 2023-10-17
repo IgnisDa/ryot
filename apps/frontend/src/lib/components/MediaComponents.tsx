@@ -412,7 +412,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 									() => APP_ROUTES.media.individualMediaItem.details,
 								)
 								.with(
-									EntityLot.MetadataGroup,
+									EntityLot.MediaGroup,
 									() => APP_ROUTES.media.groups.details,
 								)
 								.with(EntityLot.Person, () => APP_ROUTES.media.people.details)

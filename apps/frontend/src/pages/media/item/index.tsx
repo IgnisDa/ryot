@@ -94,7 +94,7 @@ import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
@@ -410,15 +410,17 @@ const Page: NextPageWithLayout = () => {
 		},
 		staleTime: Infinity,
 		enabled: !!metadataId,
-		onSuccess: (data) => {
-			// If the seasons or episodes tab was open before, we need to change it.
-			if (
-				(activeTab === "seasons" || activeTab === "episodes") &&
-				![MetadataLot.Show, MetadataLot.Podcast].includes(data.lot)
-			)
-				setActiveTab("overview");
-		},
 	});
+
+	useEffect(() => {
+		if (
+			mediaDetails.data &&
+			(activeTab === "seasons" || activeTab === "episodes") &&
+			![MetadataLot.Show, MetadataLot.Podcast].includes(mediaDetails.data.lot)
+		)
+			setActiveTab("overview");
+	}, [mediaDetails.data]);
+
 	const mediaSpecifics = useQuery({
 		queryKey: ["mediaSpecifics", metadataId],
 		queryFn: async () => {
