@@ -4,26 +4,7 @@ query UserCreatorDetails($creatorId: Int!) {
       ...CollectionPart
     }
     reviews {
-      id
-      rating
-      text
-      spoiler
-      visibility
-      postedOn
-      postedBy {
-        id
-        name
-      }
-      comments {
-        id
-        text
-        createdOn
-        user {
-          id
-          name
-        }
-        likedBy
-      }
+      ...ReviewItemPart
     }
   }
 }
