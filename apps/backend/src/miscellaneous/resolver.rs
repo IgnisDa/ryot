@@ -55,8 +55,8 @@ use crate::{
         partial_metadata::{self, PartialMetadataWithoutId},
         partial_metadata_to_metadata_group, person, person_to_partial_metadata,
         prelude::{
-            CalendarEvent, Collection, CollectionToEntity, Genre, Metadata, MetadataGroup,
-            MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
+            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, Metadata,
+            MetadataGroup, MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
             PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
         },
@@ -3702,47 +3702,81 @@ impl MiscellaneousService {
             }
         }
 
-        let all_metadata_items = Metadata::find()
-            .join(
-                JoinType::Join,
-                user_to_metadata::Relation::Metadata.def().rev(),
-            )
-            .join(
-                JoinType::Join,
-                collection_to_entity::Relation::Metadata.def().rev(),
-            )
+        let paginator = CollectionToEntity::find()
             .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
-            .order_by_desc(user_to_metadata::Column::LastUpdatedOn)
+            .order_by_desc(collection_to_entity::Column::UpdatedOn)
             .paginate(
                 &self.db,
                 input
                     .take
                     .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap()),
             );
-
+        let mut items = vec![];
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
-        } = all_metadata_items.num_items_and_pages().await?;
-        let mut meta_data = vec![];
-        for m in all_metadata_items.fetch_page(page - 1).await? {
-            meta_data.push((
-                MediaSearchItem {
-                    identifier: m.id.to_string(),
-                    image: self.metadata_assets(&m).await?.images.first().cloned(),
-                    title: m.title,
-                    publish_year: m.publish_year,
-                },
-                m.lot,
-            ));
+        } = paginator.num_items_and_pages().await?;
+        for cte in paginator.fetch_page(page - 1).await? {
+            let item = if let Some(id) = cte.metadata_id {
+                let m = Metadata::find_by_id(id).one(&self.db).await?.unwrap();
+                MediaSearchItemWithLot {
+                    details: MediaSearchItem {
+                        identifier: m.id.to_string(),
+                        title: m.title,
+                        image: m.images.first_as_url(&self.file_storage_service).await,
+                        publish_year: m.publish_year,
+                    },
+                    metadata_lot: Some(m.lot),
+                    entity_lot: EntityLot::Metadata,
+                }
+            } else if let Some(id) = cte.person_id {
+                let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
+                MediaSearchItemWithLot {
+                    details: MediaSearchItem {
+                        identifier: p.id.to_string(),
+                        title: p.name,
+                        image: p.images.first_as_url(&self.file_storage_service).await,
+                        publish_year: None,
+                    },
+                    metadata_lot: None,
+                    entity_lot: EntityLot::Person,
+                }
+            } else if let Some(id) = cte.metadata_group_id {
+                let g = MetadataGroup::find_by_id(id).one(&self.db).await?.unwrap();
+                MediaSearchItemWithLot {
+                    details: MediaSearchItem {
+                        identifier: g.id.to_string(),
+                        title: g.title,
+                        image: Some(g.images)
+                            .first_as_url(&self.file_storage_service)
+                            .await,
+                        publish_year: None,
+                    },
+                    metadata_lot: None,
+                    entity_lot: EntityLot::MetadataGroup,
+                }
+            } else if let Some(id) = cte.exercise_id {
+                let e = Exercise::find_by_id(id).one(&self.db).await?.unwrap();
+                let image = if let Some(i) = e.attributes.internal_images.first().cloned() {
+                    Some(get_stored_asset(i, &self.file_storage_service).await)
+                } else {
+                    None
+                };
+                MediaSearchItemWithLot {
+                    details: MediaSearchItem {
+                        identifier: e.id.to_string(),
+                        title: e.name,
+                        image,
+                        publish_year: None,
+                    },
+                    metadata_lot: None,
+                    entity_lot: EntityLot::Exercise,
+                }
+            } else {
+                unreachable!()
+            };
+            items.push(item);
         }
-        let items = meta_data
-            .into_iter()
-            .map(|a| MediaSearchItemWithLot {
-                details: a.0,
-                lot: a.1,
-            })
-            .collect();
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
         Ok(CollectionContents {
             details: collection,
