@@ -1,5 +1,6 @@
 import {
 	AddEntityToCollectionModal,
+	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ReviewItemDisplay,
@@ -16,6 +17,7 @@ import {
 	Button,
 	Container,
 	Flex,
+	Group,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -129,6 +131,20 @@ const Page: NextPageWithLayout = () => {
 							<Text c="dimmed">• {creatorDetails.data.details.gender}</Text>
 						) : undefined}
 					</Flex>
+					{userCreatorDetails.data &&
+					userCreatorDetails.data.collections.length > 0 ? (
+						<Group id="entity-collections">
+							{userCreatorDetails.data.collections.map((col) => (
+								<DisplayCollection
+									col={col}
+									entityId={creatorId}
+									entityLot={EntityLot.Person}
+									refetch={userCreatorDetails.refetch}
+									key={col.id}
+								/>
+							))}
+						</Group>
+					) : undefined}
 					<Tabs
 						value={activeTab}
 						onChange={(v) => {
