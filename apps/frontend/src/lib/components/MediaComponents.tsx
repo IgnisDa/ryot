@@ -18,10 +18,13 @@ import {
 	Flex,
 	Image,
 	Loader,
+	Modal,
 	Paper,
 	ScrollArea,
+	Select,
 	Stack,
 	Text,
+	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
@@ -37,6 +40,7 @@ import {
 	MetadataSource,
 	type PartialMetadata,
 	type ReviewItem,
+	UserCollectionsListDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
@@ -46,10 +50,11 @@ import {
 	IconStarFilled,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -608,4 +613,80 @@ export const MediaSearchItem = (props: {
 			</>
 		</MediaItemWithoutUpdateModal>
 	);
+};
+
+export const AddEntityToCollectionModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	metadataId: number;
+	refetchUserMedia: () => void;
+	entityLot: EntityLot;
+}) => {
+	const [selectedCollection, setSelectedCollection] = useState<string | null>(
+		null,
+	);
+
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{},
+			);
+			return userCollectionsList.map((c) => c.name);
+		},
+	});
+	const addMediaToCollection = useMutation({
+		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
+			const { addEntityToCollection } = await gqlClient.request(
+				AddEntityToCollectionDocument,
+				variables,
+			);
+			return addEntityToCollection;
+		},
+		onSuccess: () => {
+			props.refetchUserMedia();
+			props.onClose();
+		},
+	});
+
+	return collections.data ? (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			{collections ? (
+				<Stack>
+					<Title order={3}>Select collection</Title>
+					{collections.data.length > 0 ? (
+						<Select
+							data={collections.data}
+							onChange={setSelectedCollection}
+							searchable
+						/>
+					) : undefined}
+					<Button
+						data-autofocus
+						variant="outline"
+						onClick={() => {
+							addMediaToCollection.mutate({
+								input: {
+									collectionName: selectedCollection || "",
+									entityId: props.metadataId,
+									entityLot: props.entityLot,
+								},
+							});
+						}}
+					>
+						Set
+					</Button>
+					<Button variant="outline" color="red" onClick={props.onClose}>
+						Cancel
+					</Button>
+				</Stack>
+			) : undefined}
+		</Modal>
+	) : undefined;
 };
