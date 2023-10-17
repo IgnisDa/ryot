@@ -1816,13 +1816,9 @@ impl MiscellaneousService {
         user_id: i32,
         metadata_group_id: i32,
     ) -> Result<UserMetadataGroupDetails> {
-        let collections = entity_in_collections(
-            &self.db,
-            user_id,
-            metadata_group_id,
-            EntityLot::MetadataGroup,
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, user_id, metadata_group_id, EntityLot::MediaGroup)
+                .await?;
         Ok(UserMetadataGroupDetails { collections })
     }
 
@@ -3753,7 +3749,7 @@ impl MiscellaneousService {
                         publish_year: None,
                     },
                     metadata_lot: None,
-                    entity_lot: EntityLot::MetadataGroup,
+                    entity_lot: EntityLot::MediaGroup,
                 }
             } else if let Some(id) = cte.exercise_id {
                 let e = Exercise::find_by_id(id).one(&self.db).await?.unwrap();
@@ -3951,7 +3947,7 @@ impl MiscellaneousService {
         let target_column = match input.entity_lot {
             EntityLot::Metadata => collection_to_entity::Column::MetadataId,
             EntityLot::Person => collection_to_entity::Column::PersonId,
-            EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+            EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
             EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
         };
         CollectionToEntity::delete_many()

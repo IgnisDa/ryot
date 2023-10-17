@@ -38,7 +38,7 @@ use crate::{
 pub enum EntityLot {
     Metadata,
     Person,
-    MetadataGroup,
+    MediaGroup,
     Exercise,
 }
 

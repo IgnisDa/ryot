@@ -228,7 +228,7 @@ pub async fn entity_in_collections(
     let target_column = match entity_lot {
         EntityLot::Metadata => collection_to_entity::Column::MetadataId,
         EntityLot::Person => collection_to_entity::Column::PersonId,
-        EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
     };
     let mtc = CollectionToEntity::find()
@@ -258,7 +258,7 @@ pub async fn add_entity_to_collection(
     let target_column = match input.entity_lot {
         EntityLot::Metadata => collection_to_entity::Column::MetadataId,
         EntityLot::Person => collection_to_entity::Column::PersonId,
-        EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
     };
     let collection = Collection::find()
@@ -289,7 +289,7 @@ pub async fn add_entity_to_collection(
             EntityLot::Person => {
                 created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
             }
-            EntityLot::MetadataGroup => {
+            EntityLot::MediaGroup => {
                 created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
             }
             EntityLot::Exercise => {
