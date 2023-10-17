@@ -30,7 +30,7 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, collection_to_entity,
-        prelude::{Collection, User, UserToMetadata},
+        prelude::{Collection, CollectionToEntity, User, UserToMetadata},
         user, user_to_metadata,
     },
     file_storage::FileStorageService,
@@ -221,6 +221,12 @@ pub async fn add_entity_to_collection(
     user_id: i32,
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
+    let target_column = match input.entity_lot {
+        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Person => collection_to_entity::Column::PersonId,
+        EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+    };
     let collection = Collection::find()
         .filter(collection::Column::UserId.eq(user_id.to_owned()))
         .filter(collection::Column::Name.eq(input.collection_name))
@@ -228,23 +234,36 @@ pub async fn add_entity_to_collection(
         .await
         .unwrap()
         .unwrap();
-    let mut created_collection = collection_to_entity::ActiveModel {
-        collection_id: ActiveValue::Set(collection.id),
-        ..Default::default()
-    };
-    match input.entity_lot {
-        EntityLot::Metadata => {
-            created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
-        }
-        EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(input.entity_id)),
-        EntityLot::MetadataGroup => {
-            created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
-        }
-        EntityLot::Exercise => {
-            created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
-        }
-    };
-    Ok(created_collection.insert(db).await.is_ok())
+    if let Some(etc) = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+        .filter(target_column.eq(input.entity_id))
+        .one(db)
+        .await?
+    {
+        let mut to_update: collection_to_entity::ActiveModel = etc.into();
+        to_update.updated_on = ActiveValue::Set(Utc::now());
+        Ok(to_update.update(db).await.is_ok())
+    } else {
+        let mut created_collection = collection_to_entity::ActiveModel {
+            collection_id: ActiveValue::Set(collection.id),
+            ..Default::default()
+        };
+        match input.entity_lot {
+            EntityLot::Metadata => {
+                created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::Person => {
+                created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::MetadataGroup => {
+                created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::Exercise => {
+                created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
+            }
+        };
+        Ok(created_collection.insert(db).await.is_ok())
+    }
 }
 
 pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
