@@ -9,6 +9,11 @@ use super::{
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static UNIQUE_INDEX_1: &str = "collection_to_entity_uqi1";
+pub static UNIQUE_INDEX_2: &str = "collection_to_entity_uqi2";
+pub static UNIQUE_INDEX_3: &str = "collection_to_entity_uqi3";
+pub static UNIQUE_INDEX_4: &str = "collection_to_entity_uqi4";
+
 #[derive(Iden)]
 pub enum CollectionToEntity {
     Table,
@@ -94,6 +99,50 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(UNIQUE_INDEX_1)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::CollectionId)
+                    .col(CollectionToEntity::MetadataId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(UNIQUE_INDEX_2)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::CollectionId)
+                    .col(CollectionToEntity::PersonId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(UNIQUE_INDEX_3)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::CollectionId)
+                    .col(CollectionToEntity::MetadataGroupId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(UNIQUE_INDEX_4)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::CollectionId)
+                    .col(CollectionToEntity::ExerciseId)
                     .to_owned(),
             )
             .await?;

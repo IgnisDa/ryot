@@ -40,6 +40,7 @@ mod m20231014_remove_processed_from_exercise;
 mod m20231016_create_collection_to_entity;
 mod m20231016_drop_useless_tables;
 mod m20231017_create_user_to_entity;
+mod m20231018_add_missing_indices;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::{UserLot, UserToMetadata};
@@ -98,6 +99,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231016_drop_useless_tables::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
+            Box::new(m20231018_add_missing_indices::Migration),
         ]
     }
 }
