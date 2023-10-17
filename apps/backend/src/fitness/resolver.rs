@@ -29,15 +29,17 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle, ExerciseSource,
     },
+    miscellaneous::DefaultCollection,
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes, UserWorkoutInput, WorkoutListItem, WorkoutSetRecord,
         },
+        media::{ChangeCollectionToEntityInput, EntityLot},
         IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_ilike_query, partial_user_by_id},
+    utils::{add_entity_to_collection, get_ilike_query, partial_user_by_id},
 };
 
 static JSON_URL: &str =
@@ -238,7 +240,8 @@ impl ExerciseMutation {
         input: exercise::Model,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.create_custom_exercise(input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_custom_exercise(user_id, input).await
     }
 }
 
@@ -651,7 +654,11 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    async fn create_custom_exercise(&self, input: exercise::Model) -> Result<IdObject> {
+    async fn create_custom_exercise(
+        &self,
+        user_id: i32,
+        input: exercise::Model,
+    ) -> Result<IdObject> {
         let mut input = input;
         input.source = ExerciseSource::Custom;
         input.attributes.internal_images = input
@@ -668,6 +675,16 @@ impl ExerciseService {
         // FIXME: Blocked by https://github.com/async-graphql/async-graphql/issues/1396
         input.id = ActiveValue::NotSet;
         let exercise = input.insert(&self.db).await?;
+        add_entity_to_collection(
+            &self.db,
+            user_id,
+            ChangeCollectionToEntityInput {
+                collection_name: DefaultCollection::Custom.to_string(),
+                entity_id: exercise.id,
+                entity_lot: EntityLot::Exercise,
+            },
+        )
+        .await?;
         Ok(IdObject { id: exercise.id })
     }
 
