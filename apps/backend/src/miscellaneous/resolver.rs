@@ -78,7 +78,7 @@ use crate::{
     miscellaneous::{CustomService, DefaultCollection},
     models::{
         media::{
-            AddMediaToCollection, AnimeSpecifics, AudioBookSpecifics, BookSpecifics,
+            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ChangeEntityToCollectionInput,
             CreateOrUpdateCollectionInput, EntityLot, FreeMetadataCreator,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
@@ -966,7 +966,7 @@ impl MiscellaneousMutation {
     async fn add_media_to_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: AddMediaToCollection,
+        input: ChangeEntityToCollectionInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -977,14 +977,11 @@ impl MiscellaneousMutation {
     async fn remove_media_from_collection(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
-        collection_name: String,
+        input: ChangeEntityToCollectionInput,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .remove_media_from_collection(user_id, &metadata_id, &collection_name)
-            .await
+        service.remove_media_from_collection(user_id, input).await
     }
 
     /// Delete a collection.
@@ -3885,31 +3882,10 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    pub async fn remove_media_from_collection(
-        &self,
-        user_id: i32,
-        metadata_id: &i32,
-        collection_name: &str,
-    ) -> Result<IdObject> {
-        let collect = Collection::find()
-            .filter(collection::Column::Name.eq(collection_name.to_owned()))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        EntityToCollection::delete_many()
-            .filter(entity_to_collection::Column::MetadataId.eq(metadata_id.to_owned()))
-            .filter(entity_to_collection::Column::CollectionId.eq(collect.id))
-            .exec(&self.db)
-            .await?;
-        Ok(IdObject { id: collect.id })
-    }
-
     pub async fn add_media_to_collection(
         &self,
         user_id: i32,
-        input: AddMediaToCollection,
+        input: ChangeEntityToCollectionInput,
     ) -> Result<bool> {
         let collection = Collection::find()
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
@@ -3936,6 +3912,31 @@ impl MiscellaneousService {
         Ok(created_collection.clone().insert(&self.db).await.is_ok())
     }
 
+    pub async fn remove_media_from_collection(
+        &self,
+        user_id: i32,
+        input: ChangeEntityToCollectionInput,
+    ) -> Result<IdObject> {
+        let collect = Collection::find()
+            .filter(collection::Column::Name.eq(input.collection_name.to_owned()))
+            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let target_column = match input.entity_lot {
+            EntityLot::Metadata => entity_to_collection::Column::MetadataId,
+            EntityLot::Person => entity_to_collection::Column::PersonId,
+            EntityLot::MetadataGroup => entity_to_collection::Column::MetadataGroupId,
+        };
+        EntityToCollection::delete_many()
+            .filter(entity_to_collection::Column::CollectionId.eq(collect.id))
+            .filter(target_column.eq(input.entity_id.to_owned()))
+            .exec(&self.db)
+            .await?;
+        Ok(IdObject { id: collect.id })
+    }
+
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
@@ -3952,8 +3953,11 @@ impl MiscellaneousService {
             if progress < 100 {
                 self.remove_media_from_collection(
                     user_id,
-                    &metadata_id,
-                    &DefaultCollection::InProgress.to_string(),
+                    ChangeEntityToCollectionInput {
+                        collection_name: DefaultCollection::InProgress.to_string(),
+                        entity_id: metadata_id,
+                        entity_lot: EntityLot::Metadata,
+                    },
                 )
                 .await
                 .ok();
@@ -4455,7 +4459,7 @@ impl MiscellaneousService {
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(
             user_id,
-            AddMediaToCollection {
+            ChangeEntityToCollectionInput {
                 collection_name: DefaultCollection::Custom.to_string(),
                 entity_id: media.id,
                 entity_lot: EntityLot::Metadata,
@@ -5329,8 +5333,11 @@ impl MiscellaneousService {
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
         self.remove_media_from_collection(
             seen.user_id,
-            &seen.metadata_id,
-            &DefaultCollection::Watchlist.to_string(),
+            ChangeEntityToCollectionInput {
+                collection_name: DefaultCollection::Watchlist.to_string(),
+                entity_id: seen.metadata_id,
+                entity_lot: EntityLot::Metadata,
+            },
         )
         .await
         .ok();
@@ -5338,7 +5345,7 @@ impl MiscellaneousService {
             SeenState::InProgress => {
                 self.add_media_to_collection(
                     seen.user_id,
-                    AddMediaToCollection {
+                    ChangeEntityToCollectionInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: seen.metadata_id,
                         entity_lot: EntityLot::Metadata,
@@ -5350,8 +5357,11 @@ impl MiscellaneousService {
             SeenState::Dropped | SeenState::OnAHold => {
                 self.remove_media_from_collection(
                     seen.user_id,
-                    &seen.metadata_id,
-                    &DefaultCollection::InProgress.to_string(),
+                    ChangeEntityToCollectionInput {
+                        collection_name: DefaultCollection::InProgress.to_string(),
+                        entity_id: seen.metadata_id,
+                        entity_lot: EntityLot::Metadata,
+                    },
                 )
                 .await
                 .ok();
@@ -5405,15 +5415,18 @@ impl MiscellaneousService {
                     if is_complete {
                         self.remove_media_from_collection(
                             seen.user_id,
-                            &seen.metadata_id,
-                            &DefaultCollection::InProgress.to_string(),
+                            ChangeEntityToCollectionInput {
+                                collection_name: DefaultCollection::InProgress.to_string(),
+                                entity_id: seen.metadata_id,
+                                entity_lot: EntityLot::Metadata,
+                            },
                         )
                         .await
                         .ok();
                     } else {
                         self.add_media_to_collection(
                             seen.user_id,
-                            AddMediaToCollection {
+                            ChangeEntityToCollectionInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 entity_id: seen.metadata_id,
                                 entity_lot: EntityLot::Metadata,
@@ -5432,8 +5445,11 @@ impl MiscellaneousService {
                 } else {
                     self.remove_media_from_collection(
                         seen.user_id,
-                        &seen.metadata_id,
-                        &DefaultCollection::InProgress.to_string(),
+                        ChangeEntityToCollectionInput {
+                            collection_name: DefaultCollection::InProgress.to_string(),
+                            entity_id: seen.metadata_id,
+                            entity_lot: EntityLot::Metadata,
+                        },
                     )
                     .await
                     .ok();

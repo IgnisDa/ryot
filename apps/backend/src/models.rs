@@ -692,7 +692,7 @@ pub mod media {
     }
 
     #[derive(Debug, InputObject)]
-    pub struct AddMediaToCollection {
+    pub struct ChangeEntityToCollectionInput {
         pub collection_name: String,
         pub entity_id: i32,
         pub entity_lot: EntityLot,

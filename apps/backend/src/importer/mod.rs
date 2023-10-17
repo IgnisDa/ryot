@@ -21,7 +21,7 @@ use crate::{
     models::{
         fitness::UserWorkoutInput,
         media::{
-            AddMediaToCollection, CreateOrUpdateCollectionInput, EntityLot,
+            ChangeEntityToCollectionInput, CreateOrUpdateCollectionInput, EntityLot,
             ImportOrExportItemIdentifier, ImportOrExportMediaItem, PostReviewInput,
             ProgressUpdateInput,
         },
@@ -437,7 +437,7 @@ impl ImporterService {
                 self.media_service
                     .add_media_to_collection(
                         user_id,
-                        AddMediaToCollection {
+                        ChangeEntityToCollectionInput {
                             collection_name: col.to_string(),
                             entity_id: metadata.id,
                             entity_lot: EntityLot::Metadata,
