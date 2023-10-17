@@ -570,6 +570,7 @@ struct ProgressUpdateCache {
 #[derive(SimpleObject)]
 struct UserCreatorDetails {
     reviews: Vec<ReviewItem>,
+    collections: Vec<collection::Model>,
 }
 
 #[derive(SimpleObject)]
@@ -1784,7 +1785,13 @@ impl MiscellaneousService {
         creator_id: i32,
     ) -> Result<UserCreatorDetails> {
         let reviews = self.item_reviews(user_id, None, Some(creator_id)).await?;
-        Ok(UserCreatorDetails { reviews })
+        let collections = self
+            .entity_in_collections(user_id, creator_id, EntityLot::Person)
+            .await?;
+        Ok(UserCreatorDetails {
+            reviews,
+            collections,
+        })
     }
 
     async fn get_calendar_events(

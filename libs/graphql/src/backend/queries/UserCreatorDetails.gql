@@ -1,5 +1,8 @@
 query UserCreatorDetails($creatorId: Int!) {
   userCreatorDetails(creatorId: $creatorId) {
+    collections {
+      ...CollectionPart
+    }
     reviews {
       id
       rating
