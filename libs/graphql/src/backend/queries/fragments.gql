@@ -73,3 +73,34 @@ fragment WorkoutSummaryPart on WorkoutSummary {
     }
   }
 }
+
+fragment CollectionPart on Collection {
+  id
+  name
+}
+
+fragment ReviewItemPart on ReviewItem {
+  id
+  rating
+  text
+  spoiler
+  visibility
+  showSeason
+  showEpisode
+  podcastEpisode
+  postedOn
+  postedBy {
+    id
+    name
+  }
+  comments {
+    id
+    text
+    createdOn
+    user {
+      id
+      name
+    }
+    likedBy
+  }
+}

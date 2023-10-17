@@ -19,6 +19,7 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
+        collection,
         exercise::{self, ExerciseListItem},
         prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
         user::UserWithOnlyPreferences,
@@ -29,15 +30,17 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle, ExerciseSource,
     },
+    miscellaneous::DefaultCollection,
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
             GithubExerciseAttributes, UserWorkoutInput, WorkoutListItem, WorkoutSetRecord,
         },
-        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        media::ChangeCollectionToEntityInput,
+        EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{get_ilike_query, partial_user_by_id},
+    utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
 };
 
 static JSON_URL: &str =
@@ -105,8 +108,9 @@ struct UserExerciseHistoryInformation {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseDetails {
-    details: user_to_exercise::Model,
-    history: Vec<UserExerciseHistoryInformation>,
+    details: Option<user_to_exercise::Model>,
+    history: Option<Vec<UserExerciseHistoryInformation>>,
+    collections: Vec<collection::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -175,7 +179,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: UserExerciseDetailsInput,
-    ) -> Result<Option<UserExerciseDetails>> {
+    ) -> Result<UserExerciseDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_exercise_details(user_id, input).await
@@ -238,7 +242,8 @@ impl ExerciseMutation {
         input: exercise::Model,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.create_custom_exercise(input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_custom_exercise(user_id, input).await
     }
 }
 
@@ -333,15 +338,23 @@ impl ExerciseService {
         &self,
         user_id: i32,
         input: UserExerciseDetailsInput,
-    ) -> Result<Option<UserExerciseDetails>> {
-        if let Some(details) = UserToExercise::find_by_id((user_id, input.exercise_id))
+    ) -> Result<UserExerciseDetails> {
+        let collections =
+            entity_in_collections(&self.db, user_id, input.exercise_id, EntityLot::Exercise)
+                .await?;
+        let mut resp = UserExerciseDetails {
+            details: None,
+            history: None,
+            collections,
+        };
+        if let Some(association) = UserToExercise::find_by_id((user_id, input.exercise_id))
             .one(&self.db)
             .await?
         {
             let workouts = Workout::find()
                 .filter(
                     workout::Column::Id.is_in(
-                        details
+                        association
                             .extra_information
                             .history
                             .iter()
@@ -353,7 +366,7 @@ impl ExerciseService {
             let mut history = workouts
                 .into_iter()
                 .map(|w| {
-                    let element = details
+                    let element = association
                         .extra_information
                         .history
                         .iter()
@@ -370,10 +383,10 @@ impl ExerciseService {
             if let Some(take) = input.take_history {
                 history = history.into_iter().take(take).collect_vec();
             }
-            Ok(Some(UserExerciseDetails { details, history }))
-        } else {
-            Ok(None)
+            resp.history = Some(history);
+            resp.details = Some(association);
         }
+        Ok(resp)
     }
 
     async fn user_workout_list(
@@ -651,7 +664,11 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    async fn create_custom_exercise(&self, input: exercise::Model) -> Result<IdObject> {
+    async fn create_custom_exercise(
+        &self,
+        user_id: i32,
+        input: exercise::Model,
+    ) -> Result<IdObject> {
         let mut input = input;
         input.source = ExerciseSource::Custom;
         input.attributes.internal_images = input
@@ -668,6 +685,16 @@ impl ExerciseService {
         // FIXME: Blocked by https://github.com/async-graphql/async-graphql/issues/1396
         input.id = ActiveValue::NotSet;
         let exercise = input.insert(&self.db).await?;
+        add_entity_to_collection(
+            &self.db,
+            user_id,
+            ChangeCollectionToEntityInput {
+                collection_name: DefaultCollection::Custom.to_string(),
+                entity_id: exercise.id,
+                entity_lot: EntityLot::Exercise,
+            },
+        )
+        .await?;
         Ok(IdObject { id: exercise.id })
     }
 

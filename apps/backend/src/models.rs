@@ -11,6 +11,7 @@ use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
     prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
@@ -22,16 +23,24 @@ use serde_with::skip_serializing_none;
 use crate::{
     entities::{
         exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, prelude::Workout,
-        user_measurement,
+        user_measurement, workout,
     },
     file_storage::FileStorageService,
     migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
-        MetadataLot, MetadataSource, SeenState,
+        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+        ExerciseMuscle, MetadataLot, MetadataSource, SeenState,
     },
     traits::{DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EntityLot {
+    Metadata,
+    Person,
+    MetadataGroup,
+    Exercise,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum StoredUrl {
@@ -90,15 +99,28 @@ pub struct IdObject {
     pub id: i32,
 }
 
-pub mod media {
-    use crate::entities::workout;
+/// Complete export of the user.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+pub struct ExportAllResponse {
+    /// Data about user's media.
+    pub media: Vec<media::ImportOrExportMediaItem>,
+    /// Data about user's people.
+    pub people: Vec<media::ImportOrExportPersonItem>,
+    /// Data about user's measurements.
+    pub measurements: Vec<user_measurement::Model>,
+    /// Data about user's workouts.
+    pub workouts: Vec<workout::Model>,
+}
 
+pub mod media {
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MediaSearchItemWithLot {
         pub details: MediaSearchItem,
-        pub lot: MetadataLot,
+        pub metadata_lot: Option<MetadataLot>,
+        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -672,9 +694,10 @@ pub mod media {
     }
 
     #[derive(Debug, InputObject)]
-    pub struct AddMediaToCollection {
+    pub struct ChangeCollectionToEntityInput {
         pub collection_name: String,
-        pub media_id: i32,
+        pub entity_id: i32,
+        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, InputObject)]
@@ -850,22 +873,8 @@ pub mod media {
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
-        /// The collections to add this media to.
+        /// The collections this entity was added to.
         pub collections: Vec<String>,
-    }
-
-    /// Complete export of the user.
-    #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    pub struct ExportAllResponse {
-        /// Data about user's media.
-        pub media: Vec<ImportOrExportMediaItem>,
-        /// Data about user's people.
-        pub people: Vec<ImportOrExportPersonItem>,
-        /// Data about user's measurements.
-        pub measurements: Vec<user_measurement::Model>,
-        /// Data about user's workouts.
-        pub workouts: Vec<workout::Model>,
     }
 
     /// Details about a specific creator item that needs to be exported.
@@ -876,6 +885,8 @@ pub mod media {
         pub name: String,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
+        /// The collections this entity was added to.
+        pub collections: Vec<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
@@ -1077,9 +1088,6 @@ pub mod media {
 }
 
 pub mod fitness {
-    use schematic::ConfigEnum;
-
-    use crate::migrator::ExerciseLot;
 
     use super::*;
 

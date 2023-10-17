@@ -1,4 +1,6 @@
 import {
+	AddEntityToCollectionModal,
+	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ReviewItemDisplay,
@@ -9,14 +11,12 @@ import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getStringAsciiValue, getVerb } from "@/lib/utilities";
+import { Verb, getVerb } from "@/lib/utilities";
 import {
 	Accordion,
-	ActionIcon,
 	Alert,
 	Anchor,
 	Avatar,
-	Badge,
 	Box,
 	Button,
 	Container,
@@ -31,7 +31,6 @@ import {
 	NumberInput,
 	Paper,
 	ScrollArea,
-	Select,
 	SimpleGrid,
 	Slider,
 	Stack,
@@ -39,15 +38,11 @@ import {
 	Text,
 	TextInput,
 	Title,
-	useMantineTheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	AddMediaToCollectionDocument,
-	type AddMediaToCollectionMutationVariables,
-	CollectionsDocument,
 	CreateMediaReminderDocument,
 	type CreateMediaReminderMutationVariables,
 	DeleteMediaReminderDocument,
@@ -56,6 +51,7 @@ import {
 	type DeleteSeenItemMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
+	EntityLot,
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
 	MergeMetadataDocument,
@@ -65,8 +61,6 @@ import {
 	MetadataVideoSource,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
-	RemoveMediaFromCollectionDocument,
-	type RemoveMediaFromCollectionMutationVariables,
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
@@ -240,77 +234,6 @@ const MetadataCreator = (props: { name: string; image?: string | null }) => {
 	);
 };
 
-const SelectCollectionModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	metadataId: number;
-	refetchUserMedia: () => void;
-}) => {
-	const [selectedCollection, setSelectedCollection] = useState<string | null>(
-		null,
-	);
-
-	const collections = useQuery({
-		queryKey: ["collections"],
-		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections.map((c) => c.name);
-		},
-	});
-	const addMediaToCollection = useMutation({
-		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
-			const { addMediaToCollection } = await gqlClient.request(
-				AddMediaToCollectionDocument,
-				variables,
-			);
-			return addMediaToCollection;
-		},
-		onSuccess: () => {
-			props.refetchUserMedia();
-			props.onClose();
-		},
-	});
-
-	return collections.data ? (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			{collections ? (
-				<Stack>
-					<Title order={3}>Select collection</Title>
-					{collections.data.length > 0 ? (
-						<Select
-							data={collections.data}
-							onChange={setSelectedCollection}
-							searchable
-						/>
-					) : undefined}
-					<Button
-						data-autofocus
-						variant="outline"
-						onClick={() => {
-							addMediaToCollection.mutate({
-								input: {
-									collectionName: selectedCollection || "",
-									mediaId: props.metadataId,
-								},
-							});
-						}}
-					>
-						Set
-					</Button>
-					<Button variant="outline" color="red" onClick={props.onClose}>
-						Cancel
-					</Button>
-				</Stack>
-			) : undefined}
-		</Modal>
-	) : undefined;
-};
-
 const CreateReminderModal = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -454,8 +377,6 @@ const AccordionLabel = ({
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.id?.toString() || "0");
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
 	const coreDetails = useCoreDetails();
 	const preferences = useUserPreferences();
 
@@ -606,20 +527,6 @@ const Page: NextPageWithLayout = () => {
 			router.push(APP_ROUTES.dashboard);
 		},
 	});
-	const removeMediaFromCollection = useMutation({
-		mutationFn: async (
-			variables: RemoveMediaFromCollectionMutationVariables,
-		) => {
-			const { removeMediaFromCollection } = await gqlClient.request(
-				RemoveMediaFromCollectionDocument,
-				variables,
-			);
-			return removeMediaFromCollection;
-		},
-		onSuccess: () => {
-			userMediaDetails.refetch();
-		},
-	});
 
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
 
@@ -705,46 +612,15 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 					{userMediaDetails.data &&
 					userMediaDetails.data.collections.length > 0 ? (
-						<Group id="media-collections">
+						<Group id="entity-collections">
 							{userMediaDetails.data.collections.map((col) => (
-								<Badge
+								<DisplayCollection
+									col={col}
+									entityId={metadataId}
+									entityLot={EntityLot.Metadata}
+									refetch={userMediaDetails.refetch}
 									key={col.id}
-									color={
-										colors[
-											// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-											(getStringAsciiValue(col.name) + colors.length) %
-												colors.length
-										]
-									}
-								>
-									<Flex gap={2}>
-										<Anchor
-											component={Link}
-											truncate
-											style={{ all: "unset", cursor: "pointer" }}
-											href={withQuery(APP_ROUTES.media.collections.details, {
-												collectionId: col.id,
-											})}
-										>
-											{col.name}
-										</Anchor>
-										<ActionIcon
-											size={16}
-											onClick={() => {
-												const yes = confirm(
-													"Are you sure you want to remove this media from this collection?",
-												);
-												if (yes)
-													removeMediaFromCollection.mutate({
-														collectionName: col.name,
-														metadataId,
-													});
-											}}
-										>
-											<IconX />
-										</ActionIcon>
-									</Flex>
-								</Badge>
+								/>
 							))}
 						</Group>
 					) : undefined}
@@ -1247,11 +1123,12 @@ const Page: NextPageWithLayout = () => {
 										<Button variant="outline" onClick={collectionModalOpen}>
 											Add to collection
 										</Button>
-										<SelectCollectionModal
+										<AddEntityToCollectionModal
 											onClose={collectionModalClose}
 											opened={collectionModalOpened}
-											metadataId={metadataId}
+											entityId={metadataId}
 											refetchUserMedia={userMediaDetails.refetch}
+											entityLot={EntityLot.Metadata}
 										/>
 									</>
 									<Button

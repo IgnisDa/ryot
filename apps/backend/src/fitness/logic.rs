@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use chrono::Utc;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -91,10 +91,13 @@ impl UserWorkoutInput {
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         for (idx, ex) in self.exercises.into_iter().enumerate() {
-            let db_ex = Exercise::find_by_id(ex.exercise_id)
-                .one(db)
-                .await?
-                .ok_or_else(|| anyhow!("No exercise found!"))?;
+            let db_ex = match Exercise::find_by_id(ex.exercise_id).one(db).await? {
+                None => {
+                    tracing::error!("Exercise with id = {} not found", ex.exercise_id);
+                    continue;
+                }
+                Some(e) => e,
+            };
             let mut sets = vec![];
             let mut total = WorkoutTotalMeasurement::default();
             let association = UserToExercise::find()

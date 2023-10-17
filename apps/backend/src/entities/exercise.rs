@@ -90,8 +90,16 @@ impl ExerciseListItem {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::collection_to_entity::Entity")]
+    CollectionToEntity,
     #[sea_orm(has_many = "super::user_to_exercise::Entity")]
     UserToExercise,
+}
+
+impl Related<super::collection_to_entity::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CollectionToEntity.def()
+    }
 }
 
 impl Related<super::user_to_exercise::Entity> for Entity {

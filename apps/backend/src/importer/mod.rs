@@ -21,9 +21,11 @@ use crate::{
     models::{
         fitness::UserWorkoutInput,
         media::{
-            AddMediaToCollection, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-            ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
+            ChangeCollectionToEntityInput, CreateOrUpdateCollectionInput,
+            ImportOrExportItemIdentifier, ImportOrExportMediaItem, PostReviewInput,
+            ProgressUpdateInput,
         },
+        EntityLot,
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -434,11 +436,12 @@ impl ImporterService {
                     )
                     .await?;
                 self.media_service
-                    .add_media_to_collection(
+                    .add_entity_to_collection(
                         user_id,
-                        AddMediaToCollection {
+                        ChangeCollectionToEntityInput {
                             collection_name: col.to_string(),
-                            media_id: metadata.id,
+                            entity_id: metadata.id,
+                            entity_lot: EntityLot::Metadata,
                         },
                     )
                     .await

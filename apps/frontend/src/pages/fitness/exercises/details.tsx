@@ -1,4 +1,9 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import {
+	AddEntityToCollectionModal,
+	DisplayCollection,
+	MediaScrollArea,
+} from "@/lib/components/MediaComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -8,6 +13,7 @@ import { getSetColor } from "@/lib/utilities";
 import {
 	Anchor,
 	Box,
+	Button,
 	Container,
 	Divider,
 	Flex,
@@ -22,8 +28,9 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import {
+	EntityLot,
 	ExerciseDetailsDocument,
 	SetLot,
 	UserExerciseDetailsDocument,
@@ -33,6 +40,7 @@ import {
 	IconHistoryToggle,
 	IconInfoCircle,
 	IconTrophy,
+	IconUser,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -76,6 +84,10 @@ const DisplayLifetimeStatistic = (props: {
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const exerciseId = parseInt(router.query.id?.toString() || "0");
+	const [
+		collectionModalOpened,
+		{ open: collectionModalOpen, close: collectionModalClose },
+	] = useDisclosure(false);
 
 	const [activeTab, setActiveTab] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedActiveExerciseDetailsTab,
@@ -117,6 +129,20 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs" px="lg">
 				<Stack>
 					<Title id="exercise-title">{exerciseDetails.data.name}</Title>
+					{userExerciseDetails.data &&
+					userExerciseDetails.data.collections.length > 0 ? (
+						<Group id="entity-collections">
+							{userExerciseDetails.data.collections.map((col) => (
+								<DisplayCollection
+									col={col}
+									entityId={exerciseId}
+									entityLot={EntityLot.Exercise}
+									refetch={userExerciseDetails.refetch}
+									key={col.id}
+								/>
+							))}
+						</Group>
+					) : undefined}
 					<Tabs
 						value={activeTab}
 						onChange={(v) => {
@@ -131,17 +157,26 @@ const Page: NextPageWithLayout = () => {
 							>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab
-								value="history"
-								leftSection={<IconHistoryToggle size={16} />}
-							>
-								History
-							</Tabs.Tab>
-							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
-								Records
+							{userExerciseDetails.data?.history ? (
+								<Tabs.Tab
+									value="history"
+									leftSection={<IconHistoryToggle size={16} />}
+								>
+									History
+								</Tabs.Tab>
+							) : undefined}
+							{userExerciseDetails.data?.details ? (
+								<Tabs.Tab
+									value="records"
+									leftSection={<IconTrophy size={16} />}
+								>
+									Records
+								</Tabs.Tab>
+							) : undefined}
+							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+								Actions
 							</Tabs.Tab>
 						</Tabs.List>
-
 						<Tabs.Panel value="overview">
 							<Stack>
 								<ScrollArea>
@@ -196,8 +231,8 @@ const Page: NextPageWithLayout = () => {
 								) : undefined}
 							</Stack>
 						</Tabs.Panel>
-						<Tabs.Panel value="history">
-							{userExerciseDetails.data ? (
+						{userExerciseDetails.data?.history ? (
+							<Tabs.Panel value="history">
 								<Stack>
 									{userExerciseDetails.data.history.map((h) => (
 										<Paper key={h.workoutId} withBorder p="xs">
@@ -237,12 +272,10 @@ const Page: NextPageWithLayout = () => {
 										</Paper>
 									))}
 								</Stack>
-							) : (
-								<Text fs="italic">No history found</Text>
-							)}
-						</Tabs.Panel>
-						<Tabs.Panel value="records">
-							{userExerciseDetails.data ? (
+							</Tabs.Panel>
+						) : undefined}
+						{userExerciseDetails.data?.details ? (
+							<Tabs.Panel value="records">
 								<Stack>
 									<Box>
 										<Text size="xs" c="dimmed">
@@ -281,9 +314,23 @@ const Page: NextPageWithLayout = () => {
 										/>
 									</Box>
 								</Stack>
-							) : (
-								<Text fs="italic">No records found</Text>
-							)}
+							</Tabs.Panel>
+						) : undefined}
+						<Tabs.Panel value="actions">
+							<MediaScrollArea>
+								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+									<Button variant="outline" onClick={collectionModalOpen}>
+										Add to collection
+									</Button>
+									<AddEntityToCollectionModal
+										onClose={collectionModalClose}
+										opened={collectionModalOpened}
+										entityId={exerciseId}
+										refetchUserMedia={userExerciseDetails.refetch}
+										entityLot={EntityLot.Exercise}
+									/>
+								</SimpleGrid>
+							</MediaScrollArea>
 						</Tabs.Panel>
 					</Tabs>
 				</Stack>

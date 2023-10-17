@@ -98,7 +98,7 @@ export interface ImportOrExportMediaItemSeen {
 export type MetadataSource = 'anilist' | 'audible' | 'custom' | 'google-books' | 'igdb' | 'itunes' | 'listennotes' | 'manga-updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb';
 
 export interface ImportOrExportMediaItem {
-	/** The collections to add this media to. */
+	/** The collections this entity was added to. */
 	collections: string[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
 	identifier: string;
@@ -115,6 +115,8 @@ export interface ImportOrExportMediaItem {
 }
 
 export interface ImportOrExportPersonItem {
+	/** The collections this entity was added to. */
+	collections: string[];
 	/** The name of the creator. */
 	name: string;
 	/** The review history for the user. */

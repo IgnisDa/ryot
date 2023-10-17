@@ -6,11 +6,18 @@ import {
 	useUserPreferences,
 } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getFallbackImageUrl, getLot, getVerb } from "@/lib/utilities";
+import {
+	Verb,
+	getFallbackImageUrl,
+	getLot,
+	getStringAsciiValue,
+	getVerb,
+} from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
 	Avatar,
+	Badge,
 	Box,
 	Button,
 	Collapse,
@@ -18,24 +25,32 @@ import {
 	Flex,
 	Image,
 	Loader,
+	Modal,
 	Paper,
 	ScrollArea,
+	Select,
 	Stack,
 	Text,
+	Title,
 	Tooltip,
 	useComputedColorScheme,
+	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	AddMediaToCollectionDocument,
-	type AddMediaToCollectionMutationVariables,
+	AddEntityToCollectionDocument,
+	type AddEntityToCollectionMutationVariables,
 	CreateReviewCommentDocument,
 	type CreateReviewCommentMutationVariables,
+	EntityLot,
 	MetadataLot,
 	MetadataSource,
 	type PartialMetadata,
+	RemoveEntityFromCollectionDocument,
+	type RemoveEntityFromCollectionMutationVariables,
 	type ReviewItem,
+	UserCollectionsListDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
@@ -44,11 +59,13 @@ import {
 	IconEdit,
 	IconStarFilled,
 	IconTrash,
+	IconX,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -368,10 +385,11 @@ type Item = {
 
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
-	lot: MetadataLot;
+	entityLot?: EntityLot | null;
+	href?: string;
+	lot?: MetadataLot | null;
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
-	href: string;
 	existsInDatabase?: boolean;
 	averageRating?: string;
 	noRatingLink?: boolean;
@@ -382,7 +400,30 @@ export const MediaItemWithoutUpdateModal = (props: {
 
 	return userPreferences.data ? (
 		<BaseDisplayItem
-			href={props.href}
+			href={
+				props.href
+					? props.href
+					: withQuery(
+							match(props.entityLot)
+								.with(
+									EntityLot.Metadata,
+									undefined,
+									null,
+									() => APP_ROUTES.media.individualMediaItem.details,
+								)
+								.with(
+									EntityLot.MetadataGroup,
+									() => APP_ROUTES.media.groups.details,
+								)
+								.with(EntityLot.Person, () => APP_ROUTES.media.people.details)
+								.with(
+									EntityLot.Exercise,
+									() => APP_ROUTES.fitness.exercises.details,
+								)
+								.exhaustive(),
+							{ id: props.item.identifier },
+					  )
+			}
 			imageLink={props.item.image}
 			imagePlaceholder={getInitials(props.item?.title || "")}
 			topLeft={
@@ -452,7 +493,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 				)
 			}
 			bottomLeft={props.item.publishYear}
-			bottomRight={changeCase(props.lot || "")}
+			bottomRight={changeCase(
+				props.lot ? props.lot : props.entityLot ? props.entityLot : "",
+			)}
 			highlightRightText={
 				props.existsInDatabase ? "This media exists in the database" : undefined
 			}
@@ -476,12 +519,12 @@ export const MediaSearchItem = (props: {
 
 	const commitMedia = useCommitMedia(lot);
 	const addMediaToCollection = useMutation({
-		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
-			const { addMediaToCollection } = await gqlClient.request(
-				AddMediaToCollectionDocument,
+		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
+			const { addEntityToCollection } = await gqlClient.request(
+				AddEntityToCollectionDocument,
 				variables,
 			);
-			return addMediaToCollection;
+			return addEntityToCollection;
 		},
 		onSuccess: () => {
 			props.searchQueryRefetch();
@@ -567,7 +610,11 @@ export const MediaSearchItem = (props: {
 					onClick={async () => {
 						const id = await commitFunction();
 						addMediaToCollection.mutate({
-							input: { collectionName: "Watchlist", mediaId: id },
+							input: {
+								collectionName: "Watchlist",
+								entityId: id,
+								entityLot: EntityLot.Metadata,
+							},
 						});
 					}}
 					disabled={addMediaToCollection.isLoading}
@@ -576,5 +623,148 @@ export const MediaSearchItem = (props: {
 				</Button>
 			</>
 		</MediaItemWithoutUpdateModal>
+	);
+};
+
+export const AddEntityToCollectionModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	entityId: number;
+	refetchUserMedia: () => void;
+	entityLot: EntityLot;
+}) => {
+	const [selectedCollection, setSelectedCollection] = useState<string | null>(
+		null,
+	);
+
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{},
+			);
+			return userCollectionsList.map((c) => c.name);
+		},
+	});
+	const addMediaToCollection = useMutation({
+		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
+			const { addEntityToCollection } = await gqlClient.request(
+				AddEntityToCollectionDocument,
+				variables,
+			);
+			return addEntityToCollection;
+		},
+		onSuccess: () => {
+			props.refetchUserMedia();
+			props.onClose();
+		},
+	});
+
+	return collections.data ? (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			{collections ? (
+				<Stack>
+					<Title order={3}>Select collection</Title>
+					{collections.data.length > 0 ? (
+						<Select
+							data={collections.data}
+							onChange={setSelectedCollection}
+							searchable
+						/>
+					) : undefined}
+					<Button
+						data-autofocus
+						variant="outline"
+						onClick={() => {
+							addMediaToCollection.mutate({
+								input: {
+									collectionName: selectedCollection || "",
+									entityId: props.entityId,
+									entityLot: props.entityLot,
+								},
+							});
+						}}
+					>
+						Set
+					</Button>
+					<Button variant="outline" color="red" onClick={props.onClose}>
+						Cancel
+					</Button>
+				</Stack>
+			) : undefined}
+		</Modal>
+	) : undefined;
+};
+
+export const DisplayCollection = (props: {
+	col: { id: number; name: string };
+	entityId: number;
+	entityLot: EntityLot;
+	refetch: () => void;
+}) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+	const removeMediaFromCollection = useMutation({
+		mutationFn: async (
+			variables: RemoveEntityFromCollectionMutationVariables,
+		) => {
+			const { removeEntityFromCollection } = await gqlClient.request(
+				RemoveEntityFromCollectionDocument,
+				variables,
+			);
+			return removeEntityFromCollection;
+		},
+		onSuccess: () => {
+			props.refetch();
+		},
+	});
+
+	return (
+		<Badge
+			key={props.col.id}
+			color={
+				colors[
+					// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
+					(getStringAsciiValue(props.col.name) + colors.length) % colors.length
+				]
+			}
+		>
+			<Flex gap={2}>
+				<Anchor
+					component={Link}
+					truncate
+					style={{ all: "unset", cursor: "pointer" }}
+					href={withQuery(APP_ROUTES.media.collections.details, {
+						collectionId: props.col.id,
+					})}
+				>
+					{props.col.name}
+				</Anchor>
+				<ActionIcon
+					size={16}
+					onClick={() => {
+						const yes = confirm(
+							"Are you sure you want to remove this media from this collection?",
+						);
+						if (yes)
+							removeMediaFromCollection.mutate({
+								input: {
+									collectionName: props.col.name,
+									entityId: props.entityId,
+									entityLot: props.entityLot,
+								},
+							});
+					}}
+				>
+					<IconX />
+				</ActionIcon>
+			</Flex>
+		</Badge>
 	);
 };

@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "2.23.2"
+version = "2.24.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"

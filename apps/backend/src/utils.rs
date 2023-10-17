@@ -15,6 +15,7 @@ use axum_extra::extract::cookie::CookieJar;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
+use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseConnection, EntityTrait, PartialModelTrait, QueryFilter,
@@ -29,7 +30,8 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        prelude::{User, UserToMetadata},
+        collection, collection_to_entity,
+        prelude::{Collection, CollectionToEntity, User, UserToMetadata},
         user, user_to_metadata,
     },
     file_storage::FileStorageService,
@@ -37,7 +39,7 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::StoredUrl,
+    models::{media::ChangeCollectionToEntityInput, EntityLot, StoredUrl},
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -209,6 +211,92 @@ pub async fn get_stored_asset(
     match url {
         StoredUrl::Url(u) => u,
         StoredUrl::S3(u) => file_storage_service.get_presigned_url(u).await,
+    }
+}
+
+pub async fn entity_in_collections(
+    db: &DatabaseConnection,
+    user_id: i32,
+    entity_id: i32,
+    entity_lot: EntityLot,
+) -> Result<Vec<collection::Model>> {
+    let user_collections = Collection::find()
+        .filter(collection::Column::UserId.eq(user_id))
+        .all(db)
+        .await
+        .unwrap();
+    let target_column = match entity_lot {
+        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Person => collection_to_entity::Column::PersonId,
+        EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+    };
+    let mtc = CollectionToEntity::find()
+        .filter(
+            collection_to_entity::Column::CollectionId
+                .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
+        )
+        .filter(target_column.eq(entity_id))
+        .find_also_related(Collection)
+        .all(db)
+        .await
+        .unwrap();
+    let mut resp = vec![];
+    mtc.into_iter().for_each(|(_, b)| {
+        if let Some(m) = b {
+            resp.push(m);
+        }
+    });
+    Ok(resp)
+}
+
+pub async fn add_entity_to_collection(
+    db: &DatabaseConnection,
+    user_id: i32,
+    input: ChangeCollectionToEntityInput,
+) -> Result<bool> {
+    let target_column = match input.entity_lot {
+        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Person => collection_to_entity::Column::PersonId,
+        EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+    };
+    let collection = Collection::find()
+        .filter(collection::Column::UserId.eq(user_id.to_owned()))
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap();
+    if let Some(etc) = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+        .filter(target_column.eq(input.entity_id))
+        .one(db)
+        .await?
+    {
+        let mut to_update: collection_to_entity::ActiveModel = etc.into();
+        to_update.last_updated_on = ActiveValue::Set(Utc::now());
+        Ok(to_update.update(db).await.is_ok())
+    } else {
+        let mut created_collection = collection_to_entity::ActiveModel {
+            collection_id: ActiveValue::Set(collection.id),
+            ..Default::default()
+        };
+        match input.entity_lot {
+            EntityLot::Metadata => {
+                created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::Person => {
+                created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::MetadataGroup => {
+                created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::Exercise => {
+                created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
+            }
+        };
+        Ok(created_collection.insert(db).await.is_ok())
     }
 }
 

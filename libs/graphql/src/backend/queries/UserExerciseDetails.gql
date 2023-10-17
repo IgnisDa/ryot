@@ -1,5 +1,8 @@
 query UserExerciseDetails($input: UserExerciseDetailsInput!) {
   userExerciseDetails(input: $input) {
+    collections {
+      ...CollectionPart
+    }
     history {
       workoutId
       workoutName

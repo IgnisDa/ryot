@@ -1,5 +1,0 @@
-mutation RemoveMediaFromCollection($metadataId: Int!, $collectionName: String!) {
-  removeMediaFromCollection(metadataId: $metadataId, collectionName: $collectionName) {
-    id
-  }
-}

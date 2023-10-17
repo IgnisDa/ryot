@@ -1,6 +1,6 @@
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
-import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
@@ -21,7 +21,6 @@ import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
-import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
@@ -76,11 +75,8 @@ const Page: NextPageWithLayout = () => {
 										...lm.details,
 										publishYear: lm.details.publishYear?.toString(),
 									}}
-									lot={lm.lot}
-									href={withQuery(
-										APP_ROUTES.media.individualMediaItem.details,
-										{ id: lm.details.identifier },
-									)}
+									lot={lm.metadataLot}
+									entityLot={lm.entityLot}
 								/>
 							))}
 						</Grid>

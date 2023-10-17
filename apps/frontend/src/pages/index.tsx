@@ -27,10 +27,10 @@ import {
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
-	CollectionsDocument,
 	DashboardElementLot,
 	LatestUserSummaryDocument,
 	MetadataLot,
+	UserCollectionsListDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
@@ -90,9 +90,6 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 				}`,
 			}}
 			lot={um.metadataLot}
-			href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
-				id: um.metadataId,
-			})}
 			noRatingLink
 		/>
 	);
@@ -194,10 +191,11 @@ const Page: NextPageWithLayout = () => {
 			(de) => de.section === DashboardElementLot.InProgress,
 		)?.numElements;
 		invariant(take, "Can not get the value of take");
-		const { collections } = await gqlClient.request(CollectionsDocument, {
-			input: { name: "In Progress" },
-		});
-		const id = collections[0].id;
+		const { userCollectionsList } = await gqlClient.request(
+			UserCollectionsListDocument,
+			{ name: "In Progress" },
+		);
+		const id = userCollectionsList[0].id;
 		const { collectionContents } = await gqlClient.request(
 			CollectionContentsDocument,
 			{ input: { collectionId: id, page: 1, take } },
@@ -293,11 +291,8 @@ const Page: NextPageWithLayout = () => {
 														...lm.details,
 														publishYear: lm.details.publishYear?.toString(),
 													}}
-													lot={lm.lot}
-													href={withQuery(
-														APP_ROUTES.media.individualMediaItem.details,
-														{ id: lm.details.identifier },
-													)}
+													lot={lm.metadataLot}
+													entityLot={lm.entityLot}
 													noRatingLink
 												/>
 											))}

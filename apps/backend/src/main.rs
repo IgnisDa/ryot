@@ -45,7 +45,7 @@ use crate::{
     entities::prelude::Exercise,
     graphql::get_schema,
     migrator::Migrator,
-    models::media::ExportAllResponse,
+    models::ExportAllResponse,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
         static_handler, upload_file,
