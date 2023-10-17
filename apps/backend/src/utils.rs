@@ -275,7 +275,7 @@ pub async fn add_entity_to_collection(
         .await?
     {
         let mut to_update: collection_to_entity::ActiveModel = etc.into();
-        to_update.updated_on = ActiveValue::Set(Utc::now());
+        to_update.last_updated_on = ActiveValue::Set(Utc::now());
         Ok(to_update.update(db).await.is_ok())
     } else {
         let mut created_collection = collection_to_entity::ActiveModel {

@@ -3704,7 +3704,7 @@ impl MiscellaneousService {
 
         let paginator = CollectionToEntity::find()
             .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
-            .order_by_desc(collection_to_entity::Column::UpdatedOn)
+            .order_by_desc(collection_to_entity::Column::LastUpdatedOn)
             .paginate(
                 &self.db,
                 input

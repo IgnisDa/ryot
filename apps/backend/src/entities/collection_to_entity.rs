@@ -13,7 +13,7 @@ use super::prelude::Collection;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub updated_on: DateTimeUtc,
+    pub last_updated_on: DateTimeUtc,
     pub collection_id: i32,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,

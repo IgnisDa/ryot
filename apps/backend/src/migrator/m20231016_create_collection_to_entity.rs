@@ -14,7 +14,7 @@ pub enum CollectionToEntity {
     Table,
     Id,
     CollectionId,
-    UpdatedOn,
+    LastUpdatedOn,
     // the entities that can be added to a collection
     MetadataId,
     MetadataGroupId,
@@ -37,7 +37,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(CollectionToEntity::UpdatedOn)
+                        ColumnDef::new(CollectionToEntity::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
