@@ -529,11 +529,6 @@ struct CreatorsListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct UserCollectionInput {
-    name: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaConsumedInput {
     identifier: String,
     lot: MetadataLot,
@@ -712,14 +707,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get all collections for the currently logged in user.
-    async fn user_collections(
+    async fn user_collections_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: UserCollectionInput,
+        name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_collections(user_id, input).await
+        service.user_collections_list(user_id, name).await
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -3604,14 +3599,14 @@ impl MiscellaneousService {
         Ok(all_reviews)
     }
 
-    async fn user_collections(
+    async fn user_collections_list(
         &self,
         user_id: i32,
-        input: UserCollectionInput,
+        name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(user_id))
-            .apply_if(input.name, |query, v| {
+            .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
             .order_by_asc(collection::Column::CreatedOn)

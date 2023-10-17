@@ -1,0 +1,9 @@
+query UserCollectionsList($name: String) {
+  userCollectionsList(name: $name) {
+    id
+    name
+    description
+    visibility
+    numItems
+  }
+}

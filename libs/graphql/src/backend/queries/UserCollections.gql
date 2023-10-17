@@ -1,9 +1,0 @@
-query UserCollections($input: UserCollectionInput!) {
-  userCollections(input: $input) {
-    id
-    name
-    description
-    visibility
-    numItems
-  }
-}
