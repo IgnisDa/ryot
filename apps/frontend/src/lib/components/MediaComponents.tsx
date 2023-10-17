@@ -6,11 +6,18 @@ import {
 	useUserPreferences,
 } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getFallbackImageUrl, getLot, getVerb } from "@/lib/utilities";
+import {
+	Verb,
+	getFallbackImageUrl,
+	getLot,
+	getStringAsciiValue,
+	getVerb,
+} from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
 	Avatar,
+	Badge,
 	Box,
 	Button,
 	Collapse,
@@ -27,6 +34,7 @@ import {
 	Title,
 	Tooltip,
 	useComputedColorScheme,
+	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -39,6 +47,8 @@ import {
 	MetadataLot,
 	MetadataSource,
 	type PartialMetadata,
+	RemoveEntityFromCollectionDocument,
+	type RemoveEntityFromCollectionMutationVariables,
 	type ReviewItem,
 	UserCollectionsListDocument,
 	UserReviewScale,
@@ -49,6 +59,7 @@ import {
 	IconEdit,
 	IconStarFilled,
 	IconTrash,
+	IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -689,4 +700,71 @@ export const AddEntityToCollectionModal = (props: {
 			) : undefined}
 		</Modal>
 	) : undefined;
+};
+
+export const DisplayCollection = (props: {
+	col: { id: number; name: string };
+	entityId: number;
+	entityLot: EntityLot;
+	refetch: () => void;
+}) => {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+	const removeMediaFromCollection = useMutation({
+		mutationFn: async (
+			variables: RemoveEntityFromCollectionMutationVariables,
+		) => {
+			const { removeEntityFromCollection } = await gqlClient.request(
+				RemoveEntityFromCollectionDocument,
+				variables,
+			);
+			return removeEntityFromCollection;
+		},
+		onSuccess: () => {
+			props.refetch();
+		},
+	});
+
+	return (
+		<Badge
+			key={props.col.id}
+			color={
+				colors[
+					// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
+					(getStringAsciiValue(props.col.name) + colors.length) % colors.length
+				]
+			}
+		>
+			<Flex gap={2}>
+				<Anchor
+					component={Link}
+					truncate
+					style={{ all: "unset", cursor: "pointer" }}
+					href={withQuery(APP_ROUTES.media.collections.details, {
+						collectionId: props.col.id,
+					})}
+				>
+					{props.col.name}
+				</Anchor>
+				<ActionIcon
+					size={16}
+					onClick={() => {
+						const yes = confirm(
+							"Are you sure you want to remove this media from this collection?",
+						);
+						if (yes)
+							removeMediaFromCollection.mutate({
+								input: {
+									collectionName: props.col.name,
+									entityId: props.entityId,
+									entityLot: props.entityLot,
+								},
+							});
+					}}
+				>
+					<IconX />
+				</ActionIcon>
+			</Flex>
+		</Badge>
+	);
 };

@@ -1,5 +1,6 @@
 import {
 	AddEntityToCollectionModal,
+	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ReviewItemDisplay,
@@ -10,14 +11,12 @@ import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Verb, getStringAsciiValue, getVerb } from "@/lib/utilities";
+import { Verb, getVerb } from "@/lib/utilities";
 import {
 	Accordion,
-	ActionIcon,
 	Alert,
 	Anchor,
 	Avatar,
-	Badge,
 	Box,
 	Button,
 	Container,
@@ -39,7 +38,6 @@ import {
 	Text,
 	TextInput,
 	Title,
-	useMantineTheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
@@ -63,8 +61,6 @@ import {
 	MetadataVideoSource,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
-	RemoveEntityFromCollectionDocument,
-	type RemoveEntityFromCollectionMutationVariables,
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
@@ -381,8 +377,6 @@ const AccordionLabel = ({
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = parseInt(router.query.id?.toString() || "0");
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
 	const coreDetails = useCoreDetails();
 	const preferences = useUserPreferences();
 
@@ -533,20 +527,6 @@ const Page: NextPageWithLayout = () => {
 			router.push(APP_ROUTES.dashboard);
 		},
 	});
-	const removeMediaFromCollection = useMutation({
-		mutationFn: async (
-			variables: RemoveEntityFromCollectionMutationVariables,
-		) => {
-			const { removeEntityFromCollection } = await gqlClient.request(
-				RemoveEntityFromCollectionDocument,
-				variables,
-			);
-			return removeEntityFromCollection;
-		},
-		onSuccess: () => {
-			userMediaDetails.refetch();
-		},
-	});
 
 	const source = mediaDetails?.data?.source || MetadataSource.Custom;
 
@@ -634,47 +614,13 @@ const Page: NextPageWithLayout = () => {
 					userMediaDetails.data.collections.length > 0 ? (
 						<Group id="media-collections">
 							{userMediaDetails.data.collections.map((col) => (
-								<Badge
+								<DisplayCollection
+									col={col}
+									entityId={metadataId}
+									entityLot={EntityLot.Metadata}
+									refetch={userMediaDetails.refetch}
 									key={col.id}
-									color={
-										colors[
-											// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-											(getStringAsciiValue(col.name) + colors.length) %
-												colors.length
-										]
-									}
-								>
-									<Flex gap={2}>
-										<Anchor
-											component={Link}
-											truncate
-											style={{ all: "unset", cursor: "pointer" }}
-											href={withQuery(APP_ROUTES.media.collections.details, {
-												collectionId: col.id,
-											})}
-										>
-											{col.name}
-										</Anchor>
-										<ActionIcon
-											size={16}
-											onClick={() => {
-												const yes = confirm(
-													"Are you sure you want to remove this media from this collection?",
-												);
-												if (yes)
-													removeMediaFromCollection.mutate({
-														input: {
-															collectionName: col.name,
-															entityId: metadataId,
-															entityLot: EntityLot.Metadata,
-														},
-													});
-											}}
-										>
-											<IconX />
-										</ActionIcon>
-									</Flex>
-								</Badge>
+								/>
 							))}
 						</Group>
 					) : undefined}
