@@ -157,15 +157,22 @@ const Page: NextPageWithLayout = () => {
 							>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab
-								value="history"
-								leftSection={<IconHistoryToggle size={16} />}
-							>
-								History
-							</Tabs.Tab>
-							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
-								Records
-							</Tabs.Tab>
+							{userExerciseDetails.data?.history ? (
+								<Tabs.Tab
+									value="history"
+									leftSection={<IconHistoryToggle size={16} />}
+								>
+									History
+								</Tabs.Tab>
+							) : undefined}
+							{userExerciseDetails.data?.details ? (
+								<Tabs.Tab
+									value="records"
+									leftSection={<IconTrophy size={16} />}
+								>
+									Records
+								</Tabs.Tab>
+							) : undefined}
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
@@ -267,8 +274,8 @@ const Page: NextPageWithLayout = () => {
 								</Stack>
 							</Tabs.Panel>
 						) : undefined}
-						<Tabs.Panel value="records">
-							{userExerciseDetails.data?.details ? (
+						{userExerciseDetails.data?.details ? (
+							<Tabs.Panel value="records">
 								<Stack>
 									<Box>
 										<Text size="xs" c="dimmed">
@@ -307,10 +314,8 @@ const Page: NextPageWithLayout = () => {
 										/>
 									</Box>
 								</Stack>
-							) : (
-								<Text fs="italic">No records found</Text>
-							)}
-						</Tabs.Panel>
+							</Tabs.Panel>
+						) : undefined}
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
