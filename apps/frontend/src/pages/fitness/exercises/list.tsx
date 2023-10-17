@@ -413,7 +413,7 @@ const Page: NextPageWithLayout = () => {
 											},
 										],
 										alreadyDoneSets:
-											userExerciseDetails?.history.at(-1)?.sets.map((s) => ({
+											userExerciseDetails?.history?.at(-1)?.sets.map((s) => ({
 												// biome-ignore lint/suspicious/noExplicitAny: required here
 												statistic: s.statistic as any,
 											})) || [],
