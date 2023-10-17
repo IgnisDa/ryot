@@ -121,7 +121,7 @@ use crate::{
     },
     utils::{
         add_entity_to_collection, associate_user_with_metadata, convert_naive_to_utc,
-        get_first_and_last_day_of_month, get_ilike_query, get_stored_asset,
+        entity_in_collections, get_first_and_last_day_of_month, get_ilike_query, get_stored_asset,
         get_user_and_metadata_association, partial_user_by_id, user_by_id, user_id_from_token,
         AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
@@ -1687,9 +1687,8 @@ impl MiscellaneousService {
 
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
         let media_details = self.media_details(metadata_id).await?;
-        let collections = self
-            .entity_in_collections(user_id, metadata_id, EntityLot::Metadata)
-            .await?;
+        let collections =
+            entity_in_collections(&self.db, user_id, metadata_id, EntityLot::Metadata).await?;
         let reviews = self.item_reviews(user_id, Some(metadata_id), None).await?;
         let history = self.seen_history(user_id, metadata_id).await?;
         let in_progress = history
@@ -1786,9 +1785,8 @@ impl MiscellaneousService {
         creator_id: i32,
     ) -> Result<UserCreatorDetails> {
         let reviews = self.item_reviews(user_id, None, Some(creator_id)).await?;
-        let collections = self
-            .entity_in_collections(user_id, creator_id, EntityLot::Person)
-            .await?;
+        let collections =
+            entity_in_collections(&self.db, user_id, creator_id, EntityLot::Person).await?;
         Ok(UserCreatorDetails {
             reviews,
             collections,
@@ -3643,42 +3641,6 @@ impl MiscellaneousService {
             });
         }
         Ok(data)
-    }
-
-    async fn entity_in_collections(
-        &self,
-        user_id: i32,
-        entity_id: i32,
-        entity_lot: EntityLot,
-    ) -> Result<Vec<collection::Model>> {
-        let user_collections = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await
-            .unwrap();
-        let target_column = match entity_lot {
-            EntityLot::Metadata => collection_to_entity::Column::MetadataId,
-            EntityLot::Person => collection_to_entity::Column::PersonId,
-            EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
-            EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
-        };
-        let mtc = CollectionToEntity::find()
-            .filter(
-                collection_to_entity::Column::CollectionId
-                    .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
-            )
-            .filter(target_column.eq(entity_id))
-            .find_also_related(Collection)
-            .all(&self.db)
-            .await
-            .unwrap();
-        let mut resp = vec![];
-        mtc.into_iter().for_each(|(_, b)| {
-            if let Some(m) = b {
-                resp.push(m);
-            }
-        });
-        Ok(resp)
     }
 
     async fn collection_contents(
@@ -6016,8 +5978,7 @@ impl MiscellaneousService {
                 );
                 reviews.push(review_item);
             }
-            let collections = self
-                .entity_in_collections(user_id, m.id, EntityLot::Metadata)
+            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Metadata)
                 .await?
                 .into_iter()
                 .map(|c| c.name)
@@ -6053,12 +6014,12 @@ impl MiscellaneousService {
             if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {
-                let collections = self
-                    .entity_in_collections(user_id, creator.id, EntityLot::Person)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
+                let collections =
+                    entity_in_collections(&self.db, user_id, creator.id, EntityLot::Person)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.name)
+                        .collect();
                 resp.push(ImportOrExportPersonItem {
                     name: creator.name,
                     reviews: vec![review_item],

@@ -15,6 +15,7 @@ use axum_extra::extract::cookie::CookieJar;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
+use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseConnection, EntityTrait, PartialModelTrait, QueryFilter,
@@ -211,6 +212,42 @@ pub async fn get_stored_asset(
         StoredUrl::Url(u) => u,
         StoredUrl::S3(u) => file_storage_service.get_presigned_url(u).await,
     }
+}
+
+pub async fn entity_in_collections(
+    db: &DatabaseConnection,
+    user_id: i32,
+    entity_id: i32,
+    entity_lot: EntityLot,
+) -> Result<Vec<collection::Model>> {
+    let user_collections = Collection::find()
+        .filter(collection::Column::UserId.eq(user_id))
+        .all(db)
+        .await
+        .unwrap();
+    let target_column = match entity_lot {
+        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Person => collection_to_entity::Column::PersonId,
+        EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+    };
+    let mtc = CollectionToEntity::find()
+        .filter(
+            collection_to_entity::Column::CollectionId
+                .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
+        )
+        .filter(target_column.eq(entity_id))
+        .find_also_related(Collection)
+        .all(db)
+        .await
+        .unwrap();
+    let mut resp = vec![];
+    mtc.into_iter().for_each(|(_, b)| {
+        if let Some(m) = b {
+            resp.push(m);
+        }
+    });
+    Ok(resp)
 }
 
 pub async fn add_entity_to_collection(
