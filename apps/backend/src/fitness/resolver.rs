@@ -19,6 +19,7 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
+        collection,
         exercise::{self, ExerciseListItem},
         prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
         user::UserWithOnlyPreferences,
@@ -39,7 +40,7 @@ use crate::{
         EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::AuthProvider,
-    utils::{add_entity_to_collection, get_ilike_query, partial_user_by_id},
+    utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
 };
 
 static JSON_URL: &str =
@@ -109,6 +110,7 @@ struct UserExerciseHistoryInformation {
 struct UserExerciseDetails {
     details: user_to_exercise::Model,
     history: Vec<UserExerciseHistoryInformation>,
+    collections: Vec<collection::Model>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -373,7 +375,14 @@ impl ExerciseService {
             if let Some(take) = input.take_history {
                 history = history.into_iter().take(take).collect_vec();
             }
-            Ok(Some(UserExerciseDetails { details, history }))
+            let collections =
+                entity_in_collections(&self.db, user_id, input.exercise_id, EntityLot::Exercise)
+                    .await?;
+            Ok(Some(UserExerciseDetails {
+                details,
+                history,
+                collections,
+            }))
         } else {
             Ok(None)
         }
