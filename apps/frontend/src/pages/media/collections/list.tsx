@@ -27,7 +27,7 @@ import {
 	type CreateOrUpdateCollectionMutationVariables,
 	DeleteCollectionDocument,
 	type DeleteCollectionMutationVariables,
-	UserCollectionsDocument,
+	UserCollectionsListDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -56,11 +56,11 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const collections = useQuery(["collections"], async () => {
-		const { userCollections } = await gqlClient.request(
-			UserCollectionsDocument,
-			{ input: {} },
+		const { userCollectionsList } = await gqlClient.request(
+			UserCollectionsListDocument,
+			{},
 		);
-		return userCollections;
+		return userCollectionsList;
 	});
 
 	const createOrUpdateCollection = useMutation({

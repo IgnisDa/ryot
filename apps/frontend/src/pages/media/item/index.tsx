@@ -70,7 +70,7 @@ import {
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
-	UserCollectionsDocument,
+	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -254,11 +254,11 @@ const SelectCollectionModal = (props: {
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { userCollections } = await gqlClient.request(
-				UserCollectionsDocument,
-				{ input: {} },
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{},
 			);
-			return userCollections.map((c) => c.name);
+			return userCollectionsList.map((c) => c.name);
 		},
 	});
 	const addMediaToCollection = useMutation({

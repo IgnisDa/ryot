@@ -30,7 +30,7 @@ import {
 	DashboardElementLot,
 	LatestUserSummaryDocument,
 	MetadataLot,
-	UserCollectionsDocument,
+	UserCollectionsListDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
@@ -194,13 +194,11 @@ const Page: NextPageWithLayout = () => {
 			(de) => de.section === DashboardElementLot.InProgress,
 		)?.numElements;
 		invariant(take, "Can not get the value of take");
-		const { userCollections } = await gqlClient.request(
-			UserCollectionsDocument,
-			{
-				input: { name: "In Progress" },
-			},
+		const { userCollectionsList } = await gqlClient.request(
+			UserCollectionsListDocument,
+			{ name: "In Progress" },
 		);
-		const id = userCollections[0].id;
+		const id = userCollectionsList[0].id;
 		const { collectionContents } = await gqlClient.request(
 			CollectionContentsDocument,
 			{ input: { collectionId: id, page: 1, take } },
