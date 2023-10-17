@@ -3061,12 +3061,17 @@ impl MiscellaneousService {
                 .count(&self.db)
                 .await
                 .unwrap();
+            let num_col_associations = CollectionToEntity::find()
+                .filter(collection_to_entity::Column::PersonId.eq(creator.id))
+                .count(&self.db)
+                .await
+                .unwrap();
             let num_reviews = Review::find()
                 .filter(review::Column::PersonId.eq(creator.id))
                 .count(&self.db)
                 .await
                 .unwrap();
-            if num_associations + num_reviews == 0 {
+            if num_associations + num_col_associations + num_reviews == 0 {
                 creator.delete(&self.db).await.ok();
             }
         }
