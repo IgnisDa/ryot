@@ -21,10 +21,11 @@ use crate::{
     models::{
         fitness::UserWorkoutInput,
         media::{
-            ChangeCollectionToEntityInput, CreateOrUpdateCollectionInput, EntityLot,
+            ChangeCollectionToEntityInput, CreateOrUpdateCollectionInput,
             ImportOrExportItemIdentifier, ImportOrExportMediaItem, PostReviewInput,
             ProgressUpdateInput,
         },
+        EntityLot,
     },
     traits::AuthProvider,
     users::UserReviewScale,

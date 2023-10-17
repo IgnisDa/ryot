@@ -34,6 +34,14 @@ use crate::{
     utils::get_stored_asset,
 };
 
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EntityLot {
+    Metadata,
+    Person,
+    MetadataGroup,
+    Exercise,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum StoredUrl {
     S3(String),
@@ -111,7 +119,8 @@ pub mod media {
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MediaSearchItemWithLot {
         pub details: MediaSearchItem,
-        pub lot: MetadataLot,
+        pub metadata_lot: Option<MetadataLot>,
+        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -682,14 +691,6 @@ pub mod media {
         pub calculated_on: DateTimeUtc,
         #[graphql(skip)]
         pub unique_items: UserSummaryUniqueItems,
-    }
-
-    #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-    pub enum EntityLot {
-        Metadata,
-        Person,
-        MetadataGroup,
-        Exercise,
     }
 
     #[derive(Debug, InputObject)]

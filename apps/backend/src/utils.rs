@@ -38,10 +38,7 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::{
-        media::{ChangeCollectionToEntityInput, EntityLot},
-        StoredUrl,
-    },
+    models::{media::ChangeCollectionToEntityInput, EntityLot, StoredUrl},
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");

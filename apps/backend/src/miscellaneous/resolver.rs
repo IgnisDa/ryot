@@ -79,10 +79,10 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ChangeCollectionToEntityInput,
-            CreateOrUpdateCollectionInput, EntityLot, FreeMetadataCreator,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemReviewComment,
-            ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
-            MangaSpecifics, MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            CreateOrUpdateCollectionInput, FreeMetadataCreator, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
+            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
             MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
             MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataImages, MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
@@ -92,7 +92,7 @@ use crate::{
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
             UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
         },
-        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
