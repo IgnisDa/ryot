@@ -213,6 +213,7 @@ const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
 	startTimer: (duration: number) => void;
+	openTimerDrawer: () => void;
 }) => {
 	const enabledCoreFeatures = useEnabledCoreFeatures();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -672,8 +673,10 @@ const ExerciseDisplay = (props: {
 											color="green"
 											onClick={() => {
 												playCheckSound();
-												if (props.exercise.restTimer?.enabled)
+												if (props.exercise.restTimer?.enabled) {
 													props.startTimer(props.exercise.restTimer.duration);
+													props.openTimerDrawer();
+												}
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
 														draft.exercises[props.exerciseIdx].sets[
@@ -954,7 +957,11 @@ const Page: NextPageWithLayout = () => {
 	});
 	const [
 		timerDrawerOpened,
-		{ close: timerDrawerClose, toggle: timerDrawerToggle },
+		{
+			close: timerDrawerClose,
+			toggle: timerDrawerToggle,
+			open: timerDrawerOpen,
+		},
 	] = useDisclosure(false);
 	const [
 		reorderDrawerOpened,
@@ -1153,6 +1160,7 @@ const Page: NextPageWithLayout = () => {
 									exercise={ex}
 									exerciseIdx={idx}
 									startTimer={startTimer}
+									openTimerDrawer={timerDrawerOpen}
 								/>
 								<Divider />
 							</Fragment>
