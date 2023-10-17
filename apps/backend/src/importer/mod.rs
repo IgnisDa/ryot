@@ -435,7 +435,7 @@ impl ImporterService {
                     )
                     .await?;
                 self.media_service
-                    .add_media_to_collection(
+                    .add_entity_to_collection(
                         user_id,
                         ChangeCollectionToEntityInput {
                             collection_name: col.to_string(),

@@ -1,5 +1,0 @@
-mutation RemoveMediaFromCollection($input: ChangeCollectionToEntityInput!) {
-  removeMediaFromCollection(input: $input) {
-    id
-  }
-}

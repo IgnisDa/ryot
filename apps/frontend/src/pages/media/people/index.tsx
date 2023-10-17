@@ -1,3 +1,5 @@
+// TODO: Allow adding person to collection
+
 import {
 	MediaScrollArea,
 	PartialMetadataDisplay,

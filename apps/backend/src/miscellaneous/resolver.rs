@@ -958,26 +958,26 @@ impl MiscellaneousMutation {
         service.create_or_update_collection(user_id, input).await
     }
 
-    /// Add a media item to a collection if it is not there, otherwise do nothing.
-    async fn add_media_to_collection(
+    /// Add a entity to a collection if it is not there, otherwise do nothing.
+    async fn add_entity_to_collection(
         &self,
         gql_ctx: &Context<'_>,
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.add_media_to_collection(user_id, input).await
+        service.add_entity_to_collection(user_id, input).await
     }
 
-    /// Remove a media item from a collection if it is not there, otherwise do nothing.
-    async fn remove_media_from_collection(
+    /// Remove an entity from a collection if it is not there, otherwise do nothing.
+    async fn remove_entity_from_collection(
         &self,
         gql_ctx: &Context<'_>,
         input: ChangeCollectionToEntityInput,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.remove_media_from_collection(user_id, input).await
+        service.remove_entity_from_collection(user_id, input).await
     }
 
     /// Delete a collection.
@@ -3893,7 +3893,7 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    pub async fn add_media_to_collection(
+    pub async fn add_entity_to_collection(
         &self,
         user_id: i32,
         input: ChangeCollectionToEntityInput,
@@ -3926,7 +3926,7 @@ impl MiscellaneousService {
         Ok(created_collection.clone().insert(&self.db).await.is_ok())
     }
 
-    pub async fn remove_media_from_collection(
+    pub async fn remove_entity_from_collection(
         &self,
         user_id: i32,
         input: ChangeCollectionToEntityInput,
@@ -3966,7 +3966,7 @@ impl MiscellaneousService {
             }
             si.delete(&self.db).await.ok();
             if progress < 100 {
-                self.remove_media_from_collection(
+                self.remove_entity_from_collection(
                     user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
@@ -4472,7 +4472,7 @@ impl MiscellaneousService {
             people: vec![],
         };
         let media = self.commit_media_internal(details).await?;
-        self.add_media_to_collection(
+        self.add_entity_to_collection(
             user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
@@ -5346,7 +5346,7 @@ impl MiscellaneousService {
     }
 
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        self.remove_media_from_collection(
+        self.remove_entity_from_collection(
             seen.user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Watchlist.to_string(),
@@ -5358,7 +5358,7 @@ impl MiscellaneousService {
         .ok();
         match seen.state {
             SeenState::InProgress => {
-                self.add_media_to_collection(
+                self.add_entity_to_collection(
                     seen.user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
@@ -5370,7 +5370,7 @@ impl MiscellaneousService {
                 .ok();
             }
             SeenState::Dropped | SeenState::OnAHold => {
-                self.remove_media_from_collection(
+                self.remove_entity_from_collection(
                     seen.user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
@@ -5428,7 +5428,7 @@ impl MiscellaneousService {
                         });
                     let is_complete = bag.values().all(|&e| e == 1);
                     if is_complete {
-                        self.remove_media_from_collection(
+                        self.remove_entity_from_collection(
                             seen.user_id,
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
@@ -5439,7 +5439,7 @@ impl MiscellaneousService {
                         .await
                         .ok();
                     } else {
-                        self.add_media_to_collection(
+                        self.add_entity_to_collection(
                             seen.user_id,
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
@@ -5458,7 +5458,7 @@ impl MiscellaneousService {
                         }
                     }
                 } else {
-                    self.remove_media_from_collection(
+                    self.remove_entity_from_collection(
                         seen.user_id,
                         ChangeCollectionToEntityInput {
                             collection_name: DefaultCollection::InProgress.to_string(),

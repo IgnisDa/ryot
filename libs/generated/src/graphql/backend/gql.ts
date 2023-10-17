@@ -13,7 +13,7 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * Therefore it is highly recommended to use the babel or swc plugin for production.
  */
 const documents = {
-    "mutation AddMediaToCollection($input: ChangeCollectionToEntityInput!) {\n  addMediaToCollection(input: $input)\n}": types.AddMediaToCollectionDocument,
+    "mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}": types.AddEntityToCollectionDocument,
     "mutation BulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  bulkProgressUpdate(input: $input)\n}": types.BulkProgressUpdateDocument,
     "mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}": types.CommitMediaDocument,
     "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    id\n  }\n}": types.CreateCustomExerciseDocument,
@@ -47,7 +47,7 @@ const documents = {
     "mutation ProgressUpdate($input: ProgressUpdateInput!) {\n  progressUpdate(input: $input) {\n    ... on IdObject {\n      id\n    }\n    ... on ProgressUpdateError {\n      error\n    }\n  }\n}": types.ProgressUpdateDocument,
     "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
-    "mutation RemoveMediaFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeMediaFromCollection(input: $input) {\n    id\n  }\n}": types.RemoveMediaFromCollectionDocument,
+    "mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}": types.RemoveEntityFromCollectionDocument,
     "mutation TestUserNotificationPlatforms {\n  testUserNotificationPlatforms\n}": types.TestUserNotificationPlatformsDocument,
     "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}": types.ToggleMediaMonitorDocument,
     "mutation UpdateAllMetadata {\n  updateAllMetadata\n}": types.UpdateAllMetadataDocument,
@@ -108,7 +108,7 @@ export function graphql(source: string): unknown;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation AddMediaToCollection($input: ChangeCollectionToEntityInput!) {\n  addMediaToCollection(input: $input)\n}"): (typeof documents)["mutation AddMediaToCollection($input: ChangeCollectionToEntityInput!) {\n  addMediaToCollection(input: $input)\n}"];
+export function graphql(source: "mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}"): (typeof documents)["mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -244,7 +244,7 @@ export function graphql(source: "mutation RegisterUser($input: UserInput!) {\n  
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation RemoveMediaFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeMediaFromCollection(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation RemoveMediaFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeMediaFromCollection(input: $input) {\n    id\n  }\n}"];
+export function graphql(source: "mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
