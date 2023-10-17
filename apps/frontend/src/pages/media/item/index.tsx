@@ -741,8 +741,11 @@ const Page: NextPageWithLayout = () => {
 												);
 												if (yes)
 													removeMediaFromCollection.mutate({
-														collectionName: col.name,
-														metadataId,
+														input: {
+															collectionName: col.name,
+															entityId: metadataId,
+															entityLot: EntityLot.Metadata,
+														},
 													});
 											}}
 										>
