@@ -212,8 +212,8 @@ const Page: NextPageWithLayout = () => {
 								) : undefined}
 							</Stack>
 						</Tabs.Panel>
-						<Tabs.Panel value="history">
-							{userExerciseDetails.data ? (
+						{userExerciseDetails.data?.history ? (
+							<Tabs.Panel value="history">
 								<Stack>
 									{userExerciseDetails.data.history.map((h) => (
 										<Paper key={h.workoutId} withBorder p="xs">
@@ -253,12 +253,10 @@ const Page: NextPageWithLayout = () => {
 										</Paper>
 									))}
 								</Stack>
-							) : (
-								<Text fs="italic">No history found</Text>
-							)}
-						</Tabs.Panel>
+							</Tabs.Panel>
+						) : undefined}
 						<Tabs.Panel value="records">
-							{userExerciseDetails.data ? (
+							{userExerciseDetails.data?.details ? (
 								<Stack>
 									<Box>
 										<Text size="xs" c="dimmed">
