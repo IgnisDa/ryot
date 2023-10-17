@@ -575,6 +575,11 @@ struct UserCreatorDetails {
 }
 
 #[derive(SimpleObject)]
+struct UserMetadataGroupDetails {
+    collections: Vec<collection::Model>,
+}
+
+#[derive(SimpleObject)]
 struct UserMediaDetails {
     /// The collections in which this media is present.
     collections: Vec<collection::Model>,
@@ -758,6 +763,19 @@ impl MiscellaneousQuery {
     ) -> Result<MetadataGroupDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.metadata_group_details(metadata_group_id).await
+    }
+
+    /// Get details that can be displayed to a user for a metadata group.
+    async fn user_metadata_group_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_group_id: i32,
+    ) -> Result<UserMetadataGroupDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .user_metadata_group_details(user_id, metadata_group_id)
+            .await
     }
 
     /// Get all the media items related to a user for a specific media type.
@@ -1791,6 +1809,21 @@ impl MiscellaneousService {
             reviews,
             collections,
         })
+    }
+
+    async fn user_metadata_group_details(
+        &self,
+        user_id: i32,
+        metadata_group_id: i32,
+    ) -> Result<UserMetadataGroupDetails> {
+        let collections = entity_in_collections(
+            &self.db,
+            user_id,
+            metadata_group_id,
+            EntityLot::MetadataGroup,
+        )
+        .await?;
+        Ok(UserMetadataGroupDetails { collections })
     }
 
     async fn get_calendar_events(
