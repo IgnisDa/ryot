@@ -29,7 +29,8 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        prelude::{User, UserToMetadata},
+        collection, collection_to_entity,
+        prelude::{Collection, User, UserToMetadata},
         user, user_to_metadata,
     },
     file_storage::FileStorageService,
@@ -37,7 +38,10 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::StoredUrl,
+    models::{
+        media::{ChangeCollectionToEntityInput, EntityLot},
+        StoredUrl,
+    },
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -210,6 +214,37 @@ pub async fn get_stored_asset(
         StoredUrl::Url(u) => u,
         StoredUrl::S3(u) => file_storage_service.get_presigned_url(u).await,
     }
+}
+
+pub async fn add_entity_to_collection(
+    db: &DatabaseConnection,
+    user_id: i32,
+    input: ChangeCollectionToEntityInput,
+) -> Result<bool> {
+    let collection = Collection::find()
+        .filter(collection::Column::UserId.eq(user_id.to_owned()))
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut created_collection = collection_to_entity::ActiveModel {
+        collection_id: ActiveValue::Set(collection.id),
+        ..Default::default()
+    };
+    match input.entity_lot {
+        EntityLot::Metadata => {
+            created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
+        }
+        EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(input.entity_id)),
+        EntityLot::MetadataGroup => {
+            created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
+        }
+        EntityLot::Exercise => {
+            created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
+        }
+    };
+    Ok(created_collection.insert(db).await.is_ok())
 }
 
 pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {

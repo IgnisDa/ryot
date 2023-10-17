@@ -120,9 +120,10 @@ use crate::{
         UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
-        associate_user_with_metadata, convert_naive_to_utc, get_first_and_last_day_of_month,
-        get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        add_entity_to_collection, associate_user_with_metadata, convert_naive_to_utc,
+        get_first_and_last_day_of_month, get_ilike_query, get_stored_asset,
+        get_user_and_metadata_association, partial_user_by_id, user_by_id, user_id_from_token,
+        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -3898,32 +3899,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
-        let collection = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
-            .filter(collection::Column::Name.eq(input.collection_name))
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id),
-            ..Default::default()
-        };
-        match input.entity_lot {
-            EntityLot::Metadata => {
-                created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
-            }
-            EntityLot::Person => {
-                created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
-            }
-            EntityLot::MetadataGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
-            }
-            EntityLot::Exercise => {
-                created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
-            }
-        };
-        Ok(created_collection.clone().insert(&self.db).await.is_ok())
+        add_entity_to_collection(&self.db, user_id, input).await
     }
 
     pub async fn remove_entity_from_collection(
