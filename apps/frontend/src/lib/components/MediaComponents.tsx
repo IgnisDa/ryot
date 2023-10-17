@@ -370,10 +370,10 @@ type Item = {
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
 	entityLot?: EntityLot | null;
+	href?: string;
 	lot?: MetadataLot | null;
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
-	href: string;
 	existsInDatabase?: boolean;
 	averageRating?: string;
 	noRatingLink?: boolean;
@@ -384,7 +384,30 @@ export const MediaItemWithoutUpdateModal = (props: {
 
 	return userPreferences.data ? (
 		<BaseDisplayItem
-			href={props.href}
+			href={
+				props.href
+					? props.href
+					: withQuery(
+							match(props.entityLot)
+								.with(
+									EntityLot.Metadata,
+									undefined,
+									null,
+									() => APP_ROUTES.media.individualMediaItem.details,
+								)
+								.with(
+									EntityLot.MetadataGroup,
+									() => APP_ROUTES.media.groups.details,
+								)
+								.with(EntityLot.Person, () => APP_ROUTES.media.people.details)
+								.with(
+									EntityLot.Exercise,
+									() => APP_ROUTES.fitness.exercises.details,
+								)
+								.exhaustive(),
+							{ id: props.item.identifier },
+					  )
+			}
 			imageLink={props.item.image}
 			imagePlaceholder={getInitials(props.item?.title || "")}
 			topLeft={

@@ -90,9 +90,6 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 				}`,
 			}}
 			lot={um.metadataLot}
-			href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
-				id: um.metadataId,
-			})}
 			noRatingLink
 		/>
 	);
@@ -296,10 +293,6 @@ const Page: NextPageWithLayout = () => {
 													}}
 													lot={lm.metadataLot}
 													entityLot={lm.entityLot}
-													href={withQuery(
-														APP_ROUTES.media.individualMediaItem.details,
-														{ id: lm.details.identifier },
-													)}
 													noRatingLink
 												/>
 											))}
