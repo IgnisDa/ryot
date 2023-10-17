@@ -1685,7 +1685,9 @@ impl MiscellaneousService {
 
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
         let media_details = self.media_details(metadata_id).await?;
-        let collections = self.media_in_collections(user_id, metadata_id).await?;
+        let collections = self
+            .entity_in_collections(user_id, metadata_id, EntityLot::Metadata)
+            .await?;
         let reviews = self.item_reviews(user_id, Some(metadata_id), None).await?;
         let history = self.seen_history(user_id, metadata_id).await?;
         let in_progress = history
@@ -3630,22 +3632,28 @@ impl MiscellaneousService {
         Ok(data)
     }
 
-    async fn media_in_collections(
+    async fn entity_in_collections(
         &self,
         user_id: i32,
-        metadata_id: i32,
+        entity_id: i32,
+        entity_lot: EntityLot,
     ) -> Result<Vec<collection::Model>> {
         let user_collections = Collection::find()
             .filter(collection::Column::UserId.eq(user_id))
             .all(&self.db)
             .await
             .unwrap();
+        let target_column = match entity_lot {
+            EntityLot::Metadata => entity_to_collection::Column::MetadataId,
+            EntityLot::Person => entity_to_collection::Column::PersonId,
+            EntityLot::MetadataGroup => entity_to_collection::Column::MetadataGroupId,
+        };
         let mtc = EntityToCollection::find()
-            .filter(entity_to_collection::Column::MetadataId.eq(metadata_id))
             .filter(
                 entity_to_collection::Column::CollectionId
                     .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
             )
+            .filter(target_column.eq(entity_id))
             .find_also_related(Collection)
             .all(&self.db)
             .await
@@ -5982,7 +5990,7 @@ impl MiscellaneousService {
                 reviews.push(review_item);
             }
             let collections = self
-                .media_in_collections(user_id, m.id)
+                .entity_in_collections(user_id, m.id, EntityLot::Metadata)
                 .await?
                 .into_iter()
                 .map(|c| c.name)
