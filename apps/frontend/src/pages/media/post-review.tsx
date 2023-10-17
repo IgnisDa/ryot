@@ -285,14 +285,14 @@ const Page: NextPageWithLayout = () => {
 						<Button
 							mt="md"
 							type="submit"
-							loading={postReview.isLoading}
+							loading={postReview.isPending}
 							w="100%"
 						>
 							{reviewId ? "Update" : "Submit"}
 						</Button>
 						{reviewId ? (
 							<Button
-								loading={deleteReview.isLoading}
+								loading={deleteReview.isPending}
 								w="100%"
 								color="red"
 								onClick={() => {

@@ -47,9 +47,12 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(registerFormSchema),
 	});
 
-	const users = useQuery(["users"], async () => {
-		const { usersList } = await gqlClient.request(UsersListDocument);
-		return usersList;
+	const users = useQuery({
+		queryKey: ["users"],
+		queryFn: async () => {
+			const { usersList } = await gqlClient.request(UsersListDocument);
+			return usersList;
+		},
 	});
 
 	const registerUser = useMutation({

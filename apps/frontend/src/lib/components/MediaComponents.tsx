@@ -549,7 +549,7 @@ export const MediaSearchItem = (props: {
 		<MediaItemWithoutUpdateModal
 			item={props.item}
 			lot={props.lot}
-			imageOverlayForLoadingIndicator={commitMedia.isLoading}
+			imageOverlayForLoadingIndicator={commitMedia.isPending}
 			href={
 				props.maybeItemId
 					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
@@ -617,7 +617,7 @@ export const MediaSearchItem = (props: {
 							},
 						});
 					}}
-					disabled={addMediaToCollection.isLoading}
+					disabled={addMediaToCollection.isPending}
 				>
 					Add to Watchlist
 				</Button>

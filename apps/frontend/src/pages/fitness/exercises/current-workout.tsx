@@ -175,13 +175,13 @@ const ImageDisplay = (props: {
 	imageKey: string;
 	removeImage: (imageKey: string) => void;
 }) => {
-	const imageUrl = useQuery(
-		["presignedUrl", props.imageKey],
-		async () => {
+	const imageUrl = useQuery({
+		queryKey: ["presignedUrl", props.imageKey],
+		queryFn: async () => {
 			return await getPresignedGetUrl(props.imageKey);
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	return imageUrl.data ? (
 		<Box pos="relative">

@@ -101,9 +101,9 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	const calendarEvents = useQuery(
-		["calendarEvents", selectedMonth],
-		async () => {
+	const calendarEvents = useQuery({
+		queryKey: ["calendarEvents", selectedMonth],
+		queryFn: async () => {
 			if (selectedMonth === undefined) return;
 			const { userCalendarEvents } = await gqlClient.request(
 				UserCalendarEventsDocument,
@@ -111,8 +111,8 @@ const Page: NextPageWithLayout = () => {
 			);
 			return userCalendarEvents;
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	return coreDetails.data && selectedMonth ? (
 		<>

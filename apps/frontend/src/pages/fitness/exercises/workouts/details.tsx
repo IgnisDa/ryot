@@ -57,9 +57,9 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const workoutId = router.query.id?.toString();
 
-	const workoutDetails = useQuery(
-		["workoutDetails"],
-		async () => {
+	const workoutDetails = useQuery({
+		queryKey: ["workoutDetails"],
+		queryFn: async () => {
 			invariant(workoutId);
 			const { workoutDetails } = await gqlClient.request(
 				WorkoutDetailsDocument,
@@ -69,8 +69,8 @@ const Page: NextPageWithLayout = () => {
 			);
 			return workoutDetails;
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	return workoutDetails.data ? (
 		<>

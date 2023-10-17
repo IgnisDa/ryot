@@ -75,15 +75,15 @@ const Page: NextPageWithLayout = () => {
 			validate: zodResolver(createUserNotificationPlatformSchema),
 		});
 
-	const userNotificationPlatform = useQuery(
-		["userNotificationPlatforms"],
-		async () => {
+	const userNotificationPlatform = useQuery({
+		queryKey: ["userNotificationPlatforms"],
+		queryFn: async () => {
 			const { userNotificationPlatforms } = await gqlClient.request(
 				UserNotificationPlatformsDocument,
 			);
 			return userNotificationPlatforms;
 		},
-	);
+	});
 
 	const createUserNotificationPlatform = useMutation({
 		mutationFn: async (
@@ -382,7 +382,7 @@ const Page: NextPageWithLayout = () => {
 										: undefined}
 									<Button
 										type="submit"
-										loading={createUserNotificationPlatform.isLoading}
+										loading={createUserNotificationPlatform.isPending}
 									>
 										Submit
 									</Button>

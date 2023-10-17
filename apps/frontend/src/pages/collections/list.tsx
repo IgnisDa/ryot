@@ -55,12 +55,15 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(formSchema),
 	});
 
-	const collections = useQuery(["collections"], async () => {
-		const { userCollectionsList } = await gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-		);
-		return userCollectionsList;
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{},
+			);
+			return userCollectionsList;
+		},
 	});
 
 	const createOrUpdateCollection = useMutation({

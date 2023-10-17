@@ -80,16 +80,16 @@ const Page: NextPageWithLayout = () => {
 	});
 	const coreDetails = useCoreDetails();
 
-	const userWorkoutList = useQuery(
-		["userWorkoutList", activePage],
-		async () => {
+	const userWorkoutList = useQuery({
+		queryKey: ["userWorkoutList", activePage],
+		queryFn: async () => {
 			const { userWorkoutList } = await gqlClient.request(
 				UserWorkoutListDocument,
 				{ page: parseInt(activePage || "1") },
 			);
 			return userWorkoutList;
 		},
-	);
+	});
 
 	return coreDetails.data && userWorkoutList.data ? (
 		<>

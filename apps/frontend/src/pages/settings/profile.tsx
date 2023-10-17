@@ -124,7 +124,7 @@ const Page: NextPageWithLayout = () => {
 								}
 								{...updateProfileForm.getInputProps("password")}
 							/>
-							<Button type="submit" loading={updateUser.isLoading} w="100%">
+							<Button type="submit" loading={updateUser.isPending} w="100%">
 								Update
 							</Button>
 						</Stack>

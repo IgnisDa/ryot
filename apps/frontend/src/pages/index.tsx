@@ -186,43 +186,49 @@ const Page: NextPageWithLayout = () => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const userPreferences = useUserPreferences();
-	const inProgressCollection = useQuery(["collections"], async () => {
-		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.section === DashboardElementLot.InProgress,
-		)?.numElements;
-		invariant(take, "Can not get the value of take");
-		const { userCollectionsList } = await gqlClient.request(
-			UserCollectionsListDocument,
-			{ name: "In Progress" },
-		);
-		const id = userCollectionsList[0].id;
-		const { collectionContents } = await gqlClient.request(
-			CollectionContentsDocument,
-			{ input: { collectionId: id, page: 1, take } },
-		);
-		return collectionContents;
+	const inProgressCollection = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const take = userPreferences.data?.general.dashboard.find(
+				(de) => de.section === DashboardElementLot.InProgress,
+			)?.numElements;
+			invariant(take, "Can not get the value of take");
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{ name: "In Progress" },
+			);
+			const id = userCollectionsList[0].id;
+			const { collectionContents } = await gqlClient.request(
+				CollectionContentsDocument,
+				{ input: { collectionId: id, page: 1, take } },
+			);
+			return collectionContents;
+		},
 	});
-	const upcomingMedia = useQuery(["upcomingMedia"], async () => {
-		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.section === DashboardElementLot.Upcoming,
-		)?.numElements;
-		invariant(take, "Can not get the value of take");
-		const { userUpcomingCalendarEvents } = await gqlClient.request(
-			UserUpcomingCalendarEventsDocument,
-			{ input: { nextMedia: take } },
-		);
-		return userUpcomingCalendarEvents;
+	const upcomingMedia = useQuery({
+		queryKey: ["upcomingMedia"],
+		queryFn: async () => {
+			const take = userPreferences.data?.general.dashboard.find(
+				(de) => de.section === DashboardElementLot.Upcoming,
+			)?.numElements;
+			invariant(take, "Can not get the value of take");
+			const { userUpcomingCalendarEvents } = await gqlClient.request(
+				UserUpcomingCalendarEventsDocument,
+				{ input: { nextMedia: take } },
+			);
+			return userUpcomingCalendarEvents;
+		},
 	});
-	const latestUserSummary = useQuery(
-		["userSummary"],
-		async () => {
+	const latestUserSummary = useQuery({
+		queryKey: ["userSummary"],
+		queryFn: async () => {
 			const { latestUserSummary } = await gqlClient.request(
 				LatestUserSummaryDocument,
 			);
 			return latestUserSummary;
 		},
-		{ retry: false },
-	);
+		retry: false,
+	});
 
 	const getDivider = (index: number) => {
 		return index <

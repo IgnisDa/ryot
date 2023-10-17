@@ -124,7 +124,7 @@ export default function Page() {
 						{...(!enabledFeatures.data?.signupAllowed
 							? { "data-disabled": true }
 							: {})}
-						loading={registerUser.isLoading}
+						loading={registerUser.isPending}
 						className={classes.btn}
 						w="100%"
 					>
