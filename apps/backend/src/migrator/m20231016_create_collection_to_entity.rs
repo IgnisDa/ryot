@@ -2,7 +2,8 @@ use sea_orm_migration::prelude::*;
 
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
-    m20230507_create_collection::Collection, m20230901_create_metadata_group::MetadataGroup,
+    m20230507_create_collection::Collection, m20230622_create_exercise::Exercise,
+    m20230901_create_metadata_group::MetadataGroup,
 };
 
 #[derive(DeriveMigrationName)]
@@ -18,6 +19,7 @@ pub enum CollectionToEntity {
     MetadataId,
     MetadataGroupId,
     PersonId,
+    ExerciseId,
 }
 
 #[async_trait::async_trait]
@@ -80,6 +82,15 @@ impl MigrationTrait for Migration {
                                 CollectionToEntity::MetadataGroupId,
                             )
                             .to(MetadataGroup::Table, MetadataGroup::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(CollectionToEntity::ExerciseId).integer())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("collection_to_entity-fk5")
+                            .from(CollectionToEntity::Table, CollectionToEntity::ExerciseId)
+                            .to(Exercise::Table, Exercise::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

@@ -18,6 +18,7 @@ pub struct Model {
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
     pub metadata_group_id: Option<i32>,
+    pub exercise_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -54,6 +55,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Person,
+    #[sea_orm(
+        belongs_to = "super::exercise::Entity",
+        from = "Column::ExerciseId",
+        to = "super::exercise::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Exercise,
 }
 
 impl Related<super::collection::Entity> for Entity {
@@ -77,6 +86,12 @@ impl Related<super::metadata_group::Entity> for Entity {
 impl Related<super::person::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Person.def()
+    }
+}
+
+impl Related<super::exercise::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Exercise.def()
     }
 }
 

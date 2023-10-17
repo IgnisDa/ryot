@@ -2,7 +2,15 @@ use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::collection_to_entity;
+use crate::{
+    entities::{
+        collection, collection_to_entity, exercise,
+        prelude::{Collection, Exercise},
+    },
+    miscellaneous::DefaultCollection,
+};
+
+use super::ExerciseSource;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -42,6 +50,24 @@ impl MigrationTrait for Migration {
             manager
                 .drop_table(Table::drop().table(MetadataToCollection::Table).to_owned())
                 .await?;
+        }
+        let collections = Collection::find()
+            .filter(collection::Column::Name.eq(DefaultCollection::Custom.to_string()))
+            .all(db)
+            .await?;
+        for ex in Exercise::find()
+            .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
+            .all(db)
+            .await?
+        {
+            for col in collections.iter() {
+                let to_insert = collection_to_entity::ActiveModel {
+                    collection_id: ActiveValue::Set(col.id),
+                    exercise_id: ActiveValue::Set(Some(ex.id)),
+                    ..Default::default()
+                };
+                to_insert.insert(db).await?;
+            }
         }
         Ok(())
     }
