@@ -28,8 +28,8 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	AddMediaToCollectionDocument,
-	type AddMediaToCollectionMutationVariables,
+	AddEntityToCollectionDocument,
+	type AddEntityToCollectionMutationVariables,
 	CreateReviewCommentDocument,
 	type CreateReviewCommentMutationVariables,
 	EntityLot,
@@ -477,12 +477,12 @@ export const MediaSearchItem = (props: {
 
 	const commitMedia = useCommitMedia(lot);
 	const addMediaToCollection = useMutation({
-		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
-			const { addMediaToCollection } = await gqlClient.request(
-				AddMediaToCollectionDocument,
+		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
+			const { addEntityToCollection } = await gqlClient.request(
+				AddEntityToCollectionDocument,
 				variables,
 			);
-			return addMediaToCollection;
+			return addEntityToCollection;
 		},
 		onSuccess: () => {
 			props.searchQueryRefetch();

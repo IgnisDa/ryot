@@ -45,8 +45,8 @@ import { DateInput } from "@mantine/dates";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	AddMediaToCollectionDocument,
-	type AddMediaToCollectionMutationVariables,
+	AddEntityToCollectionDocument,
+	type AddEntityToCollectionMutationVariables,
 	CreateMediaReminderDocument,
 	type CreateMediaReminderMutationVariables,
 	DeleteMediaReminderDocument,
@@ -65,8 +65,8 @@ import {
 	MetadataVideoSource,
 	ProgressUpdateDocument,
 	type ProgressUpdateMutationVariables,
-	RemoveMediaFromCollectionDocument,
-	type RemoveMediaFromCollectionMutationVariables,
+	RemoveEntityFromCollectionDocument,
+	type RemoveEntityFromCollectionMutationVariables,
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
@@ -262,12 +262,12 @@ const SelectCollectionModal = (props: {
 		},
 	});
 	const addMediaToCollection = useMutation({
-		mutationFn: async (variables: AddMediaToCollectionMutationVariables) => {
-			const { addMediaToCollection } = await gqlClient.request(
-				AddMediaToCollectionDocument,
+		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
+			const { addEntityToCollection } = await gqlClient.request(
+				AddEntityToCollectionDocument,
 				variables,
 			);
-			return addMediaToCollection;
+			return addEntityToCollection;
 		},
 		onSuccess: () => {
 			props.refetchUserMedia();
@@ -613,13 +613,13 @@ const Page: NextPageWithLayout = () => {
 	});
 	const removeMediaFromCollection = useMutation({
 		mutationFn: async (
-			variables: RemoveMediaFromCollectionMutationVariables,
+			variables: RemoveEntityFromCollectionMutationVariables,
 		) => {
-			const { removeMediaFromCollection } = await gqlClient.request(
-				RemoveMediaFromCollectionDocument,
+			const { removeEntityFromCollection } = await gqlClient.request(
+				RemoveEntityFromCollectionDocument,
 				variables,
 			);
-			return removeMediaFromCollection;
+			return removeEntityFromCollection;
 		},
 		onSuccess: () => {
 			userMediaDetails.refetch();
