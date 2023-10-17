@@ -689,6 +689,7 @@ pub mod media {
         Metadata,
         Person,
         MetadataGroup,
+        Exercise,
     }
 
     #[derive(Debug, InputObject)]
