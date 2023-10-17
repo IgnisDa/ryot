@@ -12,7 +12,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
-use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use cookie::{
     time::{Duration as CookieDuration, OffsetDateTime},
     Cookie, SameSite,
@@ -3736,7 +3736,7 @@ impl MiscellaneousService {
                         identifier: p.id.to_string(),
                         title: p.name,
                         image: p.images.first_as_url(&self.file_storage_service).await,
-                        publish_year: None,
+                        publish_year: p.birth_date.map(|d| d.year()),
                     },
                     metadata_lot: None,
                     entity_lot: EntityLot::Person,
