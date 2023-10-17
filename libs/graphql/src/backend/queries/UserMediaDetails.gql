@@ -1,8 +1,7 @@
 query UserMediaDetails($metadataId: Int!) {
   userMediaDetails(metadataId: $metadataId) {
     collections {
-      id
-      name
+      ...CollectionPart
     }
     inProgress {
       ...SeenPart
