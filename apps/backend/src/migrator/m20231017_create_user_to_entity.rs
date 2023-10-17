@@ -83,6 +83,28 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("user_to_entity-uqi1")
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::MetadataId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("user_to_entity-uqi2")
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::ExerciseId)
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 
