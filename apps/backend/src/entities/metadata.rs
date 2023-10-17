@@ -40,8 +40,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::calendar_event::Entity")]
     CalendarEvent,
-    #[sea_orm(has_many = "super::entity_to_collection::Entity")]
-    EntityToCollection,
+    #[sea_orm(has_many = "super::collection_to_entity::Entity")]
+    CollectionToEntity,
     #[sea_orm(has_many = "super::metadata_to_genre::Entity")]
     MetadataToGenre,
     #[sea_orm(has_many = "super::metadata_to_partial_metadata::Entity")]
@@ -64,9 +64,9 @@ impl Related<super::calendar_event::Entity> for Entity {
     }
 }
 
-impl Related<super::entity_to_collection::Entity> for Entity {
+impl Related<super::collection_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::EntityToCollection.def()
+        Relation::CollectionToEntity.def()
     }
 }
 

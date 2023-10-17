@@ -50,12 +50,12 @@ use crate::{
     background::ApplicationJob,
     config::AppConfig,
     entities::{
-        calendar_event, collection, entity_to_collection, genre, metadata, metadata_group,
+        calendar_event, collection, collection_to_entity, genre, metadata, metadata_group,
         metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
         partial_metadata::{self, PartialMetadataWithoutId},
         partial_metadata_to_metadata_group, person, person_to_partial_metadata,
         prelude::{
-            CalendarEvent, Collection, EntityToCollection, Genre, Metadata, MetadataGroup,
+            CalendarEvent, Collection, CollectionToEntity, Genre, Metadata, MetadataGroup,
             MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
             PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
@@ -78,7 +78,7 @@ use crate::{
     miscellaneous::{CustomService, DefaultCollection},
     models::{
         media::{
-            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ChangeEntityToCollectionInput,
+            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ChangeCollectionToEntityInput,
             CreateOrUpdateCollectionInput, EntityLot, FreeMetadataCreator,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
@@ -962,7 +962,7 @@ impl MiscellaneousMutation {
     async fn add_media_to_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: ChangeEntityToCollectionInput,
+        input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -973,7 +973,7 @@ impl MiscellaneousMutation {
     async fn remove_media_from_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: ChangeEntityToCollectionInput,
+        input: ChangeCollectionToEntityInput,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -2116,9 +2116,9 @@ impl MiscellaneousService {
 
         if let Some(f) = input.filter {
             if let Some(s) = f.collection {
-                let all_media = EntityToCollection::find()
-                    .filter(entity_to_collection::Column::CollectionId.eq(s))
-                    .filter(entity_to_collection::Column::MetadataId.is_not_null())
+                let all_media = CollectionToEntity::find()
+                    .filter(collection_to_entity::Column::CollectionId.eq(s))
+                    .filter(collection_to_entity::Column::MetadataId.is_not_null())
                     .all(&self.db)
                     .await?;
                 let collections = all_media.into_iter().map(|m| m.metadata_id).collect_vec();
@@ -2550,10 +2550,10 @@ impl MiscellaneousService {
                 .all(&self.db)
                 .await
                 .unwrap();
-            let meta_ids: Vec<i32> = EntityToCollection::find()
+            let meta_ids: Vec<i32> = CollectionToEntity::find()
                 .select_only()
-                .column(entity_to_collection::Column::MetadataId)
-                .filter(entity_to_collection::Column::CollectionId.is_in(collection_ids))
+                .column(collection_to_entity::Column::MetadataId)
+                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
                 .into_tuple()
                 .all(&self.db)
                 .await
@@ -3146,9 +3146,9 @@ impl MiscellaneousService {
             new_review.insert(&self.db).await?;
             old_review.delete(&self.db).await?;
         }
-        EntityToCollection::update_many()
-            .filter(entity_to_collection::Column::MetadataId.eq(merge_from))
-            .set(entity_to_collection::ActiveModel {
+        CollectionToEntity::update_many()
+            .filter(collection_to_entity::Column::MetadataId.eq(merge_from))
+            .set(collection_to_entity::ActiveModel {
                 metadata_id: ActiveValue::Set(Some(merge_into)),
                 ..Default::default()
             })
@@ -3625,7 +3625,7 @@ impl MiscellaneousService {
         let mut data = vec![];
         for collection in collections.into_iter() {
             let num_items = collection
-                .find_related(EntityToCollection)
+                .find_related(CollectionToEntity)
                 .count(&self.db)
                 .await?;
             data.push(CollectionItem {
@@ -3651,13 +3651,13 @@ impl MiscellaneousService {
             .await
             .unwrap();
         let target_column = match entity_lot {
-            EntityLot::Metadata => entity_to_collection::Column::MetadataId,
-            EntityLot::Person => entity_to_collection::Column::PersonId,
-            EntityLot::MetadataGroup => entity_to_collection::Column::MetadataGroupId,
+            EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+            EntityLot::Person => collection_to_entity::Column::PersonId,
+            EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
         };
-        let mtc = EntityToCollection::find()
+        let mtc = CollectionToEntity::find()
             .filter(
-                entity_to_collection::Column::CollectionId
+                collection_to_entity::Column::CollectionId
                     .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
             )
             .filter(target_column.eq(entity_id))
@@ -3707,9 +3707,9 @@ impl MiscellaneousService {
             )
             .join(
                 JoinType::Join,
-                entity_to_collection::Relation::Metadata.def().rev(),
+                collection_to_entity::Relation::Metadata.def().rev(),
             )
-            .filter(entity_to_collection::Column::CollectionId.eq(collection.id))
+            .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
             .order_by_desc(user_to_metadata::Column::LastUpdatedOn)
             .paginate(
                 &self.db,
@@ -3895,7 +3895,7 @@ impl MiscellaneousService {
     pub async fn add_media_to_collection(
         &self,
         user_id: i32,
-        input: ChangeEntityToCollectionInput,
+        input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
         let collection = Collection::find()
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
@@ -3904,7 +3904,7 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-        let mut created_collection = entity_to_collection::ActiveModel {
+        let mut created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
             ..Default::default()
         };
@@ -3925,7 +3925,7 @@ impl MiscellaneousService {
     pub async fn remove_media_from_collection(
         &self,
         user_id: i32,
-        input: ChangeEntityToCollectionInput,
+        input: ChangeCollectionToEntityInput,
     ) -> Result<IdObject> {
         let collect = Collection::find()
             .filter(collection::Column::Name.eq(input.collection_name.to_owned()))
@@ -3935,12 +3935,12 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         let target_column = match input.entity_lot {
-            EntityLot::Metadata => entity_to_collection::Column::MetadataId,
-            EntityLot::Person => entity_to_collection::Column::PersonId,
-            EntityLot::MetadataGroup => entity_to_collection::Column::MetadataGroupId,
+            EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+            EntityLot::Person => collection_to_entity::Column::PersonId,
+            EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
         };
-        EntityToCollection::delete_many()
-            .filter(entity_to_collection::Column::CollectionId.eq(collect.id))
+        CollectionToEntity::delete_many()
+            .filter(collection_to_entity::Column::CollectionId.eq(collect.id))
             .filter(target_column.eq(input.entity_id.to_owned()))
             .exec(&self.db)
             .await?;
@@ -3963,7 +3963,7 @@ impl MiscellaneousService {
             if progress < 100 {
                 self.remove_media_from_collection(
                     user_id,
-                    ChangeEntityToCollectionInput {
+                    ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: metadata_id,
                         entity_lot: EntityLot::Metadata,
@@ -4469,7 +4469,7 @@ impl MiscellaneousService {
         let media = self.commit_media_internal(details).await?;
         self.add_media_to_collection(
             user_id,
-            ChangeEntityToCollectionInput {
+            ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
                 entity_id: media.id,
                 entity_lot: EntityLot::Metadata,
@@ -5343,7 +5343,7 @@ impl MiscellaneousService {
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
         self.remove_media_from_collection(
             seen.user_id,
-            ChangeEntityToCollectionInput {
+            ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Watchlist.to_string(),
                 entity_id: seen.metadata_id,
                 entity_lot: EntityLot::Metadata,
@@ -5355,7 +5355,7 @@ impl MiscellaneousService {
             SeenState::InProgress => {
                 self.add_media_to_collection(
                     seen.user_id,
-                    ChangeEntityToCollectionInput {
+                    ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: seen.metadata_id,
                         entity_lot: EntityLot::Metadata,
@@ -5367,7 +5367,7 @@ impl MiscellaneousService {
             SeenState::Dropped | SeenState::OnAHold => {
                 self.remove_media_from_collection(
                     seen.user_id,
-                    ChangeEntityToCollectionInput {
+                    ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: seen.metadata_id,
                         entity_lot: EntityLot::Metadata,
@@ -5425,7 +5425,7 @@ impl MiscellaneousService {
                     if is_complete {
                         self.remove_media_from_collection(
                             seen.user_id,
-                            ChangeEntityToCollectionInput {
+                            ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 entity_id: seen.metadata_id,
                                 entity_lot: EntityLot::Metadata,
@@ -5436,7 +5436,7 @@ impl MiscellaneousService {
                     } else {
                         self.add_media_to_collection(
                             seen.user_id,
-                            ChangeEntityToCollectionInput {
+                            ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 entity_id: seen.metadata_id,
                                 entity_lot: EntityLot::Metadata,
@@ -5455,7 +5455,7 @@ impl MiscellaneousService {
                 } else {
                     self.remove_media_from_collection(
                         seen.user_id,
-                        ChangeEntityToCollectionInput {
+                        ChangeCollectionToEntityInput {
                             collection_name: DefaultCollection::InProgress.to_string(),
                             entity_id: seen.metadata_id,
                             entity_lot: EntityLot::Metadata,
@@ -5500,7 +5500,7 @@ impl MiscellaneousService {
                 .all(&self.db)
                 .await?;
             for col in collections {
-                let related_meta = col.find_related(EntityToCollection).all(&self.db).await?;
+                let related_meta = col.find_related(CollectionToEntity).all(&self.db).await?;
                 for rel in related_meta {
                     if let Some(metadata) = rel.find_related(Metadata).one(&self.db).await? {
                         if metadata.id == metadata_id {

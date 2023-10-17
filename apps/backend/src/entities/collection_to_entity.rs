@@ -9,7 +9,7 @@ use crate::utils::associate_user_with_metadata;
 use super::prelude::Collection;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "entity_to_collection")]
+#[sea_orm(table_name = "collection_to_entity")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,

@@ -2,7 +2,7 @@ use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::entity_to_collection;
+use crate::entities::collection_to_entity;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -32,7 +32,7 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         if manager.has_table("metadata_to_collection").await? {
             for mtc in Entity::find().all(db).await? {
-                let to_insert = entity_to_collection::ActiveModel {
+                let to_insert = collection_to_entity::ActiveModel {
                     collection_id: ActiveValue::Set(mtc.collection_id),
                     metadata_id: ActiveValue::Set(Some(mtc.metadata_id)),
                     ..Default::default()

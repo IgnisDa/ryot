@@ -32,8 +32,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::entity_to_collection::Entity")]
-    EntityToCollection,
+    #[sea_orm(has_many = "super::collection_to_entity::Entity")]
+    CollectionToEntity,
     #[sea_orm(has_many = "super::metadata_to_person::Entity")]
     MetadataToPerson,
     #[sea_orm(has_many = "super::person_to_partial_metadata::Entity")]
@@ -42,9 +42,9 @@ pub enum Relation {
     Review,
 }
 
-impl Related<super::entity_to_collection::Entity> for Entity {
+impl Related<super::collection_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::EntityToCollection.def()
+        Relation::CollectionToEntity.def()
     }
 }
 

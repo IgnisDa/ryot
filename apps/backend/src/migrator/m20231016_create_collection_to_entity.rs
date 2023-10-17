@@ -9,7 +9,7 @@ use super::{
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum EntityToCollection {
+pub enum CollectionToEntity {
     Table,
     Id,
     CollectionId,
@@ -26,58 +26,58 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(EntityToCollection::Table)
+                    .table(CollectionToEntity::Table)
                     .col(
-                        ColumnDef::new(EntityToCollection::Id)
+                        ColumnDef::new(CollectionToEntity::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(EntityToCollection::CreatedOn)
+                        ColumnDef::new(CollectionToEntity::CreatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(
-                        ColumnDef::new(EntityToCollection::CollectionId)
+                        ColumnDef::new(CollectionToEntity::CollectionId)
                             .integer()
                             .not_null(),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("entity_to_collection-fk1")
-                            .from(EntityToCollection::Table, EntityToCollection::CollectionId)
+                            .name("collection_to_entity-fk1")
+                            .from(CollectionToEntity::Table, CollectionToEntity::CollectionId)
                             .to(Collection::Table, Collection::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(EntityToCollection::MetadataId).integer())
+                    .col(ColumnDef::new(CollectionToEntity::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("entity_to_collection-fk2")
-                            .from(EntityToCollection::Table, EntityToCollection::MetadataId)
+                            .name("collection_to_entity-fk2")
+                            .from(CollectionToEntity::Table, CollectionToEntity::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(EntityToCollection::PersonId).integer())
+                    .col(ColumnDef::new(CollectionToEntity::PersonId).integer())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("entity_to_collection-fk3")
-                            .from(EntityToCollection::Table, EntityToCollection::PersonId)
+                            .name("collection_to_entity-fk3")
+                            .from(CollectionToEntity::Table, CollectionToEntity::PersonId)
                             .to(Person::Table, Person::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(EntityToCollection::MetadataGroupId).integer())
+                    .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).integer())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("entity_to_collection-fk4")
+                            .name("collection_to_entity-fk4")
                             .from(
-                                EntityToCollection::Table,
-                                EntityToCollection::MetadataGroupId,
+                                CollectionToEntity::Table,
+                                CollectionToEntity::MetadataGroupId,
                             )
                             .to(MetadataGroup::Table, MetadataGroup::Id)
                             .on_delete(ForeignKeyAction::Cascade)

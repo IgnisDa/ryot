@@ -37,7 +37,7 @@ mod m20231003_create_partial_metadata_to_person;
 mod m20231010_change_name_field_workout_table;
 mod m20231012_add_source_to_exercise;
 mod m20231014_remove_processed_from_exercise;
-mod m20231016_create_entity_to_collection;
+mod m20231016_create_collection_to_entity;
 mod m20231016_drop_useless_tables;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
@@ -94,7 +94,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231010_change_name_field_workout_table::Migration),
             Box::new(m20231012_add_source_to_exercise::Migration),
             Box::new(m20231014_remove_processed_from_exercise::Migration),
-            Box::new(m20231016_create_entity_to_collection::Migration),
+            Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231016_drop_useless_tables::Migration),
         ]
     }

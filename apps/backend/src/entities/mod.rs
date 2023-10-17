@@ -4,7 +4,7 @@ pub mod prelude;
 
 pub mod calendar_event;
 pub mod collection;
-pub mod entity_to_collection;
+pub mod collection_to_entity;
 pub mod exercise;
 pub mod genre;
 pub mod import_report;
