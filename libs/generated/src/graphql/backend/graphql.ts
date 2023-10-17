@@ -1257,7 +1257,7 @@ export type QueryRoot = {
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
   /** Get information about an exercise for a user. */
-  userExerciseDetails?: Maybe<UserExerciseDetails>;
+  userExerciseDetails: UserExerciseDetails;
   /** Get all the integrations for the currently logged in user. */
   userIntegrations: Array<GraphqlUserIntegration>;
   /** Get all the measurements for a user. */
@@ -1608,8 +1608,8 @@ export type UserDetailsResult = User | UserDetailsError;
 
 export type UserExerciseDetails = {
   collections: Array<Collection>;
-  details: UserToExercise;
-  history: Array<UserExerciseHistoryInformation>;
+  details?: Maybe<UserToExercise>;
+  history?: Maybe<Array<UserExerciseHistoryInformation>>;
 };
 
 export type UserExerciseDetailsInput = {
@@ -2504,7 +2504,7 @@ export type UserExerciseDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserExerciseDetailsQuery = { userExerciseDetails?: { collections: Array<{ id: number, name: string }>, history: Array<{ workoutId: string, workoutName: string, workoutTime: Date, sets: Array<{ lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null } }> }>, details: { exerciseId: number, numTimesPerformed: number, lastUpdatedOn: Date, extraInformation: { lifetimeStats: { weight: string, reps: number, distance: string, duration: string, personalBestsAchieved: number }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, setIdx: number, data: { lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null } } }> }> } } } | null };
+export type UserExerciseDetailsQuery = { userExerciseDetails: { collections: Array<{ id: number, name: string }>, history?: Array<{ workoutId: string, workoutName: string, workoutTime: Date, sets: Array<{ lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null } }> }> | null, details?: { exerciseId: number, numTimesPerformed: number, lastUpdatedOn: Date, extraInformation: { lifetimeStats: { weight: string, reps: number, distance: string, duration: string, personalBestsAchieved: number }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, setIdx: number, data: { lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null } } }> }> } } | null } };
 
 export type UserIntegrationsQueryVariables = Exact<{ [key: string]: never; }>;
 

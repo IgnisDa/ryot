@@ -108,8 +108,8 @@ struct UserExerciseHistoryInformation {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseDetails {
-    details: user_to_exercise::Model,
-    history: Vec<UserExerciseHistoryInformation>,
+    details: Option<user_to_exercise::Model>,
+    history: Option<Vec<UserExerciseHistoryInformation>>,
     collections: Vec<collection::Model>,
 }
 
@@ -179,7 +179,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: UserExerciseDetailsInput,
-    ) -> Result<Option<UserExerciseDetails>> {
+    ) -> Result<UserExerciseDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_exercise_details(user_id, input).await
@@ -338,15 +338,23 @@ impl ExerciseService {
         &self,
         user_id: i32,
         input: UserExerciseDetailsInput,
-    ) -> Result<Option<UserExerciseDetails>> {
-        if let Some(details) = UserToExercise::find_by_id((user_id, input.exercise_id))
+    ) -> Result<UserExerciseDetails> {
+        let collections =
+            entity_in_collections(&self.db, user_id, input.exercise_id, EntityLot::Exercise)
+                .await?;
+        let mut resp = UserExerciseDetails {
+            details: None,
+            history: None,
+            collections,
+        };
+        if let Some(association) = UserToExercise::find_by_id((user_id, input.exercise_id))
             .one(&self.db)
             .await?
         {
             let workouts = Workout::find()
                 .filter(
                     workout::Column::Id.is_in(
-                        details
+                        association
                             .extra_information
                             .history
                             .iter()
@@ -358,7 +366,7 @@ impl ExerciseService {
             let mut history = workouts
                 .into_iter()
                 .map(|w| {
-                    let element = details
+                    let element = association
                         .extra_information
                         .history
                         .iter()
@@ -375,17 +383,10 @@ impl ExerciseService {
             if let Some(take) = input.take_history {
                 history = history.into_iter().take(take).collect_vec();
             }
-            let collections =
-                entity_in_collections(&self.db, user_id, input.exercise_id, EntityLot::Exercise)
-                    .await?;
-            Ok(Some(UserExerciseDetails {
-                details,
-                history,
-                collections,
-            }))
-        } else {
-            Ok(None)
+            resp.history = Some(history);
+            resp.details = Some(association);
         }
+        Ok(resp)
     }
 
     async fn user_workout_list(

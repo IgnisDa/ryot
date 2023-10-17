@@ -1,4 +1,5 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import { DisplayCollection } from "@/lib/components/MediaComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -24,6 +25,7 @@ import {
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import {
+	EntityLot,
 	ExerciseDetailsDocument,
 	SetLot,
 	UserExerciseDetailsDocument,
@@ -117,6 +119,20 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs" px="lg">
 				<Stack>
 					<Title id="exercise-title">{exerciseDetails.data.name}</Title>
+					{userExerciseDetails.data &&
+					userExerciseDetails.data.collections.length > 0 ? (
+						<Group id="entity-collections">
+							{userExerciseDetails.data.collections.map((col) => (
+								<DisplayCollection
+									col={col}
+									entityId={exerciseId}
+									entityLot={EntityLot.Exercise}
+									refetch={userExerciseDetails.refetch}
+									key={col.id}
+								/>
+							))}
+						</Group>
+					) : undefined}
 					<Tabs
 						value={activeTab}
 						onChange={(v) => {

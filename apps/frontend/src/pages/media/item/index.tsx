@@ -612,7 +612,7 @@ const Page: NextPageWithLayout = () => {
 					</Box>
 					{userMediaDetails.data &&
 					userMediaDetails.data.collections.length > 0 ? (
-						<Group id="media-collections">
+						<Group id="entity-collections">
 							{userMediaDetails.data.collections.map((col) => (
 								<DisplayCollection
 									col={col}
