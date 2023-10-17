@@ -494,13 +494,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			}
 			bottomLeft={props.item.publishYear}
 			bottomRight={changeCase(
-				props.lot
-					? props.lot
-					: props.entityLot
-					? match(props.entityLot)
-							.with(EntityLot.MetadataGroup, () => "Group")
-							.otherwise((v) => v)
-					: "",
+				props.lot ? props.lot : props.entityLot ? props.entityLot : "",
 			)}
 			highlightRightText={
 				props.existsInDatabase ? "This media exists in the database" : undefined
