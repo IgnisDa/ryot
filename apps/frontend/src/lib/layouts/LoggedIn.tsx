@@ -44,6 +44,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
+import { IconArchive } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Link from "next/link";
@@ -258,7 +259,6 @@ export default function ({ children }: { children: ReactElement }) {
 			}) || []),
 		{ label: "People", href: APP_ROUTES.media.people.list },
 		{ label: "Groups", href: APP_ROUTES.media.groups.list },
-		{ label: "Collections", href: APP_ROUTES.media.collections.list },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href
@@ -386,6 +386,13 @@ export default function ({ children }: { children: ReactElement }) {
 						label="Calendar"
 						icon={IconCalendar}
 						href={APP_ROUTES.calendar}
+						opened={false}
+						setOpened={() => {}}
+					/>
+					<LinksGroup
+						label="Collections"
+						icon={IconArchive}
+						href={APP_ROUTES.collections.list}
 						opened={false}
 						setOpened={() => {}}
 					/>
