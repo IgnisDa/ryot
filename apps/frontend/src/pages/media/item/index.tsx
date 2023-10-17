@@ -1180,7 +1180,7 @@ const Page: NextPageWithLayout = () => {
 										<AddEntityToCollectionModal
 											onClose={collectionModalClose}
 											opened={collectionModalOpened}
-											metadataId={metadataId}
+											entityId={metadataId}
 											refetchUserMedia={userMediaDetails.refetch}
 											entityLot={EntityLot.Metadata}
 										/>

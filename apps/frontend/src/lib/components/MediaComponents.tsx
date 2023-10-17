@@ -618,7 +618,7 @@ export const MediaSearchItem = (props: {
 export const AddEntityToCollectionModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	metadataId: number;
+	entityId: number;
 	refetchUserMedia: () => void;
 	entityLot: EntityLot;
 }) => {
@@ -674,7 +674,7 @@ export const AddEntityToCollectionModal = (props: {
 							addMediaToCollection.mutate({
 								input: {
 									collectionName: selectedCollection || "",
-									entityId: props.metadataId,
+									entityId: props.entityId,
 									entityLot: props.entityLot,
 								},
 							});
