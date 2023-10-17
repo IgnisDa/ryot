@@ -1,5 +1,9 @@
 import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
-import { DisplayCollection } from "@/lib/components/MediaComponents";
+import {
+	AddEntityToCollectionModal,
+	DisplayCollection,
+	MediaScrollArea,
+} from "@/lib/components/MediaComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -9,6 +13,7 @@ import { getSetColor } from "@/lib/utilities";
 import {
 	Anchor,
 	Box,
+	Button,
 	Container,
 	Divider,
 	Flex,
@@ -23,7 +28,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
@@ -35,6 +40,7 @@ import {
 	IconHistoryToggle,
 	IconInfoCircle,
 	IconTrophy,
+	IconUser,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
@@ -78,6 +84,10 @@ const DisplayLifetimeStatistic = (props: {
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const exerciseId = parseInt(router.query.id?.toString() || "0");
+	const [
+		collectionModalOpened,
+		{ open: collectionModalOpen, close: collectionModalClose },
+	] = useDisclosure(false);
 
 	const [activeTab, setActiveTab] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedActiveExerciseDetailsTab,
@@ -156,8 +166,10 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
 								Records
 							</Tabs.Tab>
+							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+								Actions
+							</Tabs.Tab>
 						</Tabs.List>
-
 						<Tabs.Panel value="overview">
 							<Stack>
 								<ScrollArea>
@@ -298,6 +310,22 @@ const Page: NextPageWithLayout = () => {
 							) : (
 								<Text fs="italic">No records found</Text>
 							)}
+						</Tabs.Panel>
+						<Tabs.Panel value="actions">
+							<MediaScrollArea>
+								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+									<Button variant="outline" onClick={collectionModalOpen}>
+										Add to collection
+									</Button>
+									<AddEntityToCollectionModal
+										onClose={collectionModalClose}
+										opened={collectionModalOpened}
+										entityId={exerciseId}
+										refetchUserMedia={userExerciseDetails.refetch}
+										entityLot={EntityLot.Exercise}
+									/>
+								</SimpleGrid>
+							</MediaScrollArea>
 						</Tabs.Panel>
 					</Tabs>
 				</Stack>
