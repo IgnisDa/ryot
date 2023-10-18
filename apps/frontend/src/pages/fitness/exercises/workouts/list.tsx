@@ -7,6 +7,7 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	Accordion,
 	Anchor,
+	Box,
 	Center,
 	Container,
 	Flex,
@@ -21,7 +22,12 @@ import {
 	UserWorkoutListDocument,
 	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconClock, IconTrophy, IconWeight } from "@tabler/icons-react";
+import {
+	IconClock,
+	IconLink,
+	IconTrophy,
+	IconWeight,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {
 	HumanizeDuration,
@@ -151,11 +157,14 @@ const Page: NextPageWithLayout = () => {
 												href={withQuery(APP_ROUTES.fitness.workoutDetails, {
 													id: workout.id,
 												})}
-												fz="xs"
-												ta="right"
 												pr="md"
 											>
-												View details
+												<Text fz="xs" ta="right" visibleFrom="sm">
+													View details
+												</Text>
+												<Box hiddenFrom="sm">
+													<IconLink size={16} />
+												</Box>
 											</Anchor>
 										</Center>
 										<Accordion.Panel>
