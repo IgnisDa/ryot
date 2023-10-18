@@ -76,6 +76,7 @@ pub async fn create_app_services(
     s3_client: aws_sdk_s3::Client,
     config: Arc<AppConfig>,
     perform_application_job: &SqliteStorage<ApplicationJob>,
+    timezone: chrono_tz::Tz,
 ) -> AppServices {
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
@@ -94,6 +95,7 @@ pub async fn create_app_services(
             config.clone(),
             file_storage_service.clone(),
             perform_application_job,
+            timezone.to_string(),
         )
         .await,
     );

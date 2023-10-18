@@ -557,6 +557,7 @@ struct CoreDetails {
     upgrade: Option<UpgradeType>,
     page_limit: i32,
     deploy_admin_jobs_allowed: bool,
+    timezone: String,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1311,6 +1312,8 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
+
+    timezone: String,
     file_storage_service: Arc<FileStorageService>,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
@@ -1320,12 +1323,12 @@ pub struct MiscellaneousService {
 impl AuthProvider for MiscellaneousService {}
 
 impl MiscellaneousService {
-    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         db: &DatabaseConnection,
         config: Arc<AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
+        timezone: String,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
@@ -1339,6 +1342,7 @@ impl MiscellaneousService {
         Self {
             db: db.clone(),
             config,
+            timezone,
             file_storage_service,
             seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
@@ -1397,6 +1401,7 @@ impl MiscellaneousService {
         };
         Ok(CoreDetails {
             upgrade,
+            timezone: self.timezone.clone(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
