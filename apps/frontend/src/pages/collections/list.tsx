@@ -38,7 +38,7 @@ import Link from "next/link";
 import { type ReactElement, useState } from "react";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import type { NextPageWithLayout } from "../../_app";
+import type { NextPageWithLayout } from "../_app";
 
 const formSchema = z.object({
 	name: z.string(),
@@ -55,12 +55,15 @@ const Page: NextPageWithLayout = () => {
 		validate: zodResolver(formSchema),
 	});
 
-	const collections = useQuery(["collections"], async () => {
-		const { userCollectionsList } = await gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-		);
-		return userCollectionsList;
+	const collections = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{},
+			);
+			return userCollectionsList;
+		},
 	});
 
 	const createOrUpdateCollection = useMutation({
@@ -138,7 +141,7 @@ const Page: NextPageWithLayout = () => {
 									<Flex align="center" gap="xs">
 										<Anchor
 											component={Link}
-											href={withQuery(APP_ROUTES.media.collections.details, {
+											href={withQuery(APP_ROUTES.collections.details, {
 												collectionId: c?.id,
 											})}
 										>

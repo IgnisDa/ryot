@@ -58,14 +58,14 @@ use crate::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, Metadata,
             MetadataGroup, MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
             PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
-            PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToMetadata, Workout,
+            PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToEntity, Workout,
         },
         review, seen,
         user::{
             self, UserWithOnlyIntegrationsAndNotifications, UserWithOnlyPreferences,
             UserWithOnlySummary,
         },
-        user_measurement, user_to_metadata, workout,
+        user_measurement, user_to_entity, workout,
     },
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
@@ -73,7 +73,7 @@ use crate::{
     migrator::{
         Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
         PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
-        UserLot, UserToMetadata as TempUserToMetadata,
+        UserLot, UserToEntity as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -1765,12 +1765,12 @@ impl MiscellaneousService {
             .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
             .unwrap();
         let seen_by: i32 = seen_by.try_into().unwrap();
-        let reminder = UserToMetadata::find()
-            .filter(user_to_metadata::Column::UserId.eq(user_id))
-            .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
+        let reminder = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
             .one(&self.db)
             .await?
-            .and_then(|n| n.reminder);
+            .and_then(|n| n.metadata_reminder);
 
         let average_rating = if reviews.is_empty() {
             None
@@ -1816,13 +1816,9 @@ impl MiscellaneousService {
         user_id: i32,
         metadata_group_id: i32,
     ) -> Result<UserMetadataGroupDetails> {
-        let collections = entity_in_collections(
-            &self.db,
-            user_id,
-            metadata_group_id,
-            EntityLot::MetadataGroup,
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, user_id, metadata_group_id, EntityLot::MediaGroup)
+                .await?;
         Ok(UserMetadataGroupDetails { collections })
     }
 
@@ -1862,13 +1858,12 @@ impl MiscellaneousService {
                 "m_specifics",
             )
             .filter(
-                Expr::col((TempUserToMetadata::Table, user_to_metadata::Column::UserId))
-                    .eq(user_id),
+                Expr::col((TempUserToMetadata::Table, user_to_entity::Column::UserId)).eq(user_id),
             )
             .join_rev(
                 JoinType::Join,
-                UserToMetadata::belongs_to(CalendarEvent)
-                    .from(user_to_metadata::Column::MetadataId)
+                UserToEntity::belongs_to(CalendarEvent)
+                    .from(user_to_entity::Column::MetadataId)
                     .to(calendar_event::Column::MetadataId)
                     .into(),
             )
@@ -1993,14 +1988,14 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let meta = UserToMetadata::find()
-            .filter(user_to_metadata::Column::UserId.eq(user_id))
+        let meta = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .apply_if(
                 match input.filter.as_ref().and_then(|f| f.general) {
                     Some(MediaGeneralFilter::ExplicitlyMonitored) => Some(true),
                     _ => None,
                 },
-                |query, v| query.filter(user_to_metadata::Column::Monitored.eq(v)),
+                |query, v| query.filter(user_to_entity::Column::MetadataMonitored.eq(v)),
             )
             .all(&self.db)
             .await
@@ -2557,7 +2552,7 @@ impl MiscellaneousService {
     }
 
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let user_to_metadatas = UserToMetadata::find().all(&self.db).await.unwrap();
+        let user_to_metadatas = UserToEntity::find().all(&self.db).await.unwrap();
         for u in user_to_metadatas {
             // check if there is any seen item
             let seen_count = Seen::find()
@@ -2590,11 +2585,11 @@ impl MiscellaneousService {
                 .all(&self.db)
                 .await
                 .unwrap();
-            let is_in_collection = meta_ids.contains(&u.metadata_id);
+            let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
             // if the metadata is monitored
-            let is_monitored = u.monitored;
+            let is_monitored = u.metadata_monitored.unwrap_or_default();
             // if user has set a reminder
-            let is_reminder_active = u.reminder.is_some();
+            let is_reminder_active = u.metadata_monitored.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
                 && !is_monitored
@@ -3063,8 +3058,8 @@ impl MiscellaneousService {
         tracing::trace!("Cleaning up media items without associated user activities");
         let mut all_metadata = Metadata::find().stream(&self.db).await?;
         while let Some(metadata) = all_metadata.try_next().await? {
-            let num_user_associations = UserToMetadata::find()
-                .filter(user_to_metadata::Column::MetadataId.eq(metadata.id))
+            let num_user_associations = UserToEntity::find()
+                .filter(user_to_entity::Column::MetadataId.eq(metadata.id))
                 .count(&self.db)
                 .await
                 .unwrap();
@@ -3655,7 +3650,7 @@ impl MiscellaneousService {
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
-            .order_by_asc(collection::Column::CreatedOn)
+            .order_by_desc(collection::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
@@ -3753,7 +3748,7 @@ impl MiscellaneousService {
                         publish_year: None,
                     },
                     metadata_lot: None,
-                    entity_lot: EntityLot::MetadataGroup,
+                    entity_lot: EntityLot::MediaGroup,
                 }
             } else if let Some(id) = cte.exercise_id {
                 let e = Exercise::find_by_id(id).one(&self.db).await?.unwrap();
@@ -3892,6 +3887,7 @@ impl MiscellaneousService {
                         Some(i) => ActiveValue::Unchanged(i),
                         None => ActiveValue::NotSet,
                     },
+                    last_updated_on: ActiveValue::Set(Utc::now()),
                     name: ActiveValue::Set(input.name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
@@ -3951,7 +3947,7 @@ impl MiscellaneousService {
         let target_column = match input.entity_lot {
             EntityLot::Metadata => collection_to_entity::Column::MetadataId,
             EntityLot::Person => collection_to_entity::Column::PersonId,
-            EntityLot::MetadataGroup => collection_to_entity::Column::MetadataGroupId,
+            EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
             EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
         };
         CollectionToEntity::delete_many()
@@ -4097,9 +4093,23 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        let num_media_interacted_with = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .count(&self.db)
+            .await?;
+
+        let num_exercises_interacted_with = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .count(&self.db)
+            .await?;
+
         ls.media.reviews_posted = num_reviews;
+        ls.media.media_interacted_with = num_media_interacted_with;
         ls.fitness.measurements_recorded = num_measurements;
         ls.fitness.workouts_recorded = num_workouts;
+        ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -5525,13 +5535,13 @@ impl MiscellaneousService {
                 }
             }
         }
-        let monitored_media = UserToMetadata::find()
-            .filter(user_to_metadata::Column::Monitored.eq(true))
-            .filter(user_to_metadata::Column::MetadataId.eq(metadata_id))
+        let monitored_media = UserToEntity::find()
+            .filter(user_to_entity::Column::MetadataMonitored.eq(true))
+            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
             .all(&self.db)
             .await?;
         for meta in monitored_media {
-            if meta.metadata_id == metadata_id {
+            if meta.metadata_id.unwrap() == metadata_id {
                 user_ids.push(meta.user_id);
             }
         }
@@ -5630,9 +5640,9 @@ impl MiscellaneousService {
     ) -> Result<bool> {
         let metadata =
             associate_user_with_metadata(&user_id, &to_monitor_metadata_id, &self.db).await?;
-        let new_monitored_value = !metadata.monitored;
-        let mut metadata: user_to_metadata::ActiveModel = metadata.into();
-        metadata.monitored = ActiveValue::Set(new_monitored_value);
+        let new_monitored_value = !metadata.metadata_monitored.unwrap_or_default();
+        let mut metadata: user_to_entity::ActiveModel = metadata.into();
+        metadata.metadata_monitored = ActiveValue::Set(Some(new_monitored_value));
         metadata.save(&self.db).await?;
         Ok(new_monitored_value)
     }
@@ -5645,7 +5655,7 @@ impl MiscellaneousService {
         let metadata =
             get_user_and_metadata_association(&user_id, &to_monitor_metadata_id, &self.db).await;
         Ok(if let Some(m) = metadata {
-            m.monitored
+            m.metadata_monitored.unwrap_or_default()
         } else {
             false
         })
@@ -5915,12 +5925,12 @@ impl MiscellaneousService {
             return Ok(false);
         }
         let utm = associate_user_with_metadata(&user_id, &input.metadata_id, &self.db).await?;
-        if utm.reminder.is_some() {
+        if utm.metadata_reminder.is_some() {
             self.delete_media_reminder(user_id, input.metadata_id)
                 .await?;
         }
-        let mut utm: user_to_metadata::ActiveModel = utm.into();
-        utm.reminder = ActiveValue::Set(Some(UserMediaReminder {
+        let mut utm: user_to_entity::ActiveModel = utm.into();
+        utm.metadata_reminder = ActiveValue::Set(Some(UserMediaReminder {
             remind_on: input.remind_on,
             message: input.message,
         }));
@@ -5930,23 +5940,23 @@ impl MiscellaneousService {
 
     async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
         let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
-        let mut utm: user_to_metadata::ActiveModel = utm.into();
-        utm.reminder = ActiveValue::Set(None);
+        let mut utm: user_to_entity::ActiveModel = utm.into();
+        utm.metadata_reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
         Ok(true)
     }
 
     pub async fn send_pending_media_reminders(&self) -> Result<()> {
-        for utm in UserToMetadata::find()
-            .filter(user_to_metadata::Column::Reminder.is_not_null())
+        for utm in UserToEntity::find()
+            .filter(user_to_entity::Column::MetadataReminder.is_not_null())
             .all(&self.db)
             .await?
         {
-            if let Some(reminder) = utm.reminder {
+            if let Some(reminder) = utm.metadata_reminder {
                 if Utc::now().date_naive() == reminder.remind_on {
                     self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
                         .await?;
-                    self.delete_media_reminder(utm.user_id, utm.metadata_id)
+                    self.delete_media_reminder(utm.user_id, utm.metadata_id.unwrap())
                         .await?;
                 }
             }
@@ -5955,8 +5965,8 @@ impl MiscellaneousService {
     }
 
     pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem>> {
-        let related_metadata = UserToMetadata::find()
-            .filter(user_to_metadata::Column::UserId.eq(user_id))
+        let related_metadata = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .all(&self.db)
             .await
             .unwrap();

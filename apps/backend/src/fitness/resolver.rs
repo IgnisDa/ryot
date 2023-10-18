@@ -21,9 +21,9 @@ use crate::{
     entities::{
         collection,
         exercise::{self, ExerciseListItem},
-        prelude::{Exercise, UserMeasurement, UserToExercise, Workout},
+        prelude::{Exercise, UserMeasurement, UserToEntity, Workout},
         user::UserWithOnlyPreferences,
-        user_measurement, user_to_exercise, workout,
+        user_measurement, user_to_entity, workout,
     },
     file_storage::FileStorageService,
     migrator::{
@@ -108,7 +108,7 @@ struct UserExerciseHistoryInformation {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseDetails {
-    details: Option<user_to_exercise::Model>,
+    details: Option<user_to_entity::Model>,
     history: Option<Vec<UserExerciseHistoryInformation>>,
     collections: Vec<collection::Model>,
 }
@@ -235,6 +235,13 @@ impl ExerciseMutation {
         service.create_user_workout(user_id, input).await
     }
 
+    /// Delete a workout and remove all exercise associations.
+    async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_user_workout(user_id, workout_id).await
+    }
+
     /// Create a custom exercise.
     async fn create_custom_exercise(
         &self,
@@ -347,15 +354,18 @@ impl ExerciseService {
             history: None,
             collections,
         };
-        if let Some(association) = UserToExercise::find_by_id((user_id, input.exercise_id))
+        if let Some(association) = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(input.exercise_id))
             .one(&self.db)
             .await?
         {
+            let user_to_exercise_extra_information =
+                association.exercise_extra_information.clone().unwrap();
             let workouts = Workout::find()
                 .filter(
                     workout::Column::Id.is_in(
-                        association
-                            .extra_information
+                        user_to_exercise_extra_information
                             .history
                             .iter()
                             .map(|h| h.workout_id.clone()),
@@ -366,8 +376,7 @@ impl ExerciseService {
             let mut history = workouts
                 .into_iter()
                 .map(|w| {
-                    let element = association
-                        .extra_information
+                    let element = user_to_exercise_extra_information
                         .history
                         .iter()
                         .find(|h| h.workout_id == w.id)
@@ -420,7 +429,7 @@ impl ExerciseService {
         user_id: i32,
     ) -> Result<SearchResults<ExerciseListItem>> {
         let ex = Alias::new("exercise");
-        let etu = Alias::new("user_to_exercise");
+        let etu = Alias::new("user_to_entity");
         let order_by_col = match input.sort_by {
             None => Expr::col((ex, exercise::Column::Name)),
             Some(sb) => match sb {
@@ -428,11 +437,11 @@ impl ExerciseService {
                 // are ordering by name for the other `sort_by` anyway.
                 ExerciseSortBy::Name => Expr::val("1"),
                 ExerciseSortBy::NumTimesPerformed => Expr::expr(Func::coalesce([
-                    Expr::col((etu.clone(), user_to_exercise::Column::NumTimesPerformed)).into(),
+                    Expr::col((etu.clone(), user_to_entity::Column::NumTimesInteracted)).into(),
                     Expr::val(0).into(),
                 ])),
                 ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
-                    Expr::col((etu.clone(), user_to_exercise::Column::LastUpdatedOn)).into(),
+                    Expr::col((etu.clone(), user_to_entity::Column::LastUpdatedOn)).into(),
                     // DEV: For some reason this does not work without explicit casting on postgres
                     Func::cast_as(
                         Expr::val("1900-01-01"),
@@ -453,8 +462,8 @@ impl ExerciseService {
         };
         let query = Exercise::find()
             .column_as(
-                Expr::col((etu, user_to_exercise::Column::NumTimesPerformed)),
-                "num_times_performed",
+                Expr::col((etu, user_to_entity::Column::NumTimesInteracted)),
+                "num_times_interacted",
             )
             .apply_if(input.filter, |query, q| {
                 query
@@ -486,12 +495,12 @@ impl ExerciseService {
             })
             .join(
                 JoinType::LeftJoin,
-                user_to_exercise::Relation::Exercise
+                user_to_entity::Relation::Exercise
                     .def()
                     .rev()
                     .on_condition(move |_left, right| {
                         Condition::all()
-                            .add(Expr::col((right, user_to_exercise::Column::UserId)).eq(user_id))
+                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(user_id))
                     }),
             )
             .order_by_desc(order_by_col)
@@ -712,5 +721,19 @@ impl ExerciseService {
             workouts.push(self.workout_details(workout_id, user_id).await?);
         }
         Ok(workouts)
+    }
+
+    pub async fn delete_user_workout(&self, user_id: i32, workout_id: String) -> Result<bool> {
+        if let Some(wkt) = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::Id.eq(workout_id))
+            .one(&self.db)
+            .await?
+        {
+            wkt.delete_existing(&self.db, user_id).await?;
+            Ok(true)
+        } else {
+            Err(Error::new("Workout does not exist for user"))
+        }
     }
 }

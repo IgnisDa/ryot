@@ -165,7 +165,7 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs">
 				<Stack pos="relative" p="sm">
 					<LoadingOverlay
-						visible={progressUpdate.isLoading}
+						visible={progressUpdate.isPending}
 						overlayProps={{ blur: 2, radius: "md" }}
 					/>
 					<Title>{title}</Title>

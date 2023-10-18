@@ -8,13 +8,7 @@ use crate::migrator::Metadata;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-/// This exists if a media item is related to a user. A media is related to a
-/// user if atleast one of the following hold:
-/// - the user has it in their seen history
-/// - added it to a collection
-/// - has reviewed it
-/// - added to their monitored media
-/// - added a reminder
+// FIXME: Remove this migration
 #[derive(Iden)]
 pub enum UserToMetadata {
     Table,

@@ -126,7 +126,7 @@ const Page: NextPageWithLayout = () => {
 							) : undefined}
 							<Button
 								onClick={() => deployUpdateAllMetadataJobs.mutate({})}
-								loading={deployUpdateAllMetadataJobs.isLoading}
+								loading={deployUpdateAllMetadataJobs.isPending}
 								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
@@ -145,7 +145,7 @@ const Page: NextPageWithLayout = () => {
 							) : undefined}
 							<Button
 								onClick={() => deployRecalculateCalendarEventsJob.mutate({})}
-								loading={deployRecalculateCalendarEventsJob.isLoading}
+								loading={deployRecalculateCalendarEventsJob.isPending}
 								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
@@ -164,7 +164,7 @@ const Page: NextPageWithLayout = () => {
 						</Box>
 						<Button
 							onClick={() => regenerateUserSummary.mutate({})}
-							loading={regenerateUserSummary.isLoading}
+							loading={regenerateUserSummary.isPending}
 						>
 							Clean and regenerate
 						</Button>
@@ -181,7 +181,7 @@ const Page: NextPageWithLayout = () => {
 						</Box>
 						<Button
 							onClick={() => yankIntegrationData.mutate({})}
-							loading={yankIntegrationData.isLoading}
+							loading={yankIntegrationData.isPending}
 						>
 							Synchronize
 						</Button>

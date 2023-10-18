@@ -412,7 +412,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 									() => APP_ROUTES.media.individualMediaItem.details,
 								)
 								.with(
-									EntityLot.MetadataGroup,
+									EntityLot.MediaGroup,
 									() => APP_ROUTES.media.groups.details,
 								)
 								.with(EntityLot.Person, () => APP_ROUTES.media.people.details)
@@ -549,7 +549,7 @@ export const MediaSearchItem = (props: {
 		<MediaItemWithoutUpdateModal
 			item={props.item}
 			lot={props.lot}
-			imageOverlayForLoadingIndicator={commitMedia.isLoading}
+			imageOverlayForLoadingIndicator={commitMedia.isPending}
 			href={
 				props.maybeItemId
 					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
@@ -617,7 +617,7 @@ export const MediaSearchItem = (props: {
 							},
 						});
 					}}
-					disabled={addMediaToCollection.isLoading}
+					disabled={addMediaToCollection.isPending}
 				>
 					Add to Watchlist
 				</Button>
@@ -740,7 +740,7 @@ export const DisplayCollection = (props: {
 					component={Link}
 					truncate
 					style={{ all: "unset", cursor: "pointer" }}
-					href={withQuery(APP_ROUTES.media.collections.details, {
+					href={withQuery(APP_ROUTES.collections.details, {
 						collectionId: props.col.id,
 					})}
 				>

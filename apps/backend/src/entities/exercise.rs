@@ -69,7 +69,7 @@ pub struct ExerciseListItem {
     pub name: String,
     #[graphql(skip)]
     pub attributes: ExerciseAttributes,
-    pub num_times_performed: Option<i32>,
+    pub num_times_interacted: Option<i32>,
     pub muscle: Option<ExerciseMuscle>,
     pub image: Option<String>,
     #[graphql(skip)]
@@ -92,8 +92,8 @@ impl ExerciseListItem {
 pub enum Relation {
     #[sea_orm(has_many = "super::collection_to_entity::Entity")]
     CollectionToEntity,
-    #[sea_orm(has_many = "super::user_to_exercise::Entity")]
-    UserToExercise,
+    #[sea_orm(has_many = "super::user_to_entity::Entity")]
+    UserToEntity,
 }
 
 impl Related<super::collection_to_entity::Entity> for Entity {
@@ -102,18 +102,9 @@ impl Related<super::collection_to_entity::Entity> for Entity {
     }
 }
 
-impl Related<super::user_to_exercise::Entity> for Entity {
+impl Related<super::user_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserToExercise.def()
-    }
-}
-
-impl Related<super::user::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::user_to_exercise::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_to_exercise::Relation::Exercise.def().rev())
+        Relation::UserToEntity.def()
     }
 }
 

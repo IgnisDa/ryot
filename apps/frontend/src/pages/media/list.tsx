@@ -181,12 +181,17 @@ const Page: NextPageWithLayout = () => {
 			);
 			return mediaSourcesForLot;
 		},
-		onSuccess: (data) => {
-			if (!data.includes(searchSource as unknown as MetadataSource))
-				setSearchSource(data[0]);
-		},
 		staleTime: Infinity,
 	});
+
+	useEffect(() => {
+		if (
+			mediaSources.data &&
+			!mediaSources.data.includes(searchSource as unknown as MetadataSource)
+		)
+			setSearchSource(mediaSources.data[0]);
+	}, [mediaSources.data]);
+
 	const searchQuery = useQuery({
 		queryKey: [
 			"searchQuery",

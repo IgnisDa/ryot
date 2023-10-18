@@ -105,7 +105,7 @@ export default function Page() {
 					id="submit-button"
 					mt="md"
 					type="submit"
-					loading={loginUser.isLoading}
+					loading={loginUser.isPending}
 					w="100%"
 				>
 					Login

@@ -7,17 +7,17 @@ import {
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	getPresignedGetUrl,
+	getSetColor,
+	uploadFileAndGetKey,
+} from "@/lib/utilities";
+import {
 	type Exercise,
 	type ExerciseSet,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
-} from "@/lib/state";
-import {
-	getPresignedGetUrl,
-	getSetColor,
-	uploadFileAndGetKey,
-} from "@/lib/utilities";
+} from "@/lib/workout";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
@@ -175,13 +175,13 @@ const ImageDisplay = (props: {
 	imageKey: string;
 	removeImage: (imageKey: string) => void;
 }) => {
-	const imageUrl = useQuery(
-		["presignedUrl", props.imageKey],
-		async () => {
+	const imageUrl = useQuery({
+		queryKey: ["presignedUrl", props.imageKey],
+		queryFn: async () => {
 			return await getPresignedGetUrl(props.imageKey);
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	return imageUrl.data ? (
 		<Box pos="relative">

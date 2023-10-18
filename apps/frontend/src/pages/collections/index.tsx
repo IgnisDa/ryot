@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
-import type { NextPageWithLayout } from "../../_app";
+import type { NextPageWithLayout } from "../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
@@ -34,17 +34,17 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 
-	const collectionContents = useQuery(
-		["collectionContents", activePage],
-		async () => {
+	const collectionContents = useQuery({
+		queryKey: ["collectionContents", activePage],
+		queryFn: async () => {
 			const { collectionContents } = await gqlClient.request(
 				CollectionContentsDocument,
 				{ input: { collectionId, page: parseInt(activePage || "1") } },
 			);
 			return collectionContents;
 		},
-		{ enabled: !!collectionId },
-	);
+		enabled: !!collectionId,
+	});
 
 	return collectionId && coreDetails.data && collectionContents.data ? (
 		<>

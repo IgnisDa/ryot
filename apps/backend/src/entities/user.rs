@@ -80,10 +80,8 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::user_measurement::Entity")]
     UserMeasurement,
-    #[sea_orm(has_many = "super::user_to_exercise::Entity")]
-    UserToExercise,
-    #[sea_orm(has_many = "super::user_to_metadata::Entity")]
-    UserToMetadata,
+    #[sea_orm(has_many = "super::user_to_entity::Entity")]
+    UserToEntity,
     #[sea_orm(has_many = "super::workout::Entity")]
     Workout,
 }
@@ -118,39 +116,15 @@ impl Related<super::user_measurement::Entity> for Entity {
     }
 }
 
-impl Related<super::user_to_exercise::Entity> for Entity {
+impl Related<super::user_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserToExercise.def()
-    }
-}
-
-impl Related<super::user_to_metadata::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UserToMetadata.def()
+        Relation::UserToEntity.def()
     }
 }
 
 impl Related<super::workout::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Workout.def()
-    }
-}
-
-impl Related<super::exercise::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::user_to_exercise::Relation::Exercise.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_to_exercise::Relation::User.def().rev())
-    }
-}
-
-impl Related<super::metadata::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::user_to_metadata::Relation::Metadata.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_to_metadata::Relation::User.def().rev())
     }
 }
 

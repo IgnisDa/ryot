@@ -94,7 +94,7 @@ const Page: NextPageWithLayout = () => {
 								<DisplayCollection
 									col={col}
 									entityId={metadataGroupId}
-									entityLot={EntityLot.MetadataGroup}
+									entityLot={EntityLot.MediaGroup}
 									refetch={userMetadataGroupDetails.refetch}
 									key={col.id}
 								/>
@@ -139,7 +139,7 @@ const Page: NextPageWithLayout = () => {
 										opened={collectionModalOpened}
 										entityId={metadataGroupId}
 										refetchUserMedia={userMetadataGroupDetails.refetch}
-										entityLot={EntityLot.MetadataGroup}
+										entityLot={EntityLot.MediaGroup}
 									/>
 								</SimpleGrid>
 							</MediaScrollArea>

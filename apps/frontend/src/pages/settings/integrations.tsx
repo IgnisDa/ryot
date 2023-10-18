@@ -64,11 +64,14 @@ const Page: NextPageWithLayout = () => {
 		{ validate: zodResolver(createUserYankIntegrationSchema) },
 	);
 
-	const userIntegrations = useQuery(["userIntegrations"], async () => {
-		const { userIntegrations } = await gqlClient.request(
-			UserIntegrationsDocument,
-		);
-		return userIntegrations;
+	const userIntegrations = useQuery({
+		queryKey: ["userIntegrations"],
+		queryFn: async () => {
+			const { userIntegrations } = await gqlClient.request(
+				UserIntegrationsDocument,
+			);
+			return userIntegrations;
+		},
 	});
 
 	const createUserYankIntegration = useMutation({
@@ -279,8 +282,8 @@ const Page: NextPageWithLayout = () => {
 									<Button
 										type="submit"
 										loading={
-											createUserYankIntegration.isLoading ||
-											createUserSinkIntegration.isLoading
+											createUserYankIntegration.isPending ||
+											createUserSinkIntegration.isPending
 										}
 									>
 										Submit

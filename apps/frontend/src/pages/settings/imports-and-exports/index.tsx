@@ -136,16 +136,16 @@ const ExerciseMap = (props: {
 	selectedId?: number;
 }) => {
 	const [searched, setSearched] = useDebouncedState(props.name, 500);
-	const exerciseSearch = useQuery(
-		["exerciseSearch", searched],
-		async () => {
+	const exerciseSearch = useQuery({
+		queryKey: ["exerciseSearch", searched],
+		queryFn: async () => {
 			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
 				input: { search: { page: 1, query: searched } },
 			});
 			return exercisesList.items;
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -305,7 +305,7 @@ const Page: NextPageWithLayout = () => {
 									onClick={() => {
 										generateAuthToken.mutate({});
 									}}
-									loading={generateAuthToken.isLoading}
+									loading={generateAuthToken.isPending}
 								>
 									Create auth token
 								</Button>

@@ -63,9 +63,9 @@ const Page: NextPageWithLayout = () => {
 	const form = useForm<FormSchema>({ validate: zodResolver(formSchema) });
 
 	const enabledFeatures = useEnabledCoreFeatures();
-	const imageUrls = useQuery(
-		["presignedUrl", images],
-		async () => {
+	const imageUrls = useQuery({
+		queryKey: ["presignedUrl", images],
+		queryFn: async () => {
 			const imageUrls = [];
 			const videoUrls = [];
 			for (const image of images)
@@ -74,8 +74,8 @@ const Page: NextPageWithLayout = () => {
 				videoUrls.push(await getPresignedGetUrl(video));
 			return { imageUrls, videoUrls };
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	const createCustomMedia = useMutation({
 		mutationFn: async (variables: CreateCustomMediaMutationVariables) => {

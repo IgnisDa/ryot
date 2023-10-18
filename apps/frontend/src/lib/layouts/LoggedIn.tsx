@@ -44,6 +44,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
+import { IconArchive } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Link from "next/link";
@@ -227,8 +228,15 @@ export default function ({ children }: { children: ReactElement }) {
 			const { userDetails } = await gqlClient.request(UserDetailsDocument);
 			return userDetails;
 		},
-		onSuccess: async (data) => {
-			if (data.__typename === "UserDetailsError") {
+		staleTime: Infinity,
+	});
+
+	useEffect(() => {
+		(async () => {
+			if (
+				userDetails.data &&
+				userDetails.data.__typename === "UserDetailsError"
+			) {
 				await logoutUser.mutateAsync();
 				notifications.show({
 					color: "red",
@@ -237,9 +245,9 @@ export default function ({ children }: { children: ReactElement }) {
 				});
 				router.push(APP_ROUTES.auth.login);
 			}
-		},
-		staleTime: Infinity,
-	});
+		})();
+	}, [userDetails.data]);
+
 	const userPreferences = useUserPreferences();
 
 	const mediaLinks = [
@@ -258,7 +266,6 @@ export default function ({ children }: { children: ReactElement }) {
 			}) || []),
 		{ label: "People", href: APP_ROUTES.media.people.list },
 		{ label: "Groups", href: APP_ROUTES.media.groups.list },
-		{ label: "Collections", href: APP_ROUTES.media.collections.list },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href
@@ -386,6 +393,13 @@ export default function ({ children }: { children: ReactElement }) {
 						label="Calendar"
 						icon={IconCalendar}
 						href={APP_ROUTES.calendar}
+						opened={false}
+						setOpened={() => {}}
+					/>
+					<LinksGroup
+						label="Collections"
+						icon={IconArchive}
+						href={APP_ROUTES.collections.list}
 						opened={false}
 						setOpened={() => {}}
 					/>

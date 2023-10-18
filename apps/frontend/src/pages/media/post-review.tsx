@@ -35,7 +35,7 @@ import { IconPercentage } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -123,7 +123,7 @@ const Page: NextPageWithLayout = () => {
 		router.replace(url);
 	};
 
-	useQuery({
+	const reviewDetails = useQuery({
 		enabled: reviewId !== undefined,
 		queryKey: ["reviewDetails", reviewId],
 		queryFn: async () => {
@@ -133,20 +133,23 @@ const Page: NextPageWithLayout = () => {
 			});
 			return review;
 		},
-		onSuccess: (data) => {
-			form.setValues({
-				rating: Number(data?.rating) ?? undefined,
-				text: data?.text ?? undefined,
-				visibility: data?.visibility,
-				spoiler: data?.spoiler,
-				podcastEpisodeNumber: data?.podcastEpisode ?? undefined,
-				showSeasonNumber: data.showSeason ?? undefined,
-				showEpisodeNumber: data?.showEpisode ?? undefined,
-			});
-			form.resetDirty();
-		},
 		staleTime: Infinity,
 	});
+
+	useEffect(() => {
+		if (reviewDetails.data) {
+			form.setValues({
+				rating: Number(reviewDetails.data.rating) ?? undefined,
+				text: reviewDetails.data.text ?? undefined,
+				visibility: reviewDetails.data.visibility,
+				spoiler: reviewDetails.data.spoiler,
+				podcastEpisodeNumber: reviewDetails.data.podcastEpisode ?? undefined,
+				showSeasonNumber: reviewDetails.data.showSeason ?? undefined,
+				showEpisodeNumber: reviewDetails.data.showEpisode ?? undefined,
+			});
+			form.resetDirty();
+		}
+	}, [reviewDetails.data]);
 
 	const postReview = useMutation({
 		mutationFn: async (variables: PostReviewMutationVariables) => {
@@ -285,14 +288,14 @@ const Page: NextPageWithLayout = () => {
 						<Button
 							mt="md"
 							type="submit"
-							loading={postReview.isLoading}
+							loading={postReview.isPending}
 							w="100%"
 						>
 							{reviewId ? "Update" : "Submit"}
 						</Button>
 						{reviewId ? (
 							<Button
-								loading={deleteReview.isLoading}
+								loading={deleteReview.isPending}
 								w="100%"
 								color="red"
 								onClick={() => {

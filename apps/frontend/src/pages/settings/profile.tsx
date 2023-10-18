@@ -22,7 +22,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Head from "next/head";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 import { z } from "zod";
 import type { NextPageWithLayout } from "../_app";
 
@@ -46,16 +46,17 @@ const Page: NextPageWithLayout = () => {
 			const { userDetails } = await gqlClient.request(UserDetailsDocument);
 			return userDetails;
 		},
-		onSuccess: (data) => {
-			if (data.__typename === "User") {
-				updateProfileForm.setValues({
-					email: data.email || undefined,
-					username: data.name,
-				});
-				updateProfileForm.resetDirty();
-			}
-		},
 	});
+
+	useEffect(() => {
+		if (userDetails.data && userDetails.data.__typename === "User") {
+			updateProfileForm.setValues({
+				email: userDetails.data.email || undefined,
+				username: userDetails.data.name,
+			});
+			updateProfileForm.resetDirty();
+		}
+	}, [userDetails.data]);
 
 	const updateUser = useMutation({
 		mutationFn: async (variables: UpdateUserMutationVariables) => {
@@ -124,7 +125,7 @@ const Page: NextPageWithLayout = () => {
 								}
 								{...updateProfileForm.getInputProps("password")}
 							/>
-							<Button type="submit" loading={updateUser.isLoading} w="100%">
+							<Button type="submit" loading={updateUser.isPending} w="100%">
 								Update
 							</Button>
 						</Stack>

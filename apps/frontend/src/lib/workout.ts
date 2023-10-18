@@ -3,27 +3,27 @@ import {
 	type ExerciseLot,
 	type SetLot,
 	type UserWorkoutSetRecord,
+	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import type { Immutable } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { LOCAL_STORAGE_KEYS } from "./constants";
 
-export type ExerciseSetStats = Immutable<{
+export type ExerciseSetStats = {
 	duration?: number | null;
 	weight?: number | null;
 	reps?: number | null;
 	distance?: number | null;
-}>;
+};
 
-export type ExerciseSet = Immutable<{
+export type ExerciseSet = {
 	statistic: ExerciseSetStats;
 	lot: SetLot;
 	confirmed: boolean;
-}>;
+};
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
-export type Exercise = Immutable<{
+export type Exercise = {
 	name: string;
 	exerciseId: number;
 	lot: ExerciseLot;
@@ -33,9 +33,9 @@ export type Exercise = Immutable<{
 	restTimer?: { enabled: boolean; duration: number } | null;
 	videos: string[];
 	images: string[];
-}>;
+};
 
-type InProgressWorkout = Immutable<{
+type InProgressWorkout = {
 	startTime: string;
 	endTime?: string;
 	name: string;
@@ -45,7 +45,7 @@ type InProgressWorkout = Immutable<{
 	images: Array<string>;
 	// TODO: Superset support pending
 	// supersets: Array<Array<number>>;
-}>;
+};
 
 export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
 	LOCAL_STORAGE_KEYS.currentWorkout,
@@ -70,6 +70,41 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 		videos: [],
 		// supersets: [],
 	};
+};
+
+export const duplicateOldWorkout = (
+	workout: WorkoutDetailsQuery["workoutDetails"],
+) => {
+	const inProgress = getDefaultWorkout();
+	inProgress.name = workout.name;
+	for (const ex of workout.information.exercises) {
+		const sets = ex.sets.map((s) => ({
+			confirmed: false,
+			lot: s.lot,
+			statistic: {
+				...s.statistic,
+				duration: s.statistic.duration
+					? Number(s.statistic.duration)
+					: undefined,
+				distance: s.statistic.distance
+					? Number(s.statistic.distance)
+					: undefined,
+				weight: s.statistic.weight ? Number(s.statistic.weight) : undefined,
+			},
+		}));
+		inProgress.exercises.push({
+			images: [],
+			videos: [],
+			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
+			exerciseId: ex.id,
+			lot: ex.lot,
+			name: ex.name,
+			notes: ex.notes,
+			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
+			sets: sets,
+		});
+	}
+	return inProgress;
 };
 
 export const currentWorkoutToCreateWorkoutInput = (
@@ -111,6 +146,11 @@ export const currentWorkoutToCreateWorkoutInput = (
 			notes,
 			sets,
 			assets: { images: [...exercise.images], videos: [...exercise.videos] },
+			restTime: exercise.restTimer
+				? exercise.restTimer.enabled
+					? exercise.restTimer.duration
+					: undefined
+				: undefined,
 		});
 	}
 	return input;
