@@ -20,7 +20,12 @@ import {
 	SetLot,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconClock, IconTrophy, IconWeight } from "@tabler/icons-react";
+import {
+	IconClock,
+	IconTrophy,
+	IconWeight,
+	IconZzz,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {
 	HumanizeDuration,
@@ -122,15 +127,23 @@ const Page: NextPageWithLayout = () => {
 					{workoutDetails.data.information.exercises.map((exercise, idx) => (
 						<Paper key={`${exercise.id}-${idx}`} withBorder p="xs">
 							<Box mb="xs">
-								<Anchor
-									component={Link}
-									href={withQuery(APP_ROUTES.fitness.exercises.details, {
-										id: exercise.id,
-									})}
-									fw="bold"
-								>
-									{exercise.name}
-								</Anchor>
+								<Group justify="space-between">
+									<Anchor
+										component={Link}
+										href={withQuery(APP_ROUTES.fitness.exercises.details, {
+											id: exercise.id,
+										})}
+										fw="bold"
+									>
+										{exercise.name}
+									</Anchor>
+									{exercise.restTime ? (
+										<Flex align="center" gap="xs">
+											<IconZzz size={14} />
+											<Text fz="xs">{exercise.restTime}s</Text>
+										</Flex>
+									) : undefined}
+								</Group>
 								{exercise.notes.map((n) => (
 									<Text c="dimmed" key={n} size="xs">
 										{n}
