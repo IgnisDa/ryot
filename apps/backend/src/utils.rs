@@ -274,6 +274,9 @@ pub async fn add_entity_to_collection(
         .await
         .unwrap()
         .unwrap();
+    let mut updated: collection::ActiveModel = collection.into();
+    updated.last_updated_on = ActiveValue::Set(Utc::now());
+    let collection = updated.update(db).await.unwrap();
     if let Some(etc) = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
         .filter(target_column.eq(input.entity_id))

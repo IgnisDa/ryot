@@ -13,6 +13,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub created_on: DateTimeUtc,
+    pub last_updated_on: DateTimeUtc,
     pub name: String,
     pub description: Option<String>,
     #[graphql(skip)]

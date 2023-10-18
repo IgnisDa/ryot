@@ -1,11 +1,13 @@
 use sea_orm::{entity::prelude::*, ActiveValue};
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{prelude::ColumnDef, prelude::*};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::user_to_entity,
     models::{fitness::UserToExerciseExtraInformation, media::UserMediaReminder},
 };
+
+use super::m20230507_create_collection::Collection;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -45,6 +47,21 @@ impl MigrationTrait for Migration {
             }
             manager
                 .drop_table(Table::drop().table(ute::UserToExercise::Table).to_owned())
+                .await?;
+        }
+        if !manager.has_column("collection", "last_updated_on").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Collection::Table)
+                        .add_column(
+                            ColumnDef::new(Collection::LastUpdatedOn)
+                                .timestamp_with_time_zone()
+                                .not_null()
+                                .default(Expr::current_timestamp()),
+                        )
+                        .to_owned(),
+                )
                 .await?;
         }
         Ok(())

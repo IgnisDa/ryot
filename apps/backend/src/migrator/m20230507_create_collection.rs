@@ -10,6 +10,7 @@ pub enum Collection {
     Table,
     Id,
     CreatedOn,
+    LastUpdatedOn,
     Name,
     UserId,
     Description,
@@ -32,6 +33,12 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Collection::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Collection::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),

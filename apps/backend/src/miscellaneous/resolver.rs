@@ -3650,7 +3650,7 @@ impl MiscellaneousService {
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
-            .order_by_asc(collection::Column::CreatedOn)
+            .order_by_desc(collection::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
@@ -3887,6 +3887,7 @@ impl MiscellaneousService {
                         Some(i) => ActiveValue::Unchanged(i),
                         None => ActiveValue::NotSet,
                     },
+                    last_updated_on: ActiveValue::Set(Utc::now()),
                     name: ActiveValue::Set(input.name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
