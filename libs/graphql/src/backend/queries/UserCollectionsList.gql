@@ -2,7 +2,7 @@ query UserCollectionsList($name: String) {
   userCollectionsList(name: $name) {
     id
     name
-    description
+    createdOn
     visibility
     numItems
   }
