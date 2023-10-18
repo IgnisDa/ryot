@@ -10,7 +10,7 @@ query ExercisesList($input: ExercisesListInput!) {
       lot
       image
       muscle
-      numTimesPerformed
+      numTimesInteracted
     }
   }
 }

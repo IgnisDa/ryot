@@ -11,8 +11,8 @@ use sea_orm::{
 
 use crate::{
     entities::{
-        prelude::{Exercise, UserToExercise},
-        user_to_exercise, workout,
+        prelude::{Exercise, UserToEntity},
+        user_to_entity, workout,
     },
     migrator::ExerciseLot,
     models::fitness::{
@@ -100,9 +100,9 @@ impl UserWorkoutInput {
             };
             let mut sets = vec![];
             let mut total = WorkoutTotalMeasurement::default();
-            let association = UserToExercise::find()
-                .filter(user_to_exercise::Column::UserId.eq(user_id))
-                .filter(user_to_exercise::Column::ExerciseId.eq(ex.exercise_id))
+            let association = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id))
                 .one(db)
                 .await
                 .ok()
@@ -113,26 +113,28 @@ impl UserWorkoutInput {
             };
             let association = match association {
                 None => {
-                    let user_to_ex = user_to_exercise::ActiveModel {
+                    let user_to_ex = user_to_entity::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
-                        exercise_id: ActiveValue::Set(ex.exercise_id),
-                        num_times_performed: ActiveValue::Set(1),
-                        last_updated_on: ActiveValue::Set(Utc::now()),
-                        extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
-                            history: vec![history_item],
-                            lifetime_stats: WorkoutTotalMeasurement::default(),
-                            personal_bests: vec![],
-                        }),
+                        exercise_id: ActiveValue::Set(Some(ex.exercise_id)),
+                        num_times_interacted: ActiveValue::Set(1),
+                        exercise_extra_information: ActiveValue::Set(Some(
+                            UserToExerciseExtraInformation {
+                                history: vec![history_item],
+                                lifetime_stats: WorkoutTotalMeasurement::default(),
+                                personal_bests: vec![],
+                            },
+                        )),
+                        ..Default::default()
                     };
                     user_to_ex.insert(db).await.unwrap()
                 }
                 Some(e) => {
-                    let performed = e.num_times_performed;
-                    let mut extra_info = e.extra_information.clone();
+                    let performed = e.num_times_interacted;
+                    let mut extra_info = e.exercise_extra_information.clone().unwrap();
                     extra_info.history.insert(0, history_item);
-                    let mut up: user_to_exercise::ActiveModel = e.into();
-                    up.num_times_performed = ActiveValue::Set(performed + 1);
-                    up.extra_information = ActiveValue::Set(extra_info);
+                    let mut up: user_to_entity::ActiveModel = e.into();
+                    up.num_times_interacted = ActiveValue::Set(performed + 1);
+                    up.exercise_extra_information = ActiveValue::Set(Some(extra_info));
                     up.last_updated_on = ActiveValue::Set(Utc::now());
                     up.update(db).await?
                 }
@@ -157,7 +159,11 @@ impl UserWorkoutInput {
                     personal_bests: vec![],
                 });
             }
-            let mut personal_bests = association.extra_information.personal_bests.clone();
+            let mut personal_bests = association
+                .exercise_extra_information
+                .clone()
+                .unwrap()
+                .personal_bests;
             let types_of_prs = match db_ex.lot {
                 ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
                 ExerciseLot::DistanceAndDuration => {
@@ -210,11 +216,13 @@ impl UserWorkoutInput {
                     }
                 }
             }
-            let mut association_extra_information = association.extra_information.clone();
-            let mut association: user_to_exercise::ActiveModel = association.into();
+            let mut association_extra_information =
+                association.exercise_extra_information.clone().unwrap();
+            let mut association: user_to_entity::ActiveModel = association.into();
             association_extra_information.lifetime_stats += total.clone();
             association_extra_information.personal_bests = personal_bests;
-            association.extra_information = ActiveValue::Set(association_extra_information);
+            association.exercise_extra_information =
+                ActiveValue::Set(Some(association_extra_information));
             association.update(db).await?;
             exercises.push((
                 db_ex.lot,
