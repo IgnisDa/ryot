@@ -73,7 +73,7 @@ use crate::{
     migrator::{
         Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
         PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
-        UserLot, UserToMetadata as TempUserToMetadata,
+        UserLot, UserToEntity as TempUserToMetadata,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{

@@ -44,7 +44,7 @@ mod m20231018_add_missing_indices;
 mod m20231018_drop_useless_tables;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
-pub use m20230417_create_user::{UserLot, UserToMetadata};
+pub use m20230417_create_user::UserLot;
 pub use m20230419_create_seen::{Seen, SeenState};
 pub use m20230505_create_review::Review;
 pub use m20230509_create_import_report::ImportSource;
@@ -54,6 +54,7 @@ pub use m20230622_create_exercise::{
 };
 pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
 pub use m20231003_create_partial_metadata_to_person::PersonToPartialMetadataRelation;
+pub use m20231017_create_user_to_entity::UserToEntity;
 
 pub struct Migrator;
 
