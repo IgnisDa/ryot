@@ -54,6 +54,8 @@ pub enum Relation {
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
+    #[sea_orm(has_many = "super::user_to_entity::Entity")]
+    UserToEntity,
     #[sea_orm(has_many = "super::user_to_metadata::Entity")]
     UserToMetadata,
 }
@@ -97,6 +99,12 @@ impl Related<super::review::Entity> for Entity {
 impl Related<super::seen::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Seen.def()
+    }
+}
+
+impl Related<super::user_to_entity::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserToEntity.def()
     }
 }
 

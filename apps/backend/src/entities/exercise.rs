@@ -92,6 +92,8 @@ impl ExerciseListItem {
 pub enum Relation {
     #[sea_orm(has_many = "super::collection_to_entity::Entity")]
     CollectionToEntity,
+    #[sea_orm(has_many = "super::user_to_entity::Entity")]
+    UserToEntity,
     #[sea_orm(has_many = "super::user_to_exercise::Entity")]
     UserToExercise,
 }
@@ -99,6 +101,12 @@ pub enum Relation {
 impl Related<super::collection_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CollectionToEntity.def()
+    }
+}
+
+impl Related<super::user_to_entity::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserToEntity.def()
     }
 }
 
