@@ -71,7 +71,7 @@ const Footer = () => {
 				[
 					"red",
 					<>
-						There is a major upgrade, please follow{" "}
+						There is a major upgrade, please follow the{" "}
 						<Anchor
 							href="https://ignisda.github.io/ryot/migration.html"
 							target="_blank"
@@ -448,9 +448,6 @@ export default function ({ children }: { children: ReactElement }) {
 					/>
 				</Box>
 				<Stack gap="xs">
-					<Text fz="sm" ta="center" c="green">
-						{coreDetails.data.timezone}
-					</Text>
 					<Flex direction="column" justify="center" gap="md">
 						<ThemeToggle />
 						<UnstyledButton
