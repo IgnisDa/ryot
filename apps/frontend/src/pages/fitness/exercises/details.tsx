@@ -312,6 +312,10 @@ const Page: NextPageWithLayout = () => {
 													.exerciseExtraInformation.lifetimeStats.reps
 											}
 										/>
+										<DisplayLifetimeStatistic
+											stat="times done"
+											val={userExerciseDetails.data.details.numTimesInteracted}
+										/>
 									</Box>
 								</Stack>
 							</Tabs.Panel>
