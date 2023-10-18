@@ -222,6 +222,7 @@ export default function ({ children }: { children: ReactElement }) {
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
+	const coreDetails = useCoreDetails();
 	const userDetails = useQuery({
 		queryKey: ["userDetails"],
 		queryFn: async () => {
@@ -332,7 +333,7 @@ export default function ({ children }: { children: ReactElement }) {
 		};
 	}, [router]);
 
-	return userPreferences.data && openedLinkGroups ? (
+	return userPreferences.data && openedLinkGroups && coreDetails.data ? (
 		<AppShell
 			w="100%"
 			padding={0}
@@ -446,7 +447,10 @@ export default function ({ children }: { children: ReactElement }) {
 						}
 					/>
 				</Box>
-				<Box>
+				<Stack gap="xs">
+					<Text fz="sm" ta="center" c="green">
+						{coreDetails.data.timezone}
+					</Text>
 					<Flex direction="column" justify="center" gap="md">
 						<ThemeToggle />
 						<UnstyledButton
@@ -460,7 +464,7 @@ export default function ({ children }: { children: ReactElement }) {
 							</Group>
 						</UnstyledButton>
 					</Flex>
-				</Box>
+				</Stack>
 			</AppShell.Navbar>
 			<Flex direction="column" h="90%">
 				<Flex justify="space-between" p="md" hiddenFrom="sm">

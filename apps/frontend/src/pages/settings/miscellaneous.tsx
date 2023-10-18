@@ -186,7 +186,6 @@ const Page: NextPageWithLayout = () => {
 							Synchronize
 						</Button>
 					</>
-					<Divider />
 				</Stack>
 			</Container>
 		</>

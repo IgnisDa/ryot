@@ -37,8 +37,6 @@ pub enum MetadataToPerson {
     Index,
 }
 
-// TODO: Model to associate person to partial_metadata (for media suggestions).
-
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {

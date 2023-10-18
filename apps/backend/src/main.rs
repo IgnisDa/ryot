@@ -159,11 +159,17 @@ async fn main() -> Result<()> {
 
     let perform_application_job_storage = create_storage(pool.clone()).await;
 
+    let tz: chrono_tz::Tz = env::var("TZ")
+        .map(|s| s.parse().unwrap())
+        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
+    tracing::info!("Using timezone: {}", tz);
+
     let app_services = create_app_services(
         db.clone(),
         s3_client,
         config,
         &perform_application_job_storage,
+        tz,
     )
     .await;
 
@@ -235,11 +241,6 @@ async fn main() -> Result<()> {
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
         .layer(cors);
-
-    let tz: chrono_tz::Tz = env::var("TZ")
-        .map(|s| s.parse().unwrap())
-        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    tracing::info!("Using timezone: {}", tz);
 
     let port = env::var("PORT")
         .unwrap_or_else(|_| "8000".to_owned())
