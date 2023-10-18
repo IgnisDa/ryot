@@ -73,7 +73,7 @@ const Page: NextPageWithLayout = () => {
 	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const workoutDetails = useQuery({
-		queryKey: ["workoutDetails"],
+		queryKey: ["workoutDetails", workoutId],
 		queryFn: async () => {
 			invariant(workoutId);
 			const { workoutDetails } = await gqlClient.request(
@@ -179,70 +179,76 @@ const Page: NextPageWithLayout = () => {
 							<Text span>{workoutDetails.data.comment}</Text>
 						</Box>
 					) : undefined}
-					{workoutDetails.data.information.exercises.map((exercise, idx) => (
-						<Paper key={`${exercise.id}-${idx}`} withBorder p="xs">
-							<Box mb="xs">
-								<Group justify="space-between">
-									<Anchor
-										component={Link}
-										href={withQuery(APP_ROUTES.fitness.exercises.details, {
-											id: exercise.id,
-										})}
-										fw="bold"
-									>
-										{exercise.name}
-									</Anchor>
-									{exercise.restTime ? (
-										<Flex align="center" gap="xs">
-											<IconZzz size={14} />
-											<Text fz="xs">{exercise.restTime}s</Text>
-										</Flex>
-									) : undefined}
-								</Group>
-								{exercise.notes.map((n) => (
-									<Text c="dimmed" key={n} size="xs">
-										{n}
-									</Text>
-								))}
-							</Box>
-							{exercise.sets.map((s, idx) => (
-								<Box key={`${idx}`}>
-									{exercise.assets.images.length > 0 ? (
-										<Avatar.Group>
-											{exercise.assets.images.map((i) => (
-												<Anchor
-													key={i}
-													href={i}
-													target="_blank"
-													rel="noopener noreferrer"
-												>
-													<Avatar src={i} />
-												</Anchor>
-											))}
-										</Avatar.Group>
-									) : undefined}
-									<Flex align="center">
-										<Text
-											fz="sm"
-											c={getSetColor(s.lot)}
-											mr="md"
+					{workoutDetails.data.information.exercises.length > 0 ? (
+						workoutDetails.data.information.exercises.map((exercise, idx) => (
+							<Paper key={`${exercise.id}-${idx}`} withBorder p="xs">
+								<Box mb="xs">
+									<Group justify="space-between">
+										<Anchor
+											component={Link}
+											href={withQuery(APP_ROUTES.fitness.exercises.details, {
+												id: exercise.id,
+											})}
 											fw="bold"
-											ff="monospace"
 										>
-											{match(s.lot)
-												.with(SetLot.Normal, () => idx + 1)
-												.otherwise(() => s.lot.at(0))}
+											{exercise.name}
+										</Anchor>
+										{exercise.restTime ? (
+											<Flex align="center" gap="xs">
+												<IconZzz size={14} />
+												<Text fz="xs">{exercise.restTime}s</Text>
+											</Flex>
+										) : undefined}
+									</Group>
+									{exercise.notes.map((n) => (
+										<Text c="dimmed" key={n} size="xs">
+											{n}
 										</Text>
-										<DisplayExerciseStats
-											lot={exercise.lot}
-											statistic={s.statistic}
-											personalBests={s.personalBests}
-										/>
-									</Flex>
+									))}
 								</Box>
-							))}
+								{exercise.sets.map((s, idx) => (
+									<Box key={`${idx}`}>
+										{exercise.assets.images.length > 0 ? (
+											<Avatar.Group>
+												{exercise.assets.images.map((i) => (
+													<Anchor
+														key={i}
+														href={i}
+														target="_blank"
+														rel="noopener noreferrer"
+													>
+														<Avatar src={i} />
+													</Anchor>
+												))}
+											</Avatar.Group>
+										) : undefined}
+										<Flex align="center">
+											<Text
+												fz="sm"
+												c={getSetColor(s.lot)}
+												mr="md"
+												fw="bold"
+												ff="monospace"
+											>
+												{match(s.lot)
+													.with(SetLot.Normal, () => idx + 1)
+													.otherwise(() => s.lot.at(0))}
+											</Text>
+											<DisplayExerciseStats
+												lot={exercise.lot}
+												statistic={s.statistic}
+												personalBests={s.personalBests}
+											/>
+										</Flex>
+									</Box>
+								))}
+							</Paper>
+						))
+					) : (
+						<Paper withBorder p="xs">
+							No exercises done
 						</Paper>
-					))}
+					)}
 				</Stack>
 			</Container>
 		</>
