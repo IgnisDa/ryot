@@ -5,8 +5,8 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { currentWorkoutAtom, getDefaultWorkout } from "@/lib/workout";
 import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
+import { currentWorkoutAtom, getDefaultWorkout } from "@/lib/workout";
 import {
 	Alert,
 	Anchor,

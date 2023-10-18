@@ -7,17 +7,17 @@ import {
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	getPresignedGetUrl,
+	getSetColor,
+	uploadFileAndGetKey,
+} from "@/lib/utilities";
+import {
 	type Exercise,
 	type ExerciseSet,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/workout";
-import {
-	getPresignedGetUrl,
-	getSetColor,
-	uploadFileAndGetKey,
-} from "@/lib/utilities";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
