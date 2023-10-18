@@ -116,7 +116,6 @@ impl UserWorkoutInput {
                     let user_to_ex = user_to_entity::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
                         exercise_id: ActiveValue::Set(Some(ex.exercise_id)),
-                        num_times_interacted: ActiveValue::Set(1),
                         exercise_extra_information: ActiveValue::Set(Some(
                             UserToExerciseExtraInformation {
                                 history: vec![history_item],

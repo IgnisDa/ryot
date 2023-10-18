@@ -51,7 +51,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(UserToEntity::NumTimesInteracted)
                             .integer()
                             .not_null()
-                            .default(0),
+                            .default(1),
                     )
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json())
                     .foreign_key(
