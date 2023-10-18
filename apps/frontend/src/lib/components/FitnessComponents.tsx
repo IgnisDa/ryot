@@ -7,7 +7,7 @@ import {
 import { startCase } from "@ryot/ts-utils";
 import { IconTrophy } from "@tabler/icons-react";
 import { match } from "ts-pattern";
-import type { ExerciseSetStats } from "../state";
+import type { ExerciseSetStats } from "../workout";
 import { getStringAsciiValue } from "../utilities";
 
 export const getSetStatisticsTextToDisplay = (

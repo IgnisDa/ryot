@@ -3,7 +3,7 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { currentWorkoutAtom } from "@/lib/state";
+import { currentWorkoutAtom } from "@/lib/workout";
 import {
 	ActionIcon,
 	Affix,

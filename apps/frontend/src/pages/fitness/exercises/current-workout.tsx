@@ -12,7 +12,7 @@ import {
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
-} from "@/lib/state";
+} from "@/lib/workout";
 import {
 	getPresignedGetUrl,
 	getSetColor,
