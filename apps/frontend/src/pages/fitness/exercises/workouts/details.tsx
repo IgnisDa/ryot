@@ -5,28 +5,34 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getSetColor } from "@/lib/utilities";
 import {
+	ActionIcon,
 	Anchor,
 	Avatar,
 	Box,
 	Container,
 	Flex,
 	Group,
+	Menu,
 	Paper,
 	Stack,
 	Text,
 	Title,
 } from "@mantine/core";
 import {
+	DeleteUserWorkoutDocument,
+	type DeleteUserWorkoutMutationVariables,
 	SetLot,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconClock,
+	IconDotsVertical,
+	IconTrash,
 	IconTrophy,
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
@@ -77,14 +83,50 @@ const Page: NextPageWithLayout = () => {
 		staleTime: Infinity,
 	});
 
-	return workoutDetails.data ? (
+	const deleteWorkout = useMutation({
+		mutationFn: async (variables: DeleteUserWorkoutMutationVariables) => {
+			const { deleteUserWorkout } = await gqlClient.request(
+				DeleteUserWorkoutDocument,
+				variables,
+			);
+			return deleteUserWorkout;
+		},
+		onSuccess: () => {
+			router.push(APP_ROUTES.fitness.workouts);
+		},
+	});
+
+	return workoutDetails.data && workoutId ? (
 		<>
 			<Head>
 				<title>{workoutDetails.data.name} | Ryot</title>
 			</Head>
 			<Container size="xs">
 				<Stack>
-					<Title>{workoutDetails.data.name}</Title>
+					<Group justify="space-between">
+						<Title>{workoutDetails.data.name}</Title>
+						<Menu shadow="md" position="bottom-end">
+							<Menu.Target>
+								<ActionIcon>
+									<IconDotsVertical />
+								</ActionIcon>
+							</Menu.Target>
+							<Menu.Dropdown>
+								<Menu.Item
+									onClick={() => {
+										const yes = confirm(
+											"Are you sure you want to delete this workout? This action is not reversible.",
+										);
+										if (yes) deleteWorkout.mutate({ workoutId });
+									}}
+									color="red"
+									leftSection={<IconTrash size={14} />}
+								>
+									Delete
+								</Menu.Item>
+							</Menu.Dropdown>
+						</Menu>
+					</Group>
 					<Box>
 						<Text c="dimmed" span>
 							Done on{" "}
