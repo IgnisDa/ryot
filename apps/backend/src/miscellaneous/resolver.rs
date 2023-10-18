@@ -348,8 +348,8 @@ struct ReviewItem {
 struct CollectionItem {
     id: i32,
     name: String,
-    created_on: DateTimeUtc,
     num_items: u64,
+    description: Option<String>,
     visibility: Visibility,
 }
 
@@ -3663,7 +3663,7 @@ impl MiscellaneousService {
             data.push(CollectionItem {
                 id: collection.id,
                 name: collection.name,
-                created_on: collection.created_on,
+                description: collection.description,
                 visibility: collection.visibility,
                 num_items,
             });

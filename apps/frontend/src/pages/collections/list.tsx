@@ -39,7 +39,6 @@ import { type ReactElement, useState } from "react";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import type { NextPageWithLayout } from "../_app";
-import { DateTime } from "luxon";
 
 const formSchema = z.object({
 	name: z.string(),
@@ -152,11 +151,7 @@ const Page: NextPageWithLayout = () => {
 											{c?.numItems} items, {changeCase(c?.visibility || "")}
 										</Text>
 									</Flex>
-									<Text>
-										{DateTime.fromJSDate(c.createdOn).toLocaleString(
-											DateTime.DATE_MED,
-										)}
-									</Text>
+									{c?.description ? <Text>{c?.description}</Text> : undefined}
 								</Box>
 								<Flex gap="sm" style={{ flex: 0 }}>
 									<ActionIcon
