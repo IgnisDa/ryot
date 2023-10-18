@@ -193,17 +193,7 @@ const Page: NextPageWithLayout = () => {
 								))}
 							</Box>
 							{exercise.sets.map((s, idx) => (
-								<Box
-									key={`${idx}`}
-									pt={
-										idx !== 0 &&
-										(exercise.assets.images.length > 0 ||
-											exercise.assets.videos.length > 0 ||
-											exercise.notes.length > 0)
-											? "xs"
-											: undefined
-									}
-								>
+								<Box key={`${idx}`}>
 									{exercise.assets.images.length > 0 ? (
 										<Avatar.Group>
 											{exercise.assets.images.map((i) => (
