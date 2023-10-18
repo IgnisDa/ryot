@@ -235,6 +235,13 @@ impl ExerciseMutation {
         service.create_user_workout(user_id, input).await
     }
 
+    /// Delete a workout and remove all exercise associations.
+    async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.delete_user_workout(user_id, workout_id).await
+    }
+
     /// Create a custom exercise.
     async fn create_custom_exercise(
         &self,
@@ -714,5 +721,19 @@ impl ExerciseService {
             workouts.push(self.workout_details(workout_id, user_id).await?);
         }
         Ok(workouts)
+    }
+
+    pub async fn delete_user_workout(&self, user_id: i32, workout_id: String) -> Result<bool> {
+        if let Some(wkt) = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::Id.eq(workout_id))
+            .one(&self.db)
+            .await?
+        {
+            wkt.delete_existing(&self.db).await?;
+            Ok(true)
+        } else {
+            Err(Error::new("Workout does not exist for user"))
+        }
     }
 }

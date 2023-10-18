@@ -268,3 +268,9 @@ impl UserWorkoutInput {
         Ok(data.id)
     }
 }
+
+impl workout::Model {
+    pub async fn delete_existing(self, db: &DatabaseConnection) -> Result<()> {
+        todo!()
+    }
+}
