@@ -27,6 +27,7 @@ import {
 import {
 	IconClock,
 	IconDotsVertical,
+	IconRepeat,
 	IconTrash,
 	IconTrophy,
 	IconWeight,
@@ -112,6 +113,12 @@ const Page: NextPageWithLayout = () => {
 								</ActionIcon>
 							</Menu.Target>
 							<Menu.Dropdown>
+								<Menu.Item
+									onClick={() => {}}
+									leftSection={<IconRepeat size={14} />}
+								>
+									Repeat
+								</Menu.Item>
 								<Menu.Item
 									onClick={() => {
 										const yes = confirm(
