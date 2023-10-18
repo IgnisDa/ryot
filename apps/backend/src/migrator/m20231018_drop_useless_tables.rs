@@ -22,6 +22,7 @@ impl MigrationTrait for Migration {
                     user_id: ActiveValue::Set(mtc.user_id),
                     metadata_monitored: ActiveValue::Set(Some(mtc.monitored)),
                     metadata_reminder: ActiveValue::Set(mtc.reminder),
+                    num_times_interacted: ActiveValue::Set(1),
                     ..Default::default()
                 };
                 to_insert.insert(db).await.ok();
