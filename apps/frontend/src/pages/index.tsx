@@ -478,6 +478,12 @@ const Page: NextPageWithLayout = () => {
 												color={theme.colors.grape[8]}
 												data={[
 													{
+														label: "Media",
+														value:
+															latestUserSummary.data.media.mediaInteractedWith,
+														type: "number",
+													},
+													{
 														label: "Reviews",
 														value: latestUserSummary.data.media.reviewsPosted,
 														type: "number",
@@ -510,6 +516,14 @@ const Page: NextPageWithLayout = () => {
 														label: "Workouts",
 														value:
 															latestUserSummary.data.fitness.workoutsRecorded,
+														type: "number",
+														hideIfZero: true,
+													},
+													{
+														label: "Exercises",
+														value:
+															latestUserSummary.data.fitness
+																.exercisesInteractedWith,
 														type: "number",
 														hideIfZero: true,
 													},
