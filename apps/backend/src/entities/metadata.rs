@@ -56,8 +56,6 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
     UserToEntity,
-    #[sea_orm(has_many = "super::user_to_metadata::Entity")]
-    UserToMetadata,
 }
 
 impl Related<super::calendar_event::Entity> for Entity {
@@ -108,12 +106,6 @@ impl Related<super::user_to_entity::Entity> for Entity {
     }
 }
 
-impl Related<super::user_to_metadata::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UserToMetadata.def()
-    }
-}
-
 impl Related<super::genre::Entity> for Entity {
     fn to() -> RelationDef {
         super::metadata_to_genre::Relation::Genre.def()
@@ -133,15 +125,6 @@ impl Related<super::partial_metadata::Entity> for Entity {
                 .def()
                 .rev(),
         )
-    }
-}
-
-impl Related<super::user::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::user_to_metadata::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_to_metadata::Relation::Metadata.def().rev())
     }
 }
 

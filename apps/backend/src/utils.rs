@@ -31,8 +31,8 @@ use crate::{
     config::AppConfig,
     entities::{
         collection, collection_to_entity,
-        prelude::{Collection, CollectionToEntity, User, UserToMetadata},
-        user, user_to_metadata,
+        prelude::{Collection, CollectionToEntity, User, UserToEntity},
+        user, user_to_entity,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
@@ -114,13 +114,13 @@ pub async fn get_user_and_metadata_association<C>(
     user_id: &i32,
     metadata_id: &i32,
     db: &C,
-) -> Option<user_to_metadata::Model>
+) -> Option<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
-    UserToMetadata::find()
-        .filter(user_to_metadata::Column::UserId.eq(user_id.to_owned()))
-        .filter(user_to_metadata::Column::MetadataId.eq(metadata_id.to_owned()))
+    UserToEntity::find()
+        .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+        .filter(user_to_entity::Column::MetadataId.eq(metadata_id.to_owned()))
         .one(db)
         .await
         .ok()
@@ -131,21 +131,27 @@ pub async fn associate_user_with_metadata<C>(
     user_id: &i32,
     metadata_id: &i32,
     db: &C,
-) -> Result<user_to_metadata::Model>
+) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
     let user_to_meta = get_user_and_metadata_association(user_id, metadata_id, db).await;
     Ok(match user_to_meta {
         None => {
-            let user_to_meta = user_to_metadata::ActiveModel {
+            let user_to_meta = user_to_entity::ActiveModel {
                 user_id: ActiveValue::Set(*user_id),
-                metadata_id: ActiveValue::Set(*metadata_id),
+                metadata_id: ActiveValue::Set(Some(*metadata_id)),
                 ..Default::default()
             };
             user_to_meta.insert(db).await.unwrap()
         }
-        Some(u) => u,
+        Some(u) => {
+            let increase = u.num_times_interacted;
+            let mut i: user_to_entity::ActiveModel = u.into();
+            i.last_updated_on = ActiveValue::Set(Utc::now());
+            i.num_times_interacted = ActiveValue::Set(increase + 1);
+            i.update(db).await.unwrap()
+        }
     })
 }
 

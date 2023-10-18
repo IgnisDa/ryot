@@ -20,5 +20,4 @@ pub use super::seen::Entity as Seen;
 pub use super::user::Entity as User;
 pub use super::user_measurement::Entity as UserMeasurement;
 pub use super::user_to_entity::Entity as UserToEntity;
-pub use super::user_to_metadata::Entity as UserToMetadata;
 pub use super::workout::Entity as Workout;
