@@ -730,7 +730,7 @@ impl ExerciseService {
             .one(&self.db)
             .await?
         {
-            wkt.delete_existing(&self.db).await?;
+            wkt.delete_existing(&self.db, user_id).await?;
             Ok(true)
         } else {
             Err(Error::new("Workout does not exist for user"))

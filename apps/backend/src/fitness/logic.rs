@@ -6,7 +6,8 @@ use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    QueryFilter,
 };
 
 use crate::{
@@ -270,7 +271,31 @@ impl UserWorkoutInput {
 }
 
 impl workout::Model {
-    pub async fn delete_existing(self, db: &DatabaseConnection) -> Result<()> {
-        todo!()
+    // DEV: For exercises, reduce count, remove from history if present. We will not
+    // recalculate exercise associations totals or change personal bests.
+    pub async fn delete_existing(self, db: &DatabaseConnection, user_id: i32) -> Result<()> {
+        for (idx, ex) in self.information.exercises.iter().enumerate() {
+            let association = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.id))
+                .one(db)
+                .await?
+                .unwrap();
+            let performed = association.num_times_interacted;
+            let mut ei = association.exercise_extra_information.clone().unwrap();
+            if let Some(ex_idx) = ei
+                .history
+                .iter()
+                .position(|e| e.workout_id == self.id && e.idx == idx)
+            {
+                ei.history.remove(ex_idx);
+            }
+            let mut association: user_to_entity::ActiveModel = association.into();
+            association.num_times_interacted = ActiveValue::Set(performed - 1);
+            association.exercise_extra_information = ActiveValue::Set(Some(ei));
+            association.update(db).await?;
+        }
+        self.delete(db).await?;
+        Ok(())
     }
 }
