@@ -274,7 +274,7 @@ const Page: NextPageWithLayout = () => {
 								</Stack>
 							</Tabs.Panel>
 						) : undefined}
-						{userExerciseDetails.data?.details ? (
+						{userExerciseDetails.data?.details?.exerciseExtraInformation ? (
 							<Tabs.Panel value="records">
 								<Stack>
 									<Box>
@@ -285,31 +285,31 @@ const Page: NextPageWithLayout = () => {
 											stat="weight"
 											unit="KG"
 											val={
-												userExerciseDetails.data.details.extraInformation
-													.lifetimeStats.weight
+												userExerciseDetails.data.details
+													.exerciseExtraInformation.lifetimeStats.weight
 											}
 										/>
 										<DisplayLifetimeStatistic
 											stat="distance"
 											unit="KM"
 											val={
-												userExerciseDetails.data.details.extraInformation
-													.lifetimeStats.distance
+												userExerciseDetails.data.details
+													.exerciseExtraInformation.lifetimeStats.distance
 											}
 										/>
 										<DisplayLifetimeStatistic
 											stat="duration"
 											unit="MIN"
 											val={
-												userExerciseDetails.data.details.extraInformation
-													.lifetimeStats.duration
+												userExerciseDetails.data.details
+													.exerciseExtraInformation.lifetimeStats.duration
 											}
 										/>
 										<DisplayLifetimeStatistic
 											stat="reps"
 											val={
-												userExerciseDetails.data.details.extraInformation
-													.lifetimeStats.reps
+												userExerciseDetails.data.details
+													.exerciseExtraInformation.lifetimeStats.reps
 											}
 										/>
 									</Box>

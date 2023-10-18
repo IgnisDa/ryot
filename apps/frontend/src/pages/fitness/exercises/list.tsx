@@ -332,8 +332,8 @@ const Page: NextPageWithLayout = () => {
 													/>
 												) : undefined}
 												<Indicator
-													disabled={!exercise.numTimesPerformed}
-													label={exercise.numTimesPerformed ?? ""}
+													disabled={!exercise.numTimesInteracted}
+													label={exercise.numTimesInteracted ?? ""}
 													position="top-start"
 													size={16}
 													offset={8}
