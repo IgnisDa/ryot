@@ -4,6 +4,7 @@ import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getSetColor } from "@/lib/utilities";
+import { currentWorkoutAtom, duplicateOldWorkout } from "@/lib/workout";
 import {
 	ActionIcon,
 	Anchor,
@@ -38,6 +39,7 @@ import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
+import { useAtom } from "jotai";
 import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
@@ -68,6 +70,7 @@ const DisplayStat = (props: {
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const workoutId = router.query.id?.toString();
+	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const workoutDetails = useQuery({
 		queryKey: ["workoutDetails"],
@@ -114,7 +117,10 @@ const Page: NextPageWithLayout = () => {
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
-									onClick={() => {}}
+									onClick={() => {
+										setCurrentWorkout(duplicateOldWorkout(workoutDetails.data));
+										router.push(APP_ROUTES.fitness.exercises.currentWorkout);
+									}}
 									leftSection={<IconRepeat size={14} />}
 								>
 									Repeat
