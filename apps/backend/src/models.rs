@@ -634,6 +634,7 @@ pub mod media {
         pub manga: MangaSummary,
         pub reviews_posted: u64,
         pub creators_interacted_with: usize,
+        pub media_interacted_with: u64,
     }
 
     #[derive(
@@ -651,6 +652,7 @@ pub mod media {
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
         pub workouts_recorded: u64,
+        pub exercises_interacted_with: u64,
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]

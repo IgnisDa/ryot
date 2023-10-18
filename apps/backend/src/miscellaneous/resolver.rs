@@ -4093,9 +4093,23 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        let num_media_interacted_with = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .count(&self.db)
+            .await?;
+
+        let num_exercises_interacted_with = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .count(&self.db)
+            .await?;
+
         ls.media.reviews_posted = num_reviews;
+        ls.media.media_interacted_with = num_media_interacted_with;
         ls.fitness.measurements_recorded = num_measurements;
         ls.fitness.workouts_recorded = num_workouts;
+        ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
