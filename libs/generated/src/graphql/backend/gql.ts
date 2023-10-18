@@ -35,6 +35,7 @@ const documents = {
     "mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {\n  deleteUserIntegration(\n    integrationId: $integrationId\n    integrationLot: $integrationLot\n  )\n}": types.DeleteUserIntegrationDocument,
     "mutation DeleteUserMeasurement($timestamp: DateTime!) {\n  deleteUserMeasurement(timestamp: $timestamp)\n}": types.DeleteUserMeasurementDocument,
     "mutation DeleteUserNotificationPlatform($notificationId: Int!) {\n  deleteUserNotificationPlatform(notificationId: $notificationId)\n}": types.DeleteUserNotificationPlatformDocument,
+    "mutation DeleteUserWorkout($workoutId: String!) {\n  deleteUserWorkout(workoutId: $workoutId)\n}": types.DeleteUserWorkoutDocument,
     "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}": types.DeployImportJobDocument,
     "mutation DeployRecalculateCalendarEventsJob {\n  deployRecalculateCalendarEventsJob\n}": types.DeployRecalculateCalendarEventsJobDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
@@ -194,6 +195,10 @@ export function graphql(source: "mutation DeleteUserMeasurement($timestamp: Date
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeleteUserNotificationPlatform($notificationId: Int!) {\n  deleteUserNotificationPlatform(notificationId: $notificationId)\n}"): (typeof documents)["mutation DeleteUserNotificationPlatform($notificationId: Int!) {\n  deleteUserNotificationPlatform(notificationId: $notificationId)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation DeleteUserWorkout($workoutId: String!) {\n  deleteUserWorkout(workoutId: $workoutId)\n}"): (typeof documents)["mutation DeleteUserWorkout($workoutId: String!) {\n  deleteUserWorkout(workoutId: $workoutId)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
