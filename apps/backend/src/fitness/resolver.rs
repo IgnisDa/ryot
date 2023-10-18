@@ -422,7 +422,7 @@ impl ExerciseService {
         user_id: i32,
     ) -> Result<SearchResults<ExerciseListItem>> {
         let ex = Alias::new("exercise");
-        let etu = Alias::new("user_to_exercise");
+        let etu = Alias::new("user_to_entity");
         let order_by_col = match input.sort_by {
             None => Expr::col((ex, exercise::Column::Name)),
             Some(sb) => match sb {

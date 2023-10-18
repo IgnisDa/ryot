@@ -3,8 +3,21 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::migrator::Metadata;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
+
+// FIXME: Remove this migration
+#[derive(Iden)]
+pub enum UserToMetadata {
+    Table,
+    UserId,
+    MetadataId,
+    LastUpdatedOn,
+    Monitored,
+    Reminder,
+}
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
@@ -66,6 +79,54 @@ impl MigrationTrait for Migration {
                     .name("user__name__index")
                     .table(User::Table)
                     .col(User::Name)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(UserToMetadata::Table)
+                    .col(ColumnDef::new(UserToMetadata::UserId).integer().not_null())
+                    .col(
+                        ColumnDef::new(UserToMetadata::MetadataId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserToMetadata::Monitored)
+                            .boolean()
+                            .default(false)
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .name("pk-user_metadata")
+                            .col(UserToMetadata::UserId)
+                            .col(UserToMetadata::MetadataId),
+                    )
+                    .col(
+                        ColumnDef::new(UserToMetadata::LastUpdatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(ColumnDef::new(UserToMetadata::Reminder).json().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user_metadata-user_id")
+                            .from(UserToMetadata::Table, UserToMetadata::UserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user_metadata-metadata_id")
+                            .from(UserToMetadata::Table, UserToMetadata::UserId)
+                            .to(Metadata::Table, Metadata::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;

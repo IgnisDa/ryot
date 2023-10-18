@@ -1,3 +1,5 @@
+// FIXME: Remove this migration
+
 use sea_orm_migration::prelude::*;
 
 use super::{m20230417_create_user::User, m20230622_create_exercise::Exercise};
