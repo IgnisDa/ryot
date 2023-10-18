@@ -8,7 +8,6 @@ use strum::EnumString;
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserNotificationsPreferences {
     pub status_changed: bool,
     pub episode_released: bool,
@@ -36,8 +35,6 @@ impl Default for UserNotificationsPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-// FIXME: Remove these
-#[serde(default)]
 pub struct UserMediaFeaturesEnabledPreferences {
     pub enabled: bool,
     pub anime: bool,
@@ -71,7 +68,6 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
@@ -111,7 +107,6 @@ pub enum UserUnitSystem {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserExercisePreferences {
     pub save_history: usize,
     pub unit_system: UserUnitSystem,
@@ -129,7 +124,6 @@ impl Default for UserExercisePreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserMeasurementsInBuiltPreferences {
     pub weight: bool,
     pub body_mass_index: bool,
@@ -199,7 +193,6 @@ pub enum UserCustomMeasurementDataType {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Default,
 )]
 #[serde(rename_all = "camelCase")]
-#[serde(default)]
 pub struct UserCustomMeasurement {
     pub name: String,
     pub data_type: UserCustomMeasurementDataType,
@@ -208,7 +201,6 @@ pub struct UserCustomMeasurement {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserMeasurementsPreferences {
     pub custom: Vec<UserCustomMeasurement>,
     pub inbuilt: UserMeasurementsInBuiltPreferences,
@@ -229,7 +221,6 @@ impl Default for UserMeasurementsPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserFeaturesEnabledPreferences {
     pub media: UserMediaFeaturesEnabledPreferences,
     pub fitness: UserFitnessFeaturesEnabledPreferences,
@@ -238,7 +229,6 @@ pub struct UserFeaturesEnabledPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserFitnessPreferences {
     pub exercises: UserExercisePreferences,
     pub measurements: UserMeasurementsPreferences,
@@ -287,7 +277,6 @@ pub struct UserGeneralDashboardElement {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserGeneralPreferences {
     pub num_genres_display: usize,
     pub review_scale: UserReviewScale,
@@ -330,7 +319,6 @@ impl Default for UserGeneralPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
-#[serde(default)]
 pub struct UserPreferences {
     pub features_enabled: UserFeaturesEnabledPreferences,
     pub notifications: UserNotificationsPreferences,

@@ -621,7 +621,6 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    #[serde(default)]
     pub struct UserMediaSummary {
         pub books: BooksSummary,
         pub movies: MoviesSummary,
@@ -648,7 +647,6 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    #[serde(default)]
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
         pub workouts_recorded: u64,
@@ -656,8 +654,6 @@ pub mod media {
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
-    // FIXME: Remove this serde attribute
-    #[serde(default)]
     pub struct UserSummaryUniqueItems {
         pub audio_books: HashSet<i32>,
         pub anime: HashSet<i32>,
@@ -685,8 +681,6 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    // FIXME: Remove this serde attribute
-    #[serde(default)]
     pub struct UserSummary {
         pub fitness: UserFitnessSummary,
         pub media: UserMediaSummary,
