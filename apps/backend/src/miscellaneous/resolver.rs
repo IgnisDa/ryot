@@ -2556,7 +2556,11 @@ impl MiscellaneousService {
     }
 
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let user_to_metadatas = UserToEntity::find().all(&self.db).await.unwrap();
+        let user_to_metadatas = UserToEntity::find()
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
         for u in user_to_metadatas {
             // check if there is any seen item
             let seen_count = Seen::find()
