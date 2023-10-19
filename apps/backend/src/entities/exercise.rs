@@ -12,10 +12,8 @@ use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    file_storage::FileStorageService,
-    models::fitness::{ExerciseAttributes, ExerciseMuscles},
-    traits::GraphqlRepresentation,
-    utils::get_stored_asset,
+    file_storage::FileStorageService, models::fitness::ExerciseAttributes,
+    traits::GraphqlRepresentation, utils::get_stored_asset,
 };
 
 #[derive(
