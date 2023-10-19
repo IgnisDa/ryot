@@ -14,3 +14,6 @@ strum = { workspace = true }
 
 [package.metadata.dist]
 dist = false
+
+[package.metadata.cargo-machete]
+ignored = ["serde_json"]
