@@ -54,6 +54,7 @@ kinded = "0.3.0"
 markdown = "1.0.0-alpha.14"
 mime_guess = "2.0.4"
 nanoid = "0.4.0"
+providers = { path = "../../libs/providers" }
 quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
 rand = { workspace = true }
 regex = "1.10.2"
