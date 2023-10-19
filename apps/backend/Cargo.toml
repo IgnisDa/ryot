@@ -64,7 +64,7 @@ rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
-schematic = { version = "0.12.3", features = [
+schematic = { version = "0.12.7", features = [
     "config",
     "json",
     "schema",
@@ -108,7 +108,7 @@ tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "0.1.39", features = ["attributes"] }
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
-uuid = "1.4.1"
+uuid = "1.5.0"
 
 [dev-dependencies]
 rstest = "0.18.2"
