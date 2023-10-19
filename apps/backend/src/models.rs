@@ -1172,40 +1172,26 @@ pub mod fitness {
         Schematic,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
-    #[serde(rename_all = "camelCase")]
     pub struct UserMeasurementStats {
         pub weight: Option<Decimal>,
         pub body_mass_index: Option<Decimal>,
-        #[serde(alias = "water")]
         pub total_body_water: Option<Decimal>,
         pub muscle: Option<Decimal>,
-        #[serde(alias = "lbm")]
         pub lean_body_mass: Option<Decimal>,
-        #[serde(alias = "fat")]
         pub body_fat: Option<Decimal>,
-        #[serde(alias = "bone")]
         pub bone_mass: Option<Decimal>,
         pub visceral_fat: Option<Decimal>,
-        #[serde(alias = "waist")]
         pub waist_circumference: Option<Decimal>,
         pub waist_to_height_ratio: Option<Decimal>,
-        #[serde(alias = "hip")]
         pub hip_circumference: Option<Decimal>,
         pub waist_to_hip_ratio: Option<Decimal>,
-        #[serde(alias = "chest")]
         pub chest_circumference: Option<Decimal>,
-        #[serde(alias = "thigh")]
         pub thigh_circumference: Option<Decimal>,
-        #[serde(alias = "biceps")]
         pub biceps_circumference: Option<Decimal>,
-        #[serde(alias = "neck")]
         pub neck_circumference: Option<Decimal>,
         pub body_fat_caliper: Option<Decimal>,
-        #[serde(alias = "caliper1")]
         pub chest_skinfold: Option<Decimal>,
-        #[serde(alias = "caliper2")]
         pub abdominal_skinfold: Option<Decimal>,
-        #[serde(alias = "caliper3")]
         pub thigh_skinfold: Option<Decimal>,
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
