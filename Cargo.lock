@@ -4044,6 +4044,7 @@ dependencies = [
  "http-types",
  "itertools 0.11.0",
  "rand 0.8.5",
+ "rs-utils",
  "rust_decimal",
  "rust_decimal_macros",
  "rust_iso3166",
@@ -4433,6 +4434,21 @@ dependencies = [
 [[package]]
 name = "rs-utils"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "apalis",
+ "async-graphql",
+ "async-trait",
+ "axum",
+ "axum-extra",
+ "chrono",
+ "http",
+ "http-types",
+ "itertools 0.11.0",
+ "sea-orm",
+ "sea-query",
+ "surf",
+]
 
 [[package]]
 name = "rsa"
@@ -4682,7 +4698,6 @@ dependencies = [
  "async-trait",
  "aws-sdk-s3",
  "axum",
- "axum-extra",
  "boilermates",
  "chrono",
  "chrono-tz",
