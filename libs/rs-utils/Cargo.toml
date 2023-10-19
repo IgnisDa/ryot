@@ -4,17 +4,21 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+apalis = { workspace = true }
 anyhow = { workspace = true }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
-aws-sdk-s3 = { workspace = true }
+axum = { workspace = true }
+axum-extra = { version = "0.8.0", default-features = false, features = [
+  "cookie",
+] }
 chrono = { workspace = true }
-const-str = { workspace = true }
+http = { workspace = true }
 http-types = { workspace = true }
+itertools = { workspace = true }
+sea-query = { workspace = true }
 sea-orm = { workspace = true }
-serde = { workspace = true }
 surf = { workspace = true }
-uuid = { workspace = true }
 
 [package.metadata.dist]
 dist = false
