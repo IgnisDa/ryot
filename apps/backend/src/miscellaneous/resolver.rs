@@ -28,6 +28,7 @@ use markdown::{
 };
 use nanoid::nanoid;
 use retainer::Cache;
+use rs_utils::IsFeatureEnabled;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -48,7 +49,6 @@ use uuid::Uuid;
 
 use crate::{
     background::ApplicationJob,
-    config::AppConfig,
     entities::{
         calendar_event, collection, collection_to_entity, genre, metadata, metadata_group,
         metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
@@ -110,8 +110,8 @@ use crate::{
         vndb::VndbService,
     },
     traits::{
-        AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, IsFeatureEnabled,
-        MediaProvider, MediaProviderLanguages,
+        AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, MediaProvider,
+        MediaProviderLanguages,
     },
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
@@ -1317,7 +1317,7 @@ pub struct MiscellaneousService {
     file_storage_service: Arc<FileStorageService>,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
-    config: Arc<AppConfig>,
+    config: Arc<config::AppConfig>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1325,7 +1325,7 @@ impl AuthProvider for MiscellaneousService {}
 impl MiscellaneousService {
     pub async fn new(
         db: &DatabaseConnection,
-        config: Arc<AppConfig>,
+        config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
         timezone: String,

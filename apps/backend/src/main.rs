@@ -27,6 +27,7 @@ use axum::{
     Extension, Server,
 };
 use itertools::Itertools;
+use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
@@ -40,8 +41,6 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
-    config::load_app_config,
-    config::AppConfig,
     entities::prelude::Exercise,
     graphql::get_schema,
     migrator::Migrator,
@@ -50,11 +49,10 @@ use crate::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
         static_handler, upload_file,
     },
-    utils::{create_app_services, BASE_DIR, PROJECT_NAME, VERSION},
+    utils::{create_app_services, BASE_DIR, VERSION},
 };
 
 mod background;
-mod config;
 mod entities;
 mod file_storage;
 mod fitness;
@@ -84,7 +82,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version: {}", VERSION);
 
-    let config = Arc::new(load_app_config()?);
+    let config = Arc::new(config::load_app_config()?);
     let cors_origins = config
         .server
         .cors_origins
@@ -195,7 +193,7 @@ async fn main() -> Result<()> {
             .join("includes");
 
         let mut generator = SchemaGenerator::default();
-        generator.add::<AppConfig>();
+        generator.add::<config::AppConfig>();
         generator
             .generate(
                 base_dir.join("backend-config-schema.ts"),

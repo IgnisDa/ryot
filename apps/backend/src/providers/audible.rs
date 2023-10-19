@@ -10,7 +10,6 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::AudibleConfig,
     entities::{
         metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
     },
@@ -164,7 +163,7 @@ impl AudibleService {
         format!("https://api.audible.{}/1.0/catalog/products/", suffix)
     }
 
-    pub async fn new(config: &AudibleConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
         let url = Self::url_from_locale(&config.locale);
         let client = get_base_http_client(&url, vec![(ACCEPT, mime::JSON)]);
         Self { client, page_limit }

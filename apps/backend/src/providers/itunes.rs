@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::ITunesConfig,
     migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
@@ -41,7 +40,7 @@ impl MediaProviderLanguages for ITunesService {
 }
 
 impl ITunesService {
-    pub async fn new(config: &ITunesConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::ITunesConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self {
             client,

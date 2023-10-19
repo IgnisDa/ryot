@@ -12,7 +12,6 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::Client;
 
 use crate::{
-    config::PodcastConfig,
     entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
@@ -46,7 +45,7 @@ impl MediaProviderLanguages for ListennotesService {
 }
 
 impl ListennotesService {
-    pub async fn new(config: &PodcastConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::PodcastConfig, page_limit: i32) -> Self {
         let client = get_client_config(
             env::var("LISTENNOTES_API_URL")
                 .unwrap_or_else(|_| URL.to_owned())

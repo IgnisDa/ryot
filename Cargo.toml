@@ -1,25 +1,34 @@
 [workspace]
-members = ["apps/backend", "libs/rs-utils"]
+members = ["apps/backend", "libs/config", "libs/rs-utils"]
 resolver = "2"
 
-# Config for 'cargo dist'
 [workspace.metadata.dist]
-# The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
 cargo-dist-version = "0.2.0"
-# CI backends to support (see 'cargo dist generate-ci')
 ci = ["github"]
-# The installers to generate for each app
 installers = ["shell", "powershell"]
-# Target platforms to build apps for (Rust target-triple syntax)
 targets = [
     "x86_64-unknown-linux-gnu",
     "x86_64-apple-darwin",
     "aarch64-apple-darwin",
 ]
 
-# The profile that 'cargo dist' will build with
 [profile.dist]
 inherits = "release"
 opt-level = 's'
 strip = true
 lto = "thin"
+
+[workspace.dependencies]
+anyhow = "1.0.75"
+schematic = { version = "0.12.7", features = [
+    "config",
+    "json",
+    "schema",
+    "toml",
+    "typescript",
+    "type_chrono",
+    "type_rust_decimal",
+    "url",
+    "yaml",
+], default-features = false }
+serde = { version = "1.0.189", features = ["derive"] }

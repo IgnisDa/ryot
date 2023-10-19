@@ -17,7 +17,6 @@ use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
-    config::AppConfig,
     entities::{
         collection,
         exercise::{self, ExerciseListItem},
@@ -256,7 +255,7 @@ impl ExerciseMutation {
 
 pub struct ExerciseService {
     db: DatabaseConnection,
-    config: Arc<AppConfig>,
+    config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: SqliteStorage<ApplicationJob>,
 }
@@ -266,7 +265,7 @@ impl AuthProvider for ExerciseService {}
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
-        config: Arc<AppConfig>,
+        config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {

@@ -16,6 +16,7 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use itertools::Itertools;
+use rs_utils::PROJECT_NAME;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseConnection, EntityTrait, PartialModelTrait, QueryFilter,
@@ -28,7 +29,6 @@ use surf::{
 
 use crate::{
     background::ApplicationJob,
-    config::AppConfig,
     entities::{
         collection, collection_to_entity,
         prelude::{Collection, CollectionToEntity, User, UserToEntity},
@@ -44,7 +44,6 @@ use crate::{
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
@@ -63,7 +62,7 @@ pub const AVATAR_URL: &str =
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub config: Arc<AppConfig>,
+    pub config: Arc<config::AppConfig>,
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub file_storage_service: Arc<FileStorageService>,
@@ -74,7 +73,7 @@ pub struct AppServices {
 pub async fn create_app_services(
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
-    config: Arc<AppConfig>,
+    config: Arc<config::AppConfig>,
     perform_application_job: &SqliteStorage<ApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
@@ -367,7 +366,10 @@ where
             ctx.auth_token = h.to_str().map(String::from).ok();
         }
         if let Some(auth_token) = ctx.auth_token.as_ref() {
-            let Extension(config) = parts.extract::<Extension<Arc<AppConfig>>>().await.unwrap();
+            let Extension(config) = parts
+                .extract::<Extension<Arc<config::AppConfig>>>()
+                .await
+                .unwrap();
             if let Ok(user_id) = user_id_from_token(auth_token, &config.users.jwt_secret) {
                 ctx.user_id = Some(user_id);
             }

@@ -1,0 +1,13 @@
+[package]
+name = "config"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+rs-utils = { path = "../../libs/rs-utils" }
+schematic = { workspace = true }
+serde = { workspace = true }
+
+[package.metadata.dist]
+dist = false

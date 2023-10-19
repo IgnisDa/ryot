@@ -12,7 +12,6 @@ use surf_governor::GovernorMiddleware;
 use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
-    config::OpenlibraryConfig,
     entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
@@ -97,7 +96,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub async fn new(config: &OpenlibraryConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::OpenlibraryConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),

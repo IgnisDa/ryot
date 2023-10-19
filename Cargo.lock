@@ -1452,6 +1452,16 @@ dependencies = [
 
 [[package]]
 name = "config"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rs-utils",
+ "schematic",
+ "serde",
+]
+
+[[package]]
+name = "config"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b076e143e1d9538dde65da30f8481c2a6c44040edb8e02b9bf1351edb92ce3"
@@ -1812,7 +1822,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d126179d86aee4556e54f5f3c6bf6d9884e7cc52cef82f77ee6f90a7747616d"
 dependencies = [
  "async-trait",
- "config",
+ "config 0.10.1",
  "crossbeam-queue 0.3.8",
  "num_cpus",
  "serde",
@@ -4659,6 +4669,7 @@ dependencies = [
  "boilermates",
  "chrono",
  "chrono-tz",
+ "config 0.1.0",
  "const-str",
  "convert_case",
  "cookie 0.18.0",

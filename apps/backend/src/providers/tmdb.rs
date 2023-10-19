@@ -12,7 +12,6 @@ use serde_json::json;
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
-    config::TmdbConfig,
     entities::{
         metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
     },
@@ -245,7 +244,7 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &TmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.access_token).await;
         Self {
             client,
@@ -537,7 +536,7 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &TmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.access_token).await;
         Self {
             client,

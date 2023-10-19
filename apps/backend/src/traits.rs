@@ -59,13 +59,6 @@ pub trait MediaProviderLanguages {
     fn default_language() -> String;
 }
 
-/// Determine whether a feature is enabled
-pub trait IsFeatureEnabled {
-    fn is_enabled(&self) -> bool {
-        true
-    }
-}
-
 #[async_trait]
 pub trait DatabaseAssetsAsSingleUrl {
     async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;

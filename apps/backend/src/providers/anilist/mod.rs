@@ -8,7 +8,6 @@ use rust_decimal::Decimal;
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::AnilistConfig,
     entities::partial_metadata::PartialMetadataWithoutId,
     migrator::{MetadataLot, MetadataSource},
     models::{
@@ -104,7 +103,7 @@ pub struct AnilistAnimeService {
 }
 
 impl AnilistAnimeService {
-    pub async fn new(_config: &AnilistConfig, page_limit: i32) -> Self {
+    pub async fn new(_config: &config::AnilistConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
             base: AnilistService { client },
@@ -149,7 +148,7 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(_config: &AnilistConfig, page_limit: i32) -> Self {
+    pub async fn new(_config: &config::AnilistConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
             base: AnilistService { client },

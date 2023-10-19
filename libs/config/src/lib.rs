@@ -1,10 +1,9 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use rs_utils::{IsFeatureEnabled, PROJECT_NAME};
 use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader};
 use serde::{Deserialize, Serialize};
-
-use crate::{traits::IsFeatureEnabled, utils::PROJECT_NAME};
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
     Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())

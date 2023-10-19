@@ -13,7 +13,6 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
-    config::VideoGameConfig,
     entities::{
         metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
     },
@@ -120,7 +119,7 @@ struct IgdbItemResponse {
 pub struct IgdbService {
     image_url: String,
     image_size: String,
-    config: VideoGameConfig,
+    config: config::VideoGameConfig,
     page_limit: i32,
 }
 
@@ -135,7 +134,7 @@ impl MediaProviderLanguages for IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(config: &VideoGameConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::VideoGameConfig, page_limit: i32) -> Self {
         Self {
             image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
@@ -487,7 +486,7 @@ struct Credentials {
     expires_at: u128,
 }
 
-async fn get_access_token(config: &VideoGameConfig) -> Credentials {
+async fn get_access_token(config: &config::VideoGameConfig) -> Credentials {
     let mut access_res = surf::post(AUTH_URL)
         .query(&json!({
             "client_id": config.twitch.client_id.to_owned(),
@@ -515,9 +514,9 @@ async fn get_access_token(config: &VideoGameConfig) -> Credentials {
     }
 }
 
-async fn get_client(config: &VideoGameConfig) -> Client {
+async fn get_client(config: &config::VideoGameConfig) -> Client {
     static TOKEN: OnceLock<Credentials> = OnceLock::new();
-    async fn set_and_return_token(config: &VideoGameConfig) -> String {
+    async fn set_and_return_token(config: &config::VideoGameConfig) -> String {
         let creds = get_access_token(config).await;
         let tok = creds.access_token.clone();
         TOKEN.set(creds).ok();

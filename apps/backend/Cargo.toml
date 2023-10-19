@@ -6,7 +6,7 @@ repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
 
 [dependencies]
-anyhow = "1.0.75"
+anyhow = { workspace = true }
 apalis = { version = "0.4.5", features = [
     "cron",
     "extensions",
@@ -30,6 +30,7 @@ axum-extra = { version = "0.8.0", default-features = false, features = [
 boilermates = "0.3.0"
 chrono = "0.4.31"
 chrono-tz = "0.8.3"
+config = { path = "../../libs/config" }
 convert_case = "0.6.0"
 const-str = "0.5.6"
 cookie = "0.18.0"
@@ -64,17 +65,7 @@ rust-embed = "8.0.0"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
-schematic = { version = "0.12.7", features = [
-    "config",
-    "json",
-    "schema",
-    "toml",
-    "typescript",
-    "type_chrono",
-    "type_rust_decimal",
-    "url",
-    "yaml",
-], default-features = false }
+schematic = { workspace = true }
 scraper = "0.17.1"
 sea-orm = { version = "0.12.3", features = [
     "debug-print",
@@ -90,7 +81,7 @@ sea-orm = { version = "0.12.3", features = [
 sea-orm-migration = "0.12.3"
 sea-query = "0.30.2"
 semver = "1.0.20"
-serde = { version = "1.0.189", features = ["derive"] }
+serde = { workspace = true }
 serde_json = "1.0.107"
 serde_with = { version = "3.4.0", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
