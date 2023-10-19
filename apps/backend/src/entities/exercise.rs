@@ -43,6 +43,7 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub source: ExerciseSource,
+    #[sea_orm(column_type = "Json")]
     pub muscles: Vec<ExerciseMuscle>,
     pub attributes: ExerciseAttributes,
 }
