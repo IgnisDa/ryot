@@ -14,12 +14,12 @@ use crate::{
         DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
-    migrator::{MetadataLot, MetadataSource},
+    migrator::{MetadataLot, MetadataSource, Visibility},
     models::{
         media::{
             BookSpecifics, CreateOrUpdateCollectionInput, FreeMetadataCreator,
             ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, Visibility,
+            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics,
         },
         IdObject,
     },

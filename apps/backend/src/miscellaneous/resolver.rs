@@ -73,7 +73,7 @@ use crate::{
     migrator::{
         Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
         PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
-        UserLot, UserToEntity as TempUserToMetadata,
+        UserLot, UserToEntity as TempUserToMetadata, Visibility,
     },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -90,7 +90,7 @@ use crate::{
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
             ReviewCommentUser, ReviewComments, SeenOrReviewOrCalendarEventExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
         },
         EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },

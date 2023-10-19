@@ -14,8 +14,7 @@ use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
-    FromQueryResult,
+    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -28,7 +27,7 @@ use crate::{
     file_storage::FileStorageService,
     migrator::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle, MetadataLot, MetadataSource, SeenState,
+        ExerciseMuscle, MetadataLot, MetadataSource, SeenState, Visibility,
     },
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
@@ -451,17 +450,6 @@ pub mod media {
         pub title: String,
         pub image: Option<String>,
         pub publish_year: Option<i32>,
-    }
-
-    #[derive(
-        Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-    )]
-    #[sea_orm(rs_type = "String", db_type = "String(None)")]
-    pub enum Visibility {
-        #[sea_orm(string_value = "PU")]
-        Public,
-        #[sea_orm(string_value = "PR")]
-        Private,
     }
 
     #[derive(

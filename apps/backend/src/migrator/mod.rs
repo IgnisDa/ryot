@@ -22,7 +22,7 @@ mod m20231017_create_user_to_entity;
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::UserLot;
 pub use m20230419_create_seen::{Seen, SeenState};
-pub use m20230505_create_review::Review;
+pub use m20230505_create_review::{Review, Visibility};
 pub use m20230509_create_import_report::ImportSource;
 pub use m20230622_create_exercise::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,

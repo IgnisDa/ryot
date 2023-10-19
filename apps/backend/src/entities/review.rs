@@ -6,7 +6,8 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    models::media::{ReviewComments, SeenOrReviewOrCalendarEventExtraInformation, Visibility},
+    migrator::Visibility,
+    models::media::{ReviewComments, SeenOrReviewOrCalendarEventExtraInformation},
     utils::associate_user_with_metadata,
 };
 

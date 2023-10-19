@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::{migrator::m20230417_create_user::User, models::media::Visibility};
+use super::{m20230417_create_user::User, m20230505_create_review::Visibility};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
