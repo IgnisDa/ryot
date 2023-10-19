@@ -74,13 +74,7 @@ import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import {
-	Fragment,
-	type ReactElement,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
