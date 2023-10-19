@@ -3,13 +3,11 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use boilermates::boilermates;
+use migrator::{MetadataLot, MetadataSource};
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    entities::prelude::Metadata,
-    migrator::{MetadataLot, MetadataSource},
-};
+use crate::entities::prelude::Metadata;
 
 use super::metadata;
 

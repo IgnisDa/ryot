@@ -4,6 +4,7 @@ use apalis::prelude::Storage;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
 use itertools::Itertools;
+use migrator::{ImportSource, MetadataLot};
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromJsonQueryResult, QueryFilter,
@@ -16,7 +17,6 @@ use crate::{
     background::ApplicationJob,
     entities::{import_report, prelude::ImportReport, user::UserWithOnlyPreferences},
     fitness::resolver::ExerciseService,
-    migrator::{ImportSource, MetadataLot},
     miscellaneous::resolver::MiscellaneousService,
     models::{
         fitness::UserWorkoutInput,

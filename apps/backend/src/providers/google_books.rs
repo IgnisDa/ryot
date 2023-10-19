@@ -3,12 +3,12 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,

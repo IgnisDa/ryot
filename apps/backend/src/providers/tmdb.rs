@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use hashbag::HashBag;
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,6 @@ use crate::{
     entities::{
         metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
     },
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,

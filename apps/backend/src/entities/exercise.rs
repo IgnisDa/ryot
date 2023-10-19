@@ -3,15 +3,15 @@
 use std::sync::Arc;
 
 use async_graphql::{InputObject, SimpleObject};
+use migrator::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    ExerciseSource,
+};
 use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     file_storage::FileStorageService,
-    migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle, ExerciseSource,
-    },
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
     utils::get_stored_asset,
 };

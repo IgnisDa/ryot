@@ -27,6 +27,7 @@ use axum::{
     Extension, Server,
 };
 use itertools::Itertools;
+use migrator::Migrator;
 use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
@@ -43,7 +44,6 @@ use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
     entities::prelude::Exercise,
     graphql::get_schema,
-    migrator::Migrator,
     models::ExportAllResponse,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
@@ -60,7 +60,6 @@ mod graphql;
 mod importer;
 mod integrations;
 mod jwt;
-mod migrator;
 mod miscellaneous;
 mod models;
 mod notification;

@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,6 @@ use surf::Client;
 
 use crate::{
     entities::partial_metadata::PartialMetadataWithoutId,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,

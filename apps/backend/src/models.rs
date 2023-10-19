@@ -8,6 +8,10 @@ use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
 use derive_more::{Add, AddAssign, Sum};
+use migrator::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    MetadataLot, MetadataSource, SeenState, Visibility,
+};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -25,10 +29,6 @@ use crate::{
         user_measurement, workout,
     },
     file_storage::FileStorageService,
-    migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle, MetadataLot, MetadataSource, SeenState, Visibility,
-    },
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
@@ -1184,7 +1184,7 @@ pub mod fitness {
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
         pub calories: Option<Decimal>,
-        // DEV: The only custom data type we allow is decimal.
+        // DEV: the only custom data type we allow is decimal
         pub custom: Option<HashMap<String, Decimal>>,
     }
 

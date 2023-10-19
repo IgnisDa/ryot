@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use migrator::{MetadataLot, MetadataSource};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rust_decimal::Decimal;
@@ -9,7 +10,6 @@ use surf::Client;
 
 use crate::{
     entities::partial_metadata::PartialMetadataWithoutId,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,

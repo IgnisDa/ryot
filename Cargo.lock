@@ -3221,6 +3221,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "migrator"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "strum",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4689,6 +4702,7 @@ dependencies = [
  "jsonwebtoken",
  "kinded",
  "markdown",
+ "migrator",
  "mime_guess",
  "nanoid",
  "quick-xml",

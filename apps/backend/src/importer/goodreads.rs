@@ -1,6 +1,7 @@
 use async_graphql::Result;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,6 @@ use crate::{
         DeployGoodreadsImportInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
         ImportResult,
     },
-    migrator::{MetadataLot, MetadataSource},
     miscellaneous::DefaultCollection,
     models::media::{
         BookSpecifics, FreeMetadataCreator, ImportOrExportItemRating, ImportOrExportItemReview,

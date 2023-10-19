@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/backend", "libs/config", "libs/rs-utils"]
+members = ["apps/backend", "libs/config", "libs/migrator", "libs/rs-utils"]
 resolver = "2"
 
 [workspace.metadata.dist]
@@ -20,6 +20,12 @@ lto = "thin"
 
 [workspace.dependencies]
 anyhow = "1.0.75"
+async-graphql = { version = "6.0.7", features = [
+    "chrono",
+    "decimal",
+    "log",
+    "uuid",
+] }
 schematic = { version = "0.12.7", features = [
     "config",
     "json",
@@ -31,4 +37,18 @@ schematic = { version = "0.12.7", features = [
     "url",
     "yaml",
 ], default-features = false }
+sea-orm = { version = "0.12.3", features = [
+    "debug-print",
+    "macros",
+    "runtime-tokio-rustls",
+    "sqlx-mysql",
+    "sqlx-postgres",
+    "sqlx-sqlite",
+    "with-chrono",
+    "with-uuid",
+    "with-rust_decimal",
+] }
+sea-orm-migration = "0.12.3"
 serde = { version = "1.0.189", features = ["derive"] }
+serde_json = "1.0.107"
+strum = { version = "0.25.0", features = ["derive"] }

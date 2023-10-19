@@ -3,13 +3,13 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use http_types::mime;
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     entities::partial_metadata::PartialMetadataWithoutId,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,

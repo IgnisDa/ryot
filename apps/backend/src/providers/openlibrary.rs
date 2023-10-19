@@ -4,6 +4,7 @@ use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -13,7 +14,6 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 
 use crate::{
     entities::partial_metadata::PartialMetadataWithoutId,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,

@@ -5,6 +5,7 @@ use std::{
 
 use async_graphql::Result;
 use flate2::bufread::GzDecoder;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -12,7 +13,6 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     importer::{DeployMalImportInput, ImportResult},
-    migrator::{MetadataLot, MetadataSource},
     models::media::{
         ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportMediaItem,
         ImportOrExportMediaItemSeen,

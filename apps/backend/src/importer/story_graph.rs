@@ -3,6 +3,7 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
 use csv::Reader;
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -12,7 +13,6 @@ use crate::{
         DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem,
         ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportResult,
     },
-    migrator::{MetadataLot, MetadataSource},
     models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
     },

@@ -4,12 +4,12 @@ use chrono::NaiveDate;
 use graphql_client::{GraphQLQuery, Response};
 use http_types::mime;
 use itertools::Itertools;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     entities::partial_metadata::PartialMetadataWithoutId,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,

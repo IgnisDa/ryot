@@ -14,12 +14,7 @@ apalis = { version = "0.4.5", features = [
     "sqlite",
 ] }
 argon2 = "0.5.2"
-async-graphql = { version = "6.0.7", features = [
-    "chrono",
-    "decimal",
-    "log",
-    "uuid",
-] }
+async-graphql = { workspace = true }
 async-graphql-axum = "6.0.7"
 async-trait = "0.1.74"
 aws-sdk-s3 = "0.33.0"
@@ -54,6 +49,7 @@ itertools = "0.11.0"
 jsonwebtoken = { version = "9.0.0", default-features = false }
 kinded = "0.3.0"
 markdown = "1.0.0-alpha.14"
+migrator = { path = "../../libs/migrator" }
 mime_guess = "2.0.4"
 nanoid = "0.4.0"
 quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
@@ -67,28 +63,18 @@ rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
 schematic = { workspace = true }
 scraper = "0.17.1"
-sea-orm = { version = "0.12.3", features = [
-    "debug-print",
-    "macros",
-    "runtime-tokio-rustls",
-    "sqlx-mysql",
-    "sqlx-postgres",
-    "sqlx-sqlite",
-    "with-chrono",
-    "with-uuid",
-    "with-rust_decimal",
-] }
-sea-orm-migration = "0.12.3"
+sea-orm = { workspace = true }
+sea-orm-migration = { workspace = true }
 sea-query = "0.30.2"
 semver = "1.0.20"
 serde = { workspace = true }
-serde_json = "1.0.107"
+serde_json = { workspace = true }
 serde_with = { version = "3.4.0", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
 slug = "0.1.4"
 sqlx = "0.7.2"
 sonyflake = "0.2.0"
-strum = { version = "0.25.0", features = ["derive"] }
+strum = { workspace = true }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }

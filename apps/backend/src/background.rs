@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use chrono::DateTime;
 use chrono_tz::Tz;
+use migrator::{MetadataLot, MetadataSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
@@ -10,7 +11,6 @@ use crate::{
     entities::{metadata, seen},
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
-    migrator::{MetadataLot, MetadataSource},
     miscellaneous::resolver::MiscellaneousService,
     models::{fitness::Exercise, media::PartialMetadataPerson},
 };

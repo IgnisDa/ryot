@@ -2,13 +2,13 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{partial_metadata, prelude::PartialMetadata},
-    migrator::{MetadataLot, MetadataSource},
     models::media::{MediaSpecifics, MetadataFreeCreators, MetadataImages, MetadataVideos},
 };
 
