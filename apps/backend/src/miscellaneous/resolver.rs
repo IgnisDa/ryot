@@ -110,7 +110,7 @@ use crate::{
         vndb::VndbService,
     },
     traits::{
-        AuthProvider, DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls, IsFeatureEnabled,
+        AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, IsFeatureEnabled,
         MediaProvider, MediaProviderLanguages,
     },
     users::{

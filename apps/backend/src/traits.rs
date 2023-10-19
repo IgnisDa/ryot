@@ -67,7 +67,7 @@ pub trait IsFeatureEnabled {
 }
 
 #[async_trait]
-pub trait DatabaseAssestsAsSingleUrl {
+pub trait DatabaseAssetsAsSingleUrl {
     async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
 }
 

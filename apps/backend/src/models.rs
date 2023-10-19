@@ -30,7 +30,7 @@ use crate::{
         ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
         ExerciseMuscle, MetadataLot, MetadataSource, SeenState,
     },
-    traits::{DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls},
+    traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
 
@@ -963,7 +963,7 @@ pub mod media {
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
     #[async_trait]
-    impl DatabaseAssestsAsSingleUrl for Option<MetadataImages> {
+    impl DatabaseAssetsAsSingleUrl for Option<MetadataImages> {
         async fn first_as_url(
             &self,
             file_storage_service: &Arc<FileStorageService>,
