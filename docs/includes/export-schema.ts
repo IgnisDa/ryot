@@ -2,6 +2,7 @@
 
 /* eslint-disable */
 
+/** The actual statistics that were logged in a user measurement. */
 export interface UserMeasurementStats {
 	abdominalSkinfold: string | null;
 	basalMetabolicRate: string | null;
@@ -29,6 +30,7 @@ export interface UserMeasurementStats {
 	weight: string | null;
 }
 
+/** An export of a measurement taken at a point in time. */
 export interface UserMeasurement {
 	/** Any comment associated entered by the user. */
 	comment: string | null;
@@ -42,11 +44,13 @@ export interface UserMeasurement {
 
 export type MetadataLot = 'audio-book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video-game' | 'visual-novel';
 
+/** A user that has commented on a review. */
 export interface ReviewCommentUser {
 	id: number;
 	name: string;
 }
 
+/** Comments left in replies to posted reviews. */
 export interface ImportOrExportItemReviewComment {
 	createdOn: string;
 	id: string;
@@ -56,6 +60,7 @@ export interface ImportOrExportItemReviewComment {
 	user: ReviewCommentUser;
 }
 
+/** Review data associated to a rating. */
 export interface ImportOrExportItemReview {
 	/** The date the review was posted. */
 	date: string | null;
@@ -65,6 +70,7 @@ export interface ImportOrExportItemReview {
 	text: string | null;
 }
 
+/** A rating given to an entity. */
 export interface ImportOrExportItemRating {
 	/** The comments attached to this review. */
 	comments: ImportOrExportItemReviewComment[] | null;
@@ -80,6 +86,7 @@ export interface ImportOrExportItemRating {
 	showSeasonNumber: number | null;
 }
 
+/** A specific instance when an entity was seen. */
 export interface ImportOrExportMediaItemSeen {
 	/** The timestamp when finished watching. */
 	endedOn: string | null;
@@ -97,6 +104,7 @@ export interface ImportOrExportMediaItemSeen {
 
 export type MetadataSource = 'anilist' | 'audible' | 'custom' | 'google-books' | 'igdb' | 'itunes' | 'listennotes' | 'manga-updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb';
 
+/** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMediaItem {
 	/** The collections this entity was added to. */
 	collections: string[];
@@ -114,6 +122,7 @@ export interface ImportOrExportMediaItem {
 	sourceId: string;
 }
 
+/** Details about a specific creator item that needs to be exported. */
 export interface ImportOrExportPersonItem {
 	/** The collections this entity was added to. */
 	collections: string[];
@@ -123,6 +132,7 @@ export interface ImportOrExportPersonItem {
 	reviews: ImportOrExportItemRating[];
 }
 
+/** The assets that were uploaded for an entity. */
 export interface EntityAssets {
 	/** The keys of the S3 images. */
 	images: string[];
@@ -201,6 +211,7 @@ export interface Workout {
 	summary: WorkoutSummary;
 }
 
+/** Complete export of the user. */
 export interface ExportAllResponse {
 	/** Data about user's measurements. */
 	measurements: UserMeasurement[];
