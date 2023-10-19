@@ -17,7 +17,6 @@ surf = { workspace = true }
 surf-governor = "0.2.0"
 surf-retry = "0.3.2"
 rand = { workspace = true }
-rs-utils = { path = "../rs-utils" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_iso3166 = { workspace = true }

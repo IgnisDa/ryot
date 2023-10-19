@@ -20,23 +20,9 @@ lto = "thin"
 
 [workspace.dependencies]
 anyhow = "1.0.75"
-apalis = { version = "0.4.5", features = [
-    "cron",
-    "extensions",
-    "limit",
-    "sqlite",
-] }
-async-graphql = { version = "6.0.7", features = [
-    "chrono",
-    "decimal",
-    "log",
-    "uuid",
-] }
 async-trait = "0.1.74"
-axum = { version = "0.6.20", features = ["macros", "multipart"] }
 chrono = "0.4.31"
 convert_case = "0.6.0"
-http = "0.2.9"
 http-types = "2.12.0"
 hashbag = "0.1.11"
 itertools = "0.11.0"
@@ -47,7 +33,6 @@ rand = "0.8.5"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
-sea-query = "0.30.2"
 sea-orm = { version = "0.12.3", features = [
     "debug-print",
     "macros",
