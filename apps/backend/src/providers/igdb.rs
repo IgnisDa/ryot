@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
 use migrator::{MetadataLot, MetadataSource};
+use rs_utils::get_now_timestamp;
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
@@ -26,7 +27,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, get_now_timestamp},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.igdb.com/v4/";

@@ -2,6 +2,7 @@ use async_graphql::Result;
 use chrono::NaiveDate;
 use csv::Reader;
 use migrator::{MetadataLot, MetadataSource};
+use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,6 @@ use crate::{
     models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
     },
-    utils::convert_naive_to_utc,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

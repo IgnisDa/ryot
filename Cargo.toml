@@ -26,6 +26,7 @@ async-graphql = { version = "6.0.7", features = [
     "log",
     "uuid",
 ] }
+chrono = "0.4.31"
 schematic = { version = "0.12.7", features = [
     "config",
     "json",

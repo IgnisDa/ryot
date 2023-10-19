@@ -4,6 +4,7 @@ use convert_case::{Case, Casing};
 use http_types::mime;
 use itertools::Itertools;
 use migrator::{MetadataLot, MetadataSource};
+use rs_utils::convert_date_to_year;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
@@ -17,7 +18,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes/";

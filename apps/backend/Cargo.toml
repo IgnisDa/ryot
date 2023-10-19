@@ -23,7 +23,7 @@ axum-extra = { version = "0.8.0", default-features = false, features = [
     "cookie",
 ] }
 boilermates = "0.3.0"
-chrono = "0.4.31"
+chrono = { workspace = true }
 chrono-tz = "0.8.3"
 config = { path = "../../libs/config" }
 convert_case = "0.6.0"

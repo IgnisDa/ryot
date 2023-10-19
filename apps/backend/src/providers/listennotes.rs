@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use itertools::Itertools;
 use migrator::{MetadataLot, MetadataSource};
+use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_naive_to_utc, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";

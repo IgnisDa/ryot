@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use migrator::{MetadataLot, MetadataSource};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -18,7 +19,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.myanimelist.net/v2/";

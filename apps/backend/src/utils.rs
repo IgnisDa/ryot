@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::sync::Arc;
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, Result};
@@ -12,14 +9,14 @@ use axum::{
     Extension, RequestPartsExt,
 };
 use axum_extra::extract::cookie::CookieJar;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::Utc;
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use itertools::Itertools;
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, PartialModelTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    PartialModelTrait, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use surf::{
@@ -160,28 +157,6 @@ pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<i32> {
     jwt::verify(token, jwt_secret)
         .map(|c| c.sub.parse().unwrap())
         .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
-}
-
-pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {
-    NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()
-}
-
-pub fn convert_date_to_year(d: &str) -> Option<i32> {
-    convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
-}
-
-pub fn convert_naive_to_utc(d: NaiveDate) -> DateTimeUtc {
-    DateTime::from_naive_utc_and_offset(
-        NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
-        Utc,
-    )
-}
-
-pub fn get_now_timestamp() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis()
 }
 
 pub fn get_base_http_client(
@@ -329,16 +304,6 @@ where
         .await
         .unwrap()
         .ok_or_else(|| Error::new("No user found"))
-}
-
-pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
-    let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
-    let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
-        .unwrap_or_else(|| NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
-        .pred_opt()
-        .unwrap();
-
-    (first_day, last_day)
 }
 
 #[derive(Debug, Default)]

@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 use hashbag::HashBag;
 use itertools::Itertools;
 use migrator::{MetadataLot, MetadataSource};
+use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";
