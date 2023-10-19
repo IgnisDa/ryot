@@ -4032,33 +4032,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "providers"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "convert_case",
- "graphql_client",
- "hashbag",
- "http-types",
- "itertools 0.11.0",
- "rand 0.8.5",
- "rust_decimal",
- "rust_decimal_macros",
- "rust_iso3166",
- "scraper",
- "sea-orm",
- "serde",
- "serde_json",
- "serde_with",
- "strum",
- "surf",
- "surf-governor",
- "surf-retry",
-]
-
-[[package]]
 name = "ptr_meta"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4695,6 +4668,7 @@ dependencies = [
  "enum_meta",
  "flate2",
  "futures 0.3.28",
+ "graphql_client",
  "harsh",
  "hashbag",
  "http",
@@ -4717,6 +4691,7 @@ dependencies = [
  "rust_decimal_macros",
  "rust_iso3166",
  "schematic",
+ "scraper",
  "sea-orm",
  "sea-orm-migration",
  "sea-query",
@@ -4730,6 +4705,8 @@ dependencies = [
  "sqlx",
  "strum",
  "surf",
+ "surf-governor",
+ "surf-retry",
  "tokio 1.33.0",
  "tower-http",
  "tracing",
