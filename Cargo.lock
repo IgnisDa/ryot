@@ -4706,7 +4706,6 @@ dependencies = [
  "markdown",
  "mime_guess",
  "nanoid",
- "providers",
  "quick-xml",
  "rand 0.8.5",
  "regex",

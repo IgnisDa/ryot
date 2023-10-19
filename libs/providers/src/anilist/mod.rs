@@ -27,8 +27,8 @@ static URL: &str = "https://graphql.anilist.co";
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/search.graphql",
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/search.graphql",
     response_derives = "Debug",
     variables_derives = "Debug"
 )]
@@ -36,8 +36,8 @@ struct SearchQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/media_details.graphql",
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/media_details.graphql",
     response_derives = "Debug",
     variables_derives = "Debug"
 )]
@@ -45,8 +45,8 @@ struct DetailsQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/studio_details.graphql",
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/studio_details.graphql",
     response_derives = "Debug",
     variables_derives = "Debug"
 )]
@@ -54,8 +54,8 @@ struct StudioQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/staff_details.graphql",
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/staff_details.graphql",
     response_derives = "Debug",
     variables_derives = "Debug"
 )]
