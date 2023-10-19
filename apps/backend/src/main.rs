@@ -26,7 +26,9 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
+use database::Migrator;
 use itertools::Itertools;
+use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
@@ -40,21 +42,17 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
-    config::load_app_config,
-    config::AppConfig,
     entities::prelude::Exercise,
     graphql::get_schema,
-    migrator::Migrator,
-    models::media::ExportAllResponse,
+    models::ExportAllResponse,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
         static_handler, upload_file,
     },
-    utils::{create_app_services, BASE_DIR, PROJECT_NAME, VERSION},
+    utils::{create_app_services, BASE_DIR, VERSION},
 };
 
 mod background;
-mod config;
 mod entities;
 mod file_storage;
 mod fitness;
@@ -62,7 +60,6 @@ mod graphql;
 mod importer;
 mod integrations;
 mod jwt;
-mod migrator;
 mod miscellaneous;
 mod models;
 mod notification;
@@ -84,7 +81,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Running version: {}", VERSION);
 
-    let config = Arc::new(load_app_config()?);
+    let config = Arc::new(config::load_app_config()?);
     let cors_origins = config
         .server
         .cors_origins
@@ -159,11 +156,17 @@ async fn main() -> Result<()> {
 
     let perform_application_job_storage = create_storage(pool.clone()).await;
 
+    let tz: chrono_tz::Tz = env::var("TZ")
+        .map(|s| s.parse().unwrap())
+        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
+    tracing::info!("Using timezone: {}", tz);
+
     let app_services = create_app_services(
         db.clone(),
         s3_client,
         config,
         &perform_application_job_storage,
+        tz,
     )
     .await;
 
@@ -189,7 +192,7 @@ async fn main() -> Result<()> {
             .join("includes");
 
         let mut generator = SchemaGenerator::default();
-        generator.add::<AppConfig>();
+        generator.add::<config::AppConfig>();
         generator
             .generate(
                 base_dir.join("backend-config-schema.ts"),
@@ -235,11 +238,6 @@ async fn main() -> Result<()> {
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
         .layer(cors);
-
-    let tz: chrono_tz::Tz = env::var("TZ")
-        .map(|s| s.parse().unwrap())
-        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    tracing::info!("Using timezone: {}", tz);
 
     let port = env::var("PORT")
         .unwrap_or_else(|_| "8000".to_owned())

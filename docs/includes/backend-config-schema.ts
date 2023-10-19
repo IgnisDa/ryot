@@ -25,7 +25,10 @@ export interface AnimeAndMangaConfig {
 }
 
 export interface AudibleConfig {
-	/** Settings related to locale for making requests Audible. */
+	/**
+	 * Settings related to locale for making requests Audible.
+	 * @default 'us'
+	 */
 	locale: string;
 }
 
@@ -127,7 +130,10 @@ export interface MediaConfig {
 export interface TmdbConfig {
 	/** The access token for the TMDB API. */
 	access_token: string;
-	/** The locale to use for making requests to TMDB API. */
+	/**
+	 * The locale to use for making requests to TMDB API.
+	 * @default 'en'
+	 */
 	locale: string;
 }
 
@@ -137,7 +143,10 @@ export interface MovieAndShowConfig {
 }
 
 export interface ITunesConfig {
-	/** The locale to use for making requests to iTunes API. */
+	/**
+	 * The locale to use for making requests to iTunes API.
+	 * @default 'en_us'
+	 */
 	locale: string;
 }
 

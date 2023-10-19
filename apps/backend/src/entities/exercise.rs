@@ -2,17 +2,19 @@
 
 use std::sync::Arc;
 
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, Result, SimpleObject};
+use async_trait::async_trait;
+use database::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    ExerciseSource,
+};
 use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     file_storage::FileStorageService,
-    migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle, ExerciseSource,
-    },
-    models::fitness::ExerciseAttributes,
+    models::fitness::{ExerciseAttributes, ExerciseMuscles},
+    traits::GraphqlRepresentation,
     utils::get_stored_asset,
 };
 
@@ -47,15 +49,16 @@ pub struct Model {
     pub attributes: ExerciseAttributes,
 }
 
-impl Model {
-    pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
+#[async_trait]
+impl GraphqlRepresentation for Model {
+    async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
         let mut converted_exercise = self.clone();
         let mut images = vec![];
         for image in self.attributes.internal_images.iter() {
             images.push(get_stored_asset(image.clone(), file_storage_service).await);
         }
         converted_exercise.attributes.images = images;
-        converted_exercise
+        Ok(converted_exercise)
     }
 }
 
@@ -66,43 +69,43 @@ pub struct ExerciseListItem {
     pub name: String,
     #[graphql(skip)]
     pub attributes: ExerciseAttributes,
-    pub num_times_performed: Option<i32>,
+    pub num_times_interacted: Option<i32>,
     pub muscle: Option<ExerciseMuscle>,
     pub image: Option<String>,
     #[graphql(skip)]
     pub muscles: Vec<ExerciseMuscle>,
 }
 
-impl ExerciseListItem {
-    pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
+#[async_trait]
+impl GraphqlRepresentation for ExerciseListItem {
+    async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
         let mut converted_exercise = self.clone();
         if let Some(img) = self.attributes.internal_images.first() {
             converted_exercise.image =
                 Some(get_stored_asset(img.clone(), file_storage_service).await);
         }
         converted_exercise.muscle = self.muscles.first().cloned();
-        converted_exercise
+        Ok(converted_exercise)
     }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::user_to_exercise::Entity")]
-    UserToExercise,
+    #[sea_orm(has_many = "super::collection_to_entity::Entity")]
+    CollectionToEntity,
+    #[sea_orm(has_many = "super::user_to_entity::Entity")]
+    UserToEntity,
 }
 
-impl Related<super::user_to_exercise::Entity> for Entity {
+impl Related<super::collection_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserToExercise.def()
+        Relation::CollectionToEntity.def()
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<super::user_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        super::user_to_exercise::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_to_exercise::Relation::Exercise.def().rev())
+        Relation::UserToEntity.def()
     }
 }
 

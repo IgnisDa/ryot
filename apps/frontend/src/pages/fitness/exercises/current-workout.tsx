@@ -7,17 +7,17 @@ import {
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	getPresignedGetUrl,
+	getSetColor,
+	uploadFileAndGetKey,
+} from "@/lib/utilities";
+import {
 	type Exercise,
 	type ExerciseSet,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
-} from "@/lib/state";
-import {
-	getPresignedGetUrl,
-	getSetColor,
-	uploadFileAndGetKey,
-} from "@/lib/utilities";
+} from "@/lib/workout";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
@@ -74,13 +74,7 @@ import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import {
-	Fragment,
-	type ReactElement,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -175,13 +169,13 @@ const ImageDisplay = (props: {
 	imageKey: string;
 	removeImage: (imageKey: string) => void;
 }) => {
-	const imageUrl = useQuery(
-		["presignedUrl", props.imageKey],
-		async () => {
+	const imageUrl = useQuery({
+		queryKey: ["presignedUrl", props.imageKey],
+		queryFn: async () => {
 			return await getPresignedGetUrl(props.imageKey);
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	return imageUrl.data ? (
 		<Box pos="relative">
@@ -213,6 +207,7 @@ const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
 	startTimer: (duration: number) => void;
+	openTimerDrawer: () => void;
 }) => {
 	const enabledCoreFeatures = useEnabledCoreFeatures();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -243,476 +238,488 @@ const ExerciseDisplay = (props: {
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
 	return enabledCoreFeatures.data && userPreferences.data && currentWorkout ? (
-		<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
-			<Modal
-				opened={restTimerModalOpened}
-				onClose={restTimerModalClose}
-				withCloseButton={false}
-				size="xs"
-			>
+		<>
+			<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
+				<Modal
+					opened={restTimerModalOpened}
+					onClose={restTimerModalClose}
+					withCloseButton={false}
+					size="xs"
+				>
+					<Stack>
+						<Switch
+							label="Enabled"
+							labelPosition="left"
+							styles={{ body: { justifyContent: "space-between" } }}
+							defaultChecked={props.exercise.restTimer?.enabled}
+							onChange={(v) => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										draft.exercises[props.exerciseIdx].restTimer = {
+											enabled: v.currentTarget.checked,
+											duration: props.exercise.restTimer?.duration ?? 20,
+										};
+									}),
+								);
+							}}
+						/>
+						<NumberInput
+							value={
+								currentWorkout.exercises[props.exerciseIdx].restTimer?.duration
+							}
+							onChange={(v) => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const value = typeof v === "number" ? v : undefined;
+										const restTimer =
+											draft.exercises[props.exerciseIdx].restTimer;
+										if (restTimer && value) restTimer.duration = value;
+									}),
+								);
+							}}
+							disabled={
+								!currentWorkout.exercises[props.exerciseIdx].restTimer?.enabled
+							}
+							hideControls
+							suffix="s"
+							label="Duration"
+							styles={{
+								root: {
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "space-between",
+								},
+								label: { flex: "none" },
+								input: { width: "90px", textAlign: "right" },
+							}}
+						/>
+					</Stack>
+				</Modal>
+				<Modal
+					opened={assetsModalOpened}
+					onClose={assetsModalClose}
+					withCloseButton={false}
+				>
+					<Stack>
+						<Text c="dimmed">Images for {props.exercise.name}</Text>
+						{enabledCoreFeatures.data.fileStorage ? (
+							<>
+								{props.exercise.images.length > 0 ? (
+									<Avatar.Group spacing="xs">
+										{props.exercise.images.map((i) => (
+											<ImageDisplay
+												key={i}
+												imageKey={i}
+												removeImage={() => {
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.exercises[props.exerciseIdx].images =
+																draft.exercises[
+																	props.exerciseIdx
+																].images.filter((image) => image !== i);
+														}),
+													);
+												}}
+											/>
+										))}
+									</Avatar.Group>
+								) : undefined}
+								<Group justify="center" gap={4}>
+									<Paper radius="md" style={{ overflow: "hidden" }}>
+										<Webcam
+											ref={webcamRef}
+											height={180}
+											width={240}
+											videoConstraints={{ facingMode: cameraFacing }}
+											screenshotFormat={fileType}
+										/>
+									</Paper>
+									<Stack>
+										<ActionIcon
+											size="xl"
+											onClick={() => {
+												setCameraFacing(
+													cameraFacing === "user" ? "environment" : "user",
+												);
+											}}
+										>
+											<IconCameraRotate size={32} />
+										</ActionIcon>
+										<ActionIcon
+											size="xl"
+											onClick={async () => {
+												const imageSrc = webcamRef.current?.getScreenshot();
+												if (imageSrc) {
+													const buffer = Buffer.from(
+														imageSrc.replace(/^data:image\/\w+;base64,/, ""),
+														"base64",
+													);
+													const uploadedKey = await uploadFileAndGetKey(
+														"image.jpeg",
+														fileType,
+														buffer,
+													);
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.exercises[props.exerciseIdx].images.push(
+																uploadedKey,
+															);
+														}),
+													);
+												}
+											}}
+										>
+											<IconCamera size={32} />
+										</ActionIcon>
+									</Stack>
+								</Group>
+								<Button fullWidth variant="outline" onClick={assetsModalClose}>
+									Done
+								</Button>
+							</>
+						) : (
+							<Text c="red" size="sm">
+								Please set the S3 variables required to enable file uploading
+							</Text>
+						)}
+					</Stack>
+				</Modal>
 				<Stack>
-					<Switch
-						label="Enabled"
-						labelPosition="left"
-						styles={{ body: { justifyContent: "space-between" } }}
-						defaultChecked={props.exercise.restTimer?.enabled}
-						onChange={(v) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									draft.exercises[props.exerciseIdx].restTimer = {
-										enabled: v.currentTarget.checked,
-										duration: props.exercise.restTimer?.duration ?? 20,
-									};
-								}),
-							);
-						}}
-					/>
-					<NumberInput
-						value={
-							currentWorkout.exercises[props.exerciseIdx].restTimer?.duration
-						}
-						onChange={(v) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									const value = typeof v === "number" ? v : undefined;
-									const restTimer =
-										draft.exercises[props.exerciseIdx].restTimer;
-									if (restTimer && value) restTimer.duration = value;
-								}),
-							);
-						}}
-						disabled={
-							!currentWorkout.exercises[props.exerciseIdx].restTimer?.enabled
-						}
-						hideControls
-						suffix="s"
-						label="Duration"
-						styles={{
-							root: {
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "space-between",
-							},
-							label: { flex: "none" },
-							input: { width: "90px", textAlign: "right" },
-						}}
-					/>
-				</Stack>
-			</Modal>
-			<Modal
-				opened={assetsModalOpened}
-				onClose={assetsModalClose}
-				withCloseButton={false}
-			>
-				<Stack>
-					<Text c="dimmed">Images for {props.exercise.name}</Text>
-					{enabledCoreFeatures.data.fileStorage ? (
-						<>
-							{props.exercise.images.length > 0 ? (
-								<Avatar.Group spacing="xs">
-									{props.exercise.images.map((i) => (
-										<ImageDisplay
-											key={i}
-											imageKey={i}
-											removeImage={() => {
+					<Menu shadow="md" width={200} position="left-end">
+						<Stack>
+							<Flex justify="space-between">
+								<Anchor
+									component={Link}
+									href={withQuery(APP_ROUTES.fitness.exercises.details, {
+										id: props.exercise.exerciseId,
+									})}
+									fw="bold"
+								>
+									{props.exercise.name}
+								</Anchor>
+								<Menu.Target>
+									<ActionIcon color="blue">
+										<IconDotsVertical />
+									</ActionIcon>
+								</Menu.Target>
+							</Flex>
+							{currentWorkout.exercises[props.exerciseIdx].notes.map(
+								(n, idx) => (
+									<Flex key={idx} align="center" gap="xs">
+										<Textarea
+											style={{ flexGrow: 1 }}
+											placeholder="Add a note"
+											size="xs"
+											maxRows={1}
+											autosize
+											value={n}
+											onChange={(e) => {
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images =
-															draft.exercises[props.exerciseIdx].images.filter(
-																(image) => image !== i,
-															);
+														draft.exercises[props.exerciseIdx].notes[idx] =
+															e.currentTarget.value;
 													}),
 												);
 											}}
 										/>
-									))}
-								</Avatar.Group>
-							) : undefined}
-							<Group justify="center" gap={4}>
-								<Paper radius="md" style={{ overflow: "hidden" }}>
-									<Webcam
-										ref={webcamRef}
-										height={180}
-										width={240}
-										videoConstraints={{ facingMode: cameraFacing }}
-										screenshotFormat={fileType}
-									/>
-								</Paper>
-								<Stack>
-									<ActionIcon
-										size="xl"
-										onClick={() => {
-											setCameraFacing(
-												cameraFacing === "user" ? "environment" : "user",
-											);
-										}}
-									>
-										<IconCameraRotate size={32} />
-									</ActionIcon>
-									<ActionIcon
-										size="xl"
-										onClick={async () => {
-											const imageSrc = webcamRef.current?.getScreenshot();
-											if (imageSrc) {
-												const buffer = Buffer.from(
-													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
-													"base64",
-												);
-												const uploadedKey = await uploadFileAndGetKey(
-													"image.jpeg",
-													fileType,
-													buffer,
-												);
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images.push(
-															uploadedKey,
-														);
-													}),
-												);
-											}
-										}}
-									>
-										<IconCamera size={32} />
-									</ActionIcon>
-								</Stack>
-							</Group>
-							<Button fullWidth variant="outline" onClick={assetsModalClose}>
-								Done
-							</Button>
-						</>
-					) : (
-						<Text c="red" size="sm">
-							Please set the S3 variables required to enable file uploading
-						</Text>
-					)}
-				</Stack>
-			</Modal>
-			<Stack>
-				<Menu shadow="md" width={200} position="left-end">
-					<Stack>
-						<Flex justify="space-between">
-							<Anchor
-								component={Link}
-								href={withQuery(APP_ROUTES.fitness.exercises.details, {
-									id: props.exercise.exerciseId,
-								})}
-								fw="bold"
-							>
-								{props.exercise.name}
-							</Anchor>
-							<Menu.Target>
-								<ActionIcon color="blue">
-									<IconDotsVertical />
-								</ActionIcon>
-							</Menu.Target>
-						</Flex>
-						{currentWorkout.exercises[props.exerciseIdx].notes.map((n, idx) => (
-							<Flex key={n} align="center" gap="xs">
-								<Textarea
-									style={{ flexGrow: 1 }}
-									placeholder="Add a note"
-									size="xs"
-									maxRows={1}
-									autosize
-									value={n}
-									onChange={(e) => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].notes[idx] =
-													e.currentTarget.value;
-											}),
-										);
-									}}
-								/>
-								<ActionIcon
-									color="red"
-									onClick={() => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].notes.splice(idx, 1);
-											}),
-										);
-									}}
-								>
-									<IconTrash />
-								</ActionIcon>
-							</Flex>
-						))}
-					</Stack>
-					<Menu.Dropdown>
-						<Menu.Item
-							leftSection={<IconClipboard size={14} />}
-							onClick={() => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										draft.exercises[props.exerciseIdx].notes.push("");
-									}),
-								);
-							}}
-						>
-							Add note
-						</Menu.Item>
-						<Menu.Item
-							leftSection={<IconPhoto size={14} />}
-							rightSection={
-								props.exercise.images.length > 0
-									? props.exercise.images.length
-									: undefined
-							}
-							onClick={assetsModalToggle}
-						>
-							Add image
-						</Menu.Item>
-						<Menu.Item
-							leftSection={<IconZzz size={14} />}
-							onClick={restTimerModalToggle}
-							rightSection={
-								props.exercise.restTimer?.enabled
-									? `${props.exercise.restTimer.duration}s`
-									: "Off"
-							}
-						>
-							Rest timer
-						</Menu.Item>
-						<Menu.Item
-							color="red"
-							leftSection={<IconTrash size={14} />}
-							onClick={() => {
-								const yes = confirm(
-									`This removes '${props.exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
-								);
-								if (yes)
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											draft.exercises.splice(props.exerciseIdx, 1);
-										}),
-									);
-							}}
-						>
-							Remove
-						</Menu.Item>
-					</Menu.Dropdown>
-				</Menu>
-				<Stack gap="xs">
-					<Flex justify="space-between" align="center">
-						<Text size="xs" w="5%" ta="center">
-							SET
-						</Text>
-						<Text size="xs" w={`${85 / toBeDisplayedColumns}%`} ta="center">
-							PREVIOUS
-						</Text>
-						{durationCol ? (
-							<Text size="xs" style={{ flex: 1 }} ta="center">
-								DURATION (MIN)
-							</Text>
-						) : undefined}
-						{distanceCol ? (
-							<Text size="xs" style={{ flex: 1 }} ta="center">
-								DISTANCE (
-								{match(userPreferences.data.fitness.exercises.unitSystem)
-									.with(UserUnitSystem.Metric, () => "KM")
-									.with(UserUnitSystem.Imperial, () => "MI")
-									.exhaustive()}
-								)
-							</Text>
-						) : undefined}
-						{weightCol ? (
-							<Text size="xs" style={{ flex: 1 }} ta="center">
-								WEIGHT (
-								{match(userPreferences.data.fitness.exercises.unitSystem)
-									.with(UserUnitSystem.Metric, () => "KG")
-									.with(UserUnitSystem.Imperial, () => "LB")
-									.exhaustive()}
-								)
-							</Text>
-						) : undefined}
-						{repsCol ? (
-							<Text size="xs" style={{ flex: 1 }} ta="center">
-								REPS
-							</Text>
-						) : undefined}
-						<Box w="10%" />
-					</Flex>
-					{props.exercise.sets.map((s, idx) => (
-						<Flex key={`${idx}`} justify="space-between" align="center">
-							<Menu>
-								<Menu.Target>
-									<UnstyledButton w="5%">
-										<Text mt={2} fw="bold" c={getSetColor(s.lot)} ta="center">
-											{match(s.lot)
-												.with(SetLot.Normal, () => idx + 1)
-												.otherwise(() => s.lot.at(0))}
-										</Text>
-									</UnstyledButton>
-								</Menu.Target>
-								<Menu.Dropdown>
-									<Menu.Label>Set type</Menu.Label>
-									{Object.values(SetLot).map((lot) => (
-										<Menu.Item
-											key={lot}
-											disabled={s.lot === lot}
-											fz="xs"
-											leftSection={
-												<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
-													{lot.at(0)}
-												</Text>
-											}
+										<ActionIcon
+											color="red"
 											onClick={() => {
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].sets[idx].lot =
-															lot;
-													}),
-												);
-											}}
-										>
-											{startCase(snakeCase(lot))}
-										</Menu.Item>
-									))}
-									<Menu.Divider />
-									<Menu.Label>Actions</Menu.Label>
-									<Menu.Item
-										color="red"
-										fz="xs"
-										leftSection={<IconTrash size={14} />}
-										onClick={() => {
-											const yes = confirm(
-												"Are you sure you want to delete this set?",
-											);
-											if (yes)
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].sets.splice(
+														draft.exercises[props.exerciseIdx].notes.splice(
 															idx,
 															1,
 														);
 													}),
 												);
-										}}
-									>
-										Delete Set
-									</Menu.Item>
-								</Menu.Dropdown>
-							</Menu>
-							<Box w={`${85 / toBeDisplayedColumns}%`}>
-								<Text ta="center" fz="xs">
-									{props.exercise.alreadyDoneSets[idx] ? (
-										<DisplayExerciseStats
-											statistic={props.exercise.alreadyDoneSets[idx].statistic}
-											lot={props.exercise.lot}
-											hideExtras
-										/>
-									) : (
-										"—"
-									)}
-								</Text>
-							</Box>
-							{durationCol ? (
-								<StatInput
-									exerciseIdx={props.exerciseIdx}
-									setIdx={idx}
-									stat="duration"
-									inputStep={0.1}
-								/>
-							) : undefined}
-							{distanceCol ? (
-								<StatInput
-									exerciseIdx={props.exerciseIdx}
-									setIdx={idx}
-									stat="distance"
-									inputStep={0.01}
-								/>
-							) : undefined}
-							{weightCol ? (
-								<StatInput
-									exerciseIdx={props.exerciseIdx}
-									setIdx={idx}
-									stat="weight"
-								/>
-							) : undefined}
-							{repsCol ? (
-								<StatInput
-									exerciseIdx={props.exerciseIdx}
-									setIdx={idx}
-									stat="reps"
-								/>
-							) : undefined}
-							<Group w="10%" justify="center">
-								<Transition
-									mounted
-									transition={{ in: {}, out: {}, transitionProperty: "all" }}
-									duration={200}
-									timingFunction="ease-in-out"
-								>
-									{(style) => (
-										<ActionIcon
-											variant={s.confirmed ? "filled" : "outline"}
-											style={style}
-											disabled={
-												!match(props.exercise.lot)
-													.with(
-														ExerciseLot.DistanceAndDuration,
-														() =>
-															typeof s.statistic.distance === "number" &&
-															typeof s.statistic.duration === "number",
-													)
-													.with(
-														ExerciseLot.Duration,
-														() => typeof s.statistic.duration === "number",
-													)
-													.with(
-														ExerciseLot.RepsAndWeight,
-														() =>
-															typeof s.statistic.reps === "number" &&
-															typeof s.statistic.weight === "number",
-													)
-													.exhaustive()
-											}
-											color="green"
-											onClick={() => {
-												playCheckSound();
-												if (props.exercise.restTimer?.enabled)
-													props.startTimer(props.exercise.restTimer.duration);
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].sets[
-															idx
-														].confirmed =
-															!draft.exercises[props.exerciseIdx].sets[idx]
-																.confirmed;
-													}),
-												);
 											}}
 										>
-											<IconCheck />
+											<IconTrash size={20} />
 										</ActionIcon>
-									)}
-								</Transition>
-							</Group>
+									</Flex>
+								),
+							)}
+						</Stack>
+						<Menu.Dropdown>
+							<Menu.Item
+								leftSection={<IconClipboard size={14} />}
+								onClick={() => {
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.exercises[props.exerciseIdx].notes.push("");
+										}),
+									);
+								}}
+							>
+								Add note
+							</Menu.Item>
+							<Menu.Item
+								leftSection={<IconPhoto size={14} />}
+								rightSection={
+									props.exercise.images.length > 0
+										? props.exercise.images.length
+										: undefined
+								}
+								onClick={assetsModalToggle}
+							>
+								Add image
+							</Menu.Item>
+							<Menu.Item
+								leftSection={<IconZzz size={14} />}
+								onClick={restTimerModalToggle}
+								rightSection={
+									props.exercise.restTimer?.enabled
+										? `${props.exercise.restTimer.duration}s`
+										: "Off"
+								}
+							>
+								Rest timer
+							</Menu.Item>
+							<Menu.Item
+								color="red"
+								leftSection={<IconTrash size={14} />}
+								onClick={() => {
+									const yes = confirm(
+										`This removes '${props.exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+									);
+									if (yes)
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises.splice(props.exerciseIdx, 1);
+											}),
+										);
+								}}
+							>
+								Remove
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
+					<Stack gap="xs">
+						<Flex justify="space-between" align="center">
+							<Text size="xs" w="5%" ta="center">
+								SET
+							</Text>
+							<Text size="xs" w={`${85 / toBeDisplayedColumns}%`} ta="center">
+								PREVIOUS
+							</Text>
+							{durationCol ? (
+								<Text size="xs" style={{ flex: 1 }} ta="center">
+									DURATION (MIN)
+								</Text>
+							) : undefined}
+							{distanceCol ? (
+								<Text size="xs" style={{ flex: 1 }} ta="center">
+									DISTANCE (
+									{match(userPreferences.data.fitness.exercises.unitSystem)
+										.with(UserUnitSystem.Metric, () => "KM")
+										.with(UserUnitSystem.Imperial, () => "MI")
+										.exhaustive()}
+									)
+								</Text>
+							) : undefined}
+							{weightCol ? (
+								<Text size="xs" style={{ flex: 1 }} ta="center">
+									WEIGHT (
+									{match(userPreferences.data.fitness.exercises.unitSystem)
+										.with(UserUnitSystem.Metric, () => "KG")
+										.with(UserUnitSystem.Imperial, () => "LB")
+										.exhaustive()}
+									)
+								</Text>
+							) : undefined}
+							{repsCol ? (
+								<Text size="xs" style={{ flex: 1 }} ta="center">
+									REPS
+								</Text>
+							) : undefined}
+							<Box w="10%" />
 						</Flex>
-					))}
+						{props.exercise.sets.map((s, idx) => (
+							<Flex key={`${idx}`} justify="space-between" align="center">
+								<Menu>
+									<Menu.Target>
+										<UnstyledButton w="5%">
+											<Text mt={2} fw="bold" c={getSetColor(s.lot)} ta="center">
+												{match(s.lot)
+													.with(SetLot.Normal, () => idx + 1)
+													.otherwise(() => s.lot.at(0))}
+											</Text>
+										</UnstyledButton>
+									</Menu.Target>
+									<Menu.Dropdown>
+										<Menu.Label>Set type</Menu.Label>
+										{Object.values(SetLot).map((lot) => (
+											<Menu.Item
+												key={lot}
+												disabled={s.lot === lot}
+												fz="xs"
+												leftSection={
+													<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
+														{lot.at(0)}
+													</Text>
+												}
+												onClick={() => {
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.exercises[props.exerciseIdx].sets[idx].lot =
+																lot;
+														}),
+													);
+												}}
+											>
+												{startCase(snakeCase(lot))}
+											</Menu.Item>
+										))}
+										<Menu.Divider />
+										<Menu.Label>Actions</Menu.Label>
+										<Menu.Item
+											color="red"
+											fz="xs"
+											leftSection={<IconTrash size={14} />}
+											onClick={() => {
+												const yes = confirm(
+													"Are you sure you want to delete this set?",
+												);
+												if (yes)
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.exercises[props.exerciseIdx].sets.splice(
+																idx,
+																1,
+															);
+														}),
+													);
+											}}
+										>
+											Delete Set
+										</Menu.Item>
+									</Menu.Dropdown>
+								</Menu>
+								<Box w={`${85 / toBeDisplayedColumns}%`}>
+									<Text ta="center" fz="xs">
+										{props.exercise.alreadyDoneSets[idx] ? (
+											<DisplayExerciseStats
+												statistic={
+													props.exercise.alreadyDoneSets[idx].statistic
+												}
+												lot={props.exercise.lot}
+												hideExtras
+											/>
+										) : (
+											"—"
+										)}
+									</Text>
+								</Box>
+								{durationCol ? (
+									<StatInput
+										exerciseIdx={props.exerciseIdx}
+										setIdx={idx}
+										stat="duration"
+										inputStep={0.1}
+									/>
+								) : undefined}
+								{distanceCol ? (
+									<StatInput
+										exerciseIdx={props.exerciseIdx}
+										setIdx={idx}
+										stat="distance"
+										inputStep={0.01}
+									/>
+								) : undefined}
+								{weightCol ? (
+									<StatInput
+										exerciseIdx={props.exerciseIdx}
+										setIdx={idx}
+										stat="weight"
+									/>
+								) : undefined}
+								{repsCol ? (
+									<StatInput
+										exerciseIdx={props.exerciseIdx}
+										setIdx={idx}
+										stat="reps"
+									/>
+								) : undefined}
+								<Group w="10%" justify="center">
+									<Transition
+										mounted
+										transition={{ in: {}, out: {}, transitionProperty: "all" }}
+										duration={200}
+										timingFunction="ease-in-out"
+									>
+										{(style) => (
+											<ActionIcon
+												variant={s.confirmed ? "filled" : "outline"}
+												style={style}
+												disabled={
+													!match(props.exercise.lot)
+														.with(
+															ExerciseLot.DistanceAndDuration,
+															() =>
+																typeof s.statistic.distance === "number" &&
+																typeof s.statistic.duration === "number",
+														)
+														.with(
+															ExerciseLot.Duration,
+															() => typeof s.statistic.duration === "number",
+														)
+														.with(
+															ExerciseLot.RepsAndWeight,
+															() =>
+																typeof s.statistic.reps === "number" &&
+																typeof s.statistic.weight === "number",
+														)
+														.exhaustive()
+												}
+												color="green"
+												onClick={() => {
+													playCheckSound();
+													if (props.exercise.restTimer?.enabled) {
+														props.startTimer(props.exercise.restTimer.duration);
+														props.openTimerDrawer();
+													}
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.exercises[props.exerciseIdx].sets[
+																idx
+															].confirmed =
+																!draft.exercises[props.exerciseIdx].sets[idx]
+																	.confirmed;
+														}),
+													);
+												}}
+											>
+												<IconCheck />
+											</ActionIcon>
+										)}
+									</Transition>
+								</Group>
+							</Flex>
+						))}
+					</Stack>
+					<Button
+						variant="subtle"
+						onClick={() => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									const currentSet =
+										draft.exercises[props.exerciseIdx].sets.at(-1);
+									draft.exercises[props.exerciseIdx].sets.push({
+										statistic: currentSet?.statistic ?? {},
+										lot: SetLot.Normal,
+										confirmed: false,
+									});
+								}),
+							);
+						}}
+					>
+						Add set
+					</Button>
 				</Stack>
-				<Button
-					variant="subtle"
-					onClick={() => {
-						setCurrentWorkout(
-							produce(currentWorkout, (draft) => {
-								const currentSet =
-									draft.exercises[props.exerciseIdx].sets.at(-1);
-								draft.exercises[props.exerciseIdx].sets.push({
-									statistic: currentSet?.statistic ?? {},
-									lot: SetLot.Normal,
-									confirmed: false,
-								});
-							}),
-						);
-					}}
-				>
-					Add set
-				</Button>
-			</Stack>
-		</Paper>
+			</Paper>
+			<Divider />
+		</>
 	) : (
 		<Skeleton height={20} radius="xl" />
 	);
@@ -954,7 +961,11 @@ const Page: NextPageWithLayout = () => {
 	});
 	const [
 		timerDrawerOpened,
-		{ close: timerDrawerClose, toggle: timerDrawerToggle },
+		{
+			close: timerDrawerClose,
+			toggle: timerDrawerToggle,
+			open: timerDrawerOpen,
+		},
 	] = useDisclosure(false);
 	const [
 		reorderDrawerOpened,
@@ -1148,14 +1159,13 @@ const Page: NextPageWithLayout = () => {
 						</Group>
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
-							<Fragment key={`${ex.exerciseId}-${idx}`}>
-								<ExerciseDisplay
-									exercise={ex}
-									exerciseIdx={idx}
-									startTimer={startTimer}
-								/>
-								<Divider />
-							</Fragment>
+							<ExerciseDisplay
+								key={`${ex.exerciseId}-${idx}`}
+								exercise={ex}
+								exerciseIdx={idx}
+								startTimer={startTimer}
+								openTimerDrawer={timerDrawerOpen}
+							/>
 						))}
 						<Group justify="center">
 							<Button

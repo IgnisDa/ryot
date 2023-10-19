@@ -31,7 +31,6 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	CollectionsDocument,
 	GraphqlSortOrder,
 	MediaGeneralFilter,
 	MediaListDocument,
@@ -39,6 +38,7 @@ import {
 	MediaSortBy,
 	MediaSourcesForLotDocument,
 	MetadataSource,
+	UserCollectionsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -163,8 +163,11 @@ const Page: NextPageWithLayout = () => {
 	const collections = useQuery({
 		queryKey: ["collections"],
 		queryFn: async () => {
-			const { collections } = await gqlClient.request(CollectionsDocument, {});
-			return collections;
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{},
+			);
+			return userCollectionsList;
 		},
 		staleTime: Infinity,
 	});
@@ -178,12 +181,17 @@ const Page: NextPageWithLayout = () => {
 			);
 			return mediaSourcesForLot;
 		},
-		onSuccess: (data) => {
-			if (!data.includes(searchSource as unknown as MetadataSource))
-				setSearchSource(data[0]);
-		},
 		staleTime: Infinity,
 	});
+
+	useEffect(() => {
+		if (
+			mediaSources.data &&
+			!mediaSources.data.includes(searchSource as unknown as MetadataSource)
+		)
+			setSearchSource(mediaSources.data[0]);
+	}, [mediaSources.data]);
+
 	const searchQuery = useQuery({
 		queryKey: [
 			"searchQuery",
@@ -288,7 +296,6 @@ const Page: NextPageWithLayout = () => {
 					<Tabs.Panel value="mine">
 						<Stack>
 							<Group wrap="nowrap">
-								{/* Weird syntax because of: https://stackoverflow.com/a/65328486/11667450 */}
 								{SearchInput({
 									placeholder: `Sift through your ${changeCase(
 										lot.toLowerCase(),

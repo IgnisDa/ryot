@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use chrono::DateTime;
 use chrono_tz::Tz;
+use database::{MetadataLot, MetadataSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
@@ -10,7 +11,6 @@ use crate::{
     entities::{metadata, seen},
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
-    migrator::{MetadataLot, MetadataSource},
     miscellaneous::resolver::MiscellaneousService,
     models::{fitness::Exercise, media::PartialMetadataPerson},
 };
@@ -50,6 +50,7 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     service.send_pending_media_reminders().await.unwrap();
     tracing::trace!("Recalculating calendar events");
     service.recalculate_calendar_events().await.unwrap();
+    // TODO: Add job that deletes all invalid files uploaded to s3
     Ok(())
 }
 

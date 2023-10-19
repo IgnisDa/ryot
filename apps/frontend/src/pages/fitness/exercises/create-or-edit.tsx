@@ -71,16 +71,16 @@ const Page: NextPageWithLayout = () => {
 	}, [router.query]);
 
 	const enabledFeatures = useEnabledCoreFeatures();
-	const imageUrls = useQuery(
-		["presignedUrl", images],
-		async () => {
+	const imageUrls = useQuery({
+		queryKey: ["presignedUrl", images],
+		queryFn: async () => {
 			const imageUrls = [];
 			for (const image of images)
 				imageUrls.push(await getPresignedGetUrl(image));
 			return imageUrls;
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 
 	const createCustomExercise = useMutation({
 		mutationFn: async (variables: CreateCustomExerciseMutationVariables) => {

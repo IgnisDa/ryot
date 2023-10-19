@@ -2,13 +2,11 @@
 
 use async_graphql::SimpleObject;
 use boilermates::boilermates;
+use database::{MetadataLot, MetadataSource};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    migrator::{MetadataLot, MetadataSource},
-    models::media::MetadataImages,
-};
+use crate::models::media::MetadataImages;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "metadata_group")]
@@ -32,8 +30,16 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::collection_to_entity::Entity")]
+    CollectionToEntity,
     #[sea_orm(has_many = "super::partial_metadata_to_metadata_group::Entity")]
     PartialMetadataToMetadataGroup,
+}
+
+impl Related<super::collection_to_entity::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CollectionToEntity.def()
+    }
 }
 
 impl Related<super::partial_metadata_to_metadata_group::Entity> for Entity {

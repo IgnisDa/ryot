@@ -23,30 +23,30 @@ export function useUser() {
 }
 
 export function useUserPreferences() {
-	const prefs = useQuery(
-		["enabledUserFeatures"],
-		async () => {
+	const prefs = useQuery({
+		queryKey: ["enabledUserFeatures"],
+		queryFn: async () => {
 			const { userPreferences } = await gqlClient.request(
 				UserPreferencesDocument,
 			);
 			return userPreferences;
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 	return prefs;
 }
 
 export function useEnabledCoreFeatures() {
-	const enabledFeatures = useQuery(
-		["enabledCoreFeatures"],
-		async () => {
+	const enabledFeatures = useQuery({
+		queryKey: ["enabledCoreFeatures"],
+		queryFn: async () => {
 			const { coreEnabledFeatures } = await gqlClient.request(
 				CoreEnabledFeaturesDocument,
 			);
 			return coreEnabledFeatures;
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 	return enabledFeatures;
 }
 
@@ -72,13 +72,13 @@ export function useCommitMedia(
 }
 
 export function useCoreDetails() {
-	const coreDetails = useQuery(
-		["coreDetails"],
-		async () => {
+	const coreDetails = useQuery({
+		queryKey: ["coreDetails"],
+		queryFn: async () => {
 			const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
 			return coreDetails;
 		},
-		{ staleTime: Infinity },
-	);
+		staleTime: Infinity,
+	});
 	return coreDetails;
 }

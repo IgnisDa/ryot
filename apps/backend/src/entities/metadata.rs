@@ -2,13 +2,13 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use database::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{partial_metadata, prelude::PartialMetadata},
-    migrator::{MetadataLot, MetadataSource},
     models::media::{MediaSpecifics, MetadataFreeCreators, MetadataImages, MetadataVideos},
 };
 
@@ -40,8 +40,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::calendar_event::Entity")]
     CalendarEvent,
-    #[sea_orm(has_many = "super::metadata_to_collection::Entity")]
-    MetadataToCollection,
+    #[sea_orm(has_many = "super::collection_to_entity::Entity")]
+    CollectionToEntity,
     #[sea_orm(has_many = "super::metadata_to_genre::Entity")]
     MetadataToGenre,
     #[sea_orm(has_many = "super::metadata_to_partial_metadata::Entity")]
@@ -54,8 +54,8 @@ pub enum Relation {
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
-    #[sea_orm(has_many = "super::user_to_metadata::Entity")]
-    UserToMetadata,
+    #[sea_orm(has_many = "super::user_to_entity::Entity")]
+    UserToEntity,
 }
 
 impl Related<super::calendar_event::Entity> for Entity {
@@ -64,9 +64,9 @@ impl Related<super::calendar_event::Entity> for Entity {
     }
 }
 
-impl Related<super::metadata_to_collection::Entity> for Entity {
+impl Related<super::collection_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::MetadataToCollection.def()
+        Relation::CollectionToEntity.def()
     }
 }
 
@@ -100,22 +100,9 @@ impl Related<super::seen::Entity> for Entity {
     }
 }
 
-impl Related<super::user_to_metadata::Entity> for Entity {
+impl Related<super::user_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserToMetadata.def()
-    }
-}
-
-impl Related<super::collection::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::metadata_to_collection::Relation::Collection.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(
-            super::metadata_to_collection::Relation::Metadata
-                .def()
-                .rev(),
-        )
+        Relation::UserToEntity.def()
     }
 }
 
@@ -138,15 +125,6 @@ impl Related<super::partial_metadata::Entity> for Entity {
                 .def()
                 .rev(),
         )
-    }
-}
-
-impl Related<super::user::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::user_to_metadata::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::user_to_metadata::Relation::Metadata.def().rev())
     }
 }
 

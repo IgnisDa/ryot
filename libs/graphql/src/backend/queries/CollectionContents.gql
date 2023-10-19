@@ -9,7 +9,8 @@ query CollectionContents($input: CollectionContentsInput!) {
         nextPage
       }
       items {
-        lot
+        metadataLot
+        entityLot
         details {
           identifier
           title

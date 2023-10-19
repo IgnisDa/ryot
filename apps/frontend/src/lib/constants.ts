@@ -17,13 +17,13 @@ export const APP_ROUTES = {
 			reports: "/settings/imports-and-exports/reports",
 		},
 	},
+	collections: {
+		list: "/collections/list",
+		details: "/collections",
+	},
 	media: {
 		list: "/media/list",
 		postReview: "/media/post-review",
-		collections: {
-			list: "/media/collections/list",
-			details: "/media/collections",
-		},
 		groups: {
 			list: "/media/groups/list",
 			details: "/media/groups",
@@ -83,4 +83,5 @@ export const LOCAL_STORAGE_KEYS = {
 	savedCreatorSortBy: "26",
 	savedCreatorSortOrder: "27",
 	savedPreferencesTab: "28",
+	savedActiveMetadataGroupDetailsTab: "29",
 } as const;

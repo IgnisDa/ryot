@@ -2,7 +2,8 @@
 
 use std::sync::Arc;
 
-use async_graphql::SimpleObject;
+use async_graphql::{Result, SimpleObject};
+use async_trait::async_trait;
 use schematic::Schematic;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     file_storage::FileStorageService,
     models::fitness::{WorkoutInformation, WorkoutSummary},
+    traits::GraphqlRepresentation,
 };
 
 #[derive(
@@ -33,8 +35,9 @@ pub struct Model {
     pub comment: Option<String>,
 }
 
-impl Model {
-    pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
+#[async_trait]
+impl GraphqlRepresentation for Model {
+    async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
         let mut cnv_workout = self.clone();
         for image in cnv_workout.information.assets.images.iter_mut() {
             *image = file_storage_service.get_presigned_url(image.clone()).await;
@@ -50,7 +53,7 @@ impl Model {
                 *video = file_storage_service.get_presigned_url(video.clone()).await;
             }
         }
-        cnv_workout
+        Ok(cnv_workout)
     }
 }
 

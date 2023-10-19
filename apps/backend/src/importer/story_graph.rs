@@ -2,6 +2,7 @@ use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
 use csv::Reader;
+use database::{MetadataLot, MetadataSource};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -12,7 +13,6 @@ use crate::{
         DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem,
         ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportResult,
     },
-    migrator::{MetadataLot, MetadataSource},
     models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
     },

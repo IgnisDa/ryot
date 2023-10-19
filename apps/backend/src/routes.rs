@@ -14,9 +14,8 @@ use rust_embed::RustEmbed;
 use serde_json::json;
 
 use crate::{
-    config::AppConfig, fitness::resolver::ExerciseService, graphql::GraphqlSchema,
-    miscellaneous::resolver::MiscellaneousService, models::media::ExportAllResponse,
-    utils::AuthContext,
+    fitness::resolver::ExerciseService, graphql::GraphqlSchema,
+    miscellaneous::resolver::MiscellaneousService, models::ExportAllResponse, utils::AuthContext,
 };
 
 static INDEX_HTML: &str = "index.html";
@@ -82,7 +81,9 @@ pub async fn graphql_playground() -> impl IntoResponse {
     Html(GraphiQLSource::build().endpoint("/graphql").finish())
 }
 
-pub async fn config_handler(Extension(config): Extension<Arc<AppConfig>>) -> impl IntoResponse {
+pub async fn config_handler(
+    Extension(config): Extension<Arc<config::AppConfig>>,
+) -> impl IntoResponse {
     Json(config.masked_value())
 }
 

@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -13,7 +14,6 @@ use crate::{
         DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItemIdentifier,
         ImportOrExportMediaItem, ImportResult,
     },
-    migrator::{MetadataLot, MetadataSource},
     models::media::{
         CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
         ImportOrExportMediaItemSeen,

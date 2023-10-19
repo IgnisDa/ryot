@@ -7,14 +7,18 @@ use std::{
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
+use database::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    MetadataLot, MetadataSource, SeenState, Visibility,
+};
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
-    FromQueryResult,
+    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -22,16 +26,20 @@ use serde_with::skip_serializing_none;
 use crate::{
     entities::{
         exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, prelude::Workout,
-        user_measurement,
+        user_measurement, workout,
     },
     file_storage::FileStorageService,
-    migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseMechanic, ExerciseMuscle,
-        MetadataLot, MetadataSource, SeenState,
-    },
-    traits::{DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls},
+    traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EntityLot {
+    Metadata,
+    Person,
+    MediaGroup,
+    Exercise,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum StoredUrl {
@@ -90,15 +98,28 @@ pub struct IdObject {
     pub id: i32,
 }
 
-pub mod media {
-    use crate::entities::workout;
+/// Complete export of the user.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+pub struct ExportAllResponse {
+    /// Data about user's media.
+    pub media: Vec<media::ImportOrExportMediaItem>,
+    /// Data about user's people.
+    pub people: Vec<media::ImportOrExportPersonItem>,
+    /// Data about user's measurements.
+    pub measurements: Vec<user_measurement::Model>,
+    /// Data about user's workouts.
+    pub workouts: Vec<workout::Model>,
+}
 
+pub mod media {
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MediaSearchItemWithLot {
         pub details: MediaSearchItem,
-        pub lot: MetadataLot,
+        pub metadata_lot: Option<MetadataLot>,
+        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -432,17 +453,6 @@ pub mod media {
     }
 
     #[derive(
-        Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-    )]
-    #[sea_orm(rs_type = "String", db_type = "String(None)")]
-    pub enum Visibility {
-        #[sea_orm(string_value = "PU")]
-        Public,
-        #[sea_orm(string_value = "PR")]
-        Private,
-    }
-
-    #[derive(
         SimpleObject,
         Debug,
         PartialEq,
@@ -599,7 +609,6 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    #[serde(default)]
     pub struct UserMediaSummary {
         pub books: BooksSummary,
         pub movies: MoviesSummary,
@@ -612,6 +621,7 @@ pub mod media {
         pub manga: MangaSummary,
         pub reviews_posted: u64,
         pub creators_interacted_with: usize,
+        pub media_interacted_with: u64,
     }
 
     #[derive(
@@ -625,15 +635,13 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    #[serde(default)]
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
         pub workouts_recorded: u64,
+        pub exercises_interacted_with: u64,
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
-    // FIXME: Remove this serde attribute
-    #[serde(default)]
     pub struct UserSummaryUniqueItems {
         pub audio_books: HashSet<i32>,
         pub anime: HashSet<i32>,
@@ -661,8 +669,6 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    // FIXME: Remove this serde attribute
-    #[serde(default)]
     pub struct UserSummary {
         pub fitness: UserFitnessSummary,
         pub media: UserMediaSummary,
@@ -672,9 +678,10 @@ pub mod media {
     }
 
     #[derive(Debug, InputObject)]
-    pub struct AddMediaToCollection {
+    pub struct ChangeCollectionToEntityInput {
         pub collection_name: String,
-        pub media_id: i32,
+        pub entity_id: i32,
+        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, InputObject)]
@@ -850,22 +857,8 @@ pub mod media {
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
-        /// The collections to add this media to.
+        /// The collections this entity was added to.
         pub collections: Vec<String>,
-    }
-
-    /// Complete export of the user.
-    #[skip_serializing_none]
-    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    pub struct ExportAllResponse {
-        /// Data about user's media.
-        pub media: Vec<ImportOrExportMediaItem>,
-        /// Data about user's people.
-        pub people: Vec<ImportOrExportPersonItem>,
-        /// Data about user's measurements.
-        pub measurements: Vec<user_measurement::Model>,
-        /// Data about user's workouts.
-        pub workouts: Vec<workout::Model>,
     }
 
     /// Details about a specific creator item that needs to be exported.
@@ -876,6 +869,8 @@ pub mod media {
         pub name: String,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
+        /// The collections this entity was added to.
+        pub collections: Vec<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
@@ -956,7 +951,7 @@ pub mod media {
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
     #[async_trait]
-    impl DatabaseAssestsAsSingleUrl for Option<MetadataImages> {
+    impl DatabaseAssetsAsSingleUrl for Option<MetadataImages> {
         async fn first_as_url(
             &self,
             file_storage_service: &Arc<FileStorageService>,
@@ -1077,9 +1072,6 @@ pub mod media {
 }
 
 pub mod fitness {
-    use schematic::ConfigEnum;
-
-    use crate::migrator::ExerciseLot;
 
     use super::*;
 
@@ -1186,7 +1178,7 @@ pub mod fitness {
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
         pub calories: Option<Decimal>,
-        // DEV: The only custom data type we allow is decimal.
+        // DEV: the only custom data type we allow is decimal
         pub custom: Option<HashMap<String, Decimal>>,
     }
 
@@ -1263,6 +1255,7 @@ pub mod fitness {
         Copy,
         ConfigEnum,
     )]
+    #[config(rename_all = "PascalCase")]
     pub enum SetLot {
         Normal,
         WarmUp,
@@ -1283,6 +1276,7 @@ pub mod fitness {
         Default,
         ConfigEnum,
     )]
+    #[config(rename_all = "PascalCase")]
     pub enum WorkoutSetPersonalBest {
         #[default]
         Weight,

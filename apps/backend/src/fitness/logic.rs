@@ -1,20 +1,21 @@
 use std::cmp::Ordering;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use chrono::Utc;
+use database::ExerciseLot;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    QueryFilter,
 };
 
 use crate::{
     entities::{
-        prelude::{Exercise, UserToExercise},
-        user_to_exercise, workout,
+        prelude::{Exercise, UserToEntity},
+        user_to_entity, workout,
     },
-    migrator::ExerciseLot,
     models::fitness::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
         UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
@@ -91,15 +92,18 @@ impl UserWorkoutInput {
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         for (idx, ex) in self.exercises.into_iter().enumerate() {
-            let db_ex = Exercise::find_by_id(ex.exercise_id)
-                .one(db)
-                .await?
-                .ok_or_else(|| anyhow!("No exercise found!"))?;
+            let db_ex = match Exercise::find_by_id(ex.exercise_id).one(db).await? {
+                None => {
+                    tracing::error!("Exercise with id = {} not found", ex.exercise_id);
+                    continue;
+                }
+                Some(e) => e,
+            };
             let mut sets = vec![];
             let mut total = WorkoutTotalMeasurement::default();
-            let association = UserToExercise::find()
-                .filter(user_to_exercise::Column::UserId.eq(user_id))
-                .filter(user_to_exercise::Column::ExerciseId.eq(ex.exercise_id))
+            let association = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id))
                 .one(db)
                 .await
                 .ok()
@@ -110,26 +114,27 @@ impl UserWorkoutInput {
             };
             let association = match association {
                 None => {
-                    let user_to_ex = user_to_exercise::ActiveModel {
+                    let user_to_ex = user_to_entity::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
-                        exercise_id: ActiveValue::Set(ex.exercise_id),
-                        num_times_performed: ActiveValue::Set(1),
-                        last_updated_on: ActiveValue::Set(Utc::now()),
-                        extra_information: ActiveValue::Set(UserToExerciseExtraInformation {
-                            history: vec![history_item],
-                            lifetime_stats: WorkoutTotalMeasurement::default(),
-                            personal_bests: vec![],
-                        }),
+                        exercise_id: ActiveValue::Set(Some(ex.exercise_id)),
+                        exercise_extra_information: ActiveValue::Set(Some(
+                            UserToExerciseExtraInformation {
+                                history: vec![history_item],
+                                lifetime_stats: WorkoutTotalMeasurement::default(),
+                                personal_bests: vec![],
+                            },
+                        )),
+                        ..Default::default()
                     };
                     user_to_ex.insert(db).await.unwrap()
                 }
                 Some(e) => {
-                    let performed = e.num_times_performed;
-                    let mut extra_info = e.extra_information.clone();
+                    let performed = e.num_times_interacted;
+                    let mut extra_info = e.exercise_extra_information.clone().unwrap();
                     extra_info.history.insert(0, history_item);
-                    let mut up: user_to_exercise::ActiveModel = e.into();
-                    up.num_times_performed = ActiveValue::Set(performed + 1);
-                    up.extra_information = ActiveValue::Set(extra_info);
+                    let mut up: user_to_entity::ActiveModel = e.into();
+                    up.num_times_interacted = ActiveValue::Set(performed + 1);
+                    up.exercise_extra_information = ActiveValue::Set(Some(extra_info));
                     up.last_updated_on = ActiveValue::Set(Utc::now());
                     up.update(db).await?
                 }
@@ -154,7 +159,11 @@ impl UserWorkoutInput {
                     personal_bests: vec![],
                 });
             }
-            let mut personal_bests = association.extra_information.personal_bests.clone();
+            let mut personal_bests = association
+                .exercise_extra_information
+                .clone()
+                .unwrap()
+                .personal_bests;
             let types_of_prs = match db_ex.lot {
                 ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
                 ExerciseLot::DistanceAndDuration => {
@@ -207,11 +216,13 @@ impl UserWorkoutInput {
                     }
                 }
             }
-            let mut association_extra_information = association.extra_information.clone();
-            let mut association: user_to_exercise::ActiveModel = association.into();
+            let mut association_extra_information =
+                association.exercise_extra_information.clone().unwrap();
+            let mut association: user_to_entity::ActiveModel = association.into();
             association_extra_information.lifetime_stats += total.clone();
             association_extra_information.personal_bests = personal_bests;
-            association.extra_information = ActiveValue::Set(association_extra_information);
+            association.exercise_extra_information =
+                ActiveValue::Set(Some(association_extra_information));
             association.update(db).await?;
             exercises.push((
                 db_ex.lot,
@@ -256,5 +267,35 @@ impl UserWorkoutInput {
         let insert: workout::ActiveModel = model.into();
         let data = insert.insert(db).await?;
         Ok(data.id)
+    }
+}
+
+impl workout::Model {
+    // DEV: For exercises, reduce count, remove from history if present. We will not
+    // recalculate exercise associations totals or change personal bests.
+    pub async fn delete_existing(self, db: &DatabaseConnection, user_id: i32) -> Result<()> {
+        for (idx, ex) in self.information.exercises.iter().enumerate() {
+            let association = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.id))
+                .one(db)
+                .await?
+                .unwrap();
+            let performed = association.num_times_interacted;
+            let mut ei = association.exercise_extra_information.clone().unwrap();
+            if let Some(ex_idx) = ei
+                .history
+                .iter()
+                .position(|e| e.workout_id == self.id && e.idx == idx)
+            {
+                ei.history.remove(ex_idx);
+            }
+            let mut association: user_to_entity::ActiveModel = association.into();
+            association.num_times_interacted = ActiveValue::Set(performed - 1);
+            association.exercise_extra_information = ActiveValue::Set(Some(ei));
+            association.update(db).await?;
+        }
+        self.delete(db).await?;
+        Ok(())
     }
 }

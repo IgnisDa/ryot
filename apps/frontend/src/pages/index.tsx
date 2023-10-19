@@ -5,8 +5,8 @@ import { useUserPreferences } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { currentWorkoutAtom, getDefaultWorkout } from "@/lib/state";
 import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
+import { currentWorkoutAtom, getDefaultWorkout } from "@/lib/workout";
 import {
 	Alert,
 	Anchor,
@@ -27,10 +27,10 @@ import {
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
-	CollectionsDocument,
 	DashboardElementLot,
 	LatestUserSummaryDocument,
 	MetadataLot,
+	UserCollectionsListDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
@@ -90,9 +90,6 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 				}`,
 			}}
 			lot={um.metadataLot}
-			href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
-				id: um.metadataId,
-			})}
 			noRatingLink
 		/>
 	);
@@ -189,42 +186,49 @@ const Page: NextPageWithLayout = () => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	const userPreferences = useUserPreferences();
-	const inProgressCollection = useQuery(["collections"], async () => {
-		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.section === DashboardElementLot.InProgress,
-		)?.numElements;
-		invariant(take, "Can not get the value of take");
-		const { collections } = await gqlClient.request(CollectionsDocument, {
-			input: { name: "In Progress" },
-		});
-		const id = collections[0].id;
-		const { collectionContents } = await gqlClient.request(
-			CollectionContentsDocument,
-			{ input: { collectionId: id, page: 1, take } },
-		);
-		return collectionContents;
+	const inProgressCollection = useQuery({
+		queryKey: ["collections"],
+		queryFn: async () => {
+			const take = userPreferences.data?.general.dashboard.find(
+				(de) => de.section === DashboardElementLot.InProgress,
+			)?.numElements;
+			invariant(take, "Can not get the value of take");
+			const { userCollectionsList } = await gqlClient.request(
+				UserCollectionsListDocument,
+				{ name: "In Progress" },
+			);
+			const id = userCollectionsList[0].id;
+			const { collectionContents } = await gqlClient.request(
+				CollectionContentsDocument,
+				{ input: { collectionId: id, page: 1, take } },
+			);
+			return collectionContents;
+		},
 	});
-	const upcomingMedia = useQuery(["upcomingMedia"], async () => {
-		const take = userPreferences.data?.general.dashboard.find(
-			(de) => de.section === DashboardElementLot.Upcoming,
-		)?.numElements;
-		invariant(take, "Can not get the value of take");
-		const { userUpcomingCalendarEvents } = await gqlClient.request(
-			UserUpcomingCalendarEventsDocument,
-			{ input: { nextMedia: take } },
-		);
-		return userUpcomingCalendarEvents;
+	const upcomingMedia = useQuery({
+		queryKey: ["upcomingMedia"],
+		queryFn: async () => {
+			const take = userPreferences.data?.general.dashboard.find(
+				(de) => de.section === DashboardElementLot.Upcoming,
+			)?.numElements;
+			invariant(take, "Can not get the value of take");
+			const { userUpcomingCalendarEvents } = await gqlClient.request(
+				UserUpcomingCalendarEventsDocument,
+				{ input: { nextMedia: take } },
+			);
+			return userUpcomingCalendarEvents;
+		},
 	});
-	const latestUserSummary = useQuery(
-		["userSummary"],
-		async () => {
+	const latestUserSummary = useQuery({
+		queryKey: ["userSummary"],
+		queryFn: async () => {
 			const { latestUserSummary } = await gqlClient.request(
 				LatestUserSummaryDocument,
 			);
 			return latestUserSummary;
 		},
-		{ retry: false },
-	);
+		retry: false,
+	});
 
 	const getDivider = (index: number) => {
 		return index <
@@ -293,11 +297,8 @@ const Page: NextPageWithLayout = () => {
 														...lm.details,
 														publishYear: lm.details.publishYear?.toString(),
 													}}
-													lot={lm.lot}
-													href={withQuery(
-														APP_ROUTES.media.individualMediaItem.details,
-														{ id: lm.details.identifier },
-													)}
+													lot={lm.metadataLot}
+													entityLot={lm.entityLot}
 													noRatingLink
 												/>
 											))}
@@ -477,6 +478,12 @@ const Page: NextPageWithLayout = () => {
 												color={theme.colors.grape[8]}
 												data={[
 													{
+														label: "Media",
+														value:
+															latestUserSummary.data.media.mediaInteractedWith,
+														type: "number",
+													},
+													{
 														label: "Reviews",
 														value: latestUserSummary.data.media.reviewsPosted,
 														type: "number",
@@ -509,6 +516,14 @@ const Page: NextPageWithLayout = () => {
 														label: "Workouts",
 														value:
 															latestUserSummary.data.fitness.workoutsRecorded,
+														type: "number",
+														hideIfZero: true,
+													},
+													{
+														label: "Exercises",
+														value:
+															latestUserSummary.data.fitness
+																.exercisesInteractedWith,
 														type: "number",
 														hideIfZero: true,
 													},

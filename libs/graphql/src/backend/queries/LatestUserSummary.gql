@@ -4,10 +4,12 @@ query LatestUserSummary {
     fitness {
       measurementsRecorded
       workoutsRecorded
+      exercisesInteractedWith
      }
     media {
       reviewsPosted
       creatorsInteractedWith
+      mediaInteractedWith
       manga {
         chapters
         read

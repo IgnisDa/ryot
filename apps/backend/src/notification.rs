@@ -3,12 +3,10 @@ use std::env;
 use anyhow::{anyhow, Result};
 use convert_case::{Case, Casing};
 use http_types::mime;
+use rs_utils::PROJECT_NAME;
 use surf::http::headers::AUTHORIZATION;
 
-use crate::{
-    users::UserNotificationSetting,
-    utils::{AVATAR_URL, PROJECT_NAME},
-};
+use crate::{users::UserNotificationSetting, utils::AVATAR_URL};
 
 impl UserNotificationSetting {
     // TODO: Allow formatting messages

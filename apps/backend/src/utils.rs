@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::sync::Arc;
 
 use apalis::sqlite::SqliteStorage;
 use async_graphql::{Error, Result};
@@ -12,12 +9,14 @@ use axum::{
     Extension, RequestPartsExt,
 };
 use axum_extra::extract::cookie::CookieJar;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::Utc;
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
+use itertools::Itertools;
+use rs_utils::PROJECT_NAME;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, PartialModelTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    PartialModelTrait, QueryFilter,
 };
 use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use surf::{
@@ -27,22 +26,21 @@ use surf::{
 
 use crate::{
     background::ApplicationJob,
-    config::AppConfig,
     entities::{
-        prelude::{User, UserToMetadata},
-        user, user_to_metadata,
+        collection, collection_to_entity,
+        prelude::{Collection, CollectionToEntity, User, UserToEntity},
+        user, user_to_entity,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::StoredUrl,
+    models::{media::ChangeCollectionToEntityInput, EntityLot, StoredUrl},
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const PROJECT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
@@ -61,7 +59,7 @@ pub const AVATAR_URL: &str =
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub config: Arc<AppConfig>,
+    pub config: Arc<config::AppConfig>,
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub file_storage_service: Arc<FileStorageService>,
@@ -72,8 +70,9 @@ pub struct AppServices {
 pub async fn create_app_services(
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
-    config: Arc<AppConfig>,
+    config: Arc<config::AppConfig>,
     perform_application_job: &SqliteStorage<ApplicationJob>,
+    timezone: chrono_tz::Tz,
 ) -> AppServices {
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
@@ -92,6 +91,7 @@ pub async fn create_app_services(
             config.clone(),
             file_storage_service.clone(),
             perform_application_job,
+            timezone.to_string(),
         )
         .await,
     );
@@ -112,13 +112,13 @@ pub async fn get_user_and_metadata_association<C>(
     user_id: &i32,
     metadata_id: &i32,
     db: &C,
-) -> Option<user_to_metadata::Model>
+) -> Option<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
-    UserToMetadata::find()
-        .filter(user_to_metadata::Column::UserId.eq(user_id.to_owned()))
-        .filter(user_to_metadata::Column::MetadataId.eq(metadata_id.to_owned()))
+    UserToEntity::find()
+        .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+        .filter(user_to_entity::Column::MetadataId.eq(metadata_id.to_owned()))
         .one(db)
         .await
         .ok()
@@ -129,21 +129,27 @@ pub async fn associate_user_with_metadata<C>(
     user_id: &i32,
     metadata_id: &i32,
     db: &C,
-) -> Result<user_to_metadata::Model>
+) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
     let user_to_meta = get_user_and_metadata_association(user_id, metadata_id, db).await;
     Ok(match user_to_meta {
         None => {
-            let user_to_meta = user_to_metadata::ActiveModel {
+            let user_to_meta = user_to_entity::ActiveModel {
                 user_id: ActiveValue::Set(*user_id),
-                metadata_id: ActiveValue::Set(*metadata_id),
+                metadata_id: ActiveValue::Set(Some(*metadata_id)),
                 ..Default::default()
             };
             user_to_meta.insert(db).await.unwrap()
         }
-        Some(u) => u,
+        Some(u) => {
+            let increase = u.num_times_interacted;
+            let mut i: user_to_entity::ActiveModel = u.into();
+            i.last_updated_on = ActiveValue::Set(Utc::now());
+            i.num_times_interacted = ActiveValue::Set(increase + 1);
+            i.update(db).await.unwrap()
+        }
     })
 }
 
@@ -151,28 +157,6 @@ pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<i32> {
     jwt::verify(token, jwt_secret)
         .map(|c| c.sub.parse().unwrap())
         .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
-}
-
-pub fn convert_string_to_date(d: &str) -> Option<NaiveDate> {
-    NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()
-}
-
-pub fn convert_date_to_year(d: &str) -> Option<i32> {
-    convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
-}
-
-pub fn convert_naive_to_utc(d: NaiveDate) -> DateTimeUtc {
-    DateTime::from_naive_utc_and_offset(
-        NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
-        Utc,
-    )
-}
-
-pub fn get_now_timestamp() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis()
 }
 
 pub fn get_base_http_client(
@@ -212,6 +196,95 @@ pub async fn get_stored_asset(
     }
 }
 
+pub async fn entity_in_collections(
+    db: &DatabaseConnection,
+    user_id: i32,
+    entity_id: i32,
+    entity_lot: EntityLot,
+) -> Result<Vec<collection::Model>> {
+    let user_collections = Collection::find()
+        .filter(collection::Column::UserId.eq(user_id))
+        .all(db)
+        .await
+        .unwrap();
+    let target_column = match entity_lot {
+        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Person => collection_to_entity::Column::PersonId,
+        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+    };
+    let mtc = CollectionToEntity::find()
+        .filter(
+            collection_to_entity::Column::CollectionId
+                .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
+        )
+        .filter(target_column.eq(entity_id))
+        .find_also_related(Collection)
+        .all(db)
+        .await
+        .unwrap();
+    let mut resp = vec![];
+    mtc.into_iter().for_each(|(_, b)| {
+        if let Some(m) = b {
+            resp.push(m);
+        }
+    });
+    Ok(resp)
+}
+
+pub async fn add_entity_to_collection(
+    db: &DatabaseConnection,
+    user_id: i32,
+    input: ChangeCollectionToEntityInput,
+) -> Result<bool> {
+    let target_column = match input.entity_lot {
+        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Person => collection_to_entity::Column::PersonId,
+        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
+        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+    };
+    let collection = Collection::find()
+        .filter(collection::Column::UserId.eq(user_id.to_owned()))
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut updated: collection::ActiveModel = collection.into();
+    updated.last_updated_on = ActiveValue::Set(Utc::now());
+    let collection = updated.update(db).await.unwrap();
+    if let Some(etc) = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+        .filter(target_column.eq(input.entity_id))
+        .one(db)
+        .await?
+    {
+        let mut to_update: collection_to_entity::ActiveModel = etc.into();
+        to_update.last_updated_on = ActiveValue::Set(Utc::now());
+        Ok(to_update.update(db).await.is_ok())
+    } else {
+        let mut created_collection = collection_to_entity::ActiveModel {
+            collection_id: ActiveValue::Set(collection.id),
+            ..Default::default()
+        };
+        match input.entity_lot {
+            EntityLot::Metadata => {
+                created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::Person => {
+                created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::MediaGroup => {
+                created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
+            }
+            EntityLot::Exercise => {
+                created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
+            }
+        };
+        Ok(created_collection.insert(db).await.is_ok())
+    }
+}
+
 pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
     User::find_by_id(user_id)
         .one(db)
@@ -231,16 +304,6 @@ where
         .await
         .unwrap()
         .ok_or_else(|| Error::new("No user found"))
-}
-
-pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
-    let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
-    let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
-        .unwrap_or_else(|| NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap())
-        .pred_opt()
-        .unwrap();
-
-    (first_day, last_day)
 }
 
 #[derive(Debug, Default)]
@@ -268,7 +331,10 @@ where
             ctx.auth_token = h.to_str().map(String::from).ok();
         }
         if let Some(auth_token) = ctx.auth_token.as_ref() {
-            let Extension(config) = parts.extract::<Extension<Arc<AppConfig>>>().await.unwrap();
+            let Extension(config) = parts
+                .extract::<Extension<Arc<config::AppConfig>>>()
+                .await
+                .unwrap();
             if let Ok(user_id) = user_id_from_token(auth_token, &config.users.jwt_secret) {
                 ctx.user_id = Some(user_id);
             }

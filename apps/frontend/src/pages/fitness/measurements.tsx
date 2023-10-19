@@ -158,9 +158,9 @@ const Page: NextPageWithLayout = () => {
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const preferences = useUserPreferences();
-	const userMeasurementsList = useQuery(
-		["userMeasurementsList", selectedTimeSpan],
-		async () => {
+	const userMeasurementsList = useQuery({
+		queryKey: ["userMeasurementsList", selectedTimeSpan],
+		queryFn: async () => {
 			const now = DateTime.now();
 			const [startTime, endTime] = match(selectedTimeSpan)
 				.with(TimeSpan.Last7Days, () => [now, now.minus({ days: 7 })])
@@ -180,7 +180,7 @@ const Page: NextPageWithLayout = () => {
 			);
 			return userMeasurementsList;
 		},
-	);
+	});
 	const createUserMeasurement = useMutation({
 		mutationFn: async (variables: CreateUserMeasurementMutationVariables) => {
 			const { createUserMeasurement } = await gqlClient.request(

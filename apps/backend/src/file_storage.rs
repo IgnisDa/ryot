@@ -1,5 +1,4 @@
-use anyhow::{Context, Result};
-use aws_sdk_s3::{presigning::PresigningConfig, primitives::ByteStream};
+use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
 use uuid::Uuid;
 
@@ -65,17 +64,5 @@ impl FileStorageService {
             .uri()
             .to_string();
         (key, url)
-    }
-
-    pub async fn upload_file(&self, key: &str, data: ByteStream) -> Result<()> {
-        self.s3_client
-            .put_object()
-            .bucket(&self.bucket_name)
-            .key(key)
-            .body(data)
-            .send()
-            .await
-            .context("Could not upload file")
-            .map(|_| ())
     }
 }

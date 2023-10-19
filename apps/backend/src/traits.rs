@@ -59,15 +59,8 @@ pub trait MediaProviderLanguages {
     fn default_language() -> String;
 }
 
-/// Determine whether a feature is enabled
-pub trait IsFeatureEnabled {
-    fn is_enabled(&self) -> bool {
-        true
-    }
-}
-
 #[async_trait]
-pub trait DatabaseAssestsAsSingleUrl {
+pub trait DatabaseAssetsAsSingleUrl {
     async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
 }
 
@@ -93,4 +86,14 @@ pub trait AuthProvider {
             Err(Error::new("User was not logged in"))
         }
     }
+}
+
+#[async_trait]
+pub trait GraphqlRepresentation {
+    async fn graphql_repr(
+        self,
+        file_storage_service: &Arc<FileStorageService>,
+    ) -> GraphqlResult<Self>
+    where
+        Self: Sized;
 }

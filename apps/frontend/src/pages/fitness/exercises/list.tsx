@@ -3,7 +3,7 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { currentWorkoutAtom } from "@/lib/state";
+import { currentWorkoutAtom } from "@/lib/workout";
 import {
 	ActionIcon,
 	Affix,
@@ -332,8 +332,8 @@ const Page: NextPageWithLayout = () => {
 													/>
 												) : undefined}
 												<Indicator
-													disabled={!exercise.numTimesPerformed}
-													label={exercise.numTimesPerformed ?? ""}
+													disabled={!exercise.numTimesInteracted}
+													label={exercise.numTimesInteracted ?? ""}
 													position="top-start"
 													size={16}
 													offset={8}
@@ -413,7 +413,7 @@ const Page: NextPageWithLayout = () => {
 											},
 										],
 										alreadyDoneSets:
-											userExerciseDetails?.history.at(-1)?.sets.map((s) => ({
+											userExerciseDetails?.history?.at(-1)?.sets.map((s) => ({
 												// biome-ignore lint/suspicious/noExplicitAny: required here
 												statistic: s.statistic as any,
 											})) || [],

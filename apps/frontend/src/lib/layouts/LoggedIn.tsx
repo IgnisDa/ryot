@@ -44,6 +44,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
+import { IconArchive } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Link from "next/link";
@@ -70,7 +71,7 @@ const Footer = () => {
 				[
 					"red",
 					<>
-						There is a major upgrade, please follow{" "}
+						There is a major upgrade, please follow the{" "}
 						<Anchor
 							href="https://ignisda.github.io/ryot/migration.html"
 							target="_blank"
@@ -221,14 +222,22 @@ export default function ({ children }: { children: ReactElement }) {
 
 	const [{ auth }] = useCookies([AUTH_COOKIE]);
 	const router = useRouter();
+	const coreDetails = useCoreDetails();
 	const userDetails = useQuery({
 		queryKey: ["userDetails"],
 		queryFn: async () => {
 			const { userDetails } = await gqlClient.request(UserDetailsDocument);
 			return userDetails;
 		},
-		onSuccess: async (data) => {
-			if (data.__typename === "UserDetailsError") {
+		staleTime: Infinity,
+	});
+
+	useEffect(() => {
+		(async () => {
+			if (
+				userDetails.data &&
+				userDetails.data.__typename === "UserDetailsError"
+			) {
 				await logoutUser.mutateAsync();
 				notifications.show({
 					color: "red",
@@ -237,9 +246,9 @@ export default function ({ children }: { children: ReactElement }) {
 				});
 				router.push(APP_ROUTES.auth.login);
 			}
-		},
-		staleTime: Infinity,
-	});
+		})();
+	}, [userDetails.data]);
+
 	const userPreferences = useUserPreferences();
 
 	const mediaLinks = [
@@ -258,7 +267,6 @@ export default function ({ children }: { children: ReactElement }) {
 			}) || []),
 		{ label: "People", href: APP_ROUTES.media.people.list },
 		{ label: "Groups", href: APP_ROUTES.media.groups.list },
-		{ label: "Collections", href: APP_ROUTES.media.collections.list },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href
@@ -325,7 +333,7 @@ export default function ({ children }: { children: ReactElement }) {
 		};
 	}, [router]);
 
-	return userPreferences.data && openedLinkGroups ? (
+	return userPreferences.data && openedLinkGroups && coreDetails.data ? (
 		<AppShell
 			w="100%"
 			padding={0}
@@ -390,6 +398,13 @@ export default function ({ children }: { children: ReactElement }) {
 						setOpened={() => {}}
 					/>
 					<LinksGroup
+						label="Collections"
+						icon={IconArchive}
+						href={APP_ROUTES.collections.list}
+						opened={false}
+						setOpened={() => {}}
+					/>
+					<LinksGroup
 						label="Settings"
 						icon={IconSettings}
 						opened={openedLinkGroups.settings}
@@ -432,7 +447,7 @@ export default function ({ children }: { children: ReactElement }) {
 						}
 					/>
 				</Box>
-				<Box>
+				<Stack gap="xs">
 					<Flex direction="column" justify="center" gap="md">
 						<ThemeToggle />
 						<UnstyledButton
@@ -446,7 +461,7 @@ export default function ({ children }: { children: ReactElement }) {
 							</Group>
 						</UnstyledButton>
 					</Flex>
-				</Box>
+				</Stack>
 			</AppShell.Navbar>
 			<Flex direction="column" h="90%">
 				<Flex justify="space-between" p="md" hiddenFrom="sm">

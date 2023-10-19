@@ -1,5 +1,33 @@
 
 
+# Version 3.0.2 (2023-10-19)
+
+
+
+# Version 3.0.1 (2023-10-19)
+
+## Bug Fixes
+
+- **frontend:** do not display timezone
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
+# Version 3.0.0 (2023-10-18)
+
+
+
+# Version 2.24.1 (2023-10-18)
+
+
+
+# Version 2.24.0 (2023-10-17)
+
+
+
 # Version 2.23.2 (2023-10-14)
 
 

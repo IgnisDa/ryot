@@ -2,6 +2,7 @@
 
 /* eslint-disable */
 
+/** The actual statistics that were logged in a user measurement. */
 export interface UserMeasurementStats {
 	abdominalSkinfold: string | null;
 	basalMetabolicRate: string | null;
@@ -29,6 +30,7 @@ export interface UserMeasurementStats {
 	weight: string | null;
 }
 
+/** An export of a measurement taken at a point in time. */
 export interface UserMeasurement {
 	/** Any comment associated entered by the user. */
 	comment: string | null;
@@ -40,13 +42,15 @@ export interface UserMeasurement {
 	timestamp: string;
 }
 
-export type MetadataLot = 'audio-book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video-game' | 'visual-novel';
+export type MetadataLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
 
+/** A user that has commented on a review. */
 export interface ReviewCommentUser {
 	id: number;
 	name: string;
 }
 
+/** Comments left in replies to posted reviews. */
 export interface ImportOrExportItemReviewComment {
 	createdOn: string;
 	id: string;
@@ -56,6 +60,7 @@ export interface ImportOrExportItemReviewComment {
 	user: ReviewCommentUser;
 }
 
+/** Review data associated to a rating. */
 export interface ImportOrExportItemReview {
 	/** The date the review was posted. */
 	date: string | null;
@@ -65,6 +70,7 @@ export interface ImportOrExportItemReview {
 	text: string | null;
 }
 
+/** A rating given to an entity. */
 export interface ImportOrExportItemRating {
 	/** The comments attached to this review. */
 	comments: ImportOrExportItemReviewComment[] | null;
@@ -80,6 +86,7 @@ export interface ImportOrExportItemRating {
 	showSeasonNumber: number | null;
 }
 
+/** A specific instance when an entity was seen. */
 export interface ImportOrExportMediaItemSeen {
 	/** The timestamp when finished watching. */
 	endedOn: string | null;
@@ -95,10 +102,11 @@ export interface ImportOrExportMediaItemSeen {
 	startedOn: string | null;
 }
 
-export type MetadataSource = 'anilist' | 'audible' | 'custom' | 'google-books' | 'igdb' | 'itunes' | 'listennotes' | 'manga-updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb';
+export type MetadataSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
 
+/** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMediaItem {
-	/** The collections to add this media to. */
+	/** The collections this entity was added to. */
 	collections: string[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
 	identifier: string;
@@ -114,13 +122,17 @@ export interface ImportOrExportMediaItem {
 	sourceId: string;
 }
 
+/** Details about a specific creator item that needs to be exported. */
 export interface ImportOrExportPersonItem {
+	/** The collections this entity was added to. */
+	collections: string[];
 	/** The name of the creator. */
 	name: string;
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
 }
 
+/** The assets that were uploaded for an entity. */
 export interface EntityAssets {
 	/** The keys of the S3 images. */
 	images: string[];
@@ -128,11 +140,11 @@ export interface EntityAssets {
 	videos: string[];
 }
 
-export type ExerciseLot = 'duration' | 'distance-and-duration' | 'reps-and-weight';
+export type ExerciseLot = 'Duration' | 'DistanceAndDuration' | 'RepsAndWeight';
 
-export type SetLot = 'normal' | 'warm-up' | 'drop' | 'failure';
+export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
 
-export type WorkoutSetPersonalBest = 'weight' | 'one-rm' | 'volume' | 'time' | 'pace' | 'reps';
+export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'Pace' | 'Reps';
 
 export interface WorkoutSetStatistic {
 	distance: string | null;
@@ -199,6 +211,7 @@ export interface Workout {
 	summary: WorkoutSummary;
 }
 
+/** Complete export of the user. */
 export interface ExportAllResponse {
 	/** Data about user's measurements. */
 	measurements: UserMeasurement[];

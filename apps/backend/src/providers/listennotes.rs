@@ -3,7 +3,9 @@ use std::{collections::HashMap, env, sync::OnceLock};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
+use database::{MetadataLot, MetadataSource};
 use itertools::Itertools;
+use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -12,9 +14,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::Client;
 
 use crate::{
-    config::PodcastConfig,
     entities::partial_metadata::PartialMetadataWithoutId,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
@@ -23,7 +23,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_naive_to_utc, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
@@ -46,7 +46,7 @@ impl MediaProviderLanguages for ListennotesService {
 }
 
 impl ListennotesService {
-    pub async fn new(config: &PodcastConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::PodcastConfig, page_limit: i32) -> Self {
         let client = get_client_config(
             env::var("LISTENNOTES_API_URL")
                 .unwrap_or_else(|_| URL.to_owned())

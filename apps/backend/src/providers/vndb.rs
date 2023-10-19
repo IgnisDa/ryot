@@ -1,14 +1,14 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
+use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::VisualNovelConfig,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
@@ -17,7 +17,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
@@ -45,7 +45,7 @@ impl MediaProviderLanguages for VndbService {
 }
 
 impl VndbService {
-    pub async fn new(_config: &VisualNovelConfig, page_limit: i32) -> Self {
+    pub async fn new(_config: &config::VisualNovelConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self { client, page_limit }
     }

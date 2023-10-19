@@ -1,4 +1,6 @@
 import {
+	AddEntityToCollectionModal,
+	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ReviewItemDisplay,
@@ -15,15 +17,17 @@ import {
 	Button,
 	Container,
 	Flex,
+	Group,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
 	Title,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import {
 	CreatorDetailsDocument,
+	EntityLot,
 	UserCreatorDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -44,6 +48,10 @@ import type { NextPageWithLayout } from "../../_app";
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const creatorId = parseInt(router.query.id?.toString() || "0");
+	const [
+		collectionModalOpened,
+		{ open: collectionModalOpen, close: collectionModalClose },
+	] = useDisclosure(false);
 
 	const [activeTab, setActiveTab] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedActiveCreatorDetailsTab,
@@ -123,6 +131,20 @@ const Page: NextPageWithLayout = () => {
 							<Text c="dimmed">• {creatorDetails.data.details.gender}</Text>
 						) : undefined}
 					</Flex>
+					{userCreatorDetails.data &&
+					userCreatorDetails.data.collections.length > 0 ? (
+						<Group id="entity-collections">
+							{userCreatorDetails.data.collections.map((col) => (
+								<DisplayCollection
+									col={col}
+									entityId={creatorId}
+									entityLot={EntityLot.Person}
+									refetch={userCreatorDetails.refetch}
+									key={col.id}
+								/>
+							))}
+						</Group>
+					) : undefined}
 					<Tabs
 						value={activeTab}
 						onChange={(v) => {
@@ -245,6 +267,16 @@ const Page: NextPageWithLayout = () => {
 									>
 										Post a review
 									</Button>
+									<Button variant="outline" onClick={collectionModalOpen}>
+										Add to collection
+									</Button>
+									<AddEntityToCollectionModal
+										onClose={collectionModalClose}
+										opened={collectionModalOpened}
+										entityId={creatorId}
+										refetchUserMedia={userCreatorDetails.refetch}
+										entityLot={EntityLot.Person}
+									/>
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
