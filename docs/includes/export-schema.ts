@@ -42,7 +42,7 @@ export interface UserMeasurement {
 	timestamp: string;
 }
 
-export type MetadataLot = 'audio-book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video-game' | 'visual-novel';
+export type MetadataLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
 
 /** A user that has commented on a review. */
 export interface ReviewCommentUser {
@@ -102,7 +102,7 @@ export interface ImportOrExportMediaItemSeen {
 	startedOn: string | null;
 }
 
-export type MetadataSource = 'anilist' | 'audible' | 'custom' | 'google-books' | 'igdb' | 'itunes' | 'listennotes' | 'manga-updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb';
+export type MetadataSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMediaItem {
@@ -140,11 +140,11 @@ export interface EntityAssets {
 	videos: string[];
 }
 
-export type ExerciseLot = 'duration' | 'distance-and-duration' | 'reps-and-weight';
+export type ExerciseLot = 'Duration' | 'DistanceAndDuration' | 'RepsAndWeight';
 
-export type SetLot = 'normal' | 'warm-up' | 'drop' | 'failure';
+export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
 
-export type WorkoutSetPersonalBest = 'weight' | 'one-rm' | 'volume' | 'time' | 'pace' | 'reps';
+export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'Pace' | 'Reps';
 
 export interface WorkoutSetStatistic {
 	distance: string | null;

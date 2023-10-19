@@ -26,6 +26,7 @@ pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique
     ConfigEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[config(rename_all = "PascalCase")]
 pub enum MetadataSource {
     #[sea_orm(string_value = "AN")]
     Anilist,
@@ -71,6 +72,7 @@ pub enum MetadataSource {
     ConfigEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[config(rename_all = "PascalCase")]
 pub enum MetadataLot {
     #[sea_orm(string_value = "AB")]
     AudioBook,

@@ -139,6 +139,7 @@ pub enum ExerciseEquipment {
     ConfigEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[config(rename_all = "PascalCase")]
 pub enum ExerciseLot {
     #[sea_orm(string_value = "D")]
     Duration,

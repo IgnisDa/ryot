@@ -1273,6 +1273,7 @@ pub mod fitness {
         Copy,
         ConfigEnum,
     )]
+    #[config(rename_all = "PascalCase")]
     pub enum SetLot {
         Normal,
         WarmUp,
@@ -1293,6 +1294,7 @@ pub mod fitness {
         Default,
         ConfigEnum,
     )]
+    #[config(rename_all = "PascalCase")]
     pub enum WorkoutSetPersonalBest {
         #[default]
         Weight,
