@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use database::{MetadataLot, MetadataSource};
 use graphql_client::{GraphQLQuery, Response};
 use http_types::mime;
 use itertools::Itertools;
-use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use surf::{http::headers::ACCEPT, Client};
 

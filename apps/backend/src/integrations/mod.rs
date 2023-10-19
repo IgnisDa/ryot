@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Result};
-use migrator::{MetadataLot, MetadataSource};
+use database::{MetadataLot, MetadataSource};
 use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;

@@ -7,11 +7,11 @@ use std::{
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
-use derive_more::{Add, AddAssign, Sum};
-use migrator::{
+use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MetadataLot, MetadataSource, SeenState, Visibility,
 };
+use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use boilermates::boilermates;
-use migrator::{MetadataLot, MetadataSource};
+use database::{MetadataLot, MetadataSource};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

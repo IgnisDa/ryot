@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use migrator::{MetadataLot, MetadataSource};
+use database::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};

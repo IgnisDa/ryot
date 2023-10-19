@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use migrator::{MetadataLot, MetadataSource};
+use database::{MetadataLot, MetadataSource};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rs_utils::{convert_date_to_year, convert_string_to_date};

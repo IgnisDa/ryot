@@ -1816,6 +1816,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2e66c9d817f1720209181c316d28635c050fa304f9c79e47a520882661b7308"
 
 [[package]]
+name = "database"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "strum",
+]
+
+[[package]]
 name = "deadpool"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3218,19 +3231,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
-]
-
-[[package]]
-name = "migrator"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "schematic",
- "sea-orm",
- "sea-orm-migration",
- "serde",
- "serde_json",
- "strum",
 ]
 
 [[package]]
@@ -4655,6 +4655,7 @@ dependencies = [
  "convert_case",
  "cookie 0.18.0",
  "csv",
+ "database",
  "derive_more 1.0.0-beta.3",
  "dotenvy",
  "enum_meta",
@@ -4670,7 +4671,6 @@ dependencies = [
  "jsonwebtoken",
  "kinded",
  "markdown",
- "migrator",
  "mime_guess",
  "nanoid",
  "quick-xml",

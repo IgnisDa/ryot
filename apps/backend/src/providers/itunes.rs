@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
-use migrator::{MetadataLot, MetadataSource};
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};

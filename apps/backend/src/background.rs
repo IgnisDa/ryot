@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use chrono::DateTime;
 use chrono_tz::Tz;
-use migrator::{MetadataLot, MetadataSource};
+use database::{MetadataLot, MetadataSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 

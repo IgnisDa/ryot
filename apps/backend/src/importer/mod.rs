@@ -3,8 +3,8 @@ use std::sync::Arc;
 use apalis::prelude::Storage;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
+use database::{ImportSource, MetadataLot};
 use itertools::Itertools;
-use migrator::{ImportSource, MetadataLot};
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromJsonQueryResult, QueryFilter,

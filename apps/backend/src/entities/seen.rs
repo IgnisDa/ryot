@@ -3,7 +3,7 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
-use migrator::SeenState;
+use database::SeenState;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_query::Expr;
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 use async_graphql::Result;
 use chrono::{DateTime, Utc};
+use database::{MetadataLot, MetadataSource};
 use itertools::Itertools;
-use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};

@@ -1,8 +1,8 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
-use migrator::{MetadataLot, MetadataSource};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;

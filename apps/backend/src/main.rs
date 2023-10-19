@@ -26,8 +26,8 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
+use database::Migrator;
 use itertools::Itertools;
-use migrator::Migrator;
 use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;

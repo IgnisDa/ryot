@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use chrono::NaiveDate;
-use migrator::MetadataSource;
+use database::MetadataSource;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

@@ -4,8 +4,8 @@ use std::{
 };
 
 use async_graphql::Result;
+use database::{MetadataLot, MetadataSource};
 use flate2::bufread::GzDecoder;
-use migrator::{MetadataLot, MetadataSource};
 use rs_utils::{convert_naive_to_utc, convert_string_to_date};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;

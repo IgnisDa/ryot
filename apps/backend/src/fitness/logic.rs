@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use anyhow::Result;
 use chrono::Utc;
-use migrator::ExerciseLot;
+use database::ExerciseLot;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;

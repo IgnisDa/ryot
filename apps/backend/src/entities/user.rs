@@ -6,7 +6,7 @@ use argon2::{
 };
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use migrator::UserLot;
+use database::UserLot;
 use sea_orm::{entity::prelude::*, ActiveValue, FromQueryResult};
 use serde::{Deserialize, Serialize};
 

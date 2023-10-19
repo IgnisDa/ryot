@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use async_graphql::{InputObject, SimpleObject};
-use migrator::{
+use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
 };

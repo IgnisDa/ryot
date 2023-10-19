@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
-use migrator::{MetadataLot, MetadataSource};
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};

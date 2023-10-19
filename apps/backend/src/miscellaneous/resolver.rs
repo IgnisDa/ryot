@@ -17,6 +17,11 @@ use cookie::{
     time::{Duration as CookieDuration, OffsetDateTime},
     Cookie, SameSite,
 };
+use database::{
+    Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
+    PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState, UserLot,
+    UserToEntity as TempUserToMetadata, Visibility,
+};
 use enum_meta::Meta;
 use futures::{future::join_all, TryStreamExt};
 use harsh::Harsh;
@@ -25,11 +30,6 @@ use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
     Options,
-};
-use migrator::{
-    Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
-    PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState, UserLot,
-    UserToEntity as TempUserToMetadata, Visibility,
 };
 use nanoid::nanoid;
 use retainer::Cache;

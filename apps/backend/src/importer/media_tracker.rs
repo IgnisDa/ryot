@@ -1,7 +1,7 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
 use async_graphql::Result;
-use migrator::{MetadataLot, MetadataSource, Visibility};
+use database::{MetadataLot, MetadataSource, Visibility};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
