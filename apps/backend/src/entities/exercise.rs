@@ -2,7 +2,8 @@
 
 use std::sync::Arc;
 
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, Result, SimpleObject};
+use async_trait::async_trait;
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     file_storage::FileStorageService,
     models::fitness::{ExerciseAttributes, ExerciseMuscles},
+    traits::GraphqlRepresentation,
     utils::get_stored_asset,
 };
 
@@ -48,8 +50,9 @@ pub struct Model {
     pub attributes: ExerciseAttributes,
 }
 
-impl Model {
-    pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
+#[async_trait]
+impl GraphqlRepresentation for Model {
+    async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
         let mut converted_exercise = self.clone();
         let mut images = vec![];
         for image in self.attributes.internal_images.iter() {
@@ -58,7 +61,7 @@ impl Model {
         converted_exercise.attributes.images = images;
         // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
         converted_exercise.attributes.muscles = self.muscles.0;
-        converted_exercise
+        Ok(converted_exercise)
     }
 }
 
@@ -76,15 +79,16 @@ pub struct ExerciseListItem {
     pub muscles: ExerciseMuscles,
 }
 
-impl ExerciseListItem {
-    pub async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Self {
+#[async_trait]
+impl GraphqlRepresentation for ExerciseListItem {
+    async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
         let mut converted_exercise = self.clone();
         if let Some(img) = self.attributes.internal_images.first() {
             converted_exercise.image =
                 Some(get_stored_asset(img.clone(), file_storage_service).await);
         }
         converted_exercise.muscle = self.muscles.0.first().cloned();
-        converted_exercise
+        Ok(converted_exercise)
     }
 }
 

@@ -87,3 +87,13 @@ pub trait AuthProvider {
         }
     }
 }
+
+#[async_trait]
+pub trait GraphqlRepresentation {
+    async fn graphql_repr(
+        self,
+        file_storage_service: &Arc<FileStorageService>,
+    ) -> GraphqlResult<Self>
+    where
+        Self: Sized;
+}
