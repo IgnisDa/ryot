@@ -3,8 +3,10 @@ use std::sync::OnceLock;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use database::{MetadataLot, MetadataSource};
 use hashbag::HashBag;
 use itertools::Itertools;
+use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -12,11 +14,9 @@ use serde_json::json;
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
-    config::TmdbConfig,
     entities::{
         metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
     },
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
@@ -27,7 +27,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";
@@ -245,7 +245,7 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &TmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.access_token).await;
         Self {
             client,
@@ -537,7 +537,7 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &TmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.access_token).await;
         Self {
             client,

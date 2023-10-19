@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
 use sea_orm::prelude::ChronoDateTimeUtc;
@@ -8,8 +9,6 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::ITunesConfig,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
@@ -41,7 +40,7 @@ impl MediaProviderLanguages for ITunesService {
 }
 
 impl ITunesService {
-    pub async fn new(config: &ITunesConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::ITunesConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self {
             client,

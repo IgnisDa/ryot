@@ -2,6 +2,10 @@ use std::sync::Arc;
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
+use database::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    ExerciseSource,
+};
 use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -17,7 +21,6 @@ use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
-    config::AppConfig,
     entities::{
         collection,
         exercise::{self, ExerciseListItem},
@@ -26,10 +29,6 @@ use crate::{
         user_measurement, user_to_entity, workout,
     },
     file_storage::FileStorageService,
-    migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle, ExerciseSource,
-    },
     miscellaneous::DefaultCollection,
     models::{
         fitness::{
@@ -39,7 +38,7 @@ use crate::{
         media::ChangeCollectionToEntityInput,
         EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
-    traits::AuthProvider,
+    traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
 };
 
@@ -256,7 +255,7 @@ impl ExerciseMutation {
 
 pub struct ExerciseService {
     db: DatabaseConnection,
-    config: Arc<AppConfig>,
+    config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: SqliteStorage<ApplicationJob>,
 }
@@ -266,7 +265,7 @@ impl AuthProvider for ExerciseService {}
 impl ExerciseService {
     pub fn new(
         db: &DatabaseConnection,
-        config: Arc<AppConfig>,
+        config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
     ) -> Self {
@@ -324,7 +323,7 @@ impl ExerciseService {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
-            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
+            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await?),
         }
     }
 
@@ -337,7 +336,7 @@ impl ExerciseService {
             None => Err(Error::new(
                 "Workout with the given ID could not be found for this user.",
             )),
-            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await),
+            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await?),
         }
     }
 
@@ -515,7 +514,7 @@ impl ExerciseService {
             .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
             .await?
         {
-            let gql_repr = ex.graphql_repr(&self.file_storage_service).await;
+            let gql_repr = ex.graphql_repr(&self.file_storage_service).await?;
             items.push(gql_repr);
         }
         let next_page =

@@ -1,14 +1,9 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader, ValidateError};
+use rs_utils::{IsFeatureEnabled, PROJECT_NAME};
+use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader};
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    providers::{audible::AudibleService, itunes::ITunesService, tmdb::TmdbService},
-    traits::{IsFeatureEnabled, MediaProviderLanguages},
-    utils::PROJECT_NAME,
-};
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
     Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
@@ -53,25 +48,11 @@ pub struct AnimeAndMangaConfig {
 
 impl IsFeatureEnabled for AnimeAndMangaConfig {}
 
-fn validate_audible_locale(
-    value: &str,
-    _partial: &PartialAudibleConfig,
-    _context: &(),
-) -> Result<(), ValidateError> {
-    if !AudibleService::supported_languages().contains(&value.to_owned()) {
-        return Err(ValidateError::new(format!(
-            "Audible does not support this locale: {:?}",
-            value
-        )));
-    }
-    Ok(())
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
     /// Settings related to locale for making requests Audible.
-    #[setting(validate = validate_audible_locale, default = AudibleService::default_language())]
+    #[setting(default = "us")]
     pub locale: String,
 }
 
@@ -138,20 +119,6 @@ pub struct ExerciseConfig {}
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {}
 
-fn validate_tmdb_locale(
-    value: &str,
-    _partial: &PartialTmdbConfig,
-    _context: &(),
-) -> Result<(), ValidateError> {
-    if !TmdbService::supported_languages().contains(&value.to_owned()) {
-        return Err(ValidateError::new(format!(
-            "Tmdb does not support this locale: {:?}",
-            value
-        )));
-    }
-    Ok(())
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
@@ -159,7 +126,7 @@ pub struct TmdbConfig {
     #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
     /// The locale to use for making requests to TMDB API.
-    #[setting(validate = validate_tmdb_locale, default = TmdbService::default_language())]
+    #[setting(default = "en")]
     pub locale: String,
 }
 
@@ -180,25 +147,11 @@ pub struct ListenNotesConfig {
     pub api_token: String,
 }
 
-fn validate_itunes_locale(
-    value: &str,
-    _partial: &PartialITunesConfig,
-    _context: &(),
-) -> Result<(), ValidateError> {
-    if !ITunesService::supported_languages().contains(&value.to_owned()) {
-        return Err(ValidateError::new(format!(
-            "ITunes does not support this locale: {:?}",
-            value
-        )));
-    }
-    Ok(())
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
 pub struct ITunesConfig {
     /// The locale to use for making requests to iTunes API.
-    #[setting(validate = validate_itunes_locale, default = ITunesService::default_language())]
+    #[setting(default = "en_us")]
     pub locale: String,
 }
 

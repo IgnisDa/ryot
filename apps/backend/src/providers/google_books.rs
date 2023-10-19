@@ -1,15 +1,15 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
+use rs_utils::convert_date_to_year;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::GoogleBooksConfig,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
@@ -18,7 +18,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
@@ -40,7 +40,7 @@ impl MediaProviderLanguages for GoogleBooksService {
 }
 
 impl GoogleBooksService {
-    pub async fn new(_config: &GoogleBooksConfig, page_limit: i32) -> Self {
+    pub async fn new(_config: &config::GoogleBooksConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
         Self { client, page_limit }
     }

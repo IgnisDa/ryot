@@ -3,13 +3,13 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
+use database::SeenState;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{prelude::UserToEntity, user_to_entity},
-    migrator::SeenState,
     models::media::{
         SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
         SeenShowExtraInformation,

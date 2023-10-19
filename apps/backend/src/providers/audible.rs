@@ -1,8 +1,10 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
+use database::{MetadataLot, MetadataSource};
 use http_types::mime;
 use itertools::Itertools;
+use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -10,11 +12,9 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    config::AudibleConfig,
     entities::{
         metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
     },
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AudioBookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
@@ -23,7 +23,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
@@ -164,7 +164,7 @@ impl AudibleService {
         format!("https://api.audible.{}/1.0/catalog/products/", suffix)
     }
 
-    pub async fn new(config: &AudibleConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
         let url = Self::url_from_locale(&config.locale);
         let client = get_base_http_client(&url, vec![(ACCEPT, mime::JSON)]);
         Self { client, page_limit }

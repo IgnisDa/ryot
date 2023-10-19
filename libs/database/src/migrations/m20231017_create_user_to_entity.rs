@@ -8,7 +8,7 @@ use super::{
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-/// A media is related to a user if atleast one of the following hold:
+/// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it

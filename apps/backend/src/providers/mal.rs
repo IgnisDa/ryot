@@ -1,16 +1,16 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use database::{MetadataLot, MetadataSource};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::Client;
 
 use crate::{
-    config::MalConfig,
     entities::partial_metadata::PartialMetadataWithoutId,
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
@@ -19,7 +19,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{convert_date_to_year, convert_string_to_date, get_base_http_client},
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.myanimelist.net/v2/";
@@ -58,7 +58,7 @@ pub struct MalAnimeService {
 }
 
 impl MalAnimeService {
-    pub async fn new(config: &MalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::MalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
             base: MalService { client },
@@ -96,7 +96,7 @@ pub struct MalMangaService {
 }
 
 impl MalMangaService {
-    pub async fn new(config: &MalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::MalConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL, &config.client_id).await;
         Self {
             base: MalService { client },

@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use anyhow::Result;
 use chrono::Utc;
+use database::ExerciseLot;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -15,7 +16,6 @@ use crate::{
         prelude::{Exercise, UserToEntity},
         user_to_entity, workout,
     },
-    migrator::ExerciseLot,
     models::fitness::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
         UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,

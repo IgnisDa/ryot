@@ -2,10 +2,11 @@
 
 use async_graphql::SimpleObject;
 use chrono::NaiveDate;
+use database::MetadataSource;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{migrator::MetadataSource, models::media::MetadataImages};
+use crate::models::media::MetadataImages;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Person")]

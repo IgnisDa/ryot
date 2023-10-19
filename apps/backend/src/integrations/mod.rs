@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Result};
+use database::{MetadataLot, MetadataSource};
 use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -9,7 +10,6 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    migrator::{MetadataLot, MetadataSource},
     utils::{get_base_http_client, get_ilike_query},
 };
 

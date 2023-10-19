@@ -17,6 +17,11 @@ use cookie::{
     time::{Duration as CookieDuration, OffsetDateTime},
     Cookie, SameSite,
 };
+use database::{
+    Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
+    PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState, UserLot,
+    UserToEntity as TempUserToMetadata, Visibility,
+};
 use enum_meta::Meta;
 use futures::{future::join_all, TryStreamExt};
 use harsh::Harsh;
@@ -28,6 +33,7 @@ use markdown::{
 };
 use nanoid::nanoid;
 use retainer::Cache;
+use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -48,7 +54,6 @@ use uuid::Uuid;
 
 use crate::{
     background::ApplicationJob,
-    config::AppConfig,
     entities::{
         calendar_event, collection, collection_to_entity, genre, metadata, metadata_group,
         metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
@@ -70,11 +75,6 @@ use crate::{
     file_storage::FileStorageService,
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
-    migrator::{
-        Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
-        PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState,
-        UserLot, UserToEntity as TempUserToMetadata,
-    },
     miscellaneous::{CustomService, DefaultCollection},
     models::{
         media::{
@@ -90,7 +90,7 @@ use crate::{
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
             ReviewCommentUser, ReviewComments, SeenOrReviewOrCalendarEventExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, Visibility, VisualNovelSpecifics,
+            UserMediaReminder, UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
         },
         EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -110,8 +110,8 @@ use crate::{
         vndb::VndbService,
     },
     traits::{
-        AuthProvider, DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls, IsFeatureEnabled,
-        MediaProvider, MediaProviderLanguages,
+        AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, MediaProvider,
+        MediaProviderLanguages,
     },
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
@@ -120,10 +120,9 @@ use crate::{
         UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
     },
     utils::{
-        add_entity_to_collection, associate_user_with_metadata, convert_naive_to_utc,
-        entity_in_collections, get_first_and_last_day_of_month, get_ilike_query, get_stored_asset,
-        get_user_and_metadata_association, partial_user_by_id, user_by_id, user_id_from_token,
-        AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
+        get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
+        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -1317,7 +1316,7 @@ pub struct MiscellaneousService {
     file_storage_service: Arc<FileStorageService>,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
-    config: Arc<AppConfig>,
+    config: Arc<config::AppConfig>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1325,7 +1324,7 @@ impl AuthProvider for MiscellaneousService {}
 impl MiscellaneousService {
     pub async fn new(
         db: &DatabaseConnection,
-        config: Arc<AppConfig>,
+        config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
         timezone: String,

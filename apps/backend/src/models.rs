@@ -7,6 +7,10 @@ use std::{
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
+use database::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    MetadataLot, MetadataSource, SeenState, Visibility,
+};
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -14,8 +18,7 @@ use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
-    FromQueryResult,
+    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -26,11 +29,7 @@ use crate::{
         user_measurement, workout,
     },
     file_storage::FileStorageService,
-    migrator::{
-        ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-        ExerciseMuscle, MetadataLot, MetadataSource, SeenState,
-    },
-    traits::{DatabaseAssestsAsSingleUrl, DatabaseAssetsAsUrls},
+    traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
 
@@ -451,17 +450,6 @@ pub mod media {
         pub title: String,
         pub image: Option<String>,
         pub publish_year: Option<i32>,
-    }
-
-    #[derive(
-        Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-    )]
-    #[sea_orm(rs_type = "String", db_type = "String(None)")]
-    pub enum Visibility {
-        #[sea_orm(string_value = "PU")]
-        Public,
-        #[sea_orm(string_value = "PR")]
-        Private,
     }
 
     #[derive(
@@ -963,7 +951,7 @@ pub mod media {
     pub struct MetadataImages(pub Vec<MetadataImage>);
 
     #[async_trait]
-    impl DatabaseAssestsAsSingleUrl for Option<MetadataImages> {
+    impl DatabaseAssetsAsSingleUrl for Option<MetadataImages> {
         async fn first_as_url(
             &self,
             file_storage_service: &Arc<FileStorageService>,
@@ -1196,7 +1184,7 @@ pub mod fitness {
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
         pub calories: Option<Decimal>,
-        // DEV: The only custom data type we allow is decimal.
+        // DEV: the only custom data type we allow is decimal
         pub custom: Option<HashMap<String, Decimal>>,
     }
 
@@ -1273,6 +1261,7 @@ pub mod fitness {
         Copy,
         ConfigEnum,
     )]
+    #[config(rename_all = "PascalCase")]
     pub enum SetLot {
         Normal,
         WarmUp,
@@ -1293,6 +1282,7 @@ pub mod fitness {
         Default,
         ConfigEnum,
     )]
+    #[config(rename_all = "PascalCase")]
     pub enum WorkoutSetPersonalBest {
         #[default]
         Weight,

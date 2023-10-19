@@ -296,7 +296,6 @@ const Page: NextPageWithLayout = () => {
 					<Tabs.Panel value="mine">
 						<Stack>
 							<Group wrap="nowrap">
-								{/* Weird syntax because of: https://stackoverflow.com/a/65328486/11667450 */}
 								{SearchInput({
 									placeholder: `Sift through your ${changeCase(
 										lot.toLowerCase(),

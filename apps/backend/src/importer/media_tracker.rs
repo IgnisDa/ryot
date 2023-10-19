@@ -1,6 +1,7 @@
 // Responsible for importing from https://github.com/bonukai/MediaTracker.
 
 use async_graphql::Result;
+use database::{MetadataLot, MetadataSource, Visibility};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -14,12 +15,11 @@ use crate::{
         DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
-    migrator::{MetadataLot, MetadataSource},
     models::{
         media::{
             BookSpecifics, CreateOrUpdateCollectionInput, FreeMetadataCreator,
             ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, Visibility,
+            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics,
         },
         IdObject,
     },
