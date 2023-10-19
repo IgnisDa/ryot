@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/backend", "libs/providers", "libs/rs-utils"]
+members = ["apps/backend", "libs/database", "libs/providers", "libs/rs-utils"]
 resolver = "2"
 
 [workspace.metadata.dist]
@@ -33,8 +33,10 @@ async-graphql = { version = "6.0.7", features = [
     "uuid",
 ] }
 async-trait = "0.1.74"
+aws-sdk-s3 = "0.33.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
 chrono = "0.4.31"
+const-str = "0.5.6"
 convert_case = "0.6.0"
 http = "0.2.9"
 http-types = "2.12.0"
@@ -47,6 +49,17 @@ rand = "0.8.5"
 rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
+schematic = { version = "0.12.7", features = [
+    "config",
+    "json",
+    "schema",
+    "toml",
+    "typescript",
+    "type_chrono",
+    "type_rust_decimal",
+    "url",
+    "yaml",
+], default-features = false }
 sea-query = "0.30.2"
 sea-orm = { version = "0.12.3", features = [
     "debug-print",
@@ -63,3 +76,4 @@ serde = { version = "1.0.189", features = ["derive"] }
 serde_json = "1.0.107"
 serde_with = { version = "3.4.0", features = ["chrono_0_4"] }
 strum = { version = "0.25.0", features = ["derive"] }
+uuid = "1.5.0"

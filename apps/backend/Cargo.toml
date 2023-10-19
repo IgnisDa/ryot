@@ -12,20 +12,18 @@ argon2 = "0.5.2"
 async-graphql = { workspace = true }
 async-graphql-axum = "6.0.7"
 async-trait = { workspace = true }
-aws-sdk-s3 = "0.33.0"
+aws-sdk-s3 = { workspace = true }
 axum = { workspace = true }
+axum-extra = { version = "0.8.0", default-features = false, features = [
+  "cookie",
+] }
 boilermates = "0.3.0"
 chrono = { workspace = true }
 chrono-tz = "0.8.3"
 convert_case = { workspace = true }
-const-str = "0.5.6"
+const-str = { workspace = true }
 cookie = "0.18.0"
 csv = "1.3.0"
-derive_more = { version = "1.0.0-beta.3", features = [
-    "add",
-    "sum",
-    "add_assign",
-], default-features = false }
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 flate2 = "1.0.28"
@@ -51,17 +49,7 @@ rust-embed = "8.0.0"
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_iso3166 = { workspace = true }
-schematic = { version = "0.12.7", features = [
-    "config",
-    "json",
-    "schema",
-    "toml",
-    "typescript",
-    "type_chrono",
-    "type_rust_decimal",
-    "url",
-    "yaml",
-], default-features = false }
+schematic = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = "0.12.3"
 sea-query = { workspace = true }
@@ -80,7 +68,7 @@ tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "0.1.39", features = ["attributes"] }
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.17"
-uuid = "1.5.0"
+uuid = { workspace = true }
 
 [dev-dependencies]
 rstest = "0.18.2"

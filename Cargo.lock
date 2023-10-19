@@ -1806,6 +1806,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2e66c9d817f1720209181c316d28635c050fa304f9c79e47a520882661b7308"
 
 [[package]]
+name = "database"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "apalis",
+ "async-graphql",
+ "async-trait",
+ "axum",
+ "axum-extra",
+ "chrono",
+ "derive_more 1.0.0-beta.3",
+ "http",
+ "http-types",
+ "itertools 0.11.0",
+ "rs-utils",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "schematic",
+ "sea-orm",
+ "sea-query",
+ "serde",
+ "serde_with",
+ "surf",
+]
+
+[[package]]
 name = "deadpool"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4436,18 +4462,16 @@ name = "rs-utils"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "apalis",
  "async-graphql",
  "async-trait",
- "axum",
- "axum-extra",
+ "aws-sdk-s3",
  "chrono",
- "http",
+ "const-str",
  "http-types",
- "itertools 0.11.0",
  "sea-orm",
- "sea-query",
+ "serde",
  "surf",
+ "uuid",
 ]
 
 [[package]]
@@ -4698,6 +4722,7 @@ dependencies = [
  "async-trait",
  "aws-sdk-s3",
  "axum",
+ "axum-extra",
  "boilermates",
  "chrono",
  "chrono-tz",
@@ -4705,7 +4730,6 @@ dependencies = [
  "convert_case",
  "cookie 0.18.0",
  "csv",
- "derive_more 1.0.0-beta.3",
  "dotenvy",
  "enum_meta",
  "flate2",
