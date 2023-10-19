@@ -117,7 +117,7 @@ use crate::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
         UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
         UserSinkIntegrationSettingKind, UserSinkIntegrations, UserUnitSystem, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
@@ -4837,25 +4837,23 @@ impl MiscellaneousService {
             partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
                 .await?;
         let mut all_integrations = vec![];
-        let yank_integrations = if let Some(i) = user.yank_integrations {
-            i.0
-        } else {
-            vec![]
-        };
-        yank_integrations.into_iter().for_each(|i| {
-            let description = match i.settings {
-                UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
-                    format!("Audiobookshelf URL: {}", base_url)
-                }
-            };
-            all_integrations.push(GraphqlUserIntegration {
-                id: i.id,
-                lot: UserIntegrationLot::Yank,
-                description,
-                timestamp: i.timestamp,
-                slug: None,
-            })
-        });
+        user.yank_integrations
+            .unwrap_or_default()
+            .into_iter()
+            .for_each(|i| {
+                let description = match i.settings {
+                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
+                        format!("Audiobookshelf URL: {}", base_url)
+                    }
+                };
+                all_integrations.push(GraphqlUserIntegration {
+                    id: i.id,
+                    lot: UserIntegrationLot::Yank,
+                    description,
+                    timestamp: i.timestamp,
+                    slug: None,
+                })
+            });
         let sink_integrations = user.sink_integrations.0;
         sink_integrations.into_iter().for_each(|i| {
             let (description, slug) = match i.settings {
@@ -4969,11 +4967,7 @@ impl MiscellaneousService {
         input: CreateUserYankIntegrationInput,
     ) -> Result<usize> {
         let user = user_by_id(&self.db, user_id).await?;
-        let mut integrations = if let Some(i) = user.yank_integrations.clone() {
-            i.0
-        } else {
-            vec![]
-        };
+        let mut integrations = user.yank_integrations.clone().unwrap_or_default();
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserYankIntegration {
             id: new_integration_id,
@@ -4989,7 +4983,7 @@ impl MiscellaneousService {
         };
         integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
-        user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
+        user.yank_integrations = ActiveValue::Set(Some(integrations));
         user.update(&self.db).await?;
         Ok(new_integration_id)
     }
@@ -5004,19 +4998,17 @@ impl MiscellaneousService {
         let mut user_db: user::ActiveModel = user.clone().into();
         match integration_type {
             UserIntegrationLot::Yank => {
-                let integrations = if let Some(i) = user.yank_integrations.clone() {
-                    i.0
-                } else {
-                    vec![]
-                };
-                let remaining_integrations = integrations
+                let remaining_integrations = user
+                    .yank_integrations
+                    .clone()
+                    .unwrap_or_default()
                     .into_iter()
                     .filter(|i| i.id != integration_id)
                     .collect_vec();
                 let update_value = if remaining_integrations.is_empty() {
                     None
                 } else {
-                    Some(UserYankIntegrations(remaining_integrations))
+                    Some(remaining_integrations)
                 };
                 user_db.yank_integrations = ActiveValue::Set(update_value);
             }
@@ -5203,7 +5195,7 @@ impl MiscellaneousService {
                 .yank_integrations
         {
             let mut progress_updates = vec![];
-            for integration in integrations.0.iter() {
+            for integration in integrations.iter() {
                 let response = match &integration.settings {
                     UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
                         self.get_integration_service()
