@@ -6,7 +6,7 @@ repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
 
 [dependencies]
-anyhow = "1.0.75"
+anyhow = { workspace = true }
 apalis = { version = "0.4.5", features = [
     "cron",
     "extensions",
@@ -21,16 +21,16 @@ async-graphql = { version = "6.0.7", features = [
     "uuid",
 ] }
 async-graphql-axum = "6.0.7"
-async-trait = "0.1.74"
+async-trait = { workspace = true }
 aws-sdk-s3 = "0.33.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
 axum-extra = { version = "0.8.0", default-features = false, features = [
     "cookie",
 ] }
 boilermates = "0.3.0"
-chrono = "0.4.31"
+chrono = { workspace = true }
 chrono-tz = "0.8.3"
-convert_case = "0.6.0"
+convert_case = { workspace = true }
 const-str = "0.5.6"
 cookie = "0.18.0"
 csv = "1.3.0"
@@ -43,27 +43,26 @@ dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 flate2 = "1.0.28"
 futures = "0.3.28"
-graphql_client = "0.13.0"
 harsh = "0.2.2"
-hashbag = "0.1.11"
+hashbag = { workspace = true }
 http = "0.2.9"
-http-types = "2.12.0"
+http-types = { workspace = true }
 isolang = { version = "2.3.0", features = ["list_languages"] }
-itertools = "0.11.0"
+itertools = { workspace = true }
 jsonwebtoken = { version = "9.0.0", default-features = false }
 kinded = "0.3.0"
 markdown = "1.0.0-alpha.14"
 mime_guess = "2.0.4"
 nanoid = "0.4.0"
 quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
-rand = "0.8.5"
+rand = { workspace = true }
 regex = "1.10.2"
 retainer = "0.3.0"
 rs-utils = { path = "../../libs/rs-utils" }
 rust-embed = "8.0.0"
-rust_decimal = "1.32.0"
-rust_decimal_macros = "1.32.0"
-rust_iso3166 = "0.1.11"
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+rust_iso3166 = { workspace = true }
 schematic = { version = "0.12.7", features = [
     "config",
     "json",
@@ -75,34 +74,19 @@ schematic = { version = "0.12.7", features = [
     "url",
     "yaml",
 ], default-features = false }
-scraper = "0.17.1"
-sea-orm = { version = "0.12.3", features = [
-    "debug-print",
-    "macros",
-    "runtime-tokio-rustls",
-    "sqlx-mysql",
-    "sqlx-postgres",
-    "sqlx-sqlite",
-    "with-chrono",
-    "with-uuid",
-    "with-rust_decimal",
-] }
+sea-orm = { workspace = true }
 sea-orm-migration = "0.12.3"
 sea-query = "0.30.2"
 semver = "1.0.20"
-serde = { version = "1.0.189", features = ["derive"] }
-serde_json = "1.0.107"
-serde_with = { version = "3.4.0", features = ["chrono_0_4"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
 serde-xml-rs = "0.6.0"
 slug = "0.1.4"
 sqlx = "0.7.2"
 sonyflake = "0.2.0"
-strum = { version = "0.25.0", features = ["derive"] }
-surf = { version = "2.3.2", features = [
-    "h1-client-rustls",
-], default-features = false }
-surf-governor = "0.2.0"
-surf-retry = "0.3.2"
+strum = { workspace = true }
+surf = { workspace = true }
 tokio = { version = "1.33.0", features = ["full"] }
 tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "0.1.39", features = ["attributes"] }
