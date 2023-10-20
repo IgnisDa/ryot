@@ -2589,6 +2589,7 @@ impl MiscellaneousService {
                 .select_only()
                 .column(collection_to_entity::Column::MetadataId)
                 .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
+                .filter(collection_to_entity::Column::MetadataId.is_not_null())
                 .into_tuple()
                 .all(&self.db)
                 .await

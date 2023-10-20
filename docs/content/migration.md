@@ -2,23 +2,18 @@
 
 ## From `v2.*` to `v3.*`
 
-1. Go to the "Miscellaneous" settings and click on the button to "Clean and regenerate"
-   your summary.
+1. Upgrade the server to `v2.24.2` to make sure all pending migrations are applied.
 
-2. Go to the "Preferences" settings, then the "General" tab, and click any switch button
+2. Go to the "Miscellaneous" settings and click on the button to "Clean and regenerate"
+   your summary. This takes time if you have a lot of media. Go to the dashboard and check
+   the time under the "Summary" section. It should say "Calculated just now".
+
+3. Go to the "Preferences" settings, then the "General" tab, and click any switch button
    twice to make sure the latest settings have been applied.
 
-3. Stop the running server and create a backup of your database.
+4. Stop the running server and create a backup of your database.
 
-4. Run the last release of the server to perform all pending migrations (make sure to
-   connect it to the correct database).
-   ```bash
-   $ docker run --volume ./ryot/data:/data ghcr.io/ignisda/ryot:v2.24.2
-   ```
-
-5. Once the migrations from the above step are done, stop the server.
-
-6. Connect to the database and run these SQL queries:
+5. Connect to the database and run these SQL queries:
    ```sql
    DELETE FROM seaql_migrations;
 
@@ -41,9 +36,7 @@
    INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231017_create_user_to_entity', 1697640078);
    ```
 
-7. Now you can upgrade to the latest release safely.
-
-8. **OPTIONAL**: Once you have the new server up and running, go to the "Miscellaneous" settings page and click on the button to "Update All Metadata".
+6. Now you can upgrade to the latest release safely.
 
 ## From `v1.*` to `v2.*`
 
