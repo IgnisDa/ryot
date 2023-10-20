@@ -1,5 +1,13 @@
 
 
+# Version 3.0.6 (2023-10-20)
+
+## Bug Fixes
+
+- **docs:** upgrade to correct version
+  
+  
+
 # Version 3.0.5 (2023-10-20)
 
 ## Bug Fixes
