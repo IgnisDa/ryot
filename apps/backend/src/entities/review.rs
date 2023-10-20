@@ -25,6 +25,7 @@ pub struct Model {
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
     pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
+    #[sea_orm(column_type = "Json")]
     pub comments: Vec<ImportOrExportItemReviewComment>,
 }
 
