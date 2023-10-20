@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{
         collection, collection_to_entity, exercise,
-        prelude::{Collection, Exercise},
+        prelude::{Collection, CollectionToEntity, Exercise},
     },
     miscellaneous::DefaultCollection,
 };
@@ -39,14 +39,18 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         if manager.has_table("metadata_to_collection").await? {
+            let mut all_to_insert = vec![];
             for mtc in Entity::find().all(db).await? {
                 let to_insert = collection_to_entity::ActiveModel {
                     collection_id: ActiveValue::Set(mtc.collection_id),
                     metadata_id: ActiveValue::Set(Some(mtc.metadata_id)),
                     ..Default::default()
                 };
-                to_insert.insert(db).await?;
+                all_to_insert.push(to_insert);
             }
+            CollectionToEntity::insert_many(all_to_insert)
+                .exec(db)
+                .await?;
             manager
                 .drop_table(Table::drop().table(MetadataToCollection::Table).to_owned())
                 .await?;
