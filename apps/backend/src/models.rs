@@ -177,7 +177,7 @@ pub mod media {
         pub lot: MetadataLot,
         pub image: Option<String>,
         #[graphql(skip)]
-        pub images: MetadataImages,
+        pub images: Vec<MetadataImage>,
         pub parts: i32,
     }
 
@@ -946,18 +946,14 @@ pub mod media {
         pub source: MetadataVideoSource,
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataImages(pub Vec<MetadataImage>);
-
     #[async_trait]
-    impl DatabaseAssetsAsSingleUrl for Option<MetadataImages> {
+    impl DatabaseAssetsAsSingleUrl for Option<Vec<MetadataImage>> {
         async fn first_as_url(
             &self,
             file_storage_service: &Arc<FileStorageService>,
         ) -> Option<String> {
             if let Some(images) = self {
-                if let Some(i) = images.0.first().cloned() {
+                if let Some(i) = images.first().cloned() {
                     Some(get_stored_asset(i.url, file_storage_service).await)
                 } else {
                     None
@@ -969,11 +965,11 @@ pub mod media {
     }
 
     #[async_trait]
-    impl DatabaseAssetsAsUrls for Option<MetadataImages> {
+    impl DatabaseAssetsAsUrls for Option<Vec<MetadataImage>> {
         async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
             let mut images = vec![];
             if let Some(imgs) = self {
-                for i in imgs.0.clone() {
+                for i in imgs.clone() {
                     images.push(get_stored_asset(i.url, file_storage_service).await);
                 }
             }

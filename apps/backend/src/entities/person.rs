@@ -6,7 +6,7 @@ use database::MetadataSource;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::media::MetadataImages;
+use crate::models::media::MetadataImage;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Person")]
@@ -19,8 +19,9 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub name: String,
+    #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
-    pub images: Option<MetadataImages>,
+    pub images: Option<Vec<MetadataImage>>,
     #[sea_orm(ignore)]
     pub display_images: Vec<String>,
     pub description: Option<String>,

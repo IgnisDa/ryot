@@ -18,7 +18,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages,
+            MetadataImageForMediaDetails, MetadataImageLot,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -220,7 +220,7 @@ impl MediaProvider for AudibleService {
                 identifier: identifier.to_owned(),
                 title: data.product.title,
                 description: None,
-                images: MetadataImages(vec![]),
+                images: vec![],
                 lot: MetadataLot::AudioBook,
                 source: MetadataSource::Audible,
             },

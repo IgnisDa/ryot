@@ -84,9 +84,9 @@ use crate::{
             ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
             MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
             MediaSpecifics, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
+            MovieSpecifics, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
@@ -1457,7 +1457,7 @@ impl MiscellaneousService {
         struct PartialCreator {
             id: i32,
             name: String,
-            images: Option<MetadataImages>,
+            images: Option<Vec<MetadataImage>>,
             role: String,
         }
         let crts = MetadataToPerson::find()
@@ -1840,7 +1840,7 @@ impl MiscellaneousService {
             metadata_extra_information: Option<String>,
             metadata_id: i32,
             m_title: String,
-            m_images: Option<MetadataImages>,
+            m_images: Option<Vec<MetadataImage>>,
             m_lot: MetadataLot,
             m_specifics: MediaSpecifics,
         }
@@ -2796,7 +2796,7 @@ impl MiscellaneousService {
         };
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
-        meta.images = ActiveValue::Set(Some(MetadataImages(images)));
+        meta.images = ActiveValue::Set(Some(images));
         meta.videos = ActiveValue::Set(Some(videos));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
@@ -2983,7 +2983,7 @@ impl MiscellaneousService {
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
             publish_date: ActiveValue::Set(details.publish_date),
-            images: ActiveValue::Set(Some(MetadataImages(images))),
+            images: ActiveValue::Set(Some(images)),
             videos: ActiveValue::Set(Some(details.videos)),
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
@@ -5683,12 +5683,7 @@ impl MiscellaneousService {
         for c in paginator.fetch_page(page - 1).await? {
             let mut c = c;
             let mut image = None;
-            if let Some(i) = c
-                .images
-                .0
-                .iter()
-                .find(|i| i.lot == MetadataImageLot::Poster)
-            {
+            if let Some(i) = c.images.iter().find(|i| i.lot == MetadataImageLot::Poster) {
                 image = Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await);
             }
             c.image = image;
@@ -5715,7 +5710,7 @@ impl MiscellaneousService {
         struct PartialCreator {
             id: i32,
             name: String,
-            images: Option<MetadataImages>,
+            images: Option<Vec<MetadataImage>>,
             media_count: i64,
         }
         let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
@@ -5866,7 +5861,7 @@ impl MiscellaneousService {
             .await?
             .unwrap();
         let mut images = vec![];
-        for image in group.images.0.iter() {
+        for image in group.images.iter() {
             images.push(get_stored_asset(image.url.clone(), &self.file_storage_service).await);
         }
         group.display_images = images;
@@ -6309,15 +6304,13 @@ impl MiscellaneousService {
             let provider = self.get_non_media_provider(person.source).await?;
             let provider_person = provider.person_details(&person).await?;
             let images = provider_person.images.map(|images| {
-                MetadataImages(
-                    images
-                        .into_iter()
-                        .map(|i| MetadataImage {
-                            url: StoredUrl::Url(i),
-                            lot: MetadataImageLot::Poster,
-                        })
-                        .collect(),
-                )
+                images
+                    .into_iter()
+                    .map(|i| MetadataImage {
+                        url: StoredUrl::Url(i),
+                        lot: MetadataImageLot::Poster,
+                    })
+                    .collect()
             });
             let person = person::ActiveModel {
                 identifier: ActiveValue::Set(provider_person.identifier),
@@ -6364,15 +6357,13 @@ impl MiscellaneousService {
         let provider = self.get_non_media_provider(person.source).await?;
         let provider_person = provider.person_details(person).await?;
         let images = provider_person.images.map(|images| {
-            MetadataImages(
-                images
-                    .into_iter()
-                    .map(|i| MetadataImage {
-                        url: StoredUrl::Url(i),
-                        lot: MetadataImageLot::Poster,
-                    })
-                    .collect(),
-            )
+            images
+                .into_iter()
+                .map(|i| MetadataImage {
+                    url: StoredUrl::Url(i),
+                    lot: MetadataImageLot::Poster,
+                })
+                .collect()
         });
         let mut to_update_person: person::ActiveModel = db_person.clone().into();
         to_update_person.last_updated_on = ActiveValue::Set(time);

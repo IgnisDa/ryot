@@ -21,7 +21,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataImages, MetadataPerson, MetadataVideo, MetadataVideoSource,
+            MetadataImageLot, MetadataPerson, MetadataVideo, MetadataVideoSource,
             PartialMetadataPerson, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -200,7 +200,7 @@ where id = {id};
                 identifier: details.id.to_string(),
                 title: details.name.unwrap_or_default(),
                 description: None,
-                images: MetadataImages(vec![]),
+                images: vec![],
                 lot: MetadataLot::VideoGame,
                 source: MetadataSource::Igdb,
             },
