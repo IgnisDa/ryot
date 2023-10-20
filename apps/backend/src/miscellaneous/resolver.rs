@@ -116,7 +116,7 @@ use crate::{
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
         UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserUnitSystem, UserYankIntegration,
+        UserSinkIntegrationSettingKind, UserUnitSystem, UserYankIntegration,
         UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
@@ -4280,7 +4280,7 @@ impl MiscellaneousService {
             password: ActiveValue::Set(password.to_owned()),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
-            sink_integrations: ActiveValue::Set(UserSinkIntegrations(vec![])),
+            sink_integrations: ActiveValue::Set(vec![]),
             notifications: ActiveValue::Set(UserNotifications(vec![])),
             ..Default::default()
         };
@@ -4858,8 +4858,7 @@ impl MiscellaneousService {
                     slug: None,
                 })
             });
-        let sink_integrations = user.sink_integrations.0;
-        sink_integrations.into_iter().for_each(|i| {
+        user.sink_integrations.into_iter().for_each(|i| {
             let (description, slug) = match i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     (format!("Jellyfin slug: {}", &slug), slug)
@@ -4935,7 +4934,7 @@ impl MiscellaneousService {
         input: CreateUserSinkIntegrationInput,
     ) -> Result<usize> {
         let user = user_by_id(&self.db, user_id).await?;
-        let mut integrations = user.sink_integrations.clone().0;
+        let mut integrations = user.sink_integrations.clone();
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserSinkIntegration {
             id: new_integration_id,
@@ -4960,7 +4959,7 @@ impl MiscellaneousService {
         };
         integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
-        user.sink_integrations = ActiveValue::Set(UserSinkIntegrations(integrations));
+        user.sink_integrations = ActiveValue::Set(integrations);
         user.update(&self.db).await?;
         Ok(new_integration_id)
     }
@@ -5017,12 +5016,12 @@ impl MiscellaneousService {
                 user_db.yank_integrations = ActiveValue::Set(update_value);
             }
             UserIntegrationLot::Sink => {
-                let integrations = user.sink_integrations.clone().0;
+                let integrations = user.sink_integrations.clone();
                 let remaining_integrations = integrations
                     .into_iter()
                     .filter(|i| i.id != integration_id)
                     .collect_vec();
-                let update_value = UserSinkIntegrations(remaining_integrations);
+                let update_value = remaining_integrations;
                 user_db.sink_integrations = ActiveValue::Set(update_value);
             }
         };
@@ -5300,7 +5299,6 @@ impl MiscellaneousService {
                 .await?;
         let integration = user
             .sink_integrations
-            .0
             .into_iter()
             .find(|i| match &i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
