@@ -245,7 +245,7 @@ const Page: NextPageWithLayout = () => {
 											/>
 										</Flex>
 										{s.personalBests.length > 0 ? (
-											<Group gap="xs" justify="end" mb={6}>
+											<Flex mb={6} mt={2} ml="lg">
 												{s.personalBests.map((pb) => (
 													<Badge
 														variant="light"
@@ -261,7 +261,7 @@ const Page: NextPageWithLayout = () => {
 														{startCase(pb)}
 													</Badge>
 												))}
-											</Group>
+											</Flex>
 										) : undefined}
 									</Box>
 								))}
