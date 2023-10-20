@@ -14,6 +14,7 @@ use crate::{
     traits::GraphqlRepresentation,
 };
 
+/// A workout that was completed by the user.
 #[derive(
     Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Schematic,
 )]

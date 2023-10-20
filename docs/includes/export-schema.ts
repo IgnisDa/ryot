@@ -146,6 +146,7 @@ export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
 
 export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'Pace' | 'Reps';
 
+/** Details about the statistics of the set performed. */
 export interface WorkoutSetStatistic {
 	distance: string | null;
 	duration: string | null;
@@ -153,12 +154,14 @@ export interface WorkoutSetStatistic {
 	weight: string | null;
 }
 
+/** Details about the set performed. */
 export interface WorkoutSetRecord {
 	lot: SetLot;
 	personalBests: WorkoutSetPersonalBest[];
 	statistic: WorkoutSetStatistic;
 }
 
+/** The totals of a workout and the different bests achieved. */
 export interface WorkoutTotalMeasurement {
 	distance: string;
 	duration: string;
@@ -168,6 +171,7 @@ export interface WorkoutTotalMeasurement {
 	weight: string;
 }
 
+/** An exercise that has been processed and comitted to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets;
 	id: number;
@@ -179,6 +183,7 @@ export interface ProcessedExercise {
 	total: WorkoutTotalMeasurement;
 }
 
+/** Information about a workout done. */
 export interface WorkoutInformation {
 	assets: EntityAssets;
 	exercises: ProcessedExercise[];
@@ -189,6 +194,7 @@ export interface WorkoutInformation {
 	supersets: number[][];
 }
 
+/** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
 	bestSet: WorkoutSetRecord;
 	lot: ExerciseLot;
@@ -201,6 +207,7 @@ export interface WorkoutSummary {
 	total: WorkoutTotalMeasurement;
 }
 
+/** A workout that was completed by the user. */
 export interface Workout {
 	comment: string | null;
 	endTime: string;
