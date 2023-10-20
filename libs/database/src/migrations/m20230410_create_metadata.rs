@@ -9,7 +9,7 @@ pub struct Migration;
 
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
-// The different types of media that can be stored
+/// The different sources (or providers) from which data can be obtained from.
 #[derive(
     Debug,
     Clone,
@@ -55,7 +55,7 @@ pub enum MetadataSource {
     Vndb,
 }
 
-// The different types of media that can be stored
+/// The different types of media that can be stored.
 #[derive(
     Debug,
     Clone,

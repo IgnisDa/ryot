@@ -125,6 +125,7 @@ pub enum ExerciseEquipment {
     Other,
 }
 
+/// The different types of exercises that can be done.
 #[derive(
     Clone,
     Debug,
