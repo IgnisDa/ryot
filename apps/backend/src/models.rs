@@ -1166,6 +1166,7 @@ pub mod fitness {
         pub custom: Option<HashMap<String, Decimal>>,
     }
 
+    /// The totals of a workout and the different bests achieved.
     #[derive(
         Debug,
         FromJsonQueryResult,
@@ -1206,6 +1207,7 @@ pub mod fitness {
         pub idx: usize,
     }
 
+    /// Details about the statistics of the set performed.
     #[skip_serializing_none]
     #[derive(
         Clone,
@@ -1227,6 +1229,7 @@ pub mod fitness {
         pub weight: Option<Decimal>,
     }
 
+    /// The types of set (mostly characterized by exertion level).
     #[derive(
         Clone,
         Debug,
@@ -1247,6 +1250,7 @@ pub mod fitness {
         Failure,
     }
 
+    /// The different types of personal bests that can be achieved on a set.
     #[derive(
         Clone,
         Debug,
@@ -1271,6 +1275,7 @@ pub mod fitness {
         Reps,
     }
 
+    /// Details about the set performed.
     #[derive(
         Clone,
         Debug,
@@ -1381,6 +1386,7 @@ pub mod fitness {
         pub videos: Vec<String>,
     }
 
+    /// An exercise that has been processed and comitted to the database.
     #[derive(
         Clone,
         Debug,
@@ -1404,6 +1410,7 @@ pub mod fitness {
         pub assets: EntityAssets,
     }
 
+    /// Information about a workout done.
     #[derive(
         Clone,
         Debug,
@@ -1424,6 +1431,7 @@ pub mod fitness {
         pub assets: EntityAssets,
     }
 
+    /// The summary about an exercise done in a workout.
     #[derive(
         Clone,
         Debug,
