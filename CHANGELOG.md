@@ -1,5 +1,21 @@
 
 
+# Version 3.0.4 (2023-10-20)
+
+## Bug Fixes
+
+- **frontend:** layout issues for personal bests
+  
+  ## Build
+
+- **backend:** bump version
+  
+  ## Features
+
+- **frontend:** some small problems
+  
+  
+
 # Version 3.0.3 (2023-10-20)
 
 
