@@ -83,14 +83,14 @@ use crate::{
             ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
             MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
-            MediaSpecifics, MetadataFreeCreator, MetadataFreeCreators, MetadataGroupListItem,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataImages,
-            MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
-            PartialMetadataPerson, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, SeenOrReviewOrCalendarEventExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
+            MediaSpecifics, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataVideo,
+            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadataPerson,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser,
+            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, VisualNovelSpecifics,
         },
         EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -1494,7 +1494,7 @@ impl MiscellaneousService {
                 .or_insert(vec![creator.clone()]);
         }
         if let Some(free_creators) = &meta.free_creators {
-            for cr in free_creators.0.clone() {
+            for cr in free_creators.clone() {
                 let creator = MetadataCreator {
                     id: None,
                     name: cr.name,
@@ -2804,7 +2804,7 @@ impl MiscellaneousService {
         meta.free_creators = ActiveValue::Set(if creators.is_empty() {
             None
         } else {
-            Some(MetadataFreeCreators(creators))
+            Some(creators)
         });
         meta.specifics = ActiveValue::Set(specifics);
         meta.last_processed_on_for_calendar = ActiveValue::Set(None);
@@ -2996,7 +2996,7 @@ impl MiscellaneousService {
             free_creators: ActiveValue::Set(if details.creators.is_empty() {
                 None
             } else {
-                Some(MetadataFreeCreators(details.creators))
+                Some(details.creators)
             }),
             ..Default::default()
         };

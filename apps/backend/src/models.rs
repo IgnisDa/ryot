@@ -1045,10 +1045,6 @@ pub mod media {
         pub image: Option<String>,
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataFreeCreators(pub Vec<MetadataFreeCreator>);
-
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
     pub struct SeenShowExtraInformation {
         pub season: i32,
