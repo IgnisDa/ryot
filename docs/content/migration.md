@@ -2,11 +2,7 @@
 
 ## From `v2.*` to `v3.*`
 
-1. Run the last release of the server to perform all pending migrations (make sure to
-   connect it to the correct database).
-   ```bash
-   $ docker run --volume ./ryot/data:/data ghcr.io/ignisda/ryot:v2.24.2
-   ```
+1. Upgrade the server to `v2.24.2` to make sure all pending migrations are applied.
 
 2. Go to the "Miscellaneous" settings and click on the button to "Clean and regenerate"
    your summary.
