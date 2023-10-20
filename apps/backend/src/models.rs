@@ -981,10 +981,6 @@ pub mod media {
         }
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataVideos(pub Vec<MetadataVideo>);
-
     /// A user that has commented on a review.
     #[derive(
         Clone,

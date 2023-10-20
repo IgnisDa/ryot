@@ -85,9 +85,9 @@ use crate::{
             MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
             MediaSpecifics, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataVideo,
-            MetadataVideoSource, MetadataVideos, MovieSpecifics, PartialMetadataPerson,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, VisualNovelSpecifics,
@@ -1425,7 +1425,7 @@ impl MiscellaneousService {
         let images = meta.images.as_urls(&self.file_storage_service).await;
         let mut videos = vec![];
         if let Some(vids) = &meta.videos {
-            for v in vids.0.clone() {
+            for v in vids.clone() {
                 let url = get_stored_asset(v.identifier, &self.file_storage_service).await;
                 videos.push(GraphqlVideoAsset {
                     source: v.source,
@@ -2797,7 +2797,7 @@ impl MiscellaneousService {
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(Some(MetadataImages(images)));
-        meta.videos = ActiveValue::Set(Some(MetadataVideos(videos)));
+        meta.videos = ActiveValue::Set(Some(videos));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.publish_date = ActiveValue::Set(publish_date);
@@ -2984,7 +2984,7 @@ impl MiscellaneousService {
             publish_year: ActiveValue::Set(details.publish_year),
             publish_date: ActiveValue::Set(details.publish_date),
             images: ActiveValue::Set(Some(MetadataImages(images))),
-            videos: ActiveValue::Set(Some(MetadataVideos(details.videos))),
+            videos: ActiveValue::Set(Some(details.videos)),
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
