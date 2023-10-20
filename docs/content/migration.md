@@ -2,19 +2,19 @@
 
 ## From `v2.*` to `v3.*`
 
-1. Go to the "Miscellaneous" settings and click on the button to "Clean and regenerate"
-   your summary.
-
-2. Go to the "Preferences" settings, then the "General" tab, and click any switch button
-   twice to make sure the latest settings have been applied.
-
-3. Stop the running server and create a backup of your database.
-
-4. Run the last release of the server to perform all pending migrations (make sure to
+1. Run the last release of the server to perform all pending migrations (make sure to
    connect it to the correct database).
    ```bash
    $ docker run --volume ./ryot/data:/data ghcr.io/ignisda/ryot:v2.24.2
    ```
+
+2. Go to the "Miscellaneous" settings and click on the button to "Clean and regenerate"
+   your summary.
+
+3. Go to the "Preferences" settings, then the "General" tab, and click any switch button
+   twice to make sure the latest settings have been applied.
+
+4. Stop the running server and create a backup of your database.
 
 5. Once the migrations from the above step are done, stop the server.
 
