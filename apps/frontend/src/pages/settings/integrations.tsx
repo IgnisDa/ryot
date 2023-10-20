@@ -19,6 +19,7 @@ import {
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CreateUserSinkIntegrationDocument,
 	type CreateUserSinkIntegrationMutationVariables,
@@ -145,7 +146,18 @@ const Page: NextPageWithLayout = () => {
 													.at(0)}/${i.slug}`}
 											>
 												{({ copy }) => (
-													<ActionIcon color="green" onClick={copy}>
+													<ActionIcon
+														color="green"
+														onClick={() => {
+															copy();
+															notifications.show({
+																color: "green",
+																title: "Operation succesful",
+																message:
+																	"The integration url has been copied to your clipboard.",
+															});
+														}}
+													>
 														<IconCopy />
 													</ActionIcon>
 												)}
