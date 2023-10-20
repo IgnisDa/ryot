@@ -6,7 +6,7 @@ use database::{MetadataLot, MetadataSource};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::media::MetadataImages;
+use crate::models::media::MetadataImage;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "metadata_group")]
@@ -20,8 +20,9 @@ pub struct Model {
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,
+    #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
-    pub images: MetadataImages,
+    pub images: Vec<MetadataImage>,
     #[sea_orm(ignore)]
     pub display_images: Vec<String>,
     pub lot: MetadataLot,

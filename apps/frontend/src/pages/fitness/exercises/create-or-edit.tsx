@@ -133,17 +133,18 @@ const Page: NextPageWithLayout = () => {
 							onSubmit={form.onSubmit((values) => {
 								const muscles = values.muscles;
 								const instructions = values.instructions;
-								values.muscles = undefined;
-								values.instructions = undefined;
+								const newInput = Object.assign(values, {});
+								newInput.muscles = undefined;
+								newInput.instructions = undefined;
 								createCustomExercise.mutate({
 									input: {
 										id: 100,
 										source: ExerciseSource.Custom,
-										...values,
+										...newInput,
+										muscles: muscles || [],
 										attributes: {
 											images,
 											instructions: instructions?.split("\n") || [],
-											muscles: muscles || [],
 										},
 									},
 								});

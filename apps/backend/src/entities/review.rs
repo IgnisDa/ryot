@@ -7,7 +7,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    models::media::{ReviewComments, SeenOrReviewOrCalendarEventExtraInformation},
+    models::media::{ImportOrExportItemReviewComment, SeenOrReviewOrCalendarEventExtraInformation},
     utils::associate_user_with_metadata,
 };
 
@@ -25,7 +25,7 @@ pub struct Model {
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
     pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
-    pub comments: ReviewComments,
+    pub comments: Vec<ImportOrExportItemReviewComment>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

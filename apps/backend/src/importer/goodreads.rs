@@ -13,9 +13,9 @@ use crate::{
     },
     miscellaneous::DefaultCollection,
     models::media::{
-        BookSpecifics, FreeMetadataCreator, ImportOrExportItemRating, ImportOrExportItemReview,
-        ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataImageForMediaDetails,
-        MetadataImageLot,
+        BookSpecifics, ImportOrExportItemRating, ImportOrExportItemReview,
+        ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics, MetadataFreeCreator,
+        MetadataImageForMediaDetails, MetadataImageLot,
     },
 };
 
@@ -113,7 +113,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             production_status: "Released".to_owned(),
                             lot: MetadataLot::Book,
                             source: MetadataSource::Custom,
-                            creators: vec![FreeMetadataCreator {
+                            creators: vec![MetadataFreeCreator {
                                 name: d.author_name,
                                 role: "Author".to_owned(),
                                 image: None,

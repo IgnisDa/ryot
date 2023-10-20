@@ -177,7 +177,7 @@ pub mod media {
         pub lot: MetadataLot,
         pub image: Option<String>,
         #[graphql(skip)]
-        pub images: MetadataImages,
+        pub images: Vec<MetadataImage>,
         pub parts: i32,
     }
 
@@ -766,7 +766,7 @@ pub mod media {
         pub description: Option<String>,
         pub lot: MetadataLot,
         pub production_status: String,
-        pub creators: Vec<FreeMetadataCreator>,
+        pub creators: Vec<MetadataFreeCreator>,
         pub people: Vec<PartialMetadataPerson>,
         pub genres: Vec<String>,
         pub url_images: Vec<MetadataImageForMediaDetails>,
@@ -946,18 +946,14 @@ pub mod media {
         pub source: MetadataVideoSource,
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataImages(pub Vec<MetadataImage>);
-
     #[async_trait]
-    impl DatabaseAssetsAsSingleUrl for Option<MetadataImages> {
+    impl DatabaseAssetsAsSingleUrl for Option<Vec<MetadataImage>> {
         async fn first_as_url(
             &self,
             file_storage_service: &Arc<FileStorageService>,
         ) -> Option<String> {
             if let Some(images) = self {
-                if let Some(i) = images.0.first().cloned() {
+                if let Some(i) = images.first().cloned() {
                     Some(get_stored_asset(i.url, file_storage_service).await)
                 } else {
                     None
@@ -969,21 +965,17 @@ pub mod media {
     }
 
     #[async_trait]
-    impl DatabaseAssetsAsUrls for Option<MetadataImages> {
+    impl DatabaseAssetsAsUrls for Option<Vec<MetadataImage>> {
         async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
             let mut images = vec![];
             if let Some(imgs) = self {
-                for i in imgs.0.clone() {
+                for i in imgs.clone() {
                     images.push(get_stored_asset(i.url, file_storage_service).await);
                 }
             }
             images
         }
     }
-
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataVideos(pub Vec<MetadataVideo>);
 
     /// A user that has commented on a review.
     #[derive(
@@ -1027,10 +1019,6 @@ pub mod media {
         pub created_on: DateTimeUtc,
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct ReviewComments(pub Vec<ImportOrExportItemReviewComment>);
-
     #[derive(
         Clone,
         Debug,
@@ -1043,15 +1031,11 @@ pub mod media {
         Default,
         Hash,
     )]
-    pub struct FreeMetadataCreator {
+    pub struct MetadataFreeCreator {
         pub name: String,
         pub role: String,
         pub image: Option<String>,
     }
-
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataFreeCreators(pub Vec<FreeMetadataCreator>);
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
     pub struct SeenShowExtraInformation {
@@ -1090,10 +1074,6 @@ pub mod fitness {
         Plyometrics,
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct ExerciseMuscles(pub Vec<ExerciseMuscle>);
-
     #[derive(
         Debug,
         Clone,
@@ -1114,8 +1094,6 @@ pub mod fitness {
         pub internal_images: Vec<StoredUrl>,
         #[serde(default)]
         pub images: Vec<String>,
-        #[serde(default)]
-        pub muscles: Vec<ExerciseMuscle>,
     }
 
     #[derive(

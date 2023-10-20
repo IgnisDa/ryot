@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     models::media::UserSummary,
-    users::{UserNotifications, UserPreferences, UserSinkIntegrations, UserYankIntegrations},
+    users::{UserNotification, UserPreferences, UserSinkIntegration, UserYankIntegration},
 };
 
 fn get_hasher() -> Argon2<'static> {
@@ -32,9 +32,9 @@ pub struct UserWithOnlyPreferences {
 )]
 #[sea_orm(entity = "Entity")]
 pub struct UserWithOnlyIntegrationsAndNotifications {
-    pub yank_integrations: Option<UserYankIntegrations>,
-    pub sink_integrations: UserSinkIntegrations,
-    pub notifications: UserNotifications,
+    pub yank_integrations: Option<Vec<UserYankIntegration>>,
+    pub sink_integrations: Vec<UserSinkIntegration>,
+    pub notifications: Vec<UserNotification>,
 }
 
 #[derive(
@@ -58,12 +58,15 @@ pub struct Model {
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,
+    #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
-    pub yank_integrations: Option<UserYankIntegrations>,
+    pub yank_integrations: Option<Vec<UserYankIntegration>>,
+    #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
-    pub sink_integrations: UserSinkIntegrations,
+    pub sink_integrations: Vec<UserSinkIntegration>,
+    #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
-    pub notifications: UserNotifications,
+    pub notifications: Vec<UserNotification>,
     #[graphql(skip)]
     pub summary: Option<UserSummary>,
 }

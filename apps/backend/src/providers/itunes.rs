@@ -11,7 +11,7 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
@@ -102,7 +102,7 @@ impl MediaProvider for ITunesService {
         let description = ht.description.clone();
         let creators = Vec::from_iter(ht.artist_name.clone())
             .into_iter()
-            .map(|a| FreeMetadataCreator {
+            .map(|a| MetadataFreeCreator {
                 name: a,
                 role: "Artist".to_owned(),
                 image: None,

@@ -17,9 +17,9 @@ use crate::{
     },
     models::{
         media::{
-            BookSpecifics, CreateOrUpdateCollectionInput, FreeMetadataCreator,
-            ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportMediaItemSeen, MediaDetails, MediaSpecifics,
+            BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+            MediaDetails, MediaSpecifics, MetadataFreeCreator,
         },
         IdObject,
     },
@@ -282,7 +282,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         .authors
                         .unwrap_or_default()
                         .into_iter()
-                        .map(|a| FreeMetadataCreator {
+                        .map(|a| MetadataFreeCreator {
                             name: a,
                             role: "Author".to_owned(),
                             image: None,

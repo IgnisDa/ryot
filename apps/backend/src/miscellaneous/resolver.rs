@@ -79,18 +79,18 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ChangeCollectionToEntityInput,
-            CreateOrUpdateCollectionInput, FreeMetadataCreator, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
-            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
-            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataImages, MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
-            PartialMetadataPerson, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, ReviewComments, SeenOrReviewOrCalendarEventExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaReminder, UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
+            CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
+            ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
+            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
+            MediaSpecifics, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
+            MovieSpecifics, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewCommentUser,
+            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
+            VideoGameSpecifics, VisualNovelSpecifics,
         },
         EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -114,10 +114,10 @@ use crate::{
         MediaProviderLanguages,
     },
     users::{
-        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
-        UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserSinkIntegrations, UserUnitSystem, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrationSettingKind, UserYankIntegrations,
+        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserPreferences,
+        UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserSinkIntegrationSettingKind, UserUnitSystem, UserYankIntegration,
+        UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
@@ -1425,7 +1425,7 @@ impl MiscellaneousService {
         let images = meta.images.as_urls(&self.file_storage_service).await;
         let mut videos = vec![];
         if let Some(vids) = &meta.videos {
-            for v in vids.0.clone() {
+            for v in vids.clone() {
                 let url = get_stored_asset(v.identifier, &self.file_storage_service).await;
                 videos.push(GraphqlVideoAsset {
                     source: v.source,
@@ -1457,7 +1457,7 @@ impl MiscellaneousService {
         struct PartialCreator {
             id: i32,
             name: String,
-            images: Option<MetadataImages>,
+            images: Option<Vec<MetadataImage>>,
             role: String,
         }
         let crts = MetadataToPerson::find()
@@ -1494,7 +1494,7 @@ impl MiscellaneousService {
                 .or_insert(vec![creator.clone()]);
         }
         if let Some(free_creators) = &meta.free_creators {
-            for cr in free_creators.0.clone() {
+            for cr in free_creators.clone() {
                 let creator = MetadataCreator {
                     id: None,
                     name: cr.name,
@@ -1840,7 +1840,7 @@ impl MiscellaneousService {
             metadata_extra_information: Option<String>,
             metadata_id: i32,
             m_title: String,
-            m_images: Option<MetadataImages>,
+            m_images: Option<Vec<MetadataImage>>,
             m_lot: MetadataLot,
             m_specifics: MediaSpecifics,
         }
@@ -2556,7 +2556,11 @@ impl MiscellaneousService {
     }
 
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let user_to_metadatas = UserToEntity::find().all(&self.db).await.unwrap();
+        let user_to_metadatas = UserToEntity::find()
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
         for u in user_to_metadatas {
             // check if there is any seen item
             let seen_count = Seen::find()
@@ -2621,7 +2625,7 @@ impl MiscellaneousService {
         s3_images: Vec<MetadataImageForMediaDetails>,
         videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
-        creators: Vec<FreeMetadataCreator>,
+        creators: Vec<MetadataFreeCreator>,
         people: Vec<PartialMetadataPerson>,
         genres: Vec<String>,
         production_status: String,
@@ -2792,15 +2796,15 @@ impl MiscellaneousService {
         };
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
-        meta.images = ActiveValue::Set(Some(MetadataImages(images)));
-        meta.videos = ActiveValue::Set(Some(MetadataVideos(videos)));
+        meta.images = ActiveValue::Set(Some(images));
+        meta.videos = ActiveValue::Set(Some(videos));
         meta.production_status = ActiveValue::Set(production_status);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.publish_date = ActiveValue::Set(publish_date);
         meta.free_creators = ActiveValue::Set(if creators.is_empty() {
             None
         } else {
-            Some(MetadataFreeCreators(creators))
+            Some(creators)
         });
         meta.specifics = ActiveValue::Set(specifics);
         meta.last_processed_on_for_calendar = ActiveValue::Set(None);
@@ -2979,8 +2983,8 @@ impl MiscellaneousService {
             description: ActiveValue::Set(details.description),
             publish_year: ActiveValue::Set(details.publish_year),
             publish_date: ActiveValue::Set(details.publish_date),
-            images: ActiveValue::Set(Some(MetadataImages(images))),
-            videos: ActiveValue::Set(Some(MetadataVideos(details.videos))),
+            images: ActiveValue::Set(Some(images)),
+            videos: ActiveValue::Set(Some(details.videos)),
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
             production_status: ActiveValue::Set(details.production_status),
@@ -2992,7 +2996,7 @@ impl MiscellaneousService {
             free_creators: ActiveValue::Set(if details.creators.is_empty() {
                 None
             } else {
-                Some(MetadataFreeCreators(details.creators))
+                Some(details.creators)
             }),
             ..Default::default()
         };
@@ -3599,7 +3603,7 @@ impl MiscellaneousService {
                         id: user.id,
                         name: user.name,
                     },
-                    comments: r.comments.0,
+                    comments: r.comments,
                 })
             }
             None => Err(Error::new("Unable to find review".to_owned())),
@@ -3835,7 +3839,7 @@ impl MiscellaneousService {
             metadata_id: ActiveValue::Set(input.metadata_id),
             person_id: ActiveValue::Set(input.creator_id),
             extra_information: ActiveValue::Set(extra_information),
-            comments: ActiveValue::Set(ReviewComments(vec![])),
+            comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
         if let Some(s) = input.spoiler {
@@ -4276,8 +4280,8 @@ impl MiscellaneousService {
             password: ActiveValue::Set(password.to_owned()),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
-            sink_integrations: ActiveValue::Set(UserSinkIntegrations(vec![])),
-            notifications: ActiveValue::Set(UserNotifications(vec![])),
+            sink_integrations: ActiveValue::Set(vec![]),
+            notifications: ActiveValue::Set(vec![]),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
@@ -4468,7 +4472,7 @@ impl MiscellaneousService {
             .creators
             .unwrap_or_default()
             .into_iter()
-            .map(|c| FreeMetadataCreator {
+            .map(|c| MetadataFreeCreator {
                 name: c,
                 role: "Creator".to_string(),
                 image: None,
@@ -4837,27 +4841,24 @@ impl MiscellaneousService {
             partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
                 .await?;
         let mut all_integrations = vec![];
-        let yank_integrations = if let Some(i) = user.yank_integrations {
-            i.0
-        } else {
-            vec![]
-        };
-        yank_integrations.into_iter().for_each(|i| {
-            let description = match i.settings {
-                UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
-                    format!("Audiobookshelf URL: {}", base_url)
-                }
-            };
-            all_integrations.push(GraphqlUserIntegration {
-                id: i.id,
-                lot: UserIntegrationLot::Yank,
-                description,
-                timestamp: i.timestamp,
-                slug: None,
-            })
-        });
-        let sink_integrations = user.sink_integrations.0;
-        sink_integrations.into_iter().for_each(|i| {
+        user.yank_integrations
+            .unwrap_or_default()
+            .into_iter()
+            .for_each(|i| {
+                let description = match i.settings {
+                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
+                        format!("Audiobookshelf URL: {}", base_url)
+                    }
+                };
+                all_integrations.push(GraphqlUserIntegration {
+                    id: i.id,
+                    lot: UserIntegrationLot::Yank,
+                    description,
+                    timestamp: i.timestamp,
+                    slug: None,
+                })
+            });
+        user.sink_integrations.into_iter().for_each(|i| {
             let (description, slug) = match i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
                     (format!("Jellyfin slug: {}", &slug), slug)
@@ -4893,8 +4894,7 @@ impl MiscellaneousService {
             partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
                 .await?;
         let mut all_notifications = vec![];
-        let notifications = user.notifications.0;
-        notifications.into_iter().for_each(|n| {
+        user.notifications.into_iter().for_each(|n| {
             let description = match n.settings {
                 UserNotificationSetting::Apprise { url, key } => {
                     format!("Apprise URL: {}, Key: {}", url, key)
@@ -4933,7 +4933,7 @@ impl MiscellaneousService {
         input: CreateUserSinkIntegrationInput,
     ) -> Result<usize> {
         let user = user_by_id(&self.db, user_id).await?;
-        let mut integrations = user.sink_integrations.clone().0;
+        let mut integrations = user.sink_integrations.clone();
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserSinkIntegration {
             id: new_integration_id,
@@ -4958,7 +4958,7 @@ impl MiscellaneousService {
         };
         integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
-        user.sink_integrations = ActiveValue::Set(UserSinkIntegrations(integrations));
+        user.sink_integrations = ActiveValue::Set(integrations);
         user.update(&self.db).await?;
         Ok(new_integration_id)
     }
@@ -4969,11 +4969,7 @@ impl MiscellaneousService {
         input: CreateUserYankIntegrationInput,
     ) -> Result<usize> {
         let user = user_by_id(&self.db, user_id).await?;
-        let mut integrations = if let Some(i) = user.yank_integrations.clone() {
-            i.0
-        } else {
-            vec![]
-        };
+        let mut integrations = user.yank_integrations.clone().unwrap_or_default();
         let new_integration_id = integrations.len() + 1;
         let new_integration = UserYankIntegration {
             id: new_integration_id,
@@ -4989,7 +4985,7 @@ impl MiscellaneousService {
         };
         integrations.insert(0, new_integration);
         let mut user: user::ActiveModel = user.into();
-        user.yank_integrations = ActiveValue::Set(Some(UserYankIntegrations(integrations)));
+        user.yank_integrations = ActiveValue::Set(Some(integrations));
         user.update(&self.db).await?;
         Ok(new_integration_id)
     }
@@ -5004,29 +5000,27 @@ impl MiscellaneousService {
         let mut user_db: user::ActiveModel = user.clone().into();
         match integration_type {
             UserIntegrationLot::Yank => {
-                let integrations = if let Some(i) = user.yank_integrations.clone() {
-                    i.0
-                } else {
-                    vec![]
-                };
-                let remaining_integrations = integrations
+                let remaining_integrations = user
+                    .yank_integrations
+                    .clone()
+                    .unwrap_or_default()
                     .into_iter()
                     .filter(|i| i.id != integration_id)
                     .collect_vec();
                 let update_value = if remaining_integrations.is_empty() {
                     None
                 } else {
-                    Some(UserYankIntegrations(remaining_integrations))
+                    Some(remaining_integrations)
                 };
                 user_db.yank_integrations = ActiveValue::Set(update_value);
             }
             UserIntegrationLot::Sink => {
-                let integrations = user.sink_integrations.clone().0;
+                let integrations = user.sink_integrations.clone();
                 let remaining_integrations = integrations
                     .into_iter()
                     .filter(|i| i.id != integration_id)
                     .collect_vec();
-                let update_value = UserSinkIntegrations(remaining_integrations);
+                let update_value = remaining_integrations;
                 user_db.sink_integrations = ActiveValue::Set(update_value);
             }
         };
@@ -5040,7 +5034,7 @@ impl MiscellaneousService {
         input: CreateUserNotificationPlatformInput,
     ) -> Result<usize> {
         let user = user_by_id(&self.db, user_id).await?;
-        let mut notifications = user.notifications.clone().0;
+        let mut notifications = user.notifications.clone();
         let new_notification_id = notifications.len() + 1;
         let new_notification = UserNotification {
             id: new_notification_id,
@@ -5079,7 +5073,7 @@ impl MiscellaneousService {
 
         notifications.insert(0, new_notification);
         let mut user: user::ActiveModel = user.into();
-        user.notifications = ActiveValue::Set(UserNotifications(notifications));
+        user.notifications = ActiveValue::Set(notifications);
         user.update(&self.db).await?;
         Ok(new_notification_id)
     }
@@ -5091,12 +5085,12 @@ impl MiscellaneousService {
     ) -> Result<bool> {
         let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
-        let notifications = user.notifications.clone().0;
+        let notifications = user.notifications.clone();
         let remaining_notifications = notifications
             .into_iter()
             .filter(|i| i.id != notification_id)
             .collect_vec();
-        let update_value = UserNotifications(remaining_notifications);
+        let update_value = remaining_notifications;
         user_db.notifications = ActiveValue::Set(update_value);
         user_db.update(&self.db).await?;
         Ok(true)
@@ -5203,7 +5197,7 @@ impl MiscellaneousService {
                 .yank_integrations
         {
             let mut progress_updates = vec![];
-            for integration in integrations.0.iter() {
+            for integration in integrations.iter() {
                 let response = match &integration.settings {
                     UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
                         self.get_integration_service()
@@ -5304,7 +5298,6 @@ impl MiscellaneousService {
                 .await?;
         let integration = user
             .sink_integrations
-            .0
             .into_iter()
             .find(|i| match &i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
@@ -5507,7 +5500,7 @@ impl MiscellaneousService {
             partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
                 .await?;
         let mut success = true;
-        for notification in user.notifications.0 {
+        for notification in user.notifications {
             if notification.settings.send_message(msg).await.is_err() {
                 success = false;
             }
@@ -5690,12 +5683,7 @@ impl MiscellaneousService {
         for c in paginator.fetch_page(page - 1).await? {
             let mut c = c;
             let mut image = None;
-            if let Some(i) = c
-                .images
-                .0
-                .iter()
-                .find(|i| i.lot == MetadataImageLot::Poster)
-            {
+            if let Some(i) = c.images.iter().find(|i| i.lot == MetadataImageLot::Poster) {
                 image = Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await);
             }
             c.image = image;
@@ -5722,7 +5710,7 @@ impl MiscellaneousService {
         struct PartialCreator {
             id: i32,
             name: String,
-            images: Option<MetadataImages>,
+            images: Option<Vec<MetadataImage>>,
             media_count: i64,
         }
         let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
@@ -5873,7 +5861,7 @@ impl MiscellaneousService {
             .await?
             .unwrap();
         let mut images = vec![];
-        for image in group.images.0.iter() {
+        for image in group.images.iter() {
             images.push(get_stored_asset(image.url.clone(), &self.file_storage_service).await);
         }
         group.display_images = images;
@@ -6095,7 +6083,7 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        let mut comments = review.comments.0.clone();
+        let mut comments = review.comments.clone();
         if input.should_delete.unwrap_or_default() {
             let posn = comments
                 .iter()
@@ -6128,7 +6116,7 @@ impl MiscellaneousService {
             });
         }
         let mut review: review::ActiveModel = review.into();
-        review.comments = ActiveValue::Set(ReviewComments(comments));
+        review.comments = ActiveValue::Set(comments);
         review.update(&self.db).await?;
         Ok(true)
     }
@@ -6316,15 +6304,13 @@ impl MiscellaneousService {
             let provider = self.get_non_media_provider(person.source).await?;
             let provider_person = provider.person_details(&person).await?;
             let images = provider_person.images.map(|images| {
-                MetadataImages(
-                    images
-                        .into_iter()
-                        .map(|i| MetadataImage {
-                            url: StoredUrl::Url(i),
-                            lot: MetadataImageLot::Poster,
-                        })
-                        .collect(),
-                )
+                images
+                    .into_iter()
+                    .map(|i| MetadataImage {
+                        url: StoredUrl::Url(i),
+                        lot: MetadataImageLot::Poster,
+                    })
+                    .collect()
             });
             let person = person::ActiveModel {
                 identifier: ActiveValue::Set(provider_person.identifier),
@@ -6371,15 +6357,13 @@ impl MiscellaneousService {
         let provider = self.get_non_media_provider(person.source).await?;
         let provider_person = provider.person_details(person).await?;
         let images = provider_person.images.map(|images| {
-            MetadataImages(
-                images
-                    .into_iter()
-                    .map(|i| MetadataImage {
-                        url: StoredUrl::Url(i),
-                        lot: MetadataImageLot::Poster,
-                    })
-                    .collect(),
-            )
+            images
+                .into_iter()
+                .map(|i| MetadataImage {
+                    url: StoredUrl::Url(i),
+                    lot: MetadataImageLot::Poster,
+                })
+                .collect()
         });
         let mut to_update_person: person::ActiveModel = db_person.clone().into();
         to_update_person.last_updated_on = ActiveValue::Set(time);

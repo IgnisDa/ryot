@@ -17,7 +17,7 @@ use crate::{
     entities::partial_metadata::PartialMetadataWithoutId,
     models::{
         media::{
-            FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults,
@@ -223,7 +223,7 @@ impl ListennotesService {
             description: podcast_data.description,
             lot: MetadataLot::Podcast,
             source: MetadataSource::Listennotes,
-            creators: Vec::from_iter(podcast_data.publisher.map(|p| FreeMetadataCreator {
+            creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,
                 role: "Publishing".to_owned(),
                 image: None,

@@ -12,10 +12,8 @@ use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    file_storage::FileStorageService,
-    models::fitness::{ExerciseAttributes, ExerciseMuscles},
-    traits::GraphqlRepresentation,
-    utils::get_stored_asset,
+    file_storage::FileStorageService, models::fitness::ExerciseAttributes,
+    traits::GraphqlRepresentation, utils::get_stored_asset,
 };
 
 #[derive(
@@ -45,8 +43,8 @@ pub struct Model {
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
     pub source: ExerciseSource,
-    #[graphql(skip)]
-    pub muscles: ExerciseMuscles,
+    #[sea_orm(column_type = "Json")]
+    pub muscles: Vec<ExerciseMuscle>,
     pub attributes: ExerciseAttributes,
 }
 
@@ -59,8 +57,6 @@ impl GraphqlRepresentation for Model {
             images.push(get_stored_asset(image.clone(), file_storage_service).await);
         }
         converted_exercise.attributes.images = images;
-        // FIXME: Remove when https://github.com/SeaQL/sea-orm/issues/1517 is fixed.
-        converted_exercise.attributes.muscles = self.muscles.0;
         Ok(converted_exercise)
     }
 }
@@ -76,7 +72,7 @@ pub struct ExerciseListItem {
     pub muscle: Option<ExerciseMuscle>,
     pub image: Option<String>,
     #[graphql(skip)]
-    pub muscles: ExerciseMuscles,
+    pub muscles: Vec<ExerciseMuscle>,
 }
 
 #[async_trait]
@@ -87,7 +83,7 @@ impl GraphqlRepresentation for ExerciseListItem {
             converted_exercise.image =
                 Some(get_stored_asset(img.clone(), file_storage_service).await);
         }
-        converted_exercise.muscle = self.muscles.0.first().cloned();
+        converted_exercise.muscle = self.muscles.first().cloned();
         Ok(converted_exercise)
     }
 }

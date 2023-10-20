@@ -32,7 +32,7 @@ use crate::{
     miscellaneous::DefaultCollection,
     models::{
         fitness::{
-            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseMuscles,
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
             GithubExerciseAttributes, UserWorkoutInput, WorkoutListItem, WorkoutSetRecord,
         },
         media::ChangeCollectionToEntityInput,
@@ -548,7 +548,6 @@ impl ExerciseService {
     #[instrument(skip(self, ex))]
     pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
-            muscles: vec![],
             instructions: ex.attributes.instructions,
             internal_images: ex
                 .attributes
@@ -589,7 +588,7 @@ impl ExerciseService {
                 name: ActiveValue::Set(ex.name),
                 source: ActiveValue::Set(ExerciseSource::Github),
                 identifier: ActiveValue::Set(Some(ex.identifier)),
-                muscles: ActiveValue::Set(ExerciseMuscles(muscles)),
+                muscles: ActiveValue::Set(muscles),
                 attributes: ActiveValue::Set(attributes),
                 lot: ActiveValue::Set(lot),
                 level: ActiveValue::Set(ex.attributes.level),
@@ -687,8 +686,6 @@ impl ExerciseService {
             .map(StoredUrl::S3)
             .collect();
         input.attributes.images = vec![];
-        input.muscles = ExerciseMuscles(input.attributes.muscles.clone());
-        input.attributes.muscles = vec![];
         let mut input: exercise::ActiveModel = input.into();
         // FIXME: Blocked by https://github.com/async-graphql/async-graphql/issues/1396
         input.id = ActiveValue::NotSet;

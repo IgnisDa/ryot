@@ -20,9 +20,9 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataImages, MetadataPerson,
-            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, ShowEpisode,
-            ShowSeason, ShowSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, ShowEpisode, ShowSeason,
+            ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -309,16 +309,14 @@ impl MediaProvider for TmdbMovieService {
                 identifier: identifier.to_owned(),
                 title: replace_from_end(data.name, " Collection", ""),
                 description: data.overview,
-                images: MetadataImages(
-                    images
-                        .into_iter()
-                        .unique()
-                        .map(|p| MetadataImage {
-                            url: StoredUrl::Url(self.base.get_cover_image_url(p)),
-                            lot: MetadataImageLot::Poster,
-                        })
-                        .collect(),
-                ),
+                images: images
+                    .into_iter()
+                    .unique()
+                    .map(|p| MetadataImage {
+                        url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                        lot: MetadataImageLot::Poster,
+                    })
+                    .collect(),
                 lot: MetadataLot::Movie,
                 source: MetadataSource::Tmdb,
             },

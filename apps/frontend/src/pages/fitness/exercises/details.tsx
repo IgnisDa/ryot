@@ -201,7 +201,7 @@ const Page: NextPageWithLayout = () => {
 										</>
 									))}
 								</SimpleGrid>
-								{exerciseDetails.data.attributes.muscles.length > 0 ? (
+								{exerciseDetails.data.muscles.length > 0 ? (
 									<>
 										<Divider />
 										<Group wrap="nowrap">
@@ -209,7 +209,7 @@ const Page: NextPageWithLayout = () => {
 												Muscles
 											</Text>
 											<Text fz="sm">
-												{exerciseDetails.data.attributes.muscles
+												{exerciseDetails.data.muscles
 													.map((s) => startCase(s.toLowerCase()))
 													.join(", ")}
 											</Text>
