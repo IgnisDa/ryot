@@ -1,5 +1,36 @@
 
 
+# Version 3.0.5 (2023-10-20)
+
+## Bug Fixes
+
+- **frontend:** layout issues for personal bests
+  - **frontend:** do not display timezone
+  
+  ## Build
+
+- **backend:** bump version
+  - **backend:** bump version
+  
+  ## Features
+
+- **frontend:** some small problems
+  
+  
+
+# Version 2.24.2 (2023-10-20)
+
+## Bug Fixes
+
+- **backend:** use correct schema for migration
+  - **backend:** select only required columns
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 3.0.4 (2023-10-20)
 
 ## Bug Fixes
