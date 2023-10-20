@@ -1,4 +1,4 @@
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{entity::prelude::*, ActiveValue, QuerySelect};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,10 @@ impl MigrationTrait for Migration {
                 .await?;
         }
         let collections = Collection::find()
+            .select_only()
+            .column(collection::Column::Id)
             .filter(collection::Column::Name.eq(DefaultCollection::Custom.to_string()))
+            .into_tuple::<i32>()
             .all(db)
             .await?;
         for ex in Exercise::find()
@@ -60,9 +63,9 @@ impl MigrationTrait for Migration {
             .all(db)
             .await?
         {
-            for col in collections.iter() {
+            for col_id in collections.iter() {
                 let to_insert = collection_to_entity::ActiveModel {
-                    collection_id: ActiveValue::Set(col.id),
+                    collection_id: ActiveValue::Set(col_id.to_owned()),
                     exercise_id: ActiveValue::Set(Some(ex.id)),
                     ..Default::default()
                 };
