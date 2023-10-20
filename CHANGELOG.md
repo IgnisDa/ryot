@@ -1,10 +1,18 @@
 
 
+# Version 3.0.7 (2023-10-21)
+
+
+
 # Version 3.0.6 (2023-10-20)
 
 ## Bug Fixes
 
 - **docs:** upgrade to correct version
+  
+  ## Build
+
+- **backend:** bump version
   
   
 
