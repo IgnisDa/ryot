@@ -5,7 +5,8 @@
 1. Upgrade the server to `v2.24.2` to make sure all pending migrations are applied.
 
 2. Go to the "Miscellaneous" settings and click on the button to "Clean and regenerate"
-   your summary.
+   your summary. This takes time if you have a lot of media. Go to the dashboard and check
+   the time under the "Summary" section. It should say "Calculated just now".
 
 3. Go to the "Preferences" settings, then the "General" tab, and click any switch button
    twice to make sure the latest settings have been applied.
