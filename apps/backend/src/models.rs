@@ -766,7 +766,7 @@ pub mod media {
         pub description: Option<String>,
         pub lot: MetadataLot,
         pub production_status: String,
-        pub creators: Vec<FreeMetadataCreator>,
+        pub creators: Vec<MetadataFreeCreator>,
         pub people: Vec<PartialMetadataPerson>,
         pub genres: Vec<String>,
         pub url_images: Vec<MetadataImageForMediaDetails>,
@@ -1039,7 +1039,7 @@ pub mod media {
         Default,
         Hash,
     )]
-    pub struct FreeMetadataCreator {
+    pub struct MetadataFreeCreator {
         pub name: String,
         pub role: String,
         pub image: Option<String>,
@@ -1047,7 +1047,7 @@ pub mod media {
 
     // FIXME: Remove this
     #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct MetadataFreeCreators(pub Vec<FreeMetadataCreator>);
+    pub struct MetadataFreeCreators(pub Vec<MetadataFreeCreator>);
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
     pub struct SeenShowExtraInformation {

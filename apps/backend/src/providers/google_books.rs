@@ -12,7 +12,7 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            BookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot,
         },
         SearchDetails, SearchResults,
@@ -187,14 +187,14 @@ impl GoogleBooksService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| FreeMetadataCreator {
+            .map(|a| MetadataFreeCreator {
                 name: a,
                 role: "Author".to_owned(),
                 image: None,
             })
             .collect_vec();
         if let Some(p) = item.publisher {
-            creators.push(FreeMetadataCreator {
+            creators.push(MetadataFreeCreator {
                 name: p,
                 role: "Publisher".to_owned(),
                 image: None,

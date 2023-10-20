@@ -79,13 +79,13 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ChangeCollectionToEntityInput,
-            CreateOrUpdateCollectionInput, FreeMetadataCreator, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
-            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
-            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreators,
-            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataImages, MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
+            CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
+            ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
+            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
+            MediaSpecifics, MetadataFreeCreator, MetadataFreeCreators, MetadataGroupListItem,
+            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataImages,
+            MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
             PartialMetadataPerson, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
             ReviewCommentUser, SeenOrReviewOrCalendarEventExtraInformation,
@@ -2625,7 +2625,7 @@ impl MiscellaneousService {
         s3_images: Vec<MetadataImageForMediaDetails>,
         videos: Vec<MetadataVideo>,
         specifics: MediaSpecifics,
-        creators: Vec<FreeMetadataCreator>,
+        creators: Vec<MetadataFreeCreator>,
         people: Vec<PartialMetadataPerson>,
         genres: Vec<String>,
         production_status: String,
@@ -4472,7 +4472,7 @@ impl MiscellaneousService {
             .creators
             .unwrap_or_default()
             .into_iter()
-            .map(|c| FreeMetadataCreator {
+            .map(|c| MetadataFreeCreator {
                 name: c,
                 role: "Creator".to_string(),
                 image: None,

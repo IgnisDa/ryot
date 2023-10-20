@@ -17,7 +17,7 @@ use crate::{
     },
     models::{
         media::{
-            AudioBookSpecifics, FreeMetadataCreator, MediaDetails, MediaSearchItem, MediaSpecifics,
+            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataImages,
         },
         NamedObject, SearchDetails, SearchResults,
@@ -339,14 +339,14 @@ impl AudibleService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| FreeMetadataCreator {
+            .map(|a| MetadataFreeCreator {
                 name: a.name,
                 role: "Author".to_owned(),
                 image: None,
             })
             .collect_vec();
         creators.extend(item.narrators.unwrap_or_default().into_iter().map(|a| {
-            FreeMetadataCreator {
+            MetadataFreeCreator {
                 name: a.name,
                 role: "Narrator".to_owned(),
                 image: None,
