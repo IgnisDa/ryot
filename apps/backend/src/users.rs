@@ -399,7 +399,3 @@ pub struct UserNotification {
     /// the date and time it was added on
     pub timestamp: DateTimeUtc,
 }
-
-// FIXME: Remove this
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-pub struct UserNotifications(pub Vec<UserNotification>);

@@ -114,8 +114,8 @@ use crate::{
         MediaProviderLanguages,
     },
     users::{
-        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserNotifications,
-        UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserPreferences,
+        UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
         UserSinkIntegrationSettingKind, UserUnitSystem, UserYankIntegration,
         UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
@@ -4281,7 +4281,7 @@ impl MiscellaneousService {
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
             sink_integrations: ActiveValue::Set(vec![]),
-            notifications: ActiveValue::Set(UserNotifications(vec![])),
+            notifications: ActiveValue::Set(vec![]),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
@@ -4894,8 +4894,7 @@ impl MiscellaneousService {
             partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
                 .await?;
         let mut all_notifications = vec![];
-        let notifications = user.notifications.0;
-        notifications.into_iter().for_each(|n| {
+        user.notifications.into_iter().for_each(|n| {
             let description = match n.settings {
                 UserNotificationSetting::Apprise { url, key } => {
                     format!("Apprise URL: {}, Key: {}", url, key)
@@ -5035,7 +5034,7 @@ impl MiscellaneousService {
         input: CreateUserNotificationPlatformInput,
     ) -> Result<usize> {
         let user = user_by_id(&self.db, user_id).await?;
-        let mut notifications = user.notifications.clone().0;
+        let mut notifications = user.notifications.clone();
         let new_notification_id = notifications.len() + 1;
         let new_notification = UserNotification {
             id: new_notification_id,
@@ -5074,7 +5073,7 @@ impl MiscellaneousService {
 
         notifications.insert(0, new_notification);
         let mut user: user::ActiveModel = user.into();
-        user.notifications = ActiveValue::Set(UserNotifications(notifications));
+        user.notifications = ActiveValue::Set(notifications);
         user.update(&self.db).await?;
         Ok(new_notification_id)
     }
@@ -5086,12 +5085,12 @@ impl MiscellaneousService {
     ) -> Result<bool> {
         let user = user_by_id(&self.db, user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
-        let notifications = user.notifications.clone().0;
+        let notifications = user.notifications.clone();
         let remaining_notifications = notifications
             .into_iter()
             .filter(|i| i.id != notification_id)
             .collect_vec();
-        let update_value = UserNotifications(remaining_notifications);
+        let update_value = remaining_notifications;
         user_db.notifications = ActiveValue::Set(update_value);
         user_db.update(&self.db).await?;
         Ok(true)
@@ -5501,7 +5500,7 @@ impl MiscellaneousService {
             partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
                 .await?;
         let mut success = true;
-        for notification in user.notifications.0 {
+        for notification in user.notifications {
             if notification.settings.send_message(msg).await.is_err() {
                 success = false;
             }
