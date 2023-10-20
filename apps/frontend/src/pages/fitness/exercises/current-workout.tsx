@@ -405,7 +405,7 @@ const ExerciseDisplay = (props: {
 							</Flex>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
 								(n, idx) => (
-									<Flex key={idx} align="center" gap="xs">
+									<Flex key={`${idx}`} align="center" gap="xs">
 										<Textarea
 											style={{ flexGrow: 1 }}
 											placeholder="Add a note"
