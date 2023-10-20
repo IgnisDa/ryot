@@ -136,7 +136,7 @@ const StatInput = (props: {
 				onChange={(v) => {
 					setCurrentWorkout(
 						produce(currentWorkout, (draft) => {
-							const value = Number(v) ?? undefined;
+							const value = v === "" ? undefined : Number(v);
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 								props.stat
 							] = value;
@@ -218,7 +218,7 @@ const ExerciseDisplay = (props: {
 		{ close: restTimerModalClose, toggle: restTimerModalToggle },
 	] = useDisclosure(false);
 	const [cameraFacing, setCameraFacing] = useState<"user" | "environment">(
-		"user",
+		"environment",
 	);
 	const webcamRef = useRef<Webcam>(null);
 	const [
@@ -444,6 +444,11 @@ const ExerciseDisplay = (props: {
 						<Menu.Dropdown>
 							<Menu.Item
 								leftSection={<IconClipboard size={14} />}
+								rightSection={
+									props.exercise.notes.length > 0
+										? props.exercise.notes.length
+										: undefined
+								}
 								onClick={() => {
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {

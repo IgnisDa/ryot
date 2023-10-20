@@ -3,12 +3,13 @@ import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getSetColor } from "@/lib/utilities";
+import { getSetColor, getStringAsciiValue } from "@/lib/utilities";
 import { currentWorkoutAtom, duplicateOldWorkout } from "@/lib/workout";
 import {
 	ActionIcon,
 	Anchor,
 	Avatar,
+	Badge,
 	Box,
 	Container,
 	Flex,
@@ -18,6 +19,7 @@ import {
 	Stack,
 	Text,
 	Title,
+	useMantineTheme,
 } from "@mantine/core";
 import {
 	DeleteUserWorkoutDocument,
@@ -25,6 +27,7 @@ import {
 	SetLot,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconDotsVertical,
@@ -71,6 +74,8 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const workoutId = router.query.id?.toString();
 	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
 
 	const workoutDetails = useQuery({
 		queryKey: ["workoutDetails", workoutId],
@@ -200,28 +205,28 @@ const Page: NextPageWithLayout = () => {
 											</Flex>
 										) : undefined}
 									</Group>
-									{exercise.notes.map((n) => (
+									{exercise.notes.map((n, idxN) => (
 										<Text c="dimmed" key={n} size="xs">
-											{n}
+											{idxN + 1}) {n}
 										</Text>
 									))}
+									{exercise.assets.images.length > 0 ? (
+										<Avatar.Group>
+											{exercise.assets.images.map((i) => (
+												<Anchor
+													key={i}
+													href={i}
+													target="_blank"
+													rel="noopener noreferrer"
+												>
+													<Avatar src={i} />
+												</Anchor>
+											))}
+										</Avatar.Group>
+									) : undefined}
 								</Box>
 								{exercise.sets.map((s, idx) => (
-									<Box key={`${idx}`}>
-										{exercise.assets.images.length > 0 ? (
-											<Avatar.Group>
-												{exercise.assets.images.map((i) => (
-													<Anchor
-														key={i}
-														href={i}
-														target="_blank"
-														rel="noopener noreferrer"
-													>
-														<Avatar src={i} />
-													</Anchor>
-												))}
-											</Avatar.Group>
-										) : undefined}
+									<Box key={`${idx}`} mb={2}>
 										<Flex align="center">
 											<Text
 												fz="sm"
@@ -237,9 +242,27 @@ const Page: NextPageWithLayout = () => {
 											<DisplayExerciseStats
 												lot={exercise.lot}
 												statistic={s.statistic}
-												personalBests={s.personalBests}
 											/>
 										</Flex>
+										{s.personalBests.length > 0 ? (
+											<Group gap="xs" justify="end" mb={6}>
+												{s.personalBests.map((pb) => (
+													<Badge
+														variant="light"
+														size="xs"
+														leftSection={<IconTrophy size={16} />}
+														color={
+															colors[
+																(getStringAsciiValue(pb) + colors.length) %
+																	colors.length
+															]
+														}
+													>
+														{startCase(pb)}
+													</Badge>
+												))}
+											</Group>
+										) : undefined}
 									</Box>
 								))}
 							</Paper>
