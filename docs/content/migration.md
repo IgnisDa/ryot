@@ -13,7 +13,7 @@
 4. Run the last release of the server to perform all pending migrations (make sure to
    connect it to the correct database).
    ```bash
-   $ docker run --volume ./ryot/data:/data ghcr.io/ignisda/ryot:v2.24.1
+   $ docker run --volume ./ryot/data:/data ghcr.io/ignisda/ryot:v2.24.2
    ```
 
 5. Once the migrations from the above step are done, stop the server.
