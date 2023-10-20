@@ -1027,10 +1027,6 @@ pub mod media {
         pub created_on: DateTimeUtc,
     }
 
-    // FIXME: Remove this
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct ReviewComments(pub Vec<ImportOrExportItemReviewComment>);
-
     #[derive(
         Clone,
         Debug,

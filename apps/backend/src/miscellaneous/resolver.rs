@@ -88,7 +88,7 @@ use crate::{
             MetadataImages, MetadataVideo, MetadataVideoSource, MetadataVideos, MovieSpecifics,
             PartialMetadataPerson, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewCommentUser, ReviewComments, SeenOrReviewOrCalendarEventExtraInformation,
+            ReviewCommentUser, SeenOrReviewOrCalendarEventExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
             UserMediaReminder, UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
         },
@@ -3603,7 +3603,7 @@ impl MiscellaneousService {
                         id: user.id,
                         name: user.name,
                     },
-                    comments: r.comments.0,
+                    comments: r.comments,
                 })
             }
             None => Err(Error::new("Unable to find review".to_owned())),
@@ -3839,7 +3839,7 @@ impl MiscellaneousService {
             metadata_id: ActiveValue::Set(input.metadata_id),
             person_id: ActiveValue::Set(input.creator_id),
             extra_information: ActiveValue::Set(extra_information),
-            comments: ActiveValue::Set(ReviewComments(vec![])),
+            comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
         if let Some(s) = input.spoiler {
@@ -6088,7 +6088,7 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        let mut comments = review.comments.0.clone();
+        let mut comments = review.comments.clone();
         if input.should_delete.unwrap_or_default() {
             let posn = comments
                 .iter()
@@ -6121,7 +6121,7 @@ impl MiscellaneousService {
             });
         }
         let mut review: review::ActiveModel = review.into();
-        review.comments = ActiveValue::Set(ReviewComments(comments));
+        review.comments = ActiveValue::Set(comments);
         review.update(&self.db).await?;
         Ok(true)
     }
