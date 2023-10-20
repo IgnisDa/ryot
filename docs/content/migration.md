@@ -13,9 +13,7 @@
 
 4. Stop the running server and create a backup of your database.
 
-5. Once the migrations from the above step are done, stop the server.
-
-6. Connect to the database and run these SQL queries:
+5. Connect to the database and run these SQL queries:
    ```sql
    DELETE FROM seaql_migrations;
 
@@ -38,9 +36,7 @@
    INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231017_create_user_to_entity', 1697640078);
    ```
 
-7. Now you can upgrade to the latest release safely.
-
-8. **OPTIONAL**: Once you have the new server up and running, go to the "Miscellaneous" settings page and click on the button to "Update All Metadata".
+6. Now you can upgrade to the latest release safely.
 
 ## From `v1.*` to `v2.*`
 
