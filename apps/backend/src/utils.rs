@@ -302,7 +302,7 @@ where
         .into_partial_model::<T>()
         .one(db)
         .await
-        .unwrap()
+        .unwrap_or_default()
         .ok_or_else(|| Error::new("No user found"))
 }
 
