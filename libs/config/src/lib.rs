@@ -1,9 +1,14 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use macros::Mask;
 use rs_utils::{IsFeatureEnabled, PROJECT_NAME};
 use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader};
 use serde::{Deserialize, Serialize};
+
+pub use masked_value::MaskedValue;
+
+mod masked_value;
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
     Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
@@ -13,26 +18,27 @@ fn default_mal_client_id(_ctx: &()) -> Option<String> {
     Some("3879694bbe52ac3204be9ff68af8f027".to_owned())
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
 pub struct MalConfig {
     /// The client ID to be used for the MAL API.
     #[setting(default = default_mal_client_id)]
+    #[masked]
     pub client_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
 pub struct AnilistConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(
     rename_all = "snake_case",
     env_prefix = "ANIME_AND_MANGA_MANGA_UPDATES_"
 )]
 pub struct MangaUpdatesConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AnimeAndMangaConfig {
     /// Settings related to Anilist.
@@ -48,7 +54,7 @@ pub struct AnimeAndMangaConfig {
 
 impl IsFeatureEnabled for AnimeAndMangaConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
     /// Settings related to locale for making requests Audible.
@@ -56,7 +62,7 @@ pub struct AudibleConfig {
     pub locale: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AudioBookConfig {
     /// Settings related to Audible.
@@ -67,7 +73,7 @@ pub struct AudioBookConfig {
 impl IsFeatureEnabled for AudioBookConfig {}
 
 derive_enum!(
-    #[derive(ConfigEnum, Default)]
+    #[derive(ConfigEnum, Default, Copy)]
     pub enum OpenlibraryCoverImageSize {
         #[serde(rename = "S")]
         Small,
@@ -79,18 +85,18 @@ derive_enum!(
     }
 );
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
 pub struct GoogleBooksConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     /// The image sizes to fetch from Openlibrary.
     pub cover_image_size: OpenlibraryCoverImageSize,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case")]
 pub struct BookConfig {
     /// Settings related to Openlibrary.
@@ -103,34 +109,36 @@ pub struct BookConfig {
 
 impl IsFeatureEnabled for BookConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
     /// The database connection string. Supports SQLite, MySQL and Postgres.
     /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
     #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
+    #[masked]
     pub url: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config, PartialEq, Eq)]
 pub struct ExerciseConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
     /// The access token for the TMDB API.
     #[setting(default = default_tmdb_access_token)]
+    #[masked]
     pub access_token: String,
     /// The locale to use for making requests to TMDB API.
     #[setting(default = "en")]
     pub locale: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case")]
 pub struct MovieAndShowConfig {
     /// Settings related to TMDB.
@@ -140,14 +148,15 @@ pub struct MovieAndShowConfig {
 
 impl IsFeatureEnabled for MovieAndShowConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
     /// The access token for the Listennotes API.
+    #[masked]
     pub api_token: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_ITUNES_")]
 pub struct ITunesConfig {
     /// The locale to use for making requests to iTunes API.
@@ -155,7 +164,7 @@ pub struct ITunesConfig {
     pub locale: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case")]
 pub struct PodcastConfig {
     /// Settings related to Listennotes.
@@ -168,19 +177,21 @@ pub struct PodcastConfig {
 
 impl IsFeatureEnabled for PodcastConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
     /// The client ID issues by Twitch. **Required** to enable video games
     /// tracking. [More information](/docs/guides/video-games.md)
+    #[masked]
     pub client_id: String,
     /// The client secret issued by Twitch. **Required** to enable video games
     /// tracking.
+    #[masked]
     pub client_secret: String,
 }
 
 derive_enum!(
-    #[derive(ConfigEnum, Default)]
+    #[derive(ConfigEnum, Default, Copy)]
     pub enum IgdbImageSize {
         #[default]
         #[serde(rename = "t_original")]
@@ -188,14 +199,14 @@ derive_enum!(
     }
 );
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_IGDB_")]
 pub struct IgdbConfig {
     /// The image sizes to fetch from IGDB.
     pub image_size: IgdbImageSize,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case")]
 pub struct VideoGameConfig {
     /// Settings related to IGDB.
@@ -216,31 +227,36 @@ impl IsFeatureEnabled for VideoGameConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VISUAL_NOVEL_")]
 pub struct VisualNovelConfig {}
 
 impl IsFeatureEnabled for VisualNovelConfig {}
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
     /// The access key ID for the S3 compatible file storage. **Required** to
     /// enable file storage.
+    #[masked]
     pub s3_access_key_id: String,
     /// The name of the S3 compatible bucket. **Required** to enable file storage.
+    #[masked]
     pub s3_bucket_name: String,
     /// The region for the S3 compatible file storage.
+    #[masked]
     #[setting(default = "us-east-1")]
     pub s3_region: String,
     /// The secret access key for the S3 compatible file storage. **Required**
     /// to enable file storage.
+    #[masked]
     pub s3_secret_access_key: String,
     /// The URL for the S3 compatible file storage.
+    #[masked]
     pub s3_url: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// The height of the right section of an item's details page in pixels.
@@ -251,7 +267,7 @@ pub struct FrontendConfig {
     pub page_size: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "INTEGRATION_")]
 pub struct IntegrationConfig {
     /// Sync data from [yank](/docs/guides/integrations.md) based integrations
@@ -260,6 +276,7 @@ pub struct IntegrationConfig {
     pub pull_every: i32,
     /// The salt used to hash user IDs.
     #[setting(default = format!("{}", PROJECT_NAME))]
+    #[masked]
     pub hasher_salt: String,
     /// The minimum progress limit before which a media is considered to be started.
     #[setting(default = 2)]
@@ -282,11 +299,12 @@ impl IsFeatureEnabled for FileStorageConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
     /// The url to the SQLite database where job related data needs to be stored.
     #[setting(default = "sqlite::memory:")]
+    #[masked]
     pub database_url: String,
     /// The number of jobs to process every 5 seconds when updating metadata in
     /// the background.
@@ -298,14 +316,16 @@ pub struct SchedulerConfig {
     pub user_cleanup_every: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
     /// The path where the config file will be written once the server boots up.
     #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
+    #[masked]
     pub config_dump_path: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
+    #[masked]
     pub cors_origins: Vec<String>,
     /// Whether default credentials will be populated on the login page of the
     /// instance.
@@ -339,11 +359,12 @@ pub struct ServerConfig {
     pub update_monitored_media: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
     /// The secret used for generating JWT tokens.
     #[setting(default = format!("{}", PROJECT_NAME))]
+    #[masked]
     pub jwt_secret: String,
     /// Whether users will be allowed to change their password in their profile
     /// settings.
@@ -368,7 +389,7 @@ pub struct UsersConfig {
     pub token_valid_for_days: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Mask, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
     /// Settings related to anime and manga.
@@ -419,31 +440,6 @@ pub struct AppConfig {
     /// Settings related to visual novels.
     #[setting(nested)]
     pub visual_novels: VisualNovelConfig,
-}
-
-impl AppConfig {
-    // TODO: Denote masked values via attribute
-    pub fn masked_value(&self) -> Self {
-        let gt = || "****".to_owned();
-        let mut cl = self.clone();
-        cl.anime_and_manga.mal.client_id = gt();
-        cl.database.url = gt();
-        cl.file_storage.s3_region = gt();
-        cl.file_storage.s3_bucket_name = gt();
-        cl.file_storage.s3_access_key_id = gt();
-        cl.file_storage.s3_secret_access_key = gt();
-        cl.file_storage.s3_url = gt();
-        cl.integration.hasher_salt = gt();
-        cl.movies_and_shows.tmdb.access_token = gt();
-        cl.podcasts.listennotes.api_token = gt();
-        cl.scheduler.database_url = gt();
-        cl.video_games.twitch.client_id = gt();
-        cl.video_games.twitch.client_secret = gt();
-        cl.server.config_dump_path = gt();
-        cl.server.cors_origins = vec![gt()];
-        cl.users.jwt_secret = gt();
-        cl
-    }
 }
 
 pub fn load_app_config() -> Result<AppConfig> {
