@@ -325,7 +325,7 @@ pub struct ServerConfig {
     pub config_dump_path: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
-    #[masked]
+    // #[masked]
     pub cors_origins: Vec<String>,
     /// Whether default credentials will be populated on the login page of the
     /// instance.
