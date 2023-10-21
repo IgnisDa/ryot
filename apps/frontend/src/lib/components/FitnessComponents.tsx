@@ -24,9 +24,9 @@ export const getSetStatisticsTextToDisplay = (
 			statistic.weight && statistic.weight !== "0"
 				? `${statistic.weight} kg  × ${statistic.reps}`
 				: `${statistic.reps} reps`,
-			`${((Number(statistic.weight) || 1) * (statistic.reps || 1)).toFixed(
-				2,
-			)} vol`,
+			`${(
+				(Number(statistic.weight) || 1) * (statistic.reps || 1)
+			).toFixed()} vol`,
 		])
 		.exhaustive();
 };
