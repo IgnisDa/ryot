@@ -26,7 +26,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";
-import { useDebouncedState } from "@mantine/hooks";
+import { useClipboard, useDebouncedState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeployImportJobDocument,
@@ -239,6 +239,7 @@ const Page: NextPageWithLayout = () => {
 	const malImportForm = useForm<MalImportFormSchema>({
 		validate: zodResolver(malImportFormSchema),
 	});
+	const clipboard = useClipboard();
 
 	const deployImportJob = useMutation({
 		mutationFn: async (variables: DeployImportJobMutationVariables) => {
@@ -399,13 +400,23 @@ const Page: NextPageWithLayout = () => {
 														mangaPath: malImportForm.values.mangaPath,
 													},
 												}))
-												.with(ImportSource.StrongApp, async () => ({
-													strongApp: {
-														exportPath: strongAppImportForm.values.exportPath,
-														// biome-ignore lint/suspicious/noExplicitAny: required here
-														mapping: uniqueExercises as any,
-													},
-												}))
+												.with(ImportSource.StrongApp, async () => {
+													clipboard.copy(JSON.stringify(uniqueExercises));
+													notifications.show({
+														title: "Important",
+														autoClose: false,
+														color: "yellow",
+														message:
+															"Mappings have been copied to your clipboard. Please paste them into a JSON file and store it securely. You might need it later.",
+													});
+													return {
+														strongApp: {
+															exportPath: strongAppImportForm.values.exportPath,
+															// biome-ignore lint/suspicious/noExplicitAny: required here
+															mapping: uniqueExercises as any,
+														},
+													};
+												})
 												.exhaustive();
 											if (values) {
 												deployImportJob.mutate({
