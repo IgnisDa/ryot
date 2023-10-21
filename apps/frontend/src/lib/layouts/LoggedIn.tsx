@@ -110,15 +110,9 @@ const Footer = () => {
 						Github
 					</Text>
 				</Anchor>
-				<Anchor
-					href={coreDetails.data.repositoryLink}
-					target="_blank"
-					visibleFrom="md"
-				>
-					<Text c="pink" fw="bold">
-						{coreDetails.data.timezone}
-					</Text>
-				</Anchor>
+				<Text c="pink" fw="bold" visibleFrom="md">
+					{coreDetails.data.timezone}
+				</Text>
 			</Flex>
 		</Stack>
 	) : undefined;
