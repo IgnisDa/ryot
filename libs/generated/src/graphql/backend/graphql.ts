@@ -413,6 +413,7 @@ export type ExerciseListResults = {
   items: Array<ExerciseListItem>;
 };
 
+/** The different types of exercises that can be done. */
 export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
   Duration = 'DURATION',
@@ -779,6 +780,7 @@ export type MetadataGroupListResults = {
   items: Array<MetadataGroupListItem>;
 };
 
+/** The different types of media that can be stored. */
 export enum MetadataLot {
   Anime = 'ANIME',
   AudioBook = 'AUDIO_BOOK',
@@ -791,6 +793,7 @@ export enum MetadataLot {
   VisualNovel = 'VISUAL_NOVEL'
 }
 
+/** The different sources (or providers) from which data can be obtained from. */
 export enum MetadataSource {
   Anilist = 'ANILIST',
   Audible = 'AUDIBLE',
@@ -1179,6 +1182,7 @@ export type PresignedPutUrlResponse = {
   uploadUrl: Scalars['String']['output'];
 };
 
+/** An exercise that has been processed and comitted to the database. */
 export type ProcessedExercise = {
   assets: EntityAssets;
   id: Scalars['Int']['output'];
@@ -1482,6 +1486,7 @@ export enum SeenState {
   OnAHold = 'ON_A_HOLD'
 }
 
+/** The types of set (mostly characterized by exertion level). */
 export enum SetLot {
   Drop = 'DROP',
   Failure = 'FAILURE',
@@ -1489,6 +1494,7 @@ export enum SetLot {
   WarmUp = 'WARM_UP'
 }
 
+/** Details about the statistics of the set performed. */
 export type SetStatisticInput = {
   distance?: InputMaybe<Scalars['Decimal']['input']>;
   duration?: InputMaybe<Scalars['Decimal']['input']>;
@@ -2006,6 +2012,7 @@ export type VisualNovelsSummary = {
   runtime: Scalars['Int']['output'];
 };
 
+/** A workout that was completed by the user. */
 export type Workout = {
   comment?: Maybe<Scalars['String']['output']>;
   endTime: Scalars['DateTime']['output'];
@@ -2016,6 +2023,7 @@ export type Workout = {
   summary: WorkoutSummary;
 };
 
+/** Information about a workout done. */
 export type WorkoutInformation = {
   assets: EntityAssets;
   exercises: Array<ProcessedExercise>;
@@ -2039,6 +2047,7 @@ export type WorkoutListResults = {
   items: Array<WorkoutListItem>;
 };
 
+/** The different types of personal bests that can be achieved on a set. */
 export enum WorkoutSetPersonalBest {
   OneRm = 'ONE_RM',
   Pace = 'PACE',
@@ -2048,12 +2057,14 @@ export enum WorkoutSetPersonalBest {
   Weight = 'WEIGHT'
 }
 
+/** Details about the set performed. */
 export type WorkoutSetRecord = {
   lot: SetLot;
   personalBests: Array<WorkoutSetPersonalBest>;
   statistic: WorkoutSetStatistic;
 };
 
+/** Details about the statistics of the set performed. */
 export type WorkoutSetStatistic = {
   distance?: Maybe<Scalars['Decimal']['output']>;
   duration?: Maybe<Scalars['Decimal']['output']>;
@@ -2066,6 +2077,7 @@ export type WorkoutSummary = {
   total: WorkoutTotalMeasurement;
 };
 
+/** The summary about an exercise done in a workout. */
 export type WorkoutSummaryExercise = {
   bestSet: WorkoutSetRecord;
   lot: ExerciseLot;
@@ -2073,6 +2085,7 @@ export type WorkoutSummaryExercise = {
   numSets: Scalars['Int']['output'];
 };
 
+/** The totals of a workout and the different bests achieved. */
 export type WorkoutTotalMeasurement = {
   distance: Scalars['Decimal']['output'];
   duration: Scalars['Decimal']['output'];
@@ -2376,7 +2389,7 @@ export type CollectionContentsQuery = { collectionContents: { user: { name: stri
 export type CoreDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type CoreDetailsQuery = { coreDetails: { version: string, authorName: string, repositoryLink: string, docsLink: string, defaultCredentials: boolean, passwordChangeAllowed: boolean, preferencesChangeAllowed: boolean, usernameChangeAllowed: boolean, itemDetailsHeight: number, reviewsDisabled: boolean, videosDisabled: boolean, upgrade?: UpgradeType | null, pageLimit: number, deployAdminJobsAllowed: boolean } };
+export type CoreDetailsQuery = { coreDetails: { version: string, timezone: string, authorName: string, repositoryLink: string, docsLink: string, defaultCredentials: boolean, passwordChangeAllowed: boolean, preferencesChangeAllowed: boolean, usernameChangeAllowed: boolean, itemDetailsHeight: number, reviewsDisabled: boolean, videosDisabled: boolean, upgrade?: UpgradeType | null, pageLimit: number, deployAdminJobsAllowed: boolean } };
 
 export type CoreEnabledFeaturesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2661,7 +2674,7 @@ export const UpdateUserDocument = {"kind":"Document","definitions":[{"kind":"Ope
 export const UpdateUserPreferenceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserPreference"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserPreferenceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserPreference"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserPreferenceMutation, UpdateUserPreferenceMutationVariables>;
 export const YankIntegrationDataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"YankIntegrationData"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"yankIntegrationData"}}]}}]} as unknown as DocumentNode<YankIntegrationDataMutation, YankIntegrationDataMutationVariables>;
 export const CollectionContentsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CollectionContents"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionContentsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collectionContents"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"results"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataLot"}},{"kind":"Field","name":{"kind":"Name","value":"entityLot"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}}]}}]}}]}}]} as unknown as DocumentNode<CollectionContentsQuery, CollectionContentsQueryVariables>;
-export const CoreDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"authorName"}},{"kind":"Field","name":{"kind":"Name","value":"repositoryLink"}},{"kind":"Field","name":{"kind":"Name","value":"docsLink"}},{"kind":"Field","name":{"kind":"Name","value":"defaultCredentials"}},{"kind":"Field","name":{"kind":"Name","value":"passwordChangeAllowed"}},{"kind":"Field","name":{"kind":"Name","value":"preferencesChangeAllowed"}},{"kind":"Field","name":{"kind":"Name","value":"usernameChangeAllowed"}},{"kind":"Field","name":{"kind":"Name","value":"itemDetailsHeight"}},{"kind":"Field","name":{"kind":"Name","value":"reviewsDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"videosDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"upgrade"}},{"kind":"Field","name":{"kind":"Name","value":"pageLimit"}},{"kind":"Field","name":{"kind":"Name","value":"deployAdminJobsAllowed"}}]}}]}}]} as unknown as DocumentNode<CoreDetailsQuery, CoreDetailsQueryVariables>;
+export const CoreDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"timezone"}},{"kind":"Field","name":{"kind":"Name","value":"authorName"}},{"kind":"Field","name":{"kind":"Name","value":"repositoryLink"}},{"kind":"Field","name":{"kind":"Name","value":"docsLink"}},{"kind":"Field","name":{"kind":"Name","value":"defaultCredentials"}},{"kind":"Field","name":{"kind":"Name","value":"passwordChangeAllowed"}},{"kind":"Field","name":{"kind":"Name","value":"preferencesChangeAllowed"}},{"kind":"Field","name":{"kind":"Name","value":"usernameChangeAllowed"}},{"kind":"Field","name":{"kind":"Name","value":"itemDetailsHeight"}},{"kind":"Field","name":{"kind":"Name","value":"reviewsDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"videosDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"upgrade"}},{"kind":"Field","name":{"kind":"Name","value":"pageLimit"}},{"kind":"Field","name":{"kind":"Name","value":"deployAdminJobsAllowed"}}]}}]}}]} as unknown as DocumentNode<CoreDetailsQuery, CoreDetailsQueryVariables>;
 export const CoreEnabledFeaturesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CoreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"coreEnabledFeatures"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fileStorage"}},{"kind":"Field","name":{"kind":"Name","value":"signupAllowed"}}]}}]}}]} as unknown as DocumentNode<CoreEnabledFeaturesQuery, CoreEnabledFeaturesQueryVariables>;
 export const CreatorDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CreatorDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"creatorId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"creatorDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"creatorId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"creatorId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"sourceUrl"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"birthDate"}},{"kind":"Field","name":{"kind":"Name","value":"deathDate"}},{"kind":"Field","name":{"kind":"Name","value":"place"}},{"kind":"Field","name":{"kind":"Name","value":"website"}},{"kind":"Field","name":{"kind":"Name","value":"gender"}},{"kind":"Field","name":{"kind":"Name","value":"displayImages"}}]}},{"kind":"Field","name":{"kind":"Name","value":"contents"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataId"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"workedOn"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"metadataId"}}]}}]}}]}}]} as unknown as DocumentNode<CreatorDetailsQuery, CreatorDetailsQueryVariables>;
 export const CreatorsListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CreatorsList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreatorsListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"creatorsList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"mediaCount"}}]}}]}}]}}]} as unknown as DocumentNode<CreatorsListQuery, CreatorsListQueryVariables>;
