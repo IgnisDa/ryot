@@ -1989,6 +1989,11 @@ impl MiscellaneousService {
         user_id: i32,
         input: MediaListInput,
     ) -> Result<SearchResults<MediaListItem>> {
+        let metadata_alias = Alias::new("m");
+        let seen_alias = Alias::new("s");
+        let review_alias = Alias::new("r");
+        let mtu_alias = Alias::new("mtu");
+
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
@@ -2006,12 +2011,7 @@ impl MiscellaneousService {
             )
             .into_tuple::<i32>()
             .all(&self.db)
-            .await;
-
-        let metadata_alias = Alias::new("m");
-        let seen_alias = Alias::new("s");
-        let review_alias = Alias::new("r");
-        let mtu_alias = Alias::new("mtu");
+            .await?;
 
         let mut main_select = Query::select()
             .expr(Expr::col((metadata_alias.clone(), Asterisk)))
