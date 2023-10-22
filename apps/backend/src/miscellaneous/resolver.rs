@@ -472,7 +472,7 @@ impl From<GraphqlSortOrder> for Order {
 enum MediaSortBy {
     Title,
     #[default]
-    ReleaseDate,
+    ReleaseYear,
     LastSeen,
     LastUpdated,
     Rating,
@@ -2060,7 +2060,7 @@ impl MiscellaneousService {
                             .order_by((metadata_alias.clone(), metadata::Column::Title), order_by)
                             .to_owned();
                     }
-                    MediaSortBy::ReleaseDate => {
+                    MediaSortBy::ReleaseYear => {
                         main_select = main_select
                             .order_by_with_nulls(
                                 (metadata_alias.clone(), metadata::Column::PublishYear),
