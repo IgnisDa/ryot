@@ -2167,12 +2167,12 @@ impl MiscellaneousService {
                     vec![]
                 } else {
                     Review::find()
+                        .select_only()
+                        .column(review::Column::MetadataId)
                         .filter(review::Column::UserId.eq(user_id))
+                        .into_tuple::<i32>()
                         .all(&self.db)
                         .await?
-                        .into_iter()
-                        .map(|r| r.metadata_id)
-                        .collect_vec()
                 };
                 match s {
                     MediaGeneralFilter::ExplicitlyMonitored => {}
@@ -2205,13 +2205,13 @@ impl MiscellaneousService {
                             _ => unreachable!(),
                         };
                         let filtered_ids = Seen::find()
+                            .select_only()
+                            .column(seen::Column::MetadataId)
                             .filter(seen::Column::UserId.eq(user_id))
                             .filter(seen::Column::State.eq(state))
+                            .into_tuple::<i32>()
                             .all(&self.db)
-                            .await?
-                            .into_iter()
-                            .map(|r| r.metadata_id)
-                            .collect_vec();
+                            .await?;
                         main_select = main_select
                             .and_where(
                                 Expr::col((metadata_alias.clone(), TempMetadata::Id))
