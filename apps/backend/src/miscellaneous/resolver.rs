@@ -2166,20 +2166,22 @@ impl MiscellaneousService {
                     .to_owned();
             }
             if let Some(s) = f.general {
-                let reviews = if matches!(s, MediaGeneralFilter::All) {
-                    vec![]
-                } else {
-                    Review::find()
-                        .select_only()
-                        .column(review::Column::MetadataId)
-                        .filter(review::Column::UserId.eq(user_id))
-                        .into_tuple::<i32>()
-                        .all(&self.db)
-                        .await?
+                let reviews = match s {
+                    MediaGeneralFilter::Rated | MediaGeneralFilter::Unrated => {
+                        Review::find()
+                            .select_only()
+                            .column(review::Column::MetadataId)
+                            .filter(review::Column::UserId.eq(user_id))
+                            .filter(review::Column::MetadataId.is_not_null())
+                            .into_tuple::<i32>()
+                            .all(&self.db)
+                            .await?
+                    }
+                    _ => vec![],
                 };
                 match s {
-                    MediaGeneralFilter::ExplicitlyMonitored => {}
                     MediaGeneralFilter::All => {}
+                    MediaGeneralFilter::ExplicitlyMonitored => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
                             .and_where(
