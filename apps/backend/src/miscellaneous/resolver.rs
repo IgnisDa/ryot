@@ -2069,6 +2069,10 @@ impl MiscellaneousService {
                                 order_by,
                                 NullOrdering::Last,
                             )
+                            .order_by(
+                                (metadata_alias.clone(), metadata::Column::Title),
+                                Order::Desc,
+                            )
                             .to_owned();
                     }
                     MediaSortBy::LastSeen => {
@@ -2082,6 +2086,10 @@ impl MiscellaneousService {
                             .from(TempSeen::Table)
                             .and_where(Expr::col(TempSeen::UserId).eq(user_id))
                             .and_where(Expr::col(TempReview::MetadataId).is_not_null())
+                            .order_by(
+                                (metadata_alias.clone(), metadata::Column::Title),
+                                Order::Desc,
+                            )
                             .group_by_col(TempSeen::MetadataId)
                             .to_owned();
                         main_select = main_select
@@ -2141,6 +2149,10 @@ impl MiscellaneousService {
                                 Expr::cust(alias_name),
                                 order_by,
                                 NullOrdering::Last,
+                            )
+                            .order_by(
+                                (metadata_alias.clone(), metadata::Column::Title),
+                                Order::Desc,
                             )
                             .to_owned();
                     }
