@@ -2066,13 +2066,10 @@ impl MiscellaneousService {
                         main_select = main_select
                             .order_by_with_nulls(
                                 (metadata_alias.clone(), metadata::Column::PublishYear),
-                                order_by,
+                                order_by.clone(),
                                 NullOrdering::Last,
                             )
-                            .order_by(
-                                (metadata_alias.clone(), metadata::Column::Title),
-                                Order::Desc,
-                            )
+                            .order_by((metadata_alias.clone(), metadata::Column::Title), order_by)
                             .to_owned();
                     }
                     MediaSortBy::LastSeen => {
@@ -2086,10 +2083,6 @@ impl MiscellaneousService {
                             .from(TempSeen::Table)
                             .and_where(Expr::col(TempSeen::UserId).eq(user_id))
                             .and_where(Expr::col(TempReview::MetadataId).is_not_null())
-                            .order_by(
-                                (metadata_alias.clone(), metadata::Column::Title),
-                                Order::Desc,
-                            )
                             .group_by_col(TempSeen::MetadataId)
                             .to_owned();
                         main_select = main_select
@@ -2102,9 +2095,10 @@ impl MiscellaneousService {
                             )
                             .order_by_with_nulls(
                                 (seen_alias.clone(), last_seen),
-                                order_by,
+                                order_by.clone(),
                                 NullOrdering::Last,
                             )
+                            .order_by((metadata_alias.clone(), metadata::Column::Title), order_by)
                             .to_owned();
                     }
                     MediaSortBy::LastUpdated => {
@@ -2147,13 +2141,10 @@ impl MiscellaneousService {
                             .group_by_col((metadata_alias.clone(), TempMetadata::Id))
                             .order_by_expr_with_nulls(
                                 Expr::cust(alias_name),
-                                order_by,
+                                order_by.clone(),
                                 NullOrdering::Last,
                             )
-                            .order_by(
-                                (metadata_alias.clone(), metadata::Column::Title),
-                                Order::Desc,
-                            )
+                            .order_by((metadata_alias.clone(), metadata::Column::Title), order_by)
                             .to_owned();
                     }
                 };
