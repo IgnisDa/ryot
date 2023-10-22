@@ -1992,8 +1992,11 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let meta = UserToEntity::find()
+        let distinct_meta_ids = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::MetadataId)
             .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
             .apply_if(
                 match input.filter.as_ref().and_then(|f| f.general) {
                     Some(MediaGeneralFilter::ExplicitlyMonitored) => Some(true),
@@ -2001,10 +2004,9 @@ impl MiscellaneousService {
                 },
                 |query, v| query.filter(user_to_entity::Column::MetadataMonitored.eq(v)),
             )
+            .into_tuple::<i32>()
             .all(&self.db)
-            .await
-            .unwrap();
-        let distinct_meta_ids = meta.into_iter().map(|m| m.metadata_id).collect_vec();
+            .await;
 
         let metadata_alias = Alias::new("m");
         let seen_alias = Alias::new("s");
@@ -2079,6 +2081,7 @@ impl MiscellaneousService {
                             )
                             .from(TempSeen::Table)
                             .and_where(Expr::col(TempSeen::UserId).eq(user_id))
+                            .and_where(Expr::col(TempReview::MetadataId).is_not_null())
                             .group_by_col(TempSeen::MetadataId)
                             .to_owned();
                         main_select = main_select
@@ -2217,16 +2220,17 @@ impl MiscellaneousService {
                             .to_owned();
                     }
                     MediaGeneralFilter::Unseen => {
+                        let filtered_ids = Seen::find()
+                            .select_only()
+                            .column(seen::Column::MetadataId)
+                            .filter(seen::Column::UserId.eq(user_id))
+                            .into_tuple::<i32>()
+                            .all(&self.db)
+                            .await?;
                         main_select = main_select
-                            .join_as(
-                                JoinType::LeftJoin,
-                                TempReview::Table,
-                                review_alias.clone(),
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                                    .equals((seen_alias.clone(), TempSeen::MetadataId)),
-                            )
                             .and_where(
-                                Expr::col((seen_alias.clone(), TempSeen::MetadataId)).is_null(),
+                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                                    .is_not_in(filtered_ids),
                             )
                             .to_owned();
                     }
