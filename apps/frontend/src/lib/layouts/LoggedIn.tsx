@@ -105,14 +105,14 @@ const Footer = () => {
 						{coreDetails.data.authorName}
 					</Text>
 				</Anchor>
+				<Text c="pink" fw="bold" visibleFrom="md">
+					{coreDetails.data.timezone}
+				</Text>
 				<Anchor href={coreDetails.data.repositoryLink} target="_blank">
 					<Text c="orange" fw="bold">
 						Github
 					</Text>
 				</Anchor>
-				<Text c="pink" fw="bold" visibleFrom="md">
-					{coreDetails.data.timezone}
-				</Text>
 			</Flex>
 		</Stack>
 	) : undefined;
