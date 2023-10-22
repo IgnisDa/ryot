@@ -1,5 +1,17 @@
 
 
+# Version 3.0.10 (2023-10-22)
+
+## Bug Fixes
+
+- **backend:** order-by clause in correct posn
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 3.0.9 (2023-10-22)
 
 
