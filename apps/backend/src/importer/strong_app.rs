@@ -65,7 +65,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
                 distance: entry.distance,
                 reps: entry.reps,
-                weight: entry.weight,
+                weight: entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d }),
             },
             lot: SetLot::Normal,
         });

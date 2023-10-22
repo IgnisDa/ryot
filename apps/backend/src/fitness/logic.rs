@@ -139,10 +139,6 @@ impl UserWorkoutInput {
                 }
             };
             for set in ex.sets.iter_mut() {
-                if matches!(db_ex.lot, ExerciseLot::RepsAndWeight) && set.statistic.weight.is_none()
-                {
-                    set.statistic.weight = Some(dec!(1));
-                }
                 set.translate_units(preferences.unit_system);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
