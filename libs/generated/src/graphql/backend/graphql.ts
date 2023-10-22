@@ -729,7 +729,7 @@ export enum MediaSortBy {
   LastSeen = 'LAST_SEEN',
   LastUpdated = 'LAST_UPDATED',
   Rating = 'RATING',
-  ReleaseDate = 'RELEASE_DATE',
+  ReleaseYear = 'RELEASE_YEAR',
   Title = 'TITLE'
 }
 

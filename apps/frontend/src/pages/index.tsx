@@ -14,7 +14,6 @@ import {
 	Button,
 	Center,
 	Container,
-	Divider,
 	Flex,
 	Paper,
 	RingProgress,
@@ -230,16 +229,6 @@ const Page: NextPageWithLayout = () => {
 		retry: false,
 	});
 
-	const getDivider = (index: number) => {
-		return index <
-			(userPreferences.data?.general.dashboard.filter(
-				(de) => de.hidden === false,
-			).length || 0) -
-				1 ? (
-			<Divider />
-		) : undefined;
-	};
-
 	return userPreferences.data &&
 		latestUserSummary.data &&
 		upcomingMedia.data &&
@@ -281,7 +270,6 @@ const Page: NextPageWithLayout = () => {
 												<UpComingMedia um={um} key={um.calendarEventId} />
 											))}
 										</Grid>
-										{getDivider(index)}
 									</>
 								) : undefined,
 							)
@@ -303,7 +291,6 @@ const Page: NextPageWithLayout = () => {
 												/>
 											))}
 										</Grid>
-										{getDivider(index)}
 									</>
 								) : undefined,
 							)
@@ -531,7 +518,6 @@ const Page: NextPageWithLayout = () => {
 											/>
 										) : undefined}
 									</SimpleGrid>
-									{getDivider(index)}
 								</>
 							))
 							.with([DashboardElementLot.Actions, false], () => (
@@ -584,7 +570,6 @@ const Page: NextPageWithLayout = () => {
 											</Button>
 										) : undefined}
 									</SimpleGrid>
-									{getDivider(index)}
 								</>
 							))
 							.otherwise(() => undefined),

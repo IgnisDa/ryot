@@ -63,20 +63,18 @@ fn get_index_of_highest_pb(
 }
 
 impl UserWorkoutSetRecord {
-    pub fn translate_units(self, unit_type: UserUnitSystem) -> Self {
-        let mut du = self;
+    pub fn translate_units(&mut self, unit_type: UserUnitSystem) {
         match unit_type {
-            UserUnitSystem::Metric => du,
+            UserUnitSystem::Metric => {}
             UserUnitSystem::Imperial => {
-                if let Some(w) = du.statistic.weight.as_mut() {
+                if let Some(w) = self.statistic.weight.as_mut() {
                     *w *= dec!(0.45359);
                 }
-                if let Some(d) = du.statistic.distance.as_mut() {
+                if let Some(d) = self.statistic.distance.as_mut() {
                     *d *= dec!(1.60934);
                 }
-                du
             }
-        }
+        };
     }
 }
 
@@ -89,9 +87,10 @@ impl UserWorkoutInput {
         id: String,
         preferences: UserExercisePreferences,
     ) -> Result<String> {
+        let mut input = self;
         let mut exercises = vec![];
         let mut workout_totals = vec![];
-        for (idx, ex) in self.exercises.into_iter().enumerate() {
+        for (idx, ex) in input.exercises.iter_mut().enumerate() {
             let db_ex = match Exercise::find_by_id(ex.exercise_id).one(db).await? {
                 None => {
                     tracing::error!("Exercise with id = {} not found", ex.exercise_id);
@@ -139,8 +138,8 @@ impl UserWorkoutInput {
                     up.update(db).await?
                 }
             };
-            for set in ex.sets {
-                let set = set.clone().translate_units(preferences.unit_system);
+            for set in ex.sets.iter_mut() {
+                set.translate_units(preferences.unit_system);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
@@ -154,7 +153,7 @@ impl UserWorkoutInput {
                     total.distance += d;
                 }
                 sets.push(WorkoutSetRecord {
-                    statistic: set.statistic,
+                    statistic: set.statistic.clone(),
                     lot: set.lot,
                     personal_bests: vec![],
                 });
@@ -231,9 +230,9 @@ impl UserWorkoutInput {
                     name: db_ex.name,
                     lot: db_ex.lot,
                     sets,
-                    notes: ex.notes,
+                    notes: ex.notes.clone(),
                     rest_time: ex.rest_time,
-                    assets: ex.assets,
+                    assets: ex.assets.clone(),
                     total,
                 },
             ));
@@ -241,11 +240,11 @@ impl UserWorkoutInput {
         let summary_total = workout_totals.into_iter().sum();
         let model = workout::Model {
             id,
-            start_time: self.start_time,
-            end_time: self.end_time,
+            start_time: input.start_time,
+            end_time: input.end_time,
             user_id,
-            name: self.name,
-            comment: self.comment,
+            name: input.name,
+            comment: input.comment,
             summary: WorkoutSummary {
                 total: summary_total,
                 exercises: exercises
@@ -259,8 +258,8 @@ impl UserWorkoutInput {
                     .collect(),
             },
             information: WorkoutInformation {
-                supersets: self.supersets,
-                assets: self.assets,
+                supersets: input.supersets,
+                assets: input.assets.clone(),
                 exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
             },
         };
