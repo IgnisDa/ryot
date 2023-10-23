@@ -259,7 +259,7 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Alert>
 					) : undefined}
-					{userPreferences.data.general.dashboard.map((de, index) =>
+					{userPreferences.data.general.dashboard.map((de) =>
 						match([de.section, de.hidden])
 							.with([DashboardElementLot.Upcoming, false], () =>
 								upcomingMedia.data.length > 0 ? (
