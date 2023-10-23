@@ -20,7 +20,7 @@ use crate::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
         UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
         UserWorkoutSetRecord, WorkoutInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
-        WorkoutSummary, WorkoutSummaryExercise, WorkoutTotalMeasurement,
+        WorkoutSetStatistic, WorkoutSummary, WorkoutSummaryExercise, WorkoutTotalMeasurement,
     },
     users::{UserExercisePreferences, UserUnitSystem},
 };
@@ -75,6 +75,25 @@ impl UserWorkoutSetRecord {
                 }
             }
         };
+    }
+
+    /// Set the invalid statistics to `None` according to the type of exercise.
+    pub fn remove_invalids(&mut self, exercise_lot: &ExerciseLot) {
+        let mut stats = WorkoutSetStatistic {
+            ..Default::default()
+        };
+        match exercise_lot {
+            ExerciseLot::Duration => stats.duration = self.statistic.duration,
+            ExerciseLot::DistanceAndDuration => {
+                stats.distance = self.statistic.distance;
+                stats.duration = self.statistic.duration;
+            }
+            ExerciseLot::RepsAndWeight => {
+                stats.reps = self.statistic.reps;
+                stats.weight = self.statistic.weight;
+            }
+        }
+        self.statistic = stats;
     }
 }
 
@@ -140,6 +159,7 @@ impl UserWorkoutInput {
             };
             for set in ex.sets.iter_mut() {
                 set.translate_units(preferences.unit_system);
+                set.remove_invalids(&db_ex.lot);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
