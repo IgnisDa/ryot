@@ -49,6 +49,8 @@ import {
 	type DeleteMediaReminderMutationVariables,
 	DeleteSeenItemDocument,
 	type DeleteSeenItemMutationVariables,
+	DeployBulkProgressUpdateDocument,
+	type DeployBulkProgressUpdateMutationVariables,
 	DeployUpdateMetadataJobDocument,
 	type DeployUpdateMetadataJobMutationVariables,
 	EntityLot,
@@ -59,8 +61,6 @@ import {
 	MetadataLot,
 	MetadataSource,
 	MetadataVideoSource,
-	ProgressUpdateDocument,
-	type ProgressUpdateMutationVariables,
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
@@ -117,16 +117,20 @@ const ProgressModal = (props: {
 }) => {
 	const [value, setValue] = useState(props.progress);
 	const progressUpdate = useMutation({
-		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
-			const { progressUpdate } = await gqlClient.request(
-				ProgressUpdateDocument,
+		mutationFn: async (
+			variables: DeployBulkProgressUpdateMutationVariables,
+		) => {
+			const { deployBulkProgressUpdate } = await gqlClient.request(
+				DeployBulkProgressUpdateDocument,
 				variables,
 			);
-			return progressUpdate;
+			return deployBulkProgressUpdate;
 		},
 		onSuccess: () => {
-			props.refetch();
 			props.onClose();
+			setTimeout(() => {
+				props.refetch();
+			}, 1000);
 		},
 	});
 
@@ -196,11 +200,13 @@ const ProgressModal = (props: {
 					variant="outline"
 					onClick={async () => {
 						await progressUpdate.mutateAsync({
-							input: {
-								progress: value,
-								metadataId: props.metadataId,
-								date: DateTime.now().toISODate(),
-							},
+							input: [
+								{
+									progress: value,
+									metadataId: props.metadataId,
+									date: DateTime.now().toISODate(),
+								},
+							],
 						});
 					}}
 				>
@@ -447,15 +453,19 @@ const Page: NextPageWithLayout = () => {
 		enabled: !!metadataId,
 	});
 	const progressUpdate = useMutation({
-		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
-			const { progressUpdate } = await gqlClient.request(
-				ProgressUpdateDocument,
+		mutationFn: async (
+			variables: DeployBulkProgressUpdateMutationVariables,
+		) => {
+			const { deployBulkProgressUpdate } = await gqlClient.request(
+				DeployBulkProgressUpdateDocument,
 				variables,
 			);
-			return progressUpdate;
+			return deployBulkProgressUpdate;
 		},
 		onSuccess: () => {
-			userMediaDetails.refetch();
+			setTimeout(() => {
+				userMediaDetails.refetch();
+			}, 1000);
 		},
 	});
 	const deleteMediaReminder = useMutation({
@@ -533,10 +543,12 @@ const Page: NextPageWithLayout = () => {
 			<Menu.Item
 				onClick={() => {
 					progressUpdate.mutate({
-						input: {
-							metadataId: metadataId,
-							changeState: SeenState.OnAHold,
-						},
+						input: [
+							{
+								metadataId: metadataId,
+								changeState: SeenState.OnAHold,
+							},
+						],
 					});
 				}}
 			>
@@ -554,10 +566,12 @@ const Page: NextPageWithLayout = () => {
 					);
 					if (yes)
 						progressUpdate.mutate({
-							input: {
-								metadataId: metadataId,
-								changeState: SeenState.Dropped,
-							},
+							input: [
+								{
+									metadataId: metadataId,
+									changeState: SeenState.Dropped,
+								},
+							],
 						});
 				}}
 			>
@@ -1034,11 +1048,13 @@ const Page: NextPageWithLayout = () => {
 													<Menu.Item
 														onClick={async () => {
 															await progressUpdate.mutateAsync({
-																input: {
-																	progress: 100,
-																	metadataId: metadataId,
-																	date: DateTime.now().toISODate(),
-																},
+																input: [
+																	{
+																		progress: 100,
+																		metadataId: metadataId,
+																		date: DateTime.now().toISODate(),
+																	},
+																],
 															});
 														}}
 													>
@@ -1061,10 +1077,12 @@ const Page: NextPageWithLayout = () => {
 													<Menu.Item
 														onClick={async () => {
 															await progressUpdate.mutateAsync({
-																input: {
-																	metadataId: metadataId,
-																	progress: 0,
-																},
+																input: [
+																	{
+																		metadataId: metadataId,
+																		progress: 0,
+																	},
+																],
 															});
 														}}
 													>

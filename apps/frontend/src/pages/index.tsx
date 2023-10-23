@@ -179,9 +179,9 @@ const DisplayStatForMediaType = (props: {
 	) : undefined;
 };
 
-const Section = (props: {children: JSX.Element[]}) => {
-	return <Stack gap="sm">{props.children}</Stack>
-}
+const Section = (props: { children: JSX.Element[] }) => {
+	return <Stack gap="sm">{props.children}</Stack>;
+};
 
 const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();

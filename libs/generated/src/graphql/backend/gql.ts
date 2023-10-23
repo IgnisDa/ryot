@@ -45,7 +45,6 @@ const documents = {
     "mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {\n  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)\n}": types.MergeMetadataDocument,
     "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
     "mutation PresignedPutS3Url($fileName: String!) {\n  presignedPutS3Url(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}": types.PresignedPutS3UrlDocument,
-    "mutation ProgressUpdate($input: ProgressUpdateInput!) {\n  progressUpdate(input: $input) {\n    ... on IdObject {\n      id\n    }\n    ... on ProgressUpdateError {\n      error\n    }\n  }\n}": types.ProgressUpdateDocument,
     "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
     "mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}": types.RemoveEntityFromCollectionDocument,
@@ -235,10 +234,6 @@ export function graphql(source: "mutation PostReview($input: PostReviewInput!) {
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation PresignedPutS3Url($fileName: String!) {\n  presignedPutS3Url(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"): (typeof documents)["mutation PresignedPutS3Url($fileName: String!) {\n  presignedPutS3Url(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "mutation ProgressUpdate($input: ProgressUpdateInput!) {\n  progressUpdate(input: $input) {\n    ... on IdObject {\n      id\n    }\n    ... on ProgressUpdateError {\n      error\n    }\n  }\n}"): (typeof documents)["mutation ProgressUpdate($input: ProgressUpdateInput!) {\n  progressUpdate(input: $input) {\n    ... on IdObject {\n      id\n    }\n    ... on ProgressUpdateError {\n      error\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

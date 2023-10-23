@@ -1220,6 +1220,7 @@ pub mod fitness {
         SimpleObject,
         InputObject,
         Schematic,
+        Default,
     )]
     #[graphql(input_name = "SetStatisticInput")]
     pub struct WorkoutSetStatistic {

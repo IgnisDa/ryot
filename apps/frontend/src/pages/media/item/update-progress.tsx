@@ -10,20 +10,16 @@ import {
 	Checkbox,
 	Container,
 	Group,
-	LoadingOverlay,
 	Select,
 	Stack,
 	Title,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
-import { notifications } from "@mantine/notifications";
 import {
 	DeployBulkProgressUpdateDocument,
 	MediaAdditionalDetailsDocument,
-	MetadataLot,
-	ProgressUpdateDocument,
-	type ProgressUpdateMutationVariables,
+	type ProgressUpdateInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -66,41 +62,45 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 	const progressUpdate = useMutation({
-		mutationFn: async (variables: ProgressUpdateMutationVariables) => {
+		mutationFn: async (variables: ProgressUpdateInput) => {
+			let needsFinalUpdate = true;
 			const updates = [];
 			if (completeShow) {
 				for (const season of mediaSpecifics.data?.showSpecifics?.seasons ||
 					[]) {
 					for (const episode of season.episodes) {
 						updates.push({
-							...variables.input,
+							...variables,
 							showSeasonNumber: season.seasonNumber,
 							showEpisodeNumber: episode.episodeNumber,
 						});
 					}
 				}
+				needsFinalUpdate = true;
 			}
 			if (completePodcast) {
 				for (const episode of mediaSpecifics.data?.podcastSpecifics?.episodes ||
 					[]) {
 					updates.push({
-						...variables.input,
+						...variables,
 						podcastEpisodeNumber: episode.number,
 					});
 				}
+				needsFinalUpdate = true;
 			}
 			if (onlySeason) {
 				const selectedSeason = mediaSpecifics.data?.showSpecifics?.seasons.find(
 					(s) => s.seasonNumber.toString() === selectedShowSeasonNumber,
 				);
 				invariant(selectedSeason, "No season selected");
+				needsFinalUpdate = true;
 				if (allSeasonsBefore) {
 					for (const season of mediaSpecifics.data?.showSpecifics?.seasons ||
 						[]) {
 						if (season.seasonNumber > selectedSeason.seasonNumber) break;
 						for (const episode of season.episodes || []) {
 							updates.push({
-								...variables.input,
+								...variables,
 								showSeasonNumber: season.seasonNumber,
 								showEpisodeNumber: episode.episodeNumber,
 							});
@@ -109,32 +109,17 @@ const Page: NextPageWithLayout = () => {
 				} else {
 					for (const episode of selectedSeason?.episodes || []) {
 						updates.push({
-							...variables.input,
+							...variables,
 							showEpisodeNumber: episode.episodeNumber,
 						});
 					}
 				}
 			}
-			if (updates.length > 0) {
-				await gqlClient.request(DeployBulkProgressUpdateDocument, {
-					input: updates,
-				});
-				return true;
-			}
-			if (
-				(mediaSpecifics.data?.lot === MetadataLot.Show &&
-					(!selectedShowEpisodeNumber || !selectedShowSeasonNumber)) ||
-				(mediaSpecifics.data?.lot === MetadataLot.Podcast &&
-					!selectedPodcastEpisodeNumber)
-			) {
-				notifications.show({ message: "Please select a season and episode" });
-				return false;
-			}
-			const { progressUpdate } = await gqlClient.request(
-				ProgressUpdateDocument,
-				variables,
-			);
-			return progressUpdate;
+			if (needsFinalUpdate) updates.push(variables);
+			await gqlClient.request(DeployBulkProgressUpdateDocument, {
+				input: updates,
+			});
+			return true;
 		},
 		onSuccess: (data) => {
 			if (data) {
@@ -165,11 +150,7 @@ const Page: NextPageWithLayout = () => {
 				<title>Update Progress | Ryot</title>
 			</Head>
 			<Container size="xs">
-				<Stack pos="relative" p="sm">
-					<LoadingOverlay
-						visible={progressUpdate.isPending}
-						overlayProps={{ blur: 2, radius: "md" }}
-					/>
+				<Stack p="sm">
 					<Title>{title}</Title>
 					{mediaSpecifics.data.showSpecifics ? (
 						<>
@@ -255,10 +236,8 @@ const Page: NextPageWithLayout = () => {
 						variant="outline"
 						onClick={async () => {
 							await progressUpdate.mutateAsync({
-								input: {
-									...mutationInput,
-									date: DateTime.now().toISODate(),
-								},
+								...mutationInput,
+								date: DateTime.now().toISODate(),
 							});
 						}}
 					>
@@ -267,7 +246,7 @@ const Page: NextPageWithLayout = () => {
 					<Button
 						variant="outline"
 						onClick={async () => {
-							await progressUpdate.mutateAsync({ input: mutationInput });
+							await progressUpdate.mutateAsync(mutationInput);
 						}}
 					>
 						I do not remember
@@ -285,10 +264,8 @@ const Page: NextPageWithLayout = () => {
 							onClick={async () => {
 								if (selectedDate)
 									await progressUpdate.mutateAsync({
-										input: {
-											...mutationInput,
-											date: DateTime.fromJSDate(selectedDate).toISODate(),
-										},
+										...mutationInput,
+										date: DateTime.fromJSDate(selectedDate).toISODate(),
 									});
 							}}
 						>
