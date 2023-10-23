@@ -2319,16 +2319,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@biomejs/biome@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@biomejs/biome@npm:1.2.2"
+"@biomejs/biome@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@biomejs/biome@npm:1.3.1"
   dependencies:
-    "@biomejs/cli-darwin-arm64": 1.2.2
-    "@biomejs/cli-darwin-x64": 1.2.2
-    "@biomejs/cli-linux-arm64": 1.2.2
-    "@biomejs/cli-linux-x64": 1.2.2
-    "@biomejs/cli-win32-arm64": 1.2.2
-    "@biomejs/cli-win32-x64": 1.2.2
+    "@biomejs/cli-darwin-arm64": 1.3.1
+    "@biomejs/cli-darwin-x64": 1.3.1
+    "@biomejs/cli-linux-arm64": 1.3.1
+    "@biomejs/cli-linux-x64": 1.3.1
+    "@biomejs/cli-win32-arm64": 1.3.1
+    "@biomejs/cli-win32-x64": 1.3.1
   dependenciesMeta:
     "@biomejs/cli-darwin-arm64":
       optional: true
@@ -2344,48 +2344,48 @@ __metadata:
       optional: true
   bin:
     biome: bin/biome
-  checksum: 36dfcc756c53e22a5f6b5819ebb261b02acaa4df2832ef00e231bf73d4707121d0acdefa81f12523beb09a7b363676ca8fe719873932794d2e92130c3a41908c
+  checksum: d650ab977b3b4cb53105f528f89e4e92f92fb89ffe0ec18629c2061858540ac3f294b507231d6ef19314c22df818e06690629186e739312964b32c54151ee1b5
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-arm64@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@biomejs/cli-darwin-arm64@npm:1.2.2"
+"@biomejs/cli-darwin-arm64@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@biomejs/cli-darwin-arm64@npm:1.3.1"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-x64@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@biomejs/cli-darwin-x64@npm:1.2.2"
+"@biomejs/cli-darwin-x64@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@biomejs/cli-darwin-x64@npm:1.3.1"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-arm64@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@biomejs/cli-linux-arm64@npm:1.2.2"
+"@biomejs/cli-linux-arm64@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@biomejs/cli-linux-arm64@npm:1.3.1"
   conditions: os=linux & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-x64@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@biomejs/cli-linux-x64@npm:1.2.2"
+"@biomejs/cli-linux-x64@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@biomejs/cli-linux-x64@npm:1.3.1"
   conditions: os=linux & cpu=x64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-arm64@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@biomejs/cli-win32-arm64@npm:1.2.2"
+"@biomejs/cli-win32-arm64@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@biomejs/cli-win32-arm64@npm:1.3.1"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-x64@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@biomejs/cli-win32-x64@npm:1.2.2"
+"@biomejs/cli-win32-x64@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@biomejs/cli-win32-x64@npm:1.3.1"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -3360,21 +3360,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mantine/carousel@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/carousel@npm:7.1.3"
+"@mantine/carousel@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/carousel@npm:7.1.5"
   peerDependencies:
-    "@mantine/core": 7.1.3
-    "@mantine/hooks": 7.1.3
+    "@mantine/core": 7.1.5
+    "@mantine/hooks": 7.1.5
     embla-carousel-react: ^7.0.0
     react: ^18.2.0
-  checksum: 731fbb33dab89400fd719c74546a671de1a8033828e17bd313a66290871d0be4027e8e1ff124450da4b8419982d57df500ba23c97a04e7d34b69546fad377a29
+  checksum: c0312dad2e3be861a761224a964a8b1e5597ae155291ede0d6c3958d0ec480503b23f1edc83e5c7eaec7e6217c15c1fd7e5c85f6183e2e8531d087efad42c01a
   languageName: node
   linkType: hard
 
-"@mantine/core@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/core@npm:7.1.3"
+"@mantine/core@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/core@npm:7.1.5"
   dependencies:
     "@floating-ui/react": ^0.24.8
     clsx: 2.0.0
@@ -3383,82 +3383,82 @@ __metadata:
     react-textarea-autosize: 8.5.3
     type-fest: ^3.13.1
   peerDependencies:
-    "@mantine/hooks": 7.1.3
+    "@mantine/hooks": 7.1.5
     react: ^18.2.0
     react-dom: ^18.2.0
-  checksum: a84a4e413fe198d4d4f28a36bb1460da8528475519d0e515c2ae14e8158247c5ce95500cf1d3ff0e6c1b9609ba37e4e79102e68d752969bb67811871f9d92e0e
+  checksum: 95a8ea0d9cfe01cbccf19298da632b5fb241fd8fc3dccf4d1bddc491eeffd5158089552a1c9d4ef94797aa780873401f004795e29c0fc5c515fb07ac848607d3
   languageName: node
   linkType: hard
 
-"@mantine/dates@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/dates@npm:7.1.3"
+"@mantine/dates@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/dates@npm:7.1.5"
   dependencies:
     clsx: 2.0.0
   peerDependencies:
-    "@mantine/core": 7.1.3
-    "@mantine/hooks": 7.1.3
+    "@mantine/core": 7.1.5
+    "@mantine/hooks": 7.1.5
     dayjs: ^1.10.5
     react: ^18.2.0
     react-dom: ^18.2.0
-  checksum: 5e793dfe49def3c7d5d2a1a079b99571efb49afe57a89b7afdc5ee3cdba663ed5f4fc2e6381726c92742f4b41253be801a676cea6451cdf35d0b98e406ab3b71
+  checksum: 61a110b06b5b79e2b5cb40047b0475abcee208ffe637fbd44d71ab8f60a7133c25d539e4e8cfed7d66f8b673cbf29be4b9b60da4838f212c34e9ef829baa8119
   languageName: node
   linkType: hard
 
-"@mantine/form@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/form@npm:7.1.3"
+"@mantine/form@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/form@npm:7.1.5"
   dependencies:
     fast-deep-equal: ^3.1.3
     klona: ^2.0.5
   peerDependencies:
     react: ^18.2.0
-  checksum: eba9e458eeb1493b16f4f914a9fd3b1f728e74a557dfffe018c73f6aca361e8333be269265189254820c7d40b80381cdfba0f317c6e7185ce727d4519e26e34f
+  checksum: c88b128e8e18a316cd89c359ec5aa821ea2b331213d9702cf8d36046a724683815328168212dc1f46184ec794190d1b3d9d80bcc13b597b6290c05b0da9a576d
   languageName: node
   linkType: hard
 
-"@mantine/hooks@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/hooks@npm:7.1.3"
+"@mantine/hooks@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/hooks@npm:7.1.5"
   peerDependencies:
     react: ^18.2.0
-  checksum: 387f7dd5f9c9cff03d704e0e7bb53447e9592e570f9cc5c9a6d64072fb834d4f814f0e30b590363b9efd1701ce05506c7ab0e44aaa3bc5458b2f7123a0ca0d20
+  checksum: f9b7d20fde7699b41456dbee63e9bca8443043beffacd437ce7a8d7ccc0e1912ed5fbb9f38e634efc3c58586d25b094a793c413c0f3dfdb127e4b890a87e7b39
   languageName: node
   linkType: hard
 
-"@mantine/modals@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/modals@npm:7.1.3"
+"@mantine/modals@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/modals@npm:7.1.5"
   peerDependencies:
-    "@mantine/core": 7.1.3
-    "@mantine/hooks": 7.1.3
+    "@mantine/core": 7.1.5
+    "@mantine/hooks": 7.1.5
     react: ^18.2.0
     react-dom: ^18.2.0
-  checksum: be2f868a46e8bc087bbb215ecfe36fccdcd3f0b26801294d7203f39d792ce15761d0fe5440466049cc192f5f56419a557c6b08482b7fd4617a6b0a095a74680a
+  checksum: af3b98ec1b20e2feac8398335041cd10d33bb3d89c5db00a29a10e8952babad7c5dbdc77873fc40fef786c111cbecb31687c0e07ea48f9e694422d9499cdb558
   languageName: node
   linkType: hard
 
-"@mantine/notifications@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/notifications@npm:7.1.3"
+"@mantine/notifications@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/notifications@npm:7.1.5"
   dependencies:
-    "@mantine/store": 7.1.3
+    "@mantine/store": 7.1.5
     react-transition-group: 4.4.5
   peerDependencies:
-    "@mantine/core": 7.1.3
-    "@mantine/hooks": 7.1.3
+    "@mantine/core": 7.1.5
+    "@mantine/hooks": 7.1.5
     react: ^18.2.0
     react-dom: ^18.2.0
-  checksum: bd55bb6cdab48a27a7851536e4163ed138c1a8662132f1f1e28cda3127206eb6a3f688c1a7236375b7890ae4e820bf0f35bf4f7a45d4d7c365be04b567d03f28
+  checksum: 92ae777a3666a01bf7e3b05cc1ceedba34099355502a8d04c9687992284417e209069f4ab49c6ecffd73026f30b165d70db0b22025600e83a7d4609f4b7a2538
   languageName: node
   linkType: hard
 
-"@mantine/store@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mantine/store@npm:7.1.3"
+"@mantine/store@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@mantine/store@npm:7.1.5"
   peerDependencies:
     react: ^18.2.0
-  checksum: df26c1fdc2bfbaffb05ee0ba57e3951ec4ebf18a89daf81db1f41d4379158312dd266b899eeb37dd151adbd2b03284dc47c6c12b381708fae91e03151f119274
+  checksum: da4e4c5b95030145f1c3ec1e2a0ebdde969010570c66f1d6913ed041de3aaed23e7942efc6414de79e95aede419cb4959bb9e7c55d582f488c36c596031ae2ca
   languageName: node
   linkType: hard
 
@@ -3515,72 +3515,72 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@next/env@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/env@npm:13.5.5"
-  checksum: 4e3a92f2bd60189d81eb0437bf8141de26dec371edc125553c2d93b1de4c40ce99e8c81f60d8450961fab5c8880a6bcfccd23d9ef9c86aceab2f5380776def9f
+"@next/env@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/env@npm:13.5.6"
+  checksum: 5e8f3f6f987a15dad3cd7b2bcac64a6382c2ec372d95d0ce6ab295eb59c9731222017eebf71ff3005932de2571f7543bce7e5c6a8c90030207fb819404138dc2
   languageName: node
   linkType: hard
 
-"@next/swc-darwin-arm64@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-darwin-arm64@npm:13.5.5"
+"@next/swc-darwin-arm64@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-darwin-arm64@npm:13.5.6"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@next/swc-darwin-x64@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-darwin-x64@npm:13.5.5"
+"@next/swc-darwin-x64@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-darwin-x64@npm:13.5.6"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@next/swc-linux-arm64-gnu@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-linux-arm64-gnu@npm:13.5.5"
+"@next/swc-linux-arm64-gnu@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-linux-arm64-gnu@npm:13.5.6"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@next/swc-linux-arm64-musl@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-linux-arm64-musl@npm:13.5.5"
+"@next/swc-linux-arm64-musl@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-linux-arm64-musl@npm:13.5.6"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@next/swc-linux-x64-gnu@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-linux-x64-gnu@npm:13.5.5"
+"@next/swc-linux-x64-gnu@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-linux-x64-gnu@npm:13.5.6"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@next/swc-linux-x64-musl@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-linux-x64-musl@npm:13.5.5"
+"@next/swc-linux-x64-musl@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-linux-x64-musl@npm:13.5.6"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@next/swc-win32-arm64-msvc@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-win32-arm64-msvc@npm:13.5.5"
+"@next/swc-win32-arm64-msvc@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-win32-arm64-msvc@npm:13.5.6"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@next/swc-win32-ia32-msvc@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-win32-ia32-msvc@npm:13.5.5"
+"@next/swc-win32-ia32-msvc@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-win32-ia32-msvc@npm:13.5.6"
   conditions: os=win32 & cpu=ia32
   languageName: node
   linkType: hard
 
-"@next/swc-win32-x64-msvc@npm:13.5.5":
-  version: 13.5.5
-  resolution: "@next/swc-win32-x64-msvc@npm:13.5.5"
+"@next/swc-win32-x64-msvc@npm:13.5.6":
+  version: 13.5.6
+  resolution: "@next/swc-win32-x64-msvc@npm:13.5.6"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -5176,8 +5176,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/browser-extension@workspace:apps/browser-extension"
   dependencies:
-    "@types/chrome": 0.0.247
-    "@types/node": 20.8.6
+    "@types/chrome": 0.0.248
+    "@types/node": 20.8.7
     plasmo: 0.83.0
   languageName: unknown
   linkType: soft
@@ -5187,22 +5187,22 @@ __metadata:
   resolution: "@ryot/frontend@workspace:apps/frontend"
   dependencies:
     "@hello-pangea/dnd": 16.3.0
-    "@mantine/carousel": 7.1.3
-    "@mantine/core": 7.1.3
-    "@mantine/dates": 7.1.3
-    "@mantine/form": 7.1.3
-    "@mantine/hooks": 7.1.3
-    "@mantine/modals": 7.1.3
-    "@mantine/notifications": 7.1.3
+    "@mantine/carousel": 7.1.5
+    "@mantine/core": 7.1.5
+    "@mantine/dates": 7.1.5
+    "@mantine/form": 7.1.5
+    "@mantine/hooks": 7.1.5
+    "@mantine/modals": 7.1.5
+    "@mantine/notifications": 7.1.5
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": 2.39.0
     "@tanstack/react-query": 5.0.0
-    "@types/luxon": 3.3.2
-    "@types/node": 20.8.6
-    "@types/react": 18.2.28
-    "@types/react-dom": 18.2.13
+    "@types/luxon": 3.3.3
+    "@types/node": 20.8.7
+    "@types/react": 18.2.31
+    "@types/react-dom": 18.2.14
     clsx: 2.0.0
     csv-parse: 5.5.2
     dayjs: 1.11.10
@@ -5212,7 +5212,7 @@ __metadata:
     immer: 10.0.3
     jotai: 2.4.3
     luxon: 3.4.3
-    next: 13.5.5
+    next: 13.5.6
     next-pwa: 5.6.0
     next-seo: 6.1.0
     postcss: 8.4.31
@@ -5258,7 +5258,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/root@workspace:."
   dependencies:
-    "@biomejs/biome": 1.2.2
+    "@biomejs/biome": 1.3.1
     tsconfig-moon: 1.3.0
     typescript: 5.2.2
   languageName: unknown
@@ -5268,7 +5268,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
-    "@types/lodash": 4.14.199
+    "@types/lodash": 4.14.200
     javascript-time-ago: 2.5.9
     lodash: 4.17.21
   languageName: unknown
@@ -5746,13 +5746,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chrome@npm:0.0.247":
-  version: 0.0.247
-  resolution: "@types/chrome@npm:0.0.247"
+"@types/chrome@npm:0.0.248":
+  version: 0.0.248
+  resolution: "@types/chrome@npm:0.0.248"
   dependencies:
     "@types/filesystem": "*"
     "@types/har-format": "*"
-  checksum: c3fecadc7c319f0f11d55984d1c27e08fb8363e01b414259ddc7203ce34c060e4e3faeb6c60bc3b23aeff3e56acf7e2c1e226faa3c24440a9a81b7c62b9c3042
+  checksum: 3e3c193af1ee46e753d02367ba1e4e0800f8a7784ed47fa5906b6874a28c14475346235490bc92d6575e8d8c2622d11210a7c5cfe832be2d341f8ec601c5cfb1
   languageName: node
   linkType: hard
 
@@ -5917,17 +5917,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/lodash@npm:4.14.199":
-  version: 4.14.199
-  resolution: "@types/lodash@npm:4.14.199"
-  checksum: e68d1fcbbfce953ed87b296a628573f62939227bcda0c934954e862b421e8a34c5e71cad6fea27b9980567909e6a4698f09025692958e36d64ea9ed99ec6fb2e
+"@types/lodash@npm:4.14.200":
+  version: 4.14.200
+  resolution: "@types/lodash@npm:4.14.200"
+  checksum: 6471f8bb5da692a6ecf03a8da4935bfbc341e67ee9bcb4f5730bfacff0c367232548f0a01e8ac5ea18c6fe78fb085d502494e33ccb47a7ee87cbdee03b47d00d
   languageName: node
   linkType: hard
 
-"@types/luxon@npm:3.3.2":
-  version: 3.3.2
-  resolution: "@types/luxon@npm:3.3.2"
-  checksum: b9111132720eae0269538872a5a496b29587ecfc8edc3b0ff7d269aa93a5ff00a131b23d1e9d1f12ec39f2c779ad21bd8d9f90b122c85a182771aabde7f676b8
+"@types/luxon@npm:3.3.3":
+  version: 3.3.3
+  resolution: "@types/luxon@npm:3.3.3"
+  checksum: 072dd39eea3f63453788fab2fcfc83eb33917afcaffe178ce08ecd8b016824b8ab3bfa991f66266f2fc1927768a56b4334945f2eb1d83638e325c0c43d7d0e86
   languageName: node
   linkType: hard
 
@@ -5945,12 +5945,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:20.8.6":
-  version: 20.8.6
-  resolution: "@types/node@npm:20.8.6"
+"@types/node@npm:20.8.7":
+  version: 20.8.7
+  resolution: "@types/node@npm:20.8.7"
   dependencies:
     undici-types: ~5.25.1
-  checksum: ccfb7ac482c5a96edeb239893c5c099f5257fcc2ed9ae62fefdfbc782b79e16dbc2af9a85b379665237bf759904b44ca2be68e75d239e0297882aad42f61905c
+  checksum: 2173c0c03daefcb60c03a61b1371b28c8fe412e7a40dc6646458b809d14a85fbc7aeb369d957d57f0aaaafd99964e77436f29b3b579232d8f2b20c58abbd1d25
   languageName: node
   linkType: hard
 
@@ -5986,12 +5986,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:18.2.13":
-  version: 18.2.13
-  resolution: "@types/react-dom@npm:18.2.13"
+"@types/react-dom@npm:18.2.14":
+  version: 18.2.14
+  resolution: "@types/react-dom@npm:18.2.14"
   dependencies:
     "@types/react": "*"
-  checksum: 22ba066b141dca5a5a9227fae0afc7c94b470fff8e8a38ade72649da57a8ea04d0cb2ba3e22005e7d8e772d49bddd28855b1dd98e6defd033bba6afb6edff883
+  checksum: 890289c70d1966c168037637c09cacefe6205bdd27a33252144a6b432595a2943775ac1a1accac0beddaeb67f8fdf721e076acb1adc990b08e51c3d9fd4e780c
   languageName: node
   linkType: hard
 
@@ -6006,14 +6006,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:18.2.28":
-  version: 18.2.28
-  resolution: "@types/react@npm:18.2.28"
+"@types/react@npm:18.2.31":
+  version: 18.2.31
+  resolution: "@types/react@npm:18.2.31"
   dependencies:
     "@types/prop-types": "*"
     "@types/scheduler": "*"
     csstype: ^3.0.2
-  checksum: 81381bedeba83278f4c9febb0b83e0bd3f42a25897a50b9cb36ef53651d34b3d50f87ebf11211ea57ea575131f85d31e93e496ce46478a00b0f9bf7b26b5917a
+  checksum: b11be8e39174d3303e308461400889e353e422d22b01d09795b2c35b7b99d5351716503d9ec5c58e4c2c871249603fa52840d45a34fb5901dd7a26e06129c716
   languageName: node
   linkType: hard
 
@@ -10860,20 +10860,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next@npm:13.5.5":
-  version: 13.5.5
-  resolution: "next@npm:13.5.5"
+"next@npm:13.5.6":
+  version: 13.5.6
+  resolution: "next@npm:13.5.6"
   dependencies:
-    "@next/env": 13.5.5
-    "@next/swc-darwin-arm64": 13.5.5
-    "@next/swc-darwin-x64": 13.5.5
-    "@next/swc-linux-arm64-gnu": 13.5.5
-    "@next/swc-linux-arm64-musl": 13.5.5
-    "@next/swc-linux-x64-gnu": 13.5.5
-    "@next/swc-linux-x64-musl": 13.5.5
-    "@next/swc-win32-arm64-msvc": 13.5.5
-    "@next/swc-win32-ia32-msvc": 13.5.5
-    "@next/swc-win32-x64-msvc": 13.5.5
+    "@next/env": 13.5.6
+    "@next/swc-darwin-arm64": 13.5.6
+    "@next/swc-darwin-x64": 13.5.6
+    "@next/swc-linux-arm64-gnu": 13.5.6
+    "@next/swc-linux-arm64-musl": 13.5.6
+    "@next/swc-linux-x64-gnu": 13.5.6
+    "@next/swc-linux-x64-musl": 13.5.6
+    "@next/swc-win32-arm64-msvc": 13.5.6
+    "@next/swc-win32-ia32-msvc": 13.5.6
+    "@next/swc-win32-x64-msvc": 13.5.6
     "@swc/helpers": 0.5.2
     busboy: 1.6.0
     caniuse-lite: ^1.0.30001406
@@ -10911,7 +10911,7 @@ __metadata:
       optional: true
   bin:
     next: dist/bin/next
-  checksum: 034a52cf9a5df79912ad67467e00ab98e6505a7544514a12d6310d67fea760764f6b04ade344d457aadecb6170dd50eb0709346fd97a9e6659fcabd5e510fb97
+  checksum: c869b0014ae921ada3bf22301985027ec320aebcd6aa9c16e8afbded68bb8def5874cca034c680e8c351a79578f1e514971d02777f6f0a5a1d7290f25970ac0d
   languageName: node
   linkType: hard
 
