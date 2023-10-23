@@ -1034,17 +1034,6 @@ impl MiscellaneousMutation {
         service.create_custom_media(input, user_id).await
     }
 
-    /// Mark a user's progress on a specific media item.
-    async fn progress_update(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: ProgressUpdateInput,
-    ) -> Result<ProgressUpdateResultUnion> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.progress_update(input, user_id).await
-    }
-
     /// Deploy job to update progress of media items in bulk.
     async fn deploy_bulk_progress_update(
         &self,
