@@ -13,7 +13,7 @@
     "plasmo": "0.83.0"
   },
   "devDependencies": {
-    "@types/chrome": "0.0.247",
-    "@types/node": "20.8.6"
+    "@types/chrome": "0.0.248",
+    "@types/node": "20.8.7"
   }
 }

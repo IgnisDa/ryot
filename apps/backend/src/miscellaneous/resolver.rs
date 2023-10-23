@@ -23,7 +23,7 @@ use database::{
     UserToEntity as TempUserToMetadata, Visibility,
 };
 use enum_meta::Meta;
-use futures::{future::join_all, TryStreamExt};
+use futures::TryStreamExt;
 use harsh::Harsh;
 use http::header::SET_COOKIE;
 use itertools::Itertools;
@@ -1045,15 +1045,15 @@ impl MiscellaneousMutation {
         service.progress_update(input, user_id).await
     }
 
-    /// Update progress in bulk.
-    async fn bulk_progress_update(
+    /// Deploy job to update progress of media items in bulk.
+    async fn deploy_bulk_progress_update(
         &self,
         gql_ctx: &Context<'_>,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.bulk_progress_update(user_id, input).await
+        service.deploy_bulk_progress_update(user_id, input).await
     }
 
     /// Deploy a job to update a media item's metadata.
@@ -2534,11 +2534,20 @@ impl MiscellaneousService {
                 )
                 .await;
         }
+        self.after_media_seen_tasks(seen).await?;
+        Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
+    }
+
+    pub async fn deploy_bulk_progress_update(
+        &self,
+        user_id: i32,
+        input: Vec<ProgressUpdateInput>,
+    ) -> Result<bool> {
         self.perform_application_job
             .clone()
-            .push(ApplicationJob::AfterMediaSeen(seen))
+            .push(ApplicationJob::BulkProgressUpdate(user_id, input))
             .await?;
-        Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
+        Ok(true)
     }
 
     pub async fn bulk_progress_update(
@@ -2546,17 +2555,9 @@ impl MiscellaneousService {
         user_id: i32,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
-        if input.len() < 2 {
-            return Err(Error::new("Atleast two bulk update elements are required"));
+        for seen in input {
+            self.progress_update(seen, user_id).await.ok();
         }
-        // DEV: We have to do this sorcery because the `associate_user_with_metadata` operation
-        // fails if we do all of them together. So we perform one update and then the rest together.
-        let mut updates = input
-            .into_iter()
-            .map(|i| self.progress_update(i, user_id))
-            .collect_vec();
-        updates.drain(..1).collect_vec().pop().unwrap().await?;
-        join_all(updates).await;
         Ok(true)
     }
 
