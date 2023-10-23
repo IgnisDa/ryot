@@ -1,0 +1,3 @@
+mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {
+  deployBulkProgressUpdate(input: $input)
+}

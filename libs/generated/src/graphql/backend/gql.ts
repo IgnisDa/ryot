@@ -14,7 +14,6 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  */
 const documents = {
     "mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}": types.AddEntityToCollectionDocument,
-    "mutation BulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  bulkProgressUpdate(input: $input)\n}": types.BulkProgressUpdateDocument,
     "mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}": types.CommitMediaDocument,
     "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input) {\n    id\n  }\n}": types.CreateCustomExerciseDocument,
     "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}": types.CreateCustomMediaDocument,
@@ -36,6 +35,7 @@ const documents = {
     "mutation DeleteUserMeasurement($timestamp: DateTime!) {\n  deleteUserMeasurement(timestamp: $timestamp)\n}": types.DeleteUserMeasurementDocument,
     "mutation DeleteUserNotificationPlatform($notificationId: Int!) {\n  deleteUserNotificationPlatform(notificationId: $notificationId)\n}": types.DeleteUserNotificationPlatformDocument,
     "mutation DeleteUserWorkout($workoutId: String!) {\n  deleteUserWorkout(workoutId: $workoutId)\n}": types.DeleteUserWorkoutDocument,
+    "mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  deployBulkProgressUpdate(input: $input)\n}": types.DeployBulkProgressUpdateDocument,
     "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}": types.DeployImportJobDocument,
     "mutation DeployRecalculateCalendarEventsJob {\n  deployRecalculateCalendarEventsJob\n}": types.DeployRecalculateCalendarEventsJobDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
@@ -111,10 +111,6 @@ export function graphql(source: string): unknown;
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}"): (typeof documents)["mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "mutation BulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  bulkProgressUpdate(input: $input)\n}"): (typeof documents)["mutation BulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  bulkProgressUpdate(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -199,6 +195,10 @@ export function graphql(source: "mutation DeleteUserNotificationPlatform($notifi
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeleteUserWorkout($workoutId: String!) {\n  deleteUserWorkout(workoutId: $workoutId)\n}"): (typeof documents)["mutation DeleteUserWorkout($workoutId: String!) {\n  deleteUserWorkout(workoutId: $workoutId)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  deployBulkProgressUpdate(input: $input)\n}"): (typeof documents)["mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  deployBulkProgressUpdate(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

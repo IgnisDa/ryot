@@ -12,7 +12,10 @@ use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
-    models::{fitness::Exercise, media::PartialMetadataPerson},
+    models::{
+        fitness::Exercise,
+        media::{PartialMetadataPerson, ProgressUpdateInput},
+    },
 };
 
 // Cron Jobs
@@ -92,6 +95,7 @@ pub enum ApplicationJob {
     RecalculateUserSummary(i32),
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
+    BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
@@ -148,6 +152,10 @@ pub async fn perform_application_job(
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
         }
+        ApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
+            .bulk_progress_update(user_id, input)
+            .await
+            .is_ok(),
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
         }
