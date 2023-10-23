@@ -179,6 +179,10 @@ const DisplayStatForMediaType = (props: {
 	) : undefined;
 };
 
+const Section = (props: {children: JSX.Element[]}) => {
+	return <Stack gap="sm">{props.children}</Stack>
+}
+
 const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
 	const router = useRouter();
@@ -240,7 +244,7 @@ const Page: NextPageWithLayout = () => {
 				<title>Home | Ryot</title>
 			</Head>
 			<Container>
-				<Stack>
+				<Stack gap="xl">
 					{currentWorkout ? (
 						<Alert
 							icon={<IconAlertCircle size={16} />}
@@ -263,19 +267,19 @@ const Page: NextPageWithLayout = () => {
 						match([de.section, de.hidden])
 							.with([DashboardElementLot.Upcoming, false], () =>
 								upcomingMedia.data.length > 0 ? (
-									<>
+									<Section>
 										<Title>Upcoming</Title>
 										<Grid>
 											{upcomingMedia.data.map((um) => (
 												<UpComingMedia um={um} key={um.calendarEventId} />
 											))}
 										</Grid>
-									</>
+									</Section>
 								) : undefined,
 							)
 							.with([DashboardElementLot.InProgress, false], () =>
 								inProgressCollection.data.results.items.length > 0 ? (
-									<>
+									<Section>
 										<Title>{inProgressCollection.data.details.name}</Title>
 										<Grid>
 											{inProgressCollection.data.results.items.map((lm) => (
@@ -291,11 +295,11 @@ const Page: NextPageWithLayout = () => {
 												/>
 											))}
 										</Grid>
-									</>
+									</Section>
 								) : undefined,
 							)
 							.with([DashboardElementLot.Summary, false], () => (
-								<>
+								<Section>
 									<Title>Summary</Title>
 									<Text size="xs" mt={-15}>
 										Calculated{" "}
@@ -518,10 +522,10 @@ const Page: NextPageWithLayout = () => {
 											/>
 										) : undefined}
 									</SimpleGrid>
-								</>
+								</Section>
 							))
 							.with([DashboardElementLot.Actions, false], () => (
-								<>
+								<Section>
 									<Title>Actions</Title>
 									<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
 										{userPreferences.data.featuresEnabled.fitness.enabled ? (
@@ -570,7 +574,7 @@ const Page: NextPageWithLayout = () => {
 											</Button>
 										) : undefined}
 									</SimpleGrid>
-								</>
+								</Section>
 							))
 							.otherwise(() => undefined),
 					)}
