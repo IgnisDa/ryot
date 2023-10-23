@@ -2534,10 +2534,7 @@ impl MiscellaneousService {
                 )
                 .await;
         }
-        self.perform_application_job
-            .clone()
-            .push(ApplicationJob::AfterMediaSeen(seen))
-            .await?;
+        self.after_media_seen_tasks(seen).await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use crate::{
-    entities::{metadata, seen},
+    entities::metadata,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
@@ -92,7 +92,6 @@ pub enum ApplicationJob {
     RecalculateUserSummary(i32),
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
-    AfterMediaSeen(seen::Model),
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
@@ -148,9 +147,6 @@ pub async fn perform_application_job(
         }
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
-        }
-        ApplicationJob::AfterMediaSeen(seen) => {
-            misc_service.after_media_seen_tasks(seen).await.is_ok()
         }
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
