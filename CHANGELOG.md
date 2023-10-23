@@ -1,5 +1,22 @@
 
 
+# Version 3.0.12 (2023-10-23)
+
+
+
+# Version 3.0.11 (2023-10-22)
+
+## Bug Fixes
+
+- **backend:** change release date ordering
+  - **backend:** filter correct reviews
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 3.0.10 (2023-10-22)
 
 ## Bug Fixes
