@@ -19,7 +19,7 @@ import { DatePickerInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { notifications } from "@mantine/notifications";
 import {
-	BulkProgressUpdateDocument,
+	DeployBulkProgressUpdateDocument,
 	MediaAdditionalDetailsDocument,
 	MetadataLot,
 	ProgressUpdateDocument,
@@ -116,7 +116,9 @@ const Page: NextPageWithLayout = () => {
 				}
 			}
 			if (updates.length > 0) {
-				await gqlClient.request(BulkProgressUpdateDocument, { input: updates });
+				await gqlClient.request(DeployBulkProgressUpdateDocument, {
+					input: updates,
+				});
 				return true;
 			}
 			if (
