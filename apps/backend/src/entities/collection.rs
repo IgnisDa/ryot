@@ -24,6 +24,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::collection_to_entity::Entity")]
     CollectionToEntity,
+    #[sea_orm(has_many = "super::review::Entity")]
+    Review,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -37,6 +39,12 @@ pub enum Relation {
 impl Related<super::collection_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CollectionToEntity.def()
+    }
+}
+
+impl Related<super::review::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Review.def()
     }
 }
 
