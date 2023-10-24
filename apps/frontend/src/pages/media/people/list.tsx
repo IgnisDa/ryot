@@ -26,9 +26,9 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import {
-	CreatorSortBy,
-	CreatorsListDocument,
 	GraphqlSortOrder,
+	PeopleListDocument,
+	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials, startCase } from "@ryot/ts-utils";
 import {
@@ -47,7 +47,7 @@ import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const defaultFilters = {
-	sortBy: CreatorSortBy.MediaItems,
+	sortBy: PersonSortBy.MediaItems,
 	sortOrder: GraphqlSortOrder.Desc,
 };
 
@@ -82,7 +82,7 @@ const Page: NextPageWithLayout = () => {
 		queryKey: ["creatorsList", activePage, debouncedQuery, sortBy, sortOrder],
 		queryFn: async () => {
 			if (typeof debouncedQuery === "undefined") return;
-			const { creatorsList } = await gqlClient.request(CreatorsListDocument, {
+			const { peopleList } = await gqlClient.request(PeopleListDocument, {
 				input: {
 					search: {
 						page: parseInt(activePage || "1"),
@@ -91,7 +91,7 @@ const Page: NextPageWithLayout = () => {
 					sort: { by: sortBy, order: sortOrder },
 				},
 			});
-			return creatorsList;
+			return peopleList;
 		},
 	});
 
@@ -163,13 +163,13 @@ const Page: NextPageWithLayout = () => {
 								<Flex gap="xs" align="center">
 									<Select
 										w="100%"
-										data={Object.values(CreatorSortBy).map((o) => ({
+										data={Object.values(PersonSortBy).map((o) => ({
 											value: o.toString(),
 											label: startCase(o.toLowerCase()),
 										}))}
 										value={sortBy?.toString()}
 										onChange={(v) => {
-											if (v) setSortBy(v as CreatorSortBy);
+											if (v) setSortBy(v as PersonSortBy);
 										}}
 									/>
 									<ActionIcon

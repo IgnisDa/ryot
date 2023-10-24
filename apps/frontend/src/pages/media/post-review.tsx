@@ -21,12 +21,12 @@ import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	CollectionContentsDocument,
-	CreatorDetailsDocument,
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
 	MediaMainDetailsDocument,
 	MetadataGroupDetailsDocument,
 	MetadataLot,
+	PersonDetailsDocument,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
 	ReviewDocument,
@@ -102,12 +102,12 @@ const Page: NextPageWithLayout = () => {
 					isPodcast: mediaDetails.lot === MetadataLot.Podcast,
 				};
 			} else if (personId) {
-				const { creatorDetails } = await gqlClient.request(
-					CreatorDetailsDocument,
-					{ creatorId: personId },
+				const { personDetails } = await gqlClient.request(
+					PersonDetailsDocument,
+					{ personId },
 				);
 				return {
-					title: creatorDetails.details.name,
+					title: personDetails.details.name,
 					isShow: false,
 					isPodcast: false,
 				};
