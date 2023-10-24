@@ -35,6 +35,8 @@ pub enum Relation {
     CollectionToEntity,
     #[sea_orm(has_many = "super::partial_metadata_to_metadata_group::Entity")]
     PartialMetadataToMetadataGroup,
+    #[sea_orm(has_many = "super::review::Entity")]
+    Review,
 }
 
 impl Related<super::collection_to_entity::Entity> for Entity {
@@ -46,6 +48,12 @@ impl Related<super::collection_to_entity::Entity> for Entity {
 impl Related<super::partial_metadata_to_metadata_group::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PartialMetadataToMetadataGroup.def()
+    }
+}
+
+impl Related<super::review::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Review.def()
     }
 }
 

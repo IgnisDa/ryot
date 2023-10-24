@@ -27,18 +27,11 @@ pub struct Model {
     pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
     #[sea_orm(column_type = "Json")]
     pub comments: Vec<ImportOrExportItemReviewComment>,
+    pub metadata_group_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::person::Entity",
-        from = "Column::PersonId",
-        to = "super::person::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    Person,
     #[sea_orm(
         belongs_to = "super::metadata::Entity",
         from = "Column::MetadataId",
@@ -47,6 +40,22 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Metadata,
+    #[sea_orm(
+        belongs_to = "super::metadata_group::Entity",
+        from = "Column::MetadataGroupId",
+        to = "super::metadata_group::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    MetadataGroup,
+    #[sea_orm(
+        belongs_to = "super::person::Entity",
+        from = "Column::PersonId",
+        to = "super::person::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Person,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -57,15 +66,21 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::person::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Person.def()
-    }
-}
-
 impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Metadata.def()
+    }
+}
+
+impl Related<super::metadata_group::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataGroup.def()
+    }
+}
+
+impl Related<super::person::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Person.def()
     }
 }
 
