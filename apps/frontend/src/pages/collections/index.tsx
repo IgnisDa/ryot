@@ -11,12 +11,14 @@ import {
 	Container,
 	Pagination,
 	Stack,
+	Tabs,
 	Text,
 	Title,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/ts-utils";
+import { IconBucketDroplet } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
@@ -27,11 +29,15 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const collectionId = parseInt(router.query.collectionId?.toString() || "0");
 	const coreDetails = useCoreDetails();
-
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
 		key: LOCAL_STORAGE_KEYS.savedCollectionPage,
 		getInitialValueInEffect: false,
+	});
+	const [activeTab, setActiveTab] = useLocalStorage({
+		key: LOCAL_STORAGE_KEYS.savedActiveCollectionDetailsTab,
+		getInitialValueInEffect: false,
+		defaultValue: "contents",
 	});
 
 	const collectionContents = useQuery({
@@ -65,39 +71,56 @@ const Page: NextPageWithLayout = () => {
 						</Text>
 					</Box>
 					<Text>{collectionContents.data.details.description}</Text>
-					{collectionContents.data.results.items.length > 0 ? (
-						<Grid>
-							{collectionContents.data.results.items.map((lm) => (
-								<MediaItemWithoutUpdateModal
-									noRatingLink
-									key={lm.details.identifier}
-									item={{
-										...lm.details,
-										publishYear: lm.details.publishYear?.toString(),
-									}}
-									lot={lm.metadataLot}
-									entityLot={lm.entityLot}
-								/>
-							))}
-						</Grid>
-					) : (
-						<Text>You have not added any media to this collection</Text>
-					)}
-					{collectionContents.data ? (
-						<Center>
-							<Pagination
-								size="sm"
-								value={parseInt(activePage || "1")}
-								onChange={(v) => setPage(v.toString())}
-								total={Math.ceil(
-									collectionContents.data.results.details.total /
-										coreDetails.data.pageLimit,
-								)}
-								boundaries={1}
-								siblings={0}
-							/>
-						</Center>
-					) : undefined}
+					<Tabs
+						value={activeTab}
+						onChange={(v) => {
+							if (v) setActiveTab(v);
+						}}
+					>
+						<Tabs.List mb="xs">
+							<Tabs.Tab
+								value="contents"
+								leftSection={<IconBucketDroplet size={16} />}
+							>
+								Contents
+							</Tabs.Tab>
+						</Tabs.List>
+						<Tabs.Panel value="contents">
+							{collectionContents.data.results.items.length > 0 ? (
+								<Grid>
+									{collectionContents.data.results.items.map((lm) => (
+										<MediaItemWithoutUpdateModal
+											noRatingLink
+											key={lm.details.identifier}
+											item={{
+												...lm.details,
+												publishYear: lm.details.publishYear?.toString(),
+											}}
+											lot={lm.metadataLot}
+											entityLot={lm.entityLot}
+										/>
+									))}
+								</Grid>
+							) : (
+								<Text>You have not added any media to this collection</Text>
+							)}
+							{collectionContents.data ? (
+								<Center>
+									<Pagination
+										size="sm"
+										value={parseInt(activePage || "1")}
+										onChange={(v) => setPage(v.toString())}
+										total={Math.ceil(
+											collectionContents.data.results.details.total /
+												coreDetails.data.pageLimit,
+										)}
+										boundaries={1}
+										siblings={0}
+									/>
+								</Center>
+							) : undefined}
+						</Tabs.Panel>
+					</Tabs>
 				</Stack>
 			</Container>
 		</>
