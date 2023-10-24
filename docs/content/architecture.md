@@ -58,7 +58,7 @@ NEXT_PUBLIC_BASE_URL="http://localhost:8000"
 You can use [Serveo](https://serveo.net/) to test webhooks.
 
 ```bash
-$ ssh -R ryot:80:0.0.0.0:8000 serveo.net
+ssh -R ryot:80:0.0.0.0:8000 serveo.net
 ```
 
 This will expose your local server on `https://ryot.serveo.net`. You can use this URL
@@ -75,5 +75,5 @@ MR when it is done. The changelog is generated using
 following command to update the changelog.
 
 ```bash
-$ git-chglog --next-tag <tag-name> -o CHANGELOG.md
+git-chglog --next-tag <tag-name> -o CHANGELOG.md
 ```

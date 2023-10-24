@@ -1,5 +1,5 @@
-query UserCreatorDetails($creatorId: Int!) {
-  userCreatorDetails(creatorId: $creatorId) {
+query UserPersonDetails($personId: Int!) {
+  userPersonDetails(personId: $personId) {
     collections {
       ...CollectionPart
     }

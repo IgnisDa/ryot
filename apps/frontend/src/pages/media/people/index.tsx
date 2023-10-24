@@ -26,9 +26,9 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import {
-	CreatorDetailsDocument,
 	EntityLot,
-	UserCreatorDetailsDocument,
+	PersonDetailsDocument,
+	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconDeviceTv,
@@ -62,22 +62,21 @@ const Page: NextPageWithLayout = () => {
 	const userCreatorDetails = useQuery({
 		queryKey: ["userCreatorDetails", personId],
 		queryFn: async () => {
-			const { userCreatorDetails } = await gqlClient.request(
-				UserCreatorDetailsDocument,
-				{ creatorId: personId },
+			const { userPersonDetails } = await gqlClient.request(
+				UserPersonDetailsDocument,
+				{ personId },
 			);
-			return userCreatorDetails;
+			return userPersonDetails;
 		},
 		enabled: !!personId,
 	});
 	const creatorDetails = useQuery({
 		queryKey: ["creatorDetails", personId],
 		queryFn: async () => {
-			const { creatorDetails } = await gqlClient.request(
-				CreatorDetailsDocument,
-				{ creatorId: personId },
-			);
-			return creatorDetails;
+			const { personDetails } = await gqlClient.request(PersonDetailsDocument, {
+				personId,
+			});
+			return personDetails;
 		},
 		staleTime: Infinity,
 		enabled: !!personId,

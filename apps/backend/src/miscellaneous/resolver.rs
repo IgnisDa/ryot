@@ -480,7 +480,7 @@ enum MediaSortBy {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-enum CreatorSortBy {
+enum PersonSortBy {
     #[default]
     Name,
     MediaItems,
@@ -488,7 +488,7 @@ enum CreatorSortBy {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
-#[graphql(concrete(name = "CreatorSortInput", params(CreatorSortBy)))]
+#[graphql(concrete(name = "PersonSortInput", params(PersonSortBy)))]
 struct SortInput<T: InputType + Default> {
     #[graphql(default)]
     order: GraphqlSortOrder,
@@ -524,9 +524,9 @@ struct MediaListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreatorsListInput {
+struct PeopleListInput {
     search: SearchInput,
-    sort: Option<SortInput<CreatorSortBy>>,
+    sort: Option<SortInput<PersonSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -748,13 +748,13 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about a creator present in the database.
-    async fn creator_details(
+    async fn person_details(
         &self,
         gql_ctx: &Context<'_>,
-        creator_id: i32,
+        person_id: i32,
     ) -> Result<CreatorDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.creator_details(creator_id).await
+        service.person_details(person_id).await
     }
 
     /// Get details about a metadata group present in the database.
@@ -896,14 +896,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get details that can be displayed to a user for a creator.
-    async fn user_creator_details(
+    async fn user_person_details(
         &self,
         gql_ctx: &Context<'_>,
-        creator_id: i32,
+        person_id: i32,
     ) -> Result<UserCreatorDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_creator_details(user_id, creator_id).await
+        service.user_person_details(user_id, person_id).await
     }
 
     /// Get calendar events for a user between a given date range.
@@ -928,14 +928,14 @@ impl MiscellaneousQuery {
         service.user_upcoming_calendar_events(user_id, input).await
     }
 
-    /// Get paginated list of creators.
-    async fn creators_list(
+    /// Get paginated list of people.
+    async fn people_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreatorsListInput,
+        input: PeopleListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.creators_list(input).await
+        service.people_list(input).await
     }
 
     /// Get paginated list of metadata groups.
@@ -1794,7 +1794,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn user_creator_details(
+    async fn user_person_details(
         &self,
         user_id: i32,
         creator_id: i32,
@@ -5738,9 +5738,9 @@ impl MiscellaneousService {
         })
     }
 
-    async fn creators_list(
+    async fn people_list(
         &self,
-        input: CreatorsListInput,
+        input: PeopleListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         #[derive(Debug, FromQueryResult)]
         struct PartialCreator {
@@ -5756,8 +5756,8 @@ impl MiscellaneousService {
             None => (media_items_col, Order::Desc),
             Some(ord) => (
                 match ord.by {
-                    CreatorSortBy::Name => Expr::col(person::Column::Name),
-                    CreatorSortBy::MediaItems => media_items_col,
+                    PersonSortBy::Name => Expr::col(person::Column::Name),
+                    PersonSortBy::MediaItems => media_items_col,
                 },
                 ord.order.into(),
             ),
@@ -5815,11 +5815,11 @@ impl MiscellaneousService {
         })
     }
 
-    async fn creator_details(&self, creator_id: i32) -> Result<CreatorDetails> {
-        let mut details = Person::find_by_id(creator_id).one(&self.db).await?.unwrap();
+    async fn person_details(&self, person_id: i32) -> Result<CreatorDetails> {
+        let mut details = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
         details.display_images = details.images.as_urls(&self.file_storage_service).await;
         let associations = MetadataToPerson::find()
-            .filter(metadata_to_person::Column::PersonId.eq(creator_id))
+            .filter(metadata_to_person::Column::PersonId.eq(person_id))
             .find_also_related(Metadata)
             .order_by_asc(metadata_to_person::Column::Index)
             .all(&self.db)

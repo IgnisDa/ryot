@@ -7,12 +7,11 @@ The first user you register is automatically set as admin of the instance.
 To get a demo server running, use the docker image:
 
 ```bash
-$ docker run \
+docker run \
   --detach \
   --name ryot \
   --pull always \
   --publish "8000:8000" \
-  --env "SERVER_INSECURE_COOKIE=true" \
   ghcr.io/ignisda/ryot:latest
 ```
 
@@ -66,17 +65,17 @@ binary. Follow the instructions in the release to use this script.
 **Alternatively** using [eget](https://github.com/zyedidia/eget):
 
 ```bash
-$ eget ignisda/ryot
+eget ignisda/ryot
 ```
 
 ## Compile and run from source
 
-First install [moonrepo](https://moonrepo.dev/)
+1. First install [moonrepo](https://moonrepo.dev/)
+2. Build and run projects
+  ```bash
+  # Build the frontend
+  moon run frontend:build
 
-```bash
-# Build the frontend
-$ moon run frontend:build
-
-# Run it
-$ cargo run --bin ryot --release
-```
+  # Run the backend (with frontend bundled)
+  cargo run --bin ryot
+  ```

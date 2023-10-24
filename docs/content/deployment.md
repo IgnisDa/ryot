@@ -59,16 +59,10 @@ if dokku apps:exists $APPNAME; then
 fi
 
 dokku apps:create "$APPNAME"
-dokku storage:ensure-directory "$APPNAME"
 
 # check if required dokku plugin exists
 if ! dokku plugin:list | grep letsencrypt; then
     dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
-fi
-# check if global email for letsencrypt is set
-if ! dokku config:get --global DOKKU_LETSENCRYPT_EMAIL; then
-    read -rp "Enter email address for letsencrypt: " EMAIL
-    dokku config:set "$APPNAME" DOKKU_LETSENCRYPT_EMAIL="$EMAIL"
 fi
 
 dokku domains:add $APPNAME $APPNAME."$(cat /home/dokku/VHOST)"
@@ -76,17 +70,16 @@ dokku letsencrypt:enable "$APPNAME"
 dokku git:from-image "$APPNAME" "$image_sha"
 ```
 
-This will start a Ryot using the default SQLite database backend. To use a
-separate backend, link a service to your app. For example with Postgres:
 
-```bash
-dokku postgres:create $APPNAME-service
-dokku postgres:link $APPNAME-service $APPNAME
-```
+!!! danger "Production usage"
 
-You can create `/var/lib/dokku/storage/$APPNAME/config/ryot.{json,toml,yaml}`
-files to configure the instance. Make sure to restart the server after you change
-the configuration.
+    The above will start a Ryot instance using the default SQLite database backend. To use a
+    separate database, link a database service to your app. For example with Postgres:
+
+    ```bash
+    dokku postgres:create "$APPNAME-service"
+    dokku postgres:link "$APPNAME-service" "$APPNAME"
+    ```
 
 ## Fly
 
