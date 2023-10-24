@@ -603,7 +603,7 @@ struct UserMediaDetails {
     average_rating: Option<Decimal>,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 struct UserMediaNextEpisode {
     season_number: Option<i32>,
     episode_number: Option<i32>,
@@ -1724,7 +1724,7 @@ impl MiscellaneousService {
                 let current = p.get_episode(h.podcast_information.as_ref().unwrap().episode);
                 current.map(|i| UserMediaNextEpisode {
                     season_number: None,
-                    episode_number: Some(i.number),
+                    episode_number: Some(i.number + 1),
                 })
             } else {
                 None
