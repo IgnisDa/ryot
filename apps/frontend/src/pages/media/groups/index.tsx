@@ -3,6 +3,7 @@ import {
 	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
+	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
@@ -15,6 +16,7 @@ import {
 	Flex,
 	Group,
 	SimpleGrid,
+	Stack,
 	Tabs,
 	Text,
 	Title,
@@ -25,7 +27,11 @@ import {
 	MetadataGroupDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconDeviceTv, IconUser } from "@tabler/icons-react";
+import {
+	IconDeviceTv,
+	IconMessageCircle2,
+	IconUser,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
@@ -117,6 +123,14 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
+							{userMetadataGroupDetails.data.reviews.length > 0 ? (
+								<Tabs.Tab
+									value="reviews"
+									leftSection={<IconMessageCircle2 size={16} />}
+								>
+									Reviews
+								</Tabs.Tab>
+							) : undefined}
 						</Tabs.List>
 						<Tabs.Panel value="media">
 							<MediaScrollArea>
@@ -154,6 +168,20 @@ const Page: NextPageWithLayout = () => {
 										entityLot={EntityLot.MediaGroup}
 									/>
 								</SimpleGrid>
+							</MediaScrollArea>
+						</Tabs.Panel>
+						<Tabs.Panel value="reviews">
+							<MediaScrollArea>
+								<Stack>
+									{userMetadataGroupDetails.data.reviews.map((r) => (
+										<ReviewItemDisplay
+											review={r}
+											key={r.id}
+											metadataGroupId={metadataGroupId}
+											refetch={userMetadataGroupDetails.refetch}
+										/>
+									))}
+								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
 					</Tabs>
