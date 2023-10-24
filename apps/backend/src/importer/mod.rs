@@ -405,13 +405,11 @@ impl ImporterService {
                             text,
                             spoiler,
                             date: date.flatten(),
-                            visibility: None,
                             metadata_id: Some(metadata.id),
-                            creator_id: None,
-                            review_id: None,
                             show_season_number: review.show_season_number,
                             show_episode_number: review.show_episode_number,
                             podcast_episode_number: review.podcast_episode_number,
+                            ..Default::default()
                         },
                     )
                     .await

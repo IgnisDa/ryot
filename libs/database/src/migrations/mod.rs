@@ -18,6 +18,7 @@ mod m20230912_create_calendar_event;
 mod m20231003_create_partial_metadata_to_person;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
+mod m20231024_add_metadata_group_id_field_to_review;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::UserLot;
@@ -43,18 +44,19 @@ impl MigratorTrait for Migrator {
             Box::new(m20230417_create_user::Migration),
             Box::new(m20230419_create_seen::Migration),
             Box::new(m20230502_create_genre::Migration),
+            Box::new(m20230901_create_metadata_group::Migration),
             Box::new(m20230505_create_review::Migration),
             Box::new(m20230507_create_collection::Migration),
             Box::new(m20230509_create_import_report::Migration),
             Box::new(m20230622_create_exercise::Migration),
             Box::new(m20230804_create_user_measurement::Migration),
             Box::new(m20230819_create_workout::Migration),
-            Box::new(m20230901_create_metadata_group::Migration),
             Box::new(m20230901_create_partial_metadata::Migration),
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20231003_create_partial_metadata_to_person::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
+            Box::new(m20231024_add_metadata_group_id_field_to_review::Migration),
         ]
     }
 }

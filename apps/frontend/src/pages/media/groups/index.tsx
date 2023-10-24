@@ -3,9 +3,10 @@ import {
 	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
+	ReviewItemDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -15,6 +16,7 @@ import {
 	Flex,
 	Group,
 	SimpleGrid,
+	Stack,
 	Tabs,
 	Text,
 	Title,
@@ -25,11 +27,17 @@ import {
 	MetadataGroupDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconDeviceTv, IconUser } from "@tabler/icons-react";
+import {
+	IconDeviceTv,
+	IconMessageCircle2,
+	IconUser,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
@@ -115,6 +123,14 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
+							{userMetadataGroupDetails.data.reviews.length > 0 ? (
+								<Tabs.Tab
+									value="reviews"
+									leftSection={<IconMessageCircle2 size={16} />}
+								>
+									Reviews
+								</Tabs.Tab>
+							) : undefined}
 						</Tabs.List>
 						<Tabs.Panel value="media">
 							<MediaScrollArea>
@@ -131,6 +147,16 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+									<Button
+										variant="outline"
+										w="100%"
+										component={Link}
+										href={withQuery(APP_ROUTES.media.postReview, {
+											metadataGroupId,
+										})}
+									>
+										Post a review
+									</Button>
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
@@ -142,6 +168,20 @@ const Page: NextPageWithLayout = () => {
 										entityLot={EntityLot.MediaGroup}
 									/>
 								</SimpleGrid>
+							</MediaScrollArea>
+						</Tabs.Panel>
+						<Tabs.Panel value="reviews">
+							<MediaScrollArea>
+								<Stack>
+									{userMetadataGroupDetails.data.reviews.map((r) => (
+										<ReviewItemDisplay
+											review={r}
+											key={r.id}
+											metadataGroupId={metadataGroupId}
+											refetch={userMetadataGroupDetails.refetch}
+										/>
+									))}
+								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
 					</Tabs>

@@ -684,7 +684,7 @@ pub mod media {
         pub entity_lot: EntityLot,
     }
 
-    #[derive(Debug, InputObject)]
+    #[derive(Debug, InputObject, Default)]
     pub struct PostReviewInput {
         pub rating: Option<Decimal>,
         pub text: Option<String>,
@@ -692,6 +692,7 @@ pub mod media {
         pub spoiler: Option<bool>,
         pub metadata_id: Option<i32>,
         pub creator_id: Option<i32>,
+        pub metadata_group_id: Option<i32>,
         pub date: Option<DateTimeUtc>,
         /// ID of the review if this is an update to an existing review
         pub review_id: Option<i32>,

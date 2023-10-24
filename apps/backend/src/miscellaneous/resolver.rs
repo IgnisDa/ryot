@@ -576,6 +576,7 @@ struct UserCreatorDetails {
 
 #[derive(SimpleObject)]
 struct UserMetadataGroupDetails {
+    reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
 }
 
@@ -1700,7 +1701,9 @@ impl MiscellaneousService {
         let media_details = self.media_details(metadata_id).await?;
         let collections =
             entity_in_collections(&self.db, user_id, metadata_id, EntityLot::Metadata).await?;
-        let reviews = self.item_reviews(user_id, Some(metadata_id), None).await?;
+        let reviews = self
+            .item_reviews(user_id, Some(metadata_id), None, None)
+            .await?;
         let history = self.seen_history(user_id, metadata_id).await?;
         let in_progress = history
             .iter()
@@ -1795,7 +1798,9 @@ impl MiscellaneousService {
         user_id: i32,
         creator_id: i32,
     ) -> Result<UserCreatorDetails> {
-        let reviews = self.item_reviews(user_id, None, Some(creator_id)).await?;
+        let reviews = self
+            .item_reviews(user_id, None, Some(creator_id), None)
+            .await?;
         let collections =
             entity_in_collections(&self.db, user_id, creator_id, EntityLot::Person).await?;
         Ok(UserCreatorDetails {
@@ -1812,7 +1817,13 @@ impl MiscellaneousService {
         let collections =
             entity_in_collections(&self.db, user_id, metadata_group_id, EntityLot::MediaGroup)
                 .await?;
-        Ok(UserMetadataGroupDetails { collections })
+        let reviews = self
+            .item_reviews(user_id, None, None, Some(metadata_group_id))
+            .await?;
+        Ok(UserMetadataGroupDetails {
+            reviews,
+            collections,
+        })
     }
 
     async fn get_calendar_events(
@@ -3619,6 +3630,7 @@ impl MiscellaneousService {
         user_id: i32,
         metadata_id: Option<i32>,
         creator_id: Option<i32>,
+        metadata_group_id: Option<i32>,
     ) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .select_only()
@@ -3626,6 +3638,9 @@ impl MiscellaneousService {
             .order_by_desc(review::Column::PostedOn)
             .apply_if(metadata_id, |query, v| {
                 query.filter(review::Column::MetadataId.eq(v))
+            })
+            .apply_if(metadata_group_id, |query, v| {
+                query.filter(review::Column::MetadataGroupId.eq(v))
             })
             .apply_if(creator_id, |query, v| {
                 query.filter(review::Column::PersonId.eq(v))
@@ -3841,6 +3856,7 @@ impl MiscellaneousService {
             text: ActiveValue::Set(input.text),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
+            metadata_group_id: ActiveValue::Set(input.metadata_group_id),
             person_id: ActiveValue::Set(input.creator_id),
             extra_information: ActiveValue::Set(extra_information),
             comments: ActiveValue::Set(vec![]),

@@ -3,18 +3,33 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{m20230413_create_person::Person, m20230417_create_user::User, Metadata};
+use super::{
+    m20230413_create_person::Person, m20230417_create_user::User,
+    m20230901_create_metadata_group::MetadataGroup, Metadata,
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
+pub static METADATA_GROUP_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_group_foreign_key";
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Enum,
+    Default,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum Visibility {
+    #[default]
     #[sea_orm(string_value = "PU")]
     Public,
     #[sea_orm(string_value = "PR")]
@@ -35,6 +50,7 @@ pub enum Review {
     UserId,
     MetadataId,
     PersonId,
+    MetadataGroupId,
     Spoiler,
     Comments,
 }
@@ -99,6 +115,15 @@ impl MigrationTrait for Migration {
                             .name(PERSON_TO_REVIEW_FOREIGN_KEY)
                             .from(Review::Table, Review::PersonId)
                             .to(Person::Table, Person::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(Review::MetadataGroupId).integer().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(METADATA_GROUP_TO_REVIEW_FOREIGN_KEY)
+                            .from(Review::Table, Review::MetadataGroupId)
+                            .to(MetadataGroup::Table, MetadataGroup::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

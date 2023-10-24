@@ -115,14 +115,10 @@ export const MediaScrollArea = (props: { children: JSX.Element }) => {
 	) : undefined;
 };
 
-export const ReviewItemDisplay = ({
-	review,
-	metadataId,
-	creatorId,
-	refetch,
-}: {
+export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	metadataId?: number;
+	metadataGroupId?: number;
 	creatorId?: number;
 	refetch: () => void;
 }) => {
@@ -138,32 +134,33 @@ export const ReviewItemDisplay = ({
 			return createReviewComment;
 		},
 		onSuccess: () => {
-			refetch();
+			props.refetch();
 		},
 	});
 
 	return userPreferences.data ? (
 		<>
-			<Box key={review.id} data-review-id={review.id}>
+			<Box key={props.review.id} data-review-id={props.review.id}>
 				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
-						{getInitials(review.postedBy?.name || "")}{" "}
+						{getInitials(props.review.postedBy?.name || "")}{" "}
 					</Avatar>
 					<Box>
-						<Text>{review.postedBy?.name}</Text>
+						<Text>{props.review.postedBy?.name}</Text>
 						<Text>
 							{DateTime.fromJSDate(
-								review.postedOn || new Date(),
+								props.review.postedOn || new Date(),
 							).toLocaleString()}
 						</Text>
 					</Box>
-					{user && user.id === review.postedBy?.id ? (
+					{user && user.id === props.review.postedBy?.id ? (
 						<Anchor
 							component={Link}
 							href={withQuery(APP_ROUTES.media.postReview, {
-								metadataId,
-								creatorId,
-								reviewId: review.id,
+								metadataId: props.metadataId,
+								metadataGroupId: props.metadataGroupId,
+								creatorId: props.creatorId,
+								reviewId: props.review.id,
 							})}
 						>
 							<ActionIcon>
@@ -173,20 +170,20 @@ export const ReviewItemDisplay = ({
 					) : undefined}
 				</Flex>
 				<Box ml="sm" mt="xs">
-					{typeof review.showSeason === "number" ? (
+					{typeof props.review.showSeason === "number" ? (
 						<Text c="dimmed">
-							S{review.showSeason}-E
-							{review.showEpisode}
+							S{props.review.showSeason}-E
+							{props.review.showEpisode}
 						</Text>
 					) : undefined}
-					{typeof review.podcastEpisode === "number" ? (
-						<Text c="dimmed">EP-{review.podcastEpisode}</Text>
+					{typeof props.review.podcastEpisode === "number" ? (
+						<Text c="dimmed">EP-{props.review.podcastEpisode}</Text>
 					) : undefined}
-					{(Number(review.rating) || 0) > 0 ? (
+					{(Number(props.review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
-								{review.rating}
+								{props.review.rating}
 								{userPreferences.data.general.reviewScale ===
 								UserReviewScale.OutOfFive
 									? undefined
@@ -194,11 +191,11 @@ export const ReviewItemDisplay = ({
 							</Text>
 						</Flex>
 					) : undefined}
-					{review.text ? (
-						!review.spoiler ? (
+					{props.review.text ? (
+						!props.review.spoiler ? (
 							<>
 								{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
-								<div dangerouslySetInnerHTML={{ __html: review.text }} />
+								<div dangerouslySetInnerHTML={{ __html: props.review.text }} />
 							</>
 						) : (
 							<>
@@ -209,7 +206,9 @@ export const ReviewItemDisplay = ({
 								) : undefined}
 								<Collapse in={opened}>
 									{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
-									<Text dangerouslySetInnerHTML={{ __html: review.text }} />
+									<Text
+										dangerouslySetInnerHTML={{ __html: props.review.text }}
+									/>
 								</Collapse>
 							</>
 						)
@@ -219,19 +218,19 @@ export const ReviewItemDisplay = ({
 						size="compact-md"
 						onClick={() => {
 							const comment = prompt("Enter comment");
-							if (comment && review.id)
+							if (comment && props.review.id)
 								createReviewComment.mutate({
-									input: { reviewId: review.id, text: comment },
+									input: { reviewId: props.review.id, text: comment },
 								});
 						}}
 					>
 						Leave comment
 					</Button>
-					{(review.comments?.length || 0) > 0 ? (
+					{(props.review.comments?.length || 0) > 0 ? (
 						<Paper withBorder ml="xl" mt="sm" p="xs">
 							<Stack>
-								{review.comments
-									? review.comments.map((c) => (
+								{props.review.comments
+									? props.review.comments.map((c) => (
 											<Stack key={c?.id}>
 												<Flex align="center" gap="sm">
 													<Avatar color="cyan" radius="xl">
@@ -252,10 +251,10 @@ export const ReviewItemDisplay = ({
 																const yes = confirm(
 																	"Are you sure you want to delete this comment?",
 																);
-																if (review.id && yes)
+																if (props.review.id && yes)
 																	createReviewComment.mutate({
 																		input: {
-																			reviewId: review.id,
+																			reviewId: props.review.id,
 																			commentId: c.id,
 																			shouldDelete: true,
 																		},
@@ -270,10 +269,10 @@ export const ReviewItemDisplay = ({
 															const likedByUser = c?.likedBy?.includes(
 																user?.id,
 															);
-															if (review.id)
+															if (props.review.id)
 																createReviewComment.mutate({
 																	input: {
-																		reviewId: review.id,
+																		reviewId: props.review.id,
 																		commentId: c?.id,
 																		incrementLikes: !likedByUser,
 																		decrementLikes: likedByUser,
