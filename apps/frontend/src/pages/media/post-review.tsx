@@ -139,24 +139,22 @@ const Page: NextPageWithLayout = () => {
 
 	const onSuccess = () => {
 		let url;
+		let id;
 		if (router.query.next) url = router.query.next.toString();
-		else if (metadataId)
-			url = withQuery(APP_ROUTES.media.individualMediaItem.details, {
-				id: metadataId,
-			});
-		else if (personId)
-			url = withQuery(APP_ROUTES.media.people.details, {
-				id: personId,
-			});
-		else if (metadataGroupId)
-			url = withQuery(APP_ROUTES.media.groups.details, {
-				id: metadataGroupId,
-			});
-		else if (collectionId)
-			url = withQuery(APP_ROUTES.collections.details, {
-				id: collectionId,
-			});
-		if (url) router.replace(url);
+		else if (metadataId) {
+			url = APP_ROUTES.media.individualMediaItem.details;
+			id = metadataId;
+		} else if (personId) {
+			url = APP_ROUTES.media.people.details;
+			id = personId;
+		} else if (metadataGroupId) {
+			url = APP_ROUTES.media.groups.details;
+			id = metadataGroupId;
+		} else if (collectionId) {
+			url = APP_ROUTES.collections.details;
+			id = collectionId;
+		}
+		if (url) router.replace(withQuery(url, { id }));
 	};
 
 	const reviewDetails = useQuery({
