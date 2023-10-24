@@ -119,7 +119,8 @@ export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	metadataId?: number;
 	metadataGroupId?: number;
-	creatorId?: number;
+	personId?: number;
+	collectionId?: number;
 	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -159,7 +160,8 @@ export const ReviewItemDisplay = (props: {
 							href={withQuery(APP_ROUTES.media.postReview, {
 								metadataId: props.metadataId,
 								metadataGroupId: props.metadataGroupId,
-								creatorId: props.creatorId,
+								collectionId: props.collectionId,
+								personId: props.personId,
 								reviewId: props.review.id,
 							})}
 						>
@@ -740,7 +742,7 @@ export const DisplayCollection = (props: {
 					truncate
 					style={{ all: "unset", cursor: "pointer" }}
 					href={withQuery(APP_ROUTES.collections.details, {
-						collectionId: props.col.id,
+						id: props.col.id,
 					})}
 				>
 					{props.col.name}

@@ -110,6 +110,7 @@ pub async fn perform_application_job(
     ctx: JobContext,
 ) -> Result<(), JobError> {
     let name = information.to_string();
+    tracing::trace!("Started job: {:#?}", name);
     let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
@@ -168,11 +169,10 @@ pub async fn perform_application_job(
             .await
             .is_ok(),
     };
-    let end = Instant::now();
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
         name,
-        (end - start).as_millis(),
+        (Instant::now() - start).as_millis(),
         status
     );
     Ok(())

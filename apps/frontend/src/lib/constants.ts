@@ -84,4 +84,5 @@ export const LOCAL_STORAGE_KEYS = {
 	savedCreatorSortOrder: "27",
 	savedPreferencesTab: "28",
 	savedActiveMetadataGroupDetailsTab: "29",
+	savedActiveCollectionDetailsTab: "30",
 } as const;

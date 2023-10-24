@@ -49,14 +49,15 @@ special tool on your computer or phone that lets you keep track of all these dig
 - Existing solutions do not have very good UI.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
 - There is a lack of a good self-hosted fitness and health tracking solution.
-- Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`)
+- Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`).
 
 ## 🚀 Features
 
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
   and fitness
-- ✅ Import data from Goodreads, MediaTracker, Trakt, Movary, StoryGraph, MyAnimeList
-- ✅ Integration with Jellyfin, Kodi, Plex, Audiobookshelf
+- ✅ Import data from Goodreads, Trakt, Strong App [etc](https://ignisda.github.io/ryot/importing.html)
+- ✅ Integration with Jellyfin, Kodi, Plex, Audiobookshelf [etc](https://ignisda.github.io/ryot/integrations.html)
+- ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
 - ✅ PWA enabled
 - ✅ Documented GraphQL API

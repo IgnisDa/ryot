@@ -3,6 +3,9 @@ query CollectionContents($input: CollectionContentsInput!) {
     user {
       name
     }
+    reviews {
+      ...ReviewItemPart
+    }
     results {
       details {
         total

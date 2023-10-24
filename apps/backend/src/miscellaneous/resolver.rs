@@ -319,6 +319,7 @@ struct CollectionContentsInput {
 struct CollectionContents {
     details: collection::Model,
     results: SearchResults<MediaSearchItemWithLot>,
+    reviews: Vec<ReviewItem>,
     user: user::Model,
 }
 
@@ -1702,7 +1703,7 @@ impl MiscellaneousService {
         let collections =
             entity_in_collections(&self.db, user_id, metadata_id, EntityLot::Metadata).await?;
         let reviews = self
-            .item_reviews(user_id, Some(metadata_id), None, None)
+            .item_reviews(user_id, Some(metadata_id), None, None, None)
             .await?;
         let history = self.seen_history(user_id, metadata_id).await?;
         let in_progress = history
@@ -1799,7 +1800,7 @@ impl MiscellaneousService {
         creator_id: i32,
     ) -> Result<UserCreatorDetails> {
         let reviews = self
-            .item_reviews(user_id, None, Some(creator_id), None)
+            .item_reviews(user_id, None, Some(creator_id), None, None)
             .await?;
         let collections =
             entity_in_collections(&self.db, user_id, creator_id, EntityLot::Person).await?;
@@ -1818,7 +1819,7 @@ impl MiscellaneousService {
             entity_in_collections(&self.db, user_id, metadata_group_id, EntityLot::MediaGroup)
                 .await?;
         let reviews = self
-            .item_reviews(user_id, None, None, Some(metadata_group_id))
+            .item_reviews(user_id, None, None, Some(metadata_group_id), None)
             .await?;
         Ok(UserMetadataGroupDetails {
             reviews,
@@ -3631,6 +3632,7 @@ impl MiscellaneousService {
         metadata_id: Option<i32>,
         creator_id: Option<i32>,
         metadata_group_id: Option<i32>,
+        collection_id: Option<i32>,
     ) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .select_only()
@@ -3644,6 +3646,9 @@ impl MiscellaneousService {
             })
             .apply_if(creator_id, |query, v| {
                 query.filter(review::Column::PersonId.eq(v))
+            })
+            .apply_if(collection_id, |query, v| {
+                query.filter(review::Column::CollectionId.eq(v))
             })
             .into_tuple::<i32>()
             .all(&self.db)
@@ -3800,8 +3805,18 @@ impl MiscellaneousService {
             items.push(item);
         }
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
+        let reviews = self
+            .item_reviews(
+                collection.user_id,
+                None,
+                None,
+                None,
+                Some(input.collection_id),
+            )
+            .await?;
         Ok(CollectionContents {
             details: collection,
+            reviews,
             results: SearchResults {
                 details: SearchDetails {
                     total: number_of_items.try_into().unwrap(),
@@ -3857,7 +3872,8 @@ impl MiscellaneousService {
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
             metadata_group_id: ActiveValue::Set(input.metadata_group_id),
-            person_id: ActiveValue::Set(input.creator_id),
+            person_id: ActiveValue::Set(input.person_id),
+            collection_id: ActiveValue::Set(input.collection_id),
             extra_information: ActiveValue::Set(extra_information),
             comments: ActiveValue::Set(vec![]),
             ..Default::default()
@@ -6107,7 +6123,7 @@ impl MiscellaneousService {
         if input.should_delete.unwrap_or_default() {
             let posn = comments
                 .iter()
-                .position(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .position(|r| &r.id == input.comment_id.as_ref().unwrap())
                 .unwrap();
             comments.remove(posn);
         } else if input.increment_likes.unwrap_or_default() {
