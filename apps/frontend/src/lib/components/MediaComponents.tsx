@@ -740,7 +740,7 @@ export const DisplayCollection = (props: {
 					truncate
 					style={{ all: "unset", cursor: "pointer" }}
 					href={withQuery(APP_ROUTES.collections.details, {
-						collectionId: props.col.id,
+						id: props.col.id,
 					})}
 				>
 					{props.col.name}

@@ -142,7 +142,7 @@ const Page: NextPageWithLayout = () => {
 										<Anchor
 											component={Link}
 											href={withQuery(APP_ROUTES.collections.details, {
-												collectionId: c?.id,
+												id: c?.id,
 											})}
 										>
 											<Title order={4}>{c?.name}</Title>

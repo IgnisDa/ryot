@@ -31,7 +31,7 @@ import type { NextPageWithLayout } from "../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const collectionId = parseInt(router.query.collectionId?.toString() || "0");
+	const collectionId = parseInt(router.query.id?.toString() || "0");
 	const coreDetails = useCoreDetails();
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",

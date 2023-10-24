@@ -20,6 +20,7 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
+	CollectionContentsDocument,
 	CreatorDetailsDocument,
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
@@ -66,6 +67,9 @@ const Page: NextPageWithLayout = () => {
 		: undefined;
 	const personId = router.query.personId
 		? parseInt(router.query.personId.toString())
+		: undefined;
+	const collectionId = router.query.collectionId
+		? parseInt(router.query.collectionId.toString())
 		: undefined;
 	const reviewId = Number(router.query.reviewId?.toString()) || null;
 	const showSeasonNumber = Number(router.query.showSeasonNumber) || undefined;
@@ -117,6 +121,16 @@ const Page: NextPageWithLayout = () => {
 					isShow: false,
 					isPodcast: false,
 				};
+			} else if (collectionId) {
+				const { collectionContents } = await gqlClient.request(
+					CollectionContentsDocument,
+					{ input: { collectionId } },
+				);
+				return {
+					title: collectionContents.details.name,
+					isShow: false,
+					isPodcast: false,
+				};
 			}
 			return { title: "", isShow: false, isPodcast: false };
 		},
@@ -137,6 +151,10 @@ const Page: NextPageWithLayout = () => {
 		else if (metadataGroupId)
 			url = withQuery(APP_ROUTES.media.groups.details, {
 				id: metadataGroupId,
+			});
+		else if (collectionId)
+			url = withQuery(APP_ROUTES.collections.details, {
+				id: collectionId,
 			});
 		if (url) router.replace(url);
 	};
