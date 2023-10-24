@@ -50,10 +50,10 @@ to their metadata.
    webhook Url.
 2. In the Jellyfin webhook plugin settings, add a new webhook using the
    following settings:
-   - Webhook Url => `<paste_url_copied>`
-   - Payload format => `Default`
-   - Listen to events only for => Choose your user
-   - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
+    - Webhook Url => `<paste_url_copied>`
+    - Payload format => `Default`
+    - Listen to events only for => Choose your user
+    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
 
 ### Plex
 
@@ -61,12 +61,11 @@ Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It 
 work for all the media that have been a valid TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page using the following settings:
-   - Username => Your Plex `Fullname`. If you have no `Fullname` specified in Plex,
-     fallback to your Plex `Username`. This will be used to filter webhooks for the
-     specified Plex account only.
-2. In your Plex Webhooks settings, add a new webhook using the
-   following settings:
-   - Webhook Url => `<paste_url_copied>`
+    - Username => Your Plex `Fullname`. If you have no `Fullname` specified in Plex,
+       fallback to your Plex `Username`. This will be used to filter webhooks for the
+       specified Plex account only.
+2. In your Plex Webhooks settings, add a new webhook using the following settings:
+    - Webhook Url => `<paste_url_copied>`
 
 !!! warning
 
