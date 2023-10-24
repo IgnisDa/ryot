@@ -308,7 +308,7 @@ const Page: NextPageWithLayout = () => {
 									<SimpleGrid
 										cols={{ base: 1, sm: 2, md: 3 }}
 										style={{ alignItems: "center" }}
-										spacing="lg"
+										spacing="xs"
 									>
 										<DisplayStatForMediaType
 											lot={MetadataLot.Movie}
