@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     m20230413_create_person::Person, m20230417_create_user::User,
-    m20230901_create_metadata_group::MetadataGroup, Metadata,
+    m20230504_create_collection::Collection, m20230901_create_metadata_group::MetadataGroup,
+    Metadata,
 };
 
 #[derive(DeriveMigrationName)]
@@ -13,6 +14,7 @@ pub struct Migration;
 
 pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 pub static METADATA_GROUP_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_group_foreign_key";
+pub static COLLECTION_TO_REVIEW_FOREIGN_KEY: &str = "review_to_collection_foreign_key";
 
 #[derive(
     Debug,
@@ -51,6 +53,7 @@ pub enum Review {
     MetadataId,
     PersonId,
     MetadataGroupId,
+    CollectionId,
     Spoiler,
     Comments,
 }
@@ -115,6 +118,15 @@ impl MigrationTrait for Migration {
                             .name(PERSON_TO_REVIEW_FOREIGN_KEY)
                             .from(Review::Table, Review::PersonId)
                             .to(Person::Table, Person::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(Review::CollectionId).integer().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(COLLECTION_TO_REVIEW_FOREIGN_KEY)
+                            .from(Review::Table, Review::PersonId)
+                            .to(Collection::Table, Collection::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
