@@ -1,5 +1,5 @@
-query CreatorDetails($creatorId: Int!) {
-  creatorDetails(creatorId: $creatorId) {
+query PersonDetails($personId: Int!) {
+  personDetails(personId: $personId) {
     sourceUrl
     details {
       id

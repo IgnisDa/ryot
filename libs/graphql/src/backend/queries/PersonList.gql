@@ -1,5 +1,5 @@
-query CreatorsList($input: CreatorsListInput!) {
-  creatorsList(input: $input) {
+query PeopleList($input: PeopleListInput!) {
+  peopleList(input: $input) {
     details {
       total
       nextPage
