@@ -6289,11 +6289,8 @@ impl MiscellaneousService {
                 "Inserting {} calendar events",
                 calendar_events_inserts.len()
             );
-            for inserts in calendar_events_inserts.chunks(800) {
-                CalendarEvent::insert_many(inserts.to_owned())
-                    .exec_without_returning(&self.db)
-                    .await
-                    .ok();
+            for cal_insert in calendar_events_inserts {
+                cal_insert.insert(&self.db).await.ok();
             }
         }
         if !metadata_updates.is_empty() {
