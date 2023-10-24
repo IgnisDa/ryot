@@ -603,7 +603,7 @@ struct UserMediaDetails {
     average_rating: Option<Decimal>,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 struct UserMediaNextEpisode {
     season_number: Option<i32>,
     episode_number: Option<i32>,
@@ -1718,13 +1718,13 @@ impl MiscellaneousService {
                 );
                 current.map(|(s, e)| UserMediaNextEpisode {
                     season_number: Some(s.season_number),
-                    episode_number: Some(e.episode_number),
+                    episode_number: Some(e.episode_number + 1),
                 })
             } else if let Some(p) = &media_details.podcast_specifics {
                 let current = p.get_episode(h.podcast_information.as_ref().unwrap().episode);
                 current.map(|i| UserMediaNextEpisode {
                     season_number: None,
-                    episode_number: Some(i.number),
+                    episode_number: Some(i.number + 1),
                 })
             } else {
                 None
@@ -6289,11 +6289,8 @@ impl MiscellaneousService {
                 "Inserting {} calendar events",
                 calendar_events_inserts.len()
             );
-            for inserts in calendar_events_inserts.chunks(800) {
-                CalendarEvent::insert_many(inserts.to_owned())
-                    .exec_without_returning(&self.db)
-                    .await
-                    .ok();
+            for cal_insert in calendar_events_inserts {
+                cal_insert.insert(&self.db).await.ok();
             }
         }
         if !metadata_updates.is_empty() {
