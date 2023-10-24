@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     m20230413_create_person::Person, m20230417_create_user::User,
-    m20230504_create_collection::Collection, m20230901_create_metadata_group::MetadataGroup,
+    m20230507_create_collection::Collection, m20230901_create_metadata_group::MetadataGroup,
     Metadata,
 };
 

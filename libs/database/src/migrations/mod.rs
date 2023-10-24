@@ -6,8 +6,8 @@ mod m20230413_create_person;
 mod m20230417_create_user;
 mod m20230419_create_seen;
 mod m20230502_create_genre;
-mod m20230504_create_collection;
 mod m20230505_create_review;
+mod m20230507_create_collection;
 mod m20230509_create_import_report;
 mod m20230622_create_exercise;
 mod m20230804_create_user_measurement;
@@ -46,7 +46,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230419_create_seen::Migration),
             Box::new(m20230502_create_genre::Migration),
             Box::new(m20230901_create_metadata_group::Migration),
-            Box::new(m20230504_create_collection::Migration),
+            Box::new(m20230507_create_collection::Migration),
             Box::new(m20230505_create_review::Migration),
             Box::new(m20230509_create_import_report::Migration),
             Box::new(m20230622_create_exercise::Migration),
