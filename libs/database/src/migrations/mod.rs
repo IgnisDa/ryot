@@ -18,6 +18,7 @@ mod m20230912_create_calendar_event;
 mod m20231003_create_partial_metadata_to_person;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
+mod m20231024_add_metadata_group_id_field_to_review;
 
 pub use m20230410_create_metadata::{Metadata, MetadataLot, MetadataSource};
 pub use m20230417_create_user::UserLot;
@@ -55,6 +56,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231003_create_partial_metadata_to_person::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
+            Box::new(m20231024_add_metadata_group_id_field_to_review::Migration),
         ]
     }
 }
