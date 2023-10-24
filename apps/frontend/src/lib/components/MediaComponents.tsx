@@ -119,7 +119,7 @@ export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	metadataId?: number;
 	metadataGroupId?: number;
-	creatorId?: number;
+	personId?: number;
 	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -159,7 +159,7 @@ export const ReviewItemDisplay = (props: {
 							href={withQuery(APP_ROUTES.media.postReview, {
 								metadataId: props.metadataId,
 								metadataGroupId: props.metadataGroupId,
-								creatorId: props.creatorId,
+								personId: props.personId,
 								reviewId: props.review.id,
 							})}
 						>

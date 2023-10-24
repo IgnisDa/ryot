@@ -1156,10 +1156,10 @@ export type PodcastsSummary = {
 };
 
 export type PostReviewInput = {
-  creatorId?: InputMaybe<Scalars['Int']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
   metadataGroupId?: InputMaybe<Scalars['Int']['input']>;
   metadataId?: InputMaybe<Scalars['Int']['input']>;
+  personId?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   rating?: InputMaybe<Scalars['Decimal']['input']>;
   /** ID of the review if this is an update to an existing review */

@@ -3857,7 +3857,7 @@ impl MiscellaneousService {
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
             metadata_group_id: ActiveValue::Set(input.metadata_group_id),
-            person_id: ActiveValue::Set(input.creator_id),
+            person_id: ActiveValue::Set(input.person_id),
             extra_information: ActiveValue::Set(extra_information),
             comments: ActiveValue::Set(vec![]),
             ..Default::default()

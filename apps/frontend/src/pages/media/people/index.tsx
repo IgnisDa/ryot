@@ -47,7 +47,7 @@ import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const creatorId = parseInt(router.query.id?.toString() || "0");
+	const personId = parseInt(router.query.id?.toString() || "0");
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
@@ -60,27 +60,27 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const userCreatorDetails = useQuery({
-		queryKey: ["userCreatorDetails", creatorId],
+		queryKey: ["userCreatorDetails", personId],
 		queryFn: async () => {
 			const { userCreatorDetails } = await gqlClient.request(
 				UserCreatorDetailsDocument,
-				{ creatorId },
+				{ creatorId: personId },
 			);
 			return userCreatorDetails;
 		},
-		enabled: !!creatorId,
+		enabled: !!personId,
 	});
 	const creatorDetails = useQuery({
-		queryKey: ["creatorDetails", creatorId],
+		queryKey: ["creatorDetails", personId],
 		queryFn: async () => {
 			const { creatorDetails } = await gqlClient.request(
 				CreatorDetailsDocument,
-				{ creatorId },
+				{ creatorId: personId },
 			);
 			return creatorDetails;
 		},
 		staleTime: Infinity,
-		enabled: !!creatorId,
+		enabled: !!personId,
 	});
 
 	return creatorDetails.data && userCreatorDetails.data ? (
@@ -137,7 +137,7 @@ const Page: NextPageWithLayout = () => {
 							{userCreatorDetails.data.collections.map((col) => (
 								<DisplayCollection
 									col={col}
-									entityId={creatorId}
+									entityId={personId}
 									entityLot={EntityLot.Person}
 									refetch={userCreatorDetails.refetch}
 									key={col.id}
@@ -262,7 +262,7 @@ const Page: NextPageWithLayout = () => {
 										w="100%"
 										component={Link}
 										href={withQuery(APP_ROUTES.media.postReview, {
-											creatorId,
+											personId,
 										})}
 									>
 										Post a review
@@ -273,7 +273,7 @@ const Page: NextPageWithLayout = () => {
 									<AddEntityToCollectionModal
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
-										entityId={creatorId}
+										entityId={personId}
 										refetchUserMedia={userCreatorDetails.refetch}
 										entityLot={EntityLot.Person}
 									/>
@@ -287,7 +287,7 @@ const Page: NextPageWithLayout = () => {
 										<ReviewItemDisplay
 											review={r}
 											key={r.id}
-											creatorId={creatorId}
+											personId={personId}
 											refetch={userCreatorDetails.refetch}
 										/>
 									))}

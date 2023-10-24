@@ -64,8 +64,8 @@ const Page: NextPageWithLayout = () => {
 	const metadataGroupId = router.query.metadataGroupId
 		? parseInt(router.query.metadataGroupId.toString())
 		: undefined;
-	const creatorId = router.query.creatorId
-		? parseInt(router.query.creatorId.toString())
+	const personId = router.query.personId
+		? parseInt(router.query.personId.toString())
 		: undefined;
 	const reviewId = Number(router.query.reviewId?.toString()) || null;
 	const showSeasonNumber = Number(router.query.showSeasonNumber) || undefined;
@@ -85,7 +85,7 @@ const Page: NextPageWithLayout = () => {
 	const userPreferences = useUserPreferences();
 
 	const mediaDetails = useQuery({
-		queryKey: ["mediaDetails", metadataId, creatorId],
+		queryKey: ["mediaDetails", metadataId, personId],
 		queryFn: async () => {
 			if (metadataId) {
 				const { mediaDetails } = await gqlClient.request(
@@ -97,10 +97,10 @@ const Page: NextPageWithLayout = () => {
 					isShow: mediaDetails.lot === MetadataLot.Show,
 					isPodcast: mediaDetails.lot === MetadataLot.Podcast,
 				};
-			} else if (creatorId) {
+			} else if (personId) {
 				const { creatorDetails } = await gqlClient.request(
 					CreatorDetailsDocument,
-					{ creatorId },
+					{ creatorId: personId },
 				);
 				return {
 					title: creatorDetails.details.name,
@@ -130,9 +130,9 @@ const Page: NextPageWithLayout = () => {
 			url = withQuery(APP_ROUTES.media.individualMediaItem.details, {
 				id: metadataId,
 			});
-		else if (creatorId)
+		else if (personId)
 			url = withQuery(APP_ROUTES.media.people.details, {
-				id: creatorId,
+				id: personId,
 			});
 		else if (metadataGroupId)
 			url = withQuery(APP_ROUTES.media.groups.details, {
@@ -218,7 +218,7 @@ const Page: NextPageWithLayout = () => {
 						postReview.mutate({
 							input: {
 								metadataId,
-								creatorId,
+								personId,
 								metadataGroupId,
 								...values,
 								reviewId,
