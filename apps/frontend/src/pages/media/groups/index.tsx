@@ -5,7 +5,7 @@ import {
 	PartialMetadataDisplay,
 } from "@/lib/components/MediaComponents";
 import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -28,8 +28,10 @@ import {
 import { IconDeviceTv, IconUser } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
@@ -131,6 +133,16 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+									<Button
+										variant="outline"
+										w="100%"
+										component={Link}
+										href={withQuery(APP_ROUTES.media.postReview, {
+											metadataGroupId,
+										})}
+									>
+										Post a review
+									</Button>
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>

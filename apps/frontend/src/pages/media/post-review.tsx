@@ -24,6 +24,7 @@ import {
 	DeleteReviewDocument,
 	type DeleteReviewMutationVariables,
 	MediaMainDetailsDocument,
+	MetadataGroupDetailsDocument,
 	MetadataLot,
 	PostReviewDocument,
 	type PostReviewMutationVariables,
@@ -59,6 +60,9 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const metadataId = router.query.metadataId
 		? parseInt(router.query.metadataId.toString())
+		: undefined;
+	const metadataGroupId = router.query.metadataGroupId
+		? parseInt(router.query.metadataGroupId.toString())
 		: undefined;
 	const creatorId = router.query.creatorId
 		? parseInt(router.query.creatorId.toString())
@@ -103,6 +107,16 @@ const Page: NextPageWithLayout = () => {
 					isShow: false,
 					isPodcast: false,
 				};
+			} else if (metadataGroupId) {
+				const { metadataGroupDetails } = await gqlClient.request(
+					MetadataGroupDetailsDocument,
+					{ metadataGroupId },
+				);
+				return {
+					title: metadataGroupDetails.details.title,
+					isShow: false,
+					isPodcast: false,
+				};
 			}
 			return { title: "", isShow: false, isPodcast: false };
 		},
@@ -116,11 +130,15 @@ const Page: NextPageWithLayout = () => {
 			url = withQuery(APP_ROUTES.media.individualMediaItem.details, {
 				id: metadataId,
 			});
-		else
+		else if (creatorId)
 			url = withQuery(APP_ROUTES.media.people.details, {
 				id: creatorId,
 			});
-		router.replace(url);
+		else if (metadataGroupId)
+			url = withQuery(APP_ROUTES.media.groups.details, {
+				id: metadataGroupId,
+			});
+		if (url) router.replace(url);
 	};
 
 	const reviewDetails = useQuery({
@@ -201,6 +219,7 @@ const Page: NextPageWithLayout = () => {
 							input: {
 								metadataId,
 								creatorId,
+								metadataGroupId,
 								...values,
 								reviewId,
 								rating: values.rating?.toString(),
