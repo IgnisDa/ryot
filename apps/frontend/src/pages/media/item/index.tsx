@@ -334,7 +334,7 @@ const AccordionLabel = (props: {
 					label={
 						props.displayIndicator === 1
 							? "Seen"
-							: `Seen X${props.displayIndicator}`
+							: `Seen × ${props.displayIndicator}`
 					}
 					offset={7}
 					position="bottom-end"
