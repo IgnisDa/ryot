@@ -235,6 +235,7 @@ const Page: NextPageWithLayout = () => {
 							input: {
 								metadataId,
 								personId,
+								collectionId,
 								metadataGroupId,
 								...values,
 								reviewId,
