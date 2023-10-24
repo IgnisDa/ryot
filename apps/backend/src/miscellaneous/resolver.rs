@@ -6107,7 +6107,7 @@ impl MiscellaneousService {
         if input.should_delete.unwrap_or_default() {
             let posn = comments
                 .iter()
-                .position(|r| &r.id != input.comment_id.as_ref().unwrap())
+                .position(|r| &r.id == input.comment_id.as_ref().unwrap())
                 .unwrap();
             comments.remove(posn);
         } else if input.increment_likes.unwrap_or_default() {
