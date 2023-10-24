@@ -1718,7 +1718,7 @@ impl MiscellaneousService {
                 );
                 current.map(|(s, e)| UserMediaNextEpisode {
                     season_number: Some(s.season_number),
-                    episode_number: Some(e.episode_number),
+                    episode_number: Some(e.episode_number + 1),
                 })
             } else if let Some(p) = &media_details.podcast_specifics {
                 let current = p.get_episode(h.podcast_information.as_ref().unwrap().episode);
