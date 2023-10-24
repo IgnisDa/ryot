@@ -284,8 +284,8 @@ const Page: NextPageWithLayout = () => {
 								mt={4}
 								loading={searchQuery.isFetching}
 								onClick={() => {
-									searchQuery.refetch();
-									listMedia.refetch();
+									if (activeTab === "search") searchQuery.refetch();
+									else if (activeTab === "mine") listMedia.refetch();
 								}}
 							>
 								<IconRefresh size={26} />
