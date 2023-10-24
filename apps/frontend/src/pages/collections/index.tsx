@@ -1,5 +1,8 @@
 import Grid from "@/lib/components/Grid";
-import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
+import {
+	MediaItemWithoutUpdateModal,
+	ReviewItemDisplay,
+} from "@/lib/components/MediaComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
@@ -20,7 +23,11 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/ts-utils";
-import { IconBucketDroplet, IconUser } from "@tabler/icons-react";
+import {
+	IconBucketDroplet,
+	IconMessageCircle2,
+	IconUser,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import Link from "next/link";
@@ -91,6 +98,14 @@ const Page: NextPageWithLayout = () => {
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
+							{collectionContents.data.reviews.length > 0 ? (
+								<Tabs.Tab
+									value="reviews"
+									leftSection={<IconMessageCircle2 size={16} />}
+								>
+									Reviews
+								</Tabs.Tab>
+							) : undefined}
 						</Tabs.List>
 						<Tabs.Panel value="contents">
 							{collectionContents.data.results.items.length > 0 ? (
@@ -140,6 +155,18 @@ const Page: NextPageWithLayout = () => {
 									Post a review
 								</Button>
 							</SimpleGrid>
+						</Tabs.Panel>
+						<Tabs.Panel value="reviews">
+							<Stack>
+								{collectionContents.data.reviews.map((r) => (
+									<ReviewItemDisplay
+										review={r}
+										key={r.id}
+										collectionId={collectionId}
+										refetch={collectionContents.refetch}
+									/>
+								))}
+							</Stack>
 						</Tabs.Panel>
 					</Tabs>
 				</Stack>

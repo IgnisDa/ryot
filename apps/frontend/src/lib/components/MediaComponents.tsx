@@ -120,6 +120,7 @@ export const ReviewItemDisplay = (props: {
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
+	collectionId?: number;
 	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -159,6 +160,7 @@ export const ReviewItemDisplay = (props: {
 							href={withQuery(APP_ROUTES.media.postReview, {
 								metadataId: props.metadataId,
 								metadataGroupId: props.metadataGroupId,
+								collectionId: props.collectionId,
 								personId: props.personId,
 								reviewId: props.review.id,
 							})}
