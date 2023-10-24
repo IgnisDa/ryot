@@ -1,15 +1,17 @@
 import Grid from "@/lib/components/Grid";
 import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
-import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Box,
+	Button,
 	Center,
 	Container,
 	Pagination,
+	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -18,11 +20,13 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo } from "@ryot/ts-utils";
-import { IconBucketDroplet } from "@tabler/icons-react";
+import { IconBucketDroplet, IconUser } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement } from "react";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../_app";
 
 const Page: NextPageWithLayout = () => {
@@ -84,6 +88,9 @@ const Page: NextPageWithLayout = () => {
 							>
 								Contents
 							</Tabs.Tab>
+							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+								Actions
+							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="contents">
 							{collectionContents.data.results.items.length > 0 ? (
@@ -119,6 +126,20 @@ const Page: NextPageWithLayout = () => {
 									/>
 								</Center>
 							) : undefined}
+						</Tabs.Panel>
+						<Tabs.Panel value="actions">
+							<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
+								<Button
+									variant="outline"
+									w="100%"
+									component={Link}
+									href={withQuery(APP_ROUTES.media.postReview, {
+										collectionId,
+									})}
+								>
+									Post a review
+								</Button>
+							</SimpleGrid>
 						</Tabs.Panel>
 					</Tabs>
 				</Stack>
