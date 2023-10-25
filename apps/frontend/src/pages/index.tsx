@@ -31,7 +31,7 @@ import {
 	MetadataLot,
 	UserCollectionsListDocument,
 	UserUpcomingCalendarEventsDocument,
-	CollectionContentsSortBy,
+	GraphqlSortOrder,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
 import {
@@ -205,15 +205,11 @@ const Page: NextPageWithLayout = () => {
 				UserCollectionsListDocument,
 				{ name: "In Progress" },
 			);
-			const id = userCollectionsList[0].id;
+			const collectionId = userCollectionsList[0].id;
 			const { collectionContents } = await gqlClient.request(
 				CollectionContentsDocument,
 				{
-					input: {
-						collectionId: id,
-						take,
-						sort: { by: CollectionContentsSortBy.LastUpdatedOn },
-					},
+					input: { collectionId, take, sort: { order: GraphqlSortOrder.Desc } },
 				},
 			);
 			return collectionContents;
