@@ -255,10 +255,7 @@ const Page: NextPageWithLayout = () => {
 		);
 	};
 
-	return lot &&
-		collections.data &&
-		collections.data.length > 0 &&
-		coreDetails.data ? (
+	return lot && coreDetails.data ? (
 		<>
 			<Head>
 				<title>List {changeCase(lot).toLowerCase()}s | Ryot</title>
@@ -366,23 +363,25 @@ const Page: NextPageWithLayout = () => {
 												)}
 											</ActionIcon>
 										</Flex>
-										<Select
-											placeholder="Select a collection"
-											value={mineCollectionFilter}
-											data={[
-												{
-													group: "My collections",
-													items: collections.data.map((c) => ({
-														value: c?.id?.toString(),
-														label: c?.name,
-													})),
-												},
-											]}
-											onChange={(v) => {
-												setMineCollectionFilter(v || "non");
-											}}
-											clearable
-										/>
+										{collections.data && collections.data.length > 0 ? (
+											<Select
+												placeholder="Select a collection"
+												value={mineCollectionFilter}
+												data={[
+													{
+														group: "My collections",
+														items: collections.data.map((c) => ({
+															value: c?.id?.toString(),
+															label: c?.name,
+														})),
+													},
+												]}
+												onChange={(v) => {
+													setMineCollectionFilter(v || "non");
+												}}
+												clearable
+											/>
+										) : undefined}
 									</Stack>
 								</Modal>
 							</Group>
