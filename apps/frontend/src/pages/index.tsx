@@ -125,7 +125,7 @@ const ActualDisplayStat = (props: {
 							<Text
 								fw={d.label !== "Runtime" ? "bold" : undefined}
 								display="inline"
-								fz={{ base: "md", md: "sm" }}
+								fz={{ base: "md", md: "sm", xl: "md" }}
 							>
 								{d.type === "duration"
 									? humanizer.humanize(d.value * 1000 * 60, {
@@ -134,7 +134,11 @@ const ActualDisplayStat = (props: {
 									  })
 									: humanFormat(d.value)}
 							</Text>
-							<Text display="inline" ml="4px" fz={{ base: "md", md: "sm" }}>
+							<Text
+								display="inline"
+								ml="4px"
+								fz={{ base: "md", md: "sm", xl: "md" }}
+							>
 								{d.label === "Runtime" ? "" : d.label}
 							</Text>
 						</Box>
@@ -251,7 +255,7 @@ const Page: NextPageWithLayout = () => {
 				<title>Home | Ryot</title>
 			</Head>
 			<Container>
-				<Stack gap="xl">
+				<Stack gap={32}>
 					{currentWorkout ? (
 						<Alert
 							icon={<IconAlertCircle size={16} />}
