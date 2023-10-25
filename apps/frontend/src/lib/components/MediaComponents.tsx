@@ -407,7 +407,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					: withQuery(
 							match(props.entityLot)
 								.with(
-									EntityLot.Metadata,
+									EntityLot.Media,
 									undefined,
 									null,
 									() => APP_ROUTES.media.individualMediaItem.details,
@@ -614,7 +614,7 @@ export const MediaSearchItem = (props: {
 							input: {
 								collectionName: "Watchlist",
 								entityId: id,
-								entityLot: EntityLot.Metadata,
+								entityLot: EntityLot.Media,
 							},
 						});
 					}}

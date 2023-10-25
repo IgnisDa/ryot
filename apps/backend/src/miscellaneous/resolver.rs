@@ -55,8 +55,8 @@ use uuid::Uuid;
 use crate::{
     background::ApplicationJob,
     entities::{
-        calendar_event, collection, collection_to_entity, genre, metadata, metadata_group,
-        metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
+        calendar_event, collection, collection_to_entity, exercise, genre, metadata,
+        metadata_group, metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
         partial_metadata::{self, PartialMetadataWithoutId},
         partial_metadata_to_metadata_group, person, person_to_partial_metadata,
         prelude::{
@@ -308,11 +308,27 @@ struct UpdateUserPreferenceInput {
     value: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum CollectionContentsSortBy {
+    Title,
+    #[default]
+    LastUpdatedOn,
+    Date,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+struct CollectionContentsFilter {
+    entity_type: Option<EntityLot>,
+    metadata_lot: Option<MetadataLot>,
+}
+
 #[derive(Debug, InputObject)]
 struct CollectionContentsInput {
     collection_id: i32,
-    page: Option<u64>,
+    search: Option<SearchInput>,
+    filter: Option<CollectionContentsFilter>,
     take: Option<u64>,
+    sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -486,9 +502,10 @@ enum PersonSortBy {
     MediaItems,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
 #[graphql(concrete(name = "PersonSortInput", params(PersonSortBy)))]
+#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 struct SortInput<T: InputType + Default> {
     #[graphql(default)]
     order: GraphqlSortOrder,
@@ -1701,7 +1718,7 @@ impl MiscellaneousService {
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
         let media_details = self.media_details(metadata_id).await?;
         let collections =
-            entity_in_collections(&self.db, user_id, metadata_id, EntityLot::Metadata).await?;
+            entity_in_collections(&self.db, user_id, metadata_id, EntityLot::Media).await?;
         let reviews = self
             .item_reviews(user_id, Some(metadata_id), None, None, None)
             .await?;
@@ -3708,7 +3725,10 @@ impl MiscellaneousService {
         user_id: Option<i32>,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
-        let page = input.page.unwrap_or(1);
+        let search = input.search.unwrap_or_default();
+        let sort = input.sort.unwrap_or_default();
+        let filter = input.filter.unwrap_or_default();
+        let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
         let collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
             .await
@@ -3729,9 +3749,69 @@ impl MiscellaneousService {
             }
         }
 
+        let m = Alias::new("metadata");
+        let mg = Alias::new("metadata_group");
+        let p = Alias::new("person");
+        let e = Alias::new("exercise");
         let paginator = CollectionToEntity::find()
+            .left_join(Metadata)
+            .left_join(MetadataGroup)
+            .left_join(Person)
+            .left_join(Exercise)
             .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
-            .order_by_desc(collection_to_entity::Column::LastUpdatedOn)
+            .apply_if(search.query, |query, v| {
+                query.filter(
+                    Condition::any()
+                        .add(get_ilike_query(
+                            Expr::col((m.clone(), metadata::Column::Title)),
+                            &v,
+                        ))
+                        .add(get_ilike_query(
+                            Expr::col((mg.clone(), metadata_group::Column::Title)),
+                            &v,
+                        ))
+                        .add(get_ilike_query(
+                            Expr::col((p.clone(), person::Column::Name)),
+                            &v,
+                        ))
+                        .add(get_ilike_query(
+                            Expr::col((e.clone(), exercise::Column::Name)),
+                            &v,
+                        )),
+                )
+            })
+            .apply_if(filter.metadata_lot, |query, v| {
+                query.filter(Expr::col((m.clone(), metadata::Column::Lot)).eq(v))
+            })
+            .apply_if(filter.entity_type, |query, v| {
+                let f = match v {
+                    EntityLot::Media => collection_to_entity::Column::MetadataId.is_not_null(),
+                    EntityLot::MediaGroup => {
+                        collection_to_entity::Column::MetadataGroupId.is_not_null()
+                    }
+                    EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
+                    EntityLot::Exercise => collection_to_entity::Column::ExerciseId.is_not_null(),
+                };
+                query.filter(f)
+            })
+            .order_by(
+                match sort.by {
+                    CollectionContentsSortBy::LastUpdatedOn => {
+                        Expr::col(collection_to_entity::Column::LastUpdatedOn)
+                    }
+                    CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
+                        Expr::col((m.clone(), metadata::Column::Title)).into(),
+                        Expr::col((mg.clone(), metadata_group::Column::Title)).into(),
+                        Expr::col((p.clone(), person::Column::Name)).into(),
+                        Expr::col((e.clone(), exercise::Column::Name)).into(),
+                    ])),
+                    CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
+                        Expr::col((m.clone(), metadata::Column::PublishDate)).into(),
+                        Expr::col((p.clone(), person::Column::BirthDate)).into(),
+                    ])),
+                },
+                sort.order.into(),
+            )
             .paginate(
                 &self.db,
                 input
@@ -3754,7 +3834,7 @@ impl MiscellaneousService {
                         publish_year: m.publish_year,
                     },
                     metadata_lot: Some(m.lot),
-                    entity_lot: EntityLot::Metadata,
+                    entity_lot: EntityLot::Media,
                 }
             } else if let Some(id) = cte.person_id {
                 let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
@@ -3989,7 +4069,7 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         let target_column = match input.entity_lot {
-            EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+            EntityLot::Media => collection_to_entity::Column::MetadataId,
             EntityLot::Person => collection_to_entity::Column::PersonId,
             EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
             EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
@@ -4021,7 +4101,7 @@ impl MiscellaneousService {
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: metadata_id,
-                        entity_lot: EntityLot::Metadata,
+                        entity_lot: EntityLot::Media,
                     },
                 )
                 .await
@@ -4541,7 +4621,7 @@ impl MiscellaneousService {
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
                 entity_id: media.id,
-                entity_lot: EntityLot::Metadata,
+                entity_lot: EntityLot::Media,
             },
         )
         .await?;
@@ -5404,7 +5484,7 @@ impl MiscellaneousService {
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Watchlist.to_string(),
                 entity_id: seen.metadata_id,
-                entity_lot: EntityLot::Metadata,
+                entity_lot: EntityLot::Media,
             },
         )
         .await
@@ -5416,7 +5496,7 @@ impl MiscellaneousService {
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: seen.metadata_id,
-                        entity_lot: EntityLot::Metadata,
+                        entity_lot: EntityLot::Media,
                     },
                 )
                 .await
@@ -5428,7 +5508,7 @@ impl MiscellaneousService {
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: seen.metadata_id,
-                        entity_lot: EntityLot::Metadata,
+                        entity_lot: EntityLot::Media,
                     },
                 )
                 .await
@@ -5486,7 +5566,7 @@ impl MiscellaneousService {
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 entity_id: seen.metadata_id,
-                                entity_lot: EntityLot::Metadata,
+                                entity_lot: EntityLot::Media,
                             },
                         )
                         .await
@@ -5497,7 +5577,7 @@ impl MiscellaneousService {
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 entity_id: seen.metadata_id,
-                                entity_lot: EntityLot::Metadata,
+                                entity_lot: EntityLot::Media,
                             },
                         )
                         .await
@@ -5516,7 +5596,7 @@ impl MiscellaneousService {
                         ChangeCollectionToEntityInput {
                             collection_name: DefaultCollection::InProgress.to_string(),
                             entity_id: seen.metadata_id,
-                            entity_lot: EntityLot::Metadata,
+                            entity_lot: EntityLot::Media,
                         },
                     )
                     .await
@@ -6049,7 +6129,7 @@ impl MiscellaneousService {
                 );
                 reviews.push(review_item);
             }
-            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Metadata)
+            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Media)
                 .await?
                 .into_iter()
                 .map(|c| c.name)

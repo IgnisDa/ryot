@@ -33,9 +33,10 @@ use crate::{
     utils::get_stored_asset,
 };
 
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EntityLot {
-    Metadata,
+    #[default]
+    Media,
     Person,
     MediaGroup,
     Exercise,
@@ -59,7 +60,7 @@ pub struct NamedObject {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, InputObject, Clone)]
+#[derive(Serialize, Deserialize, Debug, InputObject, Clone, Default)]
 pub struct SearchInput {
     pub query: Option<String>,
     pub page: Option<i32>,

@@ -11,6 +11,7 @@ use serde_json::json;
 use surf::{http::headers::ACCEPT, Client};
 use surf_governor::GovernorMiddleware;
 use surf_retry::{ExponentialBackoff, RetryMiddleware};
+use tracing::instrument;
 
 use crate::{
     entities::partial_metadata::PartialMetadataWithoutId,
@@ -35,7 +36,7 @@ struct OpenlibraryEditionsResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct OpenlibraryEdition {
-    title: String,
+    title: Option<String>,
     key: String,
     publish_date: Option<String>,
     number_of_pages: Option<i32>,
@@ -155,25 +156,27 @@ impl MediaProvider for OpenlibraryService {
             .map_err(|e| anyhow!(e))?;
         let mut related = vec![];
         for entry in author_works.entries.unwrap_or_default() {
-            let image = entry
-                .covers
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|c| c > &0)
-                .map(|c| self.get_book_cover_image_url(c))
-                .collect_vec()
-                .first()
-                .cloned();
-            related.push((
-                "Author".to_owned(),
-                PartialMetadataWithoutId {
-                    identifier: get_key(&entry.key),
-                    title: entry.title,
-                    lot: MetadataLot::Book,
-                    source: MetadataSource::Openlibrary,
-                    image,
-                },
-            ))
+            if let Some(title) = entry.title {
+                let image = entry
+                    .covers
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|c| c > &0)
+                    .map(|c| self.get_book_cover_image_url(c))
+                    .collect_vec()
+                    .first()
+                    .cloned();
+                related.push((
+                    "Author".to_owned(),
+                    PartialMetadataWithoutId {
+                        identifier: get_key(&entry.key),
+                        title,
+                        lot: MetadataLot::Book,
+                        source: MetadataSource::Openlibrary,
+                        image,
+                    },
+                ))
+            }
         }
         Ok(MetadataPerson {
             identifier,
@@ -192,6 +195,7 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
+    #[instrument(skip(self))]
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
@@ -220,9 +224,11 @@ impl MediaProvider for OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
 
+        tracing::trace!("Getting work details.");
         let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
+        tracing::trace!("Getting edition details.");
         let mut rsp = self
             .client
             .get(format!("works/{}/editions.json", identifier))
@@ -303,6 +309,7 @@ impl MediaProvider for OpenlibraryService {
             data: String,
         }
 
+        tracing::trace!("Getting suggestion details.");
         // DEV: Reverse engineered the API
         let html = self
             .client

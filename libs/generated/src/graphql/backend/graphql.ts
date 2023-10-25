@@ -96,10 +96,28 @@ export type CollectionContents = {
   user: User;
 };
 
+export type CollectionContentsFilter = {
+  entityType?: InputMaybe<EntityLot>;
+  metadataLot?: InputMaybe<MetadataLot>;
+};
+
 export type CollectionContentsInput = {
   collectionId: Scalars['Int']['input'];
-  page?: InputMaybe<Scalars['Int']['input']>;
+  filter?: InputMaybe<CollectionContentsFilter>;
+  search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<CollectionContentsSortInput>;
   take?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export enum CollectionContentsSortBy {
+  Date = 'DATE',
+  LastUpdatedOn = 'LAST_UPDATED_ON',
+  Title = 'TITLE'
+}
+
+export type CollectionContentsSortInput = {
+  by?: CollectionContentsSortBy;
+  order?: GraphqlSortOrder;
 };
 
 export type CollectionItem = {
@@ -293,8 +311,8 @@ export type EntityAssetsInput = {
 
 export enum EntityLot {
   Exercise = 'EXERCISE',
+  Media = 'MEDIA',
   MediaGroup = 'MEDIA_GROUP',
-  Metadata = 'METADATA',
   Person = 'PERSON'
 }
 
