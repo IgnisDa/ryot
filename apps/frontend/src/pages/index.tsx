@@ -267,7 +267,7 @@ const Page: NextPageWithLayout = () => {
 						match([de.section, de.hidden])
 							.with([DashboardElementLot.Upcoming, false], () =>
 								upcomingMedia.data.length > 0 ? (
-									<Section>
+									<Section key="upcoming">
 										<Title>Upcoming</Title>
 										<Grid>
 											{upcomingMedia.data.map((um) => (
@@ -279,7 +279,7 @@ const Page: NextPageWithLayout = () => {
 							)
 							.with([DashboardElementLot.InProgress, false], () =>
 								inProgressCollection.data.results.items.length > 0 ? (
-									<Section>
+									<Section key="inProgress">
 										<Title>{inProgressCollection.data.details.name}</Title>
 										<Grid>
 											{inProgressCollection.data.results.items.map((lm) => (
@@ -299,7 +299,7 @@ const Page: NextPageWithLayout = () => {
 								) : undefined,
 							)
 							.with([DashboardElementLot.Summary, false], () => (
-								<Section>
+								<Section key="summary">
 									<Title>Summary</Title>
 									<Text size="xs" mt={-15}>
 										Calculated{" "}
@@ -525,7 +525,7 @@ const Page: NextPageWithLayout = () => {
 								</Section>
 							))
 							.with([DashboardElementLot.Actions, false], () => (
-								<Section>
+								<Section key="actions">
 									<Title>Actions</Title>
 									<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
 										{userPreferences.data.featuresEnabled.fitness.enabled ? (
