@@ -1718,7 +1718,7 @@ impl MiscellaneousService {
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
         let media_details = self.media_details(metadata_id).await?;
         let collections =
-            entity_in_collections(&self.db, user_id, metadata_id, EntityLot::Metadata).await?;
+            entity_in_collections(&self.db, user_id, metadata_id, EntityLot::Media).await?;
         let reviews = self
             .item_reviews(user_id, Some(metadata_id), None, None, None)
             .await?;
@@ -3785,7 +3785,7 @@ impl MiscellaneousService {
             })
             .apply_if(filter.entity_type, |query, v| {
                 let f = match v {
-                    EntityLot::Metadata => collection_to_entity::Column::MetadataId.is_not_null(),
+                    EntityLot::Media => collection_to_entity::Column::MetadataId.is_not_null(),
                     EntityLot::MediaGroup => {
                         collection_to_entity::Column::MetadataGroupId.is_not_null()
                     }
@@ -3834,7 +3834,7 @@ impl MiscellaneousService {
                         publish_year: m.publish_year,
                     },
                     metadata_lot: Some(m.lot),
-                    entity_lot: EntityLot::Metadata,
+                    entity_lot: EntityLot::Media,
                 }
             } else if let Some(id) = cte.person_id {
                 let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
@@ -4069,7 +4069,7 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         let target_column = match input.entity_lot {
-            EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+            EntityLot::Media => collection_to_entity::Column::MetadataId,
             EntityLot::Person => collection_to_entity::Column::PersonId,
             EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
             EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
@@ -4101,7 +4101,7 @@ impl MiscellaneousService {
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: metadata_id,
-                        entity_lot: EntityLot::Metadata,
+                        entity_lot: EntityLot::Media,
                     },
                 )
                 .await
@@ -4621,7 +4621,7 @@ impl MiscellaneousService {
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
                 entity_id: media.id,
-                entity_lot: EntityLot::Metadata,
+                entity_lot: EntityLot::Media,
             },
         )
         .await?;
@@ -5484,7 +5484,7 @@ impl MiscellaneousService {
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Watchlist.to_string(),
                 entity_id: seen.metadata_id,
-                entity_lot: EntityLot::Metadata,
+                entity_lot: EntityLot::Media,
             },
         )
         .await
@@ -5496,7 +5496,7 @@ impl MiscellaneousService {
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: seen.metadata_id,
-                        entity_lot: EntityLot::Metadata,
+                        entity_lot: EntityLot::Media,
                     },
                 )
                 .await
@@ -5508,7 +5508,7 @@ impl MiscellaneousService {
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
                         entity_id: seen.metadata_id,
-                        entity_lot: EntityLot::Metadata,
+                        entity_lot: EntityLot::Media,
                     },
                 )
                 .await
@@ -5566,7 +5566,7 @@ impl MiscellaneousService {
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 entity_id: seen.metadata_id,
-                                entity_lot: EntityLot::Metadata,
+                                entity_lot: EntityLot::Media,
                             },
                         )
                         .await
@@ -5577,7 +5577,7 @@ impl MiscellaneousService {
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
                                 entity_id: seen.metadata_id,
-                                entity_lot: EntityLot::Metadata,
+                                entity_lot: EntityLot::Media,
                             },
                         )
                         .await
@@ -5596,7 +5596,7 @@ impl MiscellaneousService {
                         ChangeCollectionToEntityInput {
                             collection_name: DefaultCollection::InProgress.to_string(),
                             entity_id: seen.metadata_id,
-                            entity_lot: EntityLot::Metadata,
+                            entity_lot: EntityLot::Media,
                         },
                     )
                     .await
@@ -6129,7 +6129,7 @@ impl MiscellaneousService {
                 );
                 reviews.push(review_item);
             }
-            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Metadata)
+            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Media)
                 .await?
                 .into_iter()
                 .map(|c| c.name)

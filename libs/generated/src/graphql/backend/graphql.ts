@@ -311,8 +311,8 @@ export type EntityAssetsInput = {
 
 export enum EntityLot {
   Exercise = 'EXERCISE',
+  Media = 'MEDIA',
   MediaGroup = 'MEDIA_GROUP',
-  Metadata = 'METADATA',
   Person = 'PERSON'
 }
 

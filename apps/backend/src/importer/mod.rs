@@ -439,7 +439,7 @@ impl ImporterService {
                         ChangeCollectionToEntityInput {
                             collection_name: col.to_string(),
                             entity_id: metadata.id,
-                            entity_lot: EntityLot::Metadata,
+                            entity_lot: EntityLot::Media,
                         },
                     )
                     .await

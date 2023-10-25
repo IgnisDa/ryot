@@ -629,7 +629,7 @@ const Page: NextPageWithLayout = () => {
 								<DisplayCollection
 									col={col}
 									entityId={metadataId}
-									entityLot={EntityLot.Metadata}
+									entityLot={EntityLot.Media}
 									refetch={userMediaDetails.refetch}
 									key={col.id}
 								/>
@@ -1144,7 +1144,7 @@ const Page: NextPageWithLayout = () => {
 											opened={collectionModalOpened}
 											entityId={metadataId}
 											refetchUserMedia={userMediaDetails.refetch}
-											entityLot={EntityLot.Metadata}
+											entityLot={EntityLot.Media}
 										/>
 									</>
 									<Button

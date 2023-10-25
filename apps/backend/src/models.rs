@@ -36,7 +36,7 @@ use crate::{
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EntityLot {
     #[default]
-    Metadata,
+    Media,
     Person,
     MediaGroup,
     Exercise,

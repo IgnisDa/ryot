@@ -208,7 +208,7 @@ pub async fn entity_in_collections(
         .await
         .unwrap();
     let target_column = match entity_lot {
-        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Media => collection_to_entity::Column::MetadataId,
         EntityLot::Person => collection_to_entity::Column::PersonId,
         EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
@@ -238,7 +238,7 @@ pub async fn add_entity_to_collection(
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
     let target_column = match input.entity_lot {
-        EntityLot::Metadata => collection_to_entity::Column::MetadataId,
+        EntityLot::Media => collection_to_entity::Column::MetadataId,
         EntityLot::Person => collection_to_entity::Column::PersonId,
         EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
@@ -268,7 +268,7 @@ pub async fn add_entity_to_collection(
             ..Default::default()
         };
         match input.entity_lot {
-            EntityLot::Metadata => {
+            EntityLot::Media => {
                 created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
             }
             EntityLot::Person => {
