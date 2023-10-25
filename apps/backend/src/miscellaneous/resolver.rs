@@ -55,8 +55,8 @@ use uuid::Uuid;
 use crate::{
     background::ApplicationJob,
     entities::{
-        calendar_event, collection, collection_to_entity, genre, metadata, metadata_group,
-        metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
+        calendar_event, collection, collection_to_entity, exercise, genre, metadata,
+        metadata_group, metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
         partial_metadata::{self, PartialMetadataWithoutId},
         partial_metadata_to_metadata_group, person, person_to_partial_metadata,
         prelude::{
@@ -3708,13 +3708,8 @@ impl MiscellaneousService {
         user_id: Option<i32>,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
-        let page: u64 = input
-            .search
-            .unwrap_or_default()
-            .page
-            .unwrap_or(1)
-            .try_into()
-            .unwrap();
+        let search = input.search.unwrap_or_default();
+        let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
         let collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
             .await
@@ -3735,8 +3730,28 @@ impl MiscellaneousService {
             }
         }
 
+        let m = Alias::new("metadata");
+        let mg = Alias::new("metadata_group");
+        let p = Alias::new("person");
+        let e = Alias::new("exercise");
         let paginator = CollectionToEntity::find()
+            .left_join(Metadata)
+            .left_join(MetadataGroup)
+            .left_join(Person)
+            .left_join(Exercise)
             .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+            .apply_if(search.query, |query, v| {
+                query.filter(
+                    Condition::any()
+                        .add(get_ilike_query(Expr::col((m, metadata::Column::Title)), &v))
+                        .add(get_ilike_query(
+                            Expr::col((mg, metadata_group::Column::Title)),
+                            &v,
+                        ))
+                        .add(get_ilike_query(Expr::col((p, person::Column::Name)), &v))
+                        .add(get_ilike_query(Expr::col((e, exercise::Column::Name)), &v)),
+                )
+            })
             .order_by_desc(collection_to_entity::Column::LastUpdatedOn)
             .paginate(
                 &self.db,
