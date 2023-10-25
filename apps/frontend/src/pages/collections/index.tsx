@@ -34,7 +34,9 @@ import {
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
+	EntityLot,
 	GraphqlSortOrder,
+	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatTimeAgo, startCase } from "@ryot/ts-utils";
 import {
@@ -93,6 +95,18 @@ const Page: NextPageWithLayout = () => {
 		defaultValue: defaultFiltersValue.order,
 		getInitialValueInEffect: false,
 	});
+	const [entityLotFilter, setEntityLotFilter] = useLocalStorage<
+		EntityLot | undefined
+	>({
+		key: LOCAL_STORAGE_KEYS.savedCollectionContentsEntityLotFilter,
+		getInitialValueInEffect: false,
+	});
+	const [metadataLotFilter, setMetadataLotFilter] = useLocalStorage<
+		MetadataLot | undefined
+	>({
+		key: LOCAL_STORAGE_KEYS.savedCollectionContentsMetadataLotFilter,
+		getInitialValueInEffect: false,
+	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 
 	const collectionDetails = useQuery({
@@ -115,6 +129,8 @@ const Page: NextPageWithLayout = () => {
 			debouncedQuery,
 			sortBy,
 			sortOrder,
+			entityLotFilter,
+			metadataLotFilter,
 		],
 		queryFn: async () => {
 			const { collectionContents } = await gqlClient.request(
@@ -122,6 +138,10 @@ const Page: NextPageWithLayout = () => {
 				{
 					input: {
 						collectionId,
+						filter: {
+							entityType: entityLotFilter,
+							metadataLot: metadataLotFilter,
+						},
 						sort: { by: sortBy, order: sortOrder },
 						search: {
 							page: parseInt(activePage || "1"),
@@ -206,7 +226,14 @@ const Page: NextPageWithLayout = () => {
 									/>
 									<ActionIcon
 										onClick={openFiltersModal}
-										color={sortBy !== defaultFiltersValue.by ? "blue" : "gray"}
+										color={
+											entityLotFilter !== undefined ||
+											metadataLotFilter !== undefined ||
+											sortBy !== defaultFiltersValue.by ||
+											sortOrder !== defaultFiltersValue.order
+												? "blue"
+												: "gray"
+										}
 									>
 										<IconFilter size={24} />
 									</ActionIcon>
@@ -223,6 +250,8 @@ const Page: NextPageWithLayout = () => {
 													onClick={() => {
 														setSortBy(defaultFiltersValue.by);
 														setSortOrder(defaultFiltersValue.order);
+														setEntityLotFilter(undefined);
+														setMetadataLotFilter(undefined);
 													}}
 												>
 													<IconFilterOff size={24} />
@@ -261,6 +290,32 @@ const Page: NextPageWithLayout = () => {
 													)}
 												</ActionIcon>
 											</Flex>
+											<Select
+												placeholder="Select an entity type"
+												value={entityLotFilter}
+												data={Object.values(EntityLot).map((o) => ({
+													value: o.toString(),
+													label: startCase(o.toLowerCase()),
+												}))}
+												onChange={(v) => {
+													setEntityLotFilter(v as EntityLot);
+												}}
+												clearable
+											/>
+											{entityLotFilter === EntityLot.Media ? (
+												<Select
+													placeholder="Select a media type"
+													value={metadataLotFilter}
+													data={Object.values(MetadataLot).map((o) => ({
+														value: o.toString(),
+														label: startCase(o.toLowerCase()),
+													}))}
+													onChange={(v) => {
+														setMetadataLotFilter(v as MetadataLot);
+													}}
+													clearable
+												/>
+											) : undefined}
 										</Stack>
 									</Modal>
 								</Group>
