@@ -3783,6 +3783,17 @@ impl MiscellaneousService {
             .apply_if(filter.metadata_lot, |query, v| {
                 query.filter(Expr::col((m.clone(), metadata::Column::Lot)).eq(v))
             })
+            .apply_if(filter.entity_type, |query, v| {
+                let f = match v {
+                    EntityLot::Metadata => collection_to_entity::Column::MetadataId.is_not_null(),
+                    EntityLot::MediaGroup => {
+                        collection_to_entity::Column::MetadataGroupId.is_not_null()
+                    }
+                    EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
+                    EntityLot::Exercise => collection_to_entity::Column::ExerciseId.is_not_null(),
+                };
+                query.filter(f)
+            })
             .order_by(
                 match sort.by {
                     CollectionContentsSortBy::LastUpdatedOn => {

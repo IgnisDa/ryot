@@ -96,8 +96,14 @@ export type CollectionContents = {
   user: User;
 };
 
+export type CollectionContentsFilter = {
+  entityType?: InputMaybe<EntityLot>;
+  metadataLot?: InputMaybe<MetadataLot>;
+};
+
 export type CollectionContentsInput = {
   collectionId: Scalars['Int']['input'];
+  filter?: InputMaybe<CollectionContentsFilter>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<CollectionContentsSortInput>;
   take?: InputMaybe<Scalars['Int']['input']>;
