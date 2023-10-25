@@ -99,7 +99,19 @@ export type CollectionContents = {
 export type CollectionContentsInput = {
   collectionId: Scalars['Int']['input'];
   search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<CollectionContentsSortInput>;
   take?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export enum CollectionContentsSortBy {
+  Date = 'DATE',
+  LastUpdatedOn = 'LAST_UPDATED_ON',
+  Title = 'TITLE'
+}
+
+export type CollectionContentsSortInput = {
+  by?: CollectionContentsSortBy;
+  order?: GraphqlSortOrder;
 };
 
 export type CollectionItem = {

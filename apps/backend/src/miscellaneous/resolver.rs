@@ -308,11 +308,20 @@ struct UpdateUserPreferenceInput {
     value: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+enum CollectionContentsSortBy {
+    Title,
+    #[default]
+    LastUpdatedOn,
+    Date,
+}
+
 #[derive(Debug, InputObject)]
 struct CollectionContentsInput {
     collection_id: i32,
     search: Option<SearchInput>,
     take: Option<u64>,
+    sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -486,9 +495,10 @@ enum PersonSortBy {
     MediaItems,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
 #[graphql(concrete(name = "PersonSortInput", params(PersonSortBy)))]
+#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 struct SortInput<T: InputType + Default> {
     #[graphql(default)]
     order: GraphqlSortOrder,
@@ -3709,6 +3719,7 @@ impl MiscellaneousService {
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
         let search = input.search.unwrap_or_default();
+        let sort = input.sort.unwrap_or_default();
         let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
         let collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
@@ -3743,16 +3754,42 @@ impl MiscellaneousService {
             .apply_if(search.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(get_ilike_query(Expr::col((m, metadata::Column::Title)), &v))
                         .add(get_ilike_query(
-                            Expr::col((mg, metadata_group::Column::Title)),
+                            Expr::col((m.clone(), metadata::Column::Title)),
                             &v,
                         ))
-                        .add(get_ilike_query(Expr::col((p, person::Column::Name)), &v))
-                        .add(get_ilike_query(Expr::col((e, exercise::Column::Name)), &v)),
+                        .add(get_ilike_query(
+                            Expr::col((mg.clone(), metadata_group::Column::Title)),
+                            &v,
+                        ))
+                        .add(get_ilike_query(
+                            Expr::col((p.clone(), person::Column::Name)),
+                            &v,
+                        ))
+                        .add(get_ilike_query(
+                            Expr::col((e.clone(), exercise::Column::Name)),
+                            &v,
+                        )),
                 )
             })
-            .order_by_desc(collection_to_entity::Column::LastUpdatedOn)
+            .order_by(
+                match sort.by {
+                    CollectionContentsSortBy::LastUpdatedOn => {
+                        Expr::col(collection_to_entity::Column::LastUpdatedOn)
+                    }
+                    CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
+                        Expr::col((m.clone(), metadata::Column::Title)).into(),
+                        Expr::col((mg.clone(), metadata_group::Column::Title)).into(),
+                        Expr::col((p.clone(), person::Column::Name)).into(),
+                        Expr::col((e.clone(), exercise::Column::Name)).into(),
+                    ])),
+                    CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
+                        Expr::col((m.clone(), metadata::Column::PublishDate)).into(),
+                        Expr::col((p.clone(), person::Column::BirthDate)).into(),
+                    ])),
+                },
+                sort.order.into(),
+            )
             .paginate(
                 &self.db,
                 input
