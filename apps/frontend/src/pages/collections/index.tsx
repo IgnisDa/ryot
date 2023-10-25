@@ -310,7 +310,7 @@ const Page: NextPageWithLayout = () => {
 												}}
 												clearable
 											/>
-											{entityLotFilter === EntityLot.Media ? (
+											{entityLotFilter === EntityLot.Media || entityLotFilter === EntityLot.MediaGroup ? (
 												<Select
 													placeholder="Select a media type"
 													value={metadataLotFilter}
