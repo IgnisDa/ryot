@@ -316,10 +316,17 @@ enum CollectionContentsSortBy {
     Date,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+struct CollectionContentsFilter {
+    entity_type: Option<EntityLot>,
+    metadata_lot: Option<MetadataLot>,
+}
+
 #[derive(Debug, InputObject)]
 struct CollectionContentsInput {
     collection_id: i32,
     search: Option<SearchInput>,
+    filter: Option<CollectionContentsFilter>,
     take: Option<u64>,
     sort: Option<SortInput<CollectionContentsSortBy>>,
 }
@@ -3720,6 +3727,7 @@ impl MiscellaneousService {
     ) -> Result<CollectionContents> {
         let search = input.search.unwrap_or_default();
         let sort = input.sort.unwrap_or_default();
+        let filter = input.filter.unwrap_or_default();
         let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
         let collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
@@ -3771,6 +3779,9 @@ impl MiscellaneousService {
                             &v,
                         )),
                 )
+            })
+            .apply_if(filter.metadata_lot, |query, v| {
+                query.filter(Expr::col((m.clone(), metadata::Column::Lot)).eq(v))
             })
             .order_by(
                 match sort.by {
