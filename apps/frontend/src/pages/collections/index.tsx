@@ -14,7 +14,11 @@ import {
 	Button,
 	Center,
 	Container,
+	Flex,
+	Group,
+	Modal,
 	Pagination,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -22,13 +26,25 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
-import { CollectionContentsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTimeAgo } from "@ryot/ts-utils";
+import {
+	useDebouncedState,
+	useDisclosure,
+	useLocalStorage,
+} from "@mantine/hooks";
+import {
+	CollectionContentsDocument,
+	CollectionContentsSortBy,
+	GraphqlSortOrder,
+} from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, formatTimeAgo, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
+	IconFilter,
+	IconFilterOff,
 	IconMessageCircle2,
 	IconSearch,
+	IconSortAscending,
+	IconSortDescending,
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
@@ -40,10 +56,19 @@ import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../_app";
 
+const defaultFiltersValue = {
+	by: CollectionContentsSortBy.LastUpdatedOn,
+	order: GraphqlSortOrder.Desc,
+};
+
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const collectionId = parseInt(router.query.id?.toString() || "0");
 	const coreDetails = useCoreDetails();
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
 		key: LOCAL_STORAGE_KEYS.savedCollectionPage,
@@ -58,6 +83,16 @@ const Page: NextPageWithLayout = () => {
 		key: LOCAL_STORAGE_KEYS.savedCollectionContentsQuery,
 		getInitialValueInEffect: false,
 	});
+	const [sortBy, setSortBy] = useLocalStorage({
+		key: LOCAL_STORAGE_KEYS.savedCollectionContentsSortBy,
+		defaultValue: defaultFiltersValue.by,
+		getInitialValueInEffect: false,
+	});
+	const [sortOrder, setSortOrder] = useLocalStorage({
+		key: LOCAL_STORAGE_KEYS.savedCollectionContentsSortOrder,
+		defaultValue: defaultFiltersValue.order,
+		getInitialValueInEffect: false,
+	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 
 	const collectionDetails = useQuery({
@@ -65,7 +100,7 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { collectionContents } = await gqlClient.request(
 				CollectionContentsDocument,
-				{ input: { collectionId, take: 0 } },
+				{ input: { collectionId, take: 1 } },
 			);
 			return collectionContents;
 		},
@@ -74,13 +109,20 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	const collectionContents = useQuery({
-		queryKey: ["collectionContents", activePage, debouncedQuery],
+		queryKey: [
+			"collectionContents",
+			activePage,
+			debouncedQuery,
+			sortBy,
+			sortOrder,
+		],
 		queryFn: async () => {
 			const { collectionContents } = await gqlClient.request(
 				CollectionContentsDocument,
 				{
 					input: {
 						collectionId,
+						sort: { by: sortBy, order: sortOrder },
 						search: {
 							page: parseInt(activePage || "1"),
 							query: debouncedQuery || undefined,
@@ -144,23 +186,84 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.List>
 						<Tabs.Panel value="contents">
 							<Stack>
-								<TextInput
-									name="query"
-									placeholder="Search in the collection"
-									leftSection={<IconSearch />}
-									onChange={(e) => setQuery(e.currentTarget.value)}
-									value={query}
-									rightSection={
-										query ? (
-											<ActionIcon onClick={() => setQuery("")}>
-												<IconX size={16} />
-											</ActionIcon>
-										) : undefined
-									}
-									style={{ flexGrow: 1 }}
-									autoCapitalize="none"
-									autoComplete="off"
-								/>
+								<Group wrap="nowrap">
+									<TextInput
+										name="query"
+										placeholder="Search in the collection"
+										leftSection={<IconSearch />}
+										onChange={(e) => setQuery(e.currentTarget.value)}
+										value={query}
+										rightSection={
+											query ? (
+												<ActionIcon onClick={() => setQuery("")}>
+													<IconX size={16} />
+												</ActionIcon>
+											) : undefined
+										}
+										style={{ flexGrow: 1 }}
+										autoCapitalize="none"
+										autoComplete="off"
+									/>
+									<ActionIcon
+										onClick={openFiltersModal}
+										color={sortBy !== defaultFiltersValue.by ? "blue" : "gray"}
+									>
+										<IconFilter size={24} />
+									</ActionIcon>
+									<Modal
+										opened={filtersModalOpened}
+										onClose={closeFiltersModal}
+										centered
+										withCloseButton={false}
+									>
+										<Stack>
+											<Group>
+												<Title order={3}>Filters</Title>
+												<ActionIcon
+													onClick={() => {
+														setSortBy(defaultFiltersValue.by);
+														setSortOrder(defaultFiltersValue.order);
+													}}
+												>
+													<IconFilterOff size={24} />
+												</ActionIcon>
+											</Group>
+											<Flex gap="xs" align="center">
+												<Select
+													w="100%"
+													data={[
+														{
+															group: "Sort by",
+															items: Object.values(
+																CollectionContentsSortBy,
+															).map((o) => ({
+																value: o.toString(),
+																label: startCase(o.toLowerCase()),
+															})),
+														},
+													]}
+													value={sortBy?.toString()}
+													onChange={(v) => {
+														if (v) setSortBy(v as CollectionContentsSortBy);
+													}}
+												/>
+												<ActionIcon
+													onClick={() => {
+														if (sortOrder === GraphqlSortOrder.Asc)
+															setSortOrder(GraphqlSortOrder.Desc);
+														else setSortOrder(GraphqlSortOrder.Asc);
+													}}
+												>
+													{sortOrder === GraphqlSortOrder.Asc ? (
+														<IconSortAscending />
+													) : (
+														<IconSortDescending />
+													)}
+												</ActionIcon>
+											</Flex>
+										</Stack>
+									</Modal>
+								</Group>
 								{collectionContents.data &&
 								collectionContents.data.results.items.length > 0 ? (
 									<Grid>
