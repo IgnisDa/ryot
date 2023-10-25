@@ -1,5 +1,17 @@
 
 
+# Version 3.2.4 (2023-10-25)
+
+## Bug Fixes
+
+- **frontend:** serializing localstorage
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 3.2.3 (2023-10-25)
 
 
