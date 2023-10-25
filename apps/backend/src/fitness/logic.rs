@@ -46,20 +46,20 @@ fn get_index_of_highest_pb(
     records: &[WorkoutSetRecord],
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<usize> {
-    records
+    let max_el = records
         .iter()
-        .enumerate()
-        .max_by(|(_, record1), (_, record2)| {
+        .max_by(|record1, record2| {
             let pb1 = record1.get_personal_best(pb_type);
             let pb2 = record2.get_personal_best(pb_type);
             match (pb1, pb2) {
                 (Some(pb1), Some(pb2)) => pb1.cmp(&pb2),
                 (Some(_), None) => Ordering::Greater,
                 (None, Some(_)) => Ordering::Less,
-                (None, None) => Ordering::Equal,
+                _ => Ordering::Equal,
             }
         })
-        .map(|(index, _)| index)
+        .unwrap();
+    records.iter().position(|e| e == max_el)
 }
 
 impl UserWorkoutSetRecord {
@@ -110,6 +110,9 @@ impl UserWorkoutInput {
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         for (idx, ex) in input.exercises.iter_mut().enumerate() {
+            if ex.sets.len() == 0 {
+                continue;
+            }
             let db_ex = match Exercise::find_by_id(ex.exercise_id).one(db).await? {
                 None => {
                     tracing::error!("Exercise with id = {} not found", ex.exercise_id);
