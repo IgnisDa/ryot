@@ -8,7 +8,11 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot } from "@/lib/utilities";
+import {
+	deserializeLocalStorage,
+	getLot,
+	serializeLocalStorage,
+} from "@/lib/utilities";
 import {
 	ActionIcon,
 	Box,
@@ -92,14 +96,8 @@ const Page: NextPageWithLayout = () => {
 		key: LOCAL_STORAGE_KEYS.savedMineMediaCollectionFilter,
 		defaultValue: defaultFilters.mineCollectionFilter,
 		getInitialValueInEffect: false,
-		deserialize: (value) => {
-			if (value === "__undefined") return undefined;
-			return value;
-		},
-		serialize: (value) => {
-			if (typeof value === "undefined") return "__undefined";
-			return value;
-		},
+		deserialize: deserializeLocalStorage,
+		serialize: serializeLocalStorage,
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		defaultValue: "1",

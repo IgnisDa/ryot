@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useUserPreferences } from "@/lib/hooks/graphql";
 import { useCoreDetails } from "@/lib/hooks/graphql";
 import { gqlClient } from "@/lib/services/api";
@@ -215,7 +215,7 @@ export default function ({ children }: { children: ReactElement }) {
 		fitness: boolean;
 		settings: boolean;
 	}>({
-		key: "openedLinkGroups",
+		key: LOCAL_STORAGE_KEYS.savedOpenedLinkGroups,
 		defaultValue: { fitness: false, media: false, settings: false },
 		getInitialValueInEffect: true,
 	});

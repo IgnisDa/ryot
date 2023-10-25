@@ -9,6 +9,10 @@ import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
+	deserializeLocalStorage,
+	serializeLocalStorage,
+} from "@/lib/utilities";
+import {
 	ActionIcon,
 	Box,
 	Button,
@@ -100,12 +104,16 @@ const Page: NextPageWithLayout = () => {
 	>({
 		key: LOCAL_STORAGE_KEYS.savedCollectionContentsEntityLotFilter,
 		getInitialValueInEffect: false,
+		deserialize: deserializeLocalStorage as any,
+		serialize: serializeLocalStorage,
 	});
 	const [metadataLotFilter, setMetadataLotFilter] = useLocalStorage<
 		MetadataLot | undefined
 	>({
 		key: LOCAL_STORAGE_KEYS.savedCollectionContentsMetadataLotFilter,
 		getInitialValueInEffect: false,
+		deserialize: deserializeLocalStorage as any,
+		serialize: serializeLocalStorage,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 
