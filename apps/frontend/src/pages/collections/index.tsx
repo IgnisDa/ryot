@@ -56,7 +56,12 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { collectionContents } = await gqlClient.request(
 				CollectionContentsDocument,
-				{ input: { collectionId, page: parseInt(activePage || "1") } },
+				{
+					input: {
+						collectionId,
+						search: { page: parseInt(activePage || "1") },
+					},
+				},
 			);
 			return collectionContents;
 		},

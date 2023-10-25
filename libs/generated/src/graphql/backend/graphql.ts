@@ -98,7 +98,7 @@ export type CollectionContents = {
 
 export type CollectionContentsInput = {
   collectionId: Scalars['Int']['input'];
-  page?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<SearchInput>;
   take?: InputMaybe<Scalars['Int']['input']>;
 };
 

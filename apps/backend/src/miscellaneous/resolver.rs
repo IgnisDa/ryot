@@ -311,7 +311,7 @@ struct UpdateUserPreferenceInput {
 #[derive(Debug, InputObject)]
 struct CollectionContentsInput {
     collection_id: i32,
-    page: Option<u64>,
+    search: Option<SearchInput>,
     take: Option<u64>,
 }
 
@@ -3708,7 +3708,13 @@ impl MiscellaneousService {
         user_id: Option<i32>,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
-        let page = input.page.unwrap_or(1);
+        let page: u64 = input
+            .search
+            .unwrap_or_default()
+            .page
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
         let collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
             .await

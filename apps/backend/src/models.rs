@@ -59,7 +59,7 @@ pub struct NamedObject {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, InputObject, Clone)]
+#[derive(Serialize, Deserialize, Debug, InputObject, Clone, Default)]
 pub struct SearchInput {
     pub query: Option<String>,
     pub page: Option<i32>,
