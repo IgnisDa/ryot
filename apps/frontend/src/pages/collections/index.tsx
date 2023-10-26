@@ -104,6 +104,7 @@ const Page: NextPageWithLayout = () => {
 	>({
 		key: LOCAL_STORAGE_KEYS.savedCollectionContentsEntityLotFilter,
 		getInitialValueInEffect: false,
+		// biome-ignore lint/suspicious/noExplicitAny: required here
 		deserialize: deserializeLocalStorage as any,
 		serialize: serializeLocalStorage,
 	});
@@ -112,6 +113,7 @@ const Page: NextPageWithLayout = () => {
 	>({
 		key: LOCAL_STORAGE_KEYS.savedCollectionContentsMetadataLotFilter,
 		getInitialValueInEffect: false,
+		// biome-ignore lint/suspicious/noExplicitAny: required here
 		deserialize: deserializeLocalStorage as any,
 		serialize: serializeLocalStorage,
 	});
