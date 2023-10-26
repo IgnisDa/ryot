@@ -27,11 +27,11 @@ import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	DashboardElementLot,
+	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MetadataLot,
 	UserCollectionsListDocument,
 	UserUpcomingCalendarEventsDocument,
-	GraphqlSortOrder,
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatTimeAgo } from "@ryot/ts-utils";
 import {
