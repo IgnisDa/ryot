@@ -25,7 +25,7 @@ const Page: NextPageWithLayout = () => {
 	useEffect(() => {
 		if (identifier && lot && source)
 			commitMedia.mutate({ identifier, lot, source });
-	}, [identifier, lot]);
+	}, [identifier, lot, source]);
 
 	return (
 		<>
