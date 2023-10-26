@@ -18,7 +18,7 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -27,6 +27,7 @@ use crate::{
 };
 
 static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
+static AUDNEX_URL: &str = "https://api.audnex.us";
 
 #[derive(EnumIter, Display)]
 enum AudibleSimilarityType {
@@ -103,11 +104,17 @@ struct AudibleRatings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct AudibleAuthor {
+    asin: String,
+    name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleItem {
     asin: String,
     title: String,
     is_adult_product: Option<bool>,
-    authors: Option<Vec<NamedObject>>,
+    authors: Option<Vec<AudibleAuthor>>,
     narrators: Option<Vec<NamedObject>>,
     rating: Option<AudibleRatings>,
     product_images: Option<AudiblePoster>,
@@ -118,6 +125,14 @@ struct AudibleItem {
     category_ladders: Option<Vec<AudibleCategoryLadderCollection>>,
     series: Option<Vec<AudibleItem>>,
     relationships: Option<Vec<AudibleRelationshipItem>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct AudnexResponse {
+    asin: String,
+    name: String,
+    image: Option<String>,
+    description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -134,6 +149,7 @@ struct AudibleItemSimResponse {
 pub struct AudibleService {
     client: Client,
     page_limit: i32,
+    locale: String,
 }
 
 impl MediaProviderLanguages for AudibleService {
@@ -167,12 +183,41 @@ impl AudibleService {
     pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
         let url = Self::url_from_locale(&config.locale);
         let client = get_base_http_client(&url, vec![(ACCEPT, mime::JSON)]);
-        Self { client, page_limit }
+        Self {
+            client,
+            page_limit,
+            locale: config.locale.clone(),
+        }
     }
 }
 
 #[async_trait]
 impl MediaProvider for AudibleService {
+    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+        let data: AudnexResponse =
+            surf::get(format!("{}/authors/{}", AUDNEX_URL, identity.identifier))
+                .query(&json!({ "region": self.locale }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+        Ok(MetadataPerson {
+            identifier: data.asin,
+            name: data.name,
+            description: data.description,
+            images: Some(Vec::from_iter(data.image)),
+            source: MetadataSource::Audible,
+            gender: None,
+            death_date: None,
+            birth_date: None,
+            place: None,
+            website: None,
+            related: vec![],
+        })
+    }
+
     async fn group_details(
         &self,
         identifier: &str,
@@ -335,23 +380,26 @@ impl AudibleService {
             }
         }));
         let release_date = item.release_date.unwrap_or_default();
-        let mut creators = item
+        let people = item
             .authors
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| PartialMetadataPerson {
+                identifier: a.asin,
+                source: MetadataSource::Audible,
+                role: "Author".to_owned(),
+            })
+            .collect_vec();
+        let creators = item
+            .narrators
             .unwrap_or_default()
             .into_iter()
             .map(|a| MetadataFreeCreator {
                 name: a.name,
-                role: "Author".to_owned(),
+                role: "Narrator".to_owned(),
                 image: None,
             })
             .collect_vec();
-        creators.extend(item.narrators.unwrap_or_default().into_iter().map(|a| {
-            MetadataFreeCreator {
-                name: a.name,
-                role: "Narrator".to_owned(),
-                image: None,
-            }
-        }));
         let description = item.publisher_summary.or(item.merchandising_summary);
         let rating = if let Some(r) = item.rating {
             if r.num_reviews > 0 {
@@ -370,6 +418,7 @@ impl AudibleService {
             production_status: "Released".to_owned(),
             title: item.title,
             description,
+            people,
             creators,
             genres: item
                 .category_ladders
@@ -393,7 +442,6 @@ impl AudibleService {
             provider_rating: rating,
             suggestions: vec![],
             group_identifiers: vec![],
-            people: vec![],
             s3_images: vec![],
         }
     }
