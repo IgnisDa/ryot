@@ -3781,7 +3781,11 @@ impl MiscellaneousService {
                 )
             })
             .apply_if(filter.metadata_lot, |query, v| {
-                query.filter(Expr::col((m.clone(), metadata::Column::Lot)).eq(v))
+                query.filter(
+                    Condition::any()
+                        .add(Expr::col((m.clone(), metadata::Column::Lot)).eq(v))
+                        .add(Expr::col((mg.clone(), metadata_group::Column::Lot)).eq(v)),
+                )
             })
             .apply_if(filter.entity_type, |query, v| {
                 let f = match v {

@@ -207,8 +207,8 @@ export const ReviewItemDisplay = (props: {
 									</Button>
 								) : undefined}
 								<Collapse in={opened}>
-									{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
 									<Text
+										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
 										dangerouslySetInnerHTML={{ __html: props.review.text }}
 									/>
 								</Collapse>
@@ -351,7 +351,7 @@ export const BaseDisplayItem = (props: {
 				/>
 				{props.topRight}
 			</Anchor>
-			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }}>
+			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				<Flex justify="space-between" direction="row" w="100%">
 					<Text c="dimmed" size="sm">
 						{props.bottomLeft}
