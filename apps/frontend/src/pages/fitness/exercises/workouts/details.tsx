@@ -207,7 +207,8 @@ const Page: NextPageWithLayout = () => {
 									</Group>
 									{exercise.notes.map((n, idxN) => (
 										<Text c="dimmed" key={n} size="xs">
-											{idxN + 1}) {n}
+											{exercise.notes.length === 1 ? undefined : `${idxN + 1})`}{" "}
+											{n}
 										</Text>
 									))}
 									{exercise.assets.images.length > 0 ? (
