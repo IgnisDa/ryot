@@ -1,7 +1,8 @@
 [[language]]
 name = "typescript"
 auto-format = true
-formatter = { command = "bunx", args = [
+formatter = { command = "bun", args = [
+    "x",
     "biome",
     "format",
     "--stdin-file-path",
@@ -11,7 +12,8 @@ formatter = { command = "bunx", args = [
 [[language]]
 name = "javascript"
 auto-format = true
-formatter = { command = "bunx", args = [
+formatter = { command = "bun", args = [
+    "x",
     "biome",
     "format",
     "--stdin-file-path",
@@ -21,7 +23,8 @@ formatter = { command = "bunx", args = [
 [[language]]
 name = "json"
 auto-format = true
-formatter = { command = "bunx", args = [
+formatter = { command = "bun", args = [
+    "x",
     "biome",
     "format",
     "--stdin-file-path",
@@ -31,7 +34,8 @@ formatter = { command = "bunx", args = [
 [[language]]
 name = "tsx"
 auto-format = true
-formatter = { command = "bunx", args = [
+formatter = { command = "bun", args = [
+    "x",
     "biome",
     "format",
     "--stdin-file-path",
@@ -41,7 +45,8 @@ formatter = { command = "bunx", args = [
 [[language]]
 name = "jsx"
 auto-format = true
-formatter = { command = "bunx", args = [
+formatter = { command = "bun", args = [
+    "x",
     "biome",
     "format",
     "--stdin-file-path",
