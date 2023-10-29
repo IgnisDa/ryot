@@ -2,17 +2,12 @@ import { APP_ROUTES } from "@/lib/constants";
 import {
 	useCommitMedia,
 	useCoreDetails,
+	useGetMantineColor,
 	useUser,
 	useUserPreferences,
-} from "@/lib/hooks/graphql";
+} from "@/lib/hooks";
 import { gqlClient } from "@/lib/services/api";
-import {
-	Verb,
-	getFallbackImageUrl,
-	getLot,
-	getStringAsciiValue,
-	getVerb,
-} from "@/lib/utilities";
+import { Verb, getFallbackImageUrl, getLot, getVerb } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
@@ -34,7 +29,6 @@ import {
 	Title,
 	Tooltip,
 	useComputedColorScheme,
-	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -709,8 +703,7 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 	refetch: () => void;
 }) => {
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
+	const getMantineColor = useGetMantineColor();
 	const removeMediaFromCollection = useMutation({
 		mutationFn: async (
 			variables: RemoveEntityFromCollectionMutationVariables,
@@ -727,15 +720,7 @@ export const DisplayCollection = (props: {
 	});
 
 	return (
-		<Badge
-			key={props.col.id}
-			color={
-				colors[
-					// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-					(getStringAsciiValue(props.col.name) + colors.length) % colors.length
-				]
-			}
-		>
+		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
 			<Flex gap={2}>
 				<Anchor
 					component={Link}

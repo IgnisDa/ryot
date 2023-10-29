@@ -1,5 +1,5 @@
 import { APP_ROUTES } from "@/lib/constants";
-import { useCoreDetails, useEnabledCoreFeatures } from "@/lib/hooks/graphql";
+import { useCoreDetails, useEnabledCoreFeatures } from "@/lib/hooks";
 import { gqlClient } from "@/lib/services/api";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import { useForm, zodResolver } from "@mantine/form";

@@ -1,8 +1,8 @@
 use sea_orm_migration::prelude::*;
 
 use super::{
-    m20230505_create_review::COLLECTION_TO_REVIEW_FOREIGN_KEY,
-    m20230507_create_collection::Collection, Review,
+    m20230505_create_review::Review, m20230505_create_review::COLLECTION_TO_REVIEW_FOREIGN_KEY,
+    m20230507_create_collection::Collection,
 };
 
 #[derive(DeriveMigrationName)]

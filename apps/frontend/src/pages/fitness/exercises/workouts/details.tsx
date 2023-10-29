@@ -1,9 +1,10 @@
-import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import { DisplayExerciseStats } from "@/components/FitnessComponents";
 import { APP_ROUTES } from "@/lib/constants";
+import { useGetMantineColor } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getSetColor, getStringAsciiValue } from "@/lib/utilities";
+import { getSetColor } from "@/lib/utilities";
 import { currentWorkoutAtom, duplicateOldWorkout } from "@/lib/workout";
 import {
 	ActionIcon,
@@ -19,7 +20,6 @@ import {
 	Stack,
 	Text,
 	Title,
-	useMantineTheme,
 } from "@mantine/core";
 import {
 	DeleteUserWorkoutDocument,
@@ -74,8 +74,7 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const workoutId = router.query.id?.toString();
 	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
+	const getMantineColor = useGetMantineColor();
 
 	const workoutDetails = useQuery({
 		queryKey: ["workoutDetails", workoutId],
@@ -207,7 +206,8 @@ const Page: NextPageWithLayout = () => {
 									</Group>
 									{exercise.notes.map((n, idxN) => (
 										<Text c="dimmed" key={n} size="xs">
-											{idxN + 1}) {n}
+											{exercise.notes.length === 1 ? undefined : `${idxN + 1})`}{" "}
+											{n}
 										</Text>
 									))}
 									{exercise.assets.images.length > 0 ? (
@@ -251,12 +251,7 @@ const Page: NextPageWithLayout = () => {
 														variant="light"
 														size="xs"
 														leftSection={<IconTrophy size={16} />}
-														color={
-															colors[
-																(getStringAsciiValue(pb) + colors.length) %
-																	colors.length
-															]
-														}
+														color={getMantineColor(pb)}
 													>
 														{startCase(pb)}
 													</Badge>

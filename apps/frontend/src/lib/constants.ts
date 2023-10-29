@@ -24,6 +24,10 @@ export const APP_ROUTES = {
 	media: {
 		list: "/media/list",
 		postReview: "/media/post-review",
+		genres: {
+			list: "/media/genres/list",
+			details: "/media/genres",
+		},
 		groups: {
 			list: "/media/groups/list",
 			details: "/media/groups",
@@ -91,4 +95,6 @@ export const LOCAL_STORAGE_KEYS = {
 	savedCollectionContentsEntityLotFilter: "34",
 	savedCollectionContentsMetadataLotFilter: "35",
 	savedOpenedLinkGroups: "36",
+	savedGenreQuery: "37",
+	savedGenrePage: "38",
 } as const;

@@ -1,3 +1,4 @@
+import { useMantineTheme } from "@mantine/core";
 import {
 	CommitMediaDocument,
 	type CommitMediaMutationVariables,
@@ -9,7 +10,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import invariant from "tiny-invariant";
-import { gqlClient } from "../services/api";
+import { gqlClient } from "./services/api";
+import { getStringAsciiValue } from "./utilities";
 
 export function useUser() {
 	const userDetails = useQuery({
@@ -81,4 +83,15 @@ export function useCoreDetails() {
 		staleTime: Infinity,
 	});
 	return coreDetails;
+}
+
+export function useGetMantineColor() {
+	const theme = useMantineTheme();
+	const colors = Object.keys(theme.colors);
+
+	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
+	const getColor = (input: string) =>
+		colors[(getStringAsciiValue(input) + colors.length) % colors.length];
+
+	return getColor;
 }

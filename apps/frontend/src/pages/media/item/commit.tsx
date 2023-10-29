@@ -1,5 +1,5 @@
 import { APP_ROUTES } from "@/lib/constants";
-import { useCommitMedia } from "@/lib/hooks/graphql";
+import { useCommitMedia } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { getLot } from "@/lib/utilities";

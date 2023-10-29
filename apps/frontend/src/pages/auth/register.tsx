@@ -1,5 +1,5 @@
 import { APP_ROUTES } from "@/lib/constants";
-import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
+import { useEnabledCoreFeatures } from "@/lib/hooks";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Anchor,

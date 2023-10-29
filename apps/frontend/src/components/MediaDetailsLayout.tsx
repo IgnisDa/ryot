@@ -17,7 +17,7 @@ import type {
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { useState } from "react";
-import { getFallbackImageUrl } from "../utilities";
+import { getFallbackImageUrl } from "../lib/utilities";
 import classes from "./styles.module.css";
 
 function getSurroundingElements<T>(array: T[], element: number): number[] {

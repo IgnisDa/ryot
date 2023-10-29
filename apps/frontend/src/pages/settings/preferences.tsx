@@ -1,5 +1,5 @@
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useCoreDetails, useUserPreferences } from "@/lib/hooks/graphql";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -335,21 +335,6 @@ const Page: NextPageWithLayout = () => {
 													value: String(ev.currentTarget.checked),
 												},
 											});
-										}}
-									/>
-									<NumberInput
-										size="xs"
-										label="The number of genres to display for media"
-										defaultValue={userPreferences.data.general.numGenresDisplay}
-										disabled={!coreDetails.data.preferencesChangeAllowed}
-										onChange={(num) => {
-											if (num)
-												updateUserPreferences.mutate({
-													input: {
-														property: "general.num_genres_display",
-														value: String(num),
-													},
-												});
 										}}
 									/>
 								</SimpleGrid>

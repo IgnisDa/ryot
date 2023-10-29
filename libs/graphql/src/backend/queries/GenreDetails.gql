@@ -1,0 +1,15 @@
+query GenreDetails($genreId: Int!) {
+  genreDetails(genreId: $genreId) {
+    details {
+      id
+      name
+      numItems
+    }
+    contents {
+      details {
+        ...MediaSearchItemPart
+      }
+      metadataLot
+    }
+  }
+}

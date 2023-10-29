@@ -1,8 +1,8 @@
 use sea_orm_migration::prelude::*;
 
 use super::{
-    m20230505_create_review::METADATA_GROUP_TO_REVIEW_FOREIGN_KEY,
-    m20230901_create_metadata_group::MetadataGroup, Review,
+    m20230505_create_review::Review, m20230505_create_review::METADATA_GROUP_TO_REVIEW_FOREIGN_KEY,
+    m20230901_create_metadata_group::MetadataGroup,
 };
 
 #[derive(DeriveMigrationName)]

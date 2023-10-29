@@ -27,6 +27,13 @@ fragment SeenPart on Seen {
   }
 }
 
+fragment MediaSearchItemPart on MediaSearchItem {
+  identifier
+  title
+  image
+  publishYear
+}
+
 fragment PartialMetadataPart on PartialMetadata {
   lot
   source

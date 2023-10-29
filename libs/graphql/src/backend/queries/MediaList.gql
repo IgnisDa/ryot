@@ -7,10 +7,7 @@ query MediaList($input: MediaListInput!) {
     items {
       averageRating
       data {
-        identifier
-        title
-        image
-        publishYear
+        ...MediaSearchItemPart
       }
     }
   }

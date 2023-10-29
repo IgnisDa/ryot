@@ -1,5 +1,5 @@
 import { APP_ROUTES } from "@/lib/constants";
-import { useUserPreferences } from "@/lib/hooks/graphql";
+import { useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";

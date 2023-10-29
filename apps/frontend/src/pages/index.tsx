@@ -1,11 +1,11 @@
-import Grid from "@/lib/components/Grid";
-import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
+import Grid from "@/components/Grid";
+import { MediaItemWithoutUpdateModal } from "@/components/MediaComponents";
 import { APP_ROUTES } from "@/lib/constants";
-import { useUserPreferences } from "@/lib/hooks/graphql";
+import { useGetMantineColor, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getLot, getMetadataIcon, getStringAsciiValue } from "@/lib/utilities";
+import { getLot, getMetadataIcon } from "@/lib/utilities";
 import { currentWorkoutAtom, getDefaultWorkout } from "@/lib/workout";
 import {
 	Alert,
@@ -153,14 +153,14 @@ const DisplayStatForMediaType = (props: {
 	lot: MetadataLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
 }) => {
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
+	const getMantineColor = useGetMantineColor();
 	const userPreferences = useUserPreferences();
 	const isEnabled = Object.entries(
 		userPreferences.data?.featuresEnabled.media || {},
 	).find(([name, _]) => getLot(name) === props.lot);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size={24} stroke={1.5} />;
+
 	return isEnabled ? (
 		isEnabled[1] && userPreferences.data?.featuresEnabled.media.enabled ? (
 			<Link
@@ -173,11 +173,7 @@ const DisplayStatForMediaType = (props: {
 					data={props.data}
 					icon={icon}
 					lot={props.lot.toString()}
-					color={
-						colors[
-							(getStringAsciiValue(props.lot) + colors.length) % colors.length
-						]
-					}
+					color={getMantineColor(props.lot)}
 				/>
 			</Link>
 		) : undefined

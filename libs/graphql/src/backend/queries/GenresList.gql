@@ -1,0 +1,13 @@
+query GenresList($input: SearchInput!) {
+  genresList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items {
+      id
+      name
+      numItems
+    }
+  }
+}

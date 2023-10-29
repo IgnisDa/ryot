@@ -1,10 +1,10 @@
-import Grid from "@/lib/components/Grid";
+import Grid from "@/components/Grid";
 import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
-} from "@/lib/components/MediaComponents";
+} from "@/components/MediaComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useCoreDetails } from "@/lib/hooks/graphql";
+import { useCoreDetails } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";

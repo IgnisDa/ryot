@@ -10,8 +10,11 @@ query MediaMainDetails($metadataId: Int!) {
     publishYear
     publishDate
     productionStatus
-    genres
     sourceUrl
+    genres {
+      id
+      name
+    }
     group {
       id
       name

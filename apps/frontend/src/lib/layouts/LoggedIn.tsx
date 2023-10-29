@@ -1,6 +1,6 @@
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useUserPreferences } from "@/lib/hooks/graphql";
-import { useCoreDetails } from "@/lib/hooks/graphql";
+import { useUserPreferences } from "@/lib/hooks";
+import { useCoreDetails } from "@/lib/hooks";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
@@ -268,8 +268,9 @@ export default function ({ children }: { children: ReactElement }) {
 					href: undefined,
 				};
 			}) || []),
-		{ label: "People", href: APP_ROUTES.media.people.list },
 		{ label: "Groups", href: APP_ROUTES.media.groups.list },
+		{ label: "People", href: APP_ROUTES.media.people.list },
+		{ label: "Genres", href: APP_ROUTES.media.genres.list },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href

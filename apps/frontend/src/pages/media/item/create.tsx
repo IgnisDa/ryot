@@ -1,6 +1,6 @@
-import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
+import MediaDetailsLayout from "@/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
-import { useEnabledCoreFeatures } from "@/lib/hooks/graphql";
+import { useEnabledCoreFeatures } from "@/lib/hooks";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import { getPresignedGetUrl, uploadFileAndGetKey } from "@/lib/utilities";

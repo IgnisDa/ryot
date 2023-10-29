@@ -2,7 +2,7 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{m20230901_create_metadata_group::MetadataGroup, Metadata};
+use super::{m20230410_create_metadata::Metadata, m20230901_create_metadata_group::MetadataGroup};
 
 pub static PARTIAL_METADATA_FK_1: &str = "fk-metadata_id-partial-metadata_id";
 pub static PARTIAL_METADATA_TO_METADATA_GROUP_FK_1: &str =

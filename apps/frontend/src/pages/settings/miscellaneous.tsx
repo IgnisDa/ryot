@@ -1,4 +1,4 @@
-import { useCoreDetails, useUser } from "@/lib/hooks/graphql";
+import { useCoreDetails, useUser } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
