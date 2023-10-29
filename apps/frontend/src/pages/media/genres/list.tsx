@@ -1,10 +1,9 @@
 import Grid from "@/lib/components/Grid";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useCoreDetails } from "@/lib/hooks";
+import { useCoreDetails, useGetMantineColor } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { getStringAsciiValue } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
@@ -19,7 +18,6 @@ import {
 	Text,
 	TextInput,
 	Title,
-	useMantineTheme,
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
@@ -32,9 +30,7 @@ import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
-
+	const getMantineColor = useGetMantineColor();
 	const [query, setQuery] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedGenreQuery,
 		getInitialValueInEffect: false,
@@ -118,12 +114,7 @@ const Page: NextPageWithLayout = () => {
 												h={11}
 												w={11}
 												style={{ borderRadius: 2 }}
-												bg={
-													colors[
-														(getStringAsciiValue(genre.name) + colors.length) %
-															colors.length
-													]
-												}
+												bg={getMantineColor(genre.name)}
 											/>
 											<Box>
 												<Anchor
@@ -132,7 +123,8 @@ const Page: NextPageWithLayout = () => {
 														id: genre.id,
 													})}
 												>
-													{genre.name.substring(0, 15)}
+													{genre.name.substring(0, 10).trim()}
+													{genre.name.length > 10 ? "..." : ""}
 												</Anchor>
 												<Text>{genre.numItems} items</Text>
 											</Box>
