@@ -886,28 +886,33 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.List>
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
-								<>
-									<SimpleGrid cols={{ base: 4 }}>
-										{mediaDetails.data.genres.map((g) => (
-											<Group key={g.id} wrap="nowrap">
-												<Box
-													h={11}
-													w={11}
-													style={{ borderRadius: 2, flex: "none" }}
-													bg={getMantineColor(g.name)}
-												/>
-												<Anchor
-													component={Link}
-													href={withQuery(APP_ROUTES.media.genres.details, {
-														id: g.id,
-													})}
-													fz="sm"
-													truncate
-												>
-													{g.name.trim()}
-												</Anchor>
-											</Group>
-										))}
+								<Stack gap="sm">
+									<SimpleGrid
+										cols={{ base: 3, xl: 4 }}
+										spacing={{ base: "md", lg: "xs" }}
+									>
+										{mediaDetails.data.genres
+											.toSorted((a, b) => a.name.length - b.name.length)
+											.map((g) => (
+												<Group key={g.id} wrap="nowrap">
+													<Box
+														h={11}
+														w={11}
+														style={{ borderRadius: 2, flex: "none" }}
+														bg={getMantineColor(g.name)}
+													/>
+													<Anchor
+														component={Link}
+														href={withQuery(APP_ROUTES.media.genres.details, {
+															id: g.id,
+														})}
+														fz="sm"
+														truncate
+													>
+														{g.name.trim()}
+													</Anchor>
+												</Group>
+											))}
 									</SimpleGrid>
 									{mediaDetails.data.description ? (
 										<div
@@ -916,10 +921,8 @@ const Page: NextPageWithLayout = () => {
 												__html: mediaDetails.data.description,
 											}}
 										/>
-									) : (
-										<Text fs="italic">No overview available</Text>
-									)}
-									<Stack mt="xl">
+									) : undefined}
+									<Stack>
 										{mediaSpecifics.data?.creators.map((c) => (
 											<Box key={c.name}>
 												<Text fw="bold">{c.name}</Text>
@@ -964,7 +967,7 @@ const Page: NextPageWithLayout = () => {
 											</Box>
 										))}
 									</Stack>
-								</>
+								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">

@@ -123,10 +123,12 @@ const Page: NextPageWithLayout = () => {
 														id: genre.id,
 													})}
 												>
-													{genre.name.substring(0, 10).trim()}
-													{genre.name.length > 10 ? "..." : ""}
+													{genre.name.substring(0, 13).trim()}
+													{genre.name.length > 13 ? "..." : ""}
 												</Anchor>
-												<Text>{genre.numItems} items</Text>
+												<Text size="sm" c="dimmed">
+													{genre.numItems} items
+												</Text>
 											</Box>
 										</Group>
 									</Paper>
