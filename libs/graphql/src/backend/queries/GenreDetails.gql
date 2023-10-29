@@ -1,5 +1,5 @@
-query GenreDetails($genreId: Int!) {
-  genreDetails(genreId: $genreId) {
+query GenreDetails($input: GenreDetailsInput!) {
+  genreDetails(input: $input) {
     details {
       id
       name
@@ -7,9 +7,15 @@ query GenreDetails($genreId: Int!) {
     }
     contents {
       details {
-        ...MediaSearchItemPart
+        total
+        nextPage
       }
-      metadataLot
+      items {
+        details {
+          ...MediaSearchItemPart
+        }
+        metadataLot
+      }
     }
   }
 }
