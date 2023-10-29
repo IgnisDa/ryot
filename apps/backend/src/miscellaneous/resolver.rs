@@ -18,7 +18,8 @@ use cookie::{
     Cookie, SameSite,
 };
 use database::{
-    Metadata as TempMetadata, MetadataLot, MetadataSource, MetadataToPartialMetadataRelation,
+    Exercise as TempExercise, Metadata as TempMetadata, MetadataGroup as TempMetadataGroup,
+    MetadataLot, MetadataSource, MetadataToPartialMetadataRelation, Person as TempPerson,
     PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState, UserLot,
     UserToEntity as TempUserToMetadata, Visibility,
 };
@@ -3759,10 +3760,6 @@ impl MiscellaneousService {
             }
         }
 
-        let m = Alias::new("metadata");
-        let mg = Alias::new("metadata_group");
-        let p = Alias::new("person");
-        let e = Alias::new("exercise");
         let paginator = CollectionToEntity::find()
             .left_join(Metadata)
             .left_join(MetadataGroup)
@@ -3773,19 +3770,19 @@ impl MiscellaneousService {
                 query.filter(
                     Condition::any()
                         .add(get_ilike_query(
-                            Expr::col((m.clone(), metadata::Column::Title)),
+                            Expr::col((TempMetadata::Table, metadata::Column::Title)),
                             &v,
                         ))
                         .add(get_ilike_query(
-                            Expr::col((mg.clone(), metadata_group::Column::Title)),
+                            Expr::col((TempMetadataGroup::Table, metadata_group::Column::Title)),
                             &v,
                         ))
                         .add(get_ilike_query(
-                            Expr::col((p.clone(), person::Column::Name)),
+                            Expr::col((TempPerson::Table, person::Column::Name)),
                             &v,
                         ))
                         .add(get_ilike_query(
-                            Expr::col((e.clone(), exercise::Column::Name)),
+                            Expr::col((TempExercise::Table, exercise::Column::Name)),
                             &v,
                         )),
                 )
@@ -3793,8 +3790,7 @@ impl MiscellaneousService {
             .apply_if(filter.metadata_lot, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(Expr::col((m.clone(), metadata::Column::Lot)).eq(v))
-                        .add(Expr::col((mg.clone(), metadata_group::Column::Lot)).eq(v)),
+                        .add(Expr::col((TempMetadata::Table, metadata::Column::Lot)).eq(v)),
                 )
             })
             .apply_if(filter.entity_type, |query, v| {
@@ -3814,14 +3810,14 @@ impl MiscellaneousService {
                         Expr::col(collection_to_entity::Column::LastUpdatedOn)
                     }
                     CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                        Expr::col((m.clone(), metadata::Column::Title)).into(),
-                        Expr::col((mg.clone(), metadata_group::Column::Title)).into(),
-                        Expr::col((p.clone(), person::Column::Name)).into(),
-                        Expr::col((e.clone(), exercise::Column::Name)).into(),
+                        Expr::col((TempMetadata::Table, metadata::Column::Title)).into(),
+                        Expr::col((TempMetadataGroup::Table, metadata_group::Column::Title)).into(),
+                        Expr::col((TempPerson::Table, person::Column::Name)).into(),
+                        Expr::col((TempExercise::Table, exercise::Column::Name)).into(),
                     ])),
                     CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                        Expr::col((m.clone(), metadata::Column::PublishDate)).into(),
-                        Expr::col((p.clone(), person::Column::BirthDate)).into(),
+                        Expr::col((TempMetadata::Table, metadata::Column::PublishDate)).into(),
+                        Expr::col((TempPerson::Table, person::Column::BirthDate)).into(),
                     ])),
                 },
                 sort.order.into(),
