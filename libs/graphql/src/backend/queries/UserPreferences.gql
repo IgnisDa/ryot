@@ -2,7 +2,6 @@ query UserPreferences {
   userPreferences {
     general {
       reviewScale
-      numGenresDisplay
       displayNsfw
       dashboard {
         section
