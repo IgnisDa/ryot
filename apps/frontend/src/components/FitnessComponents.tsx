@@ -4,7 +4,7 @@ import {
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
-import type { ExerciseSetStats } from "../workout";
+import type { ExerciseSetStats } from "../lib/workout";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,

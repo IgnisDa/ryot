@@ -1,4 +1,4 @@
-import Grid from "@/lib/components/Grid";
+import Grid from "@/components/Grid";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails, useGetMantineColor } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";

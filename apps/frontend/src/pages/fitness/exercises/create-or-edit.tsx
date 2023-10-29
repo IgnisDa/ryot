@@ -1,4 +1,4 @@
-import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
+import MediaDetailsLayout from "@/components/MediaDetailsLayout";
 import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures } from "@/lib/hooks";
 import LoggedIn from "@/lib/layouts/LoggedIn";

@@ -1,4 +1,4 @@
-import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import { DisplayExerciseStats } from "@/components/FitnessComponents";
 import { APP_ROUTES } from "@/lib/constants";
 import { useGetMantineColor } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";

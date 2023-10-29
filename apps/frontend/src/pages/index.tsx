@@ -1,5 +1,5 @@
-import Grid from "@/lib/components/Grid";
-import { MediaItemWithoutUpdateModal } from "@/lib/components/MediaComponents";
+import Grid from "@/components/Grid";
+import { MediaItemWithoutUpdateModal } from "@/components/MediaComponents";
 import { APP_ROUTES } from "@/lib/constants";
 import { useGetMantineColor, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";

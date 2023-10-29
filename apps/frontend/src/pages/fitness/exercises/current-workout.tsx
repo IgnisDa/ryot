@@ -1,4 +1,4 @@
-import { DisplayExerciseStats } from "@/lib/components/FitnessComponents";
+import { DisplayExerciseStats } from "@/components/FitnessComponents";
 import { APP_ROUTES } from "@/lib/constants";
 import { useEnabledCoreFeatures, useUserPreferences } from "@/lib/hooks";
 import LoggedIn from "@/lib/layouts/LoggedIn";

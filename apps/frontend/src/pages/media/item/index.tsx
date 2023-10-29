@@ -4,8 +4,8 @@ import {
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ReviewItemDisplay,
-} from "@/lib/components/MediaComponents";
-import MediaDetailsLayout from "@/lib/components/MediaDetailsLayout";
+} from "@/components/MediaComponents";
+import MediaDetailsLayout from "@/components/MediaDetailsLayout";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";

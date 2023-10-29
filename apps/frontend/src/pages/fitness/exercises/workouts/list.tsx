@@ -1,4 +1,4 @@
-import { getSetStatisticsTextToDisplay } from "@/lib/components/FitnessComponents";
+import { getSetStatisticsTextToDisplay } from "@/components/FitnessComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useCoreDetails } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
