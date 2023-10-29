@@ -32,12 +32,12 @@ import type { NextPageWithLayout } from "../../_app";
 const Page: NextPageWithLayout = () => {
 	const getMantineColor = useGetMantineColor();
 	const [query, setQuery] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.savedGenreQuery,
+		key: LOCAL_STORAGE_KEYS.savedGenreListQuery,
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
 		defaultValue: "1",
-		key: LOCAL_STORAGE_KEYS.savedGenrePage,
+		key: LOCAL_STORAGE_KEYS.savedGenreListPage,
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
