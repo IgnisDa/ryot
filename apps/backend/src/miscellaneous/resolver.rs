@@ -6052,12 +6052,7 @@ impl MiscellaneousService {
         let mut contents = vec![];
         let paginator = MetadataToGenre::find()
             .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
-            .paginate(
-                &self.db,
-                input
-                    .page
-                    .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap()),
-            );
+            .paginate(&self.db, self.config.frontend.page_size as u64);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
