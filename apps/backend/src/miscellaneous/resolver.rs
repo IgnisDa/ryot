@@ -417,7 +417,7 @@ struct MediaBaseData {
     model: metadata::Model,
     creators: Vec<MetadataCreatorGroupedByRole>,
     assets: GraphqlMediaAssets,
-    genres: Vec<String>,
+    genres: Vec<GenreListItem>,
     suggestions: Vec<partial_metadata::Model>,
 }
 
@@ -452,7 +452,7 @@ struct GraphqlMediaDetails {
     lot: MetadataLot,
     source: MetadataSource,
     creators: Vec<MetadataCreatorGroupedByRole>,
-    genres: Vec<String>,
+    genres: Vec<GenreListItem>,
     assets: GraphqlMediaAssets,
     publish_year: Option<i32>,
     publish_date: Option<NaiveDate>,
@@ -1466,12 +1466,10 @@ impl MiscellaneousService {
         };
         let genres = meta
             .find_related(Genre)
+            .into_model::<GenreListItem>()
             .all(&self.db)
             .await
-            .unwrap()
-            .into_iter()
-            .map(|g| g.name)
-            .collect();
+            .unwrap();
         #[derive(Debug, FromQueryResult)]
         struct PartialCreator {
             id: i32,
