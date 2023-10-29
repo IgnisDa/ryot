@@ -4,7 +4,7 @@ import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Container, Flex, Stack, Text, Title } from "@mantine/core";
+import { Box, Container, Stack, Text, Title } from "@mantine/core";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
@@ -37,10 +37,10 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container>
 				<Stack>
-					<Title id="group-title">{genreDetails.data.details.name}</Title>
-					<Flex id="group-details" wrap="wrap" gap={4}>
-						<Text>{genreDetails.data.details.numItems} items</Text>
-					</Flex>
+					<Box>
+						<Title id="genre-title">{genreDetails.data.details.name}</Title>
+						<Text>{genreDetails.data.details.numItems} media items</Text>
+					</Box>
 					<Grid>
 						{genreDetails.data.contents.map((media) => (
 							<BaseDisplayItem
