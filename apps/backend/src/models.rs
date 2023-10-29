@@ -175,7 +175,7 @@ pub mod media {
     pub struct GenreListItem {
         pub id: i32,
         pub name: String,
-        pub num_items: u64,
+        pub num_items: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]

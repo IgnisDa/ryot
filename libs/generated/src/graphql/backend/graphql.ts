@@ -480,7 +480,7 @@ export type GeneralFeatures = {
 export type GenreListItem = {
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
-  numItems: Scalars['Int']['output'];
+  numItems?: Maybe<Scalars['Int']['output']>;
 };
 
 export type GenreListResults = {
@@ -2434,7 +2434,7 @@ export type GenreListQueryVariables = Exact<{
 }>;
 
 
-export type GenreListQuery = { genreList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: number, name: string, numItems: number }> } };
+export type GenreListQuery = { genreList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: number, name: string, numItems?: number | null }> } };
 
 export type GetPresignedS3UrlQueryVariables = Exact<{
   key: Scalars['String']['input'];

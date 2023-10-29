@@ -5789,7 +5789,37 @@ impl MiscellaneousService {
     }
 
     pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<GenreListItem>> {
-        todo!()
+        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let query = Genre::find()
+            .apply_if(input.query, |query, v| {
+                query.filter(
+                    Condition::all().add(get_ilike_query(Expr::col(genre::Column::Name), &v)),
+                )
+            })
+            .order_by_asc(genre::Column::Name);
+        let paginator = query
+            .clone()
+            .into_model::<GenreListItem>()
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let mut items = vec![];
+        for c in paginator.fetch_page(page - 1).await? {
+            items.push(c);
+        }
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
+            items,
+        })
     }
 
     pub async fn metadata_groups_list(
