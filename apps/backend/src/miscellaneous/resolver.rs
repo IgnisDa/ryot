@@ -407,7 +407,7 @@ struct MetadataGroupDetails {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GenreDetails {
     details: GenreListItem,
-    contents: Vec<partial_metadata::Model>,
+    contents: Vec<MediaSearchItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -6037,7 +6037,31 @@ impl MiscellaneousService {
     }
 
     async fn genre_details(&self, genre_id: i32) -> Result<GenreDetails> {
-        todo!()
+        let genre = Genre::find_by_id(genre_id).one(&self.db).await?.unwrap();
+        let associations = MetadataToGenre::find()
+            .filter(metadata_to_genre::Column::GenreId.eq(genre_id))
+            .all(&self.db)
+            .await?;
+        let mut contents = vec![];
+        for assc in associations.iter() {
+            let m = assc.find_related(Metadata).one(&self.db).await?.unwrap();
+            let image = m.images.first_as_url(&self.file_storage_service).await;
+            let metadata = MediaSearchItem {
+                image,
+                title: m.title,
+                publish_year: None,
+                identifier: m.identifier,
+            };
+            contents.push(metadata);
+        }
+        Ok(GenreDetails {
+            details: GenreListItem {
+                id: genre.id,
+                name: genre.name,
+                num_items: Some(associations.len().try_into().unwrap()),
+            },
+            contents,
+        })
     }
 
     async fn metadata_group_details(&self, metadata_group_id: i32) -> Result<MetadataGroupDetails> {

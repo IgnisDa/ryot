@@ -15,10 +15,7 @@ query CollectionContents($input: CollectionContentsInput!) {
         metadataLot
         entityLot
         details {
-          identifier
-          title
-          image
-          publishYear
+          ...MediaSearchItemPart
         }
       }
     }

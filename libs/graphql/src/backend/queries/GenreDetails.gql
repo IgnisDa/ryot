@@ -6,7 +6,7 @@ query GenreDetails($genreId: Int!) {
       numItems
     }
     contents {
-      ...PartialMetadataPart
+      ...MediaSearchItemPart
     }
   }
 }
