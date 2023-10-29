@@ -1,13 +1,17 @@
-import { PartialMetadataDisplay } from "@/components/MediaComponents";
+import Grid from "@/components/Grid";
+import { BaseDisplayItem } from "@/components/MediaComponents";
+import { APP_ROUTES } from "@/lib/constants";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
-import { Container, Flex, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Container, Flex, Stack, Text, Title } from "@mantine/core";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
+import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
 
 const Page: NextPageWithLayout = () => {
@@ -31,23 +35,27 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>{genreDetails.data.details.name} | Ryot</title>
 			</Head>
-			<Container size="sm">
+			<Container>
 				<Stack>
 					<Title id="group-title">{genreDetails.data.details.name}</Title>
 					<Flex id="group-details" wrap="wrap" gap={4}>
-						<Text>{genreDetails.data.details.numItems} media items</Text>
+						<Text>{genreDetails.data.details.numItems} items</Text>
 					</Flex>
-					<SimpleGrid cols={{ base: 3, md: 4, lg: 5, xl: 6 }}>
+					<Grid>
 						{genreDetails.data.contents.map((media) => (
-							<PartialMetadataDisplay
-								key={media.identifier}
-								media={
-									// biome-ignore lint/suspicious/noExplicitAny: required here
-									{ ...media, metadataId: Number(media.identifier) } as any
-								}
+							<BaseDisplayItem
+								key={media.details.identifier}
+								name={media.details.title}
+								bottomLeft={media.details.publishYear}
+								bottomRight={changeCase(snakeCase(media.metadataLot || ""))}
+								imageLink={media.details.image}
+								imagePlaceholder={getInitials(media.details.title)}
+								href={withQuery(APP_ROUTES.media.individualMediaItem.details, {
+									id: media.details.identifier,
+								})}
 							/>
 						))}
-					</SimpleGrid>
+					</Grid>
 				</Stack>
 			</Container>
 		</>
