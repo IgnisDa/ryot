@@ -6050,7 +6050,7 @@ impl MiscellaneousService {
                 image,
                 title: m.title,
                 publish_year: None,
-                identifier: m.identifier,
+                identifier: m.id.to_string(),
             };
             contents.push(metadata);
         }
