@@ -5815,7 +5815,8 @@ impl MiscellaneousService {
                     .to(metadata_to_genre::Column::GenreId)
                     .into(),
             )
-            .group_by(Expr::cust("id, name"))
+            // fuck it. we ball. (extremely unsafe, guaranteed to fail if names change)
+            .group_by(Expr::cust("genre.id, genre.name"))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
         let paginator = query
             .clone()
