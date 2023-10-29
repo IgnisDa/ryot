@@ -5820,13 +5820,7 @@ impl MiscellaneousService {
                     Condition::all().add(get_ilike_query(Expr::col(genre::Column::Name), &v)),
                 )
             })
-            .join(
-                JoinType::Join,
-                Genre::belongs_to(MetadataToGenre)
-                    .from(genre::Column::Id)
-                    .to(metadata_to_genre::Column::GenreId)
-                    .into(),
-            )
+            .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
             // fuck it. we ball. (extremely unsafe, guaranteed to fail if names change)
             .group_by(Expr::cust("genre.id, genre.name"))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
