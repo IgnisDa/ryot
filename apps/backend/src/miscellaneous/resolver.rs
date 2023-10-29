@@ -309,6 +309,12 @@ struct UpdateUserPreferenceInput {
     value: String,
 }
 
+#[derive(Debug, InputObject)]
+struct GenreDetailsInput {
+    genre_id: i32,
+    page: Option<u64>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 enum CollectionContentsSortBy {
     Title,
@@ -407,7 +413,7 @@ struct MetadataGroupDetails {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GenreDetails {
     details: GenreListItem,
-    contents: Vec<MediaSearchItemWithLot>,
+    contents: SearchResults<MediaSearchItemWithLot>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -782,9 +788,13 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about a genre present in the database.
-    async fn genre_details(&self, gql_ctx: &Context<'_>, genre_id: i32) -> Result<GenreDetails> {
+    async fn genre_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: GenreDetailsInput,
+    ) -> Result<GenreDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.genre_details(genre_id).await
+        service.genre_details(input).await
     }
 
     /// Get details about a metadata group present in the database.
@@ -6033,14 +6043,21 @@ impl MiscellaneousService {
         })
     }
 
-    async fn genre_details(&self, genre_id: i32) -> Result<GenreDetails> {
-        let genre = Genre::find_by_id(genre_id).one(&self.db).await?.unwrap();
-        let associations = MetadataToGenre::find()
-            .filter(metadata_to_genre::Column::GenreId.eq(genre_id))
-            .all(&self.db)
-            .await?;
+    async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
+        let page = input.page.unwrap_or(1);
+        let genre = Genre::find_by_id(input.genre_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
         let mut contents = vec![];
-        for assc in associations.iter() {
+        let paginator = MetadataToGenre::find()
+            .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
+            .paginate(&self.db, self.config.frontend.page_size as u64);
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        for assc in paginator.fetch_page(page - 1).await? {
             let m = assc.find_related(Metadata).one(&self.db).await?.unwrap();
             let image = m.images.first_as_url(&self.file_storage_service).await;
             let metadata = MediaSearchItemWithLot {
@@ -6059,9 +6076,19 @@ impl MiscellaneousService {
             details: GenreListItem {
                 id: genre.id,
                 name: genre.name,
-                num_items: Some(associations.len().try_into().unwrap()),
+                num_items: Some(number_of_items.try_into().unwrap()),
             },
-            contents,
+            contents: SearchResults {
+                details: SearchDetails {
+                    total: number_of_items.try_into().unwrap(),
+                    next_page: if page < number_of_pages {
+                        Some((page + 1).try_into().unwrap())
+                    } else {
+                        None
+                    },
+                },
+                items: contents,
+            },
         })
     }
 

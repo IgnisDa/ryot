@@ -32,12 +32,12 @@ import type { NextPageWithLayout } from "../../_app";
 const Page: NextPageWithLayout = () => {
 	const getMantineColor = useGetMantineColor();
 	const [query, setQuery] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.savedGenreQuery,
+		key: LOCAL_STORAGE_KEYS.savedGenreListQuery,
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
-		key: LOCAL_STORAGE_KEYS.savedGenrePage,
+		defaultValue: 1,
+		key: LOCAL_STORAGE_KEYS.savedGenreListPage,
 		getInitialValueInEffect: false,
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
@@ -142,8 +142,8 @@ const Page: NextPageWithLayout = () => {
 						<Center mt="xl">
 							<Pagination
 								size="sm"
-								value={parseInt(activePage || "1")}
-								onChange={(v) => setPage(v.toString())}
+								value={activePage || 1}
+								onChange={(v) => setPage(v)}
 								total={Math.ceil(
 									listGenres.data.details.total / coreDetails.data.pageLimit,
 								)}

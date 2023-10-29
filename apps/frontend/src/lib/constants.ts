@@ -95,6 +95,7 @@ export const LOCAL_STORAGE_KEYS = {
 	savedCollectionContentsEntityLotFilter: "34",
 	savedCollectionContentsMetadataLotFilter: "35",
 	savedOpenedLinkGroups: "36",
-	savedGenreQuery: "37",
-	savedGenrePage: "38",
+	savedGenreListQuery: "37",
+	savedGenreListPage: "38",
+	savedGenreContentsPage: "39",
 } as const;

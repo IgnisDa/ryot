@@ -76,7 +76,7 @@ const Page: NextPageWithLayout = () => {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedCollectionPage,
 		getInitialValueInEffect: false,
 	});
@@ -154,7 +154,7 @@ const Page: NextPageWithLayout = () => {
 						},
 						sort: { by: sortBy, order: sortOrder },
 						search: {
-							page: parseInt(activePage || "1"),
+							page: activePage || 1,
 							query: debouncedQuery || undefined,
 						},
 					},
@@ -353,8 +353,8 @@ const Page: NextPageWithLayout = () => {
 									<Center>
 										<Pagination
 											size="sm"
-											value={parseInt(activePage || "1")}
-											onChange={(v) => setPage(v.toString())}
+											value={activePage || 1}
+											onChange={(v) => setPage(v)}
 											total={Math.ceil(
 												collectionContents.data.results.details.total /
 													coreDetails.data.pageLimit,

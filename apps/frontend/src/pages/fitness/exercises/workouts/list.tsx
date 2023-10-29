@@ -29,19 +29,12 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import {
-	HumanizeDuration,
-	HumanizeDurationLanguage,
-} from "humanize-duration-ts";
-import { DateTime } from "luxon";
+import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { type ReactElement } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../../_app";
-
-const service = new HumanizeDurationLanguage();
-const humanizer = new HumanizeDuration(service);
 
 const DisplayStat = (props: {
 	icon: ReactElement;
@@ -80,7 +73,7 @@ const ExerciseDisplay = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedWorkoutListPage,
 		getInitialValueInEffect: false,
 	});
@@ -91,7 +84,7 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { userWorkoutList } = await gqlClient.request(
 				UserWorkoutListDocument,
-				{ page: parseInt(activePage || "1") },
+				{ page: activePage || 1 },
 			);
 			return userWorkoutList;
 		},
@@ -133,10 +126,14 @@ const Page: NextPageWithLayout = () => {
 												<Group mt="xs" gap="lg">
 													<DisplayStat
 														icon={<IconClock size={16} />}
-														data={humanizer.humanize(
+														data={((dur: number) => {
+															let format = "";
+															if (dur > 3600000) format += "h'h', ";
+															format += "m'm'";
+															return Duration.fromMillis(dur).toFormat(format);
+														})(
 															workout.endTime.getTime() -
 																workout.startTime.getTime(),
-															{ round: true },
 														)}
 													/>
 													<DisplayStat
@@ -196,8 +193,8 @@ const Page: NextPageWithLayout = () => {
 						<Center>
 							<Pagination
 								size="sm"
-								value={parseInt(activePage || "1")}
-								onChange={(v) => setPage(v.toString())}
+								value={activePage || 1}
+								onChange={(v) => setPage(v)}
 								total={Math.ceil(
 									userWorkoutList.data.details.total /
 										coreDetails.data.pageLimit,
