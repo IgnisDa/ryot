@@ -6,7 +6,10 @@ query GenreDetails($genreId: Int!) {
       numItems
     }
     contents {
-      ...MediaSearchItemPart
+      details {
+        ...MediaSearchItemPart
+      }
+      metadataLot
     }
   }
 }

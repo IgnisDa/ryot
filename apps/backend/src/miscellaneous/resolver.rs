@@ -407,7 +407,7 @@ struct MetadataGroupDetails {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GenreDetails {
     details: GenreListItem,
-    contents: Vec<MediaSearchItem>,
+    contents: Vec<MediaSearchItemWithLot>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -6046,11 +6046,15 @@ impl MiscellaneousService {
         for assc in associations.iter() {
             let m = assc.find_related(Metadata).one(&self.db).await?.unwrap();
             let image = m.images.first_as_url(&self.file_storage_service).await;
-            let metadata = MediaSearchItem {
-                image,
-                title: m.title,
-                publish_year: None,
-                identifier: m.id.to_string(),
+            let metadata = MediaSearchItemWithLot {
+                details: MediaSearchItem {
+                    image,
+                    title: m.title,
+                    publish_year: m.publish_year,
+                    identifier: m.id.to_string(),
+                },
+                metadata_lot: Some(m.lot),
+                entity_lot: EntityLot::Media,
             };
             contents.push(metadata);
         }
