@@ -5957,8 +5957,10 @@ impl MiscellaneousService {
             | MetadataSource::MangaUpdates
             | MetadataSource::Mal
             | MetadataSource::Vndb
-            | MetadataSource::Audible
             | MetadataSource::GoogleBooks => None,
+            MetadataSource::Audible => Some(format!(
+                "https://www.audible.com/author/{slug}/{identifier}"
+            )),
             MetadataSource::Openlibrary => Some(format!(
                 "https://openlibrary.org/authors/{identifier}/{slug}"
             )),
