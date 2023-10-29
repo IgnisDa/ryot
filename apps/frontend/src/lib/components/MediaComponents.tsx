@@ -4,7 +4,7 @@ import {
 	useCoreDetails,
 	useUser,
 	useUserPreferences,
-} from "@/lib/hooks/graphql";
+} from "@/lib/hooks";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Verb,

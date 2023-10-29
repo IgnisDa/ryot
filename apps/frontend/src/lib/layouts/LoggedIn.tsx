@@ -1,6 +1,6 @@
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useUserPreferences } from "@/lib/hooks/graphql";
-import { useCoreDetails } from "@/lib/hooks/graphql";
+import { useUserPreferences } from "@/lib/hooks";
+import { useCoreDetails } from "@/lib/hooks";
 import { gqlClient } from "@/lib/services/api";
 import { getLot } from "@/lib/utilities";
 import {
