@@ -101,10 +101,6 @@ import type { NextPageWithLayout } from "../../_app";
 
 const service = new HumanizeDurationLanguage();
 const humanizer = new HumanizeDuration(service);
-const formatter = new Intl.ListFormat("en", {
-	style: "long",
-	type: "conjunction",
-});
 
 const ProgressModal = (props: {
 	opened: boolean;
@@ -703,15 +699,23 @@ const Page: NextPageWithLayout = () => {
 								<Text> • {mediaDetails.data.publishYear}</Text>
 							) : undefined}
 							{mediaDetails.data.genres.length > 0 ? (
-								<Text>
+								<>
 									•{" "}
-									{formatter.format(
-										mediaDetails.data.genres.slice(
-											0,
-											preferences.data.general.numGenresDisplay,
-										),
-									)}
-								</Text>
+									{mediaDetails.data.genres
+										.slice(0, preferences.data.general.numGenresDisplay)
+										.map((g, idx) => (
+											<Anchor
+												key={g.id}
+												component={Link}
+												href={withQuery(APP_ROUTES.media.genres.details, {
+													id: g.id,
+												})}
+											>
+												{idx !== 0 ? " | " : ""}
+												{g.name}
+											</Anchor>
+										))}
+								</>
 							) : undefined}
 						</Flex>
 					</MantineThemeProvider>

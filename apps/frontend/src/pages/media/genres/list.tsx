@@ -4,6 +4,7 @@ import { useCoreDetails } from "@/lib/hooks/graphql";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
+import { getStringAsciiValue } from "@/lib/utilities";
 import {
 	ActionIcon,
 	Anchor,
@@ -25,11 +26,10 @@ import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
+import Link from "next/link";
 import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
-import Link from "next/link";
-import { getStringAsciiValue } from "@/lib/utilities";
 
 const Page: NextPageWithLayout = () => {
 	const theme = useMantineTheme();
