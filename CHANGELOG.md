@@ -1,5 +1,21 @@
 
 
+# Version 3.3.2 (2023-10-29)
+
+
+
+# Version 3.3.1 (2023-10-29)
+
+## Bug Fixes
+
+- **frontend:** better genres display
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 3.3.0 (2023-10-29)
 
 
