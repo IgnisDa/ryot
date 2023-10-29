@@ -79,15 +79,15 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ChangeCollectionToEntityInput,
-            CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
-            MediaSpecifics, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
-            MovieSpecifics, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser,
+            CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
+            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MediaSearchItem,
+            MediaSearchItemResponse, MediaSearchItemWithLot, MediaSpecifics, MetadataFreeCreator,
+            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, ReviewCommentUser,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, VisualNovelSpecifics,
@@ -784,19 +784,6 @@ impl MiscellaneousQuery {
         service.metadata_group_details(metadata_group_id).await
     }
 
-    /// Get details that can be displayed to a user for a metadata group.
-    async fn user_metadata_group_details(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_group_id: i32,
-    ) -> Result<UserMetadataGroupDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .user_metadata_group_details(user_id, metadata_group_id)
-            .await
-    }
-
     /// Get all the media items related to a user for a specific media type.
     async fn media_list(
         &self,
@@ -818,13 +805,6 @@ impl MiscellaneousQuery {
     async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<GeneralFeatures> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_enabled_features().await
-    }
-
-    /// Get a user's preferences.
-    async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_preferences(user_id).await
     }
 
     /// Search for a list of media for a given type.
@@ -850,6 +830,26 @@ impl MiscellaneousQuery {
         service.media_sources_for_lot(lot).await
     }
 
+    /// Get paginated list of genres.
+    async fn genre_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<GenreListItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.genres_list(input).await
+    }
+
+    /// Get paginated list of metadata groups.
+    async fn metadata_groups_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<MetadataGroupListItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_groups_list(input).await
+    }
+
     /// Get all languages supported by all the providers.
     async fn providers_language_information(
         &self,
@@ -857,6 +857,33 @@ impl MiscellaneousQuery {
     ) -> Vec<ProviderLanguageInformation> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.providers_language_information()
+    }
+
+    /// Get a summary of all the media items that have been consumed by this user.
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.latest_user_summary(user_id).await
+    }
+
+    /// Get details that can be displayed to a user for a metadata group.
+    async fn user_metadata_group_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_group_id: i32,
+    ) -> Result<UserMetadataGroupDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .user_metadata_group_details(user_id, metadata_group_id)
+            .await
+    }
+
+    /// Get a user's preferences.
+    async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_preferences(user_id).await
     }
 
     /// Get details about all the users in the service.
@@ -872,13 +899,6 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let token = service.user_auth_token_from_ctx(gql_ctx)?;
         service.user_details(&token).await
-    }
-
-    /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.latest_user_summary(user_id).await
     }
 
     /// Get all the integrations for the currently logged in user.
@@ -953,16 +973,6 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.people_list(input).await
-    }
-
-    /// Get paginated list of metadata groups.
-    async fn metadata_groups_list(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: SearchInput,
-    ) -> Result<SearchResults<MetadataGroupListItem>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_groups_list(input).await
     }
 }
 
@@ -5776,6 +5786,10 @@ impl MiscellaneousService {
         } else {
             false
         })
+    }
+
+    pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<GenreListItem>> {
+        todo!()
     }
 
     pub async fn metadata_groups_list(
