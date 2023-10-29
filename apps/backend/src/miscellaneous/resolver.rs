@@ -405,6 +405,12 @@ struct MetadataGroupDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct GenreDetails {
+    details: GenreListItem,
+    contents: Vec<partial_metadata::Model>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
@@ -773,6 +779,12 @@ impl MiscellaneousQuery {
     ) -> Result<CreatorDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.person_details(person_id).await
+    }
+
+    /// Get details about a genre present in the database.
+    async fn genre_details(&self, gql_ctx: &Context<'_>, genre_id: i32) -> Result<GenreDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.genre_details(genre_id).await
     }
 
     /// Get details about a metadata group present in the database.
@@ -6040,6 +6052,10 @@ impl MiscellaneousService {
             worked_on,
             source_url,
         })
+    }
+
+    async fn genre_details(&self, genre_id: i32) -> Result<GenreDetails> {
+        todo!()
     }
 
     async fn metadata_group_details(&self, metadata_group_id: i32) -> Result<MetadataGroupDetails> {

@@ -1,0 +1,12 @@
+query GenreDetails($genreId: Int!) {
+  genreDetails(genreId: $genreId) {
+    details {
+      id
+      name
+      numItems
+    }
+    contents {
+      ...PartialMetadataPart
+    }
+  }
+}
