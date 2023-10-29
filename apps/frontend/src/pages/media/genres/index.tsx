@@ -28,7 +28,7 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const genreId = parseInt(router.query.id?.toString() || "0");
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedGenreContentsPage,
 		getInitialValueInEffect: false,
 	});
@@ -40,7 +40,7 @@ const Page: NextPageWithLayout = () => {
 			const { genreDetails } = await gqlClient.request(GenreDetailsDocument, {
 				input: {
 					genreId,
-					page: parseInt(activePage || "1"),
+					page: activePage || 1,
 				},
 			});
 			return genreDetails;
@@ -78,8 +78,8 @@ const Page: NextPageWithLayout = () => {
 					<Center>
 						<Pagination
 							size="sm"
-							value={parseInt(activePage || "1")}
-							onChange={(v) => setPage(v.toString())}
+							value={activePage || 1}
+							onChange={(v) => setPage(v)}
 							total={Math.ceil(
 								genreDetails.data.contents.details.total /
 									coreDetails.data.pageLimit,

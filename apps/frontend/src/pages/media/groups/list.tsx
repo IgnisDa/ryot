@@ -34,7 +34,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedGroupsPage,
 		getInitialValueInEffect: false,
 	});
@@ -131,8 +131,8 @@ const Page: NextPageWithLayout = () => {
 						<Center>
 							<Pagination
 								size="sm"
-								value={parseInt(activePage || "1")}
-								onChange={(v) => setPage(v.toString())}
+								value={activePage || 1}
+								onChange={(v) => setPage(v)}
 								total={Math.ceil(
 									listMetadataGroups.data.details.total /
 										coreDetails.data.pageLimit,

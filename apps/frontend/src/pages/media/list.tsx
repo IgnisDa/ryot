@@ -100,7 +100,7 @@ const Page: NextPageWithLayout = () => {
 		serialize: serializeLocalStorage,
 	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedMediaSearchPage,
 	});
 	const [query, setQuery] = useLocalStorage({
@@ -111,7 +111,7 @@ const Page: NextPageWithLayout = () => {
 		key: LOCAL_STORAGE_KEYS.savedMediaSearchSource,
 	});
 	const [activeMinePage, setMinePage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedMediaMinePage,
 		getInitialValueInEffect: false,
 	});
@@ -143,7 +143,7 @@ const Page: NextPageWithLayout = () => {
 				input: {
 					lot,
 					search: {
-						page: parseInt(activeMinePage || "1"),
+						page: activeMinePage || 1,
 						query: debouncedQuery || undefined,
 					},
 					sort: { order: mineSortOrder, by: mineSortBy },
@@ -203,7 +203,7 @@ const Page: NextPageWithLayout = () => {
 			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
 				input: {
 					query: debouncedQuery,
-					page: parseInt(activeSearchPage || "1"),
+					page: activeSearchPage || 1,
 				},
 				lot,
 				source: searchSource as MetadataSource,
@@ -418,8 +418,8 @@ const Page: NextPageWithLayout = () => {
 								<Center>
 									<Pagination
 										size="sm"
-										value={parseInt(activeMinePage || "1")}
-										onChange={(v) => setMinePage(v.toString())}
+										value={activeMinePage || 1}
+										onChange={(v) => setMinePage(v)}
 										total={Math.ceil(
 											listMedia.data.details.total / coreDetails.data.pageLimit,
 										)}
@@ -487,8 +487,8 @@ const Page: NextPageWithLayout = () => {
 								<Center>
 									<Pagination
 										size="sm"
-										value={parseInt(activeSearchPage || "1")}
-										onChange={(v) => setSearchPage(v.toString())}
+										value={activeSearchPage || 1}
+										onChange={(v) => setSearchPage(v)}
 										total={Math.ceil(
 											searchQuery.data.details.total /
 												coreDetails.data.pageLimit,

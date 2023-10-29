@@ -73,7 +73,7 @@ const ExerciseDisplay = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedWorkoutListPage,
 		getInitialValueInEffect: false,
 	});
@@ -84,7 +84,7 @@ const Page: NextPageWithLayout = () => {
 		queryFn: async () => {
 			const { userWorkoutList } = await gqlClient.request(
 				UserWorkoutListDocument,
-				{ page: parseInt(activePage || "1") },
+				{ page: activePage || 1 },
 			);
 			return userWorkoutList;
 		},
@@ -193,8 +193,8 @@ const Page: NextPageWithLayout = () => {
 						<Center>
 							<Pagination
 								size="sm"
-								value={parseInt(activePage || "1")}
-								onChange={(v) => setPage(v.toString())}
+								value={activePage || 1}
+								onChange={(v) => setPage(v)}
 								total={Math.ceil(
 									userWorkoutList.data.details.total /
 										coreDetails.data.pageLimit,

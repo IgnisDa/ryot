@@ -57,7 +57,7 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: false,
 	});
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedCreatorPage,
 		getInitialValueInEffect: false,
 	});
@@ -85,7 +85,7 @@ const Page: NextPageWithLayout = () => {
 			const { peopleList } = await gqlClient.request(PeopleListDocument, {
 				input: {
 					search: {
-						page: parseInt(activePage || "1"),
+						page: activePage || 1,
 						query: debouncedQuery.length > 0 ? debouncedQuery : undefined,
 					},
 					sort: { by: sortBy, order: sortOrder },
@@ -219,8 +219,8 @@ const Page: NextPageWithLayout = () => {
 						<Center>
 							<Pagination
 								size="sm"
-								value={parseInt(activePage || "1")}
-								onChange={(v) => setPage(v.toString())}
+								value={activePage || 1}
+								onChange={(v) => setPage(v)}
 								total={Math.ceil(
 									listCreators.data.details.total / coreDetails.data.pageLimit,
 								)}

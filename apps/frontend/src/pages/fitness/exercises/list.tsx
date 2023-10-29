@@ -84,7 +84,7 @@ const Page: NextPageWithLayout = () => {
 		lot: ExerciseLot;
 	}>([]);
 	const [activePage, setPage] = useLocalStorage({
-		defaultValue: "1",
+		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedExercisesPage,
 	});
 	const [query, setQuery] = useLocalStorage({
@@ -131,7 +131,7 @@ const Page: NextPageWithLayout = () => {
 			const { exercisesList } = await gqlClient.request(ExercisesListDocument, {
 				input: {
 					search: {
-						page: parseInt(activePage || "1"),
+						page: activePage || 1,
 						query: debouncedQuery || undefined,
 					},
 					filter: exerciseFilters,
@@ -373,8 +373,8 @@ const Page: NextPageWithLayout = () => {
 								<Center>
 									<Pagination
 										size="sm"
-										value={parseInt(activePage || "1")}
-										onChange={(v) => setPage(v.toString())}
+										value={activePage || 1}
+										onChange={(v) => setPage(v)}
 										total={Math.ceil(
 											exercisesList.data.details.total /
 												coreDetails.data.pageLimit,
