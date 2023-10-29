@@ -892,6 +892,7 @@ const Page: NextPageWithLayout = () => {
 										spacing={{ base: "md", lg: "xs" }}
 									>
 										{mediaDetails.data.genres
+											.slice(0, 12)
 											.toSorted((a, b) => a.name.length - b.name.length)
 											.map((g) => (
 												<Group key={g.id} wrap="nowrap">
