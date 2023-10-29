@@ -268,8 +268,9 @@ export default function ({ children }: { children: ReactElement }) {
 					href: undefined,
 				};
 			}) || []),
-		{ label: "People", href: APP_ROUTES.media.people.list },
 		{ label: "Groups", href: APP_ROUTES.media.groups.list },
+		{ label: "People", href: APP_ROUTES.media.people.list },
+		{ label: "Genres", href: APP_ROUTES.media.genres.list },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href
