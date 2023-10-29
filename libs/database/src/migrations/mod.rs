@@ -25,6 +25,9 @@ pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, Me
 pub use m20230413_create_person::Person as AliasedPerson;
 pub use m20230417_create_user::UserLot;
 pub use m20230419_create_seen::{Seen as AliasedSeen, SeenState};
+pub use m20230502_create_genre::{
+    Genre as AliasedGenre, MetadataToGenre as AliasedMetadataToGenre,
+};
 pub use m20230505_create_review::{Review as AliasedReview, Visibility};
 pub use m20230509_create_import_report::ImportSource;
 pub use m20230622_create_exercise::{

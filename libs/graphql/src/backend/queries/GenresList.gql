@@ -1,5 +1,5 @@
-query GenreList($input: SearchInput!) {
-  genreList(input: $input) {
+query GenresList($input: SearchInput!) {
+  genresList(input: $input) {
     details {
       total
       nextPage

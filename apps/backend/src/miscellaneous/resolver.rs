@@ -18,8 +18,8 @@ use cookie::{
     Cookie, SameSite,
 };
 use database::{
-    AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedPerson, AliasedReview,
-    AliasedSeen, AliasedUserToEntity, MetadataLot, MetadataSource,
+    AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
+    AliasedReview, AliasedSeen, AliasedUserToEntity, MetadataLot, MetadataSource,
     MetadataToPartialMetadataRelation, PersonToPartialMetadataRelation, SeenState, UserLot,
     Visibility,
 };
@@ -832,7 +832,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get paginated list of genres.
-    async fn genre_list(
+    async fn genres_list(
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
@@ -5796,13 +5796,29 @@ impl MiscellaneousService {
 
     pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<GenreListItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let num_items = "num_items";
         let query = Genre::find()
+            .column_as(
+                Expr::expr(Func::count(Expr::col((
+                    AliasedMetadataToGenre::Table,
+                    metadata_to_genre::Column::MetadataId,
+                )))),
+                num_items,
+            )
             .apply_if(input.query, |query, v| {
                 query.filter(
                     Condition::all().add(get_ilike_query(Expr::col(genre::Column::Name), &v)),
                 )
             })
-            .order_by_asc(genre::Column::Name);
+            .join(
+                JoinType::Join,
+                Genre::belongs_to(MetadataToGenre)
+                    .from(genre::Column::Id)
+                    .to(metadata_to_genre::Column::GenreId)
+                    .into(),
+            )
+            .group_by(Expr::cust("id, name"))
+            .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
         let paginator = query
             .clone()
             .into_model::<GenreListItem>()
