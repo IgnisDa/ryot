@@ -18,10 +18,10 @@ use cookie::{
     Cookie, SameSite,
 };
 use database::{
-    Exercise as TempExercise, Metadata as TempMetadata, MetadataGroup as TempMetadataGroup,
-    MetadataLot, MetadataSource, MetadataToPartialMetadataRelation, Person as TempPerson,
-    PersonToPartialMetadataRelation, Review as TempReview, Seen as TempSeen, SeenState, UserLot,
-    UserToEntity as TempUserToMetadata, Visibility,
+    AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedPerson, AliasedReview,
+    AliasedSeen, AliasedUserToEntity, MetadataLot, MetadataSource,
+    MetadataToPartialMetadataRelation, PersonToPartialMetadataRelation, SeenState, UserLot,
+    Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -1764,23 +1764,23 @@ impl MiscellaneousService {
         let seen_alias = Alias::new("s");
         let seen_select = Query::select()
             .expr_as(
-                Expr::col((metadata_alias.clone(), TempMetadata::Id)),
+                Expr::col((metadata_alias.clone(), AliasedMetadata::Id)),
                 Alias::new("metadata_id"),
             )
             .expr_as(
-                Func::count(Expr::col((seen_alias.clone(), TempSeen::MetadataId))),
+                Func::count(Expr::col((seen_alias.clone(), AliasedSeen::MetadataId))),
                 Alias::new("num_times_seen"),
             )
-            .from_as(TempMetadata::Table, metadata_alias.clone())
+            .from_as(AliasedMetadata::Table, metadata_alias.clone())
             .join_as(
                 JoinType::LeftJoin,
-                TempSeen::Table,
+                AliasedSeen::Table,
                 seen_alias.clone(),
-                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                    .equals((seen_alias.clone(), TempSeen::MetadataId)),
+                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
+                    .equals((seen_alias.clone(), AliasedSeen::MetadataId)),
             )
-            .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Id)).eq(metadata_id))
-            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
+            .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Id)).eq(metadata_id))
+            .group_by_col((metadata_alias.clone(), AliasedMetadata::Id))
             .to_owned();
         let stmt = self.get_db_stmt(seen_select);
         let seen_by = self
@@ -1875,23 +1875,23 @@ impl MiscellaneousService {
         }
         let all_events = CalendarEvent::find()
             .column_as(
-                Expr::col((TempMetadata::Table, metadata::Column::Lot)),
+                Expr::col((AliasedMetadata::Table, metadata::Column::Lot)),
                 "m_lot",
             )
             .column_as(
-                Expr::col((TempMetadata::Table, metadata::Column::Title)),
+                Expr::col((AliasedMetadata::Table, metadata::Column::Title)),
                 "m_title",
             )
             .column_as(
-                Expr::col((TempMetadata::Table, metadata::Column::Images)),
+                Expr::col((AliasedMetadata::Table, metadata::Column::Images)),
                 "m_images",
             )
             .column_as(
-                Expr::col((TempMetadata::Table, metadata::Column::Specifics)),
+                Expr::col((AliasedMetadata::Table, metadata::Column::Specifics)),
                 "m_specifics",
             )
             .filter(
-                Expr::col((TempUserToMetadata::Table, user_to_entity::Column::UserId)).eq(user_id),
+                Expr::col((AliasedUserToEntity::Table, user_to_entity::Column::UserId)).eq(user_id),
             )
             .join_rev(
                 JoinType::Join,
@@ -2044,14 +2044,16 @@ impl MiscellaneousService {
 
         let mut main_select = Query::select()
             .expr(Expr::col((metadata_alias.clone(), Asterisk)))
-            .from_as(TempMetadata::Table, metadata_alias.clone())
+            .from_as(AliasedMetadata::Table, metadata_alias.clone())
             .and_where_option(match preferences.general.display_nsfw {
                 true => None,
-                false => Some(Expr::col((metadata_alias.clone(), TempMetadata::IsNsfw)).eq(false)),
+                false => {
+                    Some(Expr::col((metadata_alias.clone(), AliasedMetadata::IsNsfw)).eq(false))
+                }
             })
-            .and_where(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).eq(input.lot))
+            .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Lot)).eq(input.lot))
             .and_where(
-                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                     .is_in(distinct_meta_ids.clone()),
             )
             .to_owned();
@@ -2108,23 +2110,23 @@ impl MiscellaneousService {
                     MediaSortBy::LastSeen => {
                         let last_seen = Alias::new("last_seen");
                         let sub_select = Query::select()
-                            .column(TempSeen::MetadataId)
+                            .column(AliasedSeen::MetadataId)
                             .expr_as(
-                                Func::max(Expr::col(TempSeen::FinishedOn)),
+                                Func::max(Expr::col(AliasedSeen::FinishedOn)),
                                 last_seen.clone(),
                             )
-                            .from(TempSeen::Table)
-                            .and_where(Expr::col(TempSeen::UserId).eq(user_id))
-                            .and_where(Expr::col(TempReview::MetadataId).is_not_null())
-                            .group_by_col(TempSeen::MetadataId)
+                            .from(AliasedSeen::Table)
+                            .and_where(Expr::col(AliasedSeen::UserId).eq(user_id))
+                            .and_where(Expr::col(AliasedReview::MetadataId).is_not_null())
+                            .group_by_col(AliasedSeen::MetadataId)
                             .to_owned();
                         main_select = main_select
                             .join_subquery(
                                 JoinType::LeftJoin,
                                 sub_select,
                                 seen_alias.clone(),
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                                    .equals((seen_alias.clone(), TempSeen::MetadataId)),
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
+                                    .equals((seen_alias.clone(), AliasedSeen::MetadataId)),
                             )
                             .order_by_with_nulls(
                                 (seen_alias.clone(), last_seen),
@@ -2138,17 +2140,17 @@ impl MiscellaneousService {
                         main_select = main_select
                             .join_as(
                                 JoinType::LeftJoin,
-                                TempUserToMetadata::Table,
+                                AliasedUserToEntity::Table,
                                 mtu_alias.clone(),
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                                    .equals((mtu_alias.clone(), TempUserToMetadata::MetadataId))
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
+                                    .equals((mtu_alias.clone(), AliasedUserToEntity::MetadataId))
                                     .and(
-                                        Expr::col((mtu_alias.clone(), TempUserToMetadata::UserId))
+                                        Expr::col((mtu_alias.clone(), AliasedUserToEntity::UserId))
                                             .eq(user_id),
                                     ),
                             )
                             .order_by(
-                                (mtu_alias.clone(), TempUserToMetadata::LastUpdatedOn),
+                                (mtu_alias.clone(), AliasedUserToEntity::LastUpdatedOn),
                                 order_by,
                             )
                             .to_owned();
@@ -2157,21 +2159,21 @@ impl MiscellaneousService {
                         let alias_name = "average_rating";
                         main_select = main_select
                             .expr_as(
-                                Func::avg(Expr::col((review_alias.clone(), TempReview::Rating))),
+                                Func::avg(Expr::col((review_alias.clone(), AliasedReview::Rating))),
                                 Alias::new(alias_name),
                             )
                             .join_as(
                                 JoinType::LeftJoin,
-                                TempReview::Table,
+                                AliasedReview::Table,
                                 review_alias.clone(),
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
-                                    .equals((review_alias.clone(), TempReview::MetadataId))
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
+                                    .equals((review_alias.clone(), AliasedReview::MetadataId))
                                     .and(
-                                        Expr::col((review_alias.clone(), TempReview::UserId))
+                                        Expr::col((review_alias.clone(), AliasedReview::UserId))
                                             .eq(user_id),
                                     ),
                             )
-                            .group_by_col((metadata_alias.clone(), TempMetadata::Id))
+                            .group_by_col((metadata_alias.clone(), AliasedMetadata::Id))
                             .order_by_expr_with_nulls(
                                 Expr::cust(alias_name),
                                 order_by.clone(),
@@ -2194,7 +2196,7 @@ impl MiscellaneousService {
                 let collections = all_media.into_iter().map(|m| m.metadata_id).collect_vec();
                 main_select = main_select
                     .and_where(
-                        Expr::col((metadata_alias.clone(), TempMetadata::Id)).is_in(collections),
+                        Expr::col((metadata_alias.clone(), AliasedMetadata::Id)).is_in(collections),
                     )
                     .to_owned();
             }
@@ -2218,7 +2220,7 @@ impl MiscellaneousService {
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
                             .and_where(
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                                     .is_in(reviews),
                             )
                             .to_owned();
@@ -2226,7 +2228,7 @@ impl MiscellaneousService {
                     MediaGeneralFilter::Unrated => {
                         main_select = main_select
                             .and_where(
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                                     .is_not_in(reviews),
                             )
                             .to_owned();
@@ -2252,7 +2254,7 @@ impl MiscellaneousService {
                             .await?;
                         main_select = main_select
                             .and_where(
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                                     .is_in(filtered_ids),
                             )
                             .to_owned();
@@ -2267,7 +2269,7 @@ impl MiscellaneousService {
                             .await?;
                         main_select = main_select
                             .and_where(
-                                Expr::col((metadata_alias.clone(), TempMetadata::Id))
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                                     .is_not_in(filtered_ids),
                             )
                             .to_owned();
@@ -2310,22 +2312,26 @@ impl MiscellaneousService {
         for met in metadata_items {
             let avg_select = Query::select()
                 .expr(Func::round_with_precision(
-                    Func::avg(Expr::col((TempReview::Table, TempReview::Rating)).div(
-                        match preferences.general.review_scale {
-                            UserReviewScale::OutOfFive => 20,
-                            UserReviewScale::OutOfHundred => 1,
-                        },
-                    )),
+                    Func::avg(
+                        Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(
+                            match preferences.general.review_scale {
+                                UserReviewScale::OutOfFive => 20,
+                                UserReviewScale::OutOfHundred => 1,
+                            },
+                        ),
+                    ),
                     match preferences.general.review_scale {
                         UserReviewScale::OutOfFive => 1,
                         UserReviewScale::OutOfHundred => 0,
                     },
                 ))
-                .from(TempReview::Table)
+                .from(AliasedReview::Table)
                 .cond_where(
                     Cond::all()
-                        .add(Expr::col((TempReview::Table, TempReview::UserId)).eq(user_id))
-                        .add(Expr::col((TempReview::Table, TempReview::MetadataId)).eq(met.id)),
+                        .add(Expr::col((AliasedReview::Table, AliasedReview::UserId)).eq(user_id))
+                        .add(
+                            Expr::col((AliasedReview::Table, AliasedReview::MetadataId)).eq(met.id),
+                        ),
                 )
                 .to_owned();
             let stmt = self.get_db_stmt(avg_select);
@@ -3331,37 +3337,40 @@ impl MiscellaneousService {
                         )
                         .to_owned();
                 }
-                let identifiers_query = Query::select()
-                    .expr(Expr::col((
-                        TempIdentifiers::Alias,
-                        TempIdentifiers::Identifier,
-                    )))
-                    .expr_as(
-                        Expr::case(
-                            Expr::col((metadata_alias.clone(), TempMetadata::Id)).is_not_null(),
-                            Expr::col((metadata_alias.clone(), TempMetadata::Id)),
-                        )
-                        .finally(Keyword::Null),
-                        TempMetadata::Id,
-                    )
-                    .from_subquery(subquery, TempIdentifiers::Alias)
-                    .join_as(
-                        JoinType::LeftJoin,
-                        TempMetadata::Table,
-                        metadata_alias.clone(),
-                        Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
-                            .equals((metadata_alias.clone(), TempMetadata::Identifier)),
-                    )
-                    .and_where(
-                        Expr::col((metadata_alias.clone(), TempMetadata::Lot))
-                            .eq(lot)
-                            .and(
-                                Expr::col((metadata_alias.clone(), TempMetadata::Source))
-                                    .eq(source),
+                let identifiers_query =
+                    Query::select()
+                        .expr(Expr::col((
+                            TempIdentifiers::Alias,
+                            TempIdentifiers::Identifier,
+                        )))
+                        .expr_as(
+                            Expr::case(
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
+                                    .is_not_null(),
+                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id)),
                             )
-                            .or(Expr::col((metadata_alias.clone(), TempMetadata::Lot)).is_null()),
-                    )
-                    .to_owned();
+                            .finally(Keyword::Null),
+                            AliasedMetadata::Id,
+                        )
+                        .from_subquery(subquery, TempIdentifiers::Alias)
+                        .join_as(
+                            JoinType::LeftJoin,
+                            AliasedMetadata::Table,
+                            metadata_alias.clone(),
+                            Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
+                                .equals((metadata_alias.clone(), AliasedMetadata::Identifier)),
+                        )
+                        .and_where(
+                            Expr::col((metadata_alias.clone(), AliasedMetadata::Lot))
+                                .eq(lot)
+                                .and(
+                                    Expr::col((metadata_alias.clone(), AliasedMetadata::Source))
+                                        .eq(source),
+                                )
+                                .or(Expr::col((metadata_alias.clone(), AliasedMetadata::Lot))
+                                    .is_null()),
+                        )
+                        .to_owned();
                 let stmt = self.get_db_stmt(identifiers_query);
                 #[derive(Debug, FromQueryResult)]
                 struct DbResponse {
@@ -3770,19 +3779,19 @@ impl MiscellaneousService {
                 query.filter(
                     Condition::any()
                         .add(get_ilike_query(
-                            Expr::col((TempMetadata::Table, metadata::Column::Title)),
+                            Expr::col((AliasedMetadata::Table, metadata::Column::Title)),
                             &v,
                         ))
                         .add(get_ilike_query(
-                            Expr::col((TempMetadataGroup::Table, metadata_group::Column::Title)),
+                            Expr::col((AliasedMetadataGroup::Table, metadata_group::Column::Title)),
                             &v,
                         ))
                         .add(get_ilike_query(
-                            Expr::col((TempPerson::Table, person::Column::Name)),
+                            Expr::col((AliasedPerson::Table, person::Column::Name)),
                             &v,
                         ))
                         .add(get_ilike_query(
-                            Expr::col((TempExercise::Table, exercise::Column::Name)),
+                            Expr::col((AliasedExercise::Table, exercise::Column::Name)),
                             &v,
                         )),
                 )
@@ -3790,7 +3799,7 @@ impl MiscellaneousService {
             .apply_if(filter.metadata_lot, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(Expr::col((TempMetadata::Table, metadata::Column::Lot)).eq(v)),
+                        .add(Expr::col((AliasedMetadata::Table, metadata::Column::Lot)).eq(v)),
                 )
             })
             .apply_if(filter.entity_type, |query, v| {
@@ -3810,14 +3819,15 @@ impl MiscellaneousService {
                         Expr::col(collection_to_entity::Column::LastUpdatedOn)
                     }
                     CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                        Expr::col((TempMetadata::Table, metadata::Column::Title)).into(),
-                        Expr::col((TempMetadataGroup::Table, metadata_group::Column::Title)).into(),
-                        Expr::col((TempPerson::Table, person::Column::Name)).into(),
-                        Expr::col((TempExercise::Table, exercise::Column::Name)).into(),
+                        Expr::col((AliasedMetadata::Table, metadata::Column::Title)).into(),
+                        Expr::col((AliasedMetadataGroup::Table, metadata_group::Column::Title))
+                            .into(),
+                        Expr::col((AliasedPerson::Table, person::Column::Name)).into(),
+                        Expr::col((AliasedExercise::Table, exercise::Column::Name)).into(),
                     ])),
                     CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                        Expr::col((TempMetadata::Table, metadata::Column::PublishDate)).into(),
-                        Expr::col((TempPerson::Table, person::Column::BirthDate)).into(),
+                        Expr::col((AliasedMetadata::Table, metadata::Column::PublishDate)).into(),
+                        Expr::col((AliasedPerson::Table, person::Column::BirthDate)).into(),
                     ])),
                 },
                 sort.order.into(),
