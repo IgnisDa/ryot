@@ -1903,17 +1903,11 @@ impl MiscellaneousService {
             .filter(
                 Expr::col((AliasedUserToEntity::Table, user_to_entity::Column::UserId)).eq(user_id),
             )
+            .join(JoinType::Join, calendar_event::Relation::Metadata.def())
             .join_rev(
                 JoinType::Join,
                 UserToEntity::belongs_to(CalendarEvent)
                     .from(user_to_entity::Column::MetadataId)
-                    .to(calendar_event::Column::MetadataId)
-                    .into(),
-            )
-            .join_rev(
-                JoinType::Join,
-                Metadata::belongs_to(CalendarEvent)
-                    .from(metadata::Column::Id)
                     .to(calendar_event::Column::MetadataId)
                     .into(),
             )
@@ -5929,13 +5923,7 @@ impl MiscellaneousService {
                 ))),
                 alias,
             )
-            .join_rev(
-                JoinType::LeftJoin,
-                MetadataToPerson::belongs_to(Person)
-                    .from(metadata_to_person::Column::PersonId)
-                    .to(person::Column::Id)
-                    .into(),
-            )
+            .join(JoinType::LeftJoin, person::Relation::MetadataToPerson.def())
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
             .order_by(order_by, sort_order);
