@@ -159,7 +159,7 @@ const Page: NextPageWithLayout = () => {
 								data={humanizer.humanize(
 									workoutDetails.data.endTime.getTime() -
 										workoutDetails.data.startTime.getTime(),
-									{ round: true },
+									{ round: true, units: ["h", "m"] },
 								)}
 							/>
 							<DisplayStat

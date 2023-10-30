@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use chrono::Utc;
 use database::ExerciseLot;
 use rs_utils::LengthVec;
@@ -109,9 +109,12 @@ impl UserWorkoutInput {
         let mut input = self;
         let mut exercises = vec![];
         let mut workout_totals = vec![];
+        if input.exercises.len() == 0 {
+            bail!("This workout has no associated exercises")
+        }
         for (idx, ex) in input.exercises.iter_mut().enumerate() {
             if ex.sets.len() == 0 {
-                continue;
+                bail!("This exercise has no associated sets")
             }
             let db_ex = match Exercise::find_by_id(ex.exercise_id).one(db).await? {
                 None => {

@@ -89,7 +89,6 @@ pub struct DeployStoryGraphImportInput {
 pub struct StrongAppImportMapping {
     source_name: String,
     target_name: String,
-    target_id: i32,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -267,7 +266,9 @@ impl ImporterService {
     async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
-            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await?,
+            ImportSource::StrongApp => {
+                strong_app::import(input.strong_app.unwrap(), &self.media_service.db).await?
+            }
             _ => unreachable!(),
         };
         let details = ImportResultResponse {

@@ -33,7 +33,7 @@ struct Id {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Item {
-    title: String,
+    title: Option<String>,
     season: Option<i32>,
     number: Option<i32>,
     ids: Id,

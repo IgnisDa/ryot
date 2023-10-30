@@ -1598,7 +1598,6 @@ export type ShowsSummary = {
 
 export type StrongAppImportMapping = {
   sourceName: Scalars['String']['input'];
-  targetId: Scalars['Int']['input'];
   targetName: Scalars['String']['input'];
 };
 

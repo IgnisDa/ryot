@@ -391,6 +391,7 @@ impl ExerciseService {
             if let Some(take) = input.take_history {
                 history = history.into_iter().take(take).collect_vec();
             }
+            history.reverse();
             resp.history = Some(history);
             resp.details = Some(association);
         }

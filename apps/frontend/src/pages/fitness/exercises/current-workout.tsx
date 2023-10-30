@@ -107,10 +107,13 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 		return () => interval.stop();
 	}, []);
 
+	let format = "mm:ss";
+	if (seconds > 3600) format = "h:" + format;
+
 	return (
 		<StatDisplay
 			name="Duration"
-			value={Duration.fromObject({ seconds }).toFormat("mm:ss")}
+			value={Duration.fromObject({ seconds }).toFormat(format)}
 		/>
 	);
 };
@@ -677,7 +680,11 @@ const ExerciseDisplay = (props: {
 												color="green"
 												onClick={() => {
 													playCheckSound();
-													if (props.exercise.restTimer?.enabled) {
+													const newConfirmed = !s.confirmed;
+													if (
+														props.exercise.restTimer?.enabled &&
+														newConfirmed
+													) {
 														props.startTimer(props.exercise.restTimer.duration);
 														props.openTimerDrawer();
 													}
@@ -685,9 +692,7 @@ const ExerciseDisplay = (props: {
 														produce(currentWorkout, (draft) => {
 															draft.exercises[props.exerciseIdx].sets[
 																idx
-															].confirmed =
-																!draft.exercises[props.exerciseIdx].sets[idx]
-																	.confirmed;
+															].confirmed = newConfirmed;
 														}),
 													);
 												}}
