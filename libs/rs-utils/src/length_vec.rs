@@ -49,7 +49,6 @@ impl<T> LengthVec<T> {
         if len > max_length {
             data.drain(0..(len - max_length));
         }
-
         LengthVec { data, max_length }
     }
 
