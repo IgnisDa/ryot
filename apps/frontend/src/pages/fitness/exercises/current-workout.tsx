@@ -107,10 +107,13 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 		return () => interval.stop();
 	}, []);
 
+	let format = "mm:ss";
+	if (seconds > 3600) format = "h:" + format;
+
 	return (
 		<StatDisplay
 			name="Duration"
-			value={Duration.fromObject({ seconds }).toFormat("mm:ss")}
+			value={Duration.fromObject({ seconds }).toFormat(format)}
 		/>
 	);
 };
