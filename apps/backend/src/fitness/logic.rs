@@ -114,7 +114,7 @@ impl UserWorkoutInput {
         }
         for (idx, ex) in input.exercises.iter_mut().enumerate() {
             if ex.sets.len() == 0 {
-                continue;
+                bail!("This exercise has no associated sets")
             }
             let db_ex = match Exercise::find_by_id(ex.exercise_id).one(db).await? {
                 None => {
