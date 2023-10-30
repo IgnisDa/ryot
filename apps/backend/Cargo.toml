@@ -17,7 +17,7 @@ argon2 = "0.5.2"
 async-graphql = { workspace = true }
 async-graphql-axum = "6.0.9"
 async-trait = "0.1.74"
-aws-sdk-s3 = "0.33.0"
+aws-sdk-s3 = "0.34.0"
 axum = { version = "0.6.20", features = ["macros", "multipart"] }
 axum-extra = { version = "0.8.0", default-features = false, features = [
     "cookie",
@@ -39,7 +39,7 @@ derive_more = { version = "1.0.0-beta.6", features = [
 dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 flate2 = "1.0.28"
-futures = "0.3.28"
+futures = "0.3.29"
 graphql_client = "0.13.0"
 harsh = "0.2.2"
 hashbag = "0.1.11"
@@ -52,7 +52,7 @@ kinded = "0.3.0"
 markdown = "1.0.0-alpha.14"
 mime_guess = "2.0.4"
 nanoid = "0.4.0"
-quick-xml = { version = "0.30.0", features = ["serde", "serialize"] }
+quick-xml = { version = "0.31.0", features = ["serde", "serialize"] }
 rand = "0.8.5"
 regex = "1.10.2"
 retainer = "0.3.0"
@@ -62,7 +62,7 @@ rust_decimal = "1.32.0"
 rust_decimal_macros = "1.32.0"
 rust_iso3166 = "0.1.11"
 schematic = { workspace = true }
-scraper = "0.17.1"
+scraper = "0.18.1"
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 sea-query = "0.30.2"
