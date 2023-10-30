@@ -1,4 +1,4 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 
 use async_graphql::Result;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
@@ -7,11 +7,15 @@ use itertools::Itertools;
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use sea_orm::{DatabaseConnection, EntityTrait};
 use serde::{Deserialize, Serialize};
 
-use crate::models::fitness::{
-    EntityAssets, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
-    WorkoutSetStatistic,
+use crate::{
+    entities::prelude::Exercise,
+    models::fitness::{
+        EntityAssets, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
+        WorkoutSetStatistic,
+    },
 };
 
 use super::{DeployStrongAppImportInput, ImportResult};
@@ -37,12 +41,16 @@ struct Entry {
     exercise_name: String,
 }
 
-pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
-    fs::write(
-        "tmp/strong_app_mappings.json",
-        serde_json::to_string_pretty(&input.mapping).unwrap(),
-    )
-    .unwrap();
+pub async fn import(
+    input: DeployStrongAppImportInput,
+    db: &DatabaseConnection,
+) -> Result<ImportResult> {
+    let map = Exercise::find()
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|e| (e.name.clone(), e.id))
+        .collect::<HashMap<_, _>>();
     let file_string = fs::read_to_string(&input.export_path)?;
     let mut workouts = vec![];
     let mut entries_reader = ReaderBuilder::new()
@@ -74,13 +82,14 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
             notes.push(n);
         }
         if next_entry.set_order <= entry.set_order {
+            let target_exercise = input
+                .mapping
+                .iter()
+                .find(|m| m.source_name == entry.exercise_name.trim())
+                .unwrap();
+            let exercise_id = map.get(&target_exercise.target_name).unwrap().to_owned();
             exercises.push(UserExerciseInput {
-                exercise_id: input
-                    .mapping
-                    .iter()
-                    .find(|m| m.source_name == entry.exercise_name.trim())
-                    .unwrap()
-                    .target_id,
+                exercise_id,
                 sets,
                 notes,
                 rest_time: None,
