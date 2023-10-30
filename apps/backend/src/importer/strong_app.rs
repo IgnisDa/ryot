@@ -7,11 +7,11 @@ use itertools::Itertools;
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, QuerySelect};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::prelude::Exercise,
+    entities::{exercise, prelude::Exercise},
     models::fitness::{
         EntityAssets, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
         WorkoutSetStatistic,
@@ -46,10 +46,13 @@ pub async fn import(
     db: &DatabaseConnection,
 ) -> Result<ImportResult> {
     let map = Exercise::find()
+        .select_only()
+        .column(exercise::Column::Name)
+        .column(exercise::Column::Id)
+        .into_tuple::<(String, i32)>()
         .all(db)
         .await?
         .into_iter()
-        .map(|e| (e.name.clone(), e.id))
         .collect::<HashMap<_, _>>();
     let file_string = fs::read_to_string(&input.export_path)?;
     let mut workouts = vec![];
@@ -87,6 +90,7 @@ pub async fn import(
                 .iter()
                 .find(|m| m.source_name == entry.exercise_name.trim())
                 .unwrap();
+            dbg!(&target_exercise);
             let exercise_id = map.get(&target_exercise.target_name).unwrap().to_owned();
             exercises.push(UserExerciseInput {
                 exercise_id,
