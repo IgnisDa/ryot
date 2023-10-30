@@ -1,4 +1,5 @@
 FROM --platform=$BUILDPLATFORM node:latest AS base
+ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
 RUN npm install -g @moonrepo/cli && moon --version
 
