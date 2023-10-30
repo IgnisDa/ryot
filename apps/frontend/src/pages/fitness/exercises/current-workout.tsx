@@ -677,7 +677,11 @@ const ExerciseDisplay = (props: {
 												color="green"
 												onClick={() => {
 													playCheckSound();
-													if (props.exercise.restTimer?.enabled) {
+													const newConfirmed = !s.confirmed;
+													if (
+														props.exercise.restTimer?.enabled &&
+														newConfirmed
+													) {
 														props.startTimer(props.exercise.restTimer.duration);
 														props.openTimerDrawer();
 													}
@@ -685,9 +689,7 @@ const ExerciseDisplay = (props: {
 														produce(currentWorkout, (draft) => {
 															draft.exercises[props.exerciseIdx].sets[
 																idx
-															].confirmed =
-																!draft.exercises[props.exerciseIdx].sets[idx]
-																	.confirmed;
+															].confirmed = newConfirmed;
 														}),
 													);
 												}}
