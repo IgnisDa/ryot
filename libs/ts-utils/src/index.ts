@@ -7,6 +7,7 @@ import {
 	snakeCase,
 	startCase,
 	sum,
+	cloneDeep,
 } from "lodash";
 
 TimeAgo.addDefaultLocale(en);
@@ -60,4 +61,4 @@ export const randomString = (length: number) => {
 	return s;
 };
 
-export { sum, startCase, camelCase, snakeCase, groupBy, mapValues };
+export { sum, startCase, camelCase, snakeCase, groupBy, mapValues, cloneDeep };

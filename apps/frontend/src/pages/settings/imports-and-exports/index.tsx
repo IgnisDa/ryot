@@ -36,7 +36,7 @@ import {
 	type GenerateAuthTokenMutationVariables,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase, cloneDeep } from "@ryot/ts-utils";
 import { IconCheck, IconCopy, IconExternalLink } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { parse } from "csv-parse/sync";
@@ -401,7 +401,9 @@ const Page: NextPageWithLayout = () => {
 													},
 												}))
 												.with(ImportSource.StrongApp, async () => {
-													clipboard.copy(JSON.stringify(uniqueExercises));
+													const newExercises = cloneDeep(uniqueExercises);
+													newExercises.forEach((e) => delete e.targetId);
+													clipboard.copy(JSON.stringify(newExercises));
 													notifications.show({
 														title: "Important",
 														autoClose: false,
@@ -413,7 +415,7 @@ const Page: NextPageWithLayout = () => {
 														strongApp: {
 															exportPath: strongAppImportForm.values.exportPath,
 															// biome-ignore lint/suspicious/noExplicitAny: required here
-															mapping: uniqueExercises as any,
+															mapping: newExercises as any,
 														},
 													};
 												})
