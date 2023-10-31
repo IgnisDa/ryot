@@ -6,6 +6,7 @@ import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
 	Accordion,
+	ActionIcon,
 	Anchor,
 	Box,
 	Center,
@@ -15,9 +16,10 @@ import {
 	Pagination,
 	Stack,
 	Text,
+	TextInput,
 	Title,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
+import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import {
 	UserWorkoutListDocument,
 	type UserWorkoutListQuery,
@@ -25,14 +27,16 @@ import {
 import {
 	IconClock,
 	IconLink,
+	IconSearch,
 	IconTrophy,
 	IconWeight,
+	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
-import { type ReactElement } from "react";
+import { useEffect, type ReactElement } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../../_app";
 
@@ -77,20 +81,36 @@ const Page: NextPageWithLayout = () => {
 		key: LOCAL_STORAGE_KEYS.savedWorkoutListPage,
 		getInitialValueInEffect: false,
 	});
+	const [query, setQuery] = useLocalStorage({
+		key: LOCAL_STORAGE_KEYS.savedWorkoutListQuery,
+		getInitialValueInEffect: false,
+	});
+	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 	const coreDetails = useCoreDetails();
 
 	const userWorkoutList = useQuery({
-		queryKey: ["userWorkoutList", activePage],
+		queryKey: ["userWorkoutList", activePage, debouncedQuery],
 		queryFn: async () => {
 			const { userWorkoutList } = await gqlClient.request(
 				UserWorkoutListDocument,
-				{ page: activePage || 1 },
+				{ input: { page: activePage || 1, query: debouncedQuery } },
 			);
 			return userWorkoutList;
 		},
 	});
 
-	return coreDetails.data && userWorkoutList.data ? (
+	useEffect(() => {
+		setDebouncedQuery(query?.trim() || "");
+	}, [query]);
+
+	const ClearButton = () =>
+		query ? (
+			<ActionIcon onClick={() => setQuery("")}>
+				<IconX size={16} />
+			</ActionIcon>
+		) : undefined;
+
+	return coreDetails.data ? (
 		<>
 			<Head>
 				<title>Your Workouts | Ryot</title>
@@ -98,7 +118,18 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs">
 				<Stack>
 					<Title>Workouts</Title>
-					{userWorkoutList.data.items.length > 0 ? (
+					<TextInput
+						name="query"
+						placeholder="Search for workouts"
+						leftSection={<IconSearch />}
+						onChange={(e) => setQuery(e.currentTarget.value)}
+						value={query}
+						rightSection={<ClearButton />}
+						style={{ flexGrow: 1 }}
+						autoCapitalize="none"
+						autoComplete="off"
+					/>
+					{userWorkoutList.data && userWorkoutList.data.items.length > 0 ? (
 						<>
 							<Accordion multiple chevronPosition="left">
 								{userWorkoutList.data.items.map((workout) => (

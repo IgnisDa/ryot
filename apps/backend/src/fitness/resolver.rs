@@ -145,11 +145,11 @@ impl ExerciseQuery {
     async fn user_workout_list(
         &self,
         gql_ctx: &Context<'_>,
-        page: i32,
+        input: SearchInput,
     ) -> Result<SearchResults<WorkoutListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_workout_list(page, user_id).await
+        service.user_workout_list(user_id, input).await
     }
 
     /// Get details about an exercise.
@@ -400,11 +400,15 @@ impl ExerciseService {
 
     async fn user_workout_list(
         &self,
-        page: i32,
         user_id: i32,
+        input: SearchInput,
     ) -> Result<SearchResults<WorkoutListItem>> {
+        let page = input.page.unwrap_or(1);
         let query = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
+            .apply_if(input.query, |query, v| {
+                query.filter(get_ilike_query(Expr::col(workout::Column::Name), &v))
+            })
             .order_by_desc(workout::Column::Id);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();

@@ -317,6 +317,9 @@ const Page: NextPageWithLayout = () => {
 											val={userExerciseDetails.data.details.numTimesInteracted}
 										/>
 									</Box>
+									<Text c="teal" ta="center" size="sm" mt="xl">
+										This section is still WIP
+									</Text>
 								</Stack>
 							</Tabs.Panel>
 						) : undefined}

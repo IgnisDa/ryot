@@ -98,4 +98,5 @@ export const LOCAL_STORAGE_KEYS = {
 	savedGenreListQuery: "37",
 	savedGenreListPage: "38",
 	savedGenreContentsPage: "39",
+	savedWorkoutListQuery: "40",
 } as const;

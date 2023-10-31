@@ -90,7 +90,6 @@ pub async fn import(
                 .iter()
                 .find(|m| m.source_name == entry.exercise_name.trim())
                 .unwrap();
-            dbg!(&target_exercise);
             let exercise_id = map.get(&target_exercise.target_name).unwrap().to_owned();
             exercises.push(UserExerciseInput {
                 exercise_id,
