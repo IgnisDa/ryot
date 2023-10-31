@@ -43,6 +43,10 @@ impl MigrationTrait for Migration {
             .into_tuple::<(Date, i32)>()
             .all(db)
             .await?;
+        println!(
+            "\nFound {} duplicate calendar events. Removing them...",
+            events.len()
+        );
         for evt in events {
             let mut duplicate_events_group = ce::Entity::find()
                 .select_only()
@@ -76,6 +80,7 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        println!("Operation successful!\n",);
         Ok(())
     }
 
