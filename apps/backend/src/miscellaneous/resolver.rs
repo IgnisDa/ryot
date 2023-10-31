@@ -1965,6 +1965,7 @@ impl MiscellaneousService {
                             }
                         };
                     }
+                    SeenOrReviewOrCalendarEventExtraInformation::Other => {}
                 }
             }
             if image.is_none() {
@@ -3636,6 +3637,7 @@ impl MiscellaneousService {
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
                             (None, None, Some(d.episode))
                         }
+                        SeenOrReviewOrCalendarEventExtraInformation::Other => (None, None, None),
                     },
                     None => (None, None, None),
                 };
@@ -4324,6 +4326,9 @@ impl MiscellaneousService {
                 MediaSpecifics::Show(item) => {
                     ls.unique_items.shows.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
+                        SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                            unreachable!()
+                        }
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
                             unreachable!()
                         }
@@ -4347,6 +4352,9 @@ impl MiscellaneousService {
                 MediaSpecifics::Podcast(item) => {
                     ls.unique_items.podcasts.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
+                        SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                            unreachable!()
+                        }
                         SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
                             unreachable!()
                         }
@@ -6379,33 +6387,36 @@ impl MiscellaneousService {
                 .await?
                 .unwrap();
             let mut need_to_delete = false;
-            if let Some(ei) = &cal_event.metadata_extra_information {
-                let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ei)
-                    .unwrap();
-                match info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
-                        if let MediaSpecifics::Show(show_info) = meta.specifics {
-                            if let Some((_, ep)) = show_info.get_episode(show.season, show.episode)
-                            {
-                                if ep.publish_date.unwrap() != cal_event.date {
-                                    need_to_delete = true;
-                                }
-                            }
-                        }
+            let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(
+                &cal_event.metadata_extra_information,
+            )
+            .unwrap();
+            match info {
+                SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                    if cal_event.date != meta.publish_date.unwrap() {
+                        need_to_delete = true;
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
-                        if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
-                            if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                                if ep.publish_date != cal_event.date {
-                                    need_to_delete = true;
-                                }
+                }
+                SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
+                    if let MediaSpecifics::Show(show_info) = meta.specifics {
+                        if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
+                            if ep.publish_date.unwrap() != cal_event.date {
+                                need_to_delete = true;
                             }
                         }
                     }
                 }
-            } else if cal_event.date != meta.publish_date.unwrap() {
-                need_to_delete = true;
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
+                    if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
+                        if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                            if ep.publish_date != cal_event.date {
+                                need_to_delete = true;
+                            }
+                        }
+                    }
+                }
             }
+
             if need_to_delete {
                 tracing::trace!(
                     "Need to delete calendar event id = {:#?} since it is invalid",
@@ -6433,7 +6444,7 @@ impl MiscellaneousService {
                         let event = calendar_event::ActiveModel {
                             metadata_id: ActiveValue::Set(Some(meta.id)),
                             date: ActiveValue::Set(episode.publish_date),
-                            metadata_extra_information: ActiveValue::Set(Some(
+                            metadata_extra_information: ActiveValue::Set(
                                 serde_json::to_string(
                                     &SeenOrReviewOrCalendarEventExtraInformation::Podcast(
                                         SeenPodcastExtraInformation {
@@ -6442,7 +6453,7 @@ impl MiscellaneousService {
                                     ),
                                 )
                                 .unwrap(),
-                            )),
+                            ),
                             ..Default::default()
                         };
                         calendar_events_inserts.push(event);
@@ -6455,7 +6466,7 @@ impl MiscellaneousService {
                                 let event = calendar_event::ActiveModel {
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
                                     date: ActiveValue::Set(date),
-                                    metadata_extra_information: ActiveValue::Set(Some(
+                                    metadata_extra_information: ActiveValue::Set(
                                         serde_json::to_string(
                                             &SeenOrReviewOrCalendarEventExtraInformation::Show(
                                                 SeenShowExtraInformation {
@@ -6465,7 +6476,7 @@ impl MiscellaneousService {
                                             ),
                                         )
                                         .unwrap(),
-                                    )),
+                                    ),
                                     ..Default::default()
                                 };
                                 calendar_events_inserts.push(event);
@@ -6477,7 +6488,12 @@ impl MiscellaneousService {
                     let event = calendar_event::ActiveModel {
                         metadata_id: ActiveValue::Set(Some(meta.id)),
                         date: ActiveValue::Set(meta.publish_date.unwrap()),
-                        metadata_extra_information: ActiveValue::Set(None),
+                        metadata_extra_information: ActiveValue::Set(
+                            serde_json::to_string(
+                                &SeenOrReviewOrCalendarEventExtraInformation::Other,
+                            )
+                            .unwrap(),
+                        ),
                         ..Default::default()
                     };
                     calendar_events_inserts.push(event);
@@ -6617,6 +6633,7 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {
+                SeenOrReviewOrCalendarEventExtraInformation::Other => {}
                 SeenOrReviewOrCalendarEventExtraInformation::Show(sea) => {
                     s.show_information = Some(sea.clone());
                 }

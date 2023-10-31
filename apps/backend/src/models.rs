@@ -1063,6 +1063,8 @@ pub mod media {
     pub enum SeenOrReviewOrCalendarEventExtraInformation {
         Show(SeenShowExtraInformation),
         Podcast(SeenPodcastExtraInformation),
+        #[serde(other)]
+        Other,
     }
 }
 
