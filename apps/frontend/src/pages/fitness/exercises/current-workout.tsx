@@ -500,8 +500,8 @@ const ExerciseDisplay = (props: {
 							</Menu.Item>
 						</Menu.Dropdown>
 					</Menu>
-					<Stack gap="xs">
-						<Flex justify="space-between" align="center">
+					<Box>
+						<Flex justify="space-between" align="center" mb="xs">
 							<Text size="xs" w="5%" ta="center">
 								SET
 							</Text>
@@ -541,7 +541,13 @@ const ExerciseDisplay = (props: {
 							<Box w="10%" />
 						</Flex>
 						{props.exercise.sets.map((s, idx) => (
-							<Flex key={`${idx}`} justify="space-between" align="center">
+							<Flex
+								key={`${idx}`}
+								justify="space-between"
+								align="center"
+								bg={s.confirmed ? "gray" : undefined}
+								py={2}
+							>
 								<Menu>
 									<Menu.Target>
 										<UnstyledButton w="5%">
@@ -704,7 +710,7 @@ const ExerciseDisplay = (props: {
 								</Group>
 							</Flex>
 						))}
-					</Stack>
+					</Box>
 					<Button
 						variant="subtle"
 						onClick={() => {
