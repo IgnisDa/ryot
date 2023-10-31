@@ -547,8 +547,7 @@ const ExerciseDisplay = (props: {
 								key={`${idx}`}
 								justify="space-between"
 								align="center"
-								bg={s.confirmed ? "gray" : undefined}
-								py={2}
+								py={4}
 							>
 								<Menu>
 									<Menu.Target>
