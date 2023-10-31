@@ -6387,34 +6387,36 @@ impl MiscellaneousService {
                 .await?
                 .unwrap();
             let mut need_to_delete = false;
-            if let Some(ei) = &cal_event.metadata_extra_information {
-                let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ei)
-                    .unwrap();
-                match info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Other => {}
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
-                        if let MediaSpecifics::Show(show_info) = meta.specifics {
-                            if let Some((_, ep)) = show_info.get_episode(show.season, show.episode)
-                            {
-                                if ep.publish_date.unwrap() != cal_event.date {
-                                    need_to_delete = true;
-                                }
-                            }
-                        }
+            let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(
+                &cal_event.metadata_extra_information,
+            )
+            .unwrap();
+            match info {
+                SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                    if cal_event.date != meta.publish_date.unwrap() {
+                        need_to_delete = true;
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
-                        if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
-                            if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                                if ep.publish_date != cal_event.date {
-                                    need_to_delete = true;
-                                }
+                }
+                SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
+                    if let MediaSpecifics::Show(show_info) = meta.specifics {
+                        if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
+                            if ep.publish_date.unwrap() != cal_event.date {
+                                need_to_delete = true;
                             }
                         }
                     }
                 }
-            } else if cal_event.date != meta.publish_date.unwrap() {
-                need_to_delete = true;
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
+                    if let MediaSpecifics::Podcast(podcast_info) = meta.specifics {
+                        if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                            if ep.publish_date != cal_event.date {
+                                need_to_delete = true;
+                            }
+                        }
+                    }
+                }
             }
+
             if need_to_delete {
                 tracing::trace!(
                     "Need to delete calendar event id = {:#?} since it is invalid",
@@ -6442,7 +6444,7 @@ impl MiscellaneousService {
                         let event = calendar_event::ActiveModel {
                             metadata_id: ActiveValue::Set(Some(meta.id)),
                             date: ActiveValue::Set(episode.publish_date),
-                            metadata_extra_information: ActiveValue::Set(Some(
+                            metadata_extra_information: ActiveValue::Set(
                                 serde_json::to_string(
                                     &SeenOrReviewOrCalendarEventExtraInformation::Podcast(
                                         SeenPodcastExtraInformation {
@@ -6451,7 +6453,7 @@ impl MiscellaneousService {
                                     ),
                                 )
                                 .unwrap(),
-                            )),
+                            ),
                             ..Default::default()
                         };
                         calendar_events_inserts.push(event);
@@ -6464,7 +6466,7 @@ impl MiscellaneousService {
                                 let event = calendar_event::ActiveModel {
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
                                     date: ActiveValue::Set(date),
-                                    metadata_extra_information: ActiveValue::Set(Some(
+                                    metadata_extra_information: ActiveValue::Set(
                                         serde_json::to_string(
                                             &SeenOrReviewOrCalendarEventExtraInformation::Show(
                                                 SeenShowExtraInformation {
@@ -6474,7 +6476,7 @@ impl MiscellaneousService {
                                             ),
                                         )
                                         .unwrap(),
-                                    )),
+                                    ),
                                     ..Default::default()
                                 };
                                 calendar_events_inserts.push(event);
@@ -6486,12 +6488,12 @@ impl MiscellaneousService {
                     let event = calendar_event::ActiveModel {
                         metadata_id: ActiveValue::Set(Some(meta.id)),
                         date: ActiveValue::Set(meta.publish_date.unwrap()),
-                        metadata_extra_information: ActiveValue::Set(Some(
+                        metadata_extra_information: ActiveValue::Set(
                             serde_json::to_string(
                                 &SeenOrReviewOrCalendarEventExtraInformation::Other,
                             )
                             .unwrap(),
-                        )),
+                        ),
                         ..Default::default()
                     };
                     calendar_events_inserts.push(event);
