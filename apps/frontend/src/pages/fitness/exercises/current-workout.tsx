@@ -597,7 +597,7 @@ const ExerciseDisplay = (props: {
 													);
 											}}
 										>
-											Delete Set
+											Delete
 										</Menu.Item>
 									</Menu.Dropdown>
 								</Menu>
