@@ -2504,7 +2504,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
-                let extra_infomation = match meta.lot {
+                let extra_information = match meta.lot {
                     MetadataLot::Show => {
                         if let (Some(season), Some(episode), MediaSpecifics::Show(spec)) = (
                             input.show_season_number,
@@ -2565,7 +2565,7 @@ impl MiscellaneousService {
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
                     last_updated_on: ActiveValue::Set(Utc::now()),
-                    extra_information: ActiveValue::Set(extra_infomation),
+                    extra_information: ActiveValue::Set(extra_information),
                     state: ActiveValue::Set(SeenState::InProgress),
                     ..Default::default()
                 };

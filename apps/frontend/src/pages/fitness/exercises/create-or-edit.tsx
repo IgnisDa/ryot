@@ -190,13 +190,13 @@ const Page: NextPageWithLayout = () => {
 									/>
 								</Group>
 								<MultiSelect
-									label="Mucles"
+									label="Muscles"
 									{...form.getInputProps("muscles")}
 									data={Object.values(ExerciseMuscle)}
 								/>
 								<Textarea
 									label="Instructions"
-									description="Separate each instuction with a newline"
+									description="Separate each instruction with a newline"
 									{...form.getInputProps("instructions")}
 								/>
 								<FileInput

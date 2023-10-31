@@ -152,7 +152,7 @@ const Page: NextPageWithLayout = () => {
 															copy();
 															notifications.show({
 																color: "green",
-																title: "Operation succesful",
+																title: "Operation successful",
 																message:
 																	"The integration url has been copied to your clipboard.",
 															});
