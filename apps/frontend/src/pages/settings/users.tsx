@@ -94,7 +94,7 @@ const Page: NextPageWithLayout = () => {
 				});
 			} else {
 				notifications.show({
-					title: "Unsucessful",
+					title: "Unsuccessful",
 					message: "There was a problem in deleting the user",
 					color: "red",
 				});

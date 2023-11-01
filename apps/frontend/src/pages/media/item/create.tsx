@@ -172,7 +172,7 @@ const Page: NextPageWithLayout = () => {
 									required
 									description={
 										<>
-											Please search for <Code>Specfics</Code> inputs at the{" "}
+											Please search for <Code>Specifics</Code> inputs at the{" "}
 											<Anchor
 												href="/graphql"
 												size="xs"

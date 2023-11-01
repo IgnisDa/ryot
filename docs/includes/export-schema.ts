@@ -171,7 +171,7 @@ export interface WorkoutTotalMeasurement {
 	weight: string;
 }
 
-/** An exercise that has been processed and comitted to the database. */
+/** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets;
 	id: number;

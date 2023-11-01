@@ -1217,7 +1217,7 @@ export type PresignedPutUrlResponse = {
   uploadUrl: Scalars['String']['output'];
 };
 
-/** An exercise that has been processed and comitted to the database. */
+/** An exercise that has been processed and committed to the database. */
 export type ProcessedExercise = {
   assets: EntityAssets;
   id: Scalars['Int']['output'];
