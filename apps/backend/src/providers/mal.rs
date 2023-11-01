@@ -265,7 +265,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         description: details.synopsis,
         lot,
         is_nsfw,
-        production_status: details.status.unwrap_or_else(|| "Released".to_owned()),
+        production_status: details.status,
         genres: details
             .genres
             .unwrap_or_default()

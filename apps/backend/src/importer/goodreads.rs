@@ -110,7 +110,6 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             identifier: d.book_id.to_string(),
                             title: d.title,
                             description: Some(d.book_description),
-                            production_status: "Released".to_owned(),
                             lot: MetadataLot::Book,
                             source: MetadataSource::Custom,
                             creators: vec![MetadataFreeCreator {
@@ -128,6 +127,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             publish_year: d.book_published.parse().ok(),
                             videos: vec![],
                             provider_rating: None,
+                            production_status: None,
                             publish_date: None,
                             genres: vec![],
                             suggestions: vec![],

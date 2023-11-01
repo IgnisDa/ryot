@@ -213,7 +213,6 @@ impl GoogleBooksService {
             identifier: id,
             lot: MetadataLot::Book,
             source: MetadataSource::GoogleBooks,
-            production_status: "Released".to_owned(),
             title: item.title,
             description: item.description,
             creators: creators.into_iter().unique().collect(),
@@ -232,6 +231,7 @@ impl GoogleBooksService {
             is_nsfw: None,
             people: vec![],
             s3_images: vec![],
+            production_status: None,
         }
     }
 }

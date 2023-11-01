@@ -415,7 +415,6 @@ impl AudibleService {
             lot: MetadataLot::AudioBook,
             source: MetadataSource::Audible,
             is_nsfw: item.is_adult_product,
-            production_status: "Released".to_owned(),
             title: item.title,
             description,
             people,
@@ -443,6 +442,7 @@ impl AudibleService {
             suggestions: vec![],
             group_identifiers: vec![],
             s3_images: vec![],
+            production_status: None,
         }
     }
 }

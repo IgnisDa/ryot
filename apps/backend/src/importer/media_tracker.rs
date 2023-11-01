@@ -275,7 +275,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     identifier,
                     title: details.title,
                     description: details.overview,
-                    production_status: "Released".to_owned(),
                     lot,
                     source: MetadataSource::Custom,
                     creators: details
@@ -298,6 +297,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     suggestions: vec![],
                     group_identifiers: vec![],
                     is_nsfw: None,
+                    production_status: None,
                     people: vec![],
                     s3_images: vec![],
                 })),

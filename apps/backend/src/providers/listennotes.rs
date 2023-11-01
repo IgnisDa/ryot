@@ -219,7 +219,6 @@ impl ListennotesService {
             identifier: podcast_data.id,
             title: podcast_data.title,
             is_nsfw: podcast_data.explicit_content,
-            production_status: "Released".to_owned(),
             description: podcast_data.description,
             lot: MetadataLot::Podcast,
             source: MetadataSource::Listennotes,
@@ -259,6 +258,7 @@ impl ListennotesService {
             group_identifiers: vec![],
             people: vec![],
             s3_images: vec![],
+            production_status: None,
         })
     }
 }

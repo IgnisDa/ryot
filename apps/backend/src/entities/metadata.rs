@@ -32,7 +32,7 @@ pub struct Model {
     pub videos: Option<Vec<MetadataVideo>>,
     pub source: MetadataSource,
     pub specifics: MediaSpecifics,
-    pub production_status: String,
+    pub production_status: Option<String>,
     pub provider_rating: Option<Decimal>,
     pub last_processed_on_for_calendar: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]

@@ -433,7 +433,6 @@ impl IgdbService {
             identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,
             source: MetadataSource::Igdb,
-            production_status: "Released".to_owned(),
             title: item.name.unwrap(),
             description: item.summary,
             people,
@@ -473,6 +472,7 @@ impl IgdbService {
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],
+            production_status: None,
         }
     }
 
