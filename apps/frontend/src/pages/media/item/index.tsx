@@ -647,7 +647,7 @@ const Page: NextPageWithLayout = () => {
 						}}
 					>
 						<Flex id="media-details" wrap="wrap" gap={6} align="center">
-							<Text>{mediaDetails.data.productionStatus}</Text>
+							<Text>{mediaDetails.data.productionStatus || "Released"}</Text>
 							{mediaSpecifics.data?.bookSpecifics?.pages ? (
 								<Text> • {mediaSpecifics.data.bookSpecifics.pages} pages</Text>
 							) : undefined}
