@@ -358,6 +358,10 @@ const Page: NextPageWithLayout = () => {
 														() => "Name of an episode changes",
 													)
 													.with(
+														"episodeImagesChanged",
+														() => "Images for an episode changes",
+													)
+													.with(
 														"episodeReleased",
 														() => "Number of episodes changes",
 													)

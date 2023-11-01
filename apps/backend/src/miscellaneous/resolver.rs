@@ -137,6 +137,7 @@ pub enum MediaStateChanged {
     EpisodeReleased,
     EpisodeNameChanged,
     ChaptersOrEpisodesChanged,
+    EpisodeImagesChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2765,6 +2766,15 @@ impl MiscellaneousService {
                                         MediaStateChanged::EpisodeNameChanged,
                                     ));
                                 }
+                                if before_episode.poster_images != after_episode.poster_images {
+                                    notifications.push((
+                                        format!(
+                                            "Episode image changed for S{}E{}",
+                                            s1.season_number, before_episode.episode_number
+                                        ),
+                                        MediaStateChanged::EpisodeImagesChanged,
+                                    ));
+                                }
                                 if let (Some(pd1), Some(pd2)) =
                                     (before_episode.publish_date, after_episode.publish_date)
                                 {
@@ -2829,6 +2839,12 @@ impl MiscellaneousService {
                                     before_episode.number
                                 ),
                                 MediaStateChanged::EpisodeNameChanged,
+                            ));
+                        }
+                        if before_episode.thumbnail != after_episode.thumbnail {
+                            notifications.push((
+                                format!("Episode image changed for EP{}", before_episode.number),
+                                MediaStateChanged::EpisodeImagesChanged,
                             ));
                         }
                     }
@@ -4949,6 +4965,9 @@ impl MiscellaneousService {
                         }
                         "episode_name_changed" => {
                             preferences.notifications.episode_name_changed = value_bool.unwrap()
+                        }
+                        "episode_images_changed" => {
+                            preferences.notifications.episode_images_changed = value_bool.unwrap()
                         }
                         "status_changed" => {
                             preferences.notifications.status_changed = value_bool.unwrap()
