@@ -162,11 +162,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Metadata::Title).string().not_null())
                     .col(ColumnDef::new(Metadata::Description).text())
-                    .col(
-                        ColumnDef::new(Metadata::ProductionStatus)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Metadata::ProductionStatus).string())
                     .col(
                         ColumnDef::new(Metadata::LastProcessedOnForCalendar)
                             .timestamp_with_time_zone(),
