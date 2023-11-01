@@ -531,7 +531,7 @@ export type GraphqlMediaDetails = {
   mangaSpecifics?: Maybe<MangaSpecifics>;
   movieSpecifics?: Maybe<MovieSpecifics>;
   podcastSpecifics?: Maybe<PodcastSpecifics>;
-  productionStatus: Scalars['String']['output'];
+  productionStatus?: Maybe<Scalars['String']['output']>;
   providerRating?: Maybe<Scalars['Decimal']['output']>;
   publishDate?: Maybe<Scalars['NaiveDate']['output']>;
   publishYear?: Maybe<Scalars['Int']['output']>;
@@ -2494,7 +2494,7 @@ export type MediaMainDetailsQueryVariables = Exact<{
 }>;
 
 
-export type MediaMainDetailsQuery = { mediaDetails: { title: string, description?: string | null, identifier: string, lot: MetadataLot, source: MetadataSource, isNsfw: boolean, providerRating?: string | null, publishYear?: number | null, publishDate?: string | null, productionStatus: string, sourceUrl?: string | null, genres: Array<{ id: number, name: string }>, group?: { id: number, name: string, part: number } | null } };
+export type MediaMainDetailsQuery = { mediaDetails: { title: string, description?: string | null, identifier: string, lot: MetadataLot, source: MetadataSource, isNsfw: boolean, providerRating?: string | null, publishYear?: number | null, publishDate?: string | null, productionStatus?: string | null, sourceUrl?: string | null, genres: Array<{ id: number, name: string }>, group?: { id: number, name: string, part: number } | null } };
 
 export type MediaSearchQueryVariables = Exact<{
   lot: MetadataLot;
