@@ -1002,6 +1002,7 @@ const Page: NextPageWithLayout = () => {
 			totalTime: duration,
 			remainingTime: duration,
 		});
+		interval.stop();
 		interval.start();
 	};
 
