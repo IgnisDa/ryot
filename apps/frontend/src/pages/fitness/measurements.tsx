@@ -6,20 +6,17 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
 	Box,
+	Text,
 	Button,
-	Collapse,
 	Container,
 	Drawer,
 	Flex,
 	MultiSelect,
 	NumberInput,
-	Paper,
-	ScrollArea,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
-	Text,
 	TextInput,
 	Textarea,
 	Title,
@@ -32,7 +29,6 @@ import {
 	type CreateUserMeasurementMutationVariables,
 	DeleteUserMeasurementDocument,
 	type DeleteUserMeasurementMutationVariables,
-	type UserMeasurement,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
@@ -58,85 +54,7 @@ import {
 } from "recharts";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
-
-const getValues = (m: UserMeasurement["stats"]) => {
-	const vals: { name: string; value: string }[] = [];
-	for (const [key, val] of Object.entries(m)) {
-		if (key !== "custom") {
-			if (val !== null) {
-				vals.push({ name: key, value: val });
-			}
-		} else {
-			for (const [keyC, valC] of Object.entries(m.custom || {})) {
-				// biome-ignore lint/suspicious/noExplicitAny: required
-				vals.push({ name: keyC, value: valC as any });
-			}
-		}
-	}
-	return vals;
-};
-
-const DisplayMeasurement = (props: {
-	measurement: UserMeasurement;
-	refetch: () => void;
-}) => {
-	const [opened, { toggle }] = useDisclosure(false);
-	const values = getValues(props.measurement.stats);
-	const deleteUserMeasurement = useMutation({
-		mutationFn: async (variables: DeleteUserMeasurementMutationVariables) => {
-			const { deleteUserMeasurement } = await gqlClient.request(
-				DeleteUserMeasurementDocument,
-				variables,
-			);
-			return deleteUserMeasurement;
-		},
-		onSuccess: () => {
-			props.refetch();
-		},
-	});
-
-	return (
-		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
-			<Flex direction="column" justify="center" gap="xs">
-				<Flex justify="space-around">
-					<Button onClick={toggle} variant="default" size="compact-xs">
-						{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
-							DateTime.DATETIME_SHORT,
-						)}
-					</Button>
-					<ActionIcon
-						color="red"
-						size="sm"
-						onClick={() => {
-							const yes = confirm(
-								"This action can not be undone. Are you sure you want to delete this measurement?",
-							);
-							if (yes)
-								deleteUserMeasurement.mutate({
-									timestamp: props.measurement.timestamp,
-								});
-						}}
-					>
-						<IconTrash size={16} />
-					</ActionIcon>
-				</Flex>
-				<Collapse in={opened}>
-					{props.measurement.name ? (
-						<Text ta="center">Name: {props.measurement.name}</Text>
-					) : undefined}
-					{props.measurement.comment ? (
-						<Text ta="center">Comment: {props.measurement.comment}</Text>
-					) : undefined}
-					{values.map((v) => (
-						<Text key={v.name} ta="center">
-							{startCase(snakeCase(v.name))}: {v.value}
-						</Text>
-					))}
-				</Collapse>
-			</Flex>
-		</Paper>
-	);
-};
+import { DataTable } from "mantine-datatable";
 
 const dateFormatter = (date: Date) => {
 	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
@@ -167,7 +85,6 @@ const Page: NextPageWithLayout = () => {
 		getInitialValueInEffect: true,
 	});
 	const [opened, { open, close }] = useDisclosure(false);
-
 	const preferences = useUserPreferences();
 	const userMeasurementsList = useQuery({
 		queryKey: ["userMeasurementsList", selectedTimeSpan],
@@ -192,6 +109,20 @@ const Page: NextPageWithLayout = () => {
 			return userMeasurementsList;
 		},
 	});
+
+	const deleteUserMeasurement = useMutation({
+		mutationFn: async (variables: DeleteUserMeasurementMutationVariables) => {
+			const { deleteUserMeasurement } = await gqlClient.request(
+				DeleteUserMeasurementDocument,
+				variables,
+			);
+			return deleteUserMeasurement;
+		},
+		onSuccess: () => {
+			userMeasurementsList.refetch();
+		},
+	});
+
 	const createUserMeasurement = useMutation({
 		mutationFn: async (variables: CreateUserMeasurementMutationVariables) => {
 			const { createUserMeasurement } = await gqlClient.request(
@@ -211,7 +142,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return userMeasurementsList.data && preferences.data ? (
+	return preferences.data ? (
 		<>
 			<Head>
 				<title>Measurements | Ryot</title>
@@ -280,6 +211,38 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size={20} />
 						</ActionIcon>
 					</Flex>
+					<SimpleGrid cols={{ base: 1, md: 2 }}>
+						<MultiSelect
+							label="Statistics to display"
+							data={[
+								...Object.keys(preferences.data.fitness.measurements.inbuilt)
+									.filter(
+										(n) =>
+											// biome-ignore lint/suspicious/noExplicitAny: required
+											(preferences as any).data.fitness.measurements.inbuilt[n],
+									)
+									.map((v) => ({ name: v, value: v })),
+								...preferences.data.fitness.measurements.custom.map(
+									({ name }) => ({ name, value: `custom.${name}` }),
+								),
+							].map((v) => ({
+								value: v.value,
+								label: startCase(v.name),
+							}))}
+							value={selectedStats}
+							onChange={(s) => {
+								if (s) setselectedStats(s);
+							}}
+						/>
+						<Select
+							label="Timespan"
+							value={selectedTimeSpan}
+							data={Object.values(TimeSpan)}
+							onChange={(v) => {
+								if (v) setselectedTimespan(v as TimeSpan);
+							}}
+						/>
+					</SimpleGrid>
 					<Tabs
 						value={activeTab}
 						onChange={(v) => {
@@ -296,42 +259,7 @@ const Page: NextPageWithLayout = () => {
 							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="graph">
-							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								<MultiSelect
-									label="Statistics to display"
-									data={[
-										...Object.keys(
-											preferences.data.fitness.measurements.inbuilt,
-										)
-											.filter(
-												(n) =>
-													// biome-ignore lint/suspicious/noExplicitAny: required
-													(preferences as any).data.fitness.measurements
-														.inbuilt[n],
-											)
-											.map((v) => ({ name: v, value: v })),
-										...preferences.data.fitness.measurements.custom.map(
-											({ name }) => ({ name, value: `custom.${name}` }),
-										),
-									].map((v) => ({
-										value: v.value,
-										label: startCase(v.name),
-									}))}
-									value={selectedStats}
-									onChange={(s) => {
-										if (s) setselectedStats(s);
-									}}
-								/>
-								<Select
-									label="Timespan"
-									value={selectedTimeSpan}
-									data={Object.values(TimeSpan)}
-									onChange={(v) => {
-										if (v) setselectedTimespan(v as TimeSpan);
-									}}
-								/>
-							</SimpleGrid>
-							<Box w="100%" ml={-15} mt="md">
+							<Box w="100%" ml={-15}>
 								{selectedStats ? (
 									<ResponsiveContainer width="100%" height={300}>
 										<LineChart
@@ -366,23 +294,63 @@ const Page: NextPageWithLayout = () => {
 							</Box>
 						</Tabs.Panel>
 						<Tabs.Panel value="table">
-							{userMeasurementsList.data.length > 0 ? (
-								<ScrollArea h={400}>
-									<SimpleGrid cols={{ base: 2, md: 3, xl: 4 }}>
-										{userMeasurementsList.data.map((m) => (
-											<DisplayMeasurement
-												key={m.timestamp.toISOString()}
-												measurement={m}
-												refetch={userMeasurementsList.refetch}
-											/>
-										))}
-									</SimpleGrid>
-								</ScrollArea>
-							) : (
-								<Text ta="center">
-									You have not added any measurements in this time period.
-								</Text>
-							)}
+							<DataTable
+								height={400}
+								withTableBorder={false}
+								borderRadius="sm"
+								withColumnBorders
+								records={userMeasurementsList.data || []}
+								columns={[
+									{
+										accessor: "timestamp",
+										width: 200,
+										render: ({ timestamp }) =>
+											DateTime.fromJSDate(timestamp).toLocaleString(
+												DateTime.DATETIME_SHORT,
+											),
+									},
+									...([
+										...Object.entries(
+											preferences.data.fitness.measurements.inbuilt,
+										)
+											.map(([name, enabled]) =>
+												enabled ? `stats.${name}` : undefined,
+											)
+											.filter(Boolean),
+										...preferences.data.fitness.measurements.custom.map(
+											(c) => `stats.custom.${c.name}`,
+										),
+									].map((w) => ({
+										accessor: w,
+										title: startCase(
+											w
+												?.replaceAll("stats", "")
+												.replaceAll(".", "")
+												.replaceAll("custom", ""),
+										),
+									})) as any),
+									{
+										accessor: "Delete",
+										width: 80,
+										render: ({ timestamp }) => (
+											<ActionIcon
+												color="red"
+												onClick={() => {
+													const yes = confirm(
+														"This action can not be undone. Are you sure you want to delete this measurement?",
+													);
+													if (yes) deleteUserMeasurement.mutate({ timestamp });
+												}}
+											>
+												<IconTrash />
+											</ActionIcon>
+										),
+									},
+								]}
+							/>
+							<Text ta="right" mt="xl" fw="bold">
+								{(userMeasurementsList.data || []).length} measurements
+							</Text>
 						</Tabs.Panel>
 					</Tabs>
 				</Stack>
