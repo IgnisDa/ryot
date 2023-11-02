@@ -38,6 +38,7 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	ThemeIcon,
 	Transition,
 	UnstyledButton,
 	rem,
@@ -52,7 +53,7 @@ import {
 	SetLot,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase, startCase } from "@ryot/ts-utils";
+import { snakeCase, startCase, sum } from "@ryot/ts-utils";
 import {
 	IconCamera,
 	IconCameraRotate,
@@ -953,7 +954,16 @@ const ReorderDrawer = (props: {
 											{...provided.draggableProps}
 											{...provided.dragHandleProps}
 										>
-											<Text>{de.name}</Text>
+											<Group justify="space-between">
+												<Text>{de.name}</Text>
+												<ThemeIcon color="green" variant="transparent">
+													{currentWorkout.exercises[index].sets.every(
+														(s) => s.confirmed,
+													) ? (
+														<IconCheck />
+													) : undefined}
+												</ThemeIcon>
+											</Group>
 										</Paper>
 									)}
 								</Draggable>
@@ -1002,6 +1012,7 @@ const Page: NextPageWithLayout = () => {
 			totalTime: duration,
 			remainingTime: duration,
 		});
+		interval.stop();
 		interval.start();
 	};
 
@@ -1061,28 +1072,20 @@ const Page: NextPageWithLayout = () => {
 							exercises={currentWorkout.exercises as any}
 							key={currentWorkout.exercises.toString()}
 						/>
-						<Flex align="end" justify="space-between">
-							<TextInput
-								style={{ flex: 0.7 }}
-								size="sm"
-								label="Name"
-								placeholder="A name for your workout"
-								value={currentWorkout.name}
-								required
-								onChange={(e) =>
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											draft.name = e.currentTarget.value;
-										}),
-									)
-								}
-							/>
-							<DurationTimer startTime={currentWorkout.startTime} />
-							<StatDisplay
-								name="Exercises"
-								value={currentWorkout.exercises.length.toString()}
-							/>
-						</Flex>
+						<TextInput
+							size="sm"
+							label="Name"
+							placeholder="A name for your workout"
+							value={currentWorkout.name}
+							required
+							onChange={(e) =>
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										draft.name = e.currentTarget.value;
+									}),
+								)
+							}
+						/>
 						<Textarea
 							size="sm"
 							minRows={2}
@@ -1097,6 +1100,25 @@ const Page: NextPageWithLayout = () => {
 								)
 							}
 						/>
+						<Group>
+							<DurationTimer startTime={currentWorkout.startTime} />
+							<StatDisplay
+								name="Exercises"
+								value={currentWorkout.exercises.length.toString()}
+							/>
+							<StatDisplay
+								name="Total Weight"
+								value={`${sum(
+									currentWorkout.exercises
+										.flatMap((e) => e.sets)
+										.flatMap((s) =>
+											s.confirmed
+												? (s.statistic.reps || 0) * (s.statistic.weight || 0)
+												: 0,
+										),
+								).toFixed()} kg`}
+							/>
+						</Group>
 						<Divider />
 						<Group justify="space-around" wrap="nowrap">
 							<Button

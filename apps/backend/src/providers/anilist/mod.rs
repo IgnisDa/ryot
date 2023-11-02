@@ -487,7 +487,6 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         identifier: details.id.to_string(),
         title: details.title.unwrap().user_preferred.unwrap(),
         is_nsfw: details.is_adult,
-        production_status: "Released".to_owned(),
         source: MetadataSource::Anilist,
         description: details.description,
         lot,
@@ -503,6 +502,7 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
         provider_rating: score,
         group_identifiers: vec![],
         s3_images: vec![],
+        production_status: None,
     })
 }
 

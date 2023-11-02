@@ -369,7 +369,6 @@ impl MediaProvider for OpenlibraryService {
         Ok(MediaDetails {
             identifier: get_key(&data.key),
             title: data.title,
-            production_status: "Released".to_owned(),
             description,
             lot: MetadataLot::Book,
             source: MetadataSource::Openlibrary,
@@ -388,6 +387,7 @@ impl MediaProvider for OpenlibraryService {
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],
+            production_status: None,
         })
     }
 

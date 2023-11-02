@@ -305,7 +305,7 @@ impl MediaProvider for MangaUpdatesService {
             source: MetadataSource::MangaUpdates,
             lot: MetadataLot::Manga,
             people,
-            production_status: data.status.unwrap_or_else(|| "Released".to_string()),
+            production_status: data.status,
             genres: data
                 .genres
                 .unwrap_or_default()

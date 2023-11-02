@@ -219,15 +219,12 @@ impl VndbService {
             identifier: item.id,
             lot: MetadataLot::VisualNovel,
             source: MetadataSource::Vndb,
-            production_status: item
-                .devstatus
-                .map(|s| match s {
-                    0 => "Finished".to_owned(),
-                    1 => "In development".to_owned(),
-                    2 => "Cancelled".to_owned(),
-                    _ => unreachable!(),
-                })
-                .unwrap_or_else(|| "Released".to_owned()),
+            production_status: item.devstatus.map(|s| match s {
+                0 => "Finished".to_owned(),
+                1 => "In development".to_owned(),
+                2 => "Cancelled".to_owned(),
+                _ => unreachable!(),
+            }),
             title: item.title.unwrap(),
             description: item.description,
             people: people.into_iter().unique().collect(),

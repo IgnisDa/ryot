@@ -776,7 +776,7 @@ pub mod media {
         pub source: MetadataSource,
         pub description: Option<String>,
         pub lot: MetadataLot,
-        pub production_status: String,
+        pub production_status: Option<String>,
         pub creators: Vec<MetadataFreeCreator>,
         pub people: Vec<PartialMetadataPerson>,
         pub genres: Vec<String>,
@@ -1241,6 +1241,7 @@ pub mod fitness {
         pub distance: Option<Decimal>,
         pub reps: Option<usize>,
         pub weight: Option<Decimal>,
+        pub one_rm: Option<Decimal>,
     }
 
     /// The types of set (mostly characterized by exertion level).

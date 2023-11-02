@@ -13,6 +13,7 @@ export type ExerciseSetStats = {
 	weight?: number | null;
 	reps?: number | null;
 	distance?: number | null;
+	oneRm?: number | null;
 };
 
 export type ExerciseSet = {

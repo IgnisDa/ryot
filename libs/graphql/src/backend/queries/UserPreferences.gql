@@ -49,6 +49,7 @@ query UserPreferences {
     notifications {
       episodeReleased
       episodeNameChanged
+      episodeImagesChanged
       statusChanged
       releaseDateChanged
       numberOfSeasonsChanged

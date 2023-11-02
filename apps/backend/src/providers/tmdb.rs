@@ -436,7 +436,7 @@ impl MediaProvider for TmdbMovieService {
             is_nsfw: data.adult,
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
-            production_status: data.status.unwrap_or_else(|| "Released".to_owned()),
+            production_status: data.status,
             title: data.title.unwrap(),
             genres: data
                 .genres
@@ -691,7 +691,7 @@ impl MediaProvider for TmdbShowService {
             title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
             lot: MetadataLot::Show,
-            production_status: show_data.status.unwrap_or_else(|| "Released".to_owned()),
+            production_status: show_data.status,
             source: MetadataSource::Tmdb,
             description: show_data.overview,
             people,

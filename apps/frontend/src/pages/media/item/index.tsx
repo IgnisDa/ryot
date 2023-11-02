@@ -647,7 +647,12 @@ const Page: NextPageWithLayout = () => {
 						}}
 					>
 						<Flex id="media-details" wrap="wrap" gap={6} align="center">
-							<Text>{mediaDetails.data.productionStatus}</Text>
+							{mediaDetails.data.publishYear ? (
+								<Text>{mediaDetails.data.publishYear}</Text>
+							) : undefined}
+							{mediaDetails.data.productionStatus ? (
+								<Text> • {mediaDetails.data.productionStatus}</Text>
+							) : undefined}
 							{mediaSpecifics.data?.bookSpecifics?.pages ? (
 								<Text> • {mediaSpecifics.data.bookSpecifics.pages} pages</Text>
 							) : undefined}
@@ -699,9 +704,6 @@ const Page: NextPageWithLayout = () => {
 										mediaSpecifics.data.audioBookSpecifics.runtime * 1000 * 60,
 									)}
 								</Text>
-							) : undefined}
-							{mediaDetails.data.publishYear ? (
-								<Text> • {mediaDetails.data.publishYear}</Text>
 							) : undefined}
 						</Flex>
 					</MantineThemeProvider>

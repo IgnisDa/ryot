@@ -21,6 +21,7 @@ mod m20231017_create_user_to_entity;
 mod m20231024_add_metadata_group_id_field_to_review;
 mod m20231025_add_collection_id_field_to_review;
 mod m20231025_remove_duplicate_calendar_events;
+mod m20231101_change_production_status;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -66,6 +67,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231024_add_metadata_group_id_field_to_review::Migration),
             Box::new(m20231025_add_collection_id_field_to_review::Migration),
             Box::new(m20231025_remove_duplicate_calendar_events::Migration),
+            Box::new(m20231101_change_production_status::Migration),
         ]
     }
 }
