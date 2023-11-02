@@ -2708,14 +2708,13 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
 
-        if meta.production_status != production_status {
-            notifications.push((
-                format!(
-                    "Status changed from {:#?} to {:#?}",
-                    meta.production_status, production_status
-                ),
-                MediaStateChanged::StatusChanged,
-            ));
+        if let (Some(p1), Some(p2)) = (&meta.production_status, &production_status) {
+            if p1 != p2 {
+                notifications.push((
+                    format!("Status changed from {:#?} to {:#?}", p1, p2),
+                    MediaStateChanged::StatusChanged,
+                ));
+            }
         }
 
         if let (Some(p1), Some(p2)) = (meta.publish_year, publish_year) {
