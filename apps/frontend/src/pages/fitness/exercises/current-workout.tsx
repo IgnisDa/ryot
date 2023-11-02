@@ -38,6 +38,7 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	ThemeIcon,
 	Transition,
 	UnstyledButton,
 	rem,
@@ -953,7 +954,16 @@ const ReorderDrawer = (props: {
 											{...provided.draggableProps}
 											{...provided.dragHandleProps}
 										>
-											<Text>{de.name}</Text>
+											<Group justify="space-between">
+												<Text>{de.name}</Text>
+												<ThemeIcon color="green" variant="transparent">
+													{currentWorkout.exercises[index].sets.every(
+														(s) => s.confirmed,
+													) ? (
+														<IconCheck />
+													) : undefined}
+												</ThemeIcon>
+											</Group>
 										</Paper>
 									)}
 								</Draggable>
