@@ -232,13 +232,6 @@ const Page: NextPageWithLayout = () => {
 		mineSortBy !== defaultFilters.mineSortBy ||
 		mineCollectionFilter !== defaultFilters.mineCollectionFilter;
 
-	const resetFilters = () => {
-		setMineCollectionFilter(defaultFilters.mineCollectionFilter);
-		setMineGeneralFilter(defaultFilters.mineGeneralFilter);
-		setMineSortOrder(defaultFilters.mineSortOrder);
-		setMineSortBy(defaultFilters.mineSortBy);
-	};
-
 	const SearchInput = (props: { placeholder: string }) => {
 		return (
 			<TextInput
@@ -313,7 +306,19 @@ const Page: NextPageWithLayout = () => {
 									<Stack>
 										<Group>
 											<Title order={3}>Filters</Title>
-											<ActionIcon onClick={resetFilters}>
+											<ActionIcon
+												onClick={() => {
+													setMineCollectionFilter(
+														defaultFilters.mineCollectionFilter,
+													);
+													setMineGeneralFilter(
+														defaultFilters.mineGeneralFilter,
+													);
+													setMineSortOrder(defaultFilters.mineSortOrder);
+													setMineSortBy(defaultFilters.mineSortBy);
+													closeFiltersModal();
+												}}
+											>
 												<IconFilterOff size={24} />
 											</ActionIcon>
 										</Group>

@@ -150,10 +150,6 @@ const Page: NextPageWithLayout = () => {
 	const isFilterChanged =
 		Object.values(exerciseFilters || {}).filter(Boolean).length > 0;
 
-	const resetFilters = () => {
-		setExerciseFilters(defaultFilterValue);
-	};
-
 	const ClearButton = () =>
 		query ? (
 			<ActionIcon onClick={() => setQuery("")}>
@@ -237,7 +233,12 @@ const Page: NextPageWithLayout = () => {
 										<Stack gap={4}>
 											<Group>
 												<Title order={3}>Filters</Title>
-												<ActionIcon onClick={resetFilters}>
+												<ActionIcon
+													onClick={() => {
+														setExerciseFilters(defaultFilterValue);
+														closeFiltersModal();
+													}}
+												>
 													<IconFilterOff size={24} />
 												</ActionIcon>
 											</Group>

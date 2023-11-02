@@ -262,6 +262,7 @@ const Page: NextPageWithLayout = () => {
 														setSortOrder(defaultFiltersValue.order);
 														setEntityLotFilter(undefined);
 														setMetadataLotFilter(undefined);
+														closeFiltersModal();
 													}}
 												>
 													<IconFilterOff size={24} />
