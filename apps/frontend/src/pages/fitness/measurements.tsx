@@ -18,6 +18,7 @@ import {
 	Select,
 	SimpleGrid,
 	Stack,
+	Tabs,
 	Text,
 	TextInput,
 	Textarea,
@@ -35,7 +36,12 @@ import {
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+	IconChartArea,
+	IconPlus,
+	IconTable,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
@@ -155,6 +161,11 @@ const Page: NextPageWithLayout = () => {
 		key: LOCAL_STORAGE_KEYS.savedMeasurementsDisplaySelectedTimespan,
 		getInitialValueInEffect: true,
 	});
+	const [activeTab, setActiveTab] = useLocalStorage({
+		defaultValue: "graph",
+		key: LOCAL_STORAGE_KEYS.savedMeasurementsActiveTab,
+		getInitialValueInEffect: true,
+	});
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const preferences = useUserPreferences();
@@ -269,88 +280,111 @@ const Page: NextPageWithLayout = () => {
 							<IconPlus size={20} />
 						</ActionIcon>
 					</Flex>
-					<SimpleGrid cols={{ base: 1, md: 2 }}>
-						<MultiSelect
-							label="Statistics to display"
-							data={[
-								...Object.keys(preferences.data.fitness.measurements.inbuilt)
-									.filter(
-										(n) =>
-											// biome-ignore lint/suspicious/noExplicitAny: required
-											(preferences as any).data.fitness.measurements.inbuilt[n],
-									)
-									.map((v) => ({ name: v, value: v })),
-								...preferences.data.fitness.measurements.custom.map(
-									({ name }) => ({ name, value: `custom.${name}` }),
-								),
-							].map((v) => ({
-								value: v.value,
-								label: startCase(v.name),
-							}))}
-							value={selectedStats}
-							onChange={(s) => {
-								if (s) setselectedStats(s);
-							}}
-						/>
-						<Select
-							label="Timespan"
-							value={selectedTimeSpan}
-							data={Object.values(TimeSpan)}
-							onChange={(v) => {
-								if (v) setselectedTimespan(v as TimeSpan);
-							}}
-						/>
-					</SimpleGrid>
-					<Box w="100%" ml={-15}>
-						{selectedStats ? (
-							<ResponsiveContainer width="100%" height={300}>
-								<LineChart
-									data={userMeasurementsList.data}
-									margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-								>
-									<CartesianGrid strokeDasharray="3 3" />
-									<XAxis
-										dataKey="timestamp"
-										tickFormatter={dateFormatter}
-										hide
-									/>
-									<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
-									<Tooltip />
-									{selectedStats.map((s) => (
-										<Line
-											key={s}
-											type="monotone"
-											dot={false}
-											dataKey={(v) => {
-												const data = get(v.stats, s);
-												if (data) return Number(data);
-												return null;
-											}}
-											name={s}
-											connectNulls
-										/>
-									))}
-								</LineChart>
-							</ResponsiveContainer>
-						) : undefined}
-					</Box>
-					{userMeasurementsList.data.length > 0 ? (
-						<ScrollArea h={400}>
-							<SimpleGrid cols={{ base: 2, md: 3, xl: 4 }}>
-								{userMeasurementsList.data.map((m) => (
-									<DisplayMeasurement
-										key={m.timestamp.toISOString()}
-										measurement={m}
-										refetch={userMeasurementsList.refetch}
-									/>
-								))}
+					<Tabs
+						value={activeTab}
+						onChange={(v) => {
+							if (v) setActiveTab(v);
+						}}
+						variant="outline"
+					>
+						<Tabs.List mb="xs">
+							<Tabs.Tab value="graph" leftSection={<IconChartArea size={16} />}>
+								Graph
+							</Tabs.Tab>
+							<Tabs.Tab value="table" leftSection={<IconTable size={16} />}>
+								Table
+							</Tabs.Tab>
+						</Tabs.List>
+						<Tabs.Panel value="graph">
+							<SimpleGrid cols={{ base: 1, md: 2 }}>
+								<MultiSelect
+									label="Statistics to display"
+									data={[
+										...Object.keys(
+											preferences.data.fitness.measurements.inbuilt,
+										)
+											.filter(
+												(n) =>
+													// biome-ignore lint/suspicious/noExplicitAny: required
+													(preferences as any).data.fitness.measurements
+														.inbuilt[n],
+											)
+											.map((v) => ({ name: v, value: v })),
+										...preferences.data.fitness.measurements.custom.map(
+											({ name }) => ({ name, value: `custom.${name}` }),
+										),
+									].map((v) => ({
+										value: v.value,
+										label: startCase(v.name),
+									}))}
+									value={selectedStats}
+									onChange={(s) => {
+										if (s) setselectedStats(s);
+									}}
+								/>
+								<Select
+									label="Timespan"
+									value={selectedTimeSpan}
+									data={Object.values(TimeSpan)}
+									onChange={(v) => {
+										if (v) setselectedTimespan(v as TimeSpan);
+									}}
+								/>
 							</SimpleGrid>
-						</ScrollArea>
-					) : (
-						<Text ta="center">
-							You have not added any measurements in this time period.
-						</Text>
-					)}
+							<Box w="100%" ml={-15} mt="md">
+								{selectedStats ? (
+									<ResponsiveContainer width="100%" height={300}>
+										<LineChart
+											data={userMeasurementsList.data}
+											margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+										>
+											<CartesianGrid strokeDasharray="3 3" />
+											<XAxis
+												dataKey="timestamp"
+												tickFormatter={dateFormatter}
+												hide
+											/>
+											<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
+											<Tooltip />
+											{selectedStats.map((s) => (
+												<Line
+													key={s}
+													type="monotone"
+													dot={false}
+													dataKey={(v) => {
+														const data = get(v.stats, s);
+														if (data) return Number(data);
+														return null;
+													}}
+													name={s}
+													connectNulls
+												/>
+											))}
+										</LineChart>
+									</ResponsiveContainer>
+								) : undefined}
+							</Box>
+						</Tabs.Panel>
+						<Tabs.Panel value="table">
+							{userMeasurementsList.data.length > 0 ? (
+								<ScrollArea h={400}>
+									<SimpleGrid cols={{ base: 2, md: 3, xl: 4 }}>
+										{userMeasurementsList.data.map((m) => (
+											<DisplayMeasurement
+												key={m.timestamp.toISOString()}
+												measurement={m}
+												refetch={userMeasurementsList.refetch}
+											/>
+										))}
+									</SimpleGrid>
+								</ScrollArea>
+							) : (
+								<Text ta="center">
+									You have not added any measurements in this time period.
+								</Text>
+							)}
+						</Tabs.Panel>
+					</Tabs>
 				</Stack>
 			</Container>
 		</>
