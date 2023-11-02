@@ -5212,6 +5212,7 @@ __metadata:
     immer: "npm:10.0.3"
     jotai: "npm:2.5.0"
     luxon: "npm:3.4.3"
+    mantine-datatable: "npm:7.1.0"
     next: "npm:14.0.0"
     next-pwa: "npm:5.6.0"
     next-seo: "npm:6.4.0"
@@ -10463,6 +10464,18 @@ __metadata:
     socks-proxy-agent: "npm:^7.0.0"
     ssri: "npm:^9.0.0"
   checksum: fef5acb865a46f25ad0b5ad7d979799125db5dbb24ea811ffa850fbb804bc8e495df2237a8ec3a4fc6250e73c2f95549cca6d6d36a73b1faa61224504eb1188f
+  languageName: node
+  linkType: hard
+
+"mantine-datatable@npm:7.1.0":
+  version: 7.1.0
+  resolution: "mantine-datatable@npm:7.1.0"
+  peerDependencies:
+    "@mantine/core": ">=7"
+    "@mantine/hooks": ">=7"
+    clsx: ">=2"
+    mantine-contextmenu: ">=7"
+  checksum: a2f257eaf7d63e4658d0ae8e56766e31e492aa16c548d597090f58b3c463ad7e89419051a33a801549c2a866bf1bad380b90db415ef3603fa9b98c6a4f0611dd
   languageName: node
   linkType: hard
 
