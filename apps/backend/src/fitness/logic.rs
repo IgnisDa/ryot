@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use anyhow::{bail, Result};
 use chrono::Utc;
 use database::ExerciseLot;
@@ -46,20 +44,21 @@ fn get_index_of_highest_pb(
     records: &[WorkoutSetRecord],
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<usize> {
-    let max_el = records
-        .iter()
-        .max_by(|record1, record2| {
-            let pb1 = record1.get_personal_best(pb_type);
-            let pb2 = record2.get_personal_best(pb_type);
-            match (pb1, pb2) {
-                (Some(pb1), Some(pb2)) => pb1.cmp(&pb2),
-                (Some(_), None) => Ordering::Greater,
-                (None, Some(_)) => Ordering::Less,
-                _ => Ordering::Equal,
+    let record = records.iter().reduce(|record1, record2| {
+        let pb1 = record1.get_personal_best(pb_type);
+        let pb2 = record2.get_personal_best(pb_type);
+        match (pb1, pb2) {
+            (Some(pb1), Some(pb2)) => {
+                if pb1 > pb2 {
+                    record1
+                } else {
+                    record2
+                }
             }
-        })
-        .unwrap();
-    records.iter().position(|e| e == max_el)
+            _ => record1,
+        }
+    });
+    record.and_then(|r| records.iter().position(|l| l == r))
 }
 
 impl UserWorkoutSetRecord {
