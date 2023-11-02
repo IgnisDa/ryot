@@ -96,13 +96,13 @@ export const duplicateOldWorkout = (
 		inProgress.exercises.push({
 			images: [],
 			videos: [],
-			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
+			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic }) as any),
 			exerciseId: ex.id,
 			lot: ex.lot,
 			name: ex.name,
 			notes: ex.notes,
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
-			sets: sets,
+			sets: sets as any,
 		});
 	}
 	return inProgress;
@@ -136,7 +136,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 						distance: set.statistic.distance?.toString(),
 						duration: set.statistic.duration?.toString(),
 						weight: set.statistic.weight?.toString(),
-					},
+					} as any,
 				});
 			}
 		if (sets.length === 0) continue;

@@ -1,5 +1,7 @@
-import "@mantine/core/styles.css";
+import "@mantine/core/styles.layer.css";
+import "mantine-datatable/styles.layer.css";
 import "@mantine/notifications/styles.css";
+import "../styles/globals.css";
 
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { queryClient } from "@/lib/services/api";

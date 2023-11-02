@@ -6,19 +6,17 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
 	Box,
+	Text,
 	Button,
-	Collapse,
 	Container,
 	Drawer,
 	Flex,
 	MultiSelect,
 	NumberInput,
-	Paper,
-	ScrollArea,
 	Select,
 	SimpleGrid,
 	Stack,
-	Text,
+	Tabs,
 	TextInput,
 	Textarea,
 	Title,
@@ -31,11 +29,15 @@ import {
 	type CreateUserMeasurementMutationVariables,
 	DeleteUserMeasurementDocument,
 	type DeleteUserMeasurementMutationVariables,
-	type UserMeasurement,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+	IconChartArea,
+	IconPlus,
+	IconTable,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
@@ -52,85 +54,7 @@ import {
 } from "recharts";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
-
-const getValues = (m: UserMeasurement["stats"]) => {
-	const vals: { name: string; value: string }[] = [];
-	for (const [key, val] of Object.entries(m)) {
-		if (key !== "custom") {
-			if (val !== null) {
-				vals.push({ name: key, value: val });
-			}
-		} else {
-			for (const [keyC, valC] of Object.entries(m.custom || {})) {
-				// biome-ignore lint/suspicious/noExplicitAny: required
-				vals.push({ name: keyC, value: valC as any });
-			}
-		}
-	}
-	return vals;
-};
-
-const DisplayMeasurement = (props: {
-	measurement: UserMeasurement;
-	refetch: () => void;
-}) => {
-	const [opened, { toggle }] = useDisclosure(false);
-	const values = getValues(props.measurement.stats);
-	const deleteUserMeasurement = useMutation({
-		mutationFn: async (variables: DeleteUserMeasurementMutationVariables) => {
-			const { deleteUserMeasurement } = await gqlClient.request(
-				DeleteUserMeasurementDocument,
-				variables,
-			);
-			return deleteUserMeasurement;
-		},
-		onSuccess: () => {
-			props.refetch();
-		},
-	});
-
-	return (
-		<Paper key={props.measurement.timestamp.toISOString()} withBorder p="xs">
-			<Flex direction="column" justify="center" gap="xs">
-				<Flex justify="space-around">
-					<Button onClick={toggle} variant="default" size="compact-xs">
-						{DateTime.fromJSDate(props.measurement.timestamp).toLocaleString(
-							DateTime.DATETIME_SHORT,
-						)}
-					</Button>
-					<ActionIcon
-						color="red"
-						size="sm"
-						onClick={() => {
-							const yes = confirm(
-								"This action can not be undone. Are you sure you want to delete this measurement?",
-							);
-							if (yes)
-								deleteUserMeasurement.mutate({
-									timestamp: props.measurement.timestamp,
-								});
-						}}
-					>
-						<IconTrash size={16} />
-					</ActionIcon>
-				</Flex>
-				<Collapse in={opened}>
-					{props.measurement.name ? (
-						<Text ta="center">Name: {props.measurement.name}</Text>
-					) : undefined}
-					{props.measurement.comment ? (
-						<Text ta="center">Comment: {props.measurement.comment}</Text>
-					) : undefined}
-					{values.map((v) => (
-						<Text key={v.name} ta="center">
-							{startCase(snakeCase(v.name))}: {v.value}
-						</Text>
-					))}
-				</Collapse>
-			</Flex>
-		</Paper>
-	);
-};
+import { DataTable } from "mantine-datatable";
 
 const dateFormatter = (date: Date) => {
 	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
@@ -155,8 +79,12 @@ const Page: NextPageWithLayout = () => {
 		key: LOCAL_STORAGE_KEYS.savedMeasurementsDisplaySelectedTimespan,
 		getInitialValueInEffect: true,
 	});
+	const [activeTab, setActiveTab] = useLocalStorage({
+		defaultValue: "graph",
+		key: LOCAL_STORAGE_KEYS.savedMeasurementsActiveTab,
+		getInitialValueInEffect: true,
+	});
 	const [opened, { open, close }] = useDisclosure(false);
-
 	const preferences = useUserPreferences();
 	const userMeasurementsList = useQuery({
 		queryKey: ["userMeasurementsList", selectedTimeSpan],
@@ -181,6 +109,20 @@ const Page: NextPageWithLayout = () => {
 			return userMeasurementsList;
 		},
 	});
+
+	const deleteUserMeasurement = useMutation({
+		mutationFn: async (variables: DeleteUserMeasurementMutationVariables) => {
+			const { deleteUserMeasurement } = await gqlClient.request(
+				DeleteUserMeasurementDocument,
+				variables,
+			);
+			return deleteUserMeasurement;
+		},
+		onSuccess: () => {
+			userMeasurementsList.refetch();
+		},
+	});
+
 	const createUserMeasurement = useMutation({
 		mutationFn: async (variables: CreateUserMeasurementMutationVariables) => {
 			const { createUserMeasurement } = await gqlClient.request(
@@ -200,7 +142,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return userMeasurementsList.data && preferences.data ? (
+	return preferences.data ? (
 		<>
 			<Head>
 				<title>Measurements | Ryot</title>
@@ -301,56 +243,116 @@ const Page: NextPageWithLayout = () => {
 							}}
 						/>
 					</SimpleGrid>
-					<Box w="100%" ml={-15}>
-						{selectedStats ? (
-							<ResponsiveContainer width="100%" height={300}>
-								<LineChart
-									data={userMeasurementsList.data}
-									margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-								>
-									<CartesianGrid strokeDasharray="3 3" />
-									<XAxis
-										dataKey="timestamp"
-										tickFormatter={dateFormatter}
-										hide
-									/>
-									<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
-									<Tooltip />
-									{selectedStats.map((s) => (
-										<Line
-											key={s}
-											type="monotone"
-											dot={false}
-											dataKey={(v) => {
-												const data = get(v.stats, s);
-												if (data) return Number(data);
-												return null;
-											}}
-											name={s}
-											connectNulls
-										/>
-									))}
-								</LineChart>
-							</ResponsiveContainer>
-						) : undefined}
-					</Box>
-					{userMeasurementsList.data.length > 0 ? (
-						<ScrollArea h={400}>
-							<SimpleGrid cols={{ base: 2, md: 3, xl: 4 }}>
-								{userMeasurementsList.data.map((m) => (
-									<DisplayMeasurement
-										key={m.timestamp.toISOString()}
-										measurement={m}
-										refetch={userMeasurementsList.refetch}
-									/>
-								))}
-							</SimpleGrid>
-						</ScrollArea>
-					) : (
-						<Text ta="center">
-							You have not added any measurements in this time period.
-						</Text>
-					)}
+					<Tabs
+						value={activeTab}
+						onChange={(v) => {
+							if (v) setActiveTab(v);
+						}}
+						variant="outline"
+					>
+						<Tabs.List mb="xs">
+							<Tabs.Tab value="graph" leftSection={<IconChartArea size={16} />}>
+								Graph
+							</Tabs.Tab>
+							<Tabs.Tab value="table" leftSection={<IconTable size={16} />}>
+								Table
+							</Tabs.Tab>
+						</Tabs.List>
+						<Tabs.Panel value="graph">
+							<Box w="100%" ml={-15}>
+								{selectedStats ? (
+									<ResponsiveContainer width="100%" height={300}>
+										<LineChart
+											data={userMeasurementsList.data}
+											margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+										>
+											<CartesianGrid strokeDasharray="3 3" />
+											<XAxis
+												dataKey="timestamp"
+												tickFormatter={dateFormatter}
+												hide
+											/>
+											<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
+											<Tooltip />
+											{selectedStats.map((s) => (
+												<Line
+													key={s}
+													type="monotone"
+													dot={false}
+													dataKey={(v) => {
+														const data = get(v.stats, s);
+														if (data) return Number(data);
+														return null;
+													}}
+													name={s}
+													connectNulls
+												/>
+											))}
+										</LineChart>
+									</ResponsiveContainer>
+								) : undefined}
+							</Box>
+						</Tabs.Panel>
+						<Tabs.Panel value="table">
+							<DataTable
+								height={400}
+								withTableBorder={false}
+								borderRadius="sm"
+								withColumnBorders
+								records={userMeasurementsList.data || []}
+								columns={[
+									{
+										accessor: "timestamp",
+										width: 200,
+										render: ({ timestamp }) =>
+											DateTime.fromJSDate(timestamp).toLocaleString(
+												DateTime.DATETIME_SHORT,
+											),
+									},
+									...([
+										...Object.entries(
+											preferences.data.fitness.measurements.inbuilt,
+										)
+											.map(([name, enabled]) =>
+												enabled ? `stats.${name}` : undefined,
+											)
+											.filter(Boolean),
+										...preferences.data.fitness.measurements.custom.map(
+											(c) => `stats.custom.${c.name}`,
+										),
+									].map((w) => ({
+										accessor: w,
+										title: startCase(
+											w
+												?.replaceAll("stats", "")
+												.replaceAll(".", "")
+												.replaceAll("custom", ""),
+										),
+									})) as any),
+									{
+										accessor: "Delete",
+										width: 80,
+										render: ({ timestamp }) => (
+											<ActionIcon
+												color="red"
+												onClick={() => {
+													const yes = confirm(
+														"This action can not be undone. Are you sure you want to delete this measurement?",
+													);
+													if (yes) deleteUserMeasurement.mutate({ timestamp });
+												}}
+											>
+												<IconTrash />
+											</ActionIcon>
+										),
+									},
+								]}
+							/>
+							<Text ta="right" mt="xl" fw="bold">
+								{(userMeasurementsList.data || []).length} measurements
+							</Text>
+						</Tabs.Panel>
+					</Tabs>
 				</Stack>
 			</Container>
 		</>

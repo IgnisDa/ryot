@@ -108,11 +108,6 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : undefined;
 
-	const resetFilters = () => {
-		setSortBy(defaultFilters.sortBy);
-		setSortOrder(defaultFilters.sortOrder);
-	};
-
 	return coreDetails.data ? (
 		<>
 			<Head>
@@ -156,7 +151,13 @@ const Page: NextPageWithLayout = () => {
 							<Stack>
 								<Group>
 									<Title order={3}>Sort by</Title>
-									<ActionIcon onClick={resetFilters}>
+									<ActionIcon
+										onClick={() => {
+											setSortBy(defaultFilters.sortBy);
+											setSortOrder(defaultFilters.sortOrder);
+											closeFiltersModal();
+										}}
+									>
 										<IconFilterOff size={24} />
 									</ActionIcon>
 								</Group>
