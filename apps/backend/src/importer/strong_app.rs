@@ -78,6 +78,7 @@ pub async fn import(
                 distance: entry.distance,
                 reps: entry.reps,
                 weight: entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d }),
+                one_rm: None,
             },
             lot: SetLot::Normal,
         });

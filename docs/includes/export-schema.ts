@@ -150,6 +150,7 @@ export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'P
 export interface WorkoutSetStatistic {
 	distance: string | null;
 	duration: string | null;
+	oneRm: string | null;
 	reps: number | null;
 	weight: string | null;
 }

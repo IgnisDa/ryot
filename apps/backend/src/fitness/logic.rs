@@ -177,11 +177,13 @@ impl UserWorkoutInput {
                 if let Some(d) = set.statistic.distance {
                     total.distance += d;
                 }
-                sets.push(WorkoutSetRecord {
+                let mut value = WorkoutSetRecord {
                     statistic: set.statistic.clone(),
                     lot: set.lot,
                     personal_bests: vec![],
-                });
+                };
+                value.statistic.one_rm = value.calculate_one_rm();
+                sets.push(value);
             }
             let mut personal_bests = association
                 .exercise_extra_information

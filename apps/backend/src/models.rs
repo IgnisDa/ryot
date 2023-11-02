@@ -1241,6 +1241,7 @@ pub mod fitness {
         pub distance: Option<Decimal>,
         pub reps: Option<usize>,
         pub weight: Option<Decimal>,
+        pub one_rm: Option<Decimal>,
     }
 
     /// The types of set (mostly characterized by exertion level).
