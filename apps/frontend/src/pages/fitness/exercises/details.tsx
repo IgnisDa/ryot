@@ -75,7 +75,7 @@ const DisplayLifetimeStatistic = (props: {
 		<Flex mt={6} align="center" justify="space-between">
 			<Text size="sm">Total {props.stat}</Text>
 			<Text size="sm">
-				{props.val} {props.unit}
+				{Number(props.val).toFixed(2)} {props.unit}
 			</Text>
 		</Flex>
 	) : undefined;
