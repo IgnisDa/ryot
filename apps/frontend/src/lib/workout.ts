@@ -7,6 +7,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { LOCAL_STORAGE_KEYS } from "./constants";
+import type { DateTime } from "luxon";
 
 export type ExerciseSetStats = {
 	duration?: number | null;
@@ -159,7 +160,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 
 type Timer = {
 	totalTime: number;
-	remainingTime: number;
+	endAt: DateTime;
 };
 
 export const timerAtom = atomWithReset<Timer | null>(null);

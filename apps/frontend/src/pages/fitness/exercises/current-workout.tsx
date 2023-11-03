@@ -784,16 +784,16 @@ const TimerDrawer = (props: {
 							sections={[
 								{
 									value:
-										(currentTimer.remainingTime * 100) / currentTimer.totalTime,
+										(currentTimer.endAt.diff(DateTime.now()).as("seconds") *
+											100) /
+										currentTimer.totalTime,
 									color: "orange",
 								},
 							]}
 							label={
 								<>
 									<Text ta="center" fz={64}>
-										{Duration.fromObject({
-											seconds: currentTimer.remainingTime,
-										}).toFormat("m:ss")}
+										{currentTimer.endAt.diff(DateTime.now()).toFormat("m:ss")}
 									</Text>
 									<Text ta="center" c="dimmed" fz="lg" mt="-md">
 										{Duration.fromObject({
@@ -810,7 +810,7 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.remainingTime -= 30;
+												draft.endAt = draft.endAt.minus({ seconds: 30 });
 												draft.totalTime -= 30;
 											}
 										}),
@@ -818,7 +818,9 @@ const TimerDrawer = (props: {
 								}}
 								size="compact-lg"
 								variant="outline"
-								disabled={currentTimer.remainingTime <= 30}
+								disabled={
+									currentTimer.endAt.diff(DateTime.now()).as("seconds") <= 30
+								}
 							>
 								-30 sec
 							</Button>
@@ -828,7 +830,7 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.remainingTime += 30;
+												draft.endAt = draft.endAt.plus({ seconds: 30 });
 												draft.totalTime += 30;
 											}
 										}),
@@ -987,6 +989,7 @@ const ReorderDrawer = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
+	const [time, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [playCompleteWorkoutSound] = useSound("/workout-completed.wav", {
 		interrupt: true,
@@ -1008,17 +1011,13 @@ const Page: NextPageWithLayout = () => {
 	});
 	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
 	const interval = useInterval(() => {
-		setCurrentTimer((currentTimer) =>
-			produce(currentTimer, (draft) => {
-				if (draft) draft.remainingTime -= 1;
-			}),
-		);
+		setTime((s) => s + 1);
 	}, 1000);
 
 	const startTimer = (duration: number) => {
 		setCurrentTimer({
 			totalTime: duration,
-			remainingTime: duration,
+			endAt: DateTime.now().plus({ seconds: duration }),
 		});
 		interval.stop();
 		interval.start();
@@ -1046,15 +1045,19 @@ const Page: NextPageWithLayout = () => {
 	useEffect(() => {
 		if (
 			currentTimer &&
-			typeof currentTimer.remainingTime === "number" &&
-			currentTimer.remainingTime <= 0
+			currentTimer.endAt.diff(DateTime.now()).as("seconds") <= 1
 		) {
 			playCompleteTimerSound();
 			timerDrawerClose();
-			interval.stop();
 			setCurrentTimer(RESET);
 		}
-	}, [currentTimer]);
+	}, [time]);
+
+	useEffect(() => {
+		interval.stop();
+		interval.start();
+		return interval.stop;
+	}, []);
 
 	return (
 		<>
@@ -1137,9 +1140,7 @@ const Page: NextPageWithLayout = () => {
 								size="compact-md"
 							>
 								{currentTimer
-									? Duration.fromObject({
-											seconds: currentTimer.remainingTime,
-									  }).toFormat("m:ss")
+									? currentTimer.endAt.diff(DateTime.now()).toFormat("m:ss")
 									: "Timer"}
 							</Button>
 							{currentWorkout.exercises.length > 1 ? (
