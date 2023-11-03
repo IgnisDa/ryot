@@ -464,27 +464,29 @@ export const MediaItemWithoutUpdateModal = (props: {
 						</Flex>
 					</Box>
 				) : props.noRatingLink ? undefined : (
-					<Link
-						href={withQuery(APP_ROUTES.media.postReview, {
-							metadataId: props.item.identifier,
-							next: nextPath,
-						})}
+					<Box
+						p={3}
+						pos="absolute"
+						top={5}
+						right={5}
+						style={{
+							backgroundColor: "rgba(0, 0, 0, 0.75)",
+							borderRadius: 3,
+						}}
+						onClick={(e) => {
+							e.preventDefault();
+							router.push(
+								withQuery(APP_ROUTES.media.postReview, {
+									metadataId: props.item.identifier,
+									next: nextPath,
+								}),
+							);
+						}}
 					>
-						<Box
-							p={3}
-							pos="absolute"
-							top={5}
-							right={5}
-							style={{
-								backgroundColor: "rgba(0, 0, 0, 0.75)",
-								borderRadius: 3,
-							}}
-						>
-							<Flex align="center" gap={4}>
-								<IconStarFilled size={16} className={classes.starIcon} />
-							</Flex>
-						</Box>
-					</Link>
+						<Flex align="center" gap={4}>
+							<IconStarFilled size={16} className={classes.starIcon} />
+						</Flex>
+					</Box>
 				)
 			}
 			bottomLeft={props.item.publishYear}

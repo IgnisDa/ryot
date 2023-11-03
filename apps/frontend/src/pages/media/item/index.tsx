@@ -941,11 +941,10 @@ const Page: NextPageWithLayout = () => {
 												>
 													<Flex gap="md">
 														{c.items.map((creator) => (
-															<Box>
+															<Box key={creator.id}>
 																{creator.id ? (
 																	<Anchor
 																		component={Link}
-																		key={creator.id}
 																		data-creator-id={creator.id}
 																		href={withQuery(
 																			APP_ROUTES.media.people.details,
@@ -1129,7 +1128,9 @@ const Page: NextPageWithLayout = () => {
 										</Menu.Dropdown>
 									</Menu>
 									{!coreDetails.data.reviewsDisabled ? (
-										<Anchor
+										<Button
+											variant="outline"
+											w="100%"
 											component={Link}
 											href={withQuery(APP_ROUTES.media.postReview, {
 												metadataId,
@@ -1148,10 +1149,8 @@ const Page: NextPageWithLayout = () => {
 														: undefined,
 											})}
 										>
-											<Button variant="outline" w="100%">
-												Post a review
-											</Button>
-										</Anchor>
+											Post a review
+										</Button>
 									) : undefined}
 									<>
 										<Button variant="outline" onClick={collectionModalOpen}>
@@ -1366,20 +1365,16 @@ const Page: NextPageWithLayout = () => {
 															{s.episodes.length > 0 ? (
 																<Button
 																	variant="outline"
-																	onClick={() => {
-																		router.push(
-																			withQuery(
-																				APP_ROUTES.media.individualMediaItem
-																					.updateProgress,
-																				{
-																					id: metadataId,
-																					selectedShowSeasonNumber:
-																						s.seasonNumber,
-																					onlySeason: 1,
-																				},
-																			),
-																		);
-																	}}
+																	component={Link}
+																	href={withQuery(
+																		APP_ROUTES.media.individualMediaItem
+																			.updateProgress,
+																		{
+																			id: metadataId,
+																			selectedShowSeasonNumber: s.seasonNumber,
+																			onlySeason: 1,
+																		},
+																	)}
 																>
 																	Mark as seen
 																</Button>
@@ -1410,21 +1405,18 @@ const Page: NextPageWithLayout = () => {
 																>
 																	<Button
 																		variant="outline"
-																		onClick={() => {
-																			router.push(
-																				withQuery(
-																					APP_ROUTES.media.individualMediaItem
-																						.updateProgress,
-																					{
-																						id: metadataId,
-																						selectedShowSeasonNumber:
-																							s.seasonNumber,
-																						selectedShowEpisodeNumber:
-																							e.episodeNumber,
-																					},
-																				),
-																			);
-																		}}
+																		component={Link}
+																		href={withQuery(
+																			APP_ROUTES.media.individualMediaItem
+																				.updateProgress,
+																			{
+																				id: metadataId,
+																				selectedShowSeasonNumber:
+																					s.seasonNumber,
+																				selectedShowEpisodeNumber:
+																					e.episodeNumber,
+																			},
+																		)}
 																	>
 																		Mark as seen
 																	</Button>
@@ -1460,18 +1452,14 @@ const Page: NextPageWithLayout = () => {
 											>
 												<Button
 													variant="outline"
-													onClick={() => {
-														router.push(
-															withQuery(
-																APP_ROUTES.media.individualMediaItem
-																	.updateProgress,
-																{
-																	id: metadataId,
-																	selectedPodcastEpisodeNumber: e.number,
-																},
-															),
-														);
-													}}
+													component={Link}
+													href={withQuery(
+														APP_ROUTES.media.individualMediaItem.updateProgress,
+														{
+															id: metadataId,
+															selectedPodcastEpisodeNumber: e.number,
+														},
+													)}
 												>
 													Mark as seen
 												</Button>

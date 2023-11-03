@@ -126,10 +126,9 @@ const Page: NextPageWithLayout = () => {
 			<Container size="xs">
 				<Stack>
 					<Title>Integration settings</Title>
-
 					{userIntegrations.data.length > 0 ? (
-						userIntegrations.data.map((i) => (
-							<Paper p="xs" withBorder key={i.id}>
+						userIntegrations.data.map((i, idx) => (
+							<Paper p="xs" withBorder key={`${i.id}-${idx}`}>
 								<Flex align="center" justify="space-between">
 									<Box>
 										<Text size="xs">{i.description}</Text>
