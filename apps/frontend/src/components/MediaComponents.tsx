@@ -473,7 +473,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 							backgroundColor: "rgba(0, 0, 0, 0.75)",
 							borderRadius: 3,
 						}}
-						onClick={() => {
+						onClick={(e) => {
+							e.preventDefault();
 							router.push(
 								withQuery(APP_ROUTES.media.postReview, {
 									metadataId: props.item.identifier,
