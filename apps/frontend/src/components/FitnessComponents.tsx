@@ -36,6 +36,7 @@ export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
 	statistic: ExerciseSetStats | WorkoutSetStatistic;
 	hideExtras?: boolean;
+	centerText?: boolean;
 }) => {
 	const [first, second] = getSetStatisticsTextToDisplay(
 		props.lot,
@@ -43,9 +44,18 @@ export const DisplayExerciseStats = (props: {
 	);
 	return (
 		<>
-			<Text fz={props.hideExtras ? "xs" : "sm"}>{first}</Text>
+			<Text
+				fz={props.hideExtras ? "xs" : "sm"}
+				ta={props.centerText ? "center" : undefined}
+			>
+				{first}
+			</Text>
 			{!props.hideExtras && second ? (
-				<Text ml="auto" fz={props.hideExtras ? "xs" : "sm"}>
+				<Text
+					ml="auto"
+					fz={props.hideExtras ? "xs" : "sm"}
+					ta={props.centerText ? "center" : undefined}
+				>
 					{second}
 				</Text>
 			) : undefined}

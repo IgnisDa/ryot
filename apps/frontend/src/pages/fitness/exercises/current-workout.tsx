@@ -618,19 +618,16 @@ const ExerciseDisplay = (props: {
 									</Menu.Dropdown>
 								</Menu>
 								<Box w={`${85 / toBeDisplayedColumns}%`}>
-									<Text ta="center" fz="xs">
-										{props.exercise.alreadyDoneSets[idx] ? (
-											<DisplayExerciseStats
-												statistic={
-													props.exercise.alreadyDoneSets[idx].statistic
-												}
-												lot={props.exercise.lot}
-												hideExtras
-											/>
-										) : (
-											"—"
-										)}
-									</Text>
+									{props.exercise.alreadyDoneSets[idx] ? (
+										<DisplayExerciseStats
+											statistic={props.exercise.alreadyDoneSets[idx].statistic}
+											lot={props.exercise.lot}
+											hideExtras
+											centerText
+										/>
+									) : (
+										"—"
+									)}
 								</Box>
 								{durationCol ? (
 									<StatInput
