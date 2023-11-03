@@ -12,7 +12,7 @@ export const getSetStatisticsTextToDisplay = (
 ) => {
 	return match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${Number(statistic.duration).toFixed(2)} km for ${Number(
+			`${Number(statistic.distance).toFixed(2)} km for ${Number(
 				statistic.duration,
 			).toFixed(2)} min`,
 			`${(
