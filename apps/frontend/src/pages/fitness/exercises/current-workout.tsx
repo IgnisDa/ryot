@@ -428,14 +428,22 @@ const ExerciseDisplay = (props: {
 										<ActionIcon
 											color="red"
 											onClick={() => {
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].notes.splice(
-															idx,
-															1,
+												if (
+													currentWorkout.exercises[props.exerciseIdx].notes[idx]
+												) {
+													const yes = confirm(
+														"This note will be deleted. Are you sure you want to continue?",
+													);
+													if (yes)
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																draft.exercises[props.exerciseIdx].notes.splice(
+																	idx,
+																	1,
+																);
+															}),
 														);
-													}),
-												);
+												}
 											}}
 										>
 											<IconTrash size={20} />
