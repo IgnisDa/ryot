@@ -1879,6 +1879,7 @@ impl MiscellaneousService {
     async fn get_calendar_events(
         &self,
         user_id: i32,
+        only_monitored: bool,
         start_date: Option<NaiveDate>,
         end_date: Option<NaiveDate>,
         media_limit: Option<u64>,
@@ -1920,6 +1921,15 @@ impl MiscellaneousService {
                 UserToEntity::belongs_to(CalendarEvent)
                     .from(user_to_entity::Column::MetadataId)
                     .to(calendar_event::Column::MetadataId)
+                    .on_condition(move |left, _right| {
+                        Condition::all().add_option(match only_monitored {
+                            true => Some(
+                                Expr::col((left, user_to_entity::Column::MetadataMonitored))
+                                    .eq(true),
+                            ),
+                            false => None,
+                        })
+                    })
                     .into(),
             )
             .order_by_asc(calendar_event::Column::Date)
@@ -1985,7 +1995,7 @@ impl MiscellaneousService {
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
         let events = self
-            .get_calendar_events(user_id, Some(start_date), Some(end_date), None)
+            .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None)
             .await?;
         let grouped_events = events
             .into_iter()
@@ -2012,7 +2022,7 @@ impl MiscellaneousService {
             }
         };
         let events = self
-            .get_calendar_events(user_id, to_date, Some(from_date), media_limit)
+            .get_calendar_events(user_id, true, to_date, Some(from_date), media_limit)
             .await?;
         Ok(events)
     }
