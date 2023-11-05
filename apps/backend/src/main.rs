@@ -29,7 +29,7 @@ use axum::{
 use database::Migrator;
 use itertools::Itertools;
 use rs_utils::PROJECT_NAME;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
+use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::try_join;
@@ -126,14 +126,6 @@ async fn main() -> Result<()> {
     let db = Database::connect(opt)
         .await
         .expect("Database connection failed");
-
-    let selected_database = match db {
-        DatabaseConnection::SqlxSqlitePoolConnection(_) => "SQLite",
-        DatabaseConnection::SqlxMySqlPoolConnection(_) => "MySQL",
-        DatabaseConnection::SqlxPostgresPoolConnection(_) => "PostgreSQL",
-        _ => "Unrecognized",
-    };
-    tracing::info!("Using database backend: {selected_database}");
 
     Migrator::up(&db, None).await?;
 

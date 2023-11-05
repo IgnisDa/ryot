@@ -44,8 +44,8 @@ use sea_orm::{
     QueryTrait, RelationTrait, Statement,
 };
 use sea_query::{
-    Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
-    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
+    Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, NullOrdering, PostgresQueryBuilder,
+    Query, SelectStatement, UnionType, Values,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -4696,9 +4696,8 @@ impl MiscellaneousService {
     }
     fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
         match self.db.get_database_backend() {
-            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
             DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
+            _ => unreachable!(),
         }
     }
 
