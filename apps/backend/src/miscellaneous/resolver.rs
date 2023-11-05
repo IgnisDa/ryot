@@ -44,8 +44,8 @@ use sea_orm::{
     QueryTrait, RelationTrait, Statement,
 };
 use sea_query::{
-    Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, MySqlQueryBuilder, NullOrdering,
-    PostgresQueryBuilder, Query, SelectStatement, SqliteQueryBuilder, UnionType, Values,
+    Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, NullOrdering, PostgresQueryBuilder,
+    Query, SelectStatement, UnionType, Values,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -1888,12 +1888,12 @@ impl MiscellaneousService {
         struct CalEvent {
             id: i32,
             date: NaiveDate,
-            metadata_extra_information: Option<String>,
             metadata_id: i32,
             m_title: String,
             m_images: Option<Vec<MetadataImage>>,
             m_lot: MetadataLot,
             m_specifics: MediaSpecifics,
+            metadata_extra_information: SeenOrReviewOrCalendarEventExtraInformation,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -1954,30 +1954,25 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let mut image = None;
-            if let Some(ex) = &evt.metadata_extra_information {
-                let extra_info =
-                    serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ex)
-                        .unwrap();
-                match extra_info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                        calc.show_season_number = Some(s.season);
-                        calc.show_episode_number = Some(s.episode);
-                        if let MediaSpecifics::Show(sh) = evt.m_specifics {
-                            if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
-                                image = ep.poster_images.first().cloned();
-                            }
+            match evt.metadata_extra_information {
+                SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                    calc.show_season_number = Some(s.season);
+                    calc.show_episode_number = Some(s.episode);
+                    if let MediaSpecifics::Show(sh) = evt.m_specifics {
+                        if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                            image = ep.poster_images.first().cloned();
                         }
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
-                        calc.podcast_episode_number = Some(p.episode);
-                        if let MediaSpecifics::Podcast(po) = evt.m_specifics {
-                            if let Some(ep) = po.get_episode(p.episode) {
-                                image = ep.thumbnail.clone();
-                            }
-                        };
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Other => {}
                 }
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
+                    calc.podcast_episode_number = Some(p.episode);
+                    if let MediaSpecifics::Podcast(po) = evt.m_specifics {
+                        if let Some(ep) = po.get_episode(p.episode) {
+                            image = ep.thumbnail.clone();
+                        }
+                    };
+                }
+                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {}
             }
             if image.is_none() {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
@@ -3662,7 +3657,7 @@ impl MiscellaneousService {
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
                             (None, None, Some(d.episode))
                         }
-                        SeenOrReviewOrCalendarEventExtraInformation::Other => (None, None, None),
+                        SeenOrReviewOrCalendarEventExtraInformation::Other(_) => (None, None, None),
                     },
                     None => (None, None, None),
                 };
@@ -4351,7 +4346,7 @@ impl MiscellaneousService {
                 MediaSpecifics::Show(item) => {
                     ls.unique_items.shows.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
-                        SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                        SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
                             unreachable!()
                         }
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
@@ -4377,7 +4372,7 @@ impl MiscellaneousService {
                 MediaSpecifics::Podcast(item) => {
                     ls.unique_items.podcasts.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
-                        SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                        SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
                             unreachable!()
                         }
                         SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
@@ -4696,9 +4691,8 @@ impl MiscellaneousService {
     }
     fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
         match self.db.get_database_backend() {
-            DatabaseBackend::MySql => stmt.build(MySqlQueryBuilder {}),
             DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
-            DatabaseBackend::Sqlite => stmt.build(SqliteQueryBuilder {}),
+            _ => unreachable!(),
         }
     }
 
@@ -6415,12 +6409,8 @@ impl MiscellaneousService {
                 .await?
                 .unwrap();
             let mut need_to_delete = false;
-            let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(
-                &cal_event.metadata_extra_information,
-            )
-            .unwrap();
-            match info {
-                SeenOrReviewOrCalendarEventExtraInformation::Other => {
+            match cal_event.metadata_extra_information {
+                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
                     if cal_event.date != meta.publish_date.unwrap() {
                         need_to_delete = true;
                     }
@@ -6473,14 +6463,11 @@ impl MiscellaneousService {
                             metadata_id: ActiveValue::Set(Some(meta.id)),
                             date: ActiveValue::Set(episode.publish_date),
                             metadata_extra_information: ActiveValue::Set(
-                                serde_json::to_string(
-                                    &SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                        SeenPodcastExtraInformation {
-                                            episode: episode.number,
-                                        },
-                                    ),
-                                )
-                                .unwrap(),
+                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                    SeenPodcastExtraInformation {
+                                        episode: episode.number,
+                                    },
+                                ),
                             ),
                             ..Default::default()
                         };
@@ -6495,15 +6482,12 @@ impl MiscellaneousService {
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
                                     date: ActiveValue::Set(date),
                                     metadata_extra_information: ActiveValue::Set(
-                                        serde_json::to_string(
-                                            &SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                                SeenShowExtraInformation {
-                                                    season: season.season_number,
-                                                    episode: episode.episode_number,
-                                                },
-                                            ),
-                                        )
-                                        .unwrap(),
+                                        SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                            SeenShowExtraInformation {
+                                                season: season.season_number,
+                                                episode: episode.episode_number,
+                                            },
+                                        ),
                                     ),
                                     ..Default::default()
                                 };
@@ -6517,10 +6501,7 @@ impl MiscellaneousService {
                         metadata_id: ActiveValue::Set(Some(meta.id)),
                         date: ActiveValue::Set(meta.publish_date.unwrap()),
                         metadata_extra_information: ActiveValue::Set(
-                            serde_json::to_string(
-                                &SeenOrReviewOrCalendarEventExtraInformation::Other,
-                            )
-                            .unwrap(),
+                            SeenOrReviewOrCalendarEventExtraInformation::Other(()),
                         ),
                         ..Default::default()
                     };
@@ -6661,7 +6642,7 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {
-                SeenOrReviewOrCalendarEventExtraInformation::Other => {}
+                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {}
                 SeenOrReviewOrCalendarEventExtraInformation::Show(sea) => {
                     s.show_information = Some(sea.clone());
                 }

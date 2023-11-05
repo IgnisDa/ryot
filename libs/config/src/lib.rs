@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use rs_utils::{IsFeatureEnabled, PROJECT_NAME};
-use schematic::{derive_enum, Config, ConfigEnum, ConfigLoader};
+use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader};
 use serde::{Deserialize, Serialize};
 
 fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
@@ -106,9 +106,9 @@ impl IsFeatureEnabled for BookConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
-    /// The database connection string. Supports SQLite, MySQL and Postgres.
-    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
-    #[setting(default = format!("sqlite:/data/{}.db?mode=rwc", PROJECT_NAME))]
+    /// The Postgres database connection string.
+    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres
+    #[setting(validate = not_empty)]
     pub url: String,
 }
 

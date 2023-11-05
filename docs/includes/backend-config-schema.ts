@@ -57,8 +57,8 @@ export interface BookConfig {
 
 export interface DatabaseConfig {
 	/**
-	 * The database connection string. Supports SQLite, MySQL and Postgres.
-	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
+	 * The Postgres database connection string.
+	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres
 	 */
 	url: string;
 }

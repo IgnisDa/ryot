@@ -47,29 +47,31 @@ impl MigrationTrait for Migration {
             "\nFound {} duplicate calendar events. Removing them...",
             events.len()
         );
-        for evt in events {
-            let mut duplicate_events_group = ce::Entity::find()
-                .select_only()
-                .column(ce::Column::Id)
-                .filter(ce::Column::Date.eq(evt.0))
-                .filter(ce::Column::MetadataId.eq(evt.1))
-                .into_tuple::<i32>()
-                .all(db)
-                .await?;
-            duplicate_events_group.pop();
-            ce::Entity::delete_many()
-                .filter(ce::Column::Id.is_in(duplicate_events_group))
+        if !events.is_empty() {
+            for evt in events {
+                let mut duplicate_events_group = ce::Entity::find()
+                    .select_only()
+                    .column(ce::Column::Id)
+                    .filter(ce::Column::Date.eq(evt.0))
+                    .filter(ce::Column::MetadataId.eq(evt.1))
+                    .into_tuple::<i32>()
+                    .all(db)
+                    .await?;
+                duplicate_events_group.pop();
+                ce::Entity::delete_many()
+                    .filter(ce::Column::Id.is_in(duplicate_events_group))
+                    .exec(db)
+                    .await?;
+            }
+            ce::Entity::update_many()
+                .filter(ce::Column::MetadataExtraInformation.is_null())
+                .set(ce::ActiveModel {
+                    metadata_extra_information: ActiveValue::Set(r#""Other""#.to_owned()),
+                    ..Default::default()
+                })
                 .exec(db)
                 .await?;
         }
-        ce::Entity::update_many()
-            .filter(ce::Column::MetadataExtraInformation.is_null())
-            .set(ce::ActiveModel {
-                metadata_extra_information: ActiveValue::Set(r#""Other""#.to_owned()),
-                ..Default::default()
-            })
-            .exec(db)
-            .await?;
         manager
             .alter_table(
                 Table::alter()
