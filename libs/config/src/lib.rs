@@ -107,7 +107,7 @@ impl IsFeatureEnabled for BookConfig {}
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
     /// The Postgres database connection string.
-    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
+    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres
     #[setting(validate = not_empty)]
     pub url: String,
 }

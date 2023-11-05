@@ -58,7 +58,7 @@ export interface BookConfig {
 export interface DatabaseConfig {
 	/**
 	 * The Postgres database connection string.
-	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection.
+	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres
 	 */
 	url: string;
 }
