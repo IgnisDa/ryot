@@ -617,7 +617,7 @@ const ExerciseDisplay = (props: {
 										</Menu.Item>
 									</Menu.Dropdown>
 								</Menu>
-								<Box w={`${85 / toBeDisplayedColumns}%`}>
+								<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
 									{props.exercise.alreadyDoneSets[idx] ? (
 										<DisplayExerciseStats
 											statistic={props.exercise.alreadyDoneSets[idx].statistic}
