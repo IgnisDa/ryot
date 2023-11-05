@@ -72,12 +72,16 @@ pub async fn import(
     let mut sets = vec![];
     let mut notes = vec![];
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
+        let mut weight = entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
+        if let Some(mul) = weight {
+            weight = weight.map(|w| w.saturating_mul(mul));
+        }
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
                 duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
                 distance: entry.distance,
                 reps: entry.reps,
-                weight: entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d }),
+                weight,
                 one_rm: None,
             },
             lot: SetLot::Normal,
