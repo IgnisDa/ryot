@@ -6,7 +6,6 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
 	Box,
-	Text,
 	Button,
 	Container,
 	Drawer,
@@ -17,6 +16,7 @@ import {
 	SimpleGrid,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
 	Textarea,
 	Title,
@@ -41,6 +41,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
+import { DataTable } from "mantine-datatable";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import {
@@ -54,7 +55,6 @@ import {
 } from "recharts";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
-import { DataTable } from "mantine-datatable";
 
 const dateFormatter = (date: Date) => {
 	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
@@ -212,28 +212,6 @@ const Page: NextPageWithLayout = () => {
 						</ActionIcon>
 					</Flex>
 					<SimpleGrid cols={{ base: 1, md: 2 }}>
-						<MultiSelect
-							label="Statistics to display"
-							data={[
-								...Object.keys(preferences.data.fitness.measurements.inbuilt)
-									.filter(
-										(n) =>
-											// biome-ignore lint/suspicious/noExplicitAny: required
-											(preferences as any).data.fitness.measurements.inbuilt[n],
-									)
-									.map((v) => ({ name: v, value: v })),
-								...preferences.data.fitness.measurements.custom.map(
-									({ name }) => ({ name, value: `custom.${name}` }),
-								),
-							].map((v) => ({
-								value: v.value,
-								label: startCase(v.name),
-							}))}
-							value={selectedStats}
-							onChange={(s) => {
-								if (s) setselectedStats(s);
-							}}
-						/>
 						<Select
 							label="Timespan"
 							value={selectedTimeSpan}
@@ -259,7 +237,34 @@ const Page: NextPageWithLayout = () => {
 							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="graph">
-							<Box w="100%" ml={-15}>
+							<SimpleGrid cols={{ base: 1, md: 2 }}>
+								<MultiSelect
+									label="Statistics to display"
+									data={[
+										...Object.keys(
+											preferences.data.fitness.measurements.inbuilt,
+										)
+											.filter(
+												(n) =>
+													// biome-ignore lint/suspicious/noExplicitAny: required
+													(preferences as any).data.fitness.measurements
+														.inbuilt[n],
+											)
+											.map((v) => ({ name: v, value: v })),
+										...preferences.data.fitness.measurements.custom.map(
+											({ name }) => ({ name, value: `custom.${name}` }),
+										),
+									].map((v) => ({
+										value: v.value,
+										label: startCase(v.name),
+									}))}
+									value={selectedStats}
+									onChange={(s) => {
+										if (s) setselectedStats(s);
+									}}
+								/>
+							</SimpleGrid>
+							<Box w="100%" ml={-15} mt="md">
 								{selectedStats ? (
 									<ResponsiveContainer width="100%" height={300}>
 										<LineChart
@@ -322,16 +327,19 @@ const Page: NextPageWithLayout = () => {
 										),
 									].map((w) => ({
 										accessor: w,
+										textAlign: "center",
 										title: startCase(
 											w
 												?.replaceAll("stats", "")
 												.replaceAll(".", "")
 												.replaceAll("custom", ""),
 										),
+										// biome-ignore lint/suspicious/noExplicitAny: required here
 									})) as any),
 									{
 										accessor: "Delete",
 										width: 80,
+										textAlign: "center",
 										render: ({ timestamp }) => (
 											<ActionIcon
 												color="red"

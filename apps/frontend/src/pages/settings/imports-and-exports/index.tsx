@@ -402,7 +402,7 @@ const Page: NextPageWithLayout = () => {
 												}))
 												.with(ImportSource.StrongApp, async () => {
 													const newExercises = cloneDeep(uniqueExercises);
-													newExercises.forEach((e) => delete e.targetId);
+													newExercises.forEach((e) => (e.targetId = undefined));
 													clipboard.copy(JSON.stringify(newExercises));
 													notifications.show({
 														title: "Important",

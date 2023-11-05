@@ -5,6 +5,7 @@ use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
 use database::{ImportSource, MetadataLot};
 use itertools::Itertools;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromJsonQueryResult, QueryFilter,
@@ -89,6 +90,7 @@ pub struct DeployStoryGraphImportInput {
 pub struct StrongAppImportMapping {
     source_name: String,
     target_name: String,
+    multiplier: Option<Decimal>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

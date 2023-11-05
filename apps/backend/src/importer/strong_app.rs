@@ -72,12 +72,21 @@ pub async fn import(
     let mut sets = vec![];
     let mut notes = vec![];
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
+        let target_exercise = input
+            .mapping
+            .iter()
+            .find(|m| m.source_name == entry.exercise_name.trim())
+            .unwrap();
+        let mut weight = entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
+        if let Some(mul) = target_exercise.multiplier {
+            weight = weight.map(|w| w.saturating_mul(mul));
+        }
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
                 duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
                 distance: entry.distance,
                 reps: entry.reps,
-                weight: entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d }),
+                weight,
                 one_rm: None,
             },
             lot: SetLot::Normal,
@@ -86,11 +95,6 @@ pub async fn import(
             notes.push(n);
         }
         if next_entry.set_order <= entry.set_order {
-            let target_exercise = input
-                .mapping
-                .iter()
-                .find(|m| m.source_name == entry.exercise_name.trim())
-                .unwrap();
             let exercise_id = map.get(&target_exercise.target_name).unwrap().to_owned();
             exercises.push(UserExerciseInput {
                 exercise_id,

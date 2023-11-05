@@ -109,7 +109,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 	}, []);
 
 	let format = "mm:ss";
-	if (seconds > 3600) format = "h:" + format;
+	if (seconds > 3600) format = `h:${format}`;
 
 	return (
 		<StatDisplay
@@ -413,7 +413,8 @@ const ExerciseDisplay = (props: {
 											style={{ flexGrow: 1 }}
 											placeholder="Add a note"
 											size="xs"
-											maxRows={1}
+											minRows={1}
+											maxRows={4}
 											autosize
 											value={n}
 											onChange={(e) => {
@@ -617,7 +618,7 @@ const ExerciseDisplay = (props: {
 										</Menu.Item>
 									</Menu.Dropdown>
 								</Menu>
-								<Box w={`${85 / toBeDisplayedColumns}%`}>
+								<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
 									{props.exercise.alreadyDoneSets[idx] ? (
 										<DisplayExerciseStats
 											statistic={props.exercise.alreadyDoneSets[idx].statistic}
@@ -961,15 +962,15 @@ const ReorderDrawer = (props: {
 											{...provided.draggableProps}
 											{...provided.dragHandleProps}
 										>
-											<Group justify="space-between">
-												<Text>{de.name}</Text>
-												<ThemeIcon color="green" variant="transparent">
-													{currentWorkout.exercises[index].sets.every(
-														(s) => s.confirmed,
-													) ? (
+											<Group justify="space-between" wrap="nowrap">
+												<Text size="sm">{de.name}</Text>
+												{currentWorkout.exercises[index].sets.every(
+													(s) => s.confirmed,
+												) ? (
+													<ThemeIcon color="green" variant="transparent">
 														<IconCheck />
-													) : undefined}
-												</ThemeIcon>
+													</ThemeIcon>
+												) : undefined}
 											</Group>
 										</Paper>
 									)}

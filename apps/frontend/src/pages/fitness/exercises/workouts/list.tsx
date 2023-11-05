@@ -36,7 +36,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DateTime, Duration } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../../_app";
 
