@@ -4,25 +4,14 @@ The first user you register is automatically set as admin of the instance.
 
 ## Using Docker
 
-To get a demo server running, use the docker image:
-
-```bash
-docker run \
-  --detach \
-  --name ryot \
-  --pull always \
-  --publish "8000:8000" \
-  ghcr.io/ignisda/ryot:latest
-```
-
-`docker-compose` with PostgreSQL
+The docker image is `ghcr.io/ignisda/ryot:latest`.
 
 ```yaml
 version: "3.9"
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     restart: unless-stopped
     volumes:
       - postgres_storage:/var/lib/postgresql/data
@@ -61,12 +50,12 @@ eget ignisda/ryot
 
 ## Compile and run from source
 
-1. First install [moonrepo](https://moonrepo.dev/)
-2. Build and run projects
-  ```bash
-  # Build the frontend
-  moon run frontend:build
+First install [moonrepo](https://moonrepo.dev/) and then build and run projects:
 
-  # Run the backend (with frontend bundled)
-  cargo run --bin ryot
-  ```
+```bash
+# 1) Build the frontend
+moon run frontend:build
+
+# 2) Run the backend (with frontend bundled)
+cargo run --bin ryot
+```
