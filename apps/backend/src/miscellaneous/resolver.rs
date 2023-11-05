@@ -6414,11 +6414,7 @@ impl MiscellaneousService {
                 .await?
                 .unwrap();
             let mut need_to_delete = false;
-            let info = serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(
-                &cal_event.metadata_extra_information,
-            )
-            .unwrap();
-            match info {
+            match cal_event.metadata_extra_information {
                 SeenOrReviewOrCalendarEventExtraInformation::Other => {
                     if cal_event.date != meta.publish_date.unwrap() {
                         need_to_delete = true;
@@ -6472,14 +6468,11 @@ impl MiscellaneousService {
                             metadata_id: ActiveValue::Set(Some(meta.id)),
                             date: ActiveValue::Set(episode.publish_date),
                             metadata_extra_information: ActiveValue::Set(
-                                serde_json::to_string(
-                                    &SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                        SeenPodcastExtraInformation {
-                                            episode: episode.number,
-                                        },
-                                    ),
-                                )
-                                .unwrap(),
+                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                    SeenPodcastExtraInformation {
+                                        episode: episode.number,
+                                    },
+                                ),
                             ),
                             ..Default::default()
                         };
@@ -6494,15 +6487,12 @@ impl MiscellaneousService {
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
                                     date: ActiveValue::Set(date),
                                     metadata_extra_information: ActiveValue::Set(
-                                        serde_json::to_string(
-                                            &SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                                SeenShowExtraInformation {
-                                                    season: season.season_number,
-                                                    episode: episode.episode_number,
-                                                },
-                                            ),
-                                        )
-                                        .unwrap(),
+                                        SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                            SeenShowExtraInformation {
+                                                season: season.season_number,
+                                                episode: episode.episode_number,
+                                            },
+                                        ),
                                     ),
                                     ..Default::default()
                                 };
@@ -6516,10 +6506,7 @@ impl MiscellaneousService {
                         metadata_id: ActiveValue::Set(Some(meta.id)),
                         date: ActiveValue::Set(meta.publish_date.unwrap()),
                         metadata_extra_information: ActiveValue::Set(
-                            serde_json::to_string(
-                                &SeenOrReviewOrCalendarEventExtraInformation::Other,
-                            )
-                            .unwrap(),
+                            SeenOrReviewOrCalendarEventExtraInformation::Other,
                         ),
                         ..Default::default()
                     };
