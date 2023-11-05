@@ -305,7 +305,7 @@ impl MediaProvider for AudibleService {
             for sim in data.similar_products.into_iter() {
                 suggestions.push(PartialMetadataWithoutId {
                     title: sim.title,
-                    image: sim.product_images.unwrap().image_500,
+                    image: sim.product_images.and_then(|i| i.image_500),
                     identifier: sim.asin,
                     source: MetadataSource::Audible,
                     lot: MetadataLot::AudioBook,
