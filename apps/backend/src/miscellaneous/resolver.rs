@@ -1888,12 +1888,12 @@ impl MiscellaneousService {
         struct CalEvent {
             id: i32,
             date: NaiveDate,
-            metadata_extra_information: Option<String>,
             metadata_id: i32,
             m_title: String,
             m_images: Option<Vec<MetadataImage>>,
             m_lot: MetadataLot,
             m_specifics: MediaSpecifics,
+            metadata_extra_information: SeenOrReviewOrCalendarEventExtraInformation,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -1954,30 +1954,25 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let mut image = None;
-            if let Some(ex) = &evt.metadata_extra_information {
-                let extra_info =
-                    serde_json::from_str::<SeenOrReviewOrCalendarEventExtraInformation>(ex)
-                        .unwrap();
-                match extra_info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                        calc.show_season_number = Some(s.season);
-                        calc.show_episode_number = Some(s.episode);
-                        if let MediaSpecifics::Show(sh) = evt.m_specifics {
-                            if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
-                                image = ep.poster_images.first().cloned();
-                            }
+            match evt.metadata_extra_information {
+                SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                    calc.show_season_number = Some(s.season);
+                    calc.show_episode_number = Some(s.episode);
+                    if let MediaSpecifics::Show(sh) = evt.m_specifics {
+                        if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                            image = ep.poster_images.first().cloned();
                         }
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
-                        calc.podcast_episode_number = Some(p.episode);
-                        if let MediaSpecifics::Podcast(po) = evt.m_specifics {
-                            if let Some(ep) = po.get_episode(p.episode) {
-                                image = ep.thumbnail.clone();
-                            }
-                        };
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Other => {}
                 }
+                SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
+                    calc.podcast_episode_number = Some(p.episode);
+                    if let MediaSpecifics::Podcast(po) = evt.m_specifics {
+                        if let Some(ep) = po.get_episode(p.episode) {
+                            image = ep.thumbnail.clone();
+                        }
+                    };
+                }
+                SeenOrReviewOrCalendarEventExtraInformation::Other => {}
             }
             if image.is_none() {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
