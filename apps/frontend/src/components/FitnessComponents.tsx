@@ -24,7 +24,7 @@ export const getSetStatisticsTextToDisplay = (
 			statistic.weight && statistic.weight !== "0"
 				? `${statistic.weight} kg  × ${statistic.reps}`
 				: `${statistic.reps} reps`,
-			`${Number(statistic.oneRm).toFixed(1)} RM`,
+			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : undefined,
 		])
 		.exhaustive();
 };
