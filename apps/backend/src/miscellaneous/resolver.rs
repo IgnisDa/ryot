@@ -1972,7 +1972,7 @@ impl MiscellaneousService {
                         }
                     };
                 }
-                SeenOrReviewOrCalendarEventExtraInformation::Other => {}
+                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {}
             }
             if image.is_none() {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
@@ -3657,7 +3657,7 @@ impl MiscellaneousService {
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
                             (None, None, Some(d.episode))
                         }
-                        SeenOrReviewOrCalendarEventExtraInformation::Other => (None, None, None),
+                        SeenOrReviewOrCalendarEventExtraInformation::Other(_) => (None, None, None),
                     },
                     None => (None, None, None),
                 };
@@ -4346,7 +4346,7 @@ impl MiscellaneousService {
                 MediaSpecifics::Show(item) => {
                     ls.unique_items.shows.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
-                        SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                        SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
                             unreachable!()
                         }
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
@@ -4372,7 +4372,7 @@ impl MiscellaneousService {
                 MediaSpecifics::Podcast(item) => {
                     ls.unique_items.podcasts.insert(seen.metadata_id);
                     match seen.extra_information.to_owned().unwrap() {
-                        SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                        SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
                             unreachable!()
                         }
                         SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
@@ -6410,7 +6410,7 @@ impl MiscellaneousService {
                 .unwrap();
             let mut need_to_delete = false;
             match cal_event.metadata_extra_information {
-                SeenOrReviewOrCalendarEventExtraInformation::Other => {
+                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
                     if cal_event.date != meta.publish_date.unwrap() {
                         need_to_delete = true;
                     }
@@ -6501,7 +6501,7 @@ impl MiscellaneousService {
                         metadata_id: ActiveValue::Set(Some(meta.id)),
                         date: ActiveValue::Set(meta.publish_date.unwrap()),
                         metadata_extra_information: ActiveValue::Set(
-                            SeenOrReviewOrCalendarEventExtraInformation::Other,
+                            SeenOrReviewOrCalendarEventExtraInformation::Other(()),
                         ),
                         ..Default::default()
                     };
@@ -6642,7 +6642,7 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {
-                SeenOrReviewOrCalendarEventExtraInformation::Other => {}
+                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {}
                 SeenOrReviewOrCalendarEventExtraInformation::Show(sea) => {
                     s.show_information = Some(sea.clone());
                 }
