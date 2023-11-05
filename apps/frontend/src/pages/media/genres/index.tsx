@@ -1,6 +1,7 @@
 import Grid from "@/components/Grid";
 import { BaseDisplayItem } from "@/components/MediaComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
+import { useCoreDetails } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -22,7 +23,6 @@ import { useRouter } from "next/router";
 import type { ReactElement } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
-import { useCoreDetails } from "@/lib/hooks";
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();

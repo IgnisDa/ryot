@@ -6,7 +6,6 @@ import { gqlClient } from "@/lib/services/api";
 import {
 	ActionIcon,
 	Box,
-	Text,
 	Button,
 	Container,
 	Drawer,
@@ -17,6 +16,7 @@ import {
 	SimpleGrid,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
 	Textarea,
 	Title,
@@ -41,6 +41,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
+import { DataTable } from "mantine-datatable";
 import Head from "next/head";
 import { type ReactElement } from "react";
 import {
@@ -54,7 +55,6 @@ import {
 } from "recharts";
 import { match } from "ts-pattern";
 import type { NextPageWithLayout } from "../_app";
-import { DataTable } from "mantine-datatable";
 
 const dateFormatter = (date: Date) => {
 	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
@@ -334,6 +334,7 @@ const Page: NextPageWithLayout = () => {
 												.replaceAll(".", "")
 												.replaceAll("custom", ""),
 										),
+										// biome-ignore lint/suspicious/noExplicitAny: required here
 									})) as any),
 									{
 										accessor: "Delete",

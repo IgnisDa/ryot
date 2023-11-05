@@ -6,8 +6,8 @@ import {
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
-import { LOCAL_STORAGE_KEYS } from "./constants";
 import type { DateTime } from "luxon";
+import { LOCAL_STORAGE_KEYS } from "./constants";
 
 export type ExerciseSetStats = {
 	duration?: number | null;
@@ -97,12 +97,14 @@ export const duplicateOldWorkout = (
 		inProgress.exercises.push({
 			images: [],
 			videos: [],
+			// biome-ignore lint/suspicious/noExplicitAny: required here
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic }) as any),
 			exerciseId: ex.id,
 			lot: ex.lot,
 			name: ex.name,
 			notes: ex.notes,
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
+			// biome-ignore lint/suspicious/noExplicitAny: required here
 			sets: sets as any,
 		});
 	}
@@ -137,6 +139,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 						distance: set.statistic.distance?.toString(),
 						duration: set.statistic.duration?.toString(),
 						weight: set.statistic.weight?.toString(),
+						// biome-ignore lint/suspicious/noExplicitAny: required here
 					} as any,
 				});
 			}

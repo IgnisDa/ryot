@@ -4,7 +4,8 @@
 		"enabled": true,
 		"rules": {
 			"correctness": {
-				"noUnusedVariables": "error"
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "off"
 			},
 			"recommended": true,
 			"suspicious": {
