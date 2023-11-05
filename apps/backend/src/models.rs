@@ -1311,6 +1311,12 @@ pub mod fitness {
     impl WorkoutSetRecord {
         // DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
         pub fn calculate_one_rm(&self) -> Option<Decimal> {
+            if let Some(reps) = self.statistic.reps {
+                // DEV: Results are inaccurate for reps over 15
+                if reps > 15 {
+                    return None;
+                }
+            }
             (self.statistic.weight? * dec!(36.0))
                 .checked_div(dec!(37.0) - Decimal::from_usize(self.statistic.reps?).unwrap())
         }
