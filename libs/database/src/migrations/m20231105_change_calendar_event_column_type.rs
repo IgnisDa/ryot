@@ -15,11 +15,11 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
             r#"
-alter table calendar_event add column temp_json jsonb;
-update calendar_event set temp_json = metadata_extra_information::jsonb;
-alter table calendar_event drop column metadata_extra_information;
-alter table calendar_event rename column temp_json to metadata_extra_information;
 update calendar_event set metadata_extra_information = '{"Other":null}' where metadata_extra_information = '"Other"';
+alter table calendar_event add column mei_json jsonb;
+update calendar_event set mei_json = metadata_extra_information::jsonb;
+alter table calendar_event drop column metadata_extra_information;
+alter table calendar_event rename column mei_json to metadata_extra_information;
 "#,
         )
         .await?;
