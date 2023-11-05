@@ -15,6 +15,8 @@ pub enum CalendarEvent {
     MetadataExtraInformation,
 }
 
+pub static UNIQUE_KEY: &str = "calendar_event-date-metadataid-info__uq-idx";
+
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -30,9 +32,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
-                    // DEV: We use string to avoid problems since json does not
-                    // allow index. I could have used JSONB but no MySQL support.
-                    .col(ColumnDef::new(CalendarEvent::MetadataExtraInformation).string())
+                    .col(ColumnDef::new(CalendarEvent::MetadataExtraInformation).json_binary())
                     .col(ColumnDef::new(CalendarEvent::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
@@ -49,7 +49,7 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name("calendar_event-date-metadataid-info__uq-idx")
+                    .name(UNIQUE_KEY)
                     .table(CalendarEvent::Table)
                     .col(CalendarEvent::Date)
                     .col(CalendarEvent::MetadataId)
