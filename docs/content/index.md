@@ -34,14 +34,10 @@ services:
   ryot:
     image: "ghcr.io/ignisda/ryot:latest"
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres # recommended
-      # - DATABASE_URL=sqlite:./ryot-db.sqlite # SQLite database
-      # - DATABASE_URL=mysql://mysql:mysql@mysql:6749/mysql # MySQL database
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
       # - SERVER_INSECURE_COOKIE=true # only needed in localhost or non-https
     ports:
       - "8000:8000"
-    # volumes:
-    # - ./ryot-data:/data # only needed if using sqlite database
     pull_policy: always
     container_name: ryot
 
@@ -51,11 +47,6 @@ volumes:
 
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
 pre-release or release, whichever is newer.
-
-!!! danger "Production Usage"
-
-    If you mount a directory to `/data`, give it `1001:1001`
-    permissions: `sudo chown -R 1001:1001 ./ryot-data`.
 
 ## Quick-run a release
 
