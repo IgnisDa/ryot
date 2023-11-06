@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use async_graphql::{Enum, InputObject, OneofObject, OutputType, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
 use database::{
@@ -114,16 +114,10 @@ pub struct ExportAllResponse {
     pub workouts: Vec<workout::Model>,
 }
 
-#[derive(Debug, OneofObject)]
-pub enum ChangeCollectionEntity {
-    Exercise(String),
-    Other(i32),
-}
-
 #[derive(Debug, InputObject)]
 pub struct ChangeCollectionToEntityInput {
     pub collection_name: String,
-    pub entity_id: ChangeCollectionEntity,
+    pub entity_id: String,
     pub entity_lot: EntityLot,
 }
 

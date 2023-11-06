@@ -1,5 +1,6 @@
 query ExerciseDetails($exerciseId: String!) {
   exerciseDetails(exerciseId: $exerciseId) {
+    id
     lot
     source
     level

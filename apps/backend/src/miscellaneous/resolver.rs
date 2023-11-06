@@ -93,8 +93,8 @@ use crate::{
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, VisualNovelSpecifics,
         },
-        ChangeCollectionEntity, ChangeCollectionToEntityInput, EntityLot, IdObject, SearchDetails,
-        SearchInput, SearchResults, StoredUrl,
+        ChangeCollectionToEntityInput, EntityLot, IdObject, SearchDetails, SearchInput,
+        SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
@@ -1750,13 +1750,9 @@ impl MiscellaneousService {
 
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
         let media_details = self.media_details(metadata_id).await?;
-        let collections = entity_in_collections(
-            &self.db,
-            user_id,
-            ChangeCollectionEntity::Other(metadata_id),
-            EntityLot::Media,
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, user_id, metadata_id.to_string(), EntityLot::Media)
+                .await?;
         let reviews = self
             .item_reviews(user_id, Some(metadata_id), None, None, None)
             .await?;
@@ -1857,13 +1853,9 @@ impl MiscellaneousService {
         let reviews = self
             .item_reviews(user_id, None, Some(creator_id), None, None)
             .await?;
-        let collections = entity_in_collections(
-            &self.db,
-            user_id,
-            ChangeCollectionEntity::Other(creator_id),
-            EntityLot::Person,
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, user_id, creator_id.to_string(), EntityLot::Person)
+                .await?;
         Ok(UserCreatorDetails {
             reviews,
             collections,
@@ -1878,7 +1870,7 @@ impl MiscellaneousService {
         let collections = entity_in_collections(
             &self.db,
             user_id,
-            ChangeCollectionEntity::Other(metadata_group_id),
+            metadata_group_id.to_string(),
             EntityLot::MediaGroup,
         )
         .await?;
@@ -4145,13 +4137,9 @@ impl MiscellaneousService {
             EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
             EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
         };
-        let target_id = match input.entity_id {
-            ChangeCollectionEntity::Exercise(id) => id,
-            ChangeCollectionEntity::Other(id) => id.to_string(),
-        };
         CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::CollectionId.eq(collect.id))
-            .filter(target_column.eq(target_id))
+            .filter(target_column.eq(input.entity_id))
             .exec(&self.db)
             .await?;
         Ok(IdObject { id: collect.id })
@@ -4175,7 +4163,7 @@ impl MiscellaneousService {
                     user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        entity_id: ChangeCollectionEntity::Other(metadata_id),
+                        entity_id: metadata_id.to_string(),
                         entity_lot: EntityLot::Media,
                     },
                 )
@@ -4701,7 +4689,7 @@ impl MiscellaneousService {
             user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: ChangeCollectionEntity::Other(media.id),
+                entity_id: media.id.to_string(),
                 entity_lot: EntityLot::Media,
             },
         )
@@ -5564,7 +5552,7 @@ impl MiscellaneousService {
             seen.user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Watchlist.to_string(),
-                entity_id: ChangeCollectionEntity::Other(seen.metadata_id),
+                entity_id: seen.metadata_id.to_string(),
                 entity_lot: EntityLot::Media,
             },
         )
@@ -5576,7 +5564,7 @@ impl MiscellaneousService {
                     seen.user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        entity_id: ChangeCollectionEntity::Other(seen.metadata_id),
+                        entity_id: seen.metadata_id.to_string(),
                         entity_lot: EntityLot::Media,
                     },
                 )
@@ -5588,7 +5576,7 @@ impl MiscellaneousService {
                     seen.user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        entity_id: ChangeCollectionEntity::Other(seen.metadata_id),
+                        entity_id: seen.metadata_id.to_string(),
                         entity_lot: EntityLot::Media,
                     },
                 )
@@ -5646,7 +5634,7 @@ impl MiscellaneousService {
                             seen.user_id,
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: ChangeCollectionEntity::Other(seen.metadata_id),
+                                entity_id: seen.metadata_id.to_string(),
                                 entity_lot: EntityLot::Media,
                             },
                         )
@@ -5657,7 +5645,7 @@ impl MiscellaneousService {
                             seen.user_id,
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: ChangeCollectionEntity::Other(seen.metadata_id),
+                                entity_id: seen.metadata_id.to_string(),
                                 entity_lot: EntityLot::Media,
                             },
                         )
@@ -5676,7 +5664,7 @@ impl MiscellaneousService {
                         seen.user_id,
                         ChangeCollectionToEntityInput {
                             collection_name: DefaultCollection::InProgress.to_string(),
-                            entity_id: ChangeCollectionEntity::Other(seen.metadata_id),
+                            entity_id: seen.metadata_id.to_string(),
                             entity_lot: EntityLot::Media,
                         },
                     )
@@ -6300,16 +6288,12 @@ impl MiscellaneousService {
                 );
                 reviews.push(review_item);
             }
-            let collections = entity_in_collections(
-                &self.db,
-                user_id,
-                ChangeCollectionEntity::Other(m.id),
-                EntityLot::Media,
-            )
-            .await?
-            .into_iter()
-            .map(|c| c.name)
-            .collect();
+            let collections =
+                entity_in_collections(&self.db, user_id, m.id.to_string(), EntityLot::Media)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
             let exp = ImportOrExportMediaItem {
                 source_id: m.id.to_string(),
                 lot: m.lot,
@@ -6344,7 +6328,7 @@ impl MiscellaneousService {
                 let collections = entity_in_collections(
                     &self.db,
                     user_id,
-                    ChangeCollectionEntity::Other(creator.id),
+                    creator.id.to_string(),
                     EntityLot::Person,
                 )
                 .await?

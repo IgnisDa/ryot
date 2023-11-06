@@ -35,8 +35,8 @@ use crate::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
             GithubExerciseAttributes, UserWorkoutInput, WorkoutListItem, WorkoutSetRecord,
         },
-        ChangeCollectionEntity, ChangeCollectionToEntityInput, EntityLot, SearchDetails,
-        SearchInput, SearchResults, StoredUrl,
+        ChangeCollectionToEntityInput, EntityLot, SearchDetails, SearchInput, SearchResults,
+        StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
@@ -348,7 +348,7 @@ impl ExerciseService {
         let collections = entity_in_collections(
             &self.db,
             user_id,
-            ChangeCollectionEntity::Exercise(input.exercise_id.clone()),
+            input.exercise_id.clone(),
             EntityLot::Exercise,
         )
         .await?;
@@ -678,16 +678,14 @@ impl ExerciseService {
             .map(StoredUrl::S3)
             .collect();
         input.attributes.images = vec![];
-        let mut input: exercise::ActiveModel = input.into();
-        // FIXME: Blocked by https://github.com/async-graphql/async-graphql/issues/1396
-        input.id = ActiveValue::NotSet;
+        let input: exercise::ActiveModel = input.into();
         let exercise = input.insert(&self.db).await?;
         add_entity_to_collection(
             &self.db,
             user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: ChangeCollectionEntity::Exercise(exercise.id.clone()),
+                entity_id: exercise.id.clone(),
                 entity_lot: EntityLot::Exercise,
             },
         )
