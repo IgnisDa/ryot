@@ -30,10 +30,8 @@ use crate::{
 #[sea_orm(table_name = "exercise")]
 #[graphql(name = "Exercise", input_name = "ExerciseInput")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    #[sea_orm(unique)]
-    pub name: String,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     #[graphql(skip)]
     #[sea_orm(unique)]
     pub identifier: Option<String>,

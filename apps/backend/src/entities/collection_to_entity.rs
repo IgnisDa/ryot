@@ -18,7 +18,7 @@ pub struct Model {
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
     pub metadata_group_id: Option<i32>,
-    pub exercise_id: Option<i32>,
+    pub exercise_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

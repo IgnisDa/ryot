@@ -16,7 +16,7 @@ pub struct Model {
     pub user_id: i32,
     pub num_times_interacted: i32,
     pub metadata_id: Option<i32>,
-    pub exercise_id: Option<i32>,
+    pub exercise_id: Option<String>,
     pub metadata_monitored: Option<bool>,
     pub metadata_reminder: Option<UserMediaReminder>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
