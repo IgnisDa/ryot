@@ -697,7 +697,8 @@ const ExerciseDisplay = (props: {
 													const newConfirmed = !s.confirmed;
 													if (
 														props.exercise.restTimer?.enabled &&
-														newConfirmed
+														newConfirmed &&
+														s.lot !== SetLot.WarmUp
 													) {
 														props.startTimer(props.exercise.restTimer.duration);
 														props.openTimerDrawer();
