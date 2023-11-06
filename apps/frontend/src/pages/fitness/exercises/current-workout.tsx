@@ -1044,13 +1044,16 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	useEffect(() => {
-		if (
-			currentTimer &&
-			currentTimer.endAt.diff(DateTime.now()).as("seconds") <= 1
-		) {
-			playCompleteTimerSound();
-			timerDrawerClose();
-			setCurrentTimer(RESET);
+		const timeRemaining = currentTimer?.endAt
+			.diff(DateTime.now())
+			.as("seconds");
+		if (timeRemaining && timeRemaining <= 3) {
+			navigator.vibrate(200);
+			if (timeRemaining <= 1) {
+				playCompleteTimerSound();
+				timerDrawerClose();
+				setCurrentTimer(RESET);
+			}
 		}
 	}, [time]);
 
