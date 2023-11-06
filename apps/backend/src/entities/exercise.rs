@@ -30,10 +30,8 @@ use crate::{
 #[sea_orm(table_name = "exercise")]
 #[graphql(name = "Exercise", input_name = "ExerciseInput")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    #[sea_orm(unique)]
-    pub name: String,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     #[graphql(skip)]
     #[sea_orm(unique)]
     pub identifier: Option<String>,
@@ -63,9 +61,8 @@ impl GraphqlRepresentation for Model {
 
 #[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
 pub struct ExerciseListItem {
-    pub id: i32,
     pub lot: ExerciseLot,
-    pub name: String,
+    pub id: String,
     #[graphql(skip)]
     pub attributes: ExerciseAttributes,
     pub num_times_interacted: Option<i32>,

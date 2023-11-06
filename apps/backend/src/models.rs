@@ -114,6 +114,13 @@ pub struct ExportAllResponse {
     pub workouts: Vec<workout::Model>,
 }
 
+#[derive(Debug, InputObject)]
+pub struct ChangeCollectionToEntityInput {
+    pub collection_name: String,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
+}
+
 pub mod media {
     use super::*;
 
@@ -684,13 +691,6 @@ pub mod media {
         pub calculated_on: DateTimeUtc,
         #[graphql(skip)]
         pub unique_items: UserSummaryUniqueItems,
-    }
-
-    #[derive(Debug, InputObject)]
-    pub struct ChangeCollectionToEntityInput {
-        pub collection_name: String,
-        pub entity_id: i32,
-        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, InputObject, Default)]
@@ -1419,8 +1419,9 @@ pub mod fitness {
         Schematic,
     )]
     pub struct ProcessedExercise {
-        pub id: i32,
-        pub name: String,
+        // FIXME: Ask users to recalculate user_to_entity and then remove this
+        #[serde(rename = "name")]
+        pub id: String,
         pub lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
@@ -1465,7 +1466,9 @@ pub mod fitness {
     )]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
-        pub name: String,
+        // FIXME: Ask users to recalculate user_to_entity and then remove this
+        #[serde(alias = "name")]
+        pub id: String,
         pub lot: ExerciseLot,
         pub best_set: WorkoutSetRecord,
     }
@@ -1514,7 +1517,7 @@ pub mod fitness {
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct UserExerciseInput {
-        pub exercise_id: i32,
+        pub exercise_id: String,
         pub sets: Vec<UserWorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,

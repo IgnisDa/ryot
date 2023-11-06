@@ -6,7 +6,6 @@ query ExercisesList($input: ExercisesListInput!) {
     }
     items {
       id
-      name
       lot
       image
       muscle

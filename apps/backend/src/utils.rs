@@ -18,7 +18,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
-use sea_query::{BinOper, Expr, Func, SimpleExpr};
+use sea_query::{BinOper, Expr, Func, SimpleExpr, Value};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -36,7 +36,7 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::{media::ChangeCollectionToEntityInput, EntityLot, StoredUrl},
+    models::{ChangeCollectionToEntityInput, EntityLot, StoredUrl},
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -199,7 +199,7 @@ pub async fn get_stored_asset(
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: i32,
-    entity_id: i32,
+    entity_id: String,
     entity_lot: EntityLot,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
@@ -218,7 +218,10 @@ pub async fn entity_in_collections(
             collection_to_entity::Column::CollectionId
                 .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(target_column.eq(entity_id))
+        .filter(target_column.eq(match entity_id.parse::<i32>() {
+            Ok(id) => Value::Int(Some(id)),
+            Err(_) => Value::String(Some(Box::new(entity_id))),
+        }))
         .find_also_related(Collection)
         .all(db)
         .await
@@ -255,7 +258,12 @@ pub async fn add_entity_to_collection(
     let collection = updated.update(db).await.unwrap();
     if let Some(etc) = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
-        .filter(target_column.eq(input.entity_id))
+        .filter(
+            target_column.eq(match input.entity_id.clone().parse::<i32>() {
+                Ok(id) => Value::Int(Some(id)),
+                Err(_) => Value::String(Some(Box::new(input.entity_id.clone()))),
+            }),
+        )
         .one(db)
         .await?
     {
@@ -269,13 +277,16 @@ pub async fn add_entity_to_collection(
         };
         match input.entity_lot {
             EntityLot::Media => {
-                created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
+                created_collection.metadata_id =
+                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
             }
             EntityLot::Person => {
-                created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
+                created_collection.person_id =
+                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
             }
             EntityLot::MediaGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
+                created_collection.metadata_group_id =
+                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
             }
             EntityLot::Exercise => {
                 created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))

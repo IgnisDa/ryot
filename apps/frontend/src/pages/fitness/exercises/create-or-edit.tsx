@@ -43,7 +43,7 @@ import { z } from "zod";
 import type { NextPageWithLayout } from "../../_app";
 
 const formSchema = z.object({
-	name: z.string(),
+	id: z.string(),
 	lot: z.nativeEnum(ExerciseLot),
 	level: z.nativeEnum(ExerciseLevel),
 	force: z.nativeEnum(ExerciseForce).optional(),
@@ -63,9 +63,9 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	useEffect(() => {
-		const name = router.query.name?.toString();
-		if (name) {
-			form.setFieldValue("name", name);
+		const id = router.query.name?.toString();
+		if (id) {
+			form.setFieldValue("id", id);
 			form.setFieldValue("level", ExerciseLevel.Intermediate);
 		}
 	}, [router.query]);
@@ -91,9 +91,9 @@ const Page: NextPageWithLayout = () => {
 			return createCustomExercise;
 		},
 		onSuccess: (data) => {
-			if (data.id)
+			if (data)
 				router.push(
-					withQuery(APP_ROUTES.fitness.exercises.details, { id: data.id }),
+					withQuery(APP_ROUTES.fitness.exercises.details, { id: data }),
 				);
 		},
 	});
@@ -138,7 +138,6 @@ const Page: NextPageWithLayout = () => {
 								newInput.instructions = undefined;
 								createCustomExercise.mutate({
 									input: {
-										id: 100,
 										source: ExerciseSource.Custom,
 										...newInput,
 										muscles: muscles || [],
@@ -154,7 +153,7 @@ const Page: NextPageWithLayout = () => {
 								<Title>Create Exercise</Title>
 								<TextInput
 									label="Name"
-									{...form.getInputProps("name")}
+									{...form.getInputProps("id")}
 									required
 									autoFocus
 								/>

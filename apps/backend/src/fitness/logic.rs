@@ -115,7 +115,7 @@ impl UserWorkoutInput {
             if ex.sets.len() == 0 {
                 bail!("This exercise has no associated sets")
             }
-            let db_ex = match Exercise::find_by_id(ex.exercise_id).one(db).await? {
+            let db_ex = match Exercise::find_by_id(ex.exercise_id.clone()).one(db).await? {
                 None => {
                     tracing::error!("Exercise with id = {} not found", ex.exercise_id);
                     continue;
@@ -126,7 +126,7 @@ impl UserWorkoutInput {
             let mut total = WorkoutTotalMeasurement::default();
             let association = UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id.clone()))
                 .one(db)
                 .await
                 .ok()
@@ -139,7 +139,7 @@ impl UserWorkoutInput {
                 None => {
                     let user_to_ex = user_to_entity::ActiveModel {
                         user_id: ActiveValue::Set(user_id),
-                        exercise_id: ActiveValue::Set(Some(ex.exercise_id)),
+                        exercise_id: ActiveValue::Set(Some(ex.exercise_id.clone())),
                         exercise_extra_information: ActiveValue::Set(Some(
                             UserToExerciseExtraInformation {
                                 history: vec![history_item],
@@ -253,8 +253,7 @@ impl UserWorkoutInput {
             exercises.push((
                 db_ex.lot,
                 ProcessedExercise {
-                    id: ex.exercise_id,
-                    name: db_ex.name,
+                    id: db_ex.id,
                     lot: db_ex.lot,
                     sets,
                     notes: ex.notes.clone(),
@@ -278,7 +277,7 @@ impl UserWorkoutInput {
                     .iter()
                     .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
-                        name: e.name.clone(),
+                        id: e.id.clone(),
                         lot: *lot,
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
@@ -303,7 +302,7 @@ impl workout::Model {
         for (idx, ex) in self.information.exercises.iter().enumerate() {
             let association = UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(user_to_entity::Column::ExerciseId.eq(ex.id))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.id.clone()))
                 .one(db)
                 .await?
                 .unwrap();

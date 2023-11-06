@@ -609,7 +609,7 @@ export const MediaSearchItem = (props: {
 						addMediaToCollection.mutate({
 							input: {
 								collectionName: "Watchlist",
-								entityId: id,
+								entityId: id.toString(),
 								entityLot: EntityLot.Media,
 							},
 						});
@@ -626,7 +626,7 @@ export const MediaSearchItem = (props: {
 export const AddEntityToCollectionModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	entityId: number;
+	entityId: string;
 	refetchUserMedia: () => void;
 	entityLot: EntityLot;
 }) => {
@@ -682,7 +682,7 @@ export const AddEntityToCollectionModal = (props: {
 							addMediaToCollection.mutate({
 								input: {
 									collectionName: selectedCollection || "",
-									entityId: props.entityId,
+									entityId: props.entityId.toString(),
 									entityLot: props.entityLot,
 								},
 							});
@@ -701,7 +701,7 @@ export const AddEntityToCollectionModal = (props: {
 
 export const DisplayCollection = (props: {
 	col: { id: number; name: string };
-	entityId: number;
+	entityId: string;
 	entityLot: EntityLot;
 	refetch: () => void;
 }) => {
@@ -744,7 +744,7 @@ export const DisplayCollection = (props: {
 							removeMediaFromCollection.mutate({
 								input: {
 									collectionName: props.col.name,
-									entityId: props.entityId,
+									entityId: props.entityId.toString(),
 									entityLot: props.entityLot,
 								},
 							});

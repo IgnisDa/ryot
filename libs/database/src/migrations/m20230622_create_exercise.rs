@@ -165,7 +165,6 @@ pub enum ExerciseSource {
 pub enum Exercise {
     Table,
     Id,
-    Name,
     Lot,
     Force,
     Level,
@@ -187,14 +186,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Exercise::Id)
                             .primary_key()
-                            .auto_increment()
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(Exercise::Name)
                             .string()
-                            .unique_key()
                             .not_null(),
                     )
                     .col(ColumnDef::new(Exercise::Muscles).json().not_null())

@@ -13,7 +13,6 @@ query WorkoutDetails($workoutId: String!) {
       }
       exercises {
         id
-        name
         lot
         notes
         restTime

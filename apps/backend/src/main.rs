@@ -162,8 +162,8 @@ async fn main() -> Result<()> {
     )
     .await;
 
-    if Exercise::find().count(&db).await? == 0 {
-        tracing::info!("Instance does not have exercises data. Deploying job to download them.");
+    if !cfg!(debug_assertions) && Exercise::find().count(&db).await? == 0 {
+        tracing::info!("Instance does not have exercises data. Deploying job to download them...");
         app_services
             .exercise_service
             .deploy_update_exercise_library_job()

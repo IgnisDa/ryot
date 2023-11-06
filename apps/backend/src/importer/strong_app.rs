@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs};
+use std::fs;
 
 use async_graphql::Result;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
@@ -7,15 +7,11 @@ use itertools::Itertools;
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{DatabaseConnection, EntityTrait, QuerySelect};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    entities::{exercise, prelude::Exercise},
-    models::fitness::{
-        EntityAssets, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
-        WorkoutSetStatistic,
-    },
+use crate::models::fitness::{
+    EntityAssets, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
+    WorkoutSetStatistic,
 };
 
 use super::{DeployStrongAppImportInput, ImportResult};
@@ -41,19 +37,7 @@ struct Entry {
     exercise_name: String,
 }
 
-pub async fn import(
-    input: DeployStrongAppImportInput,
-    db: &DatabaseConnection,
-) -> Result<ImportResult> {
-    let map = Exercise::find()
-        .select_only()
-        .column(exercise::Column::Name)
-        .column(exercise::Column::Id)
-        .into_tuple::<(String, i32)>()
-        .all(db)
-        .await?
-        .into_iter()
-        .collect::<HashMap<_, _>>();
+pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
     let file_string = fs::read_to_string(&input.export_path)?;
     let mut workouts = vec![];
     let mut entries_reader = ReaderBuilder::new()
@@ -95,9 +79,8 @@ pub async fn import(
             notes.push(n);
         }
         if next_entry.set_order <= entry.set_order {
-            let exercise_id = map.get(&target_exercise.target_name).unwrap().to_owned();
             exercises.push(UserExerciseInput {
-                exercise_id,
+                exercise_id: target_exercise.target_name.clone(),
                 sets,
                 notes,
                 rest_time: None,

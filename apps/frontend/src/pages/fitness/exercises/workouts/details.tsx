@@ -195,7 +195,7 @@ const Page: NextPageWithLayout = () => {
 											})}
 											fw="bold"
 										>
-											{exercise.name}
+											{exercise.id}
 										</Anchor>
 										{exercise.restTime ? (
 											<Flex align="center" gap="xs">

@@ -90,7 +90,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::ExerciseId).integer())
+                    .col(ColumnDef::new(CollectionToEntity::ExerciseId).string())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk5")

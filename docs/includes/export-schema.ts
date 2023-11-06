@@ -175,7 +175,6 @@ export interface WorkoutTotalMeasurement {
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets;
-	id: number;
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];
@@ -198,8 +197,8 @@ export interface WorkoutInformation {
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
 	bestSet: WorkoutSetRecord;
+	id: string;
 	lot: ExerciseLot;
-	name: string;
 	numSets: number;
 }
 

@@ -48,6 +48,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
@@ -83,7 +84,7 @@ const DisplayLifetimeStatistic = (props: {
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
-	const exerciseId = parseInt(router.query.id?.toString() || "0");
+	const exerciseId = router.query.id?.toString();
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
@@ -99,6 +100,7 @@ const Page: NextPageWithLayout = () => {
 	const userExerciseDetails = useQuery({
 		queryKey: ["userExerciseDetails", exerciseId],
 		queryFn: async () => {
+			invariant(exerciseId);
 			const { userExerciseDetails } = await gqlClient.request(
 				UserExerciseDetailsDocument,
 				{ input: { exerciseId } },
@@ -109,8 +111,9 @@ const Page: NextPageWithLayout = () => {
 		enabled: !!exerciseId,
 	});
 	const exerciseDetails = useQuery({
-		queryKey: ["creatorDetails", exerciseId],
+		queryKey: ["exerciseDetails", exerciseId],
 		queryFn: async () => {
+			invariant(exerciseId);
 			const { exerciseDetails } = await gqlClient.request(
 				ExerciseDetailsDocument,
 				{ exerciseId },
@@ -124,18 +127,18 @@ const Page: NextPageWithLayout = () => {
 	return exerciseDetails.data && userPreferences.data ? (
 		<>
 			<Head>
-				<title>{exerciseDetails.data.name} | Ryot</title>
+				<title>{exerciseDetails.data.id} | Ryot</title>
 			</Head>
 			<Container size="xs" px="lg">
 				<Stack>
-					<Title id="exercise-title">{exerciseDetails.data.name}</Title>
+					<Title id="exercise-title">{exerciseDetails.data.id}</Title>
 					{userExerciseDetails.data &&
 					userExerciseDetails.data.collections.length > 0 ? (
 						<Group id="entity-collections">
 							{userExerciseDetails.data.collections.map((col) => (
 								<DisplayCollection
 									col={col}
-									entityId={exerciseId}
+									entityId={exerciseDetails.data.id}
 									entityLot={EntityLot.Exercise}
 									refetch={userExerciseDetails.refetch}
 									key={col.id}
@@ -332,7 +335,7 @@ const Page: NextPageWithLayout = () => {
 									<AddEntityToCollectionModal
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
-										entityId={exerciseId}
+										entityId={exerciseDetails.data.id}
 										refetchUserMedia={userExerciseDetails.refetch}
 										entityLot={EntityLot.Exercise}
 									/>

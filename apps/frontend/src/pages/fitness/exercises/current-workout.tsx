@@ -15,6 +15,7 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "@/lib/workout";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
@@ -212,6 +213,7 @@ const ExerciseDisplay = (props: {
 	startTimer: (duration: number) => void;
 	openTimerDrawer: () => void;
 }) => {
+	const [parent] = useAutoAnimate();
 	const enabledCoreFeatures = useEnabledCoreFeatures();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
@@ -512,7 +514,7 @@ const ExerciseDisplay = (props: {
 							</Menu.Item>
 						</Menu.Dropdown>
 					</Menu>
-					<Box>
+					<Box ref={parent}>
 						<Flex justify="space-between" align="center" mb="xs">
 							<Text size="xs" w="5%" ta="center">
 								SET
@@ -697,7 +699,8 @@ const ExerciseDisplay = (props: {
 													const newConfirmed = !s.confirmed;
 													if (
 														props.exercise.restTimer?.enabled &&
-														newConfirmed
+														newConfirmed &&
+														s.lot !== SetLot.WarmUp
 													) {
 														props.startTimer(props.exercise.restTimer.duration);
 														props.openTimerDrawer();
@@ -986,6 +989,7 @@ const ReorderDrawer = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
+	const [parent] = useAutoAnimate();
 	const router = useRouter();
 	const [time, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -1041,13 +1045,16 @@ const Page: NextPageWithLayout = () => {
 	});
 
 	useEffect(() => {
-		if (
-			currentTimer &&
-			currentTimer.endAt.diff(DateTime.now()).as("seconds") <= 1
-		) {
-			playCompleteTimerSound();
-			timerDrawerClose();
-			setCurrentTimer(RESET);
+		const timeRemaining = currentTimer?.endAt
+			.diff(DateTime.now())
+			.as("seconds");
+		if (timeRemaining && timeRemaining <= 3) {
+			navigator.vibrate(200);
+			if (timeRemaining <= 1) {
+				playCompleteTimerSound();
+				timerDrawerClose();
+				setCurrentTimer(RESET);
+			}
 		}
 	}, [time]);
 
@@ -1064,7 +1071,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="sm">
 				{currentWorkout ? (
-					<Stack>
+					<Stack ref={parent}>
 						<TimerDrawer
 							opened={timerDrawerOpened}
 							onClose={timerDrawerClose}
