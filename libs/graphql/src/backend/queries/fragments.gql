@@ -70,7 +70,7 @@ fragment WorkoutSummaryPart on WorkoutSummary {
   }
   exercises {
     numSets
-    name
+    id
     lot
     bestSet {
       statistic {

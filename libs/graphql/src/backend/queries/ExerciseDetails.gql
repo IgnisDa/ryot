@@ -1,6 +1,5 @@
-query ExerciseDetails($exerciseId: Int!) {
+query ExerciseDetails($exerciseId: String!) {
   exerciseDetails(exerciseId: $exerciseId) {
-    name
     lot
     source
     level
