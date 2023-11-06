@@ -45,7 +45,7 @@ use sea_orm::{
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, NullOrdering, PostgresQueryBuilder,
-    Query, SelectStatement, UnionType, Values,
+    Query, SelectStatement, UnionType, Value, Values,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -4139,7 +4139,12 @@ impl MiscellaneousService {
         };
         CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::CollectionId.eq(collect.id))
-            .filter(target_column.eq(input.entity_id))
+            .filter(
+                target_column.eq(match input.entity_id.clone().parse::<i32>() {
+                    Ok(id) => Value::Int(Some(id)),
+                    Err(_) => Value::String(Some(Box::new(input.entity_id.clone()))),
+                }),
+            )
             .exec(&self.db)
             .await?;
         Ok(IdObject { id: collect.id })

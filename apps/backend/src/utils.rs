@@ -18,7 +18,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
-use sea_query::{BinOper, Expr, Func, SimpleExpr};
+use sea_query::{BinOper, Expr, Func, SimpleExpr, Value};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -218,7 +218,10 @@ pub async fn entity_in_collections(
             collection_to_entity::Column::CollectionId
                 .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(target_column.eq(entity_id))
+        .filter(target_column.eq(match entity_id.parse::<i32>() {
+            Ok(id) => Value::Int(Some(id)),
+            Err(_) => Value::String(Some(Box::new(entity_id))),
+        }))
         .find_also_related(Collection)
         .all(db)
         .await
@@ -255,7 +258,12 @@ pub async fn add_entity_to_collection(
     let collection = updated.update(db).await.unwrap();
     if let Some(etc) = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
-        .filter(target_column.eq(input.entity_id.clone()))
+        .filter(
+            target_column.eq(match input.entity_id.clone().parse::<i32>() {
+                Ok(id) => Value::Int(Some(id)),
+                Err(_) => Value::String(Some(Box::new(input.entity_id.clone()))),
+            }),
+        )
         .one(db)
         .await?
     {
