@@ -77,7 +77,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserToEntity::ExerciseId).integer())
+                    .col(ColumnDef::new(UserToEntity::ExerciseId).string())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk3")
