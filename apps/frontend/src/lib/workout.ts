@@ -27,7 +27,7 @@ type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
 export type Exercise = {
 	name: string;
-	exerciseId: number;
+	exerciseId: string;
 	lot: ExerciseLot;
 	notes: Array<string>;
 	sets: Array<ExerciseSet>;
@@ -101,7 +101,7 @@ export const duplicateOldWorkout = (
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic }) as any),
 			exerciseId: ex.id,
 			lot: ex.lot,
-			name: ex.name,
+			name: ex.id,
 			notes: ex.notes,
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
 			// biome-ignore lint/suspicious/noExplicitAny: required here

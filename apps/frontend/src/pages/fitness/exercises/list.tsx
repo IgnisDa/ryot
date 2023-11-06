@@ -80,7 +80,6 @@ const Page: NextPageWithLayout = () => {
 
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
-		id: number;
 		lot: ExerciseLot;
 	}>([]);
 	const [activePage, setPage] = useLocalStorage({
@@ -321,13 +320,12 @@ const Page: NextPageWithLayout = () => {
 														onChange={(e) => {
 															if (e.currentTarget.checked)
 																setSelectedExercises.append({
-																	name: exercise.name,
-																	id: exercise.id,
+																	name: exercise.id,
 																	lot: exercise.lot,
 																});
 															else
 																setSelectedExercises.filter(
-																	(item) => item.id !== exercise.id,
+																	(item) => item.name !== exercise.id,
 																);
 														}}
 													/>
@@ -355,7 +353,7 @@ const Page: NextPageWithLayout = () => {
 													style={{ all: "unset", cursor: "pointer" }}
 												>
 													<Flex direction="column" justify="space-around">
-														<Text>{exercise.name}</Text>
+														<Text>{exercise.id}</Text>
 														{exercise.muscle ? (
 															<Text size="xs">
 																{startCase(snakeCase(exercise.muscle))}
@@ -400,10 +398,10 @@ const Page: NextPageWithLayout = () => {
 								for (const exercise of selectedExercises) {
 									const { userExerciseDetails } = await gqlClient.request(
 										UserExerciseDetailsDocument,
-										{ input: { exerciseId: exercise.id, takeHistory: 1 } },
+										{ input: { exerciseId: exercise.name, takeHistory: 1 } },
 									);
 									draft.exercises.push({
-										exerciseId: exercise.id,
+										exerciseId: exercise.name,
 										lot: exercise.lot,
 										name: exercise.name,
 										sets: [

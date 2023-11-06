@@ -68,7 +68,7 @@ const ExerciseDisplay = (props: {
 				{props.exercise.numSets} ×
 			</Text>
 			<Text style={{ flex: 1 }} fz="sm">
-				{props.exercise.name}
+				{props.exercise.id}
 			</Text>
 			<Text fz="sm">{stat}</Text>
 		</Flex>
@@ -205,7 +205,7 @@ const Page: NextPageWithLayout = () => {
 													{workout.summary.exercises.map((exercise, idx) => (
 														<ExerciseDisplay
 															exercise={exercise}
-															key={`${idx}-${exercise.name}`}
+															key={`${idx}-${exercise.id}`}
 														/>
 													))}
 												</>

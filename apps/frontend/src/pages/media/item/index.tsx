@@ -629,7 +629,7 @@ const Page: NextPageWithLayout = () => {
 							{userMediaDetails.data.collections.map((col) => (
 								<DisplayCollection
 									col={col}
-									entityId={metadataId}
+									entityId={metadataId.toString()}
 									entityLot={EntityLot.Media}
 									refetch={userMediaDetails.refetch}
 									key={col.id}
@@ -1159,7 +1159,7 @@ const Page: NextPageWithLayout = () => {
 										<AddEntityToCollectionModal
 											onClose={collectionModalClose}
 											opened={collectionModalOpened}
-											entityId={metadataId}
+											entityId={metadataId.toString()}
 											refetchUserMedia={userMediaDetails.refetch}
 											entityLot={EntityLot.Media}
 										/>

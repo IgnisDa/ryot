@@ -132,8 +132,8 @@ const ExerciseWarning = () => {
 
 const ExerciseMap = (props: {
 	name: string;
-	onOptionSubmit: ([idx, name]: [number, string]) => void;
-	selectedId?: number;
+	onOptionSubmit: (name: string) => void;
+	selectedName?: string;
 }) => {
 	const [searched, setSearched] = useDebouncedState(props.name, 500);
 	const exerciseSearch = useQuery({
@@ -166,25 +166,20 @@ const ExerciseMap = (props: {
 			<Autocomplete
 				style={{ flex: "none" }}
 				size="xs"
-				data={(exerciseSearch.data || []).map((e) => ({
-					value: `${e.id}) ${e.name}`,
-					label: e.name,
-				}))}
+				data={(exerciseSearch.data || []).map((e) => e.id)}
 				wrapperProps={{ "data-exercise-source": props.name }}
 				onChange={(v) => setSearched(v)}
 				onOptionSubmit={(v) => {
-					const id = parseInt(v);
-					const name = v.split(")")[1].trim();
-					props.onOptionSubmit([id, name]);
+					props.onOptionSubmit(v);
 				}}
 				rightSection={
 					<Box>
 						{exerciseSearch.isLoading ? (
 							<Loader size={14} />
-						) : props.selectedId ? (
+						) : props.selectedName ? (
 							<Anchor
 								href={withQuery(APP_ROUTES.fitness.exercises.details, {
-									id: props.selectedId,
+									id: props.selectedName,
 								})}
 								target="_blank"
 							>
@@ -195,7 +190,7 @@ const ExerciseMap = (props: {
 				}
 				required
 				error={
-					typeof props.selectedId === "undefined"
+					typeof props.selectedName === "undefined"
 						? "Nothing selected"
 						: undefined
 				}
@@ -649,15 +644,14 @@ const Page: NextPageWithLayout = () => {
 																	<ExerciseMap
 																		key={e.sourceName}
 																		name={e.sourceName}
-																		selectedId={e.targetId}
-																		onOptionSubmit={([id, name]) => {
+																		selectedName={e.targetName}
+																		onOptionSubmit={(name) => {
 																			setUniqueExercises(
 																				produce(uniqueExercises, (draft) => {
 																					const index = draft.findIndex(
 																						(d) =>
 																							d.sourceName === e.sourceName,
 																					);
-																					draft[index].targetId = id;
 																					draft[index].targetName = name;
 																				}),
 																			);
