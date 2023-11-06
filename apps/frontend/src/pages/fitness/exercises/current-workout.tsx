@@ -989,6 +989,7 @@ const ReorderDrawer = (props: {
 };
 
 const Page: NextPageWithLayout = () => {
+	const [parent] = useAutoAnimate();
 	const router = useRouter();
 	const [time, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
@@ -1070,7 +1071,7 @@ const Page: NextPageWithLayout = () => {
 			</Head>
 			<Container size="sm">
 				{currentWorkout ? (
-					<Stack>
+					<Stack ref={parent}>
 						<TimerDrawer
 							opened={timerDrawerOpened}
 							onClose={timerDrawerClose}
