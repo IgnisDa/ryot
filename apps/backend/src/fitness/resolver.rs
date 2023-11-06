@@ -3,8 +3,8 @@ use std::sync::Arc;
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use database::{
-    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    ExerciseSource,
+    AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
+    ExerciseMechanic, ExerciseMuscle, ExerciseSource,
 };
 use itertools::Itertools;
 use sea_orm::{
@@ -481,7 +481,10 @@ impl ExerciseService {
             .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(get_ilike_query(Expr::col(exercise::Column::Id), &v))
+                        .add(get_ilike_query(
+                            Expr::col((AliasedExercise::Table, exercise::Column::Id)),
+                            &v,
+                        ))
                         .add(get_ilike_query(
                             Expr::col(exercise::Column::Identifier),
                             &slugify(v),
