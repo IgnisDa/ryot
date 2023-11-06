@@ -1419,6 +1419,8 @@ pub mod fitness {
         Schematic,
     )]
     pub struct ProcessedExercise {
+        // FIXME: Ask users to recalculate user_to_entity and then remove this
+        #[serde(rename = "name")]
         pub id: String,
         pub lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
@@ -1464,6 +1466,8 @@ pub mod fitness {
     )]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
+        // FIXME: Ask users to recalculate user_to_entity and then remove this
+        #[serde(alias = "name")]
         pub id: String,
         pub lot: ExerciseLot,
         pub best_set: WorkoutSetRecord,
