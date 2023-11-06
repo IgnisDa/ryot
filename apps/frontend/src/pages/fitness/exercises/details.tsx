@@ -48,10 +48,10 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import type { ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
-import invariant from "tiny-invariant";
 
 const DisplayData = (props: { name: string; data: string }) => {
 	return (
