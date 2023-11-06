@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OneofObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
 use chrono::{NaiveDate, NaiveDateTime};
 use database::{
@@ -112,6 +112,19 @@ pub struct ExportAllResponse {
     pub measurements: Vec<user_measurement::Model>,
     /// Data about user's workouts.
     pub workouts: Vec<workout::Model>,
+}
+
+#[derive(Debug, OneofObject)]
+pub enum ChangeCollectionEntity {
+    Exercise(String),
+    Other(i32),
+}
+
+#[derive(Debug, InputObject)]
+pub struct ChangeCollectionToEntityInput {
+    pub collection_name: String,
+    pub entity_id: ChangeCollectionEntity,
+    pub entity_lot: EntityLot,
 }
 
 pub mod media {
@@ -684,13 +697,6 @@ pub mod media {
         pub calculated_on: DateTimeUtc,
         #[graphql(skip)]
         pub unique_items: UserSummaryUniqueItems,
-    }
-
-    #[derive(Debug, InputObject)]
-    pub struct ChangeCollectionToEntityInput {
-        pub collection_name: String,
-        pub entity_id: i32,
-        pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, InputObject, Default)]
@@ -1419,8 +1425,7 @@ pub mod fitness {
         Schematic,
     )]
     pub struct ProcessedExercise {
-        pub id: i32,
-        pub name: String,
+        pub id: String,
         pub lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
@@ -1465,7 +1470,7 @@ pub mod fitness {
     )]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
-        pub name: String,
+        pub id: String,
         pub lot: ExerciseLot,
         pub best_set: WorkoutSetRecord,
     }
@@ -1514,7 +1519,7 @@ pub mod fitness {
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct UserExerciseInput {
-        pub exercise_id: i32,
+        pub exercise_id: String,
         pub sets: Vec<UserWorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,

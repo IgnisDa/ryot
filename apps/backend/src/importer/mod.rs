@@ -22,11 +22,10 @@ use crate::{
     models::{
         fitness::UserWorkoutInput,
         media::{
-            ChangeCollectionToEntityInput, CreateOrUpdateCollectionInput,
-            ImportOrExportItemIdentifier, ImportOrExportMediaItem, PostReviewInput,
-            ProgressUpdateInput,
+            CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
+            PostReviewInput, ProgressUpdateInput,
         },
-        EntityLot,
+        ChangeCollectionEntity, ChangeCollectionToEntityInput, EntityLot,
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -268,9 +267,7 @@ impl ImporterService {
     async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
-            ImportSource::StrongApp => {
-                strong_app::import(input.strong_app.unwrap(), &self.media_service.db).await?
-            }
+            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await?,
             _ => unreachable!(),
         };
         let details = ImportResultResponse {
@@ -441,7 +438,7 @@ impl ImporterService {
                         user_id,
                         ChangeCollectionToEntityInput {
                             collection_name: col.to_string(),
-                            entity_id: metadata.id,
+                            entity_id: ChangeCollectionEntity::Other(metadata.id),
                             entity_lot: EntityLot::Media,
                         },
                     )

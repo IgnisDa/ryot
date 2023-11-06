@@ -35,8 +35,8 @@ use crate::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
             GithubExerciseAttributes, UserWorkoutInput, WorkoutListItem, WorkoutSetRecord,
         },
-        media::ChangeCollectionToEntityInput,
-        EntityLot, IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        ChangeCollectionEntity, ChangeCollectionToEntityInput, EntityLot, SearchDetails,
+        SearchInput, SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
@@ -114,7 +114,7 @@ struct UserExerciseDetails {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct UserExerciseDetailsInput {
-    exercise_id: i32,
+    exercise_id: String,
     /// The number of elements to return in the history.
     take_history: Option<usize>,
 }
@@ -156,7 +156,7 @@ impl ExerciseQuery {
     async fn exercise_details(
         &self,
         gql_ctx: &Context<'_>,
-        exercise_id: i32,
+        exercise_id: String,
     ) -> Result<exercise::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         service.exercise_details(exercise_id).await
@@ -246,7 +246,7 @@ impl ExerciseMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: exercise::Model,
-    ) -> Result<IdObject> {
+    ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_custom_exercise(user_id, input).await
@@ -319,7 +319,7 @@ impl ExerciseService {
             .collect())
     }
 
-    async fn exercise_details(&self, exercise_id: i32) -> Result<exercise::Model> {
+    async fn exercise_details(&self, exercise_id: String) -> Result<exercise::Model> {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
@@ -345,9 +345,13 @@ impl ExerciseService {
         user_id: i32,
         input: UserExerciseDetailsInput,
     ) -> Result<UserExerciseDetails> {
-        let collections =
-            entity_in_collections(&self.db, user_id, input.exercise_id, EntityLot::Exercise)
-                .await?;
+        let collections = entity_in_collections(
+            &self.db,
+            user_id,
+            ChangeCollectionEntity::Exercise(input.exercise_id.clone()),
+            EntityLot::Exercise,
+        )
+        .await?;
         let mut resp = UserExerciseDetails {
             details: None,
             history: None,
@@ -435,7 +439,7 @@ impl ExerciseService {
         let ex = Alias::new("exercise");
         let etu = Alias::new("user_to_entity");
         let order_by_col = match input.sort_by {
-            None => Expr::col((ex, exercise::Column::Name)),
+            None => Expr::col((ex, exercise::Column::Id)),
             Some(sb) => match sb {
                 // DEV: This is just a small hack to reduce duplicated code. We
                 // are ordering by name for the other `sort_by` anyway.
@@ -477,7 +481,7 @@ impl ExerciseService {
             .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(get_ilike_query(Expr::col(exercise::Column::Name), &v))
+                        .add(get_ilike_query(Expr::col(exercise::Column::Id), &v))
                         .add(get_ilike_query(
                             Expr::col(exercise::Column::Identifier),
                             &slugify(v),
@@ -495,7 +499,7 @@ impl ExerciseService {
                     }),
             )
             .order_by_desc(order_by_col)
-            .order_by_asc(exercise::Column::Name);
+            .order_by_asc(exercise::Column::Id);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
         let data = query
@@ -577,7 +581,7 @@ impl ExerciseService {
             muscles.extend(ex.attributes.secondary_muscles);
             muscles.sort_unstable();
             let db_exercise = exercise::ActiveModel {
-                name: ActiveValue::Set(ex.name),
+                id: ActiveValue::Set(ex.name),
                 source: ActiveValue::Set(ExerciseSource::Github),
                 identifier: ActiveValue::Set(Some(ex.identifier)),
                 muscles: ActiveValue::Set(muscles),
@@ -663,11 +667,7 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    async fn create_custom_exercise(
-        &self,
-        user_id: i32,
-        input: exercise::Model,
-    ) -> Result<IdObject> {
+    async fn create_custom_exercise(&self, user_id: i32, input: exercise::Model) -> Result<String> {
         let mut input = input;
         input.source = ExerciseSource::Custom;
         input.attributes.internal_images = input
@@ -687,12 +687,12 @@ impl ExerciseService {
             user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: exercise.id,
+                entity_id: ChangeCollectionEntity::Exercise(exercise.id.clone()),
                 entity_lot: EntityLot::Exercise,
             },
         )
         .await?;
-        Ok(IdObject { id: exercise.id })
+        Ok(exercise.id)
     }
 
     pub async fn export_workouts(&self, user_id: i32) -> Result<Vec<workout::Model>> {

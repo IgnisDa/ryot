@@ -36,7 +36,7 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::{media::ChangeCollectionToEntityInput, EntityLot, StoredUrl},
+    models::{ChangeCollectionEntity, ChangeCollectionToEntityInput, EntityLot, StoredUrl},
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -199,7 +199,7 @@ pub async fn get_stored_asset(
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: i32,
-    entity_id: i32,
+    entity_id: ChangeCollectionEntity,
     entity_lot: EntityLot,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
@@ -213,12 +213,16 @@ pub async fn entity_in_collections(
         EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
     };
+    let target_id = match entity_id {
+        ChangeCollectionEntity::Exercise(id) => id,
+        ChangeCollectionEntity::Other(id) => id.to_string(),
+    };
     let mtc = CollectionToEntity::find()
         .filter(
             collection_to_entity::Column::CollectionId
                 .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(target_column.eq(entity_id))
+        .filter(target_column.eq(target_id))
         .find_also_related(Collection)
         .all(db)
         .await
@@ -243,6 +247,10 @@ pub async fn add_entity_to_collection(
         EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
     };
+    let target_id = match input.entity_id {
+        ChangeCollectionEntity::Exercise(id) => id,
+        ChangeCollectionEntity::Other(id) => id.to_string(),
+    };
     let collection = Collection::find()
         .filter(collection::Column::UserId.eq(user_id.to_owned()))
         .filter(collection::Column::Name.eq(input.collection_name))
@@ -255,7 +263,7 @@ pub async fn add_entity_to_collection(
     let collection = updated.update(db).await.unwrap();
     if let Some(etc) = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
-        .filter(target_column.eq(input.entity_id))
+        .filter(target_column.eq(target_id.clone()))
         .one(db)
         .await?
     {
@@ -269,16 +277,17 @@ pub async fn add_entity_to_collection(
         };
         match input.entity_lot {
             EntityLot::Media => {
-                created_collection.metadata_id = ActiveValue::Set(Some(input.entity_id))
+                created_collection.metadata_id = ActiveValue::Set(Some(target_id.parse().unwrap()))
             }
             EntityLot::Person => {
-                created_collection.person_id = ActiveValue::Set(Some(input.entity_id))
+                created_collection.person_id = ActiveValue::Set(Some(target_id.parse().unwrap()))
             }
             EntityLot::MediaGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(input.entity_id))
+                created_collection.metadata_group_id =
+                    ActiveValue::Set(Some(target_id.parse().unwrap()))
             }
             EntityLot::Exercise => {
-                created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
+                created_collection.exercise_id = ActiveValue::Set(Some(target_id))
             }
         };
         Ok(created_collection.insert(db).await.is_ok())
