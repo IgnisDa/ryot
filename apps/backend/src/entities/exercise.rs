@@ -61,9 +61,8 @@ impl GraphqlRepresentation for Model {
 
 #[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
 pub struct ExerciseListItem {
-    pub id: i32,
     pub lot: ExerciseLot,
-    pub name: String,
+    pub id: String,
     #[graphql(skip)]
     pub attributes: ExerciseAttributes,
     pub num_times_interacted: Option<i32>,
