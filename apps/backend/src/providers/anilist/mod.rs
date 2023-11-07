@@ -550,7 +550,7 @@ async fn search(
         .map(|b| MediaSearchItem {
             identifier: b.id.to_string(),
             title: b.title.unwrap().user_preferred.unwrap(),
-            image: b.banner_image,
+            image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
             publish_year: b
                 .start_date
                 .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
