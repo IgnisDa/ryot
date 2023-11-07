@@ -93,7 +93,6 @@ const Page: NextPageWithLayout = () => {
 										color: "green",
 									});
 								}}
-								loading={deployBackgroundJob.isPending}
 								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
@@ -122,7 +121,6 @@ const Page: NextPageWithLayout = () => {
 										color: "green",
 									});
 								}}
-								loading={deployBackgroundJob.isPending}
 								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
@@ -149,7 +147,6 @@ const Page: NextPageWithLayout = () => {
 										color: "green",
 									});
 								}}
-								loading={deployBackgroundJob.isPending}
 								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
@@ -177,7 +174,6 @@ const Page: NextPageWithLayout = () => {
 									color: "green",
 								});
 							}}
-							loading={deployBackgroundJob.isPending}
 						>
 							Clean and regenerate
 						</Button>
@@ -192,10 +188,7 @@ const Page: NextPageWithLayout = () => {
 								this will take.
 							</Text>
 						</Box>
-						<Button
-							onClick={() => yankIntegrationData.mutate({})}
-							loading={yankIntegrationData.isPending}
-						>
+						<Button onClick={() => yankIntegrationData.mutate({})}>
 							Synchronize
 						</Button>
 					</>
