@@ -13,12 +13,9 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
-	DeployRecalculateCalendarEventsJobDocument,
-	type DeployRecalculateCalendarEventsJobMutationVariables,
-	RegenerateUserSummaryDocument,
-	type RegenerateUserSummaryMutationVariables,
-	UpdateAllMetadataDocument,
-	type UpdateAllMetadataMutationVariables,
+	BackgroundJob,
+	DeployBackgroundJobDocument,
+	type DeployBackgroundJobMutationVariables,
 	UserLot,
 	YankIntegrationDataDocument,
 	type YankIntegrationDataMutationVariables,
@@ -29,7 +26,7 @@ import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../_app";
 
 const DisabledNotice = () => (
-	<Text size="xs" color="dimmed">
+	<Text size="xs" c="dimmed">
 		Deploying this job is disabled on this instance.
 	</Text>
 );
@@ -37,61 +34,22 @@ const DisabledNotice = () => (
 const Page: NextPageWithLayout = () => {
 	const userDetails = useUser();
 	const coreDetails = useCoreDetails();
-	const regenerateUserSummary = useMutation({
-		mutationFn: async (_variables: RegenerateUserSummaryMutationVariables) => {
-			const { regenerateUserSummary } = await gqlClient.request(
-				RegenerateUserSummaryDocument,
-			);
-			return regenerateUserSummary;
-		},
-		onSuccess: () => {
-			notifications.show({
-				title: "Success",
-				message: "Summary will be regenerated in the background",
-				color: "green",
-			});
-		},
-	});
-
-	const deployUpdateAllMetadataJobs = useMutation({
-		mutationFn: async (_variables: UpdateAllMetadataMutationVariables) => {
-			const { updateAllMetadata } = await gqlClient.request(
-				UpdateAllMetadataDocument,
-			);
-			return updateAllMetadata;
-		},
-		onSuccess: () => {
-			notifications.show({
-				title: "Success",
-				message: "All metadata will be updated in the background",
-				color: "green",
-			});
-		},
-	});
-
-	const deployRecalculateCalendarEventsJob = useMutation({
-		mutationFn: async (
-			variables: DeployRecalculateCalendarEventsJobMutationVariables,
-		) => {
-			const { deployRecalculateCalendarEventsJob } = await gqlClient.request(
-				DeployRecalculateCalendarEventsJobDocument,
+	const deployBackgroundJob = useMutation({
+		mutationFn: async (variables: DeployBackgroundJobMutationVariables) => {
+			const { deployBackgroundJob } = await gqlClient.request(
+				DeployBackgroundJobDocument,
 				variables,
 			);
-			return deployRecalculateCalendarEventsJob;
+			return deployBackgroundJob;
 		},
-		onSuccess: () => {
-			notifications.show({
-				title: "Success",
-				message: "Calender events will be updated in the background",
-				color: "green",
-			});
-		},
+		onSuccess: () => {},
 	});
 
 	const yankIntegrationData = useMutation({
-		mutationFn: async (_variables: YankIntegrationDataMutationVariables) => {
+		mutationFn: async (variables: YankIntegrationDataMutationVariables) => {
 			const { yankIntegrationData } = await gqlClient.request(
 				YankIntegrationDataDocument,
+				variables,
 			);
 			return yankIntegrationData;
 		},
@@ -125,8 +83,17 @@ const Page: NextPageWithLayout = () => {
 								<DisabledNotice />
 							) : undefined}
 							<Button
-								onClick={() => deployUpdateAllMetadataJobs.mutate({})}
-								loading={deployUpdateAllMetadataJobs.isPending}
+								onClick={async () => {
+									deployBackgroundJob.mutateAsync({
+										jobName: BackgroundJob.UpdateAllMetadata,
+									});
+									notifications.show({
+										title: "Success",
+										message: "All metadata will be updated in the background",
+										color: "green",
+									});
+								}}
+								loading={deployBackgroundJob.isPending}
 								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
@@ -144,8 +111,18 @@ const Page: NextPageWithLayout = () => {
 								<DisabledNotice />
 							) : undefined}
 							<Button
-								onClick={() => deployRecalculateCalendarEventsJob.mutate({})}
-								loading={deployRecalculateCalendarEventsJob.isPending}
+								onClick={async () => {
+									deployBackgroundJob.mutateAsync({
+										jobName: BackgroundJob.RecalculateCalendarEvents,
+									});
+									notifications.show({
+										title: "Success",
+										message:
+											"Calender events will be updated in the background",
+										color: "green",
+									});
+								}}
+								loading={deployBackgroundJob.isPending}
 								disabled={!coreDetails.data.deployAdminJobsAllowed}
 							>
 								Deploy job
@@ -163,8 +140,17 @@ const Page: NextPageWithLayout = () => {
 							</Text>
 						</Box>
 						<Button
-							onClick={() => regenerateUserSummary.mutate({})}
-							loading={regenerateUserSummary.isPending}
+							onClick={async () => {
+								deployBackgroundJob.mutateAsync({
+									jobName: BackgroundJob.CalculateSummary,
+								});
+								notifications.show({
+									title: "Success",
+									message: "Summary will be regenerated in the background",
+									color: "green",
+								});
+							}}
+							loading={deployBackgroundJob.isPending}
 						>
 							Clean and regenerate
 						</Button>
