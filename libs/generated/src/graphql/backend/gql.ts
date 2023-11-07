@@ -35,9 +35,9 @@ const documents = {
     "mutation DeleteUserMeasurement($timestamp: DateTime!) {\n  deleteUserMeasurement(timestamp: $timestamp)\n}": types.DeleteUserMeasurementDocument,
     "mutation DeleteUserNotificationPlatform($notificationId: Int!) {\n  deleteUserNotificationPlatform(notificationId: $notificationId)\n}": types.DeleteUserNotificationPlatformDocument,
     "mutation DeleteUserWorkout($workoutId: String!) {\n  deleteUserWorkout(workoutId: $workoutId)\n}": types.DeleteUserWorkoutDocument,
+    "mutation DeployBackgroundJob($jobName: BackgroundJob!) {\n  deployBackgroundJob(jobName: $jobName)\n}": types.DeployBackgroundJobDocument,
     "mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  deployBulkProgressUpdate(input: $input)\n}": types.DeployBulkProgressUpdateDocument,
     "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}": types.DeployImportJobDocument,
-    "mutation DeployRecalculateCalendarEventsJob {\n  deployRecalculateCalendarEventsJob\n}": types.DeployRecalculateCalendarEventsJobDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
     "mutation GenerateAuthToken {\n  generateAuthToken\n}": types.GenerateAuthTokenDocument,
     "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}": types.LoginUserDocument,
@@ -45,12 +45,10 @@ const documents = {
     "mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {\n  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)\n}": types.MergeMetadataDocument,
     "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
     "mutation PresignedPutS3Url($fileName: String!) {\n  presignedPutS3Url(fileName: $fileName) {\n    key\n    uploadUrl\n  }\n}": types.PresignedPutS3UrlDocument,
-    "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}": types.RegenerateUserSummaryDocument,
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
     "mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}": types.RemoveEntityFromCollectionDocument,
     "mutation TestUserNotificationPlatforms {\n  testUserNotificationPlatforms\n}": types.TestUserNotificationPlatformsDocument,
     "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}": types.ToggleMediaMonitorDocument,
-    "mutation UpdateAllMetadata {\n  updateAllMetadata\n}": types.UpdateAllMetadataDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}": types.UpdateUserPreferenceDocument,
     "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
@@ -199,15 +197,15 @@ export function graphql(source: "mutation DeleteUserWorkout($workoutId: String!)
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "mutation DeployBackgroundJob($jobName: BackgroundJob!) {\n  deployBackgroundJob(jobName: $jobName)\n}"): (typeof documents)["mutation DeployBackgroundJob($jobName: BackgroundJob!) {\n  deployBackgroundJob(jobName: $jobName)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  deployBulkProgressUpdate(input: $input)\n}"): (typeof documents)["mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  deployBulkProgressUpdate(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}"): (typeof documents)["mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "mutation DeployRecalculateCalendarEventsJob {\n  deployRecalculateCalendarEventsJob\n}"): (typeof documents)["mutation DeployRecalculateCalendarEventsJob {\n  deployRecalculateCalendarEventsJob\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -239,10 +237,6 @@ export function graphql(source: "mutation PresignedPutS3Url($fileName: String!) 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation RegenerateUserSummary {\n  regenerateUserSummary\n}"): (typeof documents)["mutation RegenerateUserSummary {\n  regenerateUserSummary\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}"): (typeof documents)["mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -256,10 +250,6 @@ export function graphql(source: "mutation TestUserNotificationPlatforms {\n  tes
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}"): (typeof documents)["mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "mutation UpdateAllMetadata {\n  updateAllMetadata\n}"): (typeof documents)["mutation UpdateAllMetadata {\n  updateAllMetadata\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
