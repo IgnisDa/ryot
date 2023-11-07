@@ -128,6 +128,33 @@ const Page: NextPageWithLayout = () => {
 								Deploy job
 							</Button>
 							<Divider />
+							<Box>
+								<Title order={4}>Update Exercises</Title>
+								<Text>
+									Update the exercise database. Exercise data is downloaded on
+									startup but they can be updated manually.
+								</Text>
+							</Box>
+							{!coreDetails.data.deployAdminJobsAllowed ? (
+								<DisabledNotice />
+							) : undefined}
+							<Button
+								onClick={async () => {
+									deployBackgroundJob.mutateAsync({
+										jobName: BackgroundJob.UpdateAllExercises,
+									});
+									notifications.show({
+										title: "Success",
+										message: "Exercises will be updated in the background",
+										color: "green",
+									});
+								}}
+								loading={deployBackgroundJob.isPending}
+								disabled={!coreDetails.data.deployAdminJobsAllowed}
+							>
+								Deploy job
+							</Button>
+							<Divider />
 						</>
 					) : undefined}
 					<>
