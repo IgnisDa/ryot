@@ -33,6 +33,14 @@ use crate::{
     utils::get_stored_asset,
 };
 
+#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum BackgroundJob {
+    CalculateSummary,
+    UpdateAllMetadata,
+    UpdateAllExercises,
+    RecalculateCalendarEvents,
+}
+
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EntityLot {
     #[default]
