@@ -25,7 +25,7 @@ use crate::{
             CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
             PostReviewInput, ProgressUpdateInput,
         },
-        ChangeCollectionToEntityInput, EntityLot,
+        BackgroundJob, ChangeCollectionToEntityInput, EntityLot,
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -456,7 +456,7 @@ impl ImporterService {
             );
         }
         self.media_service
-            .deploy_recalculate_summary_job(user_id)
+            .deploy_background_job(BackgroundJob::CalculateSummary, user_id)
             .await
             .ok();
         tracing::debug!(

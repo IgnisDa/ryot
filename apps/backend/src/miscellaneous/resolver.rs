@@ -74,6 +74,7 @@ use crate::{
         user_measurement, user_to_entity, workout,
     },
     file_storage::FileStorageService,
+    fitness::resolver::ExerciseService,
     integrations::{IntegrationMedia, IntegrationService},
     jwt,
     miscellaneous::{CustomService, DefaultCollection},
@@ -93,8 +94,8 @@ use crate::{
             SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
             VideoGameSpecifics, VisualNovelSpecifics,
         },
-        ChangeCollectionToEntityInput, EntityLot, IdObject, SearchDetails, SearchInput,
-        SearchResults, StoredUrl,
+        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdObject, SearchDetails,
+        SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
@@ -1071,12 +1072,6 @@ impl MiscellaneousMutation {
         service.delete_seen_item(seen_id, user_id).await
     }
 
-    /// Deploy jobs to update all media item's metadata.
-    async fn update_all_metadata(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.update_all_metadata().await
-    }
-
     /// Create a custom media item.
     async fn create_custom_media(
         &self,
@@ -1166,14 +1161,6 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.update_user(user_id, input).await
-    }
-
-    /// Delete all summaries for the currently logged in user and then generate one from scratch.
-    pub async fn regenerate_user_summary(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_recalculate_summary_job(user_id).await.ok();
-        Ok(true)
     }
 
     /// Change a user's preferences.
@@ -1343,12 +1330,15 @@ impl MiscellaneousMutation {
         service.create_review_comment(user_id, input).await
     }
 
-    /// Recalculate all calendar events. User must an `Admin`.
-    async fn deploy_recalculate_calendar_events_job(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+    /// Start a background job.
+    async fn deploy_background_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        job_name: BackgroundJob,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.admin_account_guard(user_id).await?;
-        service.deploy_recalculate_calendar_events_job().await
+        service.deploy_background_job(job_name, user_id).await
     }
 }
 
@@ -2624,12 +2614,54 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn deploy_recalculate_summary_job(&self, user_id: i32) -> Result<()> {
-        self.perform_application_job
-            .clone()
-            .push(ApplicationJob::RecalculateUserSummary(user_id))
-            .await?;
-        Ok(())
+    pub async fn deploy_background_job(
+        &self,
+        job_name: BackgroundJob,
+        user_id: i32,
+    ) -> Result<bool> {
+        match job_name {
+            BackgroundJob::CalculateSummary => {
+                self.perform_application_job
+                    .clone()
+                    .push(ApplicationJob::RecalculateUserSummary(user_id))
+                    .await?;
+            }
+            BackgroundJob::UpdateAllMetadata => {
+                if !self.config.server.deploy_admin_jobs_allowed {
+                    return Ok(false);
+                }
+                self.admin_account_guard(user_id).await?;
+                let metadatas = Metadata::find()
+                    .select_only()
+                    .column(metadata::Column::Id)
+                    .order_by_asc(metadata::Column::LastUpdatedOn)
+                    .into_tuple::<i32>()
+                    .all(&self.db)
+                    .await
+                    .unwrap();
+                for metadata_id in metadatas {
+                    self.deploy_update_metadata_job(metadata_id).await?;
+                }
+            }
+            BackgroundJob::UpdateAllExercises => {
+                self.admin_account_guard(user_id).await?;
+                let service = ExerciseService::new(
+                    &self.db,
+                    self.config.clone(),
+                    self.file_storage_service.clone(),
+                    &self.perform_application_job,
+                );
+                service.deploy_update_exercise_library_job().await?;
+            }
+            BackgroundJob::RecalculateCalendarEvents => {
+                self.admin_account_guard(user_id).await?;
+                self.perform_application_job
+                    .clone()
+                    .push(ApplicationJob::RecalculateCalendarEvents)
+                    .await?;
+            }
+        };
+        Ok(true)
     }
 
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
@@ -4219,24 +4251,6 @@ impl MiscellaneousService {
         };
         tracing::trace!("Updated metadata for {:?}", metadata_id);
         Ok(notifications)
-    }
-
-    pub async fn update_all_metadata(&self) -> Result<bool> {
-        if !self.config.server.deploy_admin_jobs_allowed {
-            return Ok(false);
-        }
-        let metadatas = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .order_by_asc(metadata::Column::LastUpdatedOn)
-            .into_tuple::<i32>()
-            .all(&self.db)
-            .await
-            .unwrap();
-        for metadata_id in metadatas {
-            self.deploy_update_metadata_job(metadata_id).await?;
-        }
-        Ok(true)
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
@@ -6403,14 +6417,6 @@ impl MiscellaneousService {
         let mut review: review::ActiveModel = review.into();
         review.comments = ActiveValue::Set(comments);
         review.update(&self.db).await?;
-        Ok(true)
-    }
-
-    pub async fn deploy_recalculate_calendar_events_job(&self) -> Result<bool> {
-        self.perform_application_job
-            .clone()
-            .push(ApplicationJob::RecalculateCalendarEvents)
-            .await?;
         Ok(true)
     }
 

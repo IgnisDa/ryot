@@ -556,6 +556,8 @@ impl ExerciseService {
                 .collect(),
             images: vec![],
         };
+        let mut muscles = ex.attributes.primary_muscles;
+        muscles.extend(ex.attributes.secondary_muscles);
         if let Some(e) = Exercise::find()
             .filter(exercise::Column::Identifier.eq(&ex.identifier))
             .filter(exercise::Column::Source.eq(ExerciseSource::Github))
@@ -568,6 +570,7 @@ impl ExerciseService {
             );
             let mut db_ex: exercise::ActiveModel = e.into();
             db_ex.attributes = ActiveValue::Set(attributes);
+            db_ex.muscles = ActiveValue::Set(muscles);
             db_ex.update(&self.db).await?;
         } else {
             let lot = match ex.attributes.category {
@@ -580,9 +583,6 @@ impl ExerciseService {
                 | ExerciseCategory::Strength
                 | ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
             };
-            let mut muscles = ex.attributes.primary_muscles;
-            muscles.extend(ex.attributes.secondary_muscles);
-            muscles.sort_unstable();
             let db_exercise = exercise::ActiveModel {
                 id: ActiveValue::Set(ex.name),
                 source: ActiveValue::Set(ExerciseSource::Github),

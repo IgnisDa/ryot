@@ -34,6 +34,7 @@ import {
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
+	IconBellRinging,
 	IconGripVertical,
 	IconRotate360,
 } from "@tabler/icons-react";
@@ -398,6 +399,60 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="fitness" mt="md">
 							<Stack>
+								<SimpleGrid cols={2} style={{ alignItems: "center" }}>
+									{/*
+							// TODO: Introduce this back when we figure out a way to handle units
+							<Select
+								size="xs"
+								label="Unit system to use for measurements"
+								data={Object.values(UserUnitSystem).map((c) => startCase(c))}
+								defaultValue={userPreferences.data.fitness.exercises.unitSystem}
+								disabled={!coreDetails.data.preferencesChangeAllowed}
+								onChange={(val) => {
+									if (val)
+										updateUserEnabledFeatures.mutate({
+											input: {
+												property: "fitness.exercises.unit_system",
+												value: val,
+											},
+										});
+								}}
+							/>
+							*/}
+									<Group wrap="nowrap">
+										<ActionIcon
+											onClick={async () => {
+												if (Notification.permission !== "granted") {
+													await Notification.requestPermission();
+													router.reload();
+												}
+											}}
+											color={
+												Notification.permission === "granted" ? "green" : "red"
+											}
+										>
+											<IconBellRinging />
+										</ActionIcon>
+										<Text size="xs">Notifications during workouts</Text>
+									</Group>
+									<NumberInput
+										size="xs"
+										label="The number of elements to save in your exercise history"
+										defaultValue={
+											userPreferences.data.fitness.exercises.saveHistory
+										}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(num) => {
+											if (num)
+												updateUserPreferences.mutate({
+													input: {
+														property: "fitness.exercises.save_history",
+														value: String(num),
+													},
+												});
+										}}
+									/>
+								</SimpleGrid>
 								<Text>The default measurements you want to keep track of.</Text>
 								<SimpleGrid cols={2}>
 									{Object.entries(
@@ -442,44 +497,6 @@ const Page: NextPageWithLayout = () => {
 										});
 									}}
 								/>
-								<SimpleGrid cols={1}>
-									{/*
-							// TODO: Introduce this back when we figure out a way to handle units
-							<Select
-								size="xs"
-								label="Unit system to use for measurements"
-								data={Object.values(UserUnitSystem).map((c) => startCase(c))}
-								defaultValue={userPreferences.data.fitness.exercises.unitSystem}
-								disabled={!coreDetails.data.preferencesChangeAllowed}
-								onChange={(val) => {
-									if (val)
-										updateUserEnabledFeatures.mutate({
-											input: {
-												property: "fitness.exercises.unit_system",
-												value: val,
-											},
-										});
-								}}
-							/>
-							*/}
-									<NumberInput
-										size="xs"
-										label="The number of elements to save in your exercise history"
-										defaultValue={
-											userPreferences.data.fitness.exercises.saveHistory
-										}
-										disabled={!coreDetails.data.preferencesChangeAllowed}
-										onChange={(num) => {
-											if (num)
-												updateUserPreferences.mutate({
-													input: {
-														property: "fitness.exercises.save_history",
-														value: String(num),
-													},
-												});
-										}}
-									/>
-								</SimpleGrid>
 							</Stack>
 						</Tabs.Panel>
 					</Tabs>

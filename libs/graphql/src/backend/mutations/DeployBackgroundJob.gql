@@ -1,0 +1,3 @@
+mutation DeployBackgroundJob($jobName: BackgroundJob!) {
+  deployBackgroundJob(jobName: $jobName)
+}
