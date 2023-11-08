@@ -495,9 +495,15 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             _ => unreachable!(),
         },
     }));
+    let title = details.title.unwrap();
+    let title = if prefer_english {
+        title.english.or(title.user_preferred).unwrap()
+    } else {
+        title.user_preferred.unwrap()
+    };
     Ok(MediaDetails {
+        title,
         identifier: details.id.to_string(),
-        title: details.title.unwrap().user_preferred.unwrap(),
         is_nsfw: details.is_adult,
         source: MetadataSource::Anilist,
         description: details.description,
@@ -560,13 +566,21 @@ async fn search(
         .unwrap()
         .into_iter()
         .flatten()
-        .map(|b| MediaSearchItem {
-            identifier: b.id.to_string(),
-            title: b.title.unwrap().user_preferred.unwrap(),
-            image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
-            publish_year: b
-                .start_date
-                .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+        .map(|b| {
+            let title = b.title.unwrap();
+            let title = if prefer_english {
+                title.english.or(title.user_preferred).unwrap()
+            } else {
+                title.user_preferred.unwrap()
+            };
+            MediaSearchItem {
+                identifier: b.id.to_string(),
+                title,
+                image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
+                publish_year: b
+                    .start_date
+                    .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+            }
         })
         .collect();
     Ok((media, total, next_page))
