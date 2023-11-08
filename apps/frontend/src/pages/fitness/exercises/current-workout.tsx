@@ -210,7 +210,7 @@ const ImageDisplay = (props: {
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
-	startTimer: (duration: number) => void;
+	startTimer: (duration: number, triggeredByExerciseIdx: number) => void;
 	openTimerDrawer: () => void;
 }) => {
 	const [parent] = useAutoAnimate();
@@ -707,7 +707,10 @@ const ExerciseDisplay = (props: {
 														newConfirmed &&
 														s.lot !== SetLot.WarmUp
 													) {
-														props.startTimer(props.exercise.restTimer.duration);
+														props.startTimer(
+															props.exercise.restTimer.duration,
+															props.exerciseIdx,
+														);
 														props.openTimerDrawer();
 													}
 													setCurrentWorkout(
@@ -1021,10 +1024,11 @@ const Page: NextPageWithLayout = () => {
 		setTime((s) => s + 1);
 	}, 1000);
 
-	const startTimer = (duration: number) => {
+	const startTimer = (duration: number, triggeredByExerciseIdx?: number) => {
 		setCurrentTimer({
 			totalTime: duration,
 			endAt: DateTime.now().plus({ seconds: duration }),
+			triggeredByExerciseIdx,
 		});
 		interval.stop();
 		interval.start();
