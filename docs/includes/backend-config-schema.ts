@@ -3,7 +3,8 @@
 /* eslint-disable */
 
 export interface AnilistConfig {
-
+	/** Whether to prefer the english name for media from this source. */
+	prefer_english: boolean;
 }
 
 export interface MalConfig {

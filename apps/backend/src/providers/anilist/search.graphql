@@ -11,6 +11,7 @@ query SearchQuery(
     media(search: $search, type: $type) {
       id
       title {
+        english
         userPreferred
       }
       coverImage {
