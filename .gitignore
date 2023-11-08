@@ -47,3 +47,5 @@ web-build/
 docs/site
 *.log*
 .plasmo
+node_modules
+.cache
