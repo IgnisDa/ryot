@@ -602,9 +602,14 @@ const ExerciseDisplay = (props: {
 											fz="xs"
 											leftSection={<IconTrash size={14} />}
 											onClick={() => {
-												const yes = confirm(
-													"Are you sure you want to delete this set?",
-												);
+												const yes = match(s.confirmed)
+													.with(true, () => {
+														return confirm(
+															"Are you sure you want to delete this set?",
+														);
+													})
+													.with(false, () => true)
+													.exhaustive();
 												if (yes)
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
