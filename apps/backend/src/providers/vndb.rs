@@ -69,7 +69,7 @@ struct ItemResponse {
     rating: Option<Decimal>,
     released: Option<String>,
     description: Option<String>,
-    image_links: Option<ImageLinks>,
+    image: Option<ImageLinks>,
     length_minutes: Option<i32>,
     devstatus: Option<i32>,
     developers: Option<Vec<Developer>>,
@@ -189,7 +189,7 @@ impl MediaProvider for VndbService {
 impl VndbService {
     fn vndb_response_to_search_response(&self, item: ItemResponse) -> MediaDetails {
         let mut images = vec![];
-        if let Some(il) = item.image_links {
+        if let Some(il) = item.image {
             images.push(il.url);
         };
         for i in item.screenshots.unwrap_or_default() {
