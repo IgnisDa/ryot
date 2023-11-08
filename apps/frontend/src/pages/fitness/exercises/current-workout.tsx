@@ -32,6 +32,7 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
+	Progress,
 	RingProgress,
 	Skeleton,
 	Stack,
@@ -215,8 +216,9 @@ const ExerciseDisplay = (props: {
 }) => {
 	const [parent] = useAutoAnimate();
 	const enabledCoreFeatures = useEnabledCoreFeatures();
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentTimer] = useAtom(timerAtom);
 	const [playCheckSound] = useSound("/pop.mp3", { interrupt: true });
 	const [
 		restTimerModalOpened,
@@ -392,7 +394,7 @@ const ExerciseDisplay = (props: {
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
 						<Stack>
-							<Flex justify="space-between">
+							<Flex justify="space-between" pos="relative">
 								<Anchor
 									component={Link}
 									href={withQuery(APP_ROUTES.fitness.exercises.details, {
@@ -407,6 +409,21 @@ const ExerciseDisplay = (props: {
 										<IconDotsVertical />
 									</ActionIcon>
 								</Menu.Target>
+								{currentTimer?.triggeredByExerciseIdx === props.exerciseIdx ? (
+									<Progress
+										pos="absolute"
+										color="violet"
+										bottom={-6}
+										value={
+											(currentTimer.endAt.diff(DateTime.now()).as("seconds") *
+												100) /
+											currentTimer.totalTime
+										}
+										size="xs"
+										radius="md"
+										w="100%"
+									/>
+								) : undefined}
 							</Flex>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
 								(n, idx) => (
