@@ -24,8 +24,25 @@
     "paths": {
       "~/*": [
         "./app/*"
+      ],
+      "@ryot/generated/*": [
+        "../../libs/generated/src/*"
+      ],
+      "@ryot/graphql/*": [
+        "../../libs/graphql/src/*"
+      ],
+      "@ryot/ts-utils": [
+        "../../libs/ts-utils/src/index.ts"
+      ],
+      "@ryot/ts-utils/*": [
+        "../../libs/ts-utils/src/*"
       ]
     },
+    "plugins": [
+      {
+        "name": "typescript-plugin-css-modules"
+      }
+    ],
     "noEmit": true,
     "outDir": "../../.moon/cache/types/apps/app"
   }
