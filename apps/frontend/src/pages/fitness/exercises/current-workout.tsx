@@ -32,6 +32,7 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
+	Progress,
 	RingProgress,
 	Skeleton,
 	Stack,
@@ -210,13 +211,14 @@ const ImageDisplay = (props: {
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
-	startTimer: (duration: number) => void;
+	startTimer: (duration: number, triggeredByExerciseIdx: number) => void;
 	openTimerDrawer: () => void;
 }) => {
 	const [parent] = useAutoAnimate();
 	const enabledCoreFeatures = useEnabledCoreFeatures();
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const userPreferences = useUserPreferences();
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentTimer] = useAtom(timerAtom);
 	const [playCheckSound] = useSound("/pop.mp3", { interrupt: true });
 	const [
 		restTimerModalOpened,
@@ -392,7 +394,7 @@ const ExerciseDisplay = (props: {
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
 						<Stack>
-							<Flex justify="space-between">
+							<Flex justify="space-between" pos="relative">
 								<Anchor
 									component={Link}
 									href={withQuery(APP_ROUTES.fitness.exercises.details, {
@@ -407,6 +409,21 @@ const ExerciseDisplay = (props: {
 										<IconDotsVertical />
 									</ActionIcon>
 								</Menu.Target>
+								{currentTimer?.triggeredByExerciseIdx === props.exerciseIdx ? (
+									<Progress
+										pos="absolute"
+										color="violet"
+										bottom={-6}
+										value={
+											(currentTimer.endAt.diff(DateTime.now()).as("seconds") *
+												100) /
+											currentTimer.totalTime
+										}
+										size="xs"
+										radius="md"
+										w="100%"
+									/>
+								) : undefined}
 							</Flex>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
 								(n, idx) => (
@@ -602,9 +619,14 @@ const ExerciseDisplay = (props: {
 											fz="xs"
 											leftSection={<IconTrash size={14} />}
 											onClick={() => {
-												const yes = confirm(
-													"Are you sure you want to delete this set?",
-												);
+												const yes = match(s.confirmed)
+													.with(true, () => {
+														return confirm(
+															"Are you sure you want to delete this set?",
+														);
+													})
+													.with(false, () => true)
+													.exhaustive();
 												if (yes)
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
@@ -702,7 +724,10 @@ const ExerciseDisplay = (props: {
 														newConfirmed &&
 														s.lot !== SetLot.WarmUp
 													) {
-														props.startTimer(props.exercise.restTimer.duration);
+														props.startTimer(
+															props.exercise.restTimer.duration,
+															props.exerciseIdx,
+														);
 														props.openTimerDrawer();
 													}
 													setCurrentWorkout(
@@ -1016,10 +1041,11 @@ const Page: NextPageWithLayout = () => {
 		setTime((s) => s + 1);
 	}, 1000);
 
-	const startTimer = (duration: number) => {
+	const startTimer = (duration: number, triggeredByExerciseIdx?: number) => {
 		setCurrentTimer({
 			totalTime: duration,
 			endAt: DateTime.now().plus({ seconds: duration }),
+			triggeredByExerciseIdx,
 		});
 		interval.stop();
 		interval.start();

@@ -23,7 +23,10 @@ pub struct MalConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
-pub struct AnilistConfig {}
+pub struct AnilistConfig {
+    /// Whether to prefer the english name for media from this source.
+    pub prefer_english: bool,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(

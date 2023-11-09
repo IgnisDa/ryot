@@ -2,6 +2,7 @@ query DetailsQuery($id: Int!) {
   Media(id: $id) {
     id
     title {
+      english
       userPreferred
     }
     isAdult

@@ -63,6 +63,7 @@ struct StaffQuery;
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     client: Client,
+    prefer_english: bool,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -84,7 +85,10 @@ impl NonMediaAnilistService {
     pub async fn new() -> Self {
         let client = get_client_config(URL).await;
         Self {
-            base: AnilistService { client },
+            base: AnilistService {
+                client,
+                prefer_english: false,
+            },
         }
     }
 }
@@ -103,10 +107,13 @@ pub struct AnilistAnimeService {
 }
 
 impl AnilistAnimeService {
-    pub async fn new(_config: &config::AnilistConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::AnilistConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
-            base: AnilistService { client },
+            base: AnilistService {
+                client,
+                prefer_english: config.prefer_english,
+            },
             page_limit,
         }
     }
@@ -115,7 +122,7 @@ impl AnilistAnimeService {
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = details(&self.base.client, identifier).await?;
+        let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
@@ -132,6 +139,7 @@ impl MediaProvider for AnilistAnimeService {
             page,
             self.page_limit,
             display_nsfw,
+            self.base.prefer_english,
         )
         .await?;
         Ok(SearchResults {
@@ -148,10 +156,13 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(_config: &config::AnilistConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::AnilistConfig, page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
-            base: AnilistService { client },
+            base: AnilistService {
+                client,
+                prefer_english: config.prefer_english,
+            },
             page_limit,
         }
     }
@@ -160,7 +171,7 @@ impl AnilistMangaService {
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = details(&self.base.client, identifier).await?;
+        let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
@@ -177,6 +188,7 @@ impl MediaProvider for AnilistMangaService {
             page,
             self.page_limit,
             display_nsfw,
+            self.base.prefer_english,
         )
         .await?;
         Ok(SearchResults {
@@ -358,7 +370,7 @@ async fn person_details(
     Ok(data)
 }
 
-async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
+async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {
     let variables = details_query::Variables {
         id: id.parse::<i64>().unwrap(),
     };
@@ -483,9 +495,15 @@ async fn details(client: &Client, id: &str) -> Result<MediaDetails> {
             _ => unreachable!(),
         },
     }));
+    let title = details.title.unwrap();
+    let title = if prefer_english {
+        title.english.or(title.user_preferred).unwrap()
+    } else {
+        title.user_preferred.unwrap()
+    };
     Ok(MediaDetails {
+        title,
         identifier: details.id.to_string(),
-        title: details.title.unwrap().user_preferred.unwrap(),
         is_nsfw: details.is_adult,
         source: MetadataSource::Anilist,
         description: details.description,
@@ -513,6 +531,7 @@ async fn search(
     page: Option<i32>,
     page_limit: i32,
     _is_adult: bool,
+    prefer_english: bool,
 ) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
     let variables = search_query::Variables {
@@ -547,13 +566,21 @@ async fn search(
         .unwrap()
         .into_iter()
         .flatten()
-        .map(|b| MediaSearchItem {
-            identifier: b.id.to_string(),
-            title: b.title.unwrap().user_preferred.unwrap(),
-            image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
-            publish_year: b
-                .start_date
-                .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+        .map(|b| {
+            let title = b.title.unwrap();
+            let title = if prefer_english {
+                title.english.or(title.user_preferred).unwrap()
+            } else {
+                title.user_preferred.unwrap()
+            };
+            MediaSearchItem {
+                identifier: b.id.to_string(),
+                title,
+                image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
+                publish_year: b
+                    .start_date
+                    .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+            }
         })
         .collect();
     Ok((media, total, next_page))
