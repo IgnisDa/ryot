@@ -1,6 +1,12 @@
 import { ColorSchemeScript, Flex, MantineProvider } from "@mantine/core";
 import "@mantine/core/styles.css";
-import { LinksFunction, MetaFunction, json } from "@remix-run/node";
+import "@mantine/notifications/styles.css";
+import {
+	LinksFunction,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
 import {
 	Links,
 	LiveReload,
@@ -8,9 +14,13 @@ import {
 	Outlet,
 	Scripts,
 	ScrollRestoration,
+	useLoaderData,
 } from "@remix-run/react";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
+import { Toaster } from "~/components/toaster";
 import { honeypot } from "~/lib/honeypot.server";
+import { getToast } from "~/lib/toast.server";
+import { combineHeaders } from "~/lib/utils";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -44,11 +54,17 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = () => {
-	return json({ honeypot: honeypot.getInputProps() });
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const { toast, headers: toastHeaders } = await getToast(request);
+	return json(
+		{ honeypot: honeypot.getInputProps(), toast },
+		{ headers: combineHeaders(toastHeaders) },
+	);
 };
 
 export default function App() {
+	const data = useLoaderData<typeof loader>();
+
 	return (
 		<html lang="en">
 			<head>
@@ -64,6 +80,7 @@ export default function App() {
 			<body>
 				<HoneypotProvider>
 					<MantineProvider>
+						<Toaster toast={data.toast} />
 						<Flex style={{ flexGrow: 1 }} mih="100vh">
 							<Outlet />
 						</Flex>

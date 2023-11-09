@@ -24,8 +24,9 @@ import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { gqlClient } from "~/lib/api.server";
-import { APP_ROUTES } from "~/lib/constants.server";
+import { APP_ROUTES } from "~/lib/constants";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
+import { createToastHeaders } from "~/lib/toast.server";
 import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";
@@ -73,10 +74,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			() => "The username provided does not exist",
 		)
 		.exhaustive();
-	notifications.show({
-		title: "Error in login",
-		message,
-		color: "red",
+	return json({ status: "error", submission, message } as const, {
+		headers: await createToastHeaders({
+			message,
+			type: "error",
+		}),
 	});
 };
 
