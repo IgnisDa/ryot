@@ -200,12 +200,6 @@ export interface ServerConfig {
 	 */
 	deploy_admin_jobs_allowed: boolean;
 	/**
-	 * This will make auth cookies insecure and should be set to `true` if you
-	 * are running the server on `localhost`.
-	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
-	 */
-	insecure_cookie: boolean;
-	/**
 	 * The maximum file size in MB for user uploads.
 	 * @default 70
 	 */
@@ -222,8 +216,6 @@ export interface ServerConfig {
 	 * @default 2
 	 */
 	progress_update_threshold: number;
-	/** This will set SameSite=None on the auth cookies. */
-	samesite_none: boolean;
 	/**
 	 * Whether monitored media will be updated.
 	 * @default true

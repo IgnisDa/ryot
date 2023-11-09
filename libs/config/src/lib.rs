@@ -313,12 +313,6 @@ pub struct ServerConfig {
     /// Whether default credentials will be populated on the login page of the
     /// instance.
     pub default_credentials: bool,
-    /// This will make auth cookies insecure and should be set to `true` if you
-    /// are running the server on `localhost`.
-    /// [More information](https://github.com/IgnisDa/ryot/issues/23)
-    pub insecure_cookie: bool,
-    /// This will set SameSite=None on the auth cookies.
-    pub samesite_none: bool,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
