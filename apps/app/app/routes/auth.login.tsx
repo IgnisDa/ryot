@@ -26,6 +26,7 @@ import { z } from "zod";
 import { gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
+import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import classes from "~/styles/auth.module.css";
 
@@ -33,7 +34,7 @@ export const redirectToQueryParam = "redirectTo";
 
 const schema = z.object({
 	username: z.string(),
-	password: z.string(),
+	password: z.string().min(8),
 	[redirectToQueryParam]: z.string().optional(),
 });
 
@@ -47,7 +48,7 @@ export const loader = async (_args: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	// checkHoneypot(formData); // FIXME: This is not working
+	checkHoneypot(formData);
 	const submission = parse(formData, { schema });
 	if (submission.intent !== "submit")
 		return json({ status: "idle", submission } as const);

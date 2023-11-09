@@ -78,7 +78,7 @@ export default function App() {
 				<ColorSchemeScript />
 			</head>
 			<body>
-				<HoneypotProvider>
+				<HoneypotProvider {...data.honeypot}>
 					<MantineProvider>
 						<Toaster toast={data.toast} />
 						<Flex style={{ flexGrow: 1 }} mih="100vh">
