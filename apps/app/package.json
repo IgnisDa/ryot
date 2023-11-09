@@ -3,12 +3,6 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
-  "scripts": {
-    "build": "vite build && vite build --ssr",
-    "dev": "vite dev --host --port 3000",
-    "start": "remix-serve ./build/index.js",
-    "typecheck": "tsc"
-  },
   "dependencies": {
     "@remix-run/node": "^2.2.0",
     "@remix-run/react": "^2.2.0",

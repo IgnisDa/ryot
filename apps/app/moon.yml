@@ -1,0 +1,26 @@
+fileGroups:
+  remix:
+    - app/**/*
+    - public/**/*
+    - env.d.ts
+    - remix.config.*
+
+tasks:
+  dev:
+    command: vite dev --port 3000 --host
+    inputs:
+      - '@group(remix)'
+    local: true
+
+  build:
+    command: vite build && vite build --ssr
+    inputs:
+      - '@group(remix)'
+    outputs:
+      - build
+      - .cache
+      - public/build
+
+  typecheck:
+    inputs:
+      - '@group(remix)'

@@ -3,6 +3,9 @@
   "files": [],
   "references": [
     {
+      "path": "apps/app"
+    },
+    {
       "path": "apps/browser-extension"
     },
     {
