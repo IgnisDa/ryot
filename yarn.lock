@@ -2724,6 +2724,34 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@conform-to/dom@npm:0.9.0":
+  version: 0.9.0
+  resolution: "@conform-to/dom@npm:0.9.0"
+  checksum: e1aa68a08b4d5321f21c3b4f64bbf45e28738bf1fa7c2ba7e1833043c98a7a5156740bdf1c318b96f71828cd57ef9c46247363c91793057623a6d044f54bf546
+  languageName: node
+  linkType: hard
+
+"@conform-to/react@npm:0.9.0":
+  version: 0.9.0
+  resolution: "@conform-to/react@npm:0.9.0"
+  dependencies:
+    "@conform-to/dom": "npm:0.9.0"
+  peerDependencies:
+    react: ">=16.8"
+  checksum: cc86262b654a3ae9872f27791f8219104da5385d4a34e77cb5b9f7f6f3d41dc9a05fe9dd6cfc6501706a109a6af843cbe6f845234ea46e56ffe32d2c0d46c14c
+  languageName: node
+  linkType: hard
+
+"@conform-to/zod@npm:0.9.0":
+  version: 0.9.0
+  resolution: "@conform-to/zod@npm:0.9.0"
+  peerDependencies:
+    "@conform-to/dom": 0.9.0
+    zod: ^3.21.0
+  checksum: 4e964975f0803bc53b1f6a15b7f2556830902454782a4a8298160a89707de0cd1a3d27a8e76fcff104759ef5ccc9ab524d48f31953ba063d0664e75740bf862f
+  languageName: node
+  linkType: hard
+
 "@emotion/hash@npm:^0.9.0":
   version: 0.9.1
   resolution: "@emotion/hash@npm:0.9.1"
@@ -6231,6 +6259,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/app@workspace:apps/app"
   dependencies:
+    "@conform-to/react": "npm:0.9.0"
+    "@conform-to/zod": "npm:0.9.0"
     "@mantine/carousel": "npm:7.2.1"
     "@mantine/core": "npm:7.2.1"
     "@mantine/dates": "npm:7.2.1"
@@ -6246,8 +6276,10 @@ __metadata:
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
+    "@types/crypto-js": "npm:^4"
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.7"
+    crypto-js: "npm:4.2.0"
     eslint: "npm:8.38.0"
     graphql-request: "npm:6.1.0"
     isbot: "npm:3.6.8"
@@ -6256,11 +6288,13 @@ __metadata:
     postcss-simple-vars: "npm:7.0.1"
     react: "npm:18.2.0"
     react-dom: "npm:18.2.0"
+    remix-utils: "npm:7.1.0"
     ts-pattern: "npm:5.0.5"
     typescript: "npm:5.1.6"
     typescript-plugin-css-modules: "npm:5.0.2"
     vite: "npm:4.5.0"
     vite-tsconfig-paths: "npm:4.2.1"
+    zod: "npm:3.22.4"
   languageName: unknown
   linkType: soft
 
@@ -6893,6 +6927,13 @@ __metadata:
   version: 0.5.1
   resolution: "@types/cookie@npm:0.5.1"
   checksum: 4237fff264ff57dc58aef273d78dec267ff1e4f6977bf986e3f19e39848b01e26dad628261a92f8ad55f563c8256efaa6dad2293b2a6d47c0afc1aa31d93c6a2
+  languageName: node
+  linkType: hard
+
+"@types/crypto-js@npm:^4":
+  version: 4.2.1
+  resolution: "@types/crypto-js@npm:4.2.1"
+  checksum: 413a3de36ff916fd796aac6069dc4afba26c3add11c2570eff43f98eb86e34ed8fa2693636743d13685f038f9d3a21e3327b33e3a06c3cb332be5ca64b802925
   languageName: node
   linkType: hard
 
@@ -9250,6 +9291,13 @@ __metadata:
     shebang-command: "npm:^2.0.0"
     which: "npm:^2.0.1"
   checksum: e1a13869d2f57d974de0d9ef7acbf69dc6937db20b918525a01dacb5032129bd552d290d886d981e99f1b624cb03657084cc87bd40f115c07ecf376821c729ce
+  languageName: node
+  linkType: hard
+
+"crypto-js@npm:4.2.0":
+  version: 4.2.0
+  resolution: "crypto-js@npm:4.2.0"
+  checksum: c7bcc56a6e01c3c397e95aa4a74e4241321f04677f9a618a8f48a63b5781617248afb9adb0629824792e7ec20ca0d4241a49b6b2938ae6f973ec4efc5c53c924
   languageName: node
   linkType: hard
 
@@ -16979,6 +17027,47 @@ __metadata:
   languageName: node
   linkType: hard
 
+"remix-utils@npm:7.1.0":
+  version: 7.1.0
+  resolution: "remix-utils@npm:7.1.0"
+  dependencies:
+    type-fest: "npm:^4.3.3"
+  peerDependencies:
+    "@remix-run/cloudflare": ^2.0.0
+    "@remix-run/deno": ^2.0.0
+    "@remix-run/node": ^2.0.0
+    "@remix-run/react": ^2.0.0
+    "@remix-run/router": ^1.7.2
+    crypto-js: ^4.1.1
+    intl-parse-accept-language: ^1.0.0
+    is-ip: ^5.0.1
+    react: ^18.0.0
+    zod: ^3.22.4
+  peerDependenciesMeta:
+    "@remix-run/cloudflare":
+      optional: true
+    "@remix-run/deno":
+      optional: true
+    "@remix-run/node":
+      optional: true
+    "@remix-run/react":
+      optional: true
+    "@remix-run/router":
+      optional: true
+    crypto-js:
+      optional: true
+    intl-parse-accept-language:
+      optional: true
+    is-ip:
+      optional: true
+    react:
+      optional: true
+    zod:
+      optional: true
+  checksum: ca2f754a73ad4d60ba9ae8bb44e7aa18d6b0e29de747b7ff17e8f661b36f702c34d53c1546175a8b6f8fde7b991ecf06bb3328a6952a2219ce979716e74afba7
+  languageName: node
+  linkType: hard
+
 "remove-trailing-separator@npm:^1.0.1":
   version: 1.1.0
   resolution: "remove-trailing-separator@npm:1.1.0"
@@ -18825,6 +18914,13 @@ __metadata:
   version: 3.13.1
   resolution: "type-fest@npm:3.13.1"
   checksum: 9a8a2359ada34c9b3affcaf3a8f73ee14c52779e89950db337ce66fb74c3399776c697c99f2532e9b16e10e61cfdba3b1c19daffb93b338b742f0acd0117ce12
+  languageName: node
+  linkType: hard
+
+"type-fest@npm:^4.3.3":
+  version: 4.7.0
+  resolution: "type-fest@npm:4.7.0"
+  checksum: eebb9297b3f4a929db98ef56d459e1ca1cccac5cb53696fb2d6264b33a3df9857727fa7951796b29092d9d271ad7fc033970b23e3275ed26a61647988fe91fb4
   languageName: node
   linkType: hard
 

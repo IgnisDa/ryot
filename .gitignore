@@ -45,7 +45,6 @@ web-build/
 .nitro
 .cache
 docs/site
-*.log*
 .plasmo
 node_modules
 .cache

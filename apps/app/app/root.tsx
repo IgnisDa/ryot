@@ -1,6 +1,6 @@
-import { ColorSchemeScript, MantineProvider } from "@mantine/core";
+import { ColorSchemeScript, Flex, MantineProvider } from "@mantine/core";
 import "@mantine/core/styles.css";
-import { LinksFunction, MetaFunction } from "@remix-run/node";
+import { LinksFunction, MetaFunction, json } from "@remix-run/node";
 import {
 	Links,
 	LiveReload,
@@ -9,6 +9,8 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "@remix-run/react";
+import { HoneypotProvider } from "remix-utils/honeypot/react";
+import { honeypot } from "~/lib/honeypot.server";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -42,6 +44,10 @@ export const links: LinksFunction = () => {
 	];
 };
 
+export const loader = () => {
+	return json({ honeypot: honeypot.getInputProps() });
+};
+
 export default function App() {
 	return (
 		<html lang="en">
@@ -56,12 +62,16 @@ export default function App() {
 				<ColorSchemeScript />
 			</head>
 			<body>
-				<MantineProvider>
-					<Outlet />
-					<ScrollRestoration />
-					<LiveReload />
-					<Scripts />
-				</MantineProvider>
+				<HoneypotProvider>
+					<MantineProvider>
+						<Flex style={{ flexGrow: 1 }} mih="100vh">
+							<Outlet />
+						</Flex>
+						<ScrollRestoration />
+						<LiveReload />
+						<Scripts />
+					</MantineProvider>
+				</HoneypotProvider>
 			</body>
 		</html>
 	);
