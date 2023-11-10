@@ -23,25 +23,30 @@ import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { gqlClient } from "~/lib/api.server";
+import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
 import { authCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
-import { createToastHeaders } from "~/lib/toast.server";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";
 
 const schema = z.object({
 	username: z.string(),
-	password: z.string().min(8),
+	password: z.string(),
 	[redirectToQueryParam]: z.string().optional(),
 });
 
 export const meta: MetaFunction = () => [{ title: "Login | Ryot" }];
 
-export const loader = async (_args: LoaderFunctionArgs) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const isAuthenticated = await getIsAuthenticated(request);
+	if (isAuthenticated)
+		return redirectWithToast(APP_ROUTES.dashboard, {
+			message: "You were already logged in",
+		});
 	const enabledFeatures = await getCoreEnabledFeatures();
 	const coreDetails = await getCoreDetails();
 	return json({ enabledFeatures, coreDetails });
