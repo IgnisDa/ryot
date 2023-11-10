@@ -61,9 +61,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 	});
 	if (loginUser.__typename === "LoginResponse") {
+		let redirectUrl = APP_ROUTES.dashboard as string;
 		if (submission.value[redirectToQueryParam])
-			return redirect(safeRedirect(submission.value[redirectToQueryParam]));
-		else return redirect(APP_ROUTES.dashboard);
+			redirectUrl = safeRedirect(submission.value[redirectToQueryParam]);
+		return redirect(redirectUrl);
 	}
 	const message = match(loginUser.error)
 		.with(
