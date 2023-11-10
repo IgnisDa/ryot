@@ -283,6 +283,7 @@ struct LoginError {
 #[derive(Debug, SimpleObject)]
 struct LoginResponse {
     api_key: String,
+    valid_for: i64,
 }
 
 #[derive(Union)]
@@ -4493,7 +4494,10 @@ impl MiscellaneousService {
             &self.config.users.jwt_secret,
             self.config.users.token_valid_for_days,
         )?;
-        Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
+        Ok(LoginResult::Ok(LoginResponse {
+            api_key: jwt_key,
+            valid_for: self.config.users.token_valid_for_days,
+        }))
     }
 
     // this job is run when a user is created for the first time
