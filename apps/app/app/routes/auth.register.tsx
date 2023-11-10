@@ -40,7 +40,7 @@ const schema = z
 export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const isAuthenticated = await getIsAuthenticated(request);
+	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
 		return redirectWithToast(APP_ROUTES.dashboard, {
 			message: "You were already logged in",

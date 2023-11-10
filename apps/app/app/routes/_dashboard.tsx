@@ -55,7 +55,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		return redirect(APP_ROUTES.auth.login, {
 			status: 302,
 			headers: await createToastHeaders({
-				message: "You must be logged in to view this page.",
+				message: "You must be logged in to view this page",
 			}),
 		});
 	const userPreferences = await getUserPreferences(request);
@@ -381,12 +381,12 @@ export default function Layout() {
 				</Box>
 				<Stack gap="xs">
 					<Flex direction="column" justify="center" gap="md">
-						<Form method="POST" action="/toggle-color-scheme">
+						<Form method="POST" action="/actions">
+							<input type="hidden" name="intent" value="toggleColorScheme" />
 							<Group justify="center">
 								<UnstyledButton
 									aria-label="Toggle theme"
 									className={classes.control2}
-									title="Ctrl + J"
 									type="submit"
 								>
 									<Center className={classes.iconWrapper}>
@@ -401,16 +401,19 @@ export default function Layout() {
 								</UnstyledButton>
 							</Group>
 						</Form>
-						<UnstyledButton
-							mx="auto"
-							// onClick={() => logoutUser.mutate()}
-							className={classes.oldLink}
-						>
-							<Group>
-								<IconLogout size={19.2} />
-								<Text>Logout</Text>
-							</Group>
-						</UnstyledButton>
+						<Form method="POST" action="/actions" style={{ display: "flex" }}>
+							<input type="hidden" name="intent" value="logout" />
+							<UnstyledButton
+								mx="auto"
+								className={classes.oldLink}
+								type="submit"
+							>
+								<Group>
+									<IconLogout size={19.2} />
+									<Text>Logout</Text>
+								</Group>
+							</UnstyledButton>
+						</Form>
 					</Flex>
 				</Stack>
 			</AppShell.Navbar>
