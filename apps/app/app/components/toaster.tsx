@@ -7,7 +7,7 @@ export function Toaster({ toast }: { toast?: Toast | null }) {
 	return (
 		<>
 			<Notifications />
-			{toast ? <ShowToast toast={toast} /> : null}
+			{toast ? <ShowToast toast={toast} /> : undefined}
 		</>
 	);
 }
@@ -16,23 +16,18 @@ function ShowToast({ toast }: { toast: Toast }) {
 	const { id, type, title, message } = toast;
 	useEffect(() => {
 		setTimeout(() => {
+			const [defaultTitle, defaultColor] = match(type)
+				.with("error", () => ["Error", "red"] as const)
+				.with("message", () => ["Message", "blue"] as const)
+				.with("success", () => ["Success", "green"] as const)
+				.exhaustive();
 			notifications.show({
 				id,
 				message,
-				title:
-					title ??
-					match(type)
-						.with("error", () => "Error")
-						.with("message", () => "Message")
-						.with("success", () => "Success")
-						.exhaustive(),
-				color: match(type)
-					.with("error", () => "red")
-					.with("message", () => "blue")
-					.with("success", () => "green")
-					.exhaustive(),
+				title: title ?? defaultTitle,
+				color: defaultColor,
 			});
 		}, 0);
 	}, [message, id, title, type]);
-	return null;
+	return undefined;
 }
