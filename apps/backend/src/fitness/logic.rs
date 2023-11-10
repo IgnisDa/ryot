@@ -180,6 +180,8 @@ impl UserWorkoutInput {
                 let mut value = WorkoutSetRecord {
                     statistic: set.statistic.clone(),
                     lot: set.lot,
+                    started_at: set.started_at,
+                    ended_at: set.ended_at,
                     personal_bests: vec![],
                 };
                 value.statistic.one_rm = value.calculate_one_rm();

@@ -157,8 +157,10 @@ export interface WorkoutSetStatistic {
 
 /** Details about the set performed. */
 export interface WorkoutSetRecord {
+	endedAt: string | null;
 	lot: SetLot;
 	personalBests: WorkoutSetPersonalBest[];
+	startedAt: string | null;
 	statistic: WorkoutSetStatistic;
 }
 
