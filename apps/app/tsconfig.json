@@ -45,5 +45,16 @@
     ],
     "noEmit": true,
     "outDir": "../../.moon/cache/types/apps/app"
-  }
+  },
+  "references": [
+    {
+      "path": "../../libs/generated"
+    },
+    {
+      "path": "../../libs/graphql"
+    },
+    {
+      "path": "../../libs/ts-utils"
+    }
+  ]
 }
