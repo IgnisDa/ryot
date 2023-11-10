@@ -3,6 +3,7 @@ import {
 	AppShell,
 	Box,
 	Burger,
+	Center,
 	Collapse,
 	Flex,
 	Group,
@@ -12,13 +13,18 @@ import {
 	Text,
 	ThemeIcon,
 	UnstyledButton,
-	useComputedColorScheme,
 	useDirection,
+	useMantineColorScheme,
 	useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { LoaderFunctionArgs, json, redirect } from "@remix-run/node";
-import { Link, Outlet, useLoaderData } from "@remix-run/react";
+import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	json,
+	redirect,
+} from "@remix-run/node";
+import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetails,
 	UpgradeType,
@@ -33,14 +39,17 @@ import {
 	IconDeviceSpeaker,
 	IconHome2,
 	IconLogout,
+	IconMoon,
 	IconSettings,
 	IconStretching,
+	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { getIsAuthenticated } from "~/lib/api.server";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
+import { colorSchemeCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { getLot } from "~/lib/utilities";
@@ -106,6 +115,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userDetails,
 		coreDetails,
 	});
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const currentColorScheme = await colorSchemeCookie.parse(
+		request.headers.get("Cookie") || "",
+	);
+	const newColorScheme = currentColorScheme === "light" ? "dark" : "light";
+	return json(
+		{},
+		{
+			headers: {
+				"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
+			},
+		},
+	);
 };
 
 interface LinksGroupProps {
@@ -255,7 +279,8 @@ export default function Layout() {
 	});
 	const theme = useMantineTheme();
 	const [opened, { toggle, close }] = useDisclosure(false);
-	const colorScheme = useComputedColorScheme("dark");
+	const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+	const Icon = colorScheme === "dark" ? IconSun : IconMoon;
 
 	return (
 		<AppShell
@@ -373,10 +398,27 @@ export default function Layout() {
 				</Box>
 				<Stack gap="xs">
 					<Flex direction="column" justify="center" gap="md">
-						{/* <ThemeToggle /> */}
+						<Form method="POST" reloadDocument>
+							<Group justify="center">
+								<UnstyledButton
+									aria-label="Toggle theme"
+									className={classes.control2}
+									onClick={() => toggleColorScheme()}
+									title="Ctrl + J"
+								>
+									<Center className={classes.iconWrapper}>
+										<Icon size={16.8} stroke={1.5} />
+									</Center>
+									<Text size="sm" className={classes.value}>
+										{upperFirst(colorScheme === "light" ? "dark" : "light")}{" "}
+										theme
+									</Text>
+								</UnstyledButton>
+							</Group>
+						</Form>
 						<UnstyledButton
 							mx="auto"
-							onClick={() => logoutUser.mutate()}
+							// onClick={() => logoutUser.mutate()}
 							className={classes.oldLink}
 						>
 							<Group>

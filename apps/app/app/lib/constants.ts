@@ -57,7 +57,8 @@ export const APP_ROUTES = {
 } as const;
 
 export const COOKIES_KEYS = {
-	authCookieName: "0",
+	auth: "0",
+	colorScheme: "1",
 };
 
 export const LOCAL_STORAGE_KEYS = {

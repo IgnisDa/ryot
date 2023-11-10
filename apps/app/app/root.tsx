@@ -1,4 +1,12 @@
-import { ColorSchemeScript, Flex, MantineProvider } from "@mantine/core";
+import {
+	ActionIcon,
+	Alert,
+	ColorSchemeScript,
+	Flex,
+	MantineColorScheme,
+	MantineProvider,
+	createTheme,
+} from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import {
@@ -21,6 +29,20 @@ import { Toaster } from "~/components/toaster";
 import { honeypot } from "~/lib/honeypot.server";
 import { getToast } from "~/lib/toast.server";
 import { combineHeaders } from "~/lib/utils";
+import { colorSchemeCookie } from "./lib/cookies.server";
+
+const theme = createTheme({
+	fontFamily: "Poppins",
+	components: {
+		ActionIcon: ActionIcon.extend({
+			defaultProps: {
+				variant: "subtle",
+				color: "gray",
+			},
+		}),
+		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
+	},
+});
 
 export const meta: MetaFunction = () => {
 	return [
@@ -51,19 +73,28 @@ export const links: LinksFunction = () => {
 			sizes: "16x16",
 			href: "/favicon-16x16.png",
 		},
+		{
+			rel: "stylesheet",
+			href: "https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap",
+		},
 	];
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const honeyProps = honeypot.getInputProps();
 	const { toast, headers: toastHeaders } = await getToast(request);
+	const colorScheme = await colorSchemeCookie.parse(
+		request.headers.get("Cookie") || "",
+	);
+	const defaultColorScheme: MantineColorScheme = colorScheme || "light";
 	return json(
-		{ honeypot: honeypot.getInputProps(), toast },
+		{ honeyProps, toast, defaultColorScheme },
 		{ headers: combineHeaders(toastHeaders) },
 	);
 };
 
 export default function App() {
-	const data = useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof loader>();
 
 	return (
 		<html lang="en">
@@ -75,12 +106,16 @@ export default function App() {
 				/>
 				<Meta />
 				<Links />
-				<ColorSchemeScript />
+				<ColorSchemeScript defaultColorScheme={loaderData.defaultColorScheme} />
 			</head>
 			<body>
-				<HoneypotProvider {...data.honeypot}>
-					<MantineProvider>
-						<Toaster toast={data.toast} />
+				<HoneypotProvider {...loaderData.honeyProps}>
+					<MantineProvider
+						classNamesPrefix="mnt"
+						theme={theme}
+						defaultColorScheme={loaderData.defaultColorScheme}
+					>
+						<Toaster toast={loaderData.toast} />
 						<Flex style={{ flexGrow: 1 }} mih="100vh">
 							<Outlet />
 						</Flex>
