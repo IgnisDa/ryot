@@ -108,11 +108,11 @@ impl UserWorkoutInput {
         let mut input = self;
         let mut exercises = vec![];
         let mut workout_totals = vec![];
-        if input.exercises.len() == 0 {
+        if input.exercises.is_empty() {
             bail!("This workout has no associated exercises")
         }
         for (idx, ex) in input.exercises.iter_mut().enumerate() {
-            if ex.sets.len() == 0 {
+            if ex.sets.is_empty() {
                 bail!("This exercise has no associated sets")
             }
             let db_ex = match Exercise::find_by_id(ex.exercise_id.clone()).one(db).await? {

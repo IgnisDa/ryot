@@ -594,7 +594,6 @@ impl ExerciseService {
                 force: ActiveValue::Set(ex.attributes.force),
                 equipment: ActiveValue::Set(ex.attributes.equipment),
                 mechanic: ActiveValue::Set(ex.attributes.mechanic),
-                ..Default::default()
             };
             let created_exercise = db_exercise.insert(&self.db).await?;
             tracing::trace!("Created new exercise with id: {}", created_exercise.id);
