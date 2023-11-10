@@ -21,6 +21,8 @@ export type ExerciseSet = {
 	statistic: ExerciseSetStats;
 	lot: SetLot;
 	confirmed: boolean;
+	startedAt?: string | null;
+	endedAt?: string | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -93,6 +95,8 @@ export const duplicateOldWorkout = (
 					: undefined,
 				weight: s.statistic.weight ? Number(s.statistic.weight) : undefined,
 			},
+			startedAt: s.startedAt,
+			endedAt: s.endedAt,
 		}));
 		inProgress.exercises.push({
 			images: [],

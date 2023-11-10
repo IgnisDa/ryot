@@ -722,7 +722,8 @@ const Page: NextPageWithLayout = () => {
 								>
 									<Image
 										alt="Logo"
-										height={20}
+										h={24}
+										w={24}
 										src={`/images/provider-logos/${match(
 											mediaDetails.data.source,
 										)
@@ -749,7 +750,6 @@ const Page: NextPageWithLayout = () => {
 											.with(MetadataSource.Custom, () => undefined)
 											.exhaustive()}`}
 									/>
-
 									<Text fz="sm">
 										{Number(mediaDetails.data.providerRating).toFixed(1)}
 										{match(mediaDetails.data.source)
@@ -791,7 +791,7 @@ const Page: NextPageWithLayout = () => {
 										gap: 6,
 									}}
 								>
-									<IconStarFilled size={19.2} style={{ color: "#EBE600FF" }} />
+									<IconStarFilled size={22} style={{ color: "#EBE600FF" }} />
 									<Text fz="sm">
 										{Number(userMediaDetails.data.averageRating).toFixed(1)}
 										{preferences.data.general.reviewScale ===
