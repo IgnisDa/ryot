@@ -405,7 +405,7 @@ const ExerciseDisplay = (props: {
 									{props.exercise.name}
 								</Anchor>
 								<Menu.Target>
-									<ActionIcon color="blue">
+									<ActionIcon color="blue" mr={-10}>
 										<IconDotsVertical />
 									</ActionIcon>
 								</Menu.Target>
@@ -728,13 +728,15 @@ const ExerciseDisplay = (props: {
 															props.exercise.restTimer.duration,
 															props.exerciseIdx,
 														);
-														props.openTimerDrawer();
 													}
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
 															draft.exercises[props.exerciseIdx].sets[
 																idx
 															].confirmed = newConfirmed;
+															draft.exercises[props.exerciseIdx].sets[
+																idx
+															].endedAt = DateTime.now().toISO();
 														}),
 													);
 												}}
@@ -758,6 +760,7 @@ const ExerciseDisplay = (props: {
 										statistic: currentSet?.statistic ?? {},
 										lot: SetLot.Normal,
 										confirmed: false,
+										startedAt: DateTime.now().toISO(),
 									});
 								}),
 							);
