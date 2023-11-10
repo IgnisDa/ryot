@@ -3,6 +3,7 @@ import {
 	Alert,
 	ColorSchemeScript,
 	Flex,
+	Loader,
 	MantineProvider,
 	createTheme,
 } from "@mantine/core";
@@ -22,6 +23,7 @@ import {
 	Scripts,
 	ScrollRestoration,
 	useLoaderData,
+	useNavigation,
 } from "@remix-run/react";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import { Toaster } from "~/components/toaster";
@@ -93,6 +95,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
+	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
 
 	return (
@@ -114,6 +117,16 @@ export default function App() {
 						theme={theme}
 						forceColorScheme={loaderData.defaultColorScheme}
 					>
+						{navigation.state === "loading" ||
+						navigation.state === "submitting" ? (
+							<Loader
+								pos="fixed"
+								right={10}
+								top={10}
+								size="sm"
+								color="yellow"
+							/>
+						) : undefined}
 						<Toaster toast={loaderData.toast} />
 						<Flex style={{ flexGrow: 1 }} mih="100vh">
 							<Outlet />
