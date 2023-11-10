@@ -25,6 +25,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
+import { authCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -64,7 +65,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		let redirectUrl = APP_ROUTES.dashboard as string;
 		if (submission.value[redirectToQueryParam])
 			redirectUrl = safeRedirect(submission.value[redirectToQueryParam]);
-		return redirect(redirectUrl);
+		return redirect(redirectUrl, {
+			headers: {
+				"Set-Cookie": await authCookie.serialize(loginUser.apiKey, {
+					maxAge: loginUser.validFor * 24 * 60 * 60,
+				}),
+			},
+		});
 	}
 	const message = match(loginUser.error)
 		.with(
