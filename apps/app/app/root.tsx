@@ -3,7 +3,6 @@ import {
 	Alert,
 	ColorSchemeScript,
 	Flex,
-	MantineColorScheme,
 	MantineProvider,
 	createTheme,
 } from "@mantine/core";
@@ -86,7 +85,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const colorScheme = await colorSchemeCookie.parse(
 		request.headers.get("Cookie") || "",
 	);
-	const defaultColorScheme: MantineColorScheme = colorScheme || "light";
+	const defaultColorScheme = colorScheme || "light";
 	return json(
 		{ honeyProps, toast, defaultColorScheme },
 		{ headers: combineHeaders(toastHeaders) },
@@ -106,14 +105,14 @@ export default function App() {
 				/>
 				<Meta />
 				<Links />
-				<ColorSchemeScript defaultColorScheme={loaderData.defaultColorScheme} />
+				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
 			</head>
 			<body>
 				<HoneypotProvider {...loaderData.honeyProps}>
 					<MantineProvider
 						classNamesPrefix="mnt"
 						theme={theme}
-						defaultColorScheme={loaderData.defaultColorScheme}
+						forceColorScheme={loaderData.defaultColorScheme}
 					>
 						<Toaster toast={loaderData.toast} />
 						<Flex style={{ flexGrow: 1 }} mih="100vh">

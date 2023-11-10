@@ -14,16 +14,10 @@ import {
 	ThemeIcon,
 	UnstyledButton,
 	useDirection,
-	useMantineColorScheme,
 	useMantineTheme,
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
-import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	json,
-	redirect,
-} from "@remix-run/node";
+import { LoaderFunctionArgs, json, redirect } from "@remix-run/node";
 import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetails,
@@ -108,28 +102,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		label: link.label,
 		link: link.href,
 	}));
+	const currentColorScheme = await colorSchemeCookie.parse(
+		request.headers.get("Cookie") || "",
+	);
 	return json({
 		mediaLinks,
 		fitnessLinks,
 		userPreferences,
 		userDetails,
 		coreDetails,
+		currentColorScheme,
 	});
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-	const currentColorScheme = await colorSchemeCookie.parse(
-		request.headers.get("Cookie") || "",
-	);
-	const newColorScheme = currentColorScheme === "light" ? "dark" : "light";
-	return json(
-		{},
-		{
-			headers: {
-				"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
-			},
-		},
-	);
 };
 
 interface LinksGroupProps {
@@ -267,6 +250,7 @@ export default function Layout() {
 		userPreferences,
 		userDetails,
 		coreDetails,
+		currentColorScheme,
 	} = useLoaderData<typeof loader>();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<{
 		media: boolean;
@@ -278,9 +262,8 @@ export default function Layout() {
 		getInitialValueInEffect: true,
 	});
 	const theme = useMantineTheme();
-	const [opened, { toggle, close }] = useDisclosure(false);
-	const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-	const Icon = colorScheme === "dark" ? IconSun : IconMoon;
+	const [opened, { toggle }] = useDisclosure(false);
+	const Icon = currentColorScheme === "dark" ? IconSun : IconMoon;
 
 	return (
 		<AppShell
@@ -398,19 +381,21 @@ export default function Layout() {
 				</Box>
 				<Stack gap="xs">
 					<Flex direction="column" justify="center" gap="md">
-						<Form method="POST" reloadDocument>
+						<Form method="POST" action="/toggle-color-scheme">
 							<Group justify="center">
 								<UnstyledButton
 									aria-label="Toggle theme"
 									className={classes.control2}
-									onClick={() => toggleColorScheme()}
 									title="Ctrl + J"
+									type="submit"
 								>
 									<Center className={classes.iconWrapper}>
 										<Icon size={16.8} stroke={1.5} />
 									</Center>
 									<Text size="sm" className={classes.value}>
-										{upperFirst(colorScheme === "light" ? "dark" : "light")}{" "}
+										{upperFirst(
+											currentColorScheme === "light" ? "dark" : "light",
+										)}{" "}
 										theme
 									</Text>
 								</UnstyledButton>
@@ -435,7 +420,7 @@ export default function Layout() {
 						<Group>
 							<Image
 								src={
-									colorScheme === "dark"
+									currentColorScheme === "dark"
 										? "/logo-light.png"
 										: "/icon-512x512.png"
 								}
