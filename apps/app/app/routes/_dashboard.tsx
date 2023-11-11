@@ -17,7 +17,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { LoaderFunctionArgs, json, redirect } from "@remix-run/node";
+import { LoaderFunctionArgs, json } from "@remix-run/node";
 import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetails,
@@ -41,23 +41,15 @@ import {
 import { produce } from "immer";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { getIsAuthenticated } from "~/lib/api.server";
+import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
-import { createToastHeaders } from "~/lib/toast.server";
 import { getLot } from "~/lib/utilities";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
-	if (!isAuthenticated)
-		return redirect(APP_ROUTES.auth.login, {
-			status: 302,
-			headers: await createToastHeaders({
-				message: "You must be logged in to view this page",
-			}),
-		});
+	const userDetails = await redirectIfNotAuthenticated(request);
 	const userPreferences = await getUserPreferences(request);
 	const coreDetails = await getCoreDetails();
 

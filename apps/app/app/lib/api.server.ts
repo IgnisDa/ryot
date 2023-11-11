@@ -1,6 +1,9 @@
+import { redirect } from "@remix-run/node";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
 import { authCookie } from "~/lib/cookies.server";
+import { APP_ROUTES } from "./constants";
+import { createToastHeaders } from "./toast.server";
 
 export const API_URL = import.meta.env.VITE_API_URL;
 
@@ -27,4 +30,16 @@ export const getIsAuthenticated = async (request: Request) => {
 		await getAuthorizationHeader(request),
 	);
 	return [userDetails.__typename === "User", userDetails] as const;
+};
+
+export const redirectIfNotAuthenticated = async (request: Request) => {
+	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
+	if (!isAuthenticated)
+		throw redirect(APP_ROUTES.auth.login, {
+			status: 302,
+			headers: await createToastHeaders({
+				message: "You must be logged in to view this page",
+			}),
+		});
+	return userDetails;
 };
