@@ -107,134 +107,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	});
 };
 
-interface LinksGroupProps {
-	// biome-ignore lint/suspicious/noExplicitAny: required here
-	icon: React.FC<any>;
-	label: string;
-	href?: string;
-	opened: boolean;
-	setOpened: (v: boolean) => void;
-	links?: { label: string; link: string }[];
-}
-
-export function LinksGroup({
-	icon: Icon,
-	label,
-	href,
-	setOpened,
-	opened,
-	links,
-}: LinksGroupProps) {
-	const { dir } = useDirection();
-	const hasLinks = Array.isArray(links);
-	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
-	const items = (hasLinks ? links : []).map((link) => (
-		<Link className={classes.link} to={link.link} key={link.label}>
-			{link.label}
-		</Link>
-	));
-
-	return (
-		<>
-			<UnstyledButton<typeof Link>
-				component={!hasLinks ? Link : undefined}
-				// biome-ignore lint/suspicious/noExplicitAny: required here
-				to={!hasLinks ? href : (undefined as any)}
-				onClick={
-					hasLinks
-						? () => {
-								setOpened(!opened);
-						  }
-						: undefined
-				}
-				className={classes.control}
-			>
-				<Group justify="space-between" gap={0}>
-					<Box style={{ display: "flex", alignItems: "center" }}>
-						<ThemeIcon variant="light" size={30}>
-							<Icon size={17.6} />
-						</ThemeIcon>
-						<Box ml="md">{label}</Box>
-					</Box>
-					{hasLinks ? (
-						<ChevronIcon
-							className={classes.chevron}
-							size={16}
-							stroke={1.5}
-							style={{
-								transform: opened
-									? `rotate(${dir === "rtl" ? -90 : 90}deg)`
-									: "none",
-							}}
-						/>
-					) : undefined}
-				</Group>
-			</UnstyledButton>
-			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : undefined}
-		</>
-	);
-}
-
-const Footer = (props: { coreDetails: CoreDetails }) => {
-	const [color, text] = match(props.coreDetails.upgrade)
-		.with(undefined, null, () => [undefined, undefined])
-		.with(
-			UpgradeType.Minor,
-			() => ["blue", "There is an update available."] as const,
-		)
-		.with(
-			UpgradeType.Major,
-			() =>
-				[
-					"red",
-					<>
-						There is a major upgrade, please follow the{" "}
-						<Anchor
-							href="https://ignisda.github.io/ryot/migration.html"
-							target="_blank"
-						>
-							migration
-						</Anchor>{" "}
-						docs.
-					</>,
-				] as const,
-		)
-		.exhaustive();
-
-	return (
-		<Stack>
-			{props.coreDetails.upgrade ? (
-				<Text ta="center" c={color}>
-					{text}
-				</Text>
-			) : undefined}
-			<Flex gap={80} justify="center">
-				<Anchor
-					href={`${props.coreDetails.repositoryLink}/releases/v${props.coreDetails.version}`}
-					target="_blank"
-				>
-					<Text c="red" fw="bold">
-						v{props.coreDetails.version}
-					</Text>
-				</Anchor>
-				<Anchor href="https://diptesh.me" target="_blank">
-					<Text c="indigo" fw="bold">
-						{props.coreDetails.authorName}
-					</Text>
-				</Anchor>
-				<Text c="pink" fw="bold" visibleFrom="md">
-					{props.coreDetails.timezone}
-				</Text>
-				<Anchor href={props.coreDetails.repositoryLink} target="_blank">
-					<Text c="orange" fw="bold">
-						Github
-					</Text>
-				</Anchor>
-			</Flex>
-		</Stack>
-	);
-};
-
 export default function Layout() {
 	const {
 		fitnessLinks,
@@ -446,3 +318,131 @@ export default function Layout() {
 		</AppShell>
 	);
 }
+
+interface LinksGroupProps {
+	// biome-ignore lint/suspicious/noExplicitAny: required here
+	icon: React.FC<any>;
+	label: string;
+	href?: string;
+	opened: boolean;
+	setOpened: (v: boolean) => void;
+	links?: { label: string; link: string }[];
+}
+
+export function LinksGroup({
+	icon: Icon,
+	label,
+	href,
+	setOpened,
+	opened,
+	links,
+}: LinksGroupProps) {
+	const { dir } = useDirection();
+	const hasLinks = Array.isArray(links);
+	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
+	const items = (hasLinks ? links : []).map((link) => (
+		<Link className={classes.link} to={link.link} key={link.label}>
+			{link.label}
+		</Link>
+	));
+
+	return (
+		<>
+			<UnstyledButton<typeof Link>
+				component={!hasLinks ? Link : undefined}
+				// biome-ignore lint/suspicious/noExplicitAny: required here
+				to={!hasLinks ? href : (undefined as any)}
+				onClick={
+					hasLinks
+						? () => {
+								setOpened(!opened);
+						  }
+						: undefined
+				}
+				className={classes.control}
+			>
+				<Group justify="space-between" gap={0}>
+					<Box style={{ display: "flex", alignItems: "center" }}>
+						<ThemeIcon variant="light" size={30}>
+							<Icon size={17.6} />
+						</ThemeIcon>
+						<Box ml="md">{label}</Box>
+					</Box>
+					{hasLinks ? (
+						<ChevronIcon
+							className={classes.chevron}
+							size={16}
+							stroke={1.5}
+							style={{
+								transform: opened
+									? `rotate(${dir === "rtl" ? -90 : 90}deg)`
+									: "none",
+							}}
+						/>
+					) : undefined}
+				</Group>
+			</UnstyledButton>
+			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : undefined}
+		</>
+	);
+}
+
+const Footer = (props: { coreDetails: CoreDetails }) => {
+	const [color, text] = match(props.coreDetails.upgrade)
+		.with(undefined, null, () => [undefined, undefined])
+		.with(
+			UpgradeType.Minor,
+			() => ["blue", "There is an update available."] as const,
+		)
+		.with(
+			UpgradeType.Major,
+			() =>
+				[
+					"red",
+					<>
+						There is a major upgrade, please follow the{" "}
+						<Anchor
+							href="https://ignisda.github.io/ryot/migration.html"
+							target="_blank"
+						>
+							migration
+						</Anchor>{" "}
+						docs.
+					</>,
+				] as const,
+		)
+		.exhaustive();
+
+	return (
+		<Stack>
+			{props.coreDetails.upgrade ? (
+				<Text ta="center" c={color}>
+					{text}
+				</Text>
+			) : undefined}
+			<Flex gap={80} justify="center">
+				<Anchor
+					href={`${props.coreDetails.repositoryLink}/releases/v${props.coreDetails.version}`}
+					target="_blank"
+				>
+					<Text c="red" fw="bold">
+						v{props.coreDetails.version}
+					</Text>
+				</Anchor>
+				<Anchor href="https://diptesh.me" target="_blank">
+					<Text c="indigo" fw="bold">
+						{props.coreDetails.authorName}
+					</Text>
+				</Anchor>
+				<Text c="pink" fw="bold" visibleFrom="md">
+					{props.coreDetails.timezone}
+				</Text>
+				<Anchor href={props.coreDetails.repositoryLink} target="_blank">
+					<Text c="orange" fw="bold">
+						Github
+					</Text>
+				</Anchor>
+			</Flex>
+		</Stack>
+	);
+};
