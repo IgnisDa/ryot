@@ -6278,6 +6278,7 @@ __metadata:
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:2.40.0"
     "@types/crypto-js": "npm:^4"
+    "@types/luxon": "npm:3.3.3"
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.7"
     crypto-js: "npm:4.2.0"
@@ -6285,6 +6286,8 @@ __metadata:
     graphql-request: "npm:6.1.0"
     immer: "npm:10.0.3"
     isbot: "npm:3.6.8"
+    jotai: "npm:2.5.1"
+    luxon: "npm:3.4.3"
     postcss: "npm:8.4.31"
     postcss-preset-mantine: "npm:1.9.1"
     postcss-simple-vars: "npm:7.0.1"
@@ -13187,6 +13190,21 @@ __metadata:
     react:
       optional: true
   checksum: 8485043226c9e208c29cf5e636d50d655dc261a13e5aad505833ac3dcb60f832e35d5e8b9f76390a0bb3a5d07f1df5eea0b06b7e83c14084f0ec018c8323da60
+  languageName: node
+  linkType: hard
+
+"jotai@npm:2.5.1":
+  version: 2.5.1
+  resolution: "jotai@npm:2.5.1"
+  peerDependencies:
+    "@types/react": ">=17.0.0"
+    react: ">=17.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    react:
+      optional: true
+  checksum: acd85e669eeb3bb86feef26d53050611488143f8d2311e8b714a65708b8a7c383d0677285240daf2cb1762fee9dc008edd09048a0ba161e99ff1c096efd81cfd
   languageName: node
   linkType: hard
 
