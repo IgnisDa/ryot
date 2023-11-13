@@ -249,7 +249,7 @@ const CreateReminderModal = (props: {
 	refetchUserMediaDetails: () => void;
 }) => {
 	const [message, setMessage] = useState(`Complete '${props.title}'`);
-	const [remindOn, setRemindOn] = useState("");
+	const [remindOn, setRemindOn] = useState(new Date());
 
 	const createMediaReminder = useMutation({
 		mutationFn: async (variables: CreateMediaReminderMutationVariables) => {
@@ -296,16 +296,20 @@ const CreateReminderModal = (props: {
 					label="Remind on"
 					popoverProps={{ withinPortal: true }}
 					onChange={(v) => {
-						if (v) setRemindOn(formatDateToNaiveDate(v));
+						if (v) setRemindOn(v);
 					}}
-					defaultValue={new Date()}
+					value={remindOn}
 				/>
 				<Button
 					data-autofocus
 					variant="outline"
 					onClick={() => {
 						createMediaReminder.mutate({
-							input: { metadataId: props.metadataId, message, remindOn },
+							input: {
+								metadataId: props.metadataId,
+								message,
+								remindOn: formatDateToNaiveDate(remindOn),
+							},
 						});
 					}}
 				>
