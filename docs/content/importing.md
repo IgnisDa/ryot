@@ -140,3 +140,10 @@ their ratings, history, comments and lists. A few points to note.
 
 All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
 tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
+
+## Notes
+
+- Imports are very difficult to have 100% success rate. Though we try our best,
+  you might have to manually import some data from your previous provider.
+- You can see the descriptions of the failing importing steps by reviewing the
+  documentation of the `ImportFailStep` enum in the `/graphql` endpoint.
