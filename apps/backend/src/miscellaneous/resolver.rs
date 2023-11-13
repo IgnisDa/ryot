@@ -540,6 +540,7 @@ enum MediaGeneralFilter {
     Completed,
     Unseen,
     ExplicitlyMonitored,
+    Owned,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2078,6 +2079,13 @@ impl MiscellaneousService {
                 },
                 |query, v| query.filter(user_to_entity::Column::MetadataMonitored.eq(v)),
             )
+            .apply_if(
+                match input.filter.as_ref().and_then(|f| f.general) {
+                    Some(MediaGeneralFilter::Owned) => Some(true),
+                    _ => None,
+                },
+                |query, _v| query.filter(user_to_entity::Column::MetadataOwnership.is_not_null()),
+            )
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
@@ -2256,6 +2264,7 @@ impl MiscellaneousService {
                 };
                 match s {
                     MediaGeneralFilter::All => {}
+                    MediaGeneralFilter::Owned => {}
                     MediaGeneralFilter::ExplicitlyMonitored => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
