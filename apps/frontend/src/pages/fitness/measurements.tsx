@@ -22,6 +22,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
+import "@mantine/dates/styles.css";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
