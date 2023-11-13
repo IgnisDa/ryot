@@ -24,6 +24,7 @@ mod m20231025_remove_duplicate_calendar_events;
 mod m20231101_change_production_status;
 mod m20231105_change_calendar_event_column_type;
 mod m20231106_change_primary_key_exercise;
+mod m20231113_add_media_ownership;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -72,6 +73,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231101_change_production_status::Migration),
             Box::new(m20231105_change_calendar_event_column_type::Migration),
             Box::new(m20231106_change_primary_key_exercise::Migration),
+            Box::new(m20231113_add_media_ownership::Migration),
         ]
     }
 }
