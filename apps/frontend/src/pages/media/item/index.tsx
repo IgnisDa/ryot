@@ -929,7 +929,9 @@ const Page: NextPageWithLayout = () => {
 								Actions
 							</Tabs.Tab>
 							{userMediaDetails.data &&
-							userMediaDetails.data.history.length > 0 ? (
+							(userMediaDetails.data.seenBy > 0 ||
+								userMediaDetails.data.history.length > 0 ||
+								userMediaDetails.data.ownership) ? (
 								<Tabs.Tab
 									value="history"
 									leftSection={<IconRotateClockwise size={16} />}
@@ -1357,6 +1359,14 @@ const Page: NextPageWithLayout = () => {
 											: ""}{" "}
 										by you
 									</Text>
+									{userMediaDetails.data?.ownership ? (
+										<Text>
+											You marked this media as owned{" "}
+											{userMediaDetails.data.ownership.ownedOn
+												? `on ${userMediaDetails.data.ownership.ownedOn}`
+												: undefined}
+										</Text>
+									) : undefined}
 									{userMediaDetails.data?.history.map((h) => (
 										<Flex
 											key={h.id}
