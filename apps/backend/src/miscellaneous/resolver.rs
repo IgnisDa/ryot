@@ -634,6 +634,8 @@ struct UserMediaDetails {
     seen_by: i32,
     /// The average rating of this media in this service.
     average_rating: Option<Decimal>,
+    /// The ownership status of the media.
+    pub ownership: Option<UserMediaOwnership>,
 }
 
 #[derive(SimpleObject, Debug)]
@@ -1824,12 +1826,10 @@ impl MiscellaneousService {
             .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
             .unwrap();
         let seen_by: i32 = seen_by.try_into().unwrap();
-        let reminder = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
-            .one(&self.db)
-            .await?
-            .and_then(|n| n.metadata_reminder);
+        let user_to_meta =
+            get_user_and_metadata_association(&user_id, &metadata_id, &self.db).await;
+        let reminder = user_to_meta.clone().and_then(|n| n.metadata_reminder);
+        let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
 
         let average_rating = if reviews.is_empty() {
             None
@@ -1853,6 +1853,7 @@ impl MiscellaneousService {
             seen_by,
             reminder,
             average_rating,
+            ownership,
         })
     }
 

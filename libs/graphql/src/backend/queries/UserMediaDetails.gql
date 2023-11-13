@@ -17,6 +17,9 @@ query UserMediaDetails($metadataId: Int!) {
       remindOn
       message
     }
+    ownership {
+      ownedOn
+    }
     isMonitored
     seenBy
     nextEpisode {
