@@ -606,6 +606,13 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
 			</Head>
+			<CreateReminderModal
+				onClose={createMediaReminderModalClose}
+				opened={createMediaReminderModalOpened}
+				metadataId={metadataId}
+				title={mediaDetails.data.title}
+				refetchUserMediaDetails={userMediaDetails.refetch}
+			/>
 			<Container>
 				<MediaDetailsLayout
 					images={mediaSpecifics.data?.assets.images || []}
@@ -1005,7 +1012,7 @@ const Page: NextPageWithLayout = () => {
 											}
 										/>
 									) : undefined}
-									<Menu shadow="md" withinPortal>
+									<Menu shadow="md">
 										<Menu.Target>
 											<Button variant="outline">Update progress</Button>
 										</Menu.Target>
@@ -1118,7 +1125,6 @@ const Page: NextPageWithLayout = () => {
 														I'm {getVerb(Verb.Read, mediaDetails.data.lot)}
 														ing it
 													</Menu.Item>
-
 													<Menu.Item
 														onClick={() => {
 															router.push(
@@ -1176,74 +1182,68 @@ const Page: NextPageWithLayout = () => {
 											entityLot={EntityLot.Media}
 										/>
 									</>
-									<Button
-										variant="outline"
-										onClick={() => {
-											toggleMediaMonitor.mutate({
-												toMonitorMetadataId: metadataId,
-											});
-										}}
-									>
-										{userMediaDetails.data?.isMonitored ? "Stop" : "Start"}{" "}
-										monitoring
-									</Button>
-									{userMediaDetails.data?.reminder ? (
-										<Button
-											variant="outline"
-											onClick={() => {
-												deleteMediaReminder.mutate({ metadataId });
-											}}
-										>
-											Remove reminder
-										</Button>
-									) : (
-										<>
-											<CreateReminderModal
-												onClose={createMediaReminderModalClose}
-												opened={createMediaReminderModalOpened}
-												metadataId={metadataId}
-												title={mediaDetails.data.title}
-												refetchUserMediaDetails={userMediaDetails.refetch}
-											/>
-											<Button
-												variant="outline"
-												onClick={createMediaReminderModalOpen}
+									<Menu shadow="md">
+										<Menu.Target>
+											<Button variant="outline">More actions</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											<Menu.Item
+												onClick={() => {
+													toggleMediaMonitor.mutate({
+														toMonitorMetadataId: metadataId,
+													});
+												}}
 											>
-												Create reminder
-											</Button>
-										</>
-									)}
-									<Button
-										variant="outline"
-										onClick={() => {
-											deployUpdateMetadataJob.mutate({ metadataId });
-										}}
-									>
-										Update metadata
-									</Button>
-									{source === "CUSTOM" ? (
-										<Button
-											variant="outline"
-											onClick={() => {
-												const mergeInto = prompt(
-													"Enter ID of the metadata you want to merge this with",
-												);
-												if (mergeInto) {
-													const yes = confirm(
-														"Are you sure you want to continue? This will delete the current media item",
-													);
-													if (yes) {
-														mergeMetadata.mutate({
-															mergeFrom: metadataId,
-															mergeInto: parseInt(mergeInto),
-														});
-													}
-												}
-											}}
-										>
-											Merge media
-										</Button>
-									) : undefined}
+												{userMediaDetails.data?.isMonitored ? "Stop" : "Start"}{" "}
+												monitoring
+											</Menu.Item>
+											<Menu.Item
+												onClick={() => {
+													deployUpdateMetadataJob.mutate({ metadataId });
+												}}
+											>
+												Update metadata
+											</Menu.Item>
+											{source === "CUSTOM" ? (
+												<Menu.Item
+													onClick={() => {
+														const mergeInto = prompt(
+															"Enter ID of the metadata you want to merge this with",
+														);
+														if (mergeInto) {
+															const yes = confirm(
+																"Are you sure you want to continue? This will delete the current media item",
+															);
+															if (yes) {
+																mergeMetadata.mutate({
+																	mergeFrom: metadataId,
+																	mergeInto: parseInt(mergeInto),
+																});
+															}
+														}
+													}}
+												>
+													Merge media
+												</Menu.Item>
+											) : undefined}
+											{userMediaDetails.data?.reminder ? (
+												<Menu.Item
+													onClick={() => {
+														const yes = confirm(
+															"Are you sure you want to remove the reminder?",
+														);
+														if (yes) deleteMediaReminder.mutate({ metadataId });
+													}}
+												>
+													Remove reminder
+												</Menu.Item>
+											) : (
+												<Menu.Item onClick={createMediaReminderModalOpen}>
+													Create reminder
+												</Menu.Item>
+											)}
+										</Menu.Dropdown>
+									</Menu>
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
