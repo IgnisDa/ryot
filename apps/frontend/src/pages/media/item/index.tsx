@@ -259,9 +259,16 @@ const CreateReminderModal = (props: {
 			);
 			return createMediaReminder;
 		},
-		onSuccess: () => {
-			props.refetchUserMediaDetails();
-			props.onClose();
+		onSuccess: (data) => {
+			if (!data)
+				notifications.show({
+					color: "red",
+					message: "Reminder was not created",
+				});
+			else {
+				props.refetchUserMediaDetails();
+				props.onClose();
+			}
 		},
 		onError: () => {
 			notifications.show({
