@@ -177,7 +177,7 @@ pub mod media {
         PartialEq,
     )]
     pub struct UserMediaOwnership {
-        pub owned_on: Option<DateTimeUtc>,
+        pub owned_on: Option<NaiveDate>,
     }
 
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]

@@ -91,8 +91,8 @@ use crate::{
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, VisualNovelSpecifics,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
+            UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdObject, SearchDetails,
         SearchInput, SearchResults, StoredUrl,
@@ -162,12 +162,6 @@ struct CreateCustomMediaInput {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     visual_novel_specifics: Option<VisualNovelSpecifics>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct MarkMediaAsOwnedInput {
-    metadata_id: i32,
-    owned_on: Option<DateTimeUtc>,
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1301,11 +1295,14 @@ impl MiscellaneousMutation {
     async fn toggle_media_ownership(
         &self,
         gql_ctx: &Context<'_>,
-        input: MarkMediaAsOwnedInput,
+        metadata_id: i32,
+        owned_on: Option<NaiveDate>,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.toggle_media_ownership(user_id, input).await
+        service
+            .toggle_media_ownership(user_id, metadata_id, owned_on)
+            .await
     }
 
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
@@ -6259,9 +6256,19 @@ impl MiscellaneousService {
     async fn toggle_media_ownership(
         &self,
         user_id: i32,
-        input: MarkMediaAsOwnedInput,
+        metadata_id: i32,
+        owned_on: Option<NaiveDate>,
     ) -> Result<bool> {
-        todo!()
+        let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
+        let has_ownership = utm.metadata_ownership.is_some();
+        let mut utm: user_to_entity::ActiveModel = utm.into();
+        if has_ownership {
+            utm.metadata_ownership = ActiveValue::Set(None);
+        } else {
+            utm.metadata_ownership = ActiveValue::Set(Some(UserMediaOwnership { owned_on }));
+        }
+        utm.update(&self.db).await?;
+        Ok(true)
     }
 
     pub async fn send_pending_media_reminders(&self) -> Result<()> {
