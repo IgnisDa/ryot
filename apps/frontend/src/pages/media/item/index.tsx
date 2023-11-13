@@ -1347,26 +1347,29 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="history">
 							<MediaScrollArea>
 								<Stack>
-									<Text>
-										Seen by all users {userMediaDetails.data?.seenBy} time
-										{userMediaDetails.data && userMediaDetails.data.seenBy > 1
-											? "s"
-											: ""}{" "}
-										and {userMediaDetails.data?.history.length} time
-										{userMediaDetails.data &&
-										userMediaDetails.data.history.length > 1
-											? "s"
-											: ""}{" "}
-										by you
-									</Text>
-									{userMediaDetails.data?.ownership ? (
+									<Box>
 										<Text>
-											You marked this media as owned{" "}
-											{userMediaDetails.data.ownership.ownedOn
-												? `on ${userMediaDetails.data.ownership.ownedOn}`
-												: undefined}
+											Seen by all users {userMediaDetails.data?.seenBy} time
+											{userMediaDetails.data && userMediaDetails.data.seenBy > 1
+												? "s"
+												: ""}{" "}
+											and {userMediaDetails.data?.history.length} time
+											{userMediaDetails.data &&
+											userMediaDetails.data.history.length > 1
+												? "s"
+												: ""}{" "}
+											by you.
 										</Text>
-									) : undefined}
+										{userMediaDetails.data?.ownership ? (
+											<Text>
+												You owned this media
+												{userMediaDetails.data.ownership.ownedOn
+													? ` on ${userMediaDetails.data.ownership.ownedOn}`
+													: undefined}
+												.
+											</Text>
+										) : undefined}
+									</Box>
 									{userMediaDetails.data?.history.map((h) => (
 										<Flex
 											key={h.id}
