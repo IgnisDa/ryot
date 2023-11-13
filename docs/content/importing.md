@@ -132,6 +132,15 @@ their ratings, history, comments and lists. A few points to note.
   going to your profile page, and checking the URL.
 - Enter this username in the input.
 
+## TV Time
+
+!!! warning
+
+      This is a community maintained integration.
+
+All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
+tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
+
 ## Notes
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
