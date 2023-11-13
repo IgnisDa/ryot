@@ -18,6 +18,7 @@ query UserMediaDetails($metadataId: Int!) {
       message
     }
     ownership {
+      markedOn
       ownedOn
     }
     isMonitored

@@ -6266,7 +6266,10 @@ impl MiscellaneousService {
         if has_ownership {
             utm.metadata_ownership = ActiveValue::Set(None);
         } else {
-            utm.metadata_ownership = ActiveValue::Set(Some(UserMediaOwnership { owned_on }));
+            utm.metadata_ownership = ActiveValue::Set(Some(UserMediaOwnership {
+                marked_on: Utc::now(),
+                owned_on,
+            }));
         }
         utm.update(&self.db).await?;
         Ok(true)
