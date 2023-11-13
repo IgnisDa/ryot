@@ -44,6 +44,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+import "@mantine/dates/styles.css";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -68,6 +69,8 @@ import {
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
+	ToggleMediaOwnershipDocument,
+	type ToggleMediaOwnershipMutationVariables,
 	UserMediaDetailsDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -248,7 +251,7 @@ const CreateReminderModal = (props: {
 	refetchUserMediaDetails: () => void;
 }) => {
 	const [message, setMessage] = useState(`Complete '${props.title}'`);
-	const [remindOn, setRemindOn] = useState("");
+	const [remindOn, setRemindOn] = useState(new Date());
 
 	const createMediaReminder = useMutation({
 		mutationFn: async (variables: CreateMediaReminderMutationVariables) => {
@@ -258,9 +261,16 @@ const CreateReminderModal = (props: {
 			);
 			return createMediaReminder;
 		},
-		onSuccess: () => {
-			props.refetchUserMediaDetails();
-			props.onClose();
+		onSuccess: (data) => {
+			if (!data)
+				notifications.show({
+					color: "red",
+					message: "Reminder was not created",
+				});
+			else {
+				props.refetchUserMediaDetails();
+				props.onClose();
+			}
 		},
 		onError: () => {
 			notifications.show({
@@ -295,21 +305,72 @@ const CreateReminderModal = (props: {
 					label="Remind on"
 					popoverProps={{ withinPortal: true }}
 					onChange={(v) => {
-						if (v) setRemindOn(formatDateToNaiveDate(v));
+						if (v) setRemindOn(v);
 					}}
-					defaultValue={new Date()}
+					value={remindOn}
 				/>
 				<Button
 					data-autofocus
 					variant="outline"
 					onClick={() => {
 						createMediaReminder.mutate({
-							input: { metadataId: props.metadataId, message, remindOn },
+							input: {
+								metadataId: props.metadataId,
+								message,
+								remindOn: formatDateToNaiveDate(remindOn),
+							},
 						});
 					}}
 				>
 					Submit
 				</Button>
+			</Stack>
+		</Modal>
+	);
+};
+
+const CreateOwnershipModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	markMediaAsOwned: (date?: string) => void;
+}) => {
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+
+	const onClick = () => {
+		props.markMediaAsOwned(
+			ownedOn ? formatDateToNaiveDate(ownedOn) : undefined,
+		);
+	};
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Stack>
+				<Title order={3}>Mark media as owned</Title>
+				<DateInput
+					label="When did you get this media?"
+					clearable
+					popoverProps={{ withinPortal: true }}
+					onChange={setOwnedOn}
+					value={ownedOn}
+				/>
+				<SimpleGrid cols={2}>
+					<Button
+						variant="outline"
+						onClick={onClick}
+						disabled={!!ownedOn}
+						data-autofocus
+					>
+						Don't remember
+					</Button>
+					<Button disabled={!ownedOn} variant="outline" onClick={onClick}>
+						Submit
+					</Button>
+				</SimpleGrid>
 			</Stack>
 		</Modal>
 	);
@@ -397,6 +458,10 @@ const Page: NextPageWithLayout = () => {
 			open: createMediaReminderModalOpen,
 			close: createMediaReminderModalClose,
 		},
+	] = useDisclosure(false);
+	const [
+		mediaOwnershipModalOpened,
+		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
 	const [activeTab, setActiveTab] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedActiveItemDetailsTab,
@@ -490,6 +555,19 @@ const Page: NextPageWithLayout = () => {
 			return toggleMediaMonitor;
 		},
 		onSuccess: () => {
+			userMediaDetails.refetch();
+		},
+	});
+	const toggleMediaOwnership = useMutation({
+		mutationFn: async (variables: ToggleMediaOwnershipMutationVariables) => {
+			const { toggleMediaOwnership } = await gqlClient.request(
+				ToggleMediaOwnershipDocument,
+				variables,
+			);
+			return toggleMediaOwnership;
+		},
+		onSuccess: () => {
+			mediaOwnershipModalClose();
 			userMediaDetails.refetch();
 		},
 	});
@@ -594,6 +672,20 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>{mediaDetails.data.title} | Ryot</title>
 			</Head>
+			<CreateReminderModal
+				onClose={createMediaReminderModalClose}
+				opened={createMediaReminderModalOpened}
+				metadataId={metadataId}
+				title={mediaDetails.data.title}
+				refetchUserMediaDetails={userMediaDetails.refetch}
+			/>
+			<CreateOwnershipModal
+				onClose={mediaOwnershipModalClose}
+				opened={mediaOwnershipModalOpened}
+				markMediaAsOwned={(v) =>
+					toggleMediaOwnership.mutate({ metadataId, ownedOn: v })
+				}
+			/>
 			<Container>
 				<MediaDetailsLayout
 					images={mediaSpecifics.data?.assets.images || []}
@@ -837,7 +929,9 @@ const Page: NextPageWithLayout = () => {
 								Actions
 							</Tabs.Tab>
 							{userMediaDetails.data &&
-							userMediaDetails.data.history.length > 0 ? (
+							(userMediaDetails.data.seenBy > 0 ||
+								userMediaDetails.data.history.length > 0 ||
+								userMediaDetails.data.ownership) ? (
 								<Tabs.Tab
 									value="history"
 									leftSection={<IconRotateClockwise size={16} />}
@@ -993,7 +1087,7 @@ const Page: NextPageWithLayout = () => {
 											}
 										/>
 									) : undefined}
-									<Menu shadow="md" withinPortal>
+									<Menu shadow="md">
 										<Menu.Target>
 											<Button variant="outline">Update progress</Button>
 										</Menu.Target>
@@ -1106,7 +1200,6 @@ const Page: NextPageWithLayout = () => {
 														I'm {getVerb(Verb.Read, mediaDetails.data.lot)}
 														ing it
 													</Menu.Item>
-
 													<Menu.Item
 														onClick={() => {
 															router.push(
@@ -1164,92 +1257,119 @@ const Page: NextPageWithLayout = () => {
 											entityLot={EntityLot.Media}
 										/>
 									</>
-									<Button
-										variant="outline"
-										onClick={() => {
-											toggleMediaMonitor.mutate({
-												toMonitorMetadataId: metadataId,
-											});
-										}}
-									>
-										{userMediaDetails.data?.isMonitored ? "Stop" : "Start"}{" "}
-										monitoring
-									</Button>
-									{userMediaDetails.data?.reminder ? (
-										<Button
-											variant="outline"
-											onClick={() => {
-												deleteMediaReminder.mutate({ metadataId });
-											}}
-										>
-											Remove reminder
-										</Button>
-									) : (
-										<>
-											<CreateReminderModal
-												onClose={createMediaReminderModalClose}
-												opened={createMediaReminderModalOpened}
-												metadataId={metadataId}
-												title={mediaDetails.data.title}
-												refetchUserMediaDetails={userMediaDetails.refetch}
-											/>
-											<Button
-												variant="outline"
-												onClick={createMediaReminderModalOpen}
-											>
-												Create reminder
-											</Button>
-										</>
-									)}
-									<Button
-										variant="outline"
-										onClick={() => {
-											deployUpdateMetadataJob.mutate({ metadataId });
-										}}
-									>
-										Update metadata
-									</Button>
-									{source === "CUSTOM" ? (
-										<Button
-											variant="outline"
-											onClick={() => {
-												const mergeInto = prompt(
-													"Enter ID of the metadata you want to merge this with",
-												);
-												if (mergeInto) {
-													const yes = confirm(
-														"Are you sure you want to continue? This will delete the current media item",
-													);
-													if (yes) {
-														mergeMetadata.mutate({
-															mergeFrom: metadataId,
-															mergeInto: parseInt(mergeInto),
-														});
-													}
+									<Menu shadow="md">
+										<Menu.Target>
+											<Button variant="outline">More actions</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											<Menu.Item
+												onClick={() => {
+													toggleMediaMonitor.mutate({
+														toMonitorMetadataId: metadataId,
+													});
+												}}
+												color={
+													userMediaDetails.data?.isMonitored ? "red" : undefined
 												}
-											}}
-										>
-											Merge media
-										</Button>
-									) : undefined}
+											>
+												{userMediaDetails.data?.isMonitored ? "Stop" : "Start"}{" "}
+												monitoring
+											</Menu.Item>
+											<Menu.Item
+												onClick={() => {
+													deployUpdateMetadataJob.mutate({ metadataId });
+												}}
+											>
+												Update metadata
+											</Menu.Item>
+											{source === "CUSTOM" ? (
+												<Menu.Item
+													onClick={() => {
+														const mergeInto = prompt(
+															"Enter ID of the metadata you want to merge this with",
+														);
+														if (mergeInto) {
+															const yes = confirm(
+																"Are you sure you want to continue? This will delete the current media item",
+															);
+															if (yes) {
+																mergeMetadata.mutate({
+																	mergeFrom: metadataId,
+																	mergeInto: parseInt(mergeInto),
+																});
+															}
+														}
+													}}
+												>
+													Merge media
+												</Menu.Item>
+											) : undefined}
+											{userMediaDetails.data?.reminder ? (
+												<Menu.Item
+													onClick={() => {
+														const yes = confirm(
+															"Are you sure you want to remove the reminder?",
+														);
+														if (yes) deleteMediaReminder.mutate({ metadataId });
+													}}
+													color="red"
+												>
+													Remove reminder
+												</Menu.Item>
+											) : (
+												<Menu.Item onClick={createMediaReminderModalOpen}>
+													Create reminder
+												</Menu.Item>
+											)}
+											{userMediaDetails.data?.ownership ? (
+												<Menu.Item
+													onClick={() => {
+														const yes = confirm(
+															"Are you sure you want to remove ownership?",
+														);
+														if (yes)
+															toggleMediaOwnership.mutate({ metadataId });
+													}}
+													color="red"
+												>
+													Remove ownership
+												</Menu.Item>
+											) : (
+												<Menu.Item onClick={mediaOwnershipModalOpen}>
+													Mark as owned
+												</Menu.Item>
+											)}
+										</Menu.Dropdown>
+									</Menu>
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
 							<MediaScrollArea>
 								<Stack>
-									<Text>
-										Seen by all users {userMediaDetails.data?.seenBy} time
-										{userMediaDetails.data && userMediaDetails.data.seenBy > 1
-											? "s"
-											: ""}{" "}
-										and {userMediaDetails.data?.history.length} time
-										{userMediaDetails.data &&
-										userMediaDetails.data.history.length > 1
-											? "s"
-											: ""}{" "}
-										by you
-									</Text>
+									<Box>
+										<Text>
+											Seen by all users {userMediaDetails.data?.seenBy} time
+											{userMediaDetails.data && userMediaDetails.data.seenBy > 1
+												? "s"
+												: ""}{" "}
+											and {userMediaDetails.data?.history.length} time
+											{userMediaDetails.data &&
+											userMediaDetails.data.history.length > 1
+												? "s"
+												: ""}{" "}
+											by you.
+										</Text>
+										{userMediaDetails.data?.ownership ? (
+											<Text>
+												You owned this media
+												{userMediaDetails.data.ownership.ownedOn
+													? ` on ${userMediaDetails.data.ownership.ownedOn}`
+													: undefined}
+												.
+											</Text>
+										) : undefined}
+									</Box>
 									{userMediaDetails.data?.history.map((h) => (
 										<Flex
 											key={h.id}

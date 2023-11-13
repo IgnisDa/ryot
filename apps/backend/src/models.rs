@@ -164,6 +164,23 @@ pub mod media {
         pub message: String,
     }
 
+    #[derive(
+        Clone,
+        FromJsonQueryResult,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        PartialOrd,
+        Ord,
+        Eq,
+        PartialEq,
+    )]
+    pub struct UserMediaOwnership {
+        pub marked_on: DateTimeUtc,
+        pub owned_on: Option<NaiveDate>,
+    }
+
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
         pub id: i32,

@@ -86,8 +86,8 @@ use crate::{
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewCommentUser,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaReminder, UserSummary,
-            VideoGameSpecifics, VisualNovelSpecifics,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
+            UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdObject, SearchDetails,
         SearchInput, SearchResults, StoredUrl,
@@ -536,6 +536,7 @@ enum MediaGeneralFilter {
     Completed,
     Unseen,
     ExplicitlyMonitored,
+    Owned,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -630,6 +631,8 @@ struct UserMediaDetails {
     seen_by: i32,
     /// The average rating of this media in this service.
     average_rating: Option<Decimal>,
+    /// The ownership status of the media.
+    pub ownership: Option<UserMediaOwnership>,
 }
 
 #[derive(SimpleObject, Debug)]
@@ -1256,6 +1259,20 @@ impl MiscellaneousMutation {
         service.delete_media_reminder(user_id, metadata_id).await
     }
 
+    /// Mark media as owned or remove ownership.
+    async fn toggle_media_ownership(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: i32,
+        owned_on: Option<NaiveDate>,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .toggle_media_ownership(user_id, metadata_id, owned_on)
+            .await
+    }
+
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
     async fn presigned_put_s3_url(
         &self,
@@ -1775,12 +1792,10 @@ impl MiscellaneousService {
             .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
             .unwrap();
         let seen_by: i32 = seen_by.try_into().unwrap();
-        let reminder = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
-            .one(&self.db)
-            .await?
-            .and_then(|n| n.metadata_reminder);
+        let user_to_meta =
+            get_user_and_metadata_association(&user_id, &metadata_id, &self.db).await;
+        let reminder = user_to_meta.clone().and_then(|n| n.metadata_reminder);
+        let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
 
         let average_rating = if reviews.is_empty() {
             None
@@ -1804,6 +1819,7 @@ impl MiscellaneousService {
             seen_by,
             reminder,
             average_rating,
+            ownership,
         })
     }
 
@@ -2028,6 +2044,13 @@ impl MiscellaneousService {
                 },
                 |query, v| query.filter(user_to_entity::Column::MetadataMonitored.eq(v)),
             )
+            .apply_if(
+                match input.filter.as_ref().and_then(|f| f.general) {
+                    Some(MediaGeneralFilter::Owned) => Some(true),
+                    _ => None,
+                },
+                |query, _v| query.filter(user_to_entity::Column::MetadataOwnership.is_not_null()),
+            )
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
@@ -2206,6 +2229,7 @@ impl MiscellaneousService {
                 };
                 match s {
                     MediaGeneralFilter::All => {}
+                    MediaGeneralFilter::Owned => {}
                     MediaGeneralFilter::ExplicitlyMonitored => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
@@ -6179,6 +6203,27 @@ impl MiscellaneousService {
         let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
         let mut utm: user_to_entity::ActiveModel = utm.into();
         utm.metadata_reminder = ActiveValue::Set(None);
+        utm.update(&self.db).await?;
+        Ok(true)
+    }
+
+    async fn toggle_media_ownership(
+        &self,
+        user_id: i32,
+        metadata_id: i32,
+        owned_on: Option<NaiveDate>,
+    ) -> Result<bool> {
+        let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
+        let has_ownership = utm.metadata_ownership.is_some();
+        let mut utm: user_to_entity::ActiveModel = utm.into();
+        if has_ownership {
+            utm.metadata_ownership = ActiveValue::Set(None);
+        } else {
+            utm.metadata_ownership = ActiveValue::Set(Some(UserMediaOwnership {
+                marked_on: Utc::now(),
+                owned_on,
+            }));
+        }
         utm.update(&self.db).await?;
         Ok(true)
     }
