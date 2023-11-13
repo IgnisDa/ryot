@@ -49,6 +49,7 @@ const documents = {
     "mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}": types.RemoveEntityFromCollectionDocument,
     "mutation TestUserNotificationPlatforms {\n  testUserNotificationPlatforms\n}": types.TestUserNotificationPlatformsDocument,
     "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}": types.ToggleMediaMonitorDocument,
+    "mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}": types.ToggleMediaOwnershipDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}": types.UpdateUserPreferenceDocument,
     "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
@@ -250,6 +251,10 @@ export function graphql(source: "mutation TestUserNotificationPlatforms {\n  tes
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}"): (typeof documents)["mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}"): (typeof documents)["mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

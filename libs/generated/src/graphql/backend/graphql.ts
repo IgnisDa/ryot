@@ -937,6 +937,8 @@ export type MutationRoot = {
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Toggle the monitor on a media for a user. */
   toggleMediaMonitor: Scalars['Boolean']['output'];
+  /** Mark media as owned or remove ownership. */
+  toggleMediaOwnership: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
   updateUser: IdObject;
   /** Change a user's preferences. */
@@ -1112,6 +1114,12 @@ export type MutationRootRemoveEntityFromCollectionArgs = {
 
 export type MutationRootToggleMediaMonitorArgs = {
   toMonitorMetadataId: Scalars['Int']['input'];
+};
+
+
+export type MutationRootToggleMediaOwnershipArgs = {
+  metadataId: Scalars['Int']['input'];
+  ownedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
 };
 
 
@@ -1899,6 +1907,10 @@ export type UserMediaNextEpisode = {
   seasonNumber?: Maybe<Scalars['Int']['output']>;
 };
 
+export type UserMediaOwnership = {
+  ownedOn?: Maybe<Scalars['NaiveDate']['output']>;
+};
+
 export type UserMediaReminder = {
   message: Scalars['String']['output'];
   remindOn: Scalars['NaiveDate']['output'];
@@ -1975,6 +1987,7 @@ export type UserToEntity = {
   lastUpdatedOn: Scalars['DateTime']['output'];
   metadataId?: Maybe<Scalars['Int']['output']>;
   metadataMonitored?: Maybe<Scalars['Boolean']['output']>;
+  metadataOwnership?: Maybe<UserMediaOwnership>;
   metadataReminder?: Maybe<UserMediaReminder>;
   numTimesInteracted: Scalars['Int']['output'];
   userId: Scalars['Int']['output'];
@@ -2393,6 +2406,14 @@ export type ToggleMediaMonitorMutationVariables = Exact<{
 
 export type ToggleMediaMonitorMutation = { toggleMediaMonitor: boolean };
 
+export type ToggleMediaOwnershipMutationVariables = Exact<{
+  metadataId: Scalars['Int']['input'];
+  ownedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+}>;
+
+
+export type ToggleMediaOwnershipMutation = { toggleMediaOwnership: boolean };
+
 export type UpdateUserMutationVariables = Exact<{
   input: UpdateUserInput;
 }>;
@@ -2717,6 +2738,7 @@ export const RegisterUserDocument = {"kind":"Document","definitions":[{"kind":"O
 export const RemoveEntityFromCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveEntityFromCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ChangeCollectionToEntityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeEntityFromCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<RemoveEntityFromCollectionMutation, RemoveEntityFromCollectionMutationVariables>;
 export const TestUserNotificationPlatformsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TestUserNotificationPlatforms"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"testUserNotificationPlatforms"}}]}}]} as unknown as DocumentNode<TestUserNotificationPlatformsMutation, TestUserNotificationPlatformsMutationVariables>;
 export const ToggleMediaMonitorDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ToggleMediaMonitor"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"toMonitorMetadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"toggleMediaMonitor"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"toMonitorMetadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"toMonitorMetadataId"}}}]}]}}]} as unknown as DocumentNode<ToggleMediaMonitorMutation, ToggleMediaMonitorMutationVariables>;
+export const ToggleMediaOwnershipDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ToggleMediaOwnership"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"ownedOn"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"NaiveDate"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"toggleMediaOwnership"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}},{"kind":"Argument","name":{"kind":"Name","value":"ownedOn"},"value":{"kind":"Variable","name":{"kind":"Name","value":"ownedOn"}}}]}]}}]} as unknown as DocumentNode<ToggleMediaOwnershipMutation, ToggleMediaOwnershipMutationVariables>;
 export const UpdateUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<UpdateUserMutation, UpdateUserMutationVariables>;
 export const UpdateUserPreferenceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserPreference"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserPreferenceInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserPreference"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserPreferenceMutation, UpdateUserPreferenceMutationVariables>;
 export const YankIntegrationDataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"YankIntegrationData"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"yankIntegrationData"}}]}}]} as unknown as DocumentNode<YankIntegrationDataMutation, YankIntegrationDataMutationVariables>;
