@@ -164,6 +164,12 @@ struct CreateCustomMediaInput {
     visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MarkMediaAsOwnedInput {
+    metadata_id: i32,
+    owned_on: Option<DateTimeUtc>,
+}
+
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserIntegrationLot {
     Yank,
@@ -1289,6 +1295,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_media_reminder(user_id, metadata_id).await
+    }
+
+    /// Mark media as owned or remove ownership.
+    async fn toggle_media_ownership(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: MarkMediaAsOwnedInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.toggle_media_ownership(user_id, input).await
     }
 
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
@@ -6237,6 +6254,14 @@ impl MiscellaneousService {
         utm.metadata_reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
         Ok(true)
+    }
+
+    async fn toggle_media_ownership(
+        &self,
+        user_id: i32,
+        input: MarkMediaAsOwnedInput,
+    ) -> Result<bool> {
+        todo!()
     }
 
     pub async fn send_pending_media_reminders(&self) -> Result<()> {
