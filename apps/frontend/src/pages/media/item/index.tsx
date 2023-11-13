@@ -69,6 +69,8 @@ import {
 	SeenState,
 	ToggleMediaMonitorDocument,
 	type ToggleMediaMonitorMutationVariables,
+	ToggleMediaOwnershipDocument,
+	type ToggleMediaOwnershipMutationVariables,
 	UserMediaDetailsDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -327,6 +329,53 @@ const CreateReminderModal = (props: {
 	);
 };
 
+const CreateOwnershipModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	markMediaAsOwned: (date?: string) => void;
+}) => {
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+
+	const onClick = () => {
+		props.markMediaAsOwned(
+			ownedOn ? formatDateToNaiveDate(ownedOn) : undefined,
+		);
+	};
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Stack>
+				<Title order={3}>Mark media as owned</Title>
+				<DateInput
+					label="When did you get this media?"
+					clearable
+					popoverProps={{ withinPortal: true }}
+					onChange={setOwnedOn}
+					value={ownedOn}
+				/>
+				<SimpleGrid cols={2}>
+					<Button
+						variant="outline"
+						onClick={onClick}
+						disabled={!!ownedOn}
+						data-autofocus
+					>
+						Don't remember
+					</Button>
+					<Button disabled={!ownedOn} variant="outline" onClick={onClick}>
+						Submit
+					</Button>
+				</SimpleGrid>
+			</Stack>
+		</Modal>
+	);
+};
+
 const AccordionLabel = (props: {
 	name: string;
 	id?: number | null;
@@ -409,6 +458,10 @@ const Page: NextPageWithLayout = () => {
 			open: createMediaReminderModalOpen,
 			close: createMediaReminderModalClose,
 		},
+	] = useDisclosure(false);
+	const [
+		mediaOwnershipModalOpened,
+		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
 	const [activeTab, setActiveTab] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedActiveItemDetailsTab,
@@ -502,6 +555,19 @@ const Page: NextPageWithLayout = () => {
 			return toggleMediaMonitor;
 		},
 		onSuccess: () => {
+			userMediaDetails.refetch();
+		},
+	});
+	const toggleMediaOwnership = useMutation({
+		mutationFn: async (variables: ToggleMediaOwnershipMutationVariables) => {
+			const { toggleMediaOwnership } = await gqlClient.request(
+				ToggleMediaOwnershipDocument,
+				variables,
+			);
+			return toggleMediaOwnership;
+		},
+		onSuccess: () => {
+			mediaOwnershipModalClose();
 			userMediaDetails.refetch();
 		},
 	});
@@ -612,6 +678,13 @@ const Page: NextPageWithLayout = () => {
 				metadataId={metadataId}
 				title={mediaDetails.data.title}
 				refetchUserMediaDetails={userMediaDetails.refetch}
+			/>
+			<CreateOwnershipModal
+				onClose={mediaOwnershipModalClose}
+				opened={mediaOwnershipModalOpened}
+				markMediaAsOwned={(v) =>
+					toggleMediaOwnership.mutate({ metadataId, ownedOn: v })
+				}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -1193,6 +1266,9 @@ const Page: NextPageWithLayout = () => {
 														toMonitorMetadataId: metadataId,
 													});
 												}}
+												color={
+													userMediaDetails.data?.isMonitored ? "red" : undefined
+												}
 											>
 												{userMediaDetails.data?.isMonitored ? "Stop" : "Start"}{" "}
 												monitoring
@@ -1234,12 +1310,31 @@ const Page: NextPageWithLayout = () => {
 														);
 														if (yes) deleteMediaReminder.mutate({ metadataId });
 													}}
+													color="red"
 												>
 													Remove reminder
 												</Menu.Item>
 											) : (
 												<Menu.Item onClick={createMediaReminderModalOpen}>
 													Create reminder
+												</Menu.Item>
+											)}
+											{userMediaDetails.data?.ownership ? (
+												<Menu.Item
+													onClick={() => {
+														const yes = confirm(
+															"Are you sure you want to remove ownership?",
+														);
+														if (yes)
+															toggleMediaOwnership.mutate({ metadataId });
+													}}
+													color="red"
+												>
+													Remove ownership
+												</Menu.Item>
+											) : (
+												<Menu.Item onClick={mediaOwnershipModalOpen}>
+													Mark as owned
 												</Menu.Item>
 											)}
 										</Menu.Dropdown>
