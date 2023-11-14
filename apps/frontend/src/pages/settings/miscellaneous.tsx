@@ -25,6 +25,8 @@ import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../_app";
 
+const buttonProps = { mt: "md", variant: "light" };
+
 const DisabledNotice = () => (
 	<Text size="xs" c="dimmed" mt="auto">
 		Deploying this job is disabled on this instance.
@@ -87,7 +89,6 @@ const Page: NextPageWithLayout = () => {
 										<DisabledNotice />
 									) : undefined}
 									<Button
-										mt="auto"
 										onClick={async () => {
 											deployBackgroundJob.mutateAsync({
 												jobName: BackgroundJob.UpdateAllMetadata,
@@ -100,6 +101,7 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 										disabled={!coreDetails.data.deployAdminJobsAllowed}
+										{...buttonProps}
 									>
 										Update metadata
 									</Button>
@@ -118,7 +120,6 @@ const Page: NextPageWithLayout = () => {
 										<DisabledNotice />
 									) : undefined}
 									<Button
-										mt="auto"
 										onClick={async () => {
 											deployBackgroundJob.mutateAsync({
 												jobName: BackgroundJob.RecalculateCalendarEvents,
@@ -131,6 +132,7 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 										disabled={!coreDetails.data.deployAdminJobsAllowed}
+										{...buttonProps}
 									>
 										Update calendar events
 									</Button>
@@ -148,7 +150,6 @@ const Page: NextPageWithLayout = () => {
 										<DisabledNotice />
 									) : undefined}
 									<Button
-										mt="auto"
 										onClick={async () => {
 											deployBackgroundJob.mutateAsync({
 												jobName: BackgroundJob.UpdateAllExercises,
@@ -160,6 +161,7 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 										disabled={!coreDetails.data.deployAdminJobsAllowed}
+										{...buttonProps}
 									>
 										Update exercises
 									</Button>
@@ -176,7 +178,6 @@ const Page: NextPageWithLayout = () => {
 								</Text>
 							</Box>
 							<Button
-								mt="auto"
 								onClick={async () => {
 									deployBackgroundJob.mutateAsync({
 										jobName: BackgroundJob.CalculateSummary,
@@ -187,6 +188,7 @@ const Page: NextPageWithLayout = () => {
 										color: "green",
 									});
 								}}
+								{...buttonProps}
 							>
 								Clean and regenerate
 							</Button>
@@ -200,7 +202,10 @@ const Page: NextPageWithLayout = () => {
 									longer this will take.
 								</Text>
 							</Box>
-							<Button mt="auto" onClick={() => yankIntegrationData.mutate({})}>
+							<Button
+								onClick={() => yankIntegrationData.mutate({})}
+								{...buttonProps}
+							>
 								Synchronize
 							</Button>
 						</Stack>
