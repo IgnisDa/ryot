@@ -727,15 +727,15 @@ impl ExerciseService {
     }
 
     pub async fn re_evaluate_user_workouts(&self, user_id: i32) -> Result<()> {
-        let workouts = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id))
-            .order_by_desc(workout::Column::Id)
-            .all(&self.db)
-            .await?;
         UserToEntity::delete_many()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
             .exec(&self.db)
+            .await?;
+        let workouts = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .order_by_asc(workout::Column::Id)
+            .all(&self.db)
             .await?;
         for workout in workouts.into_iter() {
             self.delete_user_workout(user_id, workout.id).await?;
