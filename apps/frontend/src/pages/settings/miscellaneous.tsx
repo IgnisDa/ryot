@@ -101,7 +101,7 @@ const Page: NextPageWithLayout = () => {
 										}}
 										disabled={!coreDetails.data.deployAdminJobsAllowed}
 									>
-										Deploy job
+										Update metadata
 									</Button>
 								</Stack>
 								<Stack>
@@ -132,7 +132,7 @@ const Page: NextPageWithLayout = () => {
 										}}
 										disabled={!coreDetails.data.deployAdminJobsAllowed}
 									>
-										Deploy job
+										Update calendar events
 									</Button>
 								</Stack>
 								<Stack>
@@ -161,7 +161,7 @@ const Page: NextPageWithLayout = () => {
 										}}
 										disabled={!coreDetails.data.deployAdminJobsAllowed}
 									>
-										Deploy job
+										Update exercises
 									</Button>
 								</Stack>
 							</>
