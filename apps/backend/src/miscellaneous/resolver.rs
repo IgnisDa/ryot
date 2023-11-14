@@ -2691,6 +2691,12 @@ impl MiscellaneousService {
                     .push(ApplicationJob::RecalculateCalendarEvents)
                     .await?;
             }
+            BackgroundJob::EvaluateWorkouts => {
+                self.perform_application_job
+                    .clone()
+                    .push(ApplicationJob::ReEvaluateUserWorkouts(user_id))
+                    .await?;
+            }
         };
         Ok(true)
     }

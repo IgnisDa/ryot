@@ -724,4 +724,8 @@ impl ExerciseService {
             Err(Error::new("Workout does not exist for user"))
         }
     }
+
+    pub async fn re_evaluate_user_workouts(&self, user_id: i32) -> Result<()> {
+        todo!()
+    }
 }
