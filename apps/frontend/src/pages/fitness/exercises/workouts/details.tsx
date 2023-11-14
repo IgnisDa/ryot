@@ -233,7 +233,7 @@ const Page: NextPageWithLayout = () => {
 												c={getSetColor(s.lot)}
 												mr="md"
 												fw="bold"
-												style={{ fontVariantNumeric: "tabular-nums" }}
+												ff="monospace"
 											>
 												{match(s.lot)
 													.with(SetLot.Normal, () => idx + 1)
