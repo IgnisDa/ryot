@@ -2650,10 +2650,10 @@ impl MiscellaneousService {
         job_name: BackgroundJob,
         user_id: i32,
     ) -> Result<bool> {
+        let sqlite_storage = &mut self.perform_application_job.clone();
         match job_name {
             BackgroundJob::CalculateSummary => {
-                self.perform_application_job
-                    .clone()
+                sqlite_storage
                     .push(ApplicationJob::RecalculateUserSummary(user_id))
                     .await?;
             }
@@ -2686,14 +2686,12 @@ impl MiscellaneousService {
             }
             BackgroundJob::RecalculateCalendarEvents => {
                 self.admin_account_guard(user_id).await?;
-                self.perform_application_job
-                    .clone()
+                sqlite_storage
                     .push(ApplicationJob::RecalculateCalendarEvents)
                     .await?;
             }
             BackgroundJob::EvaluateWorkouts => {
-                self.perform_application_job
-                    .clone()
+                sqlite_storage
                     .push(ApplicationJob::ReEvaluateUserWorkouts(user_id))
                     .await?;
             }
