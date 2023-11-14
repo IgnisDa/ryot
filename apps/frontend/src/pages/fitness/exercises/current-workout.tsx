@@ -1,5 +1,5 @@
 import { DisplayExerciseStats } from "@/components/FitnessComponents";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useEnabledCoreFeatures, useUserPreferences } from "@/lib/hooks";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -266,9 +266,14 @@ const ExerciseDisplay = (props: {
 							onChange={(v) => {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
+										const defaultDuration = parseInt(
+											localStorage.getItem(
+												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer
+											)|| "20",
+										);
 										draft.exercises[props.exerciseIdx].restTimer = {
 											enabled: v.currentTarget.checked,
-											duration: props.exercise.restTimer?.duration ?? 20,
+											duration: props.exercise.restTimer?.duration ?? defaultDuration
 										};
 									}),
 								);
@@ -284,7 +289,13 @@ const ExerciseDisplay = (props: {
 										const value = typeof v === "number" ? v : undefined;
 										const restTimer =
 											draft.exercises[props.exerciseIdx].restTimer;
-										if (restTimer && value) restTimer.duration = value;
+										if (restTimer && value) {
+											restTimer.duration = value;
+											localStorage.setItem(
+												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
+												value.toString(),
+											);
+										}
 									}),
 								);
 							}}

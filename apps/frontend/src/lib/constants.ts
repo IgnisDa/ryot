@@ -100,4 +100,5 @@ export const LOCAL_STORAGE_KEYS = {
 	savedGenreContentsPage: "39",
 	savedWorkoutListQuery: "40",
 	savedMeasurementsActiveTab: "41",
+	defaultExerciseRestTimer: "42",
 } as const;
