@@ -211,7 +211,10 @@ const ImageDisplay = (props: {
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
-	startTimer: (duration: number, triggeredByExerciseIdx: number) => void;
+	startTimer: (
+		duration: number,
+		triggeredByIdx: { exercise: number; set: number },
+	) => void;
 	openTimerDrawer: () => void;
 }) => {
 	const [parent] = useAutoAnimate();
@@ -409,7 +412,8 @@ const ExerciseDisplay = (props: {
 										<IconDotsVertical />
 									</ActionIcon>
 								</Menu.Target>
-								{currentTimer?.triggeredByExerciseIdx === props.exerciseIdx ? (
+								{currentTimer?.triggeredByIdx?.exercise ===
+								props.exerciseIdx ? (
 									<Progress
 										pos="absolute"
 										color="violet"
@@ -726,7 +730,7 @@ const ExerciseDisplay = (props: {
 													) {
 														props.startTimer(
 															props.exercise.restTimer.duration,
-															props.exerciseIdx,
+															{ exercise: props.exerciseIdx, set: idx },
 														);
 													}
 													setCurrentWorkout(
@@ -1044,11 +1048,14 @@ const Page: NextPageWithLayout = () => {
 		setTime((s) => s + 1);
 	}, 1000);
 
-	const startTimer = (duration: number, triggeredByExerciseIdx?: number) => {
+	const startTimer = (
+		duration: number,
+		triggeredByIdx?: { exercise: number; set: number },
+	) => {
 		setCurrentTimer({
 			totalTime: duration,
 			endAt: DateTime.now().plus({ seconds: duration }),
-			triggeredByExerciseIdx,
+			triggeredByIdx,
 		});
 		interval.stop();
 		interval.start();
