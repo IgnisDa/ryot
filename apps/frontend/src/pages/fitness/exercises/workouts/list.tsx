@@ -64,7 +64,7 @@ const ExerciseDisplay = (props: {
 
 	return (
 		<Flex gap="xs">
-			<Text fz="sm" ff="monospace">
+			<Text fz="sm" style={{ fontVariantNumeric: "tabular-nums" }}>
 				{props.exercise.numSets} ×
 			</Text>
 			<Text style={{ flex: 1 }} fz="sm">
