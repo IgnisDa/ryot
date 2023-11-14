@@ -195,6 +195,31 @@ const Page: NextPageWithLayout = () => {
 						</Stack>
 						<Stack>
 							<Box>
+								<Title order={4}>Re-evaluate workouts</Title>
+								<Text>
+									Re-evaluate all workouts. This may be useful if, for some
+									reason, exercises done during a workout have changed or
+									workouts have been deleted.
+								</Text>
+							</Box>
+							<Button
+								onClick={async () => {
+									deployBackgroundJob.mutateAsync({
+										jobName: BackgroundJob.EvaluateWorkouts,
+									});
+									notifications.show({
+										title: "Success",
+										message: "Workouts will be re-evaluated in the background",
+										color: "green",
+									});
+								}}
+								{...buttonProps}
+							>
+								Re-evaluate workouts
+							</Button>
+						</Stack>
+						<Stack>
+							<Box>
 								<Title order={4}>Synchronize integrations progress</Title>
 								<Text>
 									Get data from all configured integrations and update progress
