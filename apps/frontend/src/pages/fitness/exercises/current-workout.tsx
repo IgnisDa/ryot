@@ -216,6 +216,7 @@ const ExerciseDisplay = (props: {
 		triggeredByIdx: { exercise: number; set: number },
 	) => void;
 	openTimerDrawer: () => void;
+	stopTimer: () => void;
 }) => {
 	const [parent] = useAutoAnimate();
 	const enabledCoreFeatures = useEnabledCoreFeatures();
@@ -724,6 +725,13 @@ const ExerciseDisplay = (props: {
 													playCheckSound();
 													const newConfirmed = !s.confirmed;
 													if (
+														!newConfirmed &&
+														currentTimer?.triggeredByIdx?.exercise ===
+															props.exerciseIdx &&
+														currentTimer?.triggeredByIdx?.set === idx
+													)
+														props.stopTimer();
+													if (
 														props.exercise.restTimer?.enabled &&
 														newConfirmed &&
 														s.lot !== SetLot.WarmUp
@@ -1061,6 +1069,10 @@ const Page: NextPageWithLayout = () => {
 		interval.start();
 	};
 
+	const stopTimer = () => {
+		setCurrentTimer(RESET);
+	};
+
 	const finishWorkout = async (newWorkoutId?: string) => {
 		await router.replace(
 			newWorkoutId
@@ -1089,7 +1101,7 @@ const Page: NextPageWithLayout = () => {
 			if (timeRemaining <= 1) {
 				playCompleteTimerSound();
 				timerDrawerClose();
-				setCurrentTimer(RESET);
+				stopTimer();
 			}
 		}
 	}, [time]);
@@ -1112,10 +1124,7 @@ const Page: NextPageWithLayout = () => {
 							opened={timerDrawerOpened}
 							onClose={timerDrawerClose}
 							startTimer={startTimer}
-							stopTimer={() => {
-								setCurrentTimer(RESET);
-								interval.stop();
-							}}
+							stopTimer={stopTimer}
 						/>
 						<ReorderDrawer
 							opened={reorderDrawerOpened}
@@ -1250,6 +1259,7 @@ const Page: NextPageWithLayout = () => {
 								exercise={ex}
 								exerciseIdx={idx}
 								startTimer={startTimer}
+								stopTimer={stopTimer}
 								openTimerDrawer={timerDrawerOpen}
 							/>
 						))}
