@@ -63,6 +63,7 @@ export type AudioBooksSummary = {
 
 export enum BackgroundJob {
   CalculateSummary = 'CALCULATE_SUMMARY',
+  EvaluateWorkouts = 'EVALUATE_WORKOUTS',
   RecalculateCalendarEvents = 'RECALCULATE_CALENDAR_EVENTS',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
   UpdateAllMetadata = 'UPDATE_ALL_METADATA'
