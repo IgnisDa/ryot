@@ -1,5 +1,5 @@
 import { DisplayExerciseStats } from "@/components/FitnessComponents";
-import { APP_ROUTES } from "@/lib/constants";
+import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useEnabledCoreFeatures, useUserPreferences } from "@/lib/hooks";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -211,8 +211,12 @@ const ImageDisplay = (props: {
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
-	startTimer: (duration: number, triggeredByExerciseIdx: number) => void;
+	startTimer: (
+		duration: number,
+		triggeredByIdx: { exercise: number; set: number },
+	) => void;
 	openTimerDrawer: () => void;
+	stopTimer: () => void;
 }) => {
 	const [parent] = useAutoAnimate();
 	const enabledCoreFeatures = useEnabledCoreFeatures();
@@ -262,9 +266,14 @@ const ExerciseDisplay = (props: {
 							onChange={(v) => {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
+										const defaultDuration = parseInt(
+											localStorage.getItem(
+												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer
+											)|| "20",
+										);
 										draft.exercises[props.exerciseIdx].restTimer = {
 											enabled: v.currentTarget.checked,
-											duration: props.exercise.restTimer?.duration ?? 20,
+											duration: props.exercise.restTimer?.duration ?? defaultDuration
 										};
 									}),
 								);
@@ -280,7 +289,13 @@ const ExerciseDisplay = (props: {
 										const value = typeof v === "number" ? v : undefined;
 										const restTimer =
 											draft.exercises[props.exerciseIdx].restTimer;
-										if (restTimer && value) restTimer.duration = value;
+										if (restTimer && value) {
+											restTimer.duration = value;
+											localStorage.setItem(
+												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
+												value.toString(),
+											);
+										}
 									}),
 								);
 							}}
@@ -409,7 +424,8 @@ const ExerciseDisplay = (props: {
 										<IconDotsVertical />
 									</ActionIcon>
 								</Menu.Target>
-								{currentTimer?.triggeredByExerciseIdx === props.exerciseIdx ? (
+								{currentTimer?.triggeredByIdx?.exercise ===
+								props.exerciseIdx ? (
 									<Progress
 										pos="absolute"
 										color="violet"
@@ -720,13 +736,20 @@ const ExerciseDisplay = (props: {
 													playCheckSound();
 													const newConfirmed = !s.confirmed;
 													if (
+														!newConfirmed &&
+														currentTimer?.triggeredByIdx?.exercise ===
+															props.exerciseIdx &&
+														currentTimer?.triggeredByIdx?.set === idx
+													)
+														props.stopTimer();
+													if (
 														props.exercise.restTimer?.enabled &&
 														newConfirmed &&
 														s.lot !== SetLot.WarmUp
 													) {
 														props.startTimer(
 															props.exercise.restTimer.duration,
-															props.exerciseIdx,
+															{ exercise: props.exerciseIdx, set: idx },
 														);
 													}
 													setCurrentWorkout(
@@ -1044,14 +1067,21 @@ const Page: NextPageWithLayout = () => {
 		setTime((s) => s + 1);
 	}, 1000);
 
-	const startTimer = (duration: number, triggeredByExerciseIdx?: number) => {
+	const startTimer = (
+		duration: number,
+		triggeredByIdx?: { exercise: number; set: number },
+	) => {
 		setCurrentTimer({
 			totalTime: duration,
 			endAt: DateTime.now().plus({ seconds: duration }),
-			triggeredByExerciseIdx,
+			triggeredByIdx,
 		});
 		interval.stop();
 		interval.start();
+	};
+
+	const stopTimer = () => {
+		setCurrentTimer(RESET);
 	};
 
 	const finishWorkout = async (newWorkoutId?: string) => {
@@ -1082,7 +1112,7 @@ const Page: NextPageWithLayout = () => {
 			if (timeRemaining <= 1) {
 				playCompleteTimerSound();
 				timerDrawerClose();
-				setCurrentTimer(RESET);
+				stopTimer();
 			}
 		}
 	}, [time]);
@@ -1105,10 +1135,7 @@ const Page: NextPageWithLayout = () => {
 							opened={timerDrawerOpened}
 							onClose={timerDrawerClose}
 							startTimer={startTimer}
-							stopTimer={() => {
-								setCurrentTimer(RESET);
-								interval.stop();
-							}}
+							stopTimer={stopTimer}
 						/>
 						<ReorderDrawer
 							opened={reorderDrawerOpened}
@@ -1243,6 +1270,7 @@ const Page: NextPageWithLayout = () => {
 								exercise={ex}
 								exerciseIdx={idx}
 								startTimer={startTimer}
+								stopTimer={stopTimer}
 								openTimerDrawer={timerDrawerOpen}
 							/>
 						))}
