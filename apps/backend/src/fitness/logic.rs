@@ -302,12 +302,15 @@ impl workout::Model {
     // recalculate exercise associations totals or change personal bests.
     pub async fn delete_existing(self, db: &DatabaseConnection, user_id: i32) -> Result<()> {
         for (idx, ex) in self.information.exercises.iter().enumerate() {
-            let association = UserToEntity::find()
+            let association = match UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
                 .filter(user_to_entity::Column::ExerciseId.eq(ex.id.clone()))
                 .one(db)
                 .await?
-                .unwrap();
+            {
+                None => continue,
+                Some(assoc) => assoc,
+            };
             let performed = association.num_times_interacted;
             let mut ei = association.exercise_extra_information.clone().unwrap();
             if let Some(ex_idx) = ei

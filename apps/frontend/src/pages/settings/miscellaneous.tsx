@@ -6,7 +6,7 @@ import {
 	Box,
 	Button,
 	Container,
-	Divider,
+	SimpleGrid,
 	Stack,
 	Text,
 	Title,
@@ -25,8 +25,10 @@ import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../_app";
 
+const buttonProps = { mt: "md", variant: "light" };
+
 const DisabledNotice = () => (
-	<Text size="xs" c="dimmed">
+	<Text size="xs" c="dimmed" mt="auto">
 		Deploying this job is disabled on this instance.
 	</Text>
 );
@@ -67,131 +69,172 @@ const Page: NextPageWithLayout = () => {
 			<Head>
 				<title>Miscellaneous Settings | Ryot</title>
 			</Head>
-			<Container size="xs">
+			<Container size="lg">
 				<Stack>
 					<Title>Miscellaneous settings</Title>
-					{userDetails.lot === UserLot.Admin ? (
-						<>
+					<SimpleGrid cols={{ base: 1, lg: 2 }}>
+						{userDetails.lot === UserLot.Admin ? (
+							<>
+								<Stack>
+									<Box>
+										<Title order={4}>Update all metadata</Title>
+										<Text>
+											Fetch and update the metadata for all the media items that
+											are stored. The more media you have, the longer this will
+											take. This also updates people and group data from remote
+											providers.
+										</Text>
+									</Box>
+									{!coreDetails.data.deployAdminJobsAllowed ? (
+										<DisabledNotice />
+									) : undefined}
+									<Button
+										onClick={async () => {
+											deployBackgroundJob.mutateAsync({
+												jobName: BackgroundJob.UpdateAllMetadata,
+											});
+											notifications.show({
+												title: "Success",
+												message:
+													"All metadata will be updated in the background",
+												color: "green",
+											});
+										}}
+										disabled={!coreDetails.data.deployAdminJobsAllowed}
+										{...buttonProps}
+									>
+										Update metadata
+									</Button>
+								</Stack>
+								<Stack>
+									<Box>
+										<Title order={4}>Update Calendar Events</Title>
+										<Text>
+											Create any pending calendar events, or delete ones that
+											have changed. Useful if you have added new media items or
+											publish dates have changed. This is run every 24 hours
+											automatically.
+										</Text>
+									</Box>
+									{!coreDetails.data.deployAdminJobsAllowed ? (
+										<DisabledNotice />
+									) : undefined}
+									<Button
+										onClick={async () => {
+											deployBackgroundJob.mutateAsync({
+												jobName: BackgroundJob.RecalculateCalendarEvents,
+											});
+											notifications.show({
+												title: "Success",
+												message:
+													"Calender events will be updated in the background",
+												color: "green",
+											});
+										}}
+										disabled={!coreDetails.data.deployAdminJobsAllowed}
+										{...buttonProps}
+									>
+										Update calendar events
+									</Button>
+								</Stack>
+								<Stack>
+									<Box>
+										<Title order={4}>Update Exercises</Title>
+										<Text>
+											Update the exercise database. Exercise data is downloaded
+											on startup but they can be updated manually. Trigger this
+											job when there are new exercises available.
+										</Text>
+									</Box>
+									{!coreDetails.data.deployAdminJobsAllowed ? (
+										<DisabledNotice />
+									) : undefined}
+									<Button
+										onClick={async () => {
+											deployBackgroundJob.mutateAsync({
+												jobName: BackgroundJob.UpdateAllExercises,
+											});
+											notifications.show({
+												title: "Success",
+												message: "Exercises will be updated in the background",
+												color: "green",
+											});
+										}}
+										disabled={!coreDetails.data.deployAdminJobsAllowed}
+										{...buttonProps}
+									>
+										Update exercises
+									</Button>
+								</Stack>
+							</>
+						) : undefined}
+						<Stack>
 							<Box>
-								<Title order={4}>Update all metadata</Title>
+								<Title order={4}>Regenerate Summaries</Title>
 								<Text>
-									Fetch and update the metadata for all the media items that are
-									stored. The more media you have, the longer this will take.
+									Regenerate all pre-computed summaries from the beginning. This
+									may be useful if, for some reason, summaries are faulty or
+									preconditions have changed. This may take some time.
 								</Text>
 							</Box>
-							{!coreDetails.data.deployAdminJobsAllowed ? (
-								<DisabledNotice />
-							) : undefined}
 							<Button
 								onClick={async () => {
 									deployBackgroundJob.mutateAsync({
-										jobName: BackgroundJob.UpdateAllMetadata,
+										jobName: BackgroundJob.CalculateSummary,
 									});
 									notifications.show({
 										title: "Success",
-										message: "All metadata will be updated in the background",
+										message: "Summary will be regenerated in the background",
 										color: "green",
 									});
 								}}
-								disabled={!coreDetails.data.deployAdminJobsAllowed}
+								{...buttonProps}
 							>
-								Deploy job
+								Clean and regenerate
 							</Button>
-							<Divider />
+						</Stack>
+						<Stack>
 							<Box>
-								<Title order={4}>Update Calendar Events</Title>
+								<Title order={4}>Re-evaluate workouts</Title>
 								<Text>
-									Create any pending calendar events, or delete ones that have
-									changed. Useful if you have added new media items or publish
-									dates have changed. This is run every 24 hours automatically.
+									Re-evaluate all workouts. This may be useful if, for some
+									reason, exercises done during a workout have changed or
+									workouts have been deleted.
 								</Text>
 							</Box>
-							{!coreDetails.data.deployAdminJobsAllowed ? (
-								<DisabledNotice />
-							) : undefined}
 							<Button
 								onClick={async () => {
 									deployBackgroundJob.mutateAsync({
-										jobName: BackgroundJob.RecalculateCalendarEvents,
+										jobName: BackgroundJob.EvaluateWorkouts,
 									});
 									notifications.show({
 										title: "Success",
-										message:
-											"Calender events will be updated in the background",
+										message: "Workouts will be re-evaluated in the background",
 										color: "green",
 									});
 								}}
-								disabled={!coreDetails.data.deployAdminJobsAllowed}
+								{...buttonProps}
 							>
-								Deploy job
+								Re-evaluate workouts
 							</Button>
-							<Divider />
+						</Stack>
+						<Stack>
 							<Box>
-								<Title order={4}>Update Exercises</Title>
+								<Title order={4}>Synchronize integrations progress</Title>
 								<Text>
-									Update the exercise database. Exercise data is downloaded on
-									startup but they can be updated manually.
+									Get data from all configured integrations and update progress
+									if applicable. The more integrations you have enabled, the
+									longer this will take.
 								</Text>
 							</Box>
-							{!coreDetails.data.deployAdminJobsAllowed ? (
-								<DisabledNotice />
-							) : undefined}
 							<Button
-								onClick={async () => {
-									deployBackgroundJob.mutateAsync({
-										jobName: BackgroundJob.UpdateAllExercises,
-									});
-									notifications.show({
-										title: "Success",
-										message: "Exercises will be updated in the background",
-										color: "green",
-									});
-								}}
-								disabled={!coreDetails.data.deployAdminJobsAllowed}
+								onClick={() => yankIntegrationData.mutate({})}
+								{...buttonProps}
 							>
-								Deploy job
+								Synchronize
 							</Button>
-							<Divider />
-						</>
-					) : undefined}
-					<>
-						<Box>
-							<Title order={4}>Regenerate Summaries</Title>
-							<Text>
-								Regenerate all pre-computed summaries from the beginning. This
-								may be useful if, for some reason, summaries are faulty or
-								preconditions have changed. This may take some time.
-							</Text>
-						</Box>
-						<Button
-							onClick={async () => {
-								deployBackgroundJob.mutateAsync({
-									jobName: BackgroundJob.CalculateSummary,
-								});
-								notifications.show({
-									title: "Success",
-									message: "Summary will be regenerated in the background",
-									color: "green",
-								});
-							}}
-						>
-							Clean and regenerate
-						</Button>
-					</>
-					<Divider />
-					<>
-						<Box>
-							<Title order={4}>Synchronize integrations progress</Title>
-							<Text>
-								Get data from all configured integrations and update progress if
-								applicable. The more integrations you have enabled, the longer
-								this will take.
-							</Text>
-						</Box>
-						<Button onClick={() => yankIntegrationData.mutate({})}>
-							Synchronize
-						</Button>
-					</>
+						</Stack>
+					</SimpleGrid>
 				</Stack>
 			</Container>
 		</>

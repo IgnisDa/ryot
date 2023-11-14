@@ -36,6 +36,7 @@ use crate::{
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BackgroundJob {
     CalculateSummary,
+    EvaluateWorkouts,
     UpdateAllMetadata,
     UpdateAllExercises,
     RecalculateCalendarEvents,

@@ -93,6 +93,7 @@ pub enum ApplicationJob {
     ImportFromExternalSource(i32, DeployImportJobInput),
     UserCreated(i32),
     RecalculateUserSummary(i32),
+    ReEvaluateUserWorkouts(i32),
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
     BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
@@ -130,6 +131,10 @@ pub async fn perform_application_job(
         }
         ApplicationJob::RecalculateUserSummary(user_id) => misc_service
             .calculate_user_summary(user_id, true)
+            .await
+            .is_ok(),
+        ApplicationJob::ReEvaluateUserWorkouts(user_id) => exercise_service
+            .re_evaluate_user_workouts(user_id)
             .await
             .is_ok(),
         ApplicationJob::UpdateMetadata(metadata) => {

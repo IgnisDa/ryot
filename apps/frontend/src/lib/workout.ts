@@ -168,7 +168,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 type Timer = {
 	totalTime: number;
 	endAt: DateTime;
-	triggeredByExerciseIdx?: number;
+	triggeredByIdx?: { exercise: number; set: number };
 };
 
 export const timerAtom = atomWithReset<Timer | null>(null);
