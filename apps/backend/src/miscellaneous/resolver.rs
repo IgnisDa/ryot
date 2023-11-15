@@ -2742,7 +2742,7 @@ impl MiscellaneousService {
             // if the metadata is monitored
             let is_monitored = u.metadata_monitored.unwrap_or_default();
             // if user has set a reminder
-            let is_reminder_active = u.metadata_monitored.is_some();
+            let is_reminder_active = u.metadata_reminder.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
                 && !is_monitored
