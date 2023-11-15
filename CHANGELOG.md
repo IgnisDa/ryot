@@ -1,5 +1,17 @@
 
 
+# Version 3.4.10 (2023-11-15)
+
+## Bug Fixes
+
+- **backend:** metadata not being cleaned up
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 3.4.9 (2023-11-14)
 
 
