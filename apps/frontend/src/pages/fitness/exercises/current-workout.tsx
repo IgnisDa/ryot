@@ -34,6 +34,7 @@ import {
 	Paper,
 	Progress,
 	RingProgress,
+	SimpleGrid,
 	Skeleton,
 	Stack,
 	Switch,
@@ -243,6 +244,7 @@ const ExerciseDisplay = (props: {
 		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
+		.with(ExerciseLot.Reps, () => [false, false, false, true])
 		.exhaustive();
 
 	const toBeDisplayedColumns =
@@ -268,12 +270,13 @@ const ExerciseDisplay = (props: {
 									produce(currentWorkout, (draft) => {
 										const defaultDuration = parseInt(
 											localStorage.getItem(
-												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer
-											)|| "20",
+												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
+											) || "20",
 										);
 										draft.exercises[props.exerciseIdx].restTimer = {
 											enabled: v.currentTarget.checked,
-											duration: props.exercise.restTimer?.duration ?? defaultDuration
+											duration:
+												props.exercise.restTimer?.duration ?? defaultDuration,
 										};
 									}),
 								);
@@ -722,6 +725,10 @@ const ExerciseDisplay = (props: {
 														.with(
 															ExerciseLot.Duration,
 															() => typeof s.statistic.duration === "number",
+														)
+														.with(
+															ExerciseLot.Reps,
+															() => typeof s.statistic.reps === "number",
 														)
 														.with(
 															ExerciseLot.RepsAndWeight,
@@ -1192,7 +1199,13 @@ const Page: NextPageWithLayout = () => {
 							/>
 						</Group>
 						<Divider />
-						<Group justify="space-around" wrap="nowrap">
+						<SimpleGrid
+							cols={
+								2 +
+								Number(currentWorkout.exercises.length > 0) +
+								Number(currentWorkout.exercises.length > 1)
+							}
+						>
 							<Button
 								color="orange"
 								variant="subtle"
@@ -1262,7 +1275,7 @@ const Page: NextPageWithLayout = () => {
 							>
 								Cancel
 							</Button>
-						</Group>
+						</SimpleGrid>
 						<Divider />
 						{currentWorkout.exercises.map((ex, idx) => (
 							<ExerciseDisplay
