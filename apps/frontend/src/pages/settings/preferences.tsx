@@ -338,6 +338,23 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									/>
+									<Switch
+										size="xs"
+										mt="md"
+										label="Disable yank integrations"
+										checked={
+											userPreferences.data.general.disableYankIntegrations
+										}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(ev) => {
+											updateUserPreferences.mutate({
+												input: {
+													property: "general.disable_yank_integrations",
+													value: String(ev.currentTarget.checked),
+												},
+											});
+										}}
+									/>
 								</SimpleGrid>
 							</Stack>
 						</Tabs.Panel>
