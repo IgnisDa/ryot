@@ -19,7 +19,10 @@ export const getSetStatisticsTextToDisplay = (
 				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1)
 			).toFixed(2)} km/min`,
 		])
-		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
+		.with(ExerciseLot.Duration, () => [
+			`${Number(statistic.duration).toFixed(2)} min`,
+			undefined,
+		])
 		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			statistic.weight && statistic.weight !== "0"
