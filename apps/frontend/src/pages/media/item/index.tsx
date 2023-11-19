@@ -387,6 +387,16 @@ const AccordionLabel = (props: {
 	runtime?: number | null;
 	publishDate?: string | null;
 }) => {
+	const display = [
+		props.runtime ? humanizer.humanize(props.runtime * 1000 * 60) : undefined,
+		props.publishDate
+			? DateTime.fromISO(props.publishDate).toLocaleString(DateTime.DATE_MED)
+			: undefined,
+		props.numEpisodes ? `${props.numEpisodes} episodes` : undefined,
+	]
+		.filter(Boolean)
+		.join(", ");
+
 	return (
 		<Stack data-episode-id={props.id}>
 			<Flex align="center" gap="sm">
@@ -413,15 +423,9 @@ const AccordionLabel = (props: {
 			</Flex>
 			<Group gap={6}>
 				<Text>{props.name}</Text>
-				{props.runtime ? (
+				{display ? (
 					<Text size="xs" c="dimmed">
-						({humanizer.humanize(props.runtime * 1000 * 60)}
-						{props.publishDate
-							? `, ${DateTime.fromISO(props.publishDate).toLocaleString(
-									DateTime.DATE_MED,
-							  )}`
-							: undefined}
-						{props.numEpisodes ? `, ${props.numEpisodes} episodes` : undefined})
+						({display})
 					</Text>
 				) : undefined}
 			</Group>
