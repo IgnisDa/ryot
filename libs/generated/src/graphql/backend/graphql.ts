@@ -426,6 +426,7 @@ export type ExerciseListResults = {
 export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
   Duration = 'DURATION',
+  Reps = 'REPS',
   RepsAndWeight = 'REPS_AND_WEIGHT'
 }
 

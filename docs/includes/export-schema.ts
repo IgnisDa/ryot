@@ -140,7 +140,7 @@ export interface EntityAssets {
 	videos: string[];
 }
 
-export type ExerciseLot = 'Duration' | 'DistanceAndDuration' | 'RepsAndWeight';
+export type ExerciseLot = 'Duration' | 'DistanceAndDuration' | 'Reps' | 'RepsAndWeight';
 
 export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
 
