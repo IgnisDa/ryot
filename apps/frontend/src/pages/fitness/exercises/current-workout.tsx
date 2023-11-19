@@ -244,6 +244,7 @@ const ExerciseDisplay = (props: {
 		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
+		.with(ExerciseLot.Reps, () => [false, false, false, true])
 		.exhaustive();
 
 	const toBeDisplayedColumns =
@@ -724,6 +725,10 @@ const ExerciseDisplay = (props: {
 														.with(
 															ExerciseLot.Duration,
 															() => typeof s.statistic.duration === "number",
+														)
+														.with(
+															ExerciseLot.Reps,
+															() => typeof s.statistic.reps === "number",
 														)
 														.with(
 															ExerciseLot.RepsAndWeight,

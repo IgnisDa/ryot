@@ -20,6 +20,7 @@ export const getSetStatisticsTextToDisplay = (
 			).toFixed(2)} km/min`,
 		])
 		.with(ExerciseLot.Duration, () => [`${statistic.duration} min`, undefined])
+		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			statistic.weight && statistic.weight !== "0"
 				? `${statistic.weight} kg  × ${statistic.reps}`
