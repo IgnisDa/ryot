@@ -146,6 +146,8 @@ pub enum ExerciseLot {
     Duration,
     #[sea_orm(string_value = "DD")]
     DistanceAndDuration,
+    #[sea_orm(string_value = "R")]
+    Reps,
     #[sea_orm(string_value = "RW")]
     RepsAndWeight,
 }

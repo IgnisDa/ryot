@@ -338,6 +338,23 @@ const Page: NextPageWithLayout = () => {
 											});
 										}}
 									/>
+									<Switch
+										size="xs"
+										mt="md"
+										label="Disable yank integrations"
+										checked={
+											userPreferences.data.general.disableYankIntegrations
+										}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(ev) => {
+											updateUserPreferences.mutate({
+												input: {
+													property: "general.disable_yank_integrations",
+													value: String(ev.currentTarget.checked),
+												},
+											});
+										}}
+									/>
 								</SimpleGrid>
 							</Stack>
 						</Tabs.Panel>
@@ -399,7 +416,10 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="fitness" mt="md">
 							<Stack>
-								<SimpleGrid cols={2} style={{ alignItems: "center" }}>
+								<SimpleGrid
+									cols={{ base: 1, md: 2 }}
+									style={{ alignItems: "center" }}
+								>
 									{/*
 							// TODO: Introduce this back when we figure out a way to handle units
 							<Select

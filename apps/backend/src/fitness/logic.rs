@@ -91,6 +91,9 @@ impl UserWorkoutSetRecord {
                 stats.reps = self.statistic.reps;
                 stats.weight = self.statistic.weight;
             }
+            ExerciseLot::Reps => {
+                stats.reps = self.statistic.reps;
+            }
         }
         self.statistic = stats;
     }
@@ -203,6 +206,7 @@ impl UserWorkoutInput {
                     WorkoutSetPersonalBest::Volume,
                     WorkoutSetPersonalBest::Reps,
                 ],
+                ExerciseLot::Reps => vec![WorkoutSetPersonalBest::Reps],
             };
             for best_type in types_of_prs.iter() {
                 let set_idx = get_index_of_highest_pb(&sets, best_type).unwrap();

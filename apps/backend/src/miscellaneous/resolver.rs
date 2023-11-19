@@ -5059,6 +5059,9 @@ impl MiscellaneousService {
                         "display_nsfw" => {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
+                        "disable_yank_integrations" => {
+                            preferences.general.disable_yank_integrations = value_bool.unwrap();
+                        }
                         "dashboard" => {
                             preferences.general.dashboard =
                                 serde_json::from_str(&input.value).unwrap();
@@ -5430,6 +5433,10 @@ impl MiscellaneousService {
     }
 
     pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<usize> {
+        let preferences = self.user_preferences(user_id).await?;
+        if preferences.general.disable_yank_integrations {
+            return Ok(0);
+        }
         if let Some(integrations) =
             partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
                 .await?
