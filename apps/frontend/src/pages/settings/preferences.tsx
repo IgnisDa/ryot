@@ -399,7 +399,10 @@ const Page: NextPageWithLayout = () => {
 						</Tabs.Panel>
 						<Tabs.Panel value="fitness" mt="md">
 							<Stack>
-								<SimpleGrid cols={2} style={{ alignItems: "center" }}>
+								<SimpleGrid
+									cols={{ base: 1, md: 2 }}
+									style={{ alignItems: "center" }}
+								>
 									{/*
 							// TODO: Introduce this back when we figure out a way to handle units
 							<Select
