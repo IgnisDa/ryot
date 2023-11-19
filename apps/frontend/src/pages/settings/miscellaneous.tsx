@@ -25,7 +25,7 @@ import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../_app";
 
-const buttonProps = { mt: "md", variant: "light" };
+const buttonProps = { mt: { md: "md" }, variant: "light" };
 
 const DisabledNotice = () => (
 	<Text size="xs" c="dimmed" mt="auto">
@@ -72,7 +72,10 @@ const Page: NextPageWithLayout = () => {
 			<Container size="lg">
 				<Stack>
 					<Title>Miscellaneous settings</Title>
-					<SimpleGrid cols={{ base: 1, lg: 2 }}>
+					<SimpleGrid
+						cols={{ base: 1, lg: 2 }}
+						spacing={{ base: "xl", md: "md" }}
+					>
 						{userDetails.lot === UserLot.Admin ? (
 							<>
 								<Stack>
