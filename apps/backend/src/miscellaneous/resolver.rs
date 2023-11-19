@@ -5059,6 +5059,9 @@ impl MiscellaneousService {
                         "display_nsfw" => {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
+                        "disable_yank_integrations" => {
+                            preferences.general.disable_yank_integrations = value_bool.unwrap();
+                        }
                         "dashboard" => {
                             preferences.general.dashboard =
                                 serde_json::from_str(&input.value).unwrap();

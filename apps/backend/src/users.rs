@@ -283,6 +283,7 @@ pub struct UserGeneralDashboardElement {
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
+    pub disable_yank_integrations: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
 }
 
@@ -291,6 +292,7 @@ impl Default for UserGeneralPreferences {
         Self {
             review_scale: UserReviewScale::default(),
             display_nsfw: false,
+            disable_yank_integrations: false,
             dashboard: vec![
                 UserGeneralDashboardElement {
                     section: DashboardElementLot::Upcoming,
