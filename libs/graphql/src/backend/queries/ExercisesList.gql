@@ -10,6 +10,7 @@ query ExercisesList($input: ExercisesListInput!) {
       image
       muscle
       numTimesInteracted
+      lastUpdatedOn
     }
   }
 }

@@ -66,6 +66,7 @@ pub struct ExerciseListItem {
     #[graphql(skip)]
     pub attributes: ExerciseAttributes,
     pub num_times_interacted: Option<i32>,
+    pub last_updated_on: Option<DateTimeUtc>,
     pub muscle: Option<ExerciseMuscle>,
     pub image: Option<String>,
     #[graphql(skip)]
