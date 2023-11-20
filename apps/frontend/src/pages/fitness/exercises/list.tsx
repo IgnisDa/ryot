@@ -1,5 +1,5 @@
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useCoreDetails } from "@/lib/hooks";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -78,6 +78,7 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const selectionEnabled = !!router.query.selectionEnabled;
 	const coreDetails = useCoreDetails();
+	const userPreferences = useUserPreferences();
 
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -157,7 +158,9 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : undefined;
 
-	return coreDetails.data && exerciseInformation.data ? (
+	return coreDetails.data &&
+		userPreferences.data &&
+		exerciseInformation.data ? (
 		<>
 			<Head>
 				<title>Exercises | Ryot</title>
@@ -428,6 +431,14 @@ const Page: NextPageWithLayout = () => {
 												// biome-ignore lint/suspicious/noExplicitAny: required here
 												statistic: s.statistic as any,
 											})) || [],
+										restTimer: userPreferences.data.fitness.exercises
+											.defaultTimer
+											? {
+													duration:
+														userPreferences.data.fitness.exercises.defaultTimer,
+													enabled: true,
+											  }
+											: undefined,
 										notes: [],
 										images: [],
 										videos: [],
