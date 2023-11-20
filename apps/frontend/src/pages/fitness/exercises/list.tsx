@@ -63,6 +63,7 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
+import { DateTime } from "luxon";
 
 const defaultFilterValue = {
 	muscle: undefined,
@@ -354,11 +355,21 @@ const Page: NextPageWithLayout = () => {
 												>
 													<Flex direction="column" justify="space-around">
 														<Text>{exercise.id}</Text>
-														{exercise.muscle ? (
-															<Text size="xs">
-																{startCase(snakeCase(exercise.muscle))}
-															</Text>
-														) : undefined}
+														<Flex>
+															{exercise.muscle ? (
+																<Text size="xs">
+																	{startCase(snakeCase(exercise.muscle))}
+																</Text>
+															) : undefined}
+															{exercise.lastUpdatedOn ? (
+																<Text size="xs" c="dimmed">
+																	{exercise.muscle ? "," : undefined}{" "}
+																	{DateTime.fromJSDate(
+																		exercise.lastUpdatedOn,
+																	).toFormat("d LLL")}
+																</Text>
+															) : undefined}
+														</Flex>
 													</Flex>
 												</Link>
 											</Flex>
