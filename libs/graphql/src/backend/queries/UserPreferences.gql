@@ -44,6 +44,7 @@ query UserPreferences {
       }
       exercises {
         saveHistory
+        defaultTimer
         unitSystem
       }
     }

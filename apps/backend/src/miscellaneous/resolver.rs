@@ -4953,6 +4953,9 @@ impl MiscellaneousService {
                                     preferences.fitness.exercises.unit_system =
                                         UserUnitSystem::from_str(&input.value).unwrap();
                                 }
+                                "default_timer" => {
+                                    preferences.fitness.exercises.default_timer = value_usize.ok();
+                                }
                                 _ => return Err(err()),
                             },
                             _ => return Err(err()),

@@ -112,6 +112,7 @@ pub enum UserUnitSystem {
 )]
 pub struct UserExercisePreferences {
     pub save_history: usize,
+    pub default_timer: Option<usize>,
     pub unit_system: UserUnitSystem,
 }
 
@@ -119,6 +120,7 @@ impl Default for UserExercisePreferences {
     fn default() -> Self {
         Self {
             save_history: 15,
+            default_timer: None,
             unit_system: UserUnitSystem::Metric,
         }
     }
