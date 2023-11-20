@@ -1,5 +1,5 @@
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useCoreDetails } from "@/lib/hooks";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -63,6 +63,7 @@ import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
+import { DateTime } from "luxon";
 
 const defaultFilterValue = {
 	muscle: undefined,
@@ -77,6 +78,7 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const selectionEnabled = !!router.query.selectionEnabled;
 	const coreDetails = useCoreDetails();
+	const userPreferences = useUserPreferences();
 
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -156,7 +158,9 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : undefined;
 
-	return coreDetails.data && exerciseInformation.data ? (
+	return coreDetails.data &&
+		userPreferences.data &&
+		exerciseInformation.data ? (
 		<>
 			<Head>
 				<title>Exercises | Ryot</title>
@@ -354,11 +358,21 @@ const Page: NextPageWithLayout = () => {
 												>
 													<Flex direction="column" justify="space-around">
 														<Text>{exercise.id}</Text>
-														{exercise.muscle ? (
-															<Text size="xs">
-																{startCase(snakeCase(exercise.muscle))}
-															</Text>
-														) : undefined}
+														<Flex>
+															{exercise.muscle ? (
+																<Text size="xs">
+																	{startCase(snakeCase(exercise.muscle))}
+																</Text>
+															) : undefined}
+															{exercise.lastUpdatedOn ? (
+																<Text size="xs" c="dimmed">
+																	{exercise.muscle ? "," : undefined}{" "}
+																	{DateTime.fromJSDate(
+																		exercise.lastUpdatedOn,
+																	).toFormat("d LLL")}
+																</Text>
+															) : undefined}
+														</Flex>
 													</Flex>
 												</Link>
 											</Flex>
@@ -417,6 +431,14 @@ const Page: NextPageWithLayout = () => {
 												// biome-ignore lint/suspicious/noExplicitAny: required here
 												statistic: s.statistic as any,
 											})) || [],
+										restTimer: userPreferences.data.fitness.exercises
+											.defaultTimer
+											? {
+													duration:
+														userPreferences.data.fitness.exercises.defaultTimer,
+													enabled: true,
+											  }
+											: undefined,
 										notes: [],
 										images: [],
 										videos: [],

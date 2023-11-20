@@ -1183,7 +1183,11 @@ const Page: NextPageWithLayout = () => {
 							<DurationTimer startTime={currentWorkout.startTime} />
 							<StatDisplay
 								name="Exercises"
-								value={currentWorkout.exercises.length.toString()}
+								value={`${
+									currentWorkout.exercises
+										.map((e) => e.sets.every((s) => s.confirmed))
+										.filter(Boolean).length
+								}/${currentWorkout.exercises.length}`}
 							/>
 							<StatDisplay
 								name="Total Weight"

@@ -439,25 +439,27 @@ const Page: NextPageWithLayout = () => {
 								}}
 							/>
 							*/}
-									<Group wrap="nowrap">
-										<ActionIcon
-											onClick={async () => {
-												if (Notification.permission !== "granted") {
-													await Notification.requestPermission();
-													router.reload();
-												}
-											}}
-											color={
-												Notification.permission === "granted" ? "green" : "red"
-											}
-										>
-											<IconBellRinging />
-										</ActionIcon>
-										<Text size="xs">Notifications during workouts</Text>
-									</Group>
 									<NumberInput
 										size="xs"
-										label="The number of elements to save in your exercise history"
+										label="The default rest timer to use during exercises. Leave empty for no default."
+										defaultValue={
+											userPreferences.data.fitness.exercises.defaultTimer ||
+											undefined
+										}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(num) => {
+											console.log(num);
+											updateUserPreferences.mutate({
+												input: {
+													property: "fitness.exercises.default_timer",
+													value: String(num),
+												},
+											});
+										}}
+									/>
+									<NumberInput
+										size="xs"
+										label="The number of elements to save in your exercise history."
 										defaultValue={
 											userPreferences.data.fitness.exercises.saveHistory
 										}
@@ -472,6 +474,24 @@ const Page: NextPageWithLayout = () => {
 												});
 										}}
 									/>
+									<Group wrap="nowrap">
+										<ActionIcon
+											onClick={async () => {
+												if (Notification.permission !== "granted") {
+													await Notification.requestPermission();
+													router.reload();
+												}
+											}}
+											color={
+												Notification.permission === "granted" ? "green" : "red"
+											}
+										>
+											<IconBellRinging />
+										</ActionIcon>
+										<Text size="xs">
+											Show me notifications related to the current workout
+										</Text>
+									</Group>
 								</SimpleGrid>
 								<Text>The default measurements you want to keep track of.</Text>
 								<SimpleGrid cols={2}>
