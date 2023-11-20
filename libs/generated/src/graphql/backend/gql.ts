@@ -58,7 +58,7 @@ const documents = {
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query ExerciseDetails($exerciseId: String!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    id\n    lot\n    source\n    level\n    force\n    mechanic\n    equipment\n    muscles\n    attributes {\n      instructions\n      images\n    }\n  }\n}": types.ExerciseDetailsDocument,
     "query ExerciseParameters {\n  exerciseParameters {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}": types.ExerciseParametersDocument,
-    "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      lot\n      image\n      muscle\n      numTimesInteracted\n    }\n  }\n}": types.ExercisesListDocument,
+    "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      lot\n      image\n      muscle\n      numTimesInteracted\n      lastUpdatedOn\n    }\n  }\n}": types.ExercisesListDocument,
     "query GenreDetails($input: GenreDetailsInput!) {\n  genreDetails(input: $input) {\n    details {\n      id\n      name\n      numItems\n    }\n    contents {\n      details {\n        total\n        nextPage\n      }\n      items {\n        details {\n          ...MediaSearchItemPart\n        }\n        metadataLot\n      }\n    }\n  }\n}": types.GenreDetailsDocument,
     "query GenresList($input: SearchInput!) {\n  genresList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      numItems\n    }\n  }\n}": types.GenresListDocument,
     "query GetPresignedS3Url($key: String!) {\n  getPresignedS3Url(key: $key)\n}": types.GetPresignedS3UrlDocument,
@@ -290,7 +290,7 @@ export function graphql(source: "query ExerciseParameters {\n  exerciseParameter
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      lot\n      image\n      muscle\n      numTimesInteracted\n    }\n  }\n}"): (typeof documents)["query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      lot\n      image\n      muscle\n      numTimesInteracted\n    }\n  }\n}"];
+export function graphql(source: "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      lot\n      image\n      muscle\n      numTimesInteracted\n      lastUpdatedOn\n    }\n  }\n}"): (typeof documents)["query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      lot\n      image\n      muscle\n      numTimesInteracted\n      lastUpdatedOn\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

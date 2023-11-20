@@ -458,8 +458,12 @@ impl ExerciseService {
         };
         let query = Exercise::find()
             .column_as(
-                Expr::col((etu, user_to_entity::Column::NumTimesInteracted)),
+                Expr::col((etu.clone(), user_to_entity::Column::NumTimesInteracted)),
                 "num_times_interacted",
+            )
+            .column_as(
+                Expr::col((etu, user_to_entity::Column::LastUpdatedOn)),
+                "last_updated_on",
             )
             .apply_if(input.filter, |query, q| {
                 query
