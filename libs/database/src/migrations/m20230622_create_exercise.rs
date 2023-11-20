@@ -100,10 +100,10 @@ pub enum ExerciseEquipment {
     Barbell,
     #[sea_orm(string_value = "BO")]
     BodyOnly,
-    #[sea_orm(string_value = "D")]
-    Dumbbell,
     #[sea_orm(string_value = "C")]
     Cable,
+    #[sea_orm(string_value = "D")]
+    Dumbbell,
     #[sea_orm(string_value = "EX")]
     #[serde(alias = "exercise ball")]
     ExerciseBall,
