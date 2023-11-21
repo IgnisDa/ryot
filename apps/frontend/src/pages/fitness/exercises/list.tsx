@@ -57,13 +57,13 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { createDraft, finishDraft, produce } from "immer";
 import { useAtom } from "jotai";
+import { DateTime } from "luxon";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { type ReactElement, useEffect } from "react";
 import { withQuery } from "ufo";
 import type { NextPageWithLayout } from "../../_app";
-import { DateTime } from "luxon";
 
 const defaultFilterValue = {
 	muscle: undefined,
