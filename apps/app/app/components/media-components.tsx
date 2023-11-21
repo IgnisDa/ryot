@@ -54,6 +54,7 @@ import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import classes from "./styles.module.css";
+import { APP_ROUTES } from "~/lib/constants";
 
 export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 	return (
