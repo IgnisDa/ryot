@@ -40,7 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { produce } from "immer";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { joinURL } from "ufo";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { colorSchemeCookie } from "~/lib/cookies.server";
@@ -74,7 +74,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		label: link.label,
 		link: link.href
 			? link.href
-			: withQuery(APP_ROUTES.media.list, { lot: link.label.toLowerCase() }),
+			: joinURL(APP_ROUTES.media.list, link.label.toLowerCase()),
 	}));
 
 	const fitnessLinks = [

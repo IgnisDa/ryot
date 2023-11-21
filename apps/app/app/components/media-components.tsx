@@ -22,7 +22,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { Link, useNavigate, useSearchParams } from "@remix-run/react";
+import { Link, useNavigate } from "@remix-run/react";
 import {
 	AddEntityToCollectionDocument,
 	type AddEntityToCollectionMutationVariables,
@@ -36,7 +36,6 @@ import {
 	RemoveEntityFromCollectionDocument,
 	type RemoveEntityFromCollectionMutationVariables,
 	type ReviewItem,
-	UserCollectionsListDocument,
 	UserPreferencesQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -48,16 +47,15 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
 import { useGetMantineColor } from "~/lib/hooks";
-import { Verb, getFallbackImageUrl, getLot, getVerb } from "~/lib/utilities";
+import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
 import { ApplicationUser } from "~/lib/utils";
 import classes from "~/styles/media-components.module.css";
 
@@ -117,7 +115,7 @@ export const ReviewItemDisplay = (props: {
 	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
-	const createReviewComment = useMutation({
+	const createReviewComment_ = useMutation({
 		mutationFn: async (variables: CreateReviewCommentMutationVariables) => {
 			const { createReviewComment } = await gqlClient.request(
 				CreateReviewCommentDocument,
@@ -508,10 +506,8 @@ export const MediaSearchItem = (props: {
 	maybeItemId?: number;
 }) => {
 	const navigate = useNavigate();
-	const [params, _] = useSearchParams();
-	const lot = getLot(params.get("lot"));
 
-	const addMediaToCollection = useMutation({
+	const addMediaToCollection_ = useMutation({
 		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
 			const { addEntityToCollection } = await gqlClient.request(
 				AddEntityToCollectionDocument,
@@ -624,22 +620,13 @@ export const AddEntityToCollectionModal = (props: {
 	entityId: string;
 	refetchUserMedia: () => void;
 	entityLot: EntityLot;
+	collections: string[];
 }) => {
 	const [selectedCollection, setSelectedCollection] = useState<string | null>(
 		null,
 	);
 
-	const collections = useQuery({
-		queryKey: ["collections"],
-		queryFn: async () => {
-			const { userCollectionsList } = await gqlClient.request(
-				UserCollectionsListDocument,
-				{},
-			);
-			return userCollectionsList.map((c) => c.name);
-		},
-	});
-	const addMediaToCollection = useMutation({
+	const addMediaToCollection_ = useMutation({
 		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
 			const { addEntityToCollection } = await gqlClient.request(
 				AddEntityToCollectionDocument,
@@ -653,19 +640,19 @@ export const AddEntityToCollectionModal = (props: {
 		},
 	});
 
-	return collections.data ? (
+	return (
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
 		>
-			{collections ? (
+			{props.collections ? (
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					{collections.data.length > 0 ? (
+					{props.collections.length > 0 ? (
 						<Select
-							data={collections.data}
+							data={props.collections}
 							onChange={setSelectedCollection}
 							searchable
 						/>
@@ -691,7 +678,7 @@ export const AddEntityToCollectionModal = (props: {
 				</Stack>
 			) : undefined}
 		</Modal>
-	) : undefined;
+	);
 };
 
 export const DisplayCollection = (props: {
@@ -701,7 +688,7 @@ export const DisplayCollection = (props: {
 	refetch: () => void;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const removeMediaFromCollection = useMutation({
+	const removeMediaFromCollection_ = useMutation({
 		mutationFn: async (
 			variables: RemoveEntityFromCollectionMutationVariables,
 		) => {
