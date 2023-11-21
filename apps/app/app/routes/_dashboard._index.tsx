@@ -6,7 +6,6 @@ import {
 	Center,
 	Container,
 	Flex,
-	Grid,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -46,6 +45,7 @@ import { DateTime } from "luxon";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import Grid from "~/components/grid";
 import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
@@ -138,6 +138,7 @@ export default function Index() {
 										{loaderData.collectionContents.results.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
 												key={lm.details.identifier}
+												userPreferences={loaderData.userPreferences}
 												item={{
 													...lm.details,
 													publishYear: lm.details.publishYear?.toString(),
@@ -469,9 +470,11 @@ today.setHours(0, 0, 0, 0);
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	const diff = DateTime.fromISO(um.date).diff(DateTime.fromJSDate(today));
 	const numDaysLeft = parseInt(diff.as("days").toFixed(0));
+	const loaderData = useLoaderData<typeof loader>();
 
 	return (
 		<MediaItemWithoutUpdateModal
+			userPreferences={loaderData.userPreferences}
 			item={{
 				identifier: um.metadataId.toString(),
 				title: um.metadataTitle,

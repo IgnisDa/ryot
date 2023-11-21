@@ -1,3 +1,5 @@
+import { UserLot } from "@ryot/generated/graphql/backend/graphql";
+
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
  */
@@ -13,3 +15,11 @@ export function combineHeaders(
 	}
 	return combined;
 }
+
+export type ApplicationUser = {
+	__typename: "User";
+	id: number;
+	email?: string | null | undefined;
+	name: string;
+	lot: UserLot;
+};

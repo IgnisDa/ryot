@@ -26,6 +26,7 @@ import { Link, useNavigate, useSearchParams } from "@remix-run/react";
 import {
 	AddEntityToCollectionDocument,
 	type AddEntityToCollectionMutationVariables,
+	CoreDetails,
 	CreateReviewCommentDocument,
 	type CreateReviewCommentMutationVariables,
 	EntityLot,
@@ -36,6 +37,7 @@ import {
 	type RemoveEntityFromCollectionMutationVariables,
 	type ReviewItem,
 	UserCollectionsListDocument,
+	UserPreferencesQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
@@ -54,14 +56,9 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
-import {
-	useCommitMedia,
-	useCoreDetails,
-	useGetMantineColor,
-	useUser,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getFallbackImageUrl, getLot, getVerb } from "~/lib/utilities";
+import { ApplicationUser } from "~/lib/utils";
 import classes from "~/styles/media-components.module.css";
 
 export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
@@ -98,18 +95,21 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 	);
 };
 
-export const MediaScrollArea = (props: { children: JSX.Element }) => {
-	const coreDetails = useCoreDetails();
-
-	return coreDetails.data ? (
-		<ScrollArea.Autosize mah={coreDetails.data.itemDetailsHeight}>
+export const MediaScrollArea = (props: {
+	children: JSX.Element;
+	coreDetails: CoreDetails;
+}) => {
+	return (
+		<ScrollArea.Autosize mah={props.coreDetails.itemDetailsHeight}>
 			{props.children}
 		</ScrollArea.Autosize>
-	) : undefined;
+	);
 };
 
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
+	user: ApplicationUser;
+	userPreferences: UserPreferencesQuery["userPreferences"];
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
@@ -117,8 +117,6 @@ export const ReviewItemDisplay = (props: {
 	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
-	const user = useUser();
-	const userPreferences = useUserPreferences();
 	const createReviewComment = useMutation({
 		mutationFn: async (variables: CreateReviewCommentMutationVariables) => {
 			const { createReviewComment } = await gqlClient.request(
@@ -132,7 +130,7 @@ export const ReviewItemDisplay = (props: {
 		},
 	});
 
-	return userPreferences.data ? (
+	return (
 		<>
 			<Box key={props.review.id} data-review-id={props.review.id}>
 				<Flex align="center" gap="sm">
@@ -147,7 +145,7 @@ export const ReviewItemDisplay = (props: {
 							).toLocaleString()}
 						</Text>
 					</Box>
-					{user && user.id === props.review.postedBy?.id ? (
+					{props.user && props.user.id === props.review.postedBy?.id ? (
 						<Anchor
 							component={Link}
 							to={withQuery(APP_ROUTES.media.postReview, {
@@ -179,7 +177,7 @@ export const ReviewItemDisplay = (props: {
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
 								{props.review.rating}
-								{userPreferences.data.general.reviewScale ===
+								{props.userPreferences.general.reviewScale ===
 								UserReviewScale.OutOfFive
 									? undefined
 									: "%"}
@@ -239,7 +237,7 @@ export const ReviewItemDisplay = (props: {
 															).toLocaleString()}
 														</Text>
 													</Box>
-													{user && user.id === c?.user?.id ? (
+													{props.user && props.user.id === c?.user?.id ? (
 														<ActionIcon
 															color="red"
 															onClick={() => {
@@ -262,7 +260,7 @@ export const ReviewItemDisplay = (props: {
 													<ActionIcon
 														onClick={() => {
 															const likedByUser = c?.likedBy?.includes(
-																user?.id,
+																props.user.id,
 															);
 															if (props.review.id)
 																createReviewComment.mutate({
@@ -290,7 +288,7 @@ export const ReviewItemDisplay = (props: {
 			</Box>
 			<Divider />
 		</>
-	) : undefined;
+	);
 };
 
 export const BaseDisplayItem = (props: {
@@ -379,6 +377,7 @@ type Item = {
 
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
+	userPreferences: UserPreferencesQuery["userPreferences"];
 	entityLot?: EntityLot | null;
 	href?: string;
 	lot?: MetadataLot | null;
@@ -388,10 +387,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 	averageRating?: string;
 	noRatingLink?: boolean;
 }) => {
-	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
 
-	return userPreferences.data ? (
+	return (
 		<BaseDisplayItem
 			href={
 				props.href
@@ -447,14 +445,14 @@ export const MediaItemWithoutUpdateModal = (props: {
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 							<Text c="white" size="xs" fw="bold" pr={4}>
-								{match(userPreferences.data.general.reviewScale)
+								{match(props.userPreferences.general.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
 										// biome-ignore lint/style/noNonNullAssertion: it is validated above
 										parseFloat(props.averageRating!.toString()).toFixed(1),
 									)
 									.with(UserReviewScale.OutOfHundred, () => props.averageRating)
 									.exhaustive()}{" "}
-								{userPreferences.data.general.reviewScale ===
+								{props.userPreferences.general.reviewScale ===
 								UserReviewScale.OutOfFive
 									? undefined
 									: "%"}
@@ -496,7 +494,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			name={props.item.title}
 			children={props.children}
 		/>
-	) : undefined;
+	);
 };
 
 export const MediaSearchItem = (props: {
@@ -506,13 +504,13 @@ export const MediaSearchItem = (props: {
 	lot: MetadataLot;
 	source: MetadataSource;
 	searchQueryRefetch: () => void;
+	userPreferences: UserPreferencesQuery["userPreferences"];
 	maybeItemId?: number;
 }) => {
 	const navigate = useNavigate();
 	const [params, _] = useSearchParams();
 	const lot = getLot(params.get("lot"));
 
-	const commitMedia = useCommitMedia(lot);
 	const addMediaToCollection = useMutation({
 		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
 			const { addEntityToCollection } = await gqlClient.request(
@@ -545,6 +543,7 @@ export const MediaSearchItem = (props: {
 			item={props.item}
 			lot={props.lot}
 			imageOverlayForLoadingIndicator={commitMedia.isPending}
+			userPreferences={props.userPreferences}
 			href={
 				props.maybeItemId
 					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
