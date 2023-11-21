@@ -7,7 +7,6 @@ import {
 	Container,
 	Flex,
 	Grid,
-	Paper,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -37,6 +36,11 @@ import {
 	IconScaleOutline,
 	IconWeight,
 } from "@tabler/icons-react";
+import humanFormat from "human-format";
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+} from "humanize-duration-ts";
 import { useAtom } from "jotai";
 import { DateTime } from "luxon";
 import invariant from "tiny-invariant";
@@ -492,6 +496,9 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	);
 };
 
+const service = new HumanizeDurationLanguage();
+const humanizer = new HumanizeDuration(service);
+
 const ActualDisplayStat = (props: {
 	icon: JSX.Element;
 	lot: string;
@@ -507,7 +514,7 @@ const ActualDisplayStat = (props: {
 	const colors = Object.keys(theme.colors);
 
 	return (
-		<Paper component={Flex} align="center">
+		<Flex align="center">
 			<RingProgress
 				size={60}
 				thickness={4}
@@ -542,7 +549,7 @@ const ActualDisplayStat = (props: {
 					),
 				)}
 			</Flex>
-		</Paper>
+		</Flex>
 	);
 };
 

@@ -6277,6 +6277,7 @@ __metadata:
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:2.40.0"
+    "@tanstack/react-query": "npm:5.8.4"
     "@types/crypto-js": "npm:^4"
     "@types/luxon": "npm:3.3.3"
     "@types/react": "npm:18.2.33"
@@ -6284,6 +6285,8 @@ __metadata:
     crypto-js: "npm:4.2.0"
     eslint: "npm:8.38.0"
     graphql-request: "npm:6.1.0"
+    human-format: "npm:1.2.0"
+    humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.0.3"
     isbot: "npm:3.6.8"
     jotai: "npm:2.5.1"
@@ -6849,6 +6852,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tanstack/query-core@npm:5.8.3":
+  version: 5.8.3
+  resolution: "@tanstack/query-core@npm:5.8.3"
+  checksum: cf27b4e69c2667ad2169e57c8e714e4417dc409ca03f83247d4c811e5dc7bc0d1ac99a1080047c90523110f68f8340a9b1b7d95a3a31f977f50c32734c074254
+  languageName: node
+  linkType: hard
+
 "@tanstack/react-query@npm:5.4.3":
   version: 5.4.3
   resolution: "@tanstack/react-query@npm:5.4.3"
@@ -6864,6 +6874,24 @@ __metadata:
     react-native:
       optional: true
   checksum: 7ed45d8e17aeb072809fb4d9c74f562912ee0e1e22e890f531955a45a91c52dfe9063ac8646d96ad7fb7d9c7614361491c29bb9e333341b592e460d717957fcb
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-query@npm:5.8.4":
+  version: 5.8.4
+  resolution: "@tanstack/react-query@npm:5.8.4"
+  dependencies:
+    "@tanstack/query-core": "npm:5.8.3"
+  peerDependencies:
+    react: ^18.0.0
+    react-dom: ^18.0.0
+    react-native: "*"
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+    react-native:
+      optional: true
+  checksum: e9408ab94ddda08296169bfcdfb7f9bf13fdb73e29eaf54bcf54b1744b4687cb48a3b7e6a7523c050ff1124b50b129330a3f650c261cf0470b01e3531fcaafcc
   languageName: node
   linkType: hard
 

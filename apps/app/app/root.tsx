@@ -25,6 +25,7 @@ import {
 	useLoaderData,
 	useNavigation,
 } from "@remix-run/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import { Toaster } from "~/components/toaster";
 import { honeypot } from "~/lib/honeypot.server";
@@ -94,6 +95,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	);
 };
 
+const queryClient = new QueryClient();
+
 export default function App() {
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
@@ -111,31 +114,33 @@ export default function App() {
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
 			</head>
 			<body>
-				<HoneypotProvider {...loaderData.honeyProps}>
-					<MantineProvider
-						classNamesPrefix="mnt"
-						theme={theme}
-						forceColorScheme={loaderData.defaultColorScheme}
-					>
-						{navigation.state === "loading" ||
-						navigation.state === "submitting" ? (
-							<Loader
-								pos="fixed"
-								right={10}
-								top={10}
-								size="sm"
-								color="yellow"
-							/>
-						) : undefined}
-						<Toaster toast={loaderData.toast} />
-						<Flex style={{ flexGrow: 1 }} mih="100vh">
-							<Outlet />
-						</Flex>
-						<ScrollRestoration />
-						<LiveReload />
-						<Scripts />
-					</MantineProvider>
-				</HoneypotProvider>
+				<QueryClientProvider client={queryClient}>
+					<HoneypotProvider {...loaderData.honeyProps}>
+						<MantineProvider
+							classNamesPrefix="mnt"
+							theme={theme}
+							forceColorScheme={loaderData.defaultColorScheme}
+						>
+							{navigation.state === "loading" ||
+							navigation.state === "submitting" ? (
+								<Loader
+									pos="fixed"
+									right={10}
+									top={10}
+									size="sm"
+									color="yellow"
+								/>
+							) : undefined}
+							<Toaster toast={loaderData.toast} />
+							<Flex style={{ flexGrow: 1 }} mih="100vh">
+								<Outlet />
+							</Flex>
+							<ScrollRestoration />
+							<LiveReload />
+							<Scripts />
+						</MantineProvider>
+					</HoneypotProvider>
+				</QueryClientProvider>
 			</body>
 		</html>
 	);

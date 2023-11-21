@@ -22,6 +22,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
+import { Link, useNavigate, useSearchParams } from "@remix-run/react";
 import {
 	AddEntityToCollectionDocument,
 	type AddEntityToCollectionMutationVariables,
@@ -47,21 +48,28 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateTime } from "luxon";
-import Link from "next/link";
-import { useRouter } from "next/router";
 import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import classes from "./styles.module.css";
+import { gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
+import {
+	useCommitMedia,
+	useCoreDetails,
+	useGetMantineColor,
+	useUser,
+	useUserPreferences,
+} from "~/lib/hooks";
+import { Verb, getFallbackImageUrl, getLot, getVerb } from "~/lib/utilities";
+import classes from "~/styles/media-components.module.css";
 
 export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 	return (
 		<Anchor
 			component={Link}
 			data-media-id={props.media.identifier}
-			href={
+			to={
 				props.media.metadataId
 					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
 							id: props.media.metadataId,
@@ -142,7 +150,7 @@ export const ReviewItemDisplay = (props: {
 					{user && user.id === props.review.postedBy?.id ? (
 						<Anchor
 							component={Link}
-							href={withQuery(APP_ROUTES.media.postReview, {
+							to={withQuery(APP_ROUTES.media.postReview, {
 								metadataId: props.metadataId,
 								metadataGroupId: props.metadataGroupId,
 								collectionId: props.collectionId,
@@ -310,7 +318,7 @@ export const BaseDisplayItem = (props: {
 			{props.topLeft}
 			<Anchor
 				component={Link}
-				href={props.href}
+				to={props.href}
 				style={{ flex: "none" }}
 				pos="relative"
 			>
@@ -381,8 +389,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noRatingLink?: boolean;
 }) => {
 	const userPreferences = useUserPreferences();
-	const router = useRouter();
-	const nextPath = withQuery(router.pathname, router.query);
+	const navigate = useNavigate();
 
 	return userPreferences.data ? (
 		<BaseDisplayItem
@@ -466,10 +473,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 						}}
 						onClick={(e) => {
 							e.preventDefault();
-							router.push(
+							navigate(
 								withQuery(APP_ROUTES.media.postReview, {
 									metadataId: props.item.identifier,
-									next: nextPath,
 								}),
 							);
 						}}
@@ -502,8 +508,9 @@ export const MediaSearchItem = (props: {
 	searchQueryRefetch: () => void;
 	maybeItemId?: number;
 }) => {
-	const router = useRouter();
-	const lot = getLot(router.query.lot);
+	const navigate = useNavigate();
+	const [params, _] = useSearchParams();
+	const lot = getLot(params.get("lot"));
 
 	const commitMedia = useCommitMedia(lot);
 	const addMediaToCollection = useMutation({
@@ -560,11 +567,9 @@ export const MediaSearchItem = (props: {
 						size="compact-md"
 						onClick={async () => {
 							const id = await commitFunction();
-							const nextPath = withQuery(router.pathname, router.query);
-							router.push(
+							navigate(
 								withQuery(APP_ROUTES.media.individualMediaItem.updateProgress, {
 									id,
-									next: nextPath,
 								}),
 							);
 						}}
@@ -579,7 +584,7 @@ export const MediaSearchItem = (props: {
 							size="compact-md"
 							onClick={async () => {
 								const id = await commitFunction();
-								router.push(
+								navigate(
 									withQuery(APP_ROUTES.media.individualMediaItem.details, {
 										id,
 									}),
@@ -719,7 +724,7 @@ export const DisplayCollection = (props: {
 					component={Link}
 					truncate
 					style={{ all: "unset", cursor: "pointer" }}
-					href={withQuery(APP_ROUTES.collections.details, {
+					to={withQuery(APP_ROUTES.collections.details, {
 						id: props.col.id,
 					})}
 				>

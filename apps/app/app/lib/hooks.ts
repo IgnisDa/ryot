@@ -1,5 +1,4 @@
 import { useMantineTheme } from "@mantine/core";
-import { getStringAsciiValue } from "./utilities";
 import {
 	CommitMediaDocument,
 	type CommitMediaMutationVariables,
@@ -10,9 +9,10 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import invariant from "tiny-invariant";
 import { GraphQLClient } from "graphql-request";
+import invariant from "tiny-invariant";
 import { API_URL } from "./api.server";
+import { getStringAsciiValue } from "./utilities";
 
 export const gqlClient = new GraphQLClient(`${API_URL}/graphql`);
 
@@ -39,7 +39,7 @@ export function useUser() {
 }
 
 export function useUserPreferences() {
-	const prefs = useQuery({
+	const preferences = useQuery({
 		queryKey: ["enabledUserFeatures"],
 		queryFn: async () => {
 			const { userPreferences } = await gqlClient.request(
@@ -49,7 +49,7 @@ export function useUserPreferences() {
 		},
 		staleTime: Infinity,
 	});
-	return prefs;
+	return preferences;
 }
 
 export function useEnabledCoreFeatures() {
