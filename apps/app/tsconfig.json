@@ -1,60 +1,42 @@
 {
-  "include": [
-    "env.d.ts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "compilerOptions": {
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2022"
-    ],
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "jsx": "react-jsx",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
-    "target": "ES2022",
-    "strict": true,
-    "allowJs": true,
-    "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
-    "paths": {
-      "~/*": [
-        "./app/*"
-      ],
-      "@ryot/generated/*": [
-        "../../libs/generated/src/*"
-      ],
-      "@ryot/graphql/*": [
-        "../../libs/graphql/src/*"
-      ],
-      "@ryot/ts-utils": [
-        "../../libs/ts-utils/src/index.ts"
-      ],
-      "@ryot/ts-utils/*": [
-        "../../libs/ts-utils/src/*"
-      ]
-    },
-    "plugins": [
-      {
-        "name": "typescript-plugin-css-modules"
-      }
-    ],
-    "noEmit": true,
-    "outDir": "../../.moon/cache/types/apps/app"
-  },
-  "references": [
-    {
-      "path": "../../libs/generated"
-    },
-    {
-      "path": "../../libs/graphql"
-    },
-    {
-      "path": "../../libs/ts-utils"
-    }
-  ]
+	"include": ["env.d.ts", "**/*.ts", "**/*.tsx"],
+	"compilerOptions": {
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"jsx": "react-jsx",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"resolveJsonModule": true,
+		"target": "ES2022",
+		"strict": true,
+		"allowJs": true,
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": ".",
+		"paths": {
+			"~/*": ["./app/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"],
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
+			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
+			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"]
+		},
+		"plugins": [
+			{
+				"name": "typescript-plugin-css-modules"
+			}
+		],
+		"noEmit": true,
+		"outDir": "../../.moon/cache/types/apps/app"
+	},
+	"references": [
+		{
+			"path": "../../libs/generated"
+		},
+		{
+			"path": "../../libs/graphql"
+		},
+		{
+			"path": "../../libs/ts-utils"
+		}
+	]
 }

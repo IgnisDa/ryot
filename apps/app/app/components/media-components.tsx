@@ -27,8 +27,6 @@ import {
 	AddEntityToCollectionDocument,
 	type AddEntityToCollectionMutationVariables,
 	CoreDetails,
-	CreateReviewCommentDocument,
-	type CreateReviewCommentMutationVariables,
 	EntityLot,
 	MetadataLot,
 	MetadataSource,
@@ -115,18 +113,6 @@ export const ReviewItemDisplay = (props: {
 	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
-	const createReviewComment_ = useMutation({
-		mutationFn: async (variables: CreateReviewCommentMutationVariables) => {
-			const { createReviewComment } = await gqlClient.request(
-				CreateReviewCommentDocument,
-				variables,
-			);
-			return createReviewComment;
-		},
-		onSuccess: () => {
-			props.refetch();
-		},
-	});
 
 	return (
 		<>
@@ -507,23 +493,6 @@ export const MediaSearchItem = (props: {
 }) => {
 	const navigate = useNavigate();
 
-	const addMediaToCollection_ = useMutation({
-		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
-			const { addEntityToCollection } = await gqlClient.request(
-				AddEntityToCollectionDocument,
-				variables,
-			);
-			return addEntityToCollection;
-		},
-		onSuccess: () => {
-			props.searchQueryRefetch();
-			notifications.show({
-				title: "Success",
-				message: "Media added to watchlist successfully",
-			});
-		},
-	});
-
 	const commitFunction = async () => {
 		const { id } = await commitMedia.mutateAsync({
 			identifier: props.item.identifier,
@@ -626,20 +595,6 @@ export const AddEntityToCollectionModal = (props: {
 		null,
 	);
 
-	const addMediaToCollection_ = useMutation({
-		mutationFn: async (variables: AddEntityToCollectionMutationVariables) => {
-			const { addEntityToCollection } = await gqlClient.request(
-				AddEntityToCollectionDocument,
-				variables,
-			);
-			return addEntityToCollection;
-		},
-		onSuccess: () => {
-			props.refetchUserMedia();
-			props.onClose();
-		},
-	});
-
 	return (
 		<Modal
 			opened={props.opened}
@@ -688,20 +643,6 @@ export const DisplayCollection = (props: {
 	refetch: () => void;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const removeMediaFromCollection_ = useMutation({
-		mutationFn: async (
-			variables: RemoveEntityFromCollectionMutationVariables,
-		) => {
-			const { removeEntityFromCollection } = await gqlClient.request(
-				RemoveEntityFromCollectionDocument,
-				variables,
-			);
-			return removeEntityFromCollection;
-		},
-		onSuccess: () => {
-			props.refetch();
-		},
-	});
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
