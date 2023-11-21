@@ -326,6 +326,7 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
     st
 }
 
+// TODO: Look into https://docs.rs/logs-wheel/latest/logs_wheel/
 fn init_tracing() -> Result<WorkerGuard> {
     let tmp_dir = PathBuf::new().join("tmp");
     create_dir_all(&tmp_dir)?;
