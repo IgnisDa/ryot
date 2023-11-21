@@ -1516,16 +1516,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cookie"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cd91cf61412820176e137621345ee43b3f4423e589e7ae4e50d601d93e35ef8"
-dependencies = [
- "time 0.3.22",
- "version_check",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4643,7 +4633,6 @@ dependencies = [
  "config 0.1.0",
  "const-str",
  "convert_case",
- "cookie 0.18.0",
  "csv",
  "database",
  "derive_more 1.0.0-beta.6",

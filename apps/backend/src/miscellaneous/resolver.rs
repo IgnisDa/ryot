@@ -13,10 +13,6 @@ use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
-use cookie::{
-    time::{Duration as CookieDuration, OffsetDateTime},
-    Cookie, SameSite,
-};
 use database::{
     AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
     AliasedReview, AliasedSeen, AliasedUserToEntity, MetadataLot, MetadataSource,
@@ -26,7 +22,6 @@ use database::{
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use harsh::Harsh;
-use http::header::SET_COOKIE;
 use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
@@ -125,7 +120,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
         get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        user_by_id, user_id_from_token, AUTHOR, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -703,29 +698,6 @@ enum UserUpcomingCalendarEventInput {
     NextDays(u64),
 }
 
-fn create_cookie(
-    ctx: &Context<'_>,
-    api_key: &str,
-    expires: bool,
-    insecure_cookie: bool,
-    same_site_none: bool,
-) -> Result<()> {
-    let mut cookie = Cookie::build((COOKIE_NAME, api_key.to_string())).secure(!insecure_cookie);
-    cookie = if expires {
-        cookie.expires(OffsetDateTime::now_utc())
-    } else {
-        cookie.expires(OffsetDateTime::now_utc().checked_add(CookieDuration::days(400)))
-    };
-    cookie = if same_site_none {
-        cookie.same_site(SameSite::None)
-    } else {
-        cookie.same_site(SameSite::Strict)
-    };
-    let cookie = cookie.build();
-    ctx.insert_http_header(SET_COOKIE, cookie.to_string());
-    Ok(())
-}
-
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
 }
@@ -1149,15 +1121,7 @@ impl MiscellaneousMutation {
     /// Login a user using their username and password and return an auth token.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service
-            .login_user(&input.username, &input.password, gql_ctx)
-            .await
-    }
-
-    /// Logout a user from the server and delete their login token.
-    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.logout_user(gql_ctx).await
+        service.login_user(&input.username, &input.password).await
     }
 
     /// Update a user's profile details.
@@ -4532,12 +4496,7 @@ impl MiscellaneousService {
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
-    async fn login_user(
-        &self,
-        username: &str,
-        password: &str,
-        gql_ctx: &Context<'_>,
-    ) -> Result<LoginResult> {
+    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
         let user = User::find()
             .filter(user::Column::Name.eq(username))
             .one(&self.db)
@@ -4563,29 +4522,10 @@ impl MiscellaneousService {
             &self.config.users.jwt_secret,
             self.config.users.token_valid_for_days,
         )?;
-
-        create_cookie(
-            gql_ctx,
-            &jwt_key,
-            false,
-            self.config.server.insecure_cookie,
-            self.config.server.samesite_none,
-        )?;
         Ok(LoginResult::Ok(LoginResponse {
             api_key: jwt_key,
             valid_for: self.config.users.token_valid_for_days,
         }))
-    }
-
-    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        create_cookie(
-            gql_ctx,
-            "",
-            true,
-            self.config.server.insecure_cookie,
-            self.config.server.samesite_none,
-        )?;
-        Ok(true)
     }
 
     // this job is run when a user is created for the first time

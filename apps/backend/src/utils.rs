@@ -8,7 +8,6 @@ use axum::{
     http::{request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
-use axum_extra::extract::cookie::CookieJar;
 use chrono::Utc;
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
@@ -41,7 +40,6 @@ use crate::{
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const USER_AGENT_STR: &str = const_str::concat!(
@@ -334,9 +332,7 @@ where
         let mut ctx = AuthContext {
             ..Default::default()
         };
-        if let Some(c) = parts.extract::<CookieJar>().await.unwrap().get(COOKIE_NAME) {
-            ctx.auth_token = Some(c.value().to_owned());
-        } else if let Some(h) = parts.headers.get(AUTHORIZATION) {
+        if let Some(h) = parts.headers.get(AUTHORIZATION) {
             ctx.auth_token = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
         } else if let Some(h) = parts.headers.get("X-Auth-Token") {
             ctx.auth_token = h.to_str().map(String::from).ok();
