@@ -46,7 +46,12 @@ import {
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
+import {
+	useDisclosure,
+	useInterval,
+	useListState,
+	useLocalStorage,
+} from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateUserWorkoutDocument,
@@ -1072,6 +1077,13 @@ const Page: NextPageWithLayout = () => {
 	const interval = useInterval(() => {
 		setTime((s) => s + 1);
 	}, 1000);
+	const [totalStat, setTotalStat] = useLocalStorage<
+		"weight" | "reps" | "distance" | "sets"
+	>({
+		key: LOCAL_STORAGE_KEYS.savedCurrentWorkoutShowTotalStat,
+		defaultValue: "weight",
+		getInitialValueInEffect: false,
+	});
 
 	const startTimer = (
 		duration: number,
@@ -1188,18 +1200,34 @@ const Page: NextPageWithLayout = () => {
 										.filter(Boolean).length
 								}/${currentWorkout.exercises.length}`}
 							/>
-							<StatDisplay
-								name="Total Weight"
-								value={`${sum(
-									currentWorkout.exercises
-										.flatMap((e) => e.sets)
-										.flatMap((s) =>
-											s.confirmed
-												? (s.statistic.reps || 0) * (s.statistic.weight || 0)
-												: 0,
-										),
-								).toFixed()} kg`}
-							/>
+							<Flex>
+								<Flex direction="column" justify="center">
+									{["weight", "reps"].map((s) => (
+										<Text key={s} size="xs" c="blue" ta="center">
+											{s}
+										</Text>
+									))}
+								</Flex>
+								<StatDisplay
+									name="Total Weight"
+									value={`${sum(
+										currentWorkout.exercises
+											.flatMap((e) => e.sets)
+											.flatMap((s) =>
+												s.confirmed
+													? (s.statistic.reps || 0) * (s.statistic.weight || 0)
+													: 0,
+											),
+									).toFixed()} kg`}
+								/>
+								<Flex direction="column" justify="center">
+									{["dist", "sets"].map((s) => (
+										<Text key={s} size="xs" c="blue" ta="center">
+											{s}
+										</Text>
+									))}
+								</Flex>
+							</Flex>
 						</Group>
 						<Divider />
 						<SimpleGrid
