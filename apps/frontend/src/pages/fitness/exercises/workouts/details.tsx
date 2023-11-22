@@ -177,7 +177,7 @@ const Page: NextPageWithLayout = () => {
 								<DisplayStat
 									icon={<IconZzz size={16} />}
 									data={humanizer.humanize(
-										workoutDetails.data.summary.total.restTime,
+										workoutDetails.data.summary.total.restTime * 1e3,
 										{ round: true, units: ["m", "s"] },
 									)}
 								/>
