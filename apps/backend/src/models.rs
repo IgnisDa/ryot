@@ -1227,6 +1227,9 @@ pub mod fitness {
         pub reps: usize,
         pub distance: Decimal,
         pub duration: Decimal,
+        /// The total seconds that were logged in the rest timer.
+        #[serde(default)] // FIXME: Should be removed in the next major release
+        pub rest_time: u16,
     }
 
     #[derive(

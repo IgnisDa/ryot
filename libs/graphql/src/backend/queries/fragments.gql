@@ -49,6 +49,7 @@ fragment WorkoutTotalMeasurementPart on WorkoutTotalMeasurement {
   reps
   distance
   duration
+  restTime
 }
 
 fragment EntityAssetsPart on EntityAssets {

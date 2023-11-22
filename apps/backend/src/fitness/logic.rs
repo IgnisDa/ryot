@@ -165,6 +165,9 @@ impl UserWorkoutInput {
                     up.update(db).await?
                 }
             };
+            if let Some(d) = ex.rest_time {
+                total.rest_time += d * (ex.sets.len() - 1) as u16;
+            }
             for set in ex.sets.iter_mut() {
                 set.translate_units(preferences.unit_system);
                 set.remove_invalids(&db_ex.lot);

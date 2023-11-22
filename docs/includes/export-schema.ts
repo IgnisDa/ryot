@@ -171,6 +171,8 @@ export interface WorkoutTotalMeasurement {
 	/** The number of personal bests achieved. */
 	personalBestsAchieved: number;
 	reps: number;
+	/** The total seconds that were logged in the rest timer. */
+	restTime: number;
 	weight: string;
 }
 
