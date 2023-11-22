@@ -423,7 +423,6 @@ const Page: NextPageWithLayout = () => {
 												confirmed: false,
 												statistic: {},
 												lot: SetLot.Normal,
-												startedAt: new Date().toISOString(),
 											},
 										],
 										alreadyDoneSets:
