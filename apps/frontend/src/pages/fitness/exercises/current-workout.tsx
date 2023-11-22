@@ -766,7 +766,7 @@ const ExerciseDisplay = (props: {
 															].confirmed = newConfirmed;
 															draft.exercises[props.exerciseIdx].sets[
 																idx
-															].endedAt = DateTime.now().toISO();
+															].confirmedAt = DateTime.now().toISO();
 														}),
 													);
 												}}
@@ -790,7 +790,6 @@ const ExerciseDisplay = (props: {
 										statistic: currentSet?.statistic ?? {},
 										lot: SetLot.Normal,
 										confirmed: false,
-										startedAt: DateTime.now().toISO(),
 									});
 								}),
 							);
