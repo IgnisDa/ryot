@@ -157,10 +157,9 @@ export interface WorkoutSetStatistic {
 
 /** Details about the set performed. */
 export interface WorkoutSetRecord {
-	endedAt: string | null;
+	confirmedAt: string | null;
 	lot: SetLot;
 	personalBests: WorkoutSetPersonalBest[];
-	startedAt: string | null;
 	statistic: WorkoutSetStatistic;
 }
 
@@ -171,6 +170,8 @@ export interface WorkoutTotalMeasurement {
 	/** The number of personal bests achieved. */
 	personalBestsAchieved: number;
 	reps: number;
+	/** The total seconds that were logged in the rest timer. */
+	restTime: number;
 	weight: string;
 }
 

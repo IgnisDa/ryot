@@ -85,7 +85,7 @@ import type { NextPageWithLayout } from "../../_app";
 const StatDisplay = (props: { name: string; value: string }) => {
 	return (
 		<Box mx="auto">
-			<Text ta="center" size="xl">
+			<Text ta="center" fz={{ md: "xl" }}>
 				{props.value}
 			</Text>
 			<Text c="dimmed" size="sm">
@@ -766,7 +766,7 @@ const ExerciseDisplay = (props: {
 															].confirmed = newConfirmed;
 															draft.exercises[props.exerciseIdx].sets[
 																idx
-															].endedAt = DateTime.now().toISO();
+															].confirmedAt = DateTime.now().toISO();
 														}),
 													);
 												}}
@@ -790,7 +790,6 @@ const ExerciseDisplay = (props: {
 										statistic: currentSet?.statistic ?? {},
 										lot: SetLot.Normal,
 										confirmed: false,
-										startedAt: DateTime.now().toISO(),
 									});
 								}),
 							);
@@ -1190,7 +1189,7 @@ const Page: NextPageWithLayout = () => {
 								}/${currentWorkout.exercises.length}`}
 							/>
 							<StatDisplay
-								name="Total Weight"
+								name="Weight"
 								value={`${sum(
 									currentWorkout.exercises
 										.flatMap((e) => e.sets)
@@ -1200,6 +1199,14 @@ const Page: NextPageWithLayout = () => {
 												: 0,
 										),
 								).toFixed()} kg`}
+							/>
+							<StatDisplay
+								name="Sets"
+								value={sum(
+									currentWorkout.exercises
+										.flatMap((e) => e.sets)
+										.flatMap((s) => (s.confirmed ? 1 : 0)),
+								).toString()}
 							/>
 						</Group>
 						<Divider />
