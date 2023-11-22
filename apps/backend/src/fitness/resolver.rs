@@ -761,8 +761,7 @@ impl ExerciseService {
                             .map(|s| UserWorkoutSetRecord {
                                 statistic: s.statistic,
                                 lot: s.lot,
-                                started_at: s.started_at,
-                                ended_at: s.ended_at,
+                                confirmed_at: s.confirmed_at,
                             })
                             .collect(),
                         notes: e.notes,

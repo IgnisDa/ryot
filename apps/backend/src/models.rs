@@ -1334,8 +1334,7 @@ pub mod fitness {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
-        pub started_at: Option<DateTimeUtc>,
-        pub ended_at: Option<DateTimeUtc>,
+        pub confirmed_at: Option<DateTimeUtc>,
     }
 
     impl WorkoutSetRecord {
@@ -1544,8 +1543,8 @@ pub mod fitness {
     pub struct UserWorkoutSetRecord {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
-        pub started_at: Option<DateTimeUtc>,
-        pub ended_at: Option<DateTimeUtc>,
+        #[serde(alias = "ended_at")] // FIXME: remove this in the next major release
+        pub confirmed_at: Option<DateTimeUtc>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

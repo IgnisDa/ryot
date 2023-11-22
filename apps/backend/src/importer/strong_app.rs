@@ -74,8 +74,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 one_rm: None,
             },
             lot: SetLot::Normal,
-            started_at: None,
-            ended_at: None,
+            confirmed_at: None,
         });
         if let Some(n) = entry.notes {
             notes.push(n);

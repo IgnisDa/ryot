@@ -168,6 +168,8 @@ impl UserWorkoutInput {
             if let Some(d) = ex.rest_time {
                 total.rest_time += d * (ex.sets.len() - 1) as u16;
             }
+            ex.sets
+                .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
             for set in ex.sets.iter_mut() {
                 set.translate_units(preferences.unit_system);
                 set.remove_invalids(&db_ex.lot);
@@ -186,8 +188,7 @@ impl UserWorkoutInput {
                 let mut value = WorkoutSetRecord {
                     statistic: set.statistic.clone(),
                     lot: set.lot,
-                    started_at: set.started_at,
-                    ended_at: set.ended_at,
+                    confirmed_at: set.confirmed_at,
                     personal_bests: vec![],
                 };
                 value.statistic.one_rm = value.calculate_one_rm();

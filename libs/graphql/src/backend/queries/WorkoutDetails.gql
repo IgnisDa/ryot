@@ -28,8 +28,7 @@ query WorkoutDetails($workoutId: String!) {
           }
           lot
           personalBests
-          startedAt
-          endedAt
+          confirmedAt
         }
       }
     }
