@@ -173,6 +173,15 @@ const Page: NextPageWithLayout = () => {
 								icon={<IconTrophy size={16} />}
 								data={`${workoutDetails.data.summary.total.personalBestsAchieved.toString()} PRs`}
 							/>
+							{workoutDetails.data.summary.total.restTime > 0 ? (
+								<DisplayStat
+									icon={<IconZzz size={16} />}
+									data={humanizer.humanize(
+										workoutDetails.data.summary.total.restTime,
+										{ round: true, units: ["m", "s"] },
+									)}
+								/>
+							) : undefined}
 						</Group>
 					</Box>
 					{workoutDetails.data.comment ? (
