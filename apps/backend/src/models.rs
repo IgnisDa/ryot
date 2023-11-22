@@ -1228,7 +1228,8 @@ pub mod fitness {
         pub distance: Decimal,
         pub duration: Decimal,
         /// The total seconds that were logged in the rest timer.
-        #[serde(default)] // FIXME: Should be removed in the next major release
+        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
+        #[serde(default)]
         pub rest_time: u16,
     }
 
