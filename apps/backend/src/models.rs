@@ -1543,7 +1543,6 @@ pub mod fitness {
     pub struct UserWorkoutSetRecord {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
-        #[serde(alias = "ended_at")] // FIXME: remove this in the next major release
         pub confirmed_at: Option<DateTimeUtc>,
     }
 
