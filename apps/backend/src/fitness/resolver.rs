@@ -6,6 +6,7 @@ use database::{
     AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
     ExerciseMechanic, ExerciseMuscle, ExerciseSource,
 };
+use futures::TryStreamExt;
 use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -743,39 +744,58 @@ impl ExerciseService {
             .await?;
         for workout in workouts.into_iter() {
             self.delete_user_workout(user_id, workout.id).await?;
-            self.create_user_workout(
-                user_id,
-                UserWorkoutInput {
-                    name: workout.name,
-                    comment: workout.comment,
-                    start_time: workout.start_time,
-                    end_time: workout.end_time,
-                    exercises: workout
-                        .information
-                        .exercises
-                        .into_iter()
-                        .map(|e| UserExerciseInput {
-                            exercise_id: e.id,
-                            sets: e
-                                .sets
-                                .into_iter()
-                                .map(|s| UserWorkoutSetRecord {
-                                    statistic: s.statistic,
-                                    lot: s.lot,
-                                    started_at: s.started_at,
-                                    ended_at: s.ended_at,
-                                })
-                                .collect(),
-                            notes: e.notes,
-                            rest_time: e.rest_time,
-                            assets: e.assets,
-                        })
-                        .collect(),
-                    supersets: workout.information.supersets,
-                    assets: workout.information.assets,
-                },
-            )
+            let workout_input = UserWorkoutInput {
+                name: workout.name,
+                comment: workout.comment,
+                start_time: workout.start_time,
+                end_time: workout.end_time,
+                exercises: workout
+                    .information
+                    .exercises
+                    .into_iter()
+                    .map(|e| UserExerciseInput {
+                        exercise_id: e.id,
+                        sets: e
+                            .sets
+                            .into_iter()
+                            .map(|s| UserWorkoutSetRecord {
+                                statistic: s.statistic,
+                                lot: s.lot,
+                                confirmed_at: s.confirmed_at,
+                            })
+                            .collect(),
+                        notes: e.notes,
+                        rest_time: e.rest_time,
+                        assets: e.assets,
+                    })
+                    .collect(),
+                supersets: workout.information.supersets,
+                assets: workout.information.assets,
+            };
+            self.create_user_workout(user_id, workout_input).await?;
+        }
+        let mut all_associations = UserToEntity::find()
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .stream(&self.db)
             .await?;
+        while let Some(association) = all_associations.try_next().await? {
+            let workout_id = association
+                .exercise_extra_information
+                .clone()
+                .unwrap()
+                .history
+                .first()
+                .unwrap()
+                .workout_id
+                .clone();
+            let workout_date = Workout::find_by_id(workout_id)
+                .one(&self.db)
+                .await?
+                .unwrap()
+                .start_time;
+            let mut association: user_to_entity::ActiveModel = association.into();
+            association.last_updated_on = ActiveValue::Set(workout_date);
+            association.update(&self.db).await?;
         }
         Ok(())
     }

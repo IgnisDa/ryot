@@ -1227,6 +1227,10 @@ pub mod fitness {
         pub reps: usize,
         pub distance: Decimal,
         pub duration: Decimal,
+        /// The total seconds that were logged in the rest timer.
+        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
+        #[serde(default)]
+        pub rest_time: u16,
     }
 
     #[derive(
@@ -1331,8 +1335,7 @@ pub mod fitness {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
-        pub started_at: Option<DateTimeUtc>,
-        pub ended_at: Option<DateTimeUtc>,
+        pub confirmed_at: Option<DateTimeUtc>,
     }
 
     impl WorkoutSetRecord {
@@ -1541,8 +1544,7 @@ pub mod fitness {
     pub struct UserWorkoutSetRecord {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
-        pub started_at: Option<DateTimeUtc>,
-        pub ended_at: Option<DateTimeUtc>,
+        pub confirmed_at: Option<DateTimeUtc>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
