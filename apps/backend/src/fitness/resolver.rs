@@ -705,7 +705,7 @@ impl ExerciseService {
                 new_wkt.start_time = ActiveValue::Set(d);
             }
             if let Some(d) = input.end_time {
-                new_wkt.start_time = ActiveValue::Set(d);
+                new_wkt.end_time = ActiveValue::Set(d);
             }
             if new_wkt.is_changed() {
                 new_wkt.update(&self.db).await?;
@@ -782,7 +782,7 @@ impl ExerciseService {
             .await?;
         let workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
-            .order_by_asc(workout::Column::Id)
+            .order_by_desc(workout::Column::EndTime)
             .all(&self.db)
             .await?;
         let total = workouts.len();
