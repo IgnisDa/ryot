@@ -8,6 +8,7 @@ use database::{
 };
 use futures::TryStreamExt;
 use itertools::Itertools;
+use nanoid::nanoid;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
@@ -16,7 +17,6 @@ use sea_orm::{
 use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
-use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
 use tracing::instrument;
 
@@ -415,7 +415,7 @@ impl ExerciseService {
             .apply_if(input.query, |query, v| {
                 query.filter(get_ilike_query(Expr::col(workout::Column::Name), &v))
             })
-            .order_by_desc(workout::Column::Id);
+            .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
         let data = query
@@ -667,7 +667,7 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
-        let id = Sonyflake::new().unwrap().next_id().unwrap().to_string();
+        let id = nanoid!(12);
         tracing::trace!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
