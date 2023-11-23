@@ -121,6 +121,13 @@ struct UserExerciseDetailsInput {
     take_history: Option<usize>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+struct EditUserWorkoutInput {
+    id: String,
+    start_time: Option<DateTimeUtc>,
+    end_time: Option<DateTimeUtc>,
+}
+
 #[derive(Default)]
 pub struct ExerciseQuery;
 
@@ -234,6 +241,17 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_user_workout(user_id, input).await
+    }
+
+    /// Change the details about a user's workout.
+    async fn edit_user_workout(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: EditUserWorkoutInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.edit_user_workout(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.
@@ -673,6 +691,31 @@ impl ExerciseService {
             .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
             .await?;
         Ok(identifier)
+    }
+
+    async fn edit_user_workout(&self, user_id: i32, input: EditUserWorkoutInput) -> Result<bool> {
+        if let Some(wkt) = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::Id.eq(input.id))
+            .one(&self.db)
+            .await?
+        {
+            let mut new_wkt: workout::ActiveModel = wkt.into();
+            if let Some(d) = input.start_time {
+                new_wkt.start_time = ActiveValue::Set(d);
+            }
+            if let Some(d) = input.end_time {
+                new_wkt.start_time = ActiveValue::Set(d);
+            }
+            if new_wkt.is_changed() {
+                new_wkt.update(&self.db).await?;
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Err(Error::new("Workout does not exist for user"))
+        }
     }
 
     async fn create_custom_exercise(&self, user_id: i32, input: exercise::Model) -> Result<String> {

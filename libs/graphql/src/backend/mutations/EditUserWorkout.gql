@@ -1,0 +1,3 @@
+mutation EditUserWorkout($input: EditUserWorkoutInput!) {
+  editUserWorkout(input: $input)
+}
