@@ -824,22 +824,19 @@ impl ExerciseService {
             .stream(&self.db)
             .await?;
         while let Some(association) = all_associations.try_next().await? {
-            let workout_id = association
+            let history = association
                 .exercise_extra_information
                 .clone()
                 .unwrap()
-                .history
-                .first()
-                .unwrap()
-                .workout_id
-                .clone();
-            let workout_date = Workout::find_by_id(workout_id)
+                .history;
+            let workout_date = Workout::find_by_id(history.first().cloned().unwrap().workout_id)
                 .one(&self.db)
                 .await?
                 .unwrap()
                 .start_time;
             let mut association: user_to_entity::ActiveModel = association.into();
             association.last_updated_on = ActiveValue::Set(workout_date);
+            association.num_times_interacted = ActiveValue::Set(history.len().try_into().unwrap());
             association.update(&self.db).await?;
         }
         Ok(())
