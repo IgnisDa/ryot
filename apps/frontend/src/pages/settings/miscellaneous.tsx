@@ -26,7 +26,7 @@ import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../_app";
 
-const buttonProps = { mt: { md: "md" }, variant: "light" };
+const buttonProps = { variant: "light" };
 
 const DisabledNotice = (props: {
 	children: JSX.Element;
