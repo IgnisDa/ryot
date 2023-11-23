@@ -105,6 +105,8 @@ impl UserWorkoutInput {
         self,
         user_id: i32,
         db: &DatabaseConnection,
+        // TODO: Make this optional and a part of the input itself. If set, the
+        // generated workout will have that as the ID.
         id: String,
         preferences: UserExercisePreferences,
     ) -> Result<String> {
