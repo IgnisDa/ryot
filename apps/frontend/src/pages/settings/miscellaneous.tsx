@@ -211,9 +211,9 @@ const Page: NextPageWithLayout = () => {
 							<Box>
 								<Title order={4}>Re-evaluate workouts</Title>
 								<Text>
-									Re-evaluate all workouts. This may be useful if, for some
-									reason, exercises done during a workout have changed or
-									workouts have been deleted.
+									Re-evaluate all workouts. This may be useful if exercises done
+									during a workout have changed or workouts have been edited or
+									deleted.
 								</Text>
 							</Box>
 							<Button
