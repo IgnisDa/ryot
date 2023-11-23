@@ -31,6 +31,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
+    command: postgres -c log_statement=all -c log_destination=stderr -c log_min_messages=debug1 -c log_line_prefix="%m [%p] " -c log_duration=on
 
 volumes:
   minio_storage:
