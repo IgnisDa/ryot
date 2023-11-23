@@ -705,7 +705,7 @@ impl ExerciseService {
                 new_wkt.start_time = ActiveValue::Set(d);
             }
             if let Some(d) = input.end_time {
-                new_wkt.start_time = ActiveValue::Set(d);
+                new_wkt.end_time = ActiveValue::Set(d);
             }
             if new_wkt.is_changed() {
                 new_wkt.update(&self.db).await?;
@@ -749,7 +749,7 @@ impl ExerciseService {
             .select_only()
             .column(workout::Column::Id)
             .filter(workout::Column::UserId.eq(user_id))
-            .order_by_desc(workout::Column::Id)
+            .order_by_desc(workout::Column::EndTime)
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
@@ -782,12 +782,12 @@ impl ExerciseService {
             .await?;
         let workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
-            .order_by_asc(workout::Column::Id)
+            .order_by_asc(workout::Column::EndTime)
             .all(&self.db)
             .await?;
         let total = workouts.len();
         for (idx, workout) in workouts.into_iter().enumerate() {
-            self.delete_user_workout(user_id, workout.id).await?;
+            workout.clone().delete(&self.db).await?;
             let workout_input = UserWorkoutInput {
                 name: workout.name,
                 comment: workout.comment,
@@ -824,20 +824,21 @@ impl ExerciseService {
             .stream(&self.db)
             .await?;
         while let Some(association) = all_associations.try_next().await? {
-            let workout_id = association
-                .exercise_extra_information
-                .clone()
-                .unwrap()
-                .history
-                .first()
-                .unwrap()
-                .workout_id
-                .clone();
-            let workout_date = Workout::find_by_id(workout_id)
-                .one(&self.db)
-                .await?
-                .unwrap()
-                .start_time;
+            let workout_date = Workout::find_by_id(
+                association
+                    .exercise_extra_information
+                    .clone()
+                    .unwrap()
+                    .history
+                    .first()
+                    .cloned()
+                    .unwrap()
+                    .workout_id,
+            )
+            .one(&self.db)
+            .await?
+            .unwrap()
+            .start_time;
             let mut association: user_to_entity::ActiveModel = association.into();
             association.last_updated_on = ActiveValue::Set(workout_date);
             association.update(&self.db).await?;
