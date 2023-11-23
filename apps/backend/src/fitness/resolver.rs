@@ -782,7 +782,7 @@ impl ExerciseService {
             .await?;
         let workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
-            .order_by_desc(workout::Column::EndTime)
+            .order_by_asc(workout::Column::EndTime)
             .all(&self.db)
             .await?;
         let total = workouts.len();
