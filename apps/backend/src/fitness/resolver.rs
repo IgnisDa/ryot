@@ -749,7 +749,7 @@ impl ExerciseService {
             .select_only()
             .column(workout::Column::Id)
             .filter(workout::Column::UserId.eq(user_id))
-            .order_by_desc(workout::Column::Id)
+            .order_by_desc(workout::Column::EndTime)
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
