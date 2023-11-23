@@ -39,6 +39,7 @@ const documents = {
     "mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {\n  deployBulkProgressUpdate(input: $input)\n}": types.DeployBulkProgressUpdateDocument,
     "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}": types.DeployImportJobDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
+    "mutation EditUserWorkout($input: EditUserWorkoutInput!) {\n  editUserWorkout(input: $input)\n}": types.EditUserWorkoutDocument,
     "mutation GenerateAuthToken {\n  generateAuthToken\n}": types.GenerateAuthTokenDocument,
     "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n      validFor\n    }\n  }\n}": types.LoginUserDocument,
     "mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {\n  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)\n}": types.MergeMetadataDocument,
@@ -210,6 +211,10 @@ export function graphql(source: "mutation DeployImportJob($input: DeployImportJo
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}"): (typeof documents)["mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation EditUserWorkout($input: EditUserWorkoutInput!) {\n  editUserWorkout(input: $input)\n}"): (typeof documents)["mutation EditUserWorkout($input: EditUserWorkoutInput!) {\n  editUserWorkout(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

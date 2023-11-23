@@ -8,6 +8,7 @@ use database::{
 };
 use futures::TryStreamExt;
 use itertools::Itertools;
+use nanoid::nanoid;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
@@ -16,7 +17,6 @@ use sea_orm::{
 use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
-use sonyflake::Sonyflake;
 use strum::IntoEnumIterator;
 use tracing::instrument;
 
@@ -119,6 +119,13 @@ struct UserExerciseDetailsInput {
     exercise_id: String,
     /// The number of elements to return in the history.
     take_history: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+struct EditUserWorkoutInput {
+    id: String,
+    start_time: Option<DateTimeUtc>,
+    end_time: Option<DateTimeUtc>,
 }
 
 #[derive(Default)]
@@ -234,6 +241,17 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_user_workout(user_id, input).await
+    }
+
+    /// Change the details about a user's workout.
+    async fn edit_user_workout(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: EditUserWorkoutInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.edit_user_workout(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.
@@ -415,7 +433,7 @@ impl ExerciseService {
             .apply_if(input.query, |query, v| {
                 query.filter(get_ilike_query(Expr::col(workout::Column::Name), &v))
             })
-            .order_by_desc(workout::Column::Id);
+            .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
         let data = query
@@ -667,12 +685,37 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
-        let id = Sonyflake::new().unwrap().next_id().unwrap().to_string();
+        let id = nanoid!(12);
         tracing::trace!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
             .await?;
         Ok(identifier)
+    }
+
+    async fn edit_user_workout(&self, user_id: i32, input: EditUserWorkoutInput) -> Result<bool> {
+        if let Some(wkt) = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::Id.eq(input.id))
+            .one(&self.db)
+            .await?
+        {
+            let mut new_wkt: workout::ActiveModel = wkt.into();
+            if let Some(d) = input.start_time {
+                new_wkt.start_time = ActiveValue::Set(d);
+            }
+            if let Some(d) = input.end_time {
+                new_wkt.start_time = ActiveValue::Set(d);
+            }
+            if new_wkt.is_changed() {
+                new_wkt.update(&self.db).await?;
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Err(Error::new("Workout does not exist for user"))
+        }
     }
 
     async fn create_custom_exercise(&self, user_id: i32, input: exercise::Model) -> Result<String> {
@@ -742,7 +785,8 @@ impl ExerciseService {
             .order_by_asc(workout::Column::Id)
             .all(&self.db)
             .await?;
-        for workout in workouts.into_iter() {
+        let total = workouts.len();
+        for (idx, workout) in workouts.into_iter().enumerate() {
             self.delete_user_workout(user_id, workout.id).await?;
             let workout_input = UserWorkoutInput {
                 name: workout.name,
@@ -773,6 +817,7 @@ impl ExerciseService {
                 assets: workout.information.assets,
             };
             self.create_user_workout(user_id, workout_input).await?;
+            tracing::trace!("Re-evaluated workout: {}/{}", idx + 1, total);
         }
         let mut all_associations = UserToEntity::find()
             .filter(user_to_entity::Column::ExerciseId.is_not_null())

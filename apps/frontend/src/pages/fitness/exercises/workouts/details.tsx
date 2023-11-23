@@ -12,24 +12,33 @@ import {
 	Avatar,
 	Badge,
 	Box,
+	Button,
 	Container,
 	Flex,
 	Group,
 	Menu,
+	Modal,
 	Paper,
 	Stack,
 	Text,
 	Title,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
+import "@mantine/dates/styles.css";
+import { useForm, zodResolver } from "@mantine/form";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	DeleteUserWorkoutDocument,
 	type DeleteUserWorkoutMutationVariables,
+	EditUserWorkoutDocument,
+	type EditUserWorkoutMutationVariables,
 	SetLot,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import {
 	IconClock,
+	IconClockEdit,
 	IconDotsVertical,
 	IconRepeat,
 	IconTrash,
@@ -51,6 +60,7 @@ import { type ReactElement } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { z } from "zod";
 import type { NextPageWithLayout } from "../../../_app";
 
 const service = new HumanizeDurationLanguage();
@@ -70,11 +80,21 @@ const DisplayStat = (props: {
 	);
 };
 
+const adjustWorkoutTimesFormSchema = z.object({
+	startTime: z.date().optional(),
+	endTime: z.date().optional(),
+});
+type EditWorkoutFormSchema = z.infer<typeof adjustWorkoutTimesFormSchema>;
+
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const workoutId = router.query.id?.toString();
 	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const getMantineColor = useGetMantineColor();
+	const [
+		adjustTimeModalOpened,
+		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
+	] = useDisclosure(false);
 
 	const workoutDetails = useQuery({
 		queryKey: ["workoutDetails", workoutId],
@@ -104,11 +124,61 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
+	const adjustWorkoutTimesForm = useForm<EditWorkoutFormSchema>({
+		validate: zodResolver(adjustWorkoutTimesFormSchema),
+	});
+
+	const editWorkoutMutation = useMutation({
+		mutationFn: async (variables: EditUserWorkoutMutationVariables) => {
+			const { editUserWorkout } = await gqlClient.request(
+				EditUserWorkoutDocument,
+				variables,
+			);
+			return editUserWorkout;
+		},
+		onSuccess: () => {
+			workoutDetails.refetch();
+		},
+	});
+
 	return workoutDetails.data && workoutId ? (
 		<>
 			<Head>
 				<title>{workoutDetails.data.name} | Ryot</title>
 			</Head>
+			<Modal
+				opened={adjustTimeModalOpened}
+				onClose={adjustTimeModalClose}
+				withCloseButton={false}
+				centered
+			>
+				<Box
+					component="form"
+					onSubmit={adjustWorkoutTimesForm.onSubmit((values) => {
+						editWorkoutMutation.mutate({ input: { id: workoutId, ...values } });
+						adjustTimeModalClose();
+					})}
+				>
+					<Stack>
+						<Title order={3}>Adjust times</Title>
+						<DateTimePicker
+							label="Start time"
+							required
+							{...adjustWorkoutTimesForm.getInputProps("startTime")}
+							defaultValue={workoutDetails.data?.startTime}
+						/>
+						<DateTimePicker
+							label="End time"
+							required
+							{...adjustWorkoutTimesForm.getInputProps("endTime")}
+							defaultValue={workoutDetails.data?.endTime}
+						/>
+						<Button variant="outline" type="submit">
+							Adjust
+						</Button>
+					</Stack>
+				</Box>
+			</Modal>
 			<Container size="xs">
 				<Stack>
 					<Group justify="space-between">
@@ -128,6 +198,12 @@ const Page: NextPageWithLayout = () => {
 									leftSection={<IconRepeat size={14} />}
 								>
 									Repeat
+								</Menu.Item>
+								<Menu.Item
+									onClick={adjustTimeModalOpen}
+									leftSection={<IconClockEdit size={14} />}
+								>
+									Adjust time
 								</Menu.Item>
 								<Menu.Item
 									onClick={() => {
