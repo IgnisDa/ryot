@@ -742,7 +742,8 @@ impl ExerciseService {
             .order_by_asc(workout::Column::Id)
             .all(&self.db)
             .await?;
-        for workout in workouts.into_iter() {
+        let total = workouts.len();
+        for (idx, workout) in workouts.into_iter().enumerate() {
             self.delete_user_workout(user_id, workout.id).await?;
             let workout_input = UserWorkoutInput {
                 name: workout.name,
@@ -773,6 +774,7 @@ impl ExerciseService {
                 assets: workout.information.assets,
             };
             self.create_user_workout(user_id, workout_input).await?;
+            tracing::trace!("Re-evaluated workout: {}/{}", idx + 1, total);
         }
         let mut all_associations = UserToEntity::find()
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
