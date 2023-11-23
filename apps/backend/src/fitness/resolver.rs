@@ -787,7 +787,7 @@ impl ExerciseService {
             .await?;
         let total = workouts.len();
         for (idx, workout) in workouts.into_iter().enumerate() {
-            self.delete_user_workout(user_id, workout.id).await?;
+            workout.clone().delete(&self.db).await?;
             let workout_input = UserWorkoutInput {
                 name: workout.name,
                 comment: workout.comment,
@@ -836,7 +836,6 @@ impl ExerciseService {
                 .start_time;
             let mut association: user_to_entity::ActiveModel = association.into();
             association.last_updated_on = ActiveValue::Set(workout_date);
-            association.num_times_interacted = ActiveValue::Set(history.len().try_into().unwrap());
             association.update(&self.db).await?;
         }
         Ok(())
