@@ -10,6 +10,7 @@ import {
 	Stack,
 	Text,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
@@ -25,12 +26,18 @@ import Head from "next/head";
 import { type ReactElement } from "react";
 import type { NextPageWithLayout } from "../_app";
 
-const buttonProps = { mt: { md: "md" }, variant: "light" };
+const buttonProps = { variant: "light" };
 
-const DisabledNotice = () => (
-	<Text size="xs" c="dimmed" mt="auto">
-		Deploying this job is disabled on this instance.
-	</Text>
+const DisabledNotice = (props: {
+	children: JSX.Element;
+	enabled: boolean;
+}) => (
+	<Tooltip
+		label="Deploying this job is disabled on this instance"
+		disabled={!props.enabled}
+	>
+		{props.children}
+	</Tooltip>
 );
 
 const Page: NextPageWithLayout = () => {
@@ -88,26 +95,27 @@ const Page: NextPageWithLayout = () => {
 											providers.
 										</Text>
 									</Box>
-									{!coreDetails.data.deployAdminJobsAllowed ? (
-										<DisabledNotice />
-									) : undefined}
-									<Button
-										onClick={async () => {
-											deployBackgroundJob.mutateAsync({
-												jobName: BackgroundJob.UpdateAllMetadata,
-											});
-											notifications.show({
-												title: "Success",
-												message:
-													"All metadata will be updated in the background",
-												color: "green",
-											});
-										}}
-										disabled={!coreDetails.data.deployAdminJobsAllowed}
-										{...buttonProps}
+									<DisabledNotice
+										enabled={!coreDetails.data.deployAdminJobsAllowed}
 									>
-										Update metadata
-									</Button>
+										<Button
+											onClick={async () => {
+												deployBackgroundJob.mutateAsync({
+													jobName: BackgroundJob.UpdateAllMetadata,
+												});
+												notifications.show({
+													title: "Success",
+													message:
+														"All metadata will be updated in the background",
+													color: "green",
+												});
+											}}
+											disabled={!coreDetails.data.deployAdminJobsAllowed}
+											{...buttonProps}
+										>
+											Update metadata
+										</Button>
+									</DisabledNotice>
 								</Stack>
 								<Stack>
 									<Box>
@@ -119,26 +127,27 @@ const Page: NextPageWithLayout = () => {
 											automatically.
 										</Text>
 									</Box>
-									{!coreDetails.data.deployAdminJobsAllowed ? (
-										<DisabledNotice />
-									) : undefined}
-									<Button
-										onClick={async () => {
-											deployBackgroundJob.mutateAsync({
-												jobName: BackgroundJob.RecalculateCalendarEvents,
-											});
-											notifications.show({
-												title: "Success",
-												message:
-													"Calender events will be updated in the background",
-												color: "green",
-											});
-										}}
-										disabled={!coreDetails.data.deployAdminJobsAllowed}
-										{...buttonProps}
+									<DisabledNotice
+										enabled={!coreDetails.data.deployAdminJobsAllowed}
 									>
-										Update calendar events
-									</Button>
+										<Button
+											onClick={async () => {
+												deployBackgroundJob.mutateAsync({
+													jobName: BackgroundJob.RecalculateCalendarEvents,
+												});
+												notifications.show({
+													title: "Success",
+													message:
+														"Calender events will be updated in the background",
+													color: "green",
+												});
+											}}
+											disabled={!coreDetails.data.deployAdminJobsAllowed}
+											{...buttonProps}
+										>
+											Update calendar events
+										</Button>
+									</DisabledNotice>
 								</Stack>
 								<Stack>
 									<Box>
@@ -149,25 +158,27 @@ const Page: NextPageWithLayout = () => {
 											job when there are new exercises available.
 										</Text>
 									</Box>
-									{!coreDetails.data.deployAdminJobsAllowed ? (
-										<DisabledNotice />
-									) : undefined}
-									<Button
-										onClick={async () => {
-											deployBackgroundJob.mutateAsync({
-												jobName: BackgroundJob.UpdateAllExercises,
-											});
-											notifications.show({
-												title: "Success",
-												message: "Exercises will be updated in the background",
-												color: "green",
-											});
-										}}
-										disabled={!coreDetails.data.deployAdminJobsAllowed}
-										{...buttonProps}
+									<DisabledNotice
+										enabled={!coreDetails.data.deployAdminJobsAllowed}
 									>
-										Update exercises
-									</Button>
+										<Button
+											onClick={async () => {
+												deployBackgroundJob.mutateAsync({
+													jobName: BackgroundJob.UpdateAllExercises,
+												});
+												notifications.show({
+													title: "Success",
+													message:
+														"Exercises will be updated in the background",
+													color: "green",
+												});
+											}}
+											disabled={!coreDetails.data.deployAdminJobsAllowed}
+											{...buttonProps}
+										>
+											Update exercises
+										</Button>
+									</DisabledNotice>
 								</Stack>
 							</>
 						) : undefined}
@@ -200,9 +211,9 @@ const Page: NextPageWithLayout = () => {
 							<Box>
 								<Title order={4}>Re-evaluate workouts</Title>
 								<Text>
-									Re-evaluate all workouts. This may be useful if, for some
-									reason, exercises done during a workout have changed or
-									workouts have been deleted.
+									Re-evaluate all workouts. This may be useful if exercises done
+									during a workout have changed or workouts have been edited or
+									deleted.
 								</Text>
 							</Box>
 							<Button

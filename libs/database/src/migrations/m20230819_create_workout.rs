@@ -8,8 +8,6 @@ pub struct Migration;
 #[derive(Iden)]
 pub enum Workout {
     Table,
-    /// We will use https://github.com/bahlo/sonyflake-rs here so that workouts
-    /// are time sortable.
     Id,
     UserId,
     Name,
