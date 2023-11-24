@@ -44,7 +44,7 @@ import { useAtom } from "jotai";
 import { DateTime } from "luxon";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { joinURL } from "ufo";
 import Grid from "~/components/grid";
 import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -571,9 +571,7 @@ const DisplayStatForMediaType = (props: {
 	return isEnabled ? (
 		isEnabled[1] && props.userPreferences.featuresEnabled.media.enabled ? (
 			<Link
-				to={withQuery(APP_ROUTES.media.list, {
-					lot: props.lot.toLowerCase(),
-				})}
+				to={joinURL(APP_ROUTES.media.list, props.lot.toLowerCase())}
 				style={{ all: "unset", cursor: "pointer" }}
 			>
 				<ActualDisplayStat
