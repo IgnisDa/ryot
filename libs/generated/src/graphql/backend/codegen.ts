@@ -7,7 +7,7 @@ const config: CodegenConfig = {
 	config: {
 		scalars: {
 			UUID: "string",
-			DateTime: "Date",
+			DateTime: "string",
 			NaiveDate: "string",
 			Decimal: "string",
 		},
