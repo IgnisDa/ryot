@@ -14,11 +14,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import {
-	useDebouncedState,
-	useDisclosure,
-	useLocalStorage,
-} from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 import {
@@ -40,7 +36,7 @@ import {
 	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -91,7 +87,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				generalFilter: z
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
-				collectionFilter: z.number().optional(),
+				collectionFilter: zx.IntAsString.optional(),
 			});
 			const { mediaList } = await gqlClient.request(
 				MediaListDocument,
@@ -145,7 +141,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParmas, setSearchParams] = useSearchParams();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -167,10 +163,7 @@ export default function Page() {
 		getInitialValueInEffect: false,
 		defaultValue: "mine",
 	});
-	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(
-		searchParmas.get("query"),
-		1000,
-	);
+	const [query, setQuery] = useState(searchParams.get("query") || "");
 
 	// const mediaSources = useQuery({
 	// 	queryKey: ["sources", loaderData.lot],
@@ -221,19 +214,12 @@ export default function Page() {
 	// });
 
 	useEffect(() => {
-		if (debouncedQuery)
-			setSearchParams((prev) => {
-				prev.set("query", debouncedQuery);
-				return prev;
-			});
-	}, [debouncedQuery]);
-
-	const ClearButton = () =>
-		loaderData.query ? (
-			<ActionIcon onClick={() => setDebouncedQuery("")}>
-				<IconX size={16} />
-			</ActionIcon>
-		) : undefined;
+		setSearchParams((prev) => {
+			if (query) prev.set("query", query);
+			else prev.delete("query");
+			return prev;
+		});
+	}, [query]);
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -243,14 +229,20 @@ export default function Page() {
 		loaderData.mediaList?.url.collectionFilter !==
 			defaultFilters.mineCollectionFilter;
 
+	const ClearButton = () => (
+		<ActionIcon onClick={() => setQuery("")} disabled={query === ""}>
+			<IconX size={16} />
+		</ActionIcon>
+	);
+
 	const SearchInput = (props: { placeholder: string }) => {
 		return (
 			<TextInput
 				name="query"
 				placeholder={props.placeholder}
 				leftSection={<IconSearch />}
-				onChange={(e) => setDebouncedQuery(e.currentTarget.value)}
-				defaultValue={loaderData.query}
+				onChange={(e) => setQuery(e.currentTarget.value)}
+				value={query}
 				rightSection={<ClearButton />}
 				style={{ flexGrow: 1 }}
 				autoCapitalize="none"
