@@ -106,7 +106,6 @@ export const ReviewItemDisplay = (props: {
 	metadataGroupId?: number;
 	personId?: number;
 	collectionId?: number;
-	refetch: () => void;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 
@@ -574,7 +573,6 @@ export const AddEntityToCollectionModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;
-	refetchUserMedia: () => void;
 	entityLot: EntityLot;
 	collections: string[];
 }) => {
@@ -627,7 +625,6 @@ export const DisplayCollection = (props: {
 	col: { id: number; name: string };
 	entityId: string;
 	entityLot: EntityLot;
-	refetch: () => void;
 }) => {
 	const getMantineColor = useGetMantineColor();
 
