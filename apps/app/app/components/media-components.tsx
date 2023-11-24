@@ -373,7 +373,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			href={
 				props.href
 					? props.href
-					: withQuery(
+					: joinURL(
 							match(props.entityLot)
 								.with(
 									EntityLot.Media,
@@ -391,7 +391,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 									() => APP_ROUTES.fitness.exercises.details,
 								)
 								.exhaustive(),
-							{ id: props.item.identifier },
+							props.item.identifier
 					  )
 			}
 			imageLink={props.item.image}
