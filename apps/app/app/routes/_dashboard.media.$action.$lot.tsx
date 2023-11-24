@@ -36,6 +36,7 @@ import {
 	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
+import debounce from "lodash/debounce";
 import { useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -178,8 +179,10 @@ export default function Page() {
 		loaderData.mediaList?.url.collectionFilter !==
 			defaultFilters.mineCollectionFilter;
 
+	const debouncedSetter = debounce((val: string) => setQuery(val), 1e3);
+
 	const ClearButton = () => (
-		<ActionIcon onClick={() => setQuery("")} disabled={query === ""}>
+		<ActionIcon onClick={() => debouncedSetter("")} disabled={query === ""}>
 			<IconX size={16} />
 		</ActionIcon>
 	);
@@ -190,8 +193,8 @@ export default function Page() {
 				name="query"
 				placeholder={props.placeholder}
 				leftSection={<IconSearch />}
-				onChange={(e) => setQuery(e.currentTarget.value)}
-				value={query}
+				onChange={(e) => debouncedSetter(e.currentTarget.value)}
+				defaultValue={query}
 				rightSection={<ClearButton />}
 				style={{ flexGrow: 1 }}
 				autoCapitalize="none"
