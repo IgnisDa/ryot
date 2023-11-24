@@ -16,9 +16,10 @@ export function useGetMantineColor() {
 export function useSearchParam() {
 	const [searchParams, setSearchParams] = useSearchParams();
 
-	const setP = (key: string, value: string) => {
+	const setP = (key: string, value?: string | null) => {
 		setSearchParams((prev) => {
-			prev.set(key, value);
+			if (!value) delP(key);
+			else prev.set(key, value);
 			return prev;
 		});
 	};

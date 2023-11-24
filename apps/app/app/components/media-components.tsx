@@ -487,7 +487,6 @@ export const MediaSearchItem = (props: {
 	query: string;
 	lot: MetadataLot;
 	source: MetadataSource;
-	searchQueryRefetch: () => void;
 	userPreferences: UserPreferencesQuery["userPreferences"];
 	maybeItemId?: number;
 }) => {
@@ -499,7 +498,6 @@ export const MediaSearchItem = (props: {
 			lot: props.lot,
 			source: props.source,
 		});
-		props.searchQueryRefetch();
 		return id;
 	};
 
@@ -507,7 +505,6 @@ export const MediaSearchItem = (props: {
 		<MediaItemWithoutUpdateModal
 			item={props.item}
 			lot={props.lot}
-			imageOverlayForLoadingIndicator={commitMedia.isPending}
 			userPreferences={props.userPreferences}
 			href={
 				props.maybeItemId
@@ -574,7 +571,6 @@ export const MediaSearchItem = (props: {
 							},
 						});
 					}}
-					disabled={addMediaToCollection.isPending}
 				>
 					Add to Watchlist
 				</Button>

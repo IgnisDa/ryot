@@ -13,15 +13,16 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDisclosure, useLocalStorage } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
 	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
 	MediaSortBy,
+	MediaSourcesForLotDocument,
 	MetadataSource,
 	UserCollectionsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -38,13 +39,16 @@ import {
 import { useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { joinURL, withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
-import { MediaItemWithoutUpdateModal } from "~/components/media-components";
+import {
+	MediaItemWithoutUpdateModal,
+	MediaSearchItem,
+} from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
+import { APP_ROUTES } from "~/lib/constants";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { getLot } from "~/lib/utilities";
@@ -116,17 +120,30 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.with(Action.Search, async () => {
-			const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
-				lot,
-				input: {
-					search: {
-						page: activeSearchPage || 1,
-						query: debouncedQuery || undefined,
-					},
-				},
-				source: searchSource as MetadataSource,
+			const { mediaSourcesForLot } = await gqlClient.request(
+				MediaSourcesForLotDocument,
+				{ lot },
+			);
+			const urlParse = zx.parseQuery(request, {
+				source: z.nativeEnum(MetadataSource).default(mediaSourcesForLot[0]),
 			});
-			return [undefined, { search: mediaSearch }] as const;
+			const { mediaSearch } = await gqlClient.request(
+				MediaSearchDocument,
+				{
+					lot,
+					input: { page, query: query || "" },
+					source: urlParse.source,
+				},
+				await getAuthorizationHeader(request),
+			);
+			return [
+				undefined,
+				{
+					search: mediaSearch,
+					url: urlParse,
+					mediaSources: mediaSourcesForLot,
+				},
+			] as const;
 		})
 		.exhaustive();
 	return json({
@@ -148,72 +165,10 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const [activeSearchPage, setSearchPage] = useLocalStorage({
-		defaultValue: 1,
-		key: LOCAL_STORAGE_KEYS.savedMediaSearchPage,
-	});
-	const [searchSource, setSearchSource] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.savedMediaSearchSource,
-	});
-	const [activeTab, setActiveTab] = useLocalStorage<"mine" | "search">({
-		key: LOCAL_STORAGE_KEYS.savedMediaActiveTab,
-		getInitialValueInEffect: false,
-		defaultValue: "mine",
-	});
+	const navigate = useNavigate();
 	const [query, setQuery] = useState(searchParams.get("query") || "");
 
-	// const mediaSources = useQuery({
-	// 	queryKey: ["sources", loaderData.lot],
-	// 	queryFn: async () => {
-	// 		invariant(loaderData.lot, "Lot is not defined");
-	// 		const { mediaSourcesForLot } = await gqlClient.request(
-	// 			MediaSourcesForLotDocument,
-	// 			{ lot: loaderData.lot },
-	// 		);
-	// 		return mediaSourcesForLot;
-	// 	},
-	// 	staleTime: Infinity,
-	// });
-
-	// useEffect(() => {
-	// 	if (
-	// 		mediaSources.data &&
-	// 		!mediaSources.data.includes(searchSource as unknown as MetadataSource)
-	// 	)
-	// 		setSearchSource(mediaSources.data[0]);
-	// }, [mediaSources.data]);
-
-	// const searchQuery = useQuery({
-	// 	queryKey: [
-	// 		"searchQuery",
-	// 		activeSearchPage,
-	// 		loaderData.lot,
-	// 		debouncedQuery,
-	// 		searchSource,
-	// 	],
-	// 	queryFn: async () => {
-	// 		invariant(searchSource, "Source must be defined");
-	// 		invariant(loaderData.lot, "Lot must be defined");
-	// 		const { mediaSearch } = await gqlClient.request(MediaSearchDocument, {
-	// 			input: {
-	// 				query: debouncedQuery,
-	// 				page: activeSearchPage || 1,
-	// 			},
-	// 			lot: loaderData.lot,
-	// 			source: searchSource as MetadataSource,
-	// 		});
-	// 		return mediaSearch;
-	// 	},
-	// 	enabled:
-	// 		query !== "" && loaderData.lot !== undefined && activeTab === "search",
-	// 	staleTime: Infinity,
-	// 	retry: false,
-	// });
-
-	useEffect(() => {
-		if (query) setP("query", query);
-		else delP("query");
-	}, [query]);
+	useEffect(() => setP("query", query), [query]);
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -249,211 +204,204 @@ export default function Page() {
 		<Container>
 			<Tabs
 				variant="default"
-				value={activeTab}
+				value={loaderData.action}
 				onChange={(v) => {
-					if (v === "mine" || v === "search") setActiveTab(v);
+					if (v) navigate(joinURL("/media/", v, loaderData.lot.toLowerCase()));
 				}}
 			>
 				<Tabs.List mb="xs">
-					<Tabs.Tab value="mine" leftSection={<IconListCheck size={24} />}>
+					<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
 						<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
 					</Tabs.Tab>
 					<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
 						<Text>Search</Text>
 					</Tabs.Tab>
 				</Tabs.List>
+			</Tabs>
 
-				<Tabs.Panel value="mine">
-					{loaderData.mediaList ? (
-						<Stack>
-							<Group wrap="nowrap">
-								{SearchInput({
-									placeholder: `Sift through your ${changeCase(
-										loaderData.lot.toLowerCase(),
-									).toLowerCase()}s`,
-								})}
-								<ActionIcon
-									onClick={openFiltersModal}
-									color={isFilterChanged ? "blue" : "gray"}
-								>
-									<IconFilter size={24} />
-								</ActionIcon>
-								<Modal
-									opened={filtersModalOpened}
-									onClose={closeFiltersModal}
-									centered
-									withCloseButton={false}
-								>
-									<Stack>
-										<Group>
-											<Title order={3}>Filters</Title>
-											<ActionIcon
-												onClick={() => {
-													delP("generalFilter");
-													delP("sortBy");
-													delP("sortOrder");
-													delP("collectionFilter");
-													closeFiltersModal();
-												}}
-											>
-												<IconFilterOff size={24} />
-											</ActionIcon>
-										</Group>
+			<Stack>
+				{loaderData.mediaList ? (
+					<>
+						<Group wrap="nowrap">
+							{SearchInput({
+								placeholder: `Sift through your ${changeCase(
+									loaderData.lot.toLowerCase(),
+								).toLowerCase()}s`,
+							})}
+							<ActionIcon
+								onClick={openFiltersModal}
+								color={isFilterChanged ? "blue" : "gray"}
+							>
+								<IconFilter size={24} />
+							</ActionIcon>
+							<Modal
+								opened={filtersModalOpened}
+								onClose={closeFiltersModal}
+								centered
+								withCloseButton={false}
+							>
+								<Stack>
+									<Group>
+										<Title order={3}>Filters</Title>
+										<ActionIcon
+											onClick={() => {
+												delP("generalFilter");
+												delP("sortBy");
+												delP("sortOrder");
+												delP("collectionFilter");
+												closeFiltersModal();
+											}}
+										>
+											<IconFilterOff size={24} />
+										</ActionIcon>
+									</Group>
+									<Select
+										defaultValue={loaderData.mediaList.url.generalFilter}
+										data={[
+											{
+												group: "General filters",
+												items: Object.values(MediaGeneralFilter).map((o) => ({
+													value: o.toString(),
+													label: startCase(o.toLowerCase()),
+												})),
+											},
+										]}
+										onChange={(v) => {
+											if (v) setP("generalFilter", v);
+										}}
+									/>
+									<Flex gap="xs" align="center">
 										<Select
-											defaultValue={loaderData.mediaList.url.generalFilter}
+											w="100%"
 											data={[
 												{
-													group: "General filters",
-													items: Object.values(MediaGeneralFilter).map((o) => ({
+													group: "Sort by",
+													items: Object.values(MediaSortBy).map((o) => ({
 														value: o.toString(),
 														label: startCase(o.toLowerCase()),
 													})),
 												},
 											]}
+											defaultValue={loaderData.mediaList.url.sortBy}
 											onChange={(v) => {
-												if (v) setP("generalFilter", v);
+												if (v) setP("sortBy", v);
 											}}
 										/>
-										<Flex gap="xs" align="center">
-											<Select
-												w="100%"
-												data={[
-													{
-														group: "Sort by",
-														items: Object.values(MediaSortBy).map((o) => ({
-															value: o.toString(),
-															label: startCase(o.toLowerCase()),
-														})),
-													},
-												]}
-												defaultValue={loaderData.mediaList.url.sortBy}
-												onChange={(v) => {
-													if (v) setP("sortBy", v);
-												}}
-											/>
-											<ActionIcon
-												onClick={() => {
-													if (
-														loaderData.mediaList?.url.sortOrder ===
-														GraphqlSortOrder.Asc
-													)
-														setP("sortOrder", GraphqlSortOrder.Desc);
-													else setP("sortOrder", GraphqlSortOrder.Asc);
-												}}
-											>
-												{loaderData.mediaList.url.sortOrder ===
-												GraphqlSortOrder.Asc ? (
-													<IconSortAscending />
-												) : (
-													<IconSortDescending />
-												)}
-											</ActionIcon>
-										</Flex>
-										{loaderData.mediaList.collections.length > 0 ? (
-											<Select
-												placeholder="Select a collection"
-												defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
-												data={[
-													{
-														group: "My collections",
-														items: loaderData.mediaList.collections.map(
-															(c) => ({
-																value: c.id.toString(),
-																label: c.name,
-															}),
-														),
-													},
-												]}
-												onChange={(v) => {
-													if (v) setP("collectionFilter", v);
-													else delP("collectionFilter");
-												}}
-												clearable
-											/>
-										) : undefined}
-									</Stack>
-								</Modal>
-							</Group>
-							{loaderData.mediaList.list.details.total > 0 ? (
-								<>
-									<Box>
-										<Text display="inline" fw="bold">
-											{loaderData.mediaList.list.details.total}
-										</Text>{" "}
-										items found
-									</Box>
-									<ApplicationGrid>
-										{loaderData.mediaList.list.items.map((lm) => (
-											<MediaItemWithoutUpdateModal
-												key={lm.data.identifier}
-												item={{
-													...lm.data,
-													publishYear: lm.data.publishYear?.toString(),
-												}}
-												averageRating={lm.averageRating ?? undefined}
-												lot={loaderData.lot}
-												href={withQuery(
-													APP_ROUTES.media.individualMediaItem.details,
-													{ id: lm.data.identifier },
-												)}
-												userPreferences={loaderData.userPreferences}
-											/>
-										))}
-									</ApplicationGrid>
-								</>
-							) : (
-								<Text>You do not have any saved yet</Text>
-							)}
-							{loaderData.mediaList.list ? (
-								<Center>
-									<ApplicationPagination
-										size="sm"
-										defaultValue={loaderData.numPage}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.mediaList.list.details.total /
-												loaderData.coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							) : undefined}
-						</Stack>
-					) : undefined}
-				</Tabs.Panel>
-
-				{/* <Tabs.Panel value="search">
-					<Stack>
+										<ActionIcon
+											onClick={() => {
+												if (
+													loaderData.mediaList?.url.sortOrder ===
+													GraphqlSortOrder.Asc
+												)
+													setP("sortOrder", GraphqlSortOrder.Desc);
+												else setP("sortOrder", GraphqlSortOrder.Asc);
+											}}
+										>
+											{loaderData.mediaList.url.sortOrder ===
+											GraphqlSortOrder.Asc ? (
+												<IconSortAscending />
+											) : (
+												<IconSortDescending />
+											)}
+										</ActionIcon>
+									</Flex>
+									{loaderData.mediaList.collections.length > 0 ? (
+										<Select
+											placeholder="Select a collection"
+											defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
+											data={[
+												{
+													group: "My collections",
+													items: loaderData.mediaList.collections.map((c) => ({
+														value: c.id.toString(),
+														label: c.name,
+													})),
+												},
+											]}
+											onChange={(v) => setP("collectionFilter", v)}
+											clearable
+										/>
+									) : undefined}
+								</Stack>
+							</Modal>
+						</Group>
+						{loaderData.mediaList.list.details.total > 0 ? (
+							<>
+								<Box>
+									<Text display="inline" fw="bold">
+										{loaderData.mediaList.list.details.total}
+									</Text>{" "}
+									items found
+								</Box>
+								<ApplicationGrid>
+									{loaderData.mediaList.list.items.map((lm) => (
+										<MediaItemWithoutUpdateModal
+											key={lm.data.identifier}
+											item={{
+												...lm.data,
+												publishYear: lm.data.publishYear?.toString(),
+											}}
+											averageRating={lm.averageRating ?? undefined}
+											lot={loaderData.lot}
+											href={withQuery(
+												APP_ROUTES.media.individualMediaItem.details,
+												{ id: lm.data.identifier },
+											)}
+											userPreferences={loaderData.userPreferences}
+										/>
+									))}
+								</ApplicationGrid>
+							</>
+						) : (
+							<Text>You do not have any saved yet</Text>
+						)}
+						{loaderData.mediaList.list ? (
+							<Center>
+								<ApplicationPagination
+									size="sm"
+									defaultValue={loaderData.numPage}
+									onChange={(v) => setP("page", v.toString())}
+									total={Math.ceil(
+										loaderData.mediaList.list.details.total /
+											loaderData.coreDetails.pageLimit,
+									)}
+								/>
+							</Center>
+						) : undefined}
+					</>
+				) : undefined}
+				{loaderData.mediaSearch ? (
+					<>
 						<Flex gap="xs">
 							{SearchInput({
 								placeholder: `Search for ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`,
 							})}
-							{typeof mediaSources.data?.length !== "undefined" &&
-							mediaSources.data.length > 1 ? (
+							{loaderData.mediaSearch.mediaSources.length > 1 ? (
 								<Select
 									w="37%"
-									value={searchSource?.toString()}
-									data={mediaSources.data.map((o) => ({
+									value={loaderData.mediaSearch.url.source}
+									data={loaderData.mediaSearch.mediaSources.map((o) => ({
 										value: o.toString(),
 										label: startCase(o.toLowerCase()),
 									}))}
 									onChange={(v) => {
-										if (v) setSearchSource(v);
+										if (v) setP("source", v);
 									}}
 								/>
 							) : undefined}
 						</Flex>
-						{searchQuery.data && searchQuery.data.details.total > 0 ? (
+						{loaderData.mediaSearch.search.details.total > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{searchQuery.data.details.total}
+										{loaderData.mediaSearch.search.details.total}
 									</Text>{" "}
 									items found
 								</Box>
-								<Grid>
-									{searchQuery.data.items.map((b, idx) => (
+								<ApplicationGrid>
+									{loaderData.mediaSearch.search.items.map((b, idx) => (
 										<MediaSearchItem
 											idx={idx}
 											key={b.item.identifier}
@@ -464,34 +412,34 @@ export default function Page() {
 											maybeItemId={b.databaseId ?? undefined}
 											query={query || ""}
 											lot={loaderData.lot}
-											searchQueryRefetch={searchQuery.refetch}
-											source={searchSource as unknown as MetadataSource}
+											source={
+												loaderData.mediaSearch?.url.source ||
+												MetadataSource.Anilist
+											}
 											userPreferences={loaderData.userPreferences}
 										/>
 									))}
-								</Grid>
+								</ApplicationGrid>
 							</>
 						) : (
 							<Text>No media found matching your query</Text>
 						)}
-						{searchQuery.data ? (
+						{loaderData.mediaSearch.search ? (
 							<Center>
-								<Pagination
+								<ApplicationPagination
 									size="sm"
-									value={activeSearchPage || 1}
-									onChange={(v) => setSearchPage(v)}
+									defaultValue={loaderData.numPage}
+									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
-										searchQuery.data.details.total /
+										loaderData.mediaSearch.search.details.total /
 											loaderData.coreDetails.pageLimit,
 									)}
-									boundaries={1}
-									siblings={0}
 								/>
 							</Center>
 						) : undefined}
-					</Stack>
-				</Tabs.Panel> */}
-			</Tabs>
+					</>
+				) : undefined}
+			</Stack>
 		</Container>
 	);
 }
