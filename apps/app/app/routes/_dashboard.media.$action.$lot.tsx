@@ -6,7 +6,6 @@ import {
 	Flex,
 	Group,
 	Modal,
-	Pagination,
 	Select,
 	Stack,
 	Tabs,
@@ -42,7 +41,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { Grid } from "~/components/common";
+import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
@@ -66,9 +65,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		getCoreDetails(),
 		getUserPreferences(request),
 	]);
-	const { query } = zx.parseQuery(request, {
+	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
+		page: zx.IntAsString.default("1"),
 	});
+	const numPage = Number(page);
 	const lot = getLot(params.lot);
 	invariant(lot, "Lot is not defined");
 	const action = params.action as Action;
@@ -79,7 +80,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
-				page: z.number().default(1),
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)
 					.default(defaultFilters.mineSortOrder),
@@ -94,7 +94,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{
 					input: {
 						lot,
-						search: { page: urlParse.page, query },
+						search: { page: numPage, query },
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						filter: {
 							general: urlParse.generalFilter,
@@ -136,6 +136,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		mediaList,
 		mediaSearch,
 		query,
+		numPage,
 	});
 };
 
@@ -152,11 +153,6 @@ export default function Page() {
 	});
 	const [searchSource, setSearchSource] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedMediaSearchSource,
-	});
-	const [activeMinePage, setMinePage] = useLocalStorage({
-		defaultValue: 1,
-		key: LOCAL_STORAGE_KEYS.savedMediaMinePage,
-		getInitialValueInEffect: false,
 	});
 	const [activeTab, setActiveTab] = useLocalStorage<"mine" | "search">({
 		key: LOCAL_STORAGE_KEYS.savedMediaActiveTab,
@@ -409,7 +405,7 @@ export default function Page() {
 										</Text>{" "}
 										items found
 									</Box>
-									<Grid>
+									<ApplicationGrid>
 										{loaderData.mediaList.list.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
 												key={lm.data.identifier}
@@ -426,23 +422,26 @@ export default function Page() {
 												userPreferences={loaderData.userPreferences}
 											/>
 										))}
-									</Grid>
+									</ApplicationGrid>
 								</>
 							) : (
 								<Text>You do not have any saved yet</Text>
 							)}
 							{loaderData.mediaList.list ? (
 								<Center>
-									<Pagination
+									<ApplicationPagination
 										size="sm"
-										value={activeMinePage || 1}
-										onChange={(v) => setMinePage(v)}
+										defaultValue={loaderData.numPage}
+										onChange={(v) =>
+											setSearchParams((prev) => {
+												prev.set("page", v.toString());
+												return prev;
+											})
+										}
 										total={Math.ceil(
 											loaderData.mediaList.list.details.total /
 												loaderData.coreDetails.pageLimit,
 										)}
-										boundaries={1}
-										siblings={0}
 									/>
 								</Center>
 							) : undefined}

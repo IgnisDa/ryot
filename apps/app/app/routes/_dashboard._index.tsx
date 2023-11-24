@@ -45,7 +45,7 @@ import { DateTime } from "luxon";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
-import { Grid } from "~/components/common";
+import { ApplicationGrid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
@@ -122,11 +122,11 @@ export default function Index() {
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
 								<Section key="upcoming">
 									<Title>Upcoming</Title>
-									<Grid>
+									<ApplicationGrid>
 										{loaderData.userUpcomingCalendarEvents.map((um) => (
 											<UpComingMedia um={um} key={um.calendarEventId} />
 										))}
-									</Grid>
+									</ApplicationGrid>
 								</Section>
 							) : undefined,
 						)
@@ -134,7 +134,7 @@ export default function Index() {
 							loaderData.collectionContents.results.items.length > 0 ? (
 								<Section key="inProgress">
 									<Title>In Progress</Title>
-									<Grid>
+									<ApplicationGrid>
 										{loaderData.collectionContents.results.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
 												key={lm.details.identifier}
@@ -148,7 +148,7 @@ export default function Index() {
 												noRatingLink
 											/>
 										))}
-									</Grid>
+									</ApplicationGrid>
 								</Section>
 							) : undefined,
 						)
