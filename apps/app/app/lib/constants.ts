@@ -40,7 +40,6 @@ export const APP_ROUTES = {
 		},
 		individualMediaItem: {
 			details: "/media/item",
-			commit: "/media/item/commit",
 			create: "/media/item/create",
 			updateProgress: "/media/item/update-progress",
 		},

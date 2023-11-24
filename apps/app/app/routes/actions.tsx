@@ -33,12 +33,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			lot: z.nativeEnum(MetadataLot),
 			source: z.nativeEnum(MetadataSource),
 			redirectTo: z.string().optional(),
+			returnRaw: zx.BoolAsString.optional(),
 		});
 		const { commitMedia } = await gqlClient.request(
 			CommitMediaDocument,
 			{ identifier: values.identifier, lot: values.lot, source: values.source },
 			await getAuthorizationHeader(request),
 		);
+		if (values.returnRaw) return json(commitMedia);
 		return redirect(
 			values.redirectTo
 				? safeRedirect(values.redirectTo)
@@ -98,9 +100,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				return json({ status: "idle", submission } as const);
 			if (!submission.value)
 				return json({ status: "error", submission } as const, { status: 400 });
-			await gqlClient.request(AddEntityToCollectionDocument, {
-				input: submission.value,
-			});
+			await gqlClient.request(
+				AddEntityToCollectionDocument,
+				{ input: submission.value },
+				await getAuthorizationHeader(request),
+			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					message: "Media added to collection successfully",

@@ -21,6 +21,7 @@ import {
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { Link, useNavigate } from "@remix-run/react";
 import {
 	CoreDetails,
@@ -44,7 +45,7 @@ import { DateTime } from "luxon";
 import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { joinURL, withQuery } from "ufo";
 import { APP_ROUTES } from "~/lib/constants";
 import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
@@ -58,10 +59,11 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 			data-media-id={props.media.identifier}
 			to={
 				props.media.metadataId
-					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
-							id: props.media.metadataId,
-					  })
-					: withQuery(APP_ROUTES.media.individualMediaItem.commit, {
+					? joinURL(
+							APP_ROUTES.media.individualMediaItem.details,
+							props.media.metadataId.toString(),
+					  )
+					: withQuery(APP_ROUTES.generalActions, {
 							identifier: props.media.identifier,
 							lot: props.media.lot,
 							source: props.media.source,
@@ -484,7 +486,12 @@ export const MediaSearchItem = (props: {
 	userPreferences: UserPreferencesQuery["userPreferences"];
 	maybeItemId?: number;
 }) => {
-	const navigate = useNavigate();
+	const searchParams = {
+		intent: "commitMedia",
+		identifier: props.item.identifier,
+		lot: props.lot,
+		source: props.source,
+	};
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -493,15 +500,11 @@ export const MediaSearchItem = (props: {
 			userPreferences={props.userPreferences}
 			href={
 				props.maybeItemId
-					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
-							id: props.maybeItemId,
-					  })
-					: withQuery(APP_ROUTES.generalActions, {
-							intent: "commitMedia",
-							identifier: props.item.identifier,
-							lot: props.lot,
-							source: props.source,
-					  })
+					? joinURL(
+							APP_ROUTES.media.individualMediaItem.details,
+							props.maybeItemId.toString(),
+					  )
+					: withQuery(APP_ROUTES.generalActions, searchParams)
 			}
 			existsInDatabase={!!props.maybeItemId}
 			noRatingLink
@@ -509,17 +512,14 @@ export const MediaSearchItem = (props: {
 			<>
 				{props.lot !== MetadataLot.Show ? (
 					<Button
+						component={Link}
 						variant="outline"
 						w="100%"
 						size="compact-md"
-						onClick={async () => {
-							const id = await commitFunction();
-							navigate(
-								withQuery(APP_ROUTES.media.individualMediaItem.updateProgress, {
-									id,
-								}),
-							);
-						}}
+						to={withQuery(APP_ROUTES.generalActions, {
+							...searchParams,
+							redirectTo: APP_ROUTES.media.individualMediaItem.updateProgress,
+						})}
 					>
 						Mark as {getVerb(Verb.Read, props.lot)}
 					</Button>
@@ -530,11 +530,7 @@ export const MediaSearchItem = (props: {
 							variant="outline"
 							w="100%"
 							size="compact-md"
-							to={withQuery(APP_ROUTES.media.individualMediaItem.commit, {
-								identifier: props.item.identifier,
-								lot: props.lot,
-								source: props.source,
-							})}
+							to={withQuery(APP_ROUTES.generalActions, searchParams)}
 						>
 							Show details
 						</Button>
@@ -546,14 +542,25 @@ export const MediaSearchItem = (props: {
 					w="100%"
 					size="compact-md"
 					onClick={async () => {
-						const id = await commitFunction();
-						addMediaToCollection.mutate({
-							input: {
-								collectionName: "Watchlist",
-								entityId: id.toString(),
-								entityLot: EntityLot.Media,
-							},
+						const { id } = await (
+							await fetch(
+								withQuery(APP_ROUTES.generalActions, {
+									...searchParams,
+									returnRaw: true,
+								}),
+							)
+						).json();
+						const form = new FormData();
+						form.append("intent", "addMediaToCollection");
+						form.append("entityId", id);
+						form.append("entityLot", EntityLot.Media);
+						form.append("collectionName", "Watchlist");
+						await fetch(APP_ROUTES.generalActions, {
+							body: form,
+							method: "POST",
+							credentials: "include",
 						});
+						notifications.show({ message: "Media added to watchlist" });
 					}}
 				>
 					Add to Watchlist
