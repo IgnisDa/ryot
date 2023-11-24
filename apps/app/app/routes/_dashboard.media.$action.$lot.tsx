@@ -20,7 +20,7 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useSearchParams } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
 	MediaGeneralFilter,
@@ -35,30 +35,23 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconListCheck,
-	IconRefresh,
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
+import { useEffect } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import Grid from "~/components/grid";
-import {
-	MediaItemWithoutUpdateModal,
-	MediaSearchItem,
-} from "~/components/media-components";
+import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
-import {
-	deserializeLocalStorage,
-	getLot,
-	serializeLocalStorage,
-} from "~/lib/utilities";
+import { getLot } from "~/lib/utilities";
 
 const defaultFilters = {
 	mineCollectionFilter: undefined,
@@ -77,6 +70,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		getCoreDetails(),
 		getUserPreferences(request),
 	]);
+	const { query } = zx.parseQuery(request, {
+		query: z.string().optional(),
+	});
 	const lot = getLot(params.lot);
 	invariant(lot, "Lot is not defined");
 	const action = params.action as Action;
@@ -87,7 +83,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
-				query: z.string().optional(),
 				page: z.number().default(1),
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)
@@ -103,7 +98,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{
 					input: {
 						lot,
-						search: { page: urlParse.page, query: urlParse.query },
+						search: { page: urlParse.page, query },
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						filter: {
 							general: urlParse.generalFilter,
@@ -144,47 +139,20 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		action,
 		mediaList,
 		mediaSearch,
+		query,
 	});
 };
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-
+	const [searchParmas, setSearchParams] = useSearchParams();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const [mineSortOrder, setMineSortOrder] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.savedMineMediaSortOrder,
-		defaultValue: defaultFilters.mineSortOrder,
-		getInitialValueInEffect: false,
-	});
-	const [mineSortBy, setMineSortBy] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.savedMineMediaSortBy,
-		defaultValue: defaultFilters.mineSortBy,
-		getInitialValueInEffect: false,
-	});
-	const [mineGeneralFilter, setMineGeneralFilter] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.savedMineMediaGeneralFilter,
-		defaultValue: defaultFilters.mineGeneralFilter,
-		getInitialValueInEffect: false,
-	});
-	const [mineCollectionFilter, setMineCollectionFilter] = useLocalStorage<
-		string | undefined
-	>({
-		key: LOCAL_STORAGE_KEYS.savedMineMediaCollectionFilter,
-		defaultValue: defaultFilters.mineCollectionFilter,
-		getInitialValueInEffect: false,
-		deserialize: deserializeLocalStorage,
-		serialize: serializeLocalStorage,
-	});
 	const [activeSearchPage, setSearchPage] = useLocalStorage({
 		defaultValue: 1,
 		key: LOCAL_STORAGE_KEYS.savedMediaSearchPage,
-	});
-	const [query, setQuery] = useLocalStorage({
-		key: LOCAL_STORAGE_KEYS.savedMediaQuery,
-		getInitialValueInEffect: false,
 	});
 	const [searchSource, setSearchSource] = useLocalStorage({
 		key: LOCAL_STORAGE_KEYS.savedMediaSearchSource,
@@ -199,7 +167,10 @@ export default function Page() {
 		getInitialValueInEffect: false,
 		defaultValue: "mine",
 	});
-	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
+	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(
+		searchParmas.get("query"),
+		1000,
+	);
 
 	// const mediaSources = useQuery({
 	// 	queryKey: ["sources", loaderData.lot],
@@ -249,13 +220,17 @@ export default function Page() {
 	// 	retry: false,
 	// });
 
-	// useEffect(() => {
-	// 	setDebouncedQuery(query?.trim());
-	// }, [query]);
+	useEffect(() => {
+		if (debouncedQuery)
+			setSearchParams((prev) => {
+				prev.set("query", debouncedQuery);
+				return prev;
+			});
+	}, [debouncedQuery]);
 
 	const ClearButton = () =>
-		query ? (
-			<ActionIcon onClick={() => setQuery("")}>
+		loaderData.query ? (
+			<ActionIcon onClick={() => setDebouncedQuery("")}>
 				<IconX size={16} />
 			</ActionIcon>
 		) : undefined;
@@ -274,8 +249,8 @@ export default function Page() {
 				name="query"
 				placeholder={props.placeholder}
 				leftSection={<IconSearch />}
-				onChange={(e) => setQuery(e.currentTarget.value)}
-				value={query}
+				onChange={(e) => setDebouncedQuery(e.currentTarget.value)}
+				defaultValue={loaderData.query}
 				rightSection={<ClearButton />}
 				style={{ flexGrow: 1 }}
 				autoCapitalize="none"
@@ -328,14 +303,13 @@ export default function Page() {
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {
-													setMineCollectionFilter(
-														defaultFilters.mineCollectionFilter,
-													);
-													setMineGeneralFilter(
-														defaultFilters.mineGeneralFilter,
-													);
-													setMineSortOrder(defaultFilters.mineSortOrder);
-													setMineSortBy(defaultFilters.mineSortBy);
+													setSearchParams((prev) => {
+														prev.delete("generalFilter");
+														prev.delete("sortBy");
+														prev.delete("sortOrder");
+														prev.delete("collectionFilter");
+														return prev;
+													});
 													closeFiltersModal();
 												}}
 											>
@@ -343,7 +317,7 @@ export default function Page() {
 											</ActionIcon>
 										</Group>
 										<Select
-											value={mineGeneralFilter?.toString()}
+											defaultValue={loaderData.mediaList.url.generalFilter}
 											data={[
 												{
 													group: "General filters",
@@ -354,7 +328,11 @@ export default function Page() {
 												},
 											]}
 											onChange={(v) => {
-												if (v) setMineGeneralFilter(v as MediaGeneralFilter);
+												if (v)
+													setSearchParams((prev) => {
+														prev.set("generalFilter", v);
+														return prev;
+													});
 											}}
 										/>
 										<Flex gap="xs" align="center">
@@ -369,19 +347,34 @@ export default function Page() {
 														})),
 													},
 												]}
-												value={mineSortBy?.toString()}
+												defaultValue={loaderData.mediaList.url.sortBy}
 												onChange={(v) => {
-													if (v) setMineSortBy(v as MediaSortBy);
+													if (v)
+														setSearchParams((prev) => {
+															prev.set("sortBy", v);
+															return prev;
+														});
 												}}
 											/>
 											<ActionIcon
 												onClick={() => {
-													if (mineSortOrder === GraphqlSortOrder.Asc)
-														setMineSortOrder(GraphqlSortOrder.Desc);
-													else setMineSortOrder(GraphqlSortOrder.Asc);
+													if (
+														loaderData.mediaList?.url.sortOrder ===
+														GraphqlSortOrder.Asc
+													)
+														setSearchParams((prev) => {
+															prev.set("sortOrder", GraphqlSortOrder.Desc);
+															return prev;
+														});
+													else
+														setSearchParams((prev) => {
+															prev.set("sortOrder", GraphqlSortOrder.Asc);
+															return prev;
+														});
 												}}
 											>
-												{mineSortOrder === GraphqlSortOrder.Asc ? (
+												{loaderData.mediaList.url.sortOrder ===
+												GraphqlSortOrder.Asc ? (
 													<IconSortAscending />
 												) : (
 													<IconSortDescending />
@@ -391,7 +384,7 @@ export default function Page() {
 										{loaderData.mediaList.collections.length > 0 ? (
 											<Select
 												placeholder="Select a collection"
-												value={mineCollectionFilter}
+												defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
 												data={[
 													{
 														group: "My collections",
@@ -404,7 +397,11 @@ export default function Page() {
 													},
 												]}
 												onChange={(v) => {
-													setMineCollectionFilter(v || "non");
+													setSearchParams((prev) => {
+														if (v) prev.set("collectionFilter", v);
+														else prev.delete("collectionFilter");
+														return prev;
+													});
 												}}
 												clearable
 											/>
