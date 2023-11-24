@@ -45,7 +45,7 @@ import { DateTime } from "luxon";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
-import Grid from "~/components/grid";
+import { Grid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";

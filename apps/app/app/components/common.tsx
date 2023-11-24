@@ -1,6 +1,6 @@
 import { SimpleGrid } from "@mantine/core";
 
-export default function (props: {
+export function Grid(props: {
 	children: JSX.Element[];
 }) {
 	return (

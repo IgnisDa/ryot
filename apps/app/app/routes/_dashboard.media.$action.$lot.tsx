@@ -42,7 +42,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import Grid from "~/components/grid";
+import { Grid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
