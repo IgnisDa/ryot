@@ -8,7 +8,7 @@
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"resolveJsonModule": true,
-		"target": "ES2022",
+		"target": "es2022",
 		"strict": true,
 		"allowJs": true,
 		"forceConsistentCasingInFileNames": true,
@@ -20,13 +20,14 @@
 			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"]
 		},
+		"skipLibCheck": true,
+		"noEmit": true,
+		"outDir": "../../.moon/cache/types/apps/app",
 		"plugins": [
 			{
 				"name": "typescript-plugin-css-modules"
 			}
-		],
-		"noEmit": true,
-		"outDir": "../../.moon/cache/types/apps/app"
+		]
 	},
 	"references": [
 		{
