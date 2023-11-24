@@ -206,7 +206,12 @@ export default function Page() {
 				variant="default"
 				value={loaderData.action}
 				onChange={(v) => {
-					if (v) navigate(joinURL("/media/", v, loaderData.lot.toLowerCase()));
+					if (v)
+						navigate(
+							withQuery(joinURL("/media/", v, loaderData.lot.toLowerCase()), {
+								query: loaderData.query,
+							}),
+						);
 				}}
 			>
 				<Tabs.List mb="xs">
