@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { useLoaderData, useSearchParams } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
 	MediaGeneralFilter,
@@ -46,6 +46,7 @@ import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import { useSearchParam } from "~/lib/hooks";
 import { getLot } from "~/lib/utilities";
 
 const defaultFilters = {
@@ -142,7 +143,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParams, setSearchParams] = useSearchParams();
+	const [searchParams, { setP, delP }] = useSearchParam();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -210,11 +211,8 @@ export default function Page() {
 	// });
 
 	useEffect(() => {
-		setSearchParams((prev) => {
-			if (query) prev.set("query", query);
-			else prev.delete("query");
-			return prev;
-		});
+		if (query) setP("query", query);
+		else delP("query");
 	}, [query]);
 
 	const isFilterChanged =
@@ -291,13 +289,10 @@ export default function Page() {
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {
-													setSearchParams((prev) => {
-														prev.delete("generalFilter");
-														prev.delete("sortBy");
-														prev.delete("sortOrder");
-														prev.delete("collectionFilter");
-														return prev;
-													});
+													delP("generalFilter");
+													delP("sortBy");
+													delP("sortOrder");
+													delP("collectionFilter");
 													closeFiltersModal();
 												}}
 											>
@@ -316,11 +311,7 @@ export default function Page() {
 												},
 											]}
 											onChange={(v) => {
-												if (v)
-													setSearchParams((prev) => {
-														prev.set("generalFilter", v);
-														return prev;
-													});
+												if (v) setP("generalFilter", v);
 											}}
 										/>
 										<Flex gap="xs" align="center">
@@ -337,11 +328,7 @@ export default function Page() {
 												]}
 												defaultValue={loaderData.mediaList.url.sortBy}
 												onChange={(v) => {
-													if (v)
-														setSearchParams((prev) => {
-															prev.set("sortBy", v);
-															return prev;
-														});
+													if (v) setP("sortBy", v);
 												}}
 											/>
 											<ActionIcon
@@ -350,15 +337,8 @@ export default function Page() {
 														loaderData.mediaList?.url.sortOrder ===
 														GraphqlSortOrder.Asc
 													)
-														setSearchParams((prev) => {
-															prev.set("sortOrder", GraphqlSortOrder.Desc);
-															return prev;
-														});
-													else
-														setSearchParams((prev) => {
-															prev.set("sortOrder", GraphqlSortOrder.Asc);
-															return prev;
-														});
+														setP("sortOrder", GraphqlSortOrder.Desc);
+													else setP("sortOrder", GraphqlSortOrder.Asc);
 												}}
 											>
 												{loaderData.mediaList.url.sortOrder ===
@@ -385,11 +365,8 @@ export default function Page() {
 													},
 												]}
 												onChange={(v) => {
-													setSearchParams((prev) => {
-														if (v) prev.set("collectionFilter", v);
-														else prev.delete("collectionFilter");
-														return prev;
-													});
+													if (v) setP("collectionFilter", v);
+													else delP("collectionFilter");
 												}}
 												clearable
 											/>
@@ -432,12 +409,7 @@ export default function Page() {
 									<ApplicationPagination
 										size="sm"
 										defaultValue={loaderData.numPage}
-										onChange={(v) =>
-											setSearchParams((prev) => {
-												prev.set("page", v.toString());
-												return prev;
-											})
-										}
+										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.mediaList.list.details.total /
 												loaderData.coreDetails.pageLimit,

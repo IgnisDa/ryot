@@ -1,4 +1,5 @@
 import { useMantineTheme } from "@mantine/core";
+import { useSearchParams } from "@remix-run/react";
 import { getStringAsciiValue } from "./utilities";
 
 export function useGetMantineColor() {
@@ -10,4 +11,24 @@ export function useGetMantineColor() {
 		colors[(getStringAsciiValue(input) + colors.length) % colors.length];
 
 	return getColor;
+}
+
+export function useSearchParam() {
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	const setP = (key: string, value: string) => {
+		setSearchParams((prev) => {
+			prev.set(key, value);
+			return prev;
+		});
+	};
+
+	const delP = (key: string) => {
+		setSearchParams((prev) => {
+			prev.delete(key);
+			return prev;
+		});
+	};
+
+	return [searchParams, { setP, delP }] as const;
 }
