@@ -23,6 +23,7 @@ export const APP_ROUTES = {
 	},
 	media: {
 		list: "/media/list",
+		search: "/media/search",
 		postReview: "/media/post-review",
 		genres: {
 			list: "/media/genres/list",
