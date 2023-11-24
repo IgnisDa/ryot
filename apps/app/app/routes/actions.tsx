@@ -1,19 +1,55 @@
 import { parse } from "@conform-to/zod";
-import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	json,
+	redirect,
+} from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
+	CommitMediaDocument,
 	CreateReviewCommentDocument,
 	EntityLot,
+	MetadataLot,
+	MetadataSource,
 	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { namedAction } from "remix-utils/named-action";
+import { safeRedirect } from "remix-utils/safe-redirect";
+import { joinURL } from "ufo";
 import { z } from "zod";
-import { gqlClient } from "~/lib/api.server";
+import { zx } from "zodix";
+import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { APP_ROUTES } from "~/lib/constants";
 import { authCookie, colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
 
-export const loader = () => redirect(APP_ROUTES.dashboard);
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const url = new URL(request.url);
+	const intent = url.searchParams.get("intent");
+	if (intent === "commitMedia") {
+		const values = zx.parseQuery(url.searchParams, {
+			identifier: z.string(),
+			lot: z.nativeEnum(MetadataLot),
+			source: z.nativeEnum(MetadataSource),
+			redirectTo: z.string().optional(),
+		});
+		const { commitMedia } = await gqlClient.request(
+			CommitMediaDocument,
+			{ identifier: values.identifier, lot: values.lot, source: values.source },
+			await getAuthorizationHeader(request),
+		);
+		return redirect(
+			values.redirectTo
+				? safeRedirect(values.redirectTo)
+				: joinURL(
+						APP_ROUTES.media.individualMediaItem.details,
+						commitMedia.id.toString(),
+				  ),
+		);
+	}
+	return redirect(APP_ROUTES.dashboard);
+};
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();

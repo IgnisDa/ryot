@@ -1,5 +1,6 @@
 export const APP_ROUTES = {
 	dashboard: "/",
+	generalActions: "/actions",
 	calendar: "/calendar",
 	auth: {
 		login: "/auth/login",

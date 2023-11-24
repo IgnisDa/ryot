@@ -21,18 +21,13 @@ import {
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import { Link, useNavigate } from "@remix-run/react";
 import {
-	AddEntityToCollectionDocument,
-	type AddEntityToCollectionMutationVariables,
 	CoreDetails,
 	EntityLot,
 	MetadataLot,
 	MetadataSource,
 	type PartialMetadata,
-	RemoveEntityFromCollectionDocument,
-	type RemoveEntityFromCollectionMutationVariables,
 	type ReviewItem,
 	UserPreferencesQuery,
 	UserReviewScale,
@@ -45,7 +40,6 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
 import { DateTime } from "luxon";
 import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
@@ -492,15 +486,6 @@ export const MediaSearchItem = (props: {
 }) => {
 	const navigate = useNavigate();
 
-	const commitFunction = async () => {
-		const { id } = await commitMedia.mutateAsync({
-			identifier: props.item.identifier,
-			lot: props.lot,
-			source: props.source,
-		});
-		return id;
-	};
-
 	return (
 		<MediaItemWithoutUpdateModal
 			item={props.item}
@@ -511,7 +496,8 @@ export const MediaSearchItem = (props: {
 					? withQuery(APP_ROUTES.media.individualMediaItem.details, {
 							id: props.maybeItemId,
 					  })
-					: withQuery(APP_ROUTES.media.individualMediaItem.commit, {
+					: withQuery(APP_ROUTES.generalActions, {
+							intent: "commitMedia",
 							identifier: props.item.identifier,
 							lot: props.lot,
 							source: props.source,
@@ -540,17 +526,15 @@ export const MediaSearchItem = (props: {
 				) : (
 					<>
 						<Button
+							component={Link}
 							variant="outline"
 							w="100%"
 							size="compact-md"
-							onClick={async () => {
-								const id = await commitFunction();
-								navigate(
-									withQuery(APP_ROUTES.media.individualMediaItem.details, {
-										id,
-									}),
-								);
-							}}
+							to={withQuery(APP_ROUTES.media.individualMediaItem.commit, {
+								identifier: props.item.identifier,
+								lot: props.lot,
+								source: props.source,
+							})}
 						>
 							Show details
 						</Button>
