@@ -348,9 +348,9 @@ export default function Page() {
 											}}
 											averageRating={lm.averageRating ?? undefined}
 											lot={loaderData.lot}
-											href={withQuery(
+											href={joinURL(
 												APP_ROUTES.media.individualMediaItem.details,
-												{ id: lm.data.identifier },
+												lm.data.identifier,
 											)}
 											userPreferences={loaderData.userPreferences}
 										/>
