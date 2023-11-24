@@ -6305,6 +6305,7 @@ __metadata:
     vite: "npm:4.5.0"
     vite-tsconfig-paths: "npm:4.2.1"
     zod: "npm:3.22.4"
+    zodix: "npm:0.4.4"
   languageName: unknown
   linkType: soft
 
@@ -20359,6 +20360,16 @@ __metadata:
   version: 3.22.4
   resolution: "zod@npm:3.22.4"
   checksum: 73622ca36a916f785cf528fe612a884b3e0f183dbe6b33365a7d0fc92abdbedf7804c5e2bd8df0a278e1472106d46674281397a3dd800fa9031dc3429758c6ac
+  languageName: node
+  linkType: hard
+
+"zodix@npm:0.4.4":
+  version: 0.4.4
+  resolution: "zodix@npm:0.4.4"
+  peerDependencies:
+    "@remix-run/server-runtime": 1.x || 2.x
+    zod: 3.x
+  checksum: 23e1844faa337903ab0928cb3f35abbf334133d9c5432aa3022b4c992e712269028519f079a7b480fd852b913da11b6ab0eb3237167ebcb5cadff641755461e4
   languageName: node
   linkType: hard
 
