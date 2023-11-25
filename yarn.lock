@@ -6283,6 +6283,7 @@ __metadata:
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.7"
     crypto-js: "npm:4.2.0"
+    embla-carousel-react: "npm:^7.1.0"
     eslint: "npm:8.38.0"
     graphql-request: "npm:6.1.0"
     human-format: "npm:1.2.0"
@@ -10069,12 +10070,30 @@ __metadata:
   languageName: node
   linkType: hard
 
+"embla-carousel-react@npm:^7.1.0":
+  version: 7.1.0
+  resolution: "embla-carousel-react@npm:7.1.0"
+  dependencies:
+    embla-carousel: "npm:7.1.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.1 || ^18.0.0
+  checksum: 5bc37cf372b766c542f05f9a719d925ad6704fbf9d70a86f198a2e745456b54ec0006731b0c28bae5c9538c183f4ee34c461b673af3b9026da3fdfd71a4d34e5
+  languageName: node
+  linkType: hard
+
 "embla-carousel-reactive-utils@npm:8.0.0-rc14":
   version: 8.0.0-rc14
   resolution: "embla-carousel-reactive-utils@npm:8.0.0-rc14"
   peerDependencies:
     embla-carousel: 8.0.0-rc14
   checksum: 8d34411a62ce369cd2e8f14f2b477818911d10a4be612b9c4d8cc6cb9f624487fc97acbef3ba0eea38cd40652a0610d4fbef99f915bad85f60579a578cc31059
+  languageName: node
+  linkType: hard
+
+"embla-carousel@npm:7.1.0":
+  version: 7.1.0
+  resolution: "embla-carousel@npm:7.1.0"
+  checksum: 990745e2a4cbd9fd44607dc3faa7ed60adb0149cc3858cdcc304053a470e2408c76064a9062020aefc6b4cd3eb7e8e1e03daf0a634358619246c46c8fa947315
   languageName: node
   linkType: hard
 
