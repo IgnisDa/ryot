@@ -10,7 +10,6 @@ import {
 	Group,
 	Image,
 	Indicator,
-	MantineThemeProvider,
 	Menu,
 	Modal,
 	NumberInput,
@@ -29,7 +28,7 @@ import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import {
 	CreateMediaReminderDocument,
 	type CreateMediaReminderMutationVariables,
@@ -70,7 +69,6 @@ import {
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
 import { DateTime } from "luxon";
-import Link from "next/link";
 import { useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -328,7 +326,7 @@ export default function Page() {
 					<Box>
 						{loaderData.mediaMainDetails.group ? (
 							<Link
-								href={$path("/media/groups/:id", {
+								to={$path("/media/groups/:id", {
 									id: loaderData.mediaMainDetails.group.id,
 								})}
 								style={{ color: "unset" }}
@@ -357,53 +355,39 @@ export default function Page() {
 							))}
 						</Group>
 					) : undefined}
-					<MantineThemeProvider
-						theme={{
-							components: {
-								Text: Text.extend({
-									defaultProps: { c: "dimmed", fz: { base: "sm", lg: "md" } },
-								}),
-							},
-						}}
-					>
-						<Flex id="media-details" wrap="wrap" gap={6} align="center">
-							<Text>
-								{[
-									loaderData.mediaMainDetails.publishYear,
-									loaderData.mediaMainDetails.productionStatus,
-									loaderData.mediaAdditionalDetails.bookSpecifics?.pages &&
-										`${loaderData.mediaAdditionalDetails.bookSpecifics.pages} pages`,
-									loaderData.mediaAdditionalDetails.podcastSpecifics
-										?.totalEpisodes &&
-										`${loaderData.mediaAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
-									loaderData.mediaAdditionalDetails.animeSpecifics?.episodes &&
-										`${loaderData.mediaAdditionalDetails.animeSpecifics.episodes} episodes`,
-									loaderData.mediaAdditionalDetails.mangaSpecifics?.chapters &&
-										`${loaderData.mediaAdditionalDetails.mangaSpecifics.chapters} chapters`,
-									loaderData.mediaAdditionalDetails.mangaSpecifics?.volumes &&
-										`${loaderData.mediaAdditionalDetails.mangaSpecifics.volumes} volumes`,
-									loaderData.mediaAdditionalDetails.movieSpecifics?.runtime &&
-										`${humanizer.humanize(
-											loaderData.mediaAdditionalDetails.movieSpecifics.runtime *
-												1000 *
-												60,
-										)}`,
-									loaderData.mediaAdditionalDetails.showSpecifics?.seasons &&
-										`${loaderData.mediaAdditionalDetails.showSpecifics.seasons.length} seasons`,
-									loaderData.mediaAdditionalDetails.audioBookSpecifics
-										?.runtime &&
-										`${humanizer.humanize(
-											loaderData.mediaAdditionalDetails.audioBookSpecifics
-												.runtime *
-												1000 *
-												60,
-										)}`,
-								]
-									.filter(Boolean)
-									.join(" • ")}
-							</Text>
-						</Flex>
-					</MantineThemeProvider>
+					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+						{[
+							loaderData.mediaMainDetails.publishYear,
+							loaderData.mediaMainDetails.productionStatus,
+							loaderData.mediaAdditionalDetails.bookSpecifics?.pages &&
+								`${loaderData.mediaAdditionalDetails.bookSpecifics.pages} pages`,
+							loaderData.mediaAdditionalDetails.podcastSpecifics
+								?.totalEpisodes &&
+								`${loaderData.mediaAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
+							loaderData.mediaAdditionalDetails.animeSpecifics?.episodes &&
+								`${loaderData.mediaAdditionalDetails.animeSpecifics.episodes} episodes`,
+							loaderData.mediaAdditionalDetails.mangaSpecifics?.chapters &&
+								`${loaderData.mediaAdditionalDetails.mangaSpecifics.chapters} chapters`,
+							loaderData.mediaAdditionalDetails.mangaSpecifics?.volumes &&
+								`${loaderData.mediaAdditionalDetails.mangaSpecifics.volumes} volumes`,
+							loaderData.mediaAdditionalDetails.movieSpecifics?.runtime &&
+								`${humanizer.humanize(
+									loaderData.mediaAdditionalDetails.movieSpecifics.runtime *
+										1000 *
+										60,
+								)}`,
+							loaderData.mediaAdditionalDetails.showSpecifics?.seasons &&
+								`${loaderData.mediaAdditionalDetails.showSpecifics.seasons.length} seasons`,
+							loaderData.mediaAdditionalDetails.audioBookSpecifics?.runtime &&
+								`${humanizer.humanize(
+									loaderData.mediaAdditionalDetails.audioBookSpecifics.runtime *
+										1000 *
+										60,
+								)}`,
+						]
+							.filter(Boolean)
+							.join(" • ")}
+					</Text>
 					{loaderData.mediaMainDetails.providerRating ||
 					loaderData.userMediaDetails.averageRating ? (
 						<Group>
@@ -606,7 +590,7 @@ export default function Page() {
 													/>
 													<Anchor
 														component={Link}
-														href={$path("/media/genre/:id", {
+														to={$path("/media/genre/:id", {
 															id: g.id,
 														})}
 														fz="sm"
@@ -646,7 +630,7 @@ export default function Page() {
 																	<Anchor
 																		component={Link}
 																		data-creator-id={creator.id}
-																		href={$path("/media/people/:id", {
+																		to={$path("/media/people/:id", {
 																			id: creator.id,
 																		})}
 																	>
@@ -852,7 +836,7 @@ export default function Page() {
 											variant="outline"
 											w="100%"
 											component={Link}
-											href={$path(
+											to={$path(
 												"/media/item/:id/post-review",
 												{ id: loaderData.metadataId },
 												{
@@ -1128,7 +1112,7 @@ export default function Page() {
 																	<Button
 																		variant="outline"
 																		component={Link}
-																		href={$path(
+																		to={$path(
 																			"/media/item/:id/update-progress",
 																			{ id: loaderData.metadataId },
 																			{
@@ -1168,7 +1152,7 @@ export default function Page() {
 																		<Button
 																			variant="outline"
 																			component={Link}
-																			href={$path(
+																			to={$path(
 																				"/media/item/:id/update-progress",
 																				{ id: loaderData.metadataId },
 																				{
@@ -1216,7 +1200,7 @@ export default function Page() {
 													<Button
 														variant="outline"
 														component={Link}
-														href={$path(
+														to={$path(
 															"/media/item/:id/update-progress",
 															{ id: loaderData.metadataId },
 															{ selectedPodcastEpisodeNumber: e.number },
@@ -1479,7 +1463,7 @@ const CreateReminderModal = (props: {
 				<Title order={3}>Create a reminder</Title>
 				<Text>
 					A notification will be sent to all your configured{" "}
-					<Anchor href={$path("/settings/notifications")} component={Link}>
+					<Anchor to={$path("/settings/notifications")} component={Link}>
 						platforms
 					</Anchor>
 					.

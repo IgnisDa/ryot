@@ -18,7 +18,6 @@ import {
 	IconMicrophone,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
-import { API_URL } from "~/lib/api.server";
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
