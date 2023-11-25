@@ -1296,11 +1296,11 @@ const ProgressModal = (props: {
 		mutationFn: async (
 			variables: DeployBulkProgressUpdateMutationVariables,
 		) => {
-			const { deployBulkProgressUpdate } = await gqlClient.request(
-				DeployBulkProgressUpdateDocument,
-				variables,
-			);
-			return deployBulkProgressUpdate;
+			// const { deployBulkProgressUpdate } = await gqlClient.request(
+			// 	DeployBulkProgressUpdateDocument,
+			// 	variables,
+			// );
+			// return deployBulkProgressUpdate;
 		},
 		onSuccess: () => {
 			props.onClose();
@@ -1427,11 +1427,11 @@ const CreateReminderModal = (props: {
 
 	const createMediaReminder = useMutation({
 		mutationFn: async (variables: CreateMediaReminderMutationVariables) => {
-			const { createMediaReminder } = await gqlClient.request(
-				CreateMediaReminderDocument,
-				variables,
-			);
-			return createMediaReminder;
+			// const { createMediaReminder } = await gqlClient.request(
+			// 	CreateMediaReminderDocument,
+			// 	variables,
+			// );
+			// return createMediaReminder;
 		},
 		onSuccess: (data) => {
 			if (!data)
