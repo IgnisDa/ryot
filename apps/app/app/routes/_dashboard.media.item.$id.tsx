@@ -75,7 +75,7 @@ import { useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { joinURL, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { MediaDetailsLayout } from "~/components/common";
 import {
 	AddEntityToCollectionModal,
@@ -1128,14 +1128,13 @@ export default function Page() {
 																	<Button
 																		variant="outline"
 																		component={Link}
-																		href={withQuery(
-																			APP_ROUTES.media.individualMediaItem
-																				.updateProgress,
+																		href={$path(
+																			"/media/item/:id/update-progress",
+																			{ id: loaderData.metadataId },
 																			{
-																				id: loaderData.metadataId,
 																				selectedShowSeasonNumber:
 																					s.seasonNumber,
-																				onlySeason: 1,
+																				onlySeason: true,
 																			},
 																		)}
 																	>
@@ -1169,11 +1168,10 @@ export default function Page() {
 																		<Button
 																			variant="outline"
 																			component={Link}
-																			href={withQuery(
-																				APP_ROUTES.media.individualMediaItem
-																					.updateProgress,
+																			href={$path(
+																				"/media/item/:id/update-progress",
+																				{ id: loaderData.metadataId },
 																				{
-																					id: loaderData.metadataId,
 																					selectedShowSeasonNumber:
 																						s.seasonNumber,
 																					selectedShowEpisodeNumber:
@@ -1218,13 +1216,10 @@ export default function Page() {
 													<Button
 														variant="outline"
 														component={Link}
-														href={withQuery(
-															APP_ROUTES.media.individualMediaItem
-																.updateProgress,
-															{
-																id: loaderData.metadataId,
-																selectedPodcastEpisodeNumber: e.number,
-															},
+														href={$path(
+															"/media/item/:id/update-progress",
+															{ id: loaderData.metadataId },
+															{ selectedPodcastEpisodeNumber: e.number },
 														)}
 													>
 														Mark as seen
