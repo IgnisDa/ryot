@@ -42,13 +42,12 @@ import {
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
 import { DateTime } from "luxon";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { joinURL } from "ufo";
 import { ApplicationGrid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { APP_ROUTES } from "~/lib/constants";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { getLot, getMetadataIcon } from "~/lib/utilities";
@@ -108,7 +107,7 @@ export default function Index() {
 							You have a workout in progress. Click{" "}
 							<Anchor
 								component={Link}
-								to={APP_ROUTES.fitness.exercises.currentWorkout}
+								to={$path("/fitness/exercises/current-workout")}
 							>
 								here
 							</Anchor>{" "}
@@ -414,7 +413,7 @@ export default function Index() {
 										currentWorkout ? (
 											<Button
 												variant="outline"
-												to={APP_ROUTES.fitness.exercises.currentWorkout}
+												to={$path("/fitness/exercises/current-workout")}
 												component={Link}
 												leftSection={<IconBarbell />}
 											>
@@ -426,7 +425,7 @@ export default function Index() {
 												leftSection={<IconBarbell />}
 												onClick={() => {
 													setCurrentWorkout(getDefaultWorkout());
-													navigate(APP_ROUTES.fitness.exercises.currentWorkout);
+													navigate($path("/fitness/exercises/current-workout"));
 												}}
 											>
 												Start a workout
@@ -438,7 +437,7 @@ export default function Index() {
 											variant="outline"
 											component={Link}
 											leftSection={<IconPhotoPlus />}
-											to={APP_ROUTES.media.individualMediaItem.create}
+											to={$path("/media/create")}
 										>
 											Create a media item
 										</Button>
@@ -449,7 +448,7 @@ export default function Index() {
 											variant="outline"
 											component={Link}
 											leftSection={<IconWeight />}
-											to={APP_ROUTES.fitness.exercises.createOrEdit}
+											to={$path("/fitness/exercises/create-or-edit")}
 										>
 											Create an exercise
 										</Button>
@@ -571,7 +570,10 @@ const DisplayStatForMediaType = (props: {
 	return isEnabled ? (
 		isEnabled[1] && props.userPreferences.featuresEnabled.media.enabled ? (
 			<Link
-				to={joinURL(APP_ROUTES.media.list, props.lot.toLowerCase())}
+				to={$path("/media/:action/:lot", {
+					action: "list",
+					lot: props.lot.toLowerCase(),
+				})}
 				style={{ all: "unset", cursor: "pointer" }}
 			>
 				<ActualDisplayStat

@@ -21,8 +21,7 @@ export type ExerciseSet = {
 	statistic: ExerciseSetStats;
 	lot: SetLot;
 	confirmed: boolean;
-	startedAt?: string | null;
-	endedAt?: string | null;
+	confirmedAt?: string | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -95,8 +94,7 @@ export const duplicateOldWorkout = (
 					: undefined,
 				weight: s.statistic.weight ? Number(s.statistic.weight) : undefined,
 			},
-			startedAt: s.startedAt,
-			endedAt: s.endedAt,
+			endedAt: s.confirmedAt,
 		}));
 		inProgress.exercises.push({
 			images: [],
@@ -120,8 +118,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 ) => {
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
-			endTime: new Date(),
-			startTime: new Date(currentWorkout.startTime),
+			endTime: new Date().toISOString(),
+			startTime: new Date(currentWorkout.startTime).toISOString(),
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			supersets: [],
@@ -138,6 +136,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 			if (set.confirmed) {
 				sets.push({
 					lot: set.lot,
+					confirmedAt: set.confirmedAt
+						? new Date(set.confirmedAt).toISOString()
+						: undefined,
 					statistic: {
 						...set.statistic,
 						distance: set.statistic.distance?.toString(),
@@ -168,7 +169,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 type Timer = {
 	totalTime: number;
 	endAt: DateTime;
-	triggeredByExerciseIdx?: number;
+	triggeredByIdx?: { exercise: number; set: number };
 };
 
 export const timerAtom = atomWithReset<Timer | null>(null);

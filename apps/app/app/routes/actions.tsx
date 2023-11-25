@@ -14,13 +14,12 @@ import {
 	MetadataSource,
 	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
-import { joinURL } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { APP_ROUTES } from "~/lib/constants";
 import { authCookie, colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
 
@@ -44,13 +43,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		return redirect(
 			values.redirectTo
 				? safeRedirect(values.redirectTo)
-				: joinURL(
-						APP_ROUTES.media.individualMediaItem.details,
-						commitMedia.id.toString(),
-				  ),
+				: $path("/media/item/:id", { id: commitMedia.id.toString() }),
 		);
 	}
-	return redirect(APP_ROUTES.dashboard);
+	return redirect($path("/"));
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -61,14 +57,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				request.headers.get("Cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "light" ? "dark" : "light";
-			return redirect(APP_ROUTES.dashboard, {
+			return redirect($path("/"), {
 				headers: {
 					"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
 				},
 			});
 		},
 		logout: async () => {
-			return redirect(APP_ROUTES.auth.login, {
+			return redirect($path("/auth/login"), {
 				headers: {
 					"Set-Cookie": await authCookie.serialize("", {
 						expires: new Date(0),

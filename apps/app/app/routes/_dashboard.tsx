@@ -39,10 +39,11 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
-import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "~/lib/constants";
+import { LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { getLot } from "~/lib/utilities";
@@ -67,14 +68,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 					href: undefined,
 				};
 			}) || []),
-		{ label: "Groups", href: APP_ROUTES.media.groups.list },
-		{ label: "People", href: APP_ROUTES.media.people.list },
-		{ label: "Genres", href: APP_ROUTES.media.genres.list },
+		{ label: "Groups", href: $path("/media/groups/list") },
+		{ label: "People", href: $path("/media/people/list") },
+		{ label: "Genres", href: $path("/media/genre/list") },
 	].map((link, _index) => ({
 		label: link.label,
 		link: link.href
 			? link.href
-			: joinURL(APP_ROUTES.media.list, link.label.toLowerCase()),
+			: $path("/media/:action/:lot", {
+					action: "list",
+					lot: link.label.toLowerCase(),
+			  }),
 	}));
 
 	const fitnessLinks = [
@@ -84,12 +88,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
-				href: `${
-					// biome-ignore lint/suspicious/noExplicitAny: required here
-					(APP_ROUTES.fitness as any)[f.name]
-				}`,
+				href: joinURL("/fitness", f.name),
 			})) || []),
-		{ label: "Exercises", href: APP_ROUTES.fitness.exercises.list },
+		{ label: "Exercises", href: $path("/fitness/exercises/list") },
 	].map((link) => ({
 		label: link.label,
 		link: link.href,
@@ -152,7 +153,7 @@ export default function Layout() {
 					<LinksGroup
 						label="Dashboard"
 						icon={IconHome2}
-						href={APP_ROUTES.dashboard}
+						href={$path("/")}
 						opened={false}
 						setOpened={() => {}}
 					/>
@@ -189,14 +190,14 @@ export default function Layout() {
 					<LinksGroup
 						label="Calendar"
 						icon={IconCalendar}
-						href={APP_ROUTES.calendar}
+						href={$path("/calendar")}
 						opened={false}
 						setOpened={() => {}}
 					/>
 					<LinksGroup
 						label="Collections"
 						icon={IconArchive}
-						href={APP_ROUTES.collections.list}
+						href={$path("/media/collections/list")}
 						opened={false}
 						setOpened={() => {}}
 					/>
@@ -215,31 +216,33 @@ export default function Layout() {
 							[
 								{
 									label: "Preferences",
-									link: APP_ROUTES.settings.preferences,
+									link: $path("/settings/preferences"),
 								},
 								{
 									label: "Imports and Exports",
-									link: APP_ROUTES.settings.imports.new,
+									link: $path("/settings/imports-and-exports"),
 								},
-								{ label: "Profile", link: APP_ROUTES.settings.profile },
+								{ label: "Profile", link: $path("/settings/profile") },
 								{
 									label: "Integrations",
-									link: APP_ROUTES.settings.integrations,
+									link: $path("/settings/integrations"),
 								},
 								{
 									label: "Notifications",
-									link: APP_ROUTES.settings.notifications,
+									link: $path("/settings/notifications"),
 								},
 								{
 									label: "Miscellaneous",
-									link: APP_ROUTES.settings.miscellaneous,
+									link: $path("/settings/miscellaneous"),
 								},
 								userDetails.__typename === "User" &&
 								userDetails.lot === UserLot.Admin
-									? { label: "Users", link: APP_ROUTES.settings.users }
+									? { label: "Users", link: $path("/settings/users") }
 									: undefined,
+							]
+								// TODO: remove this filter by generating the above array in the loader
 								// biome-ignore lint/suspicious/noExplicitAny: required here
-							].filter(Boolean) as any
+								.filter(Boolean) as any
 						}
 					/>
 				</Box>
@@ -283,7 +286,7 @@ export default function Layout() {
 			</AppShell.Navbar>
 			<Flex direction="column" h="90%">
 				<Flex justify="space-between" p="md" hiddenFrom="sm">
-					<Link to={APP_ROUTES.dashboard} style={{ all: "unset" }}>
+					<Link to={$path("/")} style={{ all: "unset" }}>
 						<Group>
 							<Image
 								src={

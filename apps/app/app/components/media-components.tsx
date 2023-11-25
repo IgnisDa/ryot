@@ -43,10 +43,10 @@ import {
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { joinURL, withQuery } from "ufo";
-import { APP_ROUTES } from "~/lib/constants";
+import { withQuery } from "ufo";
 import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
 import { ApplicationUser } from "~/lib/utils";
@@ -59,11 +59,8 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 			data-media-id={props.media.identifier}
 			to={
 				props.media.metadataId
-					? joinURL(
-							APP_ROUTES.media.individualMediaItem.details,
-							props.media.metadataId.toString(),
-					  )
-					: withQuery(APP_ROUTES.generalActions, {
+					? $path("/media/item/:id", { id: props.media.metadataId })
+					: withQuery($path("/actions"), {
 							identifier: props.media.identifier,
 							lot: props.media.lot,
 							source: props.media.source,
@@ -119,21 +116,37 @@ export const ReviewItemDisplay = (props: {
 					<Box>
 						<Text>{props.review.postedBy?.name}</Text>
 						<Text>
-							{DateTime.fromJSDate(
-								props.review.postedOn || new Date(),
+							{DateTime.fromISO(
+								props.review.postedOn || new Date().toISOString(),
 							).toLocaleString()}
 						</Text>
 					</Box>
 					{props.user && props.user.id === props.review.postedBy?.id ? (
 						<Anchor
 							component={Link}
-							to={withQuery(APP_ROUTES.media.postReview, {
-								metadataId: props.metadataId,
-								metadataGroupId: props.metadataGroupId,
-								collectionId: props.collectionId,
-								personId: props.personId,
-								reviewId: props.review.id,
-							})}
+							to={$path(
+								"/media/item/:id/post-review",
+								{
+									id: String(
+										props.metadataId ||
+											props.metadataGroupId ||
+											props.collectionId ||
+											props.personId ||
+											props.review.id,
+									),
+								},
+								{
+									entityType: props.metadataId
+										? "media"
+										: props.metadataGroupId
+										? "mediaGroup"
+										: props.collectionId
+										? "collection"
+										: props.personId
+										? "person"
+										: "existingReview",
+								},
+							)}
 						>
 							<ActionIcon>
 								<IconEdit size={16} />
@@ -211,8 +224,8 @@ export const ReviewItemDisplay = (props: {
 													<Box>
 														<Text>{c?.user?.name}</Text>
 														<Text>
-															{DateTime.fromJSDate(
-																c?.createdOn || new Date(),
+															{DateTime.fromISO(
+																c?.createdOn || new Date().toISOString(),
 															).toLocaleString()}
 														</Text>
 													</Box>
@@ -373,26 +386,20 @@ export const MediaItemWithoutUpdateModal = (props: {
 			href={
 				props.href
 					? props.href
-					: joinURL(
-							match(props.entityLot)
-								.with(
-									EntityLot.Media,
-									undefined,
-									null,
-									() => APP_ROUTES.media.individualMediaItem.details,
-								)
-								.with(
-									EntityLot.MediaGroup,
-									() => APP_ROUTES.media.groups.details,
-								)
-								.with(EntityLot.Person, () => APP_ROUTES.media.people.details)
-								.with(
-									EntityLot.Exercise,
-									() => APP_ROUTES.fitness.exercises.details,
-								)
-								.exhaustive(),
-							props.item.identifier
-					  )
+					: match(props.entityLot)
+							.with(EntityLot.Media, undefined, null, () =>
+								$path("/media/item/:id", { id: props.item.identifier }),
+							)
+							.with(EntityLot.MediaGroup, () =>
+								$path("/media/groups/:id", { id: props.item.identifier }),
+							)
+							.with(EntityLot.Person, () =>
+								$path("/media/people/:id", { id: props.item.identifier }),
+							)
+							.with(EntityLot.Exercise, () =>
+								$path("/fitness/exercises/:id", { id: props.item.identifier }),
+							)
+							.exhaustive()
 			}
 			imageLink={props.item.image}
 			imagePlaceholder={getInitials(props.item?.title || "")}
@@ -451,9 +458,11 @@ export const MediaItemWithoutUpdateModal = (props: {
 						onClick={(e) => {
 							e.preventDefault();
 							navigate(
-								withQuery(APP_ROUTES.media.postReview, {
-									metadataId: props.item.identifier,
-								}),
+								$path(
+									"/media/item/:id/post-review",
+									{ id: props.item.identifier },
+									{ entityType: "media" },
+								),
 							);
 						}}
 					>
@@ -499,11 +508,8 @@ export const MediaSearchItem = (props: {
 			userPreferences={props.userPreferences}
 			href={
 				props.maybeItemId
-					? joinURL(
-							APP_ROUTES.media.individualMediaItem.details,
-							props.maybeItemId.toString(),
-					  )
-					: withQuery(APP_ROUTES.generalActions, searchParams)
+					? $path("/media/item/:id", { id: props.maybeItemId })
+					: withQuery($path("/actions"), searchParams)
 			}
 			existsInDatabase={!!props.maybeItemId}
 			noRatingLink
@@ -515,9 +521,11 @@ export const MediaSearchItem = (props: {
 						variant="outline"
 						w="100%"
 						size="compact-md"
-						to={withQuery(APP_ROUTES.generalActions, {
+						to={withQuery($path("/actions"), {
 							...searchParams,
-							redirectTo: APP_ROUTES.media.individualMediaItem.updateProgress,
+							redirectTo: $path("/media/item/:id/update-progress", {
+								id: props.maybeItemId?.toString(),
+							}),
 						})}
 					>
 						Mark as {getVerb(Verb.Read, props.lot)}
@@ -529,7 +537,7 @@ export const MediaSearchItem = (props: {
 							variant="outline"
 							w="100%"
 							size="compact-md"
-							to={withQuery(APP_ROUTES.generalActions, searchParams)}
+							to={withQuery($path("/actions"), searchParams)}
 						>
 							Show details
 						</Button>
@@ -543,7 +551,7 @@ export const MediaSearchItem = (props: {
 					onClick={async () => {
 						const { id } = await (
 							await fetch(
-								withQuery(APP_ROUTES.generalActions, {
+								withQuery($path("/actions"), {
 									...searchParams,
 									returnRaw: true,
 								}),
@@ -554,7 +562,7 @@ export const MediaSearchItem = (props: {
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
 						form.append("collectionName", "Watchlist");
-						await fetch(APP_ROUTES.generalActions, {
+						await fetch($path("/actions"), {
 							body: form,
 							method: "POST",
 							credentials: "include",
@@ -635,7 +643,7 @@ export const DisplayCollection = (props: {
 					component={Link}
 					truncate
 					style={{ all: "unset", cursor: "pointer" }}
-					to={withQuery(APP_ROUTES.collections.details, {
+					to={$path("/media/collections/:id", {
 						id: props.col.id,
 					})}
 				>

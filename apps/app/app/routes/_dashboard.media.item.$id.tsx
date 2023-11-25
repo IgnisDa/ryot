@@ -39,10 +39,10 @@ import {
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
 	MetadataLot,
-	UserCollectionsListDocument,
 	MetadataSource,
 	MetadataVideoSource,
 	SeenState,
+	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -72,6 +72,7 @@ import {
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
@@ -84,7 +85,6 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { APP_ROUTES } from "~/lib/constants";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getVerb } from "~/lib/utilities";
@@ -328,7 +328,7 @@ export default function Page() {
 					<Box>
 						{loaderData.mediaMainDetails.group ? (
 							<Link
-								href={withQuery(APP_ROUTES.media.groups.details, {
+								href={$path("/media/groups/:id", {
 									id: loaderData.mediaMainDetails.group.id,
 								})}
 								style={{ color: "unset" }}
@@ -606,7 +606,7 @@ export default function Page() {
 													/>
 													<Anchor
 														component={Link}
-														href={withQuery(APP_ROUTES.media.genres.details, {
+														href={$path("/media/genre/:id", {
 															id: g.id,
 														})}
 														fz="sm"
@@ -646,10 +646,9 @@ export default function Page() {
 																	<Anchor
 																		component={Link}
 																		data-creator-id={creator.id}
-																		href={joinURL(
-																			APP_ROUTES.media.people.details,
-																			creator.id.toString(),
-																		)}
+																		href={$path("/media/people/:id", {
+																			id: creator.id,
+																		})}
 																	>
 																		<MetadataCreator
 																			name={creator.name}
@@ -853,23 +852,27 @@ export default function Page() {
 											variant="outline"
 											w="100%"
 											component={Link}
-											href={withQuery(APP_ROUTES.media.postReview, {
-												metadataId: loaderData.metadataId,
-												showSeasonNumber:
-													loaderData.userMediaDetails?.nextEpisode
-														?.seasonNumber ?? undefined,
-												showEpisodeNumber:
-													loaderData.mediaMainDetails.lot === MetadataLot.Show
-														? loaderData.userMediaDetails?.nextEpisode
-																?.episodeNumber ?? undefined
-														: undefined,
-												podcastEpisodeNumber:
-													loaderData.mediaMainDetails.lot ===
-													MetadataLot.Podcast
-														? loaderData.userMediaDetails?.nextEpisode
-																?.episodeNumber ?? undefined
-														: undefined,
-											})}
+											href={$path(
+												"/media/item/:id/post-review",
+												{ id: loaderData.metadataId },
+												{
+													entityType: "media",
+													showSeasonNumber:
+														loaderData.userMediaDetails?.nextEpisode
+															?.seasonNumber ?? undefined,
+													showEpisodeNumber:
+														loaderData.mediaMainDetails.lot === MetadataLot.Show
+															? loaderData.userMediaDetails?.nextEpisode
+																	?.episodeNumber ?? undefined
+															: undefined,
+													podcastEpisodeNumber:
+														loaderData.mediaMainDetails.lot ===
+														MetadataLot.Podcast
+															? loaderData.userMediaDetails?.nextEpisode
+																	?.episodeNumber ?? undefined
+															: undefined,
+												},
+											)}
 										>
 											Post a review
 										</Button>
@@ -1481,7 +1484,7 @@ const CreateReminderModal = (props: {
 				<Title order={3}>Create a reminder</Title>
 				<Text>
 					A notification will be sent to all your configured{" "}
-					<Anchor href={APP_ROUTES.settings.notifications} component={Link}>
+					<Anchor href={$path("/settings/notifications")} component={Link}>
 						platforms
 					</Anchor>
 					.

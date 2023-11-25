@@ -19,12 +19,12 @@ import {
 	LoginErrorVariant,
 	LoginUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
-import { APP_ROUTES } from "~/lib/constants";
 import { authCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
@@ -44,7 +44,7 @@ export const meta: MetaFunction = () => [{ title: "Login | Ryot" }];
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
-		return redirectWithToast(APP_ROUTES.dashboard, {
+		return redirectWithToast($path("/"), {
 			message: "You were already logged in",
 		});
 	const enabledFeatures = await getCoreEnabledFeatures();
@@ -67,7 +67,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 	});
 	if (loginUser.__typename === "LoginResponse") {
-		let redirectUrl = APP_ROUTES.dashboard as string;
+		let redirectUrl = $path("/");
 		if (submission.value[redirectToQueryParam])
 			redirectUrl = safeRedirect(submission.value[redirectToQueryParam]);
 		return redirect(redirectUrl, {
@@ -151,7 +151,7 @@ export default function Page() {
 				{loaderData.enabledFeatures.signupAllowed ? (
 					<Box mt="lg" style={{ textAlign: "right" }}>
 						Need an account? Register{" "}
-						<Anchor to={APP_ROUTES.auth.register} component={Link}>
+						<Anchor to={$path("/auth/register")} component={Link}>
 							here
 						</Anchor>
 						.

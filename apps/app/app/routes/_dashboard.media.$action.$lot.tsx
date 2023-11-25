@@ -37,6 +37,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
@@ -48,7 +49,6 @@ import {
 	MediaSearchItem,
 } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { APP_ROUTES } from "~/lib/constants";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { getLot } from "~/lib/utilities";
@@ -348,10 +348,9 @@ export default function Page() {
 											}}
 											averageRating={lm.averageRating ?? undefined}
 											lot={loaderData.lot}
-											href={joinURL(
-												APP_ROUTES.media.individualMediaItem.details,
-												lm.data.identifier,
-											)}
+											href={$path("/media/item/:id", {
+												id: lm.data.identifier,
+											})}
 											userPreferences={loaderData.userPreferences}
 										/>
 									))}

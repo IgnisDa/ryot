@@ -12,11 +12,11 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
-import { APP_ROUTES } from "~/lib/constants";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
@@ -42,12 +42,12 @@ export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
-		return redirectWithToast(APP_ROUTES.dashboard, {
+		return redirectWithToast($path("/"), {
 			message: "You were already logged in",
 		});
 	const enabledFeatures = await getCoreEnabledFeatures();
 	if (!enabledFeatures.signupAllowed)
-		return redirectWithToast(APP_ROUTES.auth.login, {
+		return redirectWithToast($path("/auth/login"), {
 			message: "Registration is disabled",
 			type: "error",
 		});
@@ -81,7 +81,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			headers: await createToastHeaders({ message, type: "error" }),
 		});
 	}
-	return redirectWithToast(APP_ROUTES.auth.login, {
+	return redirectWithToast($path("/auth/login"), {
 		message: "Please login with your new credentials",
 	});
 };
@@ -132,7 +132,7 @@ export default function Page() {
 				</Button>
 				<Box mt="lg" style={{ textAlign: "right" }}>
 					Already a member? Login{" "}
-					<Anchor to={APP_ROUTES.auth.login} component={Link}>
+					<Anchor to={$path("/auth/login")} component={Link}>
 						here
 					</Anchor>
 					.
