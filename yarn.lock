@@ -6282,6 +6282,7 @@ __metadata:
     "@types/luxon": "npm:3.3.3"
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.7"
+    crypto-js: "npm:4.2.0"
     eslint: "npm:8.38.0"
     graphql-request: "npm:6.1.0"
     human-format: "npm:1.2.0"
@@ -9359,6 +9360,13 @@ __metadata:
     shebang-command: "npm:^2.0.0"
     which: "npm:^2.0.1"
   checksum: e1a13869d2f57d974de0d9ef7acbf69dc6937db20b918525a01dacb5032129bd552d290d886d981e99f1b624cb03657084cc87bd40f115c07ecf376821c729ce
+  languageName: node
+  linkType: hard
+
+"crypto-js@npm:4.2.0":
+  version: 4.2.0
+  resolution: "crypto-js@npm:4.2.0"
+  checksum: c7bcc56a6e01c3c397e95aa4a74e4241321f04677f9a618a8f48a63b5781617248afb9adb0629824792e7ec20ca0d4241a49b6b2938ae6f973ec4efc5c53c924
   languageName: node
   linkType: hard
 
