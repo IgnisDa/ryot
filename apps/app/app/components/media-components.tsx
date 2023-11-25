@@ -46,7 +46,6 @@ import { useState } from "react";
 import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
 import { ApplicationUser } from "~/lib/utils";
@@ -60,7 +59,7 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 			to={
 				props.media.metadataId
 					? $path("/media/item/:id", { id: props.media.metadataId })
-					: withQuery($path("/actions"), {
+					: $path("/actions", {
 							identifier: props.media.identifier,
 							lot: props.media.lot,
 							source: props.media.source,
@@ -509,7 +508,7 @@ export const MediaSearchItem = (props: {
 			href={
 				props.maybeItemId
 					? $path("/media/item/:id", { id: props.maybeItemId })
-					: withQuery($path("/actions"), searchParams)
+					: $path("/actions", searchParams)
 			}
 			existsInDatabase={!!props.maybeItemId}
 			noRatingLink
@@ -521,7 +520,7 @@ export const MediaSearchItem = (props: {
 						variant="outline"
 						w="100%"
 						size="compact-md"
-						to={withQuery($path("/actions"), {
+						to={$path("/actions", {
 							...searchParams,
 							redirectTo: $path("/media/item/:id/update-progress", {
 								id: props.maybeItemId?.toString(),
@@ -537,7 +536,7 @@ export const MediaSearchItem = (props: {
 							variant="outline"
 							w="100%"
 							size="compact-md"
-							to={withQuery($path("/actions"), searchParams)}
+							to={$path("/actions", searchParams)}
 						>
 							Show details
 						</Button>
@@ -551,7 +550,7 @@ export const MediaSearchItem = (props: {
 					onClick={async () => {
 						const { id } = await (
 							await fetch(
-								withQuery($path("/actions"), {
+								$path("/actions", {
 									...searchParams,
 									returnRaw: true,
 								}),

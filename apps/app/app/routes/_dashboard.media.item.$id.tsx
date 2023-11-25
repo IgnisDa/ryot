@@ -73,7 +73,6 @@ import { useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { MediaDetailsLayout } from "~/components/common";
 import {
 	AddEntityToCollectionModal,

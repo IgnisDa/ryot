@@ -40,7 +40,6 @@ import { useEffect, useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { joinURL, withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
@@ -52,6 +51,10 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { getLot } from "~/lib/utilities";
+
+export type SearchParams = {
+	query?: string;
+};
 
 const defaultFilters = {
 	mineCollectionFilter: undefined,
@@ -208,9 +211,11 @@ export default function Page() {
 				onChange={(v) => {
 					if (v)
 						navigate(
-							withQuery(joinURL("/media/", v, loaderData.lot.toLowerCase()), {
-								query: loaderData.query,
-							}),
+							$path(
+								"/media/:action/:lot",
+								{ action: v, lot: loaderData.lot.toLowerCase() },
+								{ query: loaderData.query },
+							),
 						);
 				}}
 			>
