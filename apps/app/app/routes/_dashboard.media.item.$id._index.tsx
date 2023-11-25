@@ -30,9 +30,7 @@ import { notifications } from "@mantine/notifications";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
-	CreateMediaReminderDocument,
 	type CreateMediaReminderMutationVariables,
-	DeployBulkProgressUpdateDocument,
 	type DeployBulkProgressUpdateMutationVariables,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
@@ -807,17 +805,10 @@ export default function Page() {
 														ing it
 													</Menu.Item>
 													<Menu.Item
-														onClick={() => {
-															router.push(
-																withQuery(
-																	APP_ROUTES.media.individualMediaItem
-																		.updateProgress,
-																	{
-																		id: loaderData.metadataId,
-																	},
-																),
-															);
-														}}
+														component={Link}
+														to={$path("/media/item/:id/update-progress", {
+															id: loaderData.metadataId,
+														})}
 													>
 														Add to{" "}
 														{getVerb(
@@ -896,7 +887,9 @@ export default function Page() {
 											</Menu.Item>
 											<Menu.Item
 												onClick={() => {
-													deployUpdateMetadataJob.mutate({ metadataId });
+													deployUpdateMetadataJob.mutate({
+														metadataId: loaderData.metadataId,
+													});
 												}}
 											>
 												Update metadata
