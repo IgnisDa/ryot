@@ -6,22 +6,16 @@ fileGroups:
     - remix.config.*
 
 tasks:
-  dev-routes:
-    command: remix-routes -w
-    local: true
+  routes:
+    command: remix-routes --strict
+    inputs:
+      - '@group(remix)'
 
   dev:
     command: vite dev --port 3000 --host
     local: true
     deps:
-      - dev-routes
-    options:
-      runDepsInParallel: true
-
-  build-routes:
-    command: remix-routes
-    inputs:
-      - '@group(remix)'
+      - routes
 
   build:
     command: vite build && vite build --ssr
@@ -32,7 +26,7 @@ tasks:
       - .cache
       - public/build
     deps:
-      - build-routes
+      - routes
 
   typecheck:
     inputs:
