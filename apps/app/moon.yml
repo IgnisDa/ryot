@@ -7,7 +7,7 @@ fileGroups:
 
 tasks:
   routes:
-    command: remix-routes --strict
+    command: remix-routes
     inputs:
       - '@group(remix)'
 
