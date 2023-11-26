@@ -99,6 +99,7 @@ export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	user: ApplicationUser;
 	userPreferences: UserPreferencesQuery["userPreferences"];
+	title: string;
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
@@ -145,6 +146,8 @@ export const ReviewItemDisplay = (props: {
 										: props.personId
 										? "person"
 										: "existingReview",
+									existingReviewId: props.review.id,
+									title: props.title,
 								},
 							)}
 						>
@@ -461,7 +464,12 @@ export const MediaItemWithoutUpdateModal = (props: {
 								$path(
 									"/media/:id/post-review",
 									{ id: props.item.identifier },
-									{ entityType: "media" },
+									{
+										entityType: "media",
+										title: props.item.title,
+										isShow: props.lot === MetadataLot.Show,
+										isPodcast: props.lot === MetadataLot.Podcast,
+									},
 								),
 							);
 						}}

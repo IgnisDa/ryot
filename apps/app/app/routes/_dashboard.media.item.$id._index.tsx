@@ -849,7 +849,7 @@ export default function Page() {
 											) : undefined}
 										</Menu.Dropdown>
 									</Menu>
-									{loaderData.coreDetails.reviewsDisabled ? (
+									{!loaderData.coreDetails.reviewsDisabled ? (
 										<Button
 											variant="outline"
 											w="100%"
@@ -858,7 +858,14 @@ export default function Page() {
 												"/media/:id/post-review",
 												{ id: loaderData.metadataId },
 												{
+													title: loaderData.mediaMainDetails.title,
 													entityType: "media",
+													isPodcast:
+														loaderData.mediaMainDetails.lot ===
+														MetadataLot.Podcast,
+													isShow:
+														loaderData.mediaMainDetails.lot ===
+														MetadataLot.Show,
 													showSeasonNumber:
 														loaderData.userMediaDetails?.nextEpisode
 															?.seasonNumber ?? undefined,
@@ -1228,6 +1235,7 @@ export default function Page() {
 												metadataId={loaderData.metadataId}
 												userPreferences={loaderData.userPreferences}
 												user={loaderData.userDetails}
+												title={loaderData.mediaMainDetails.title}
 											/>
 										))}
 									</Stack>

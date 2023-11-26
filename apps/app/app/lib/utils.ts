@@ -2,6 +2,7 @@ import { parse } from "@conform-to/zod";
 import { json } from "@remix-run/node";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
+import { zx } from "zodix";
 
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
@@ -28,9 +29,9 @@ export type ApplicationUser = {
 };
 
 export const ShowAndPodcastSchema = z.object({
-	showSeasonNumber: z.number().optional().nullable(),
-	showEpisodeNumber: z.number().optional().nullable(),
-	podcastEpisodeNumber: z.number().optional().nullable(),
+	showSeasonNumber: zx.IntAsString.optional().nullable(),
+	showEpisodeNumber: zx.IntAsString.optional().nullable(),
+	podcastEpisodeNumber: zx.IntAsString.optional().nullable(),
 });
 
 export const processSubmission = <Schema extends ZodTypeAny,>(
