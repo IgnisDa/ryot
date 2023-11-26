@@ -255,6 +255,14 @@ export default function Page() {
 							name="intent"
 							value="delete"
 							type="submit"
+							onClick={(e) => {
+								if (
+									!confirm(
+										"Are you sure you want to delete this review? This action cannot be undone.",
+									)
+								)
+									e.preventDefault();
+							}}
 						>
 							Delete
 						</Button>
