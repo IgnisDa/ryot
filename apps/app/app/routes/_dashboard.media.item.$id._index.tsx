@@ -859,7 +859,7 @@ export default function Page() {
 												{ id: loaderData.metadataId },
 												{
 													title: loaderData.mediaMainDetails.title,
-													metadataId: loaderData.metadataId,
+													entityType: "media",
 													isPodcast:
 														loaderData.mediaMainDetails.lot ===
 														MetadataLot.Podcast,
