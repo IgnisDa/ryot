@@ -43,6 +43,8 @@ import {
 	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
 	UserReviewScale,
+	DeleteMediaReminderDocument,
+	ToggleMediaMonitorDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -128,15 +130,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
-const bulkUpdateSchema = z
-	.object({
-		metadataId: zx.IntAsString,
-		progress: zx.IntAsString.optional(),
-		date: z.string().optional(),
-		changeState: z.nativeEnum(SeenState).optional(),
-	})
-	.merge(ShowAndPodcastSchema);
-
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
@@ -160,8 +153,59 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		deleteMediaReminder: async () => {
+			const submission = parse(formData, {
+				schema: metadataIdSchema,
+			});
+			if (submission.intent !== "submit")
+				return json({ status: "idle", submission } as const);
+			if (!submission.value)
+				return json({ status: "error", submission } as const, { status: 400 });
+			await gqlClient.request(
+				DeleteMediaReminderDocument,
+				submission.value,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Reminder deleted successfully",
+				}),
+			});
+		},
+		toggleMediaMonitor: async () => {
+			const submission = parse(formData, {
+				schema: metadataIdSchema,
+			});
+			if (submission.intent !== "submit")
+				return json({ status: "idle", submission } as const);
+			if (!submission.value)
+				return json({ status: "error", submission } as const, { status: 400 });
+			await gqlClient.request(
+				ToggleMediaMonitorDocument,
+				submission.value,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Monitor toggled successfully",
+				}),
+			});
+		},
 	});
 };
+
+const metadataIdSchema = z.object({
+	metadataId: zx.IntAsString,
+});
+
+const bulkUpdateSchema = z
+	.object({
+		progress: zx.IntAsString.optional(),
+		date: z.string().optional(),
+		changeState: z.nativeEnum(SeenState).optional(),
+	})
+	.merge(ShowAndPodcastSchema)
+	.merge(metadataIdSchema);
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -187,30 +231,6 @@ export default function Page() {
 		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
 
-	// const deleteMediaReminder = useMutation({
-	// 	mutationFn: async (variables: DeleteMediaReminderMutationVariables) => {
-	// 		const { deleteMediaReminder } = await gqlClient.request(
-	// 			DeleteMediaReminderDocument,
-	// 			variables,
-	// 		);
-	// 		return deleteMediaReminder;
-	// 	},
-	// 	onSuccess: () => {
-	// 		userMediaDetails.refetch();
-	// 	},
-	// });
-	// const toggleMediaMonitor = useMutation({
-	// 	mutationFn: async (variables: ToggleMediaMonitorMutationVariables) => {
-	// 		const { toggleMediaMonitor } = await gqlClient.request(
-	// 			ToggleMediaMonitorDocument,
-	// 			variables,
-	// 		);
-	// 		return toggleMediaMonitor;
-	// 	},
-	// 	onSuccess: () => {
-	// 		userMediaDetails.refetch();
-	// 	},
-	// });
 	// const toggleMediaOwnership = useMutation({
 	// 	mutationFn: async (variables: ToggleMediaOwnershipMutationVariables) => {
 	// 		const { toggleMediaOwnership } = await gqlClient.request(
@@ -868,23 +888,26 @@ export default function Page() {
 											<Button variant="outline">More actions</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
-											<Menu.Item
-												onClick={() => {
-													toggleMediaMonitor.mutate({
-														toMonitorMetadataId: loaderData.metadataId,
-													});
-												}}
-												color={
-													loaderData.userMediaDetails.isMonitored
-														? "red"
-														: undefined
-												}
-											>
-												{loaderData.userMediaDetails.isMonitored
-													? "Stop"
-													: "Start"}{" "}
-												monitoring
-											</Menu.Item>
+											<Form action="?intent=toggleMediaMonitor" method="post">
+												<input
+													hidden
+													name="metadataId"
+													value={loaderData.metadataId}
+												/>
+												<Menu.Item
+													type="submit"
+													color={
+														loaderData.userMediaDetails.isMonitored
+															? "red"
+															: undefined
+													}
+												>
+													{loaderData.userMediaDetails.isMonitored
+														? "Stop"
+														: "Start"}{" "}
+													monitoring
+												</Menu.Item>
+											</Form>
 											<Menu.Item
 												onClick={() => {
 													deployUpdateMetadataJob.mutate({
@@ -917,20 +940,17 @@ export default function Page() {
 												</Menu.Item>
 											) : undefined}
 											{loaderData.userMediaDetails.reminder ? (
-												<Menu.Item
-													onClick={() => {
-														const yes = confirm(
-															"Are you sure you want to remove the reminder?",
-														);
-														if (yes)
-															deleteMediaReminder.mutate({
-																metadataId: loaderData.metadataId,
-															});
-													}}
-													color="red"
+												<Form
+													action="?intent=deleteMediaReminder"
+													method="post"
 												>
-													Remove reminder
-												</Menu.Item>
+													<input
+														hidden
+														name="metadataId"
+														value={loaderData.metadataId}
+													/>
+													<Menu.Item type="submit">Remove reminder</Menu.Item>
+												</Form>
 											) : (
 												<Menu.Item onClick={createMediaReminderModalOpen}>
 													Create reminder
