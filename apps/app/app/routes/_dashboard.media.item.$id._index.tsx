@@ -26,11 +26,10 @@ import {
 import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
-	type CreateMediaReminderMutationVariables,
+	CreateMediaReminderDocument,
 	DeleteMediaReminderDocument,
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
@@ -67,7 +66,6 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
@@ -234,6 +232,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ message: "Metadata merged successfully" },
 			);
 		},
+		createMediaReminder: async () => {
+			const submission = processSubmission(formData, createMediaReminderSchema);
+			const { createMediaReminder } = await gqlClient.request(
+				CreateMediaReminderDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: !createMediaReminder ? "error" : undefined,
+					message: !createMediaReminder
+						? "Reminder was not created"
+						: "Reminder created successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -249,6 +263,13 @@ const bulkUpdateSchema = z
 	.merge(metadataIdSchema);
 
 const seenIdSchema = z.object({ seenId: zx.IntAsString });
+
+const createMediaReminderSchema = z
+	.object({
+		message: z.string(),
+		remindOn: z.string(),
+	})
+	.merge(metadataIdSchema);
 
 const mergeMetadataSchema = z.object({
 	mergeFrom: zx.IntAsString,
@@ -918,7 +939,16 @@ export default function Page() {
 														name="metadataId"
 														value={loaderData.metadataId}
 													/>
-													<Menu.Item type="submit">Remove reminder</Menu.Item>
+													<Menu.Item
+														type="submit"
+														color={
+															loaderData.userMediaDetails.reminder
+																? "red"
+																: undefined
+														}
+													>
+														Remove reminder
+													</Menu.Item>
 												</Form>
 											) : (
 												<Menu.Item onClick={createMediaReminderModalOpen}>
@@ -1377,35 +1407,7 @@ const CreateReminderModal = (props: {
 	title: string;
 	metadataId: number;
 }) => {
-	const [message, setMessage] = useState(`Complete '${props.title}'`);
 	const [remindOn, setRemindOn] = useState(new Date());
-
-	const createMediaReminder = useMutation({
-		mutationFn: async (variables: CreateMediaReminderMutationVariables) => {
-			// const { createMediaReminder } = await gqlClient.request(
-			// 	CreateMediaReminderDocument,
-			// 	variables,
-			// );
-			// return createMediaReminder;
-		},
-		onSuccess: (data) => {
-			if (!data)
-				notifications.show({
-					color: "red",
-					message: "Reminder was not created",
-				});
-			else {
-				props.refetchUserMediaDetails();
-				props.onClose();
-			}
-		},
-		onError: () => {
-			notifications.show({
-				color: "red",
-				message: "Invalid inputs entered",
-			});
-		},
-	});
 
 	return (
 		<Modal
@@ -1414,44 +1416,43 @@ const CreateReminderModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Stack>
-				<Title order={3}>Create a reminder</Title>
-				<Text>
-					A notification will be sent to all your configured{" "}
-					<Anchor to={$path("/settings/notifications")} component={Link}>
-						platforms
-					</Anchor>
-					.
-				</Text>
-				<TextInput
-					onChange={(e) => setMessage(e.currentTarget.value)}
-					label="Message"
-					value={message}
-				/>
-				<DateInput
-					label="Remind on"
-					popoverProps={{ withinPortal: true }}
-					onChange={(v) => {
-						if (v) setRemindOn(v);
-					}}
-					value={remindOn}
-				/>
-				<Button
-					data-autofocus
-					variant="outline"
-					onClick={() => {
-						createMediaReminder.mutate({
-							input: {
-								metadataId: props.metadataId,
-								message,
-								remindOn: formatDateToNaiveDate(remindOn),
-							},
-						});
-					}}
-				>
-					Submit
-				</Button>
-			</Stack>
+			<Form method="post" action="?intent=createMediaReminder">
+				<input hidden name="metadataId" value={props.metadataId} />
+				<input hidden name="remindOn" value={formatDateToNaiveDate(remindOn)} />
+				<Stack>
+					<Title order={3}>Create a reminder</Title>
+					<Text>
+						A notification will be sent to all your configured{" "}
+						<Anchor to={$path("/settings/notifications")} component={Link}>
+							platforms
+						</Anchor>
+						.
+					</Text>
+					<TextInput
+						name="message"
+						label="Message"
+						required
+						defaultValue={`Complete '${props.title}'`}
+					/>
+					<DateInput
+						label="Remind on"
+						popoverProps={{ withinPortal: true }}
+						required
+						onChange={(v) => {
+							if (v) setRemindOn(v);
+						}}
+						value={remindOn}
+					/>
+					<Button
+						data-autofocus
+						variant="outline"
+						type="submit"
+						onClick={props.onClose}
+					>
+						Submit
+					</Button>
+				</Stack>
+			</Form>
 		</Modal>
 	);
 };
