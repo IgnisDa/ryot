@@ -1,4 +1,3 @@
-import { parse } from "@conform-to/zod";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -22,6 +21,7 @@ import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { authCookie, colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
+import { processSubmission } from "~/lib/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const url = new URL(request.url);
@@ -73,13 +73,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		createReviewComment: async () => {
-			const submission = parse(formData, { schema: reviewCommentSchema });
-			if (submission.intent !== "submit")
-				return json({ status: "idle", submission } as const);
-			if (!submission.value)
-				return json({ status: "error", submission } as const, { status: 400 });
+			const submission = processSubmission(formData, reviewCommentSchema);
 			await gqlClient.request(CreateReviewCommentDocument, {
-				input: submission.value,
+				input: submission,
 			});
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -89,16 +85,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		addMediaToCollection: async () => {
-			const submission = parse(formData, {
-				schema: changeCollectionToEntitySchema,
-			});
-			if (submission.intent !== "submit")
-				return json({ status: "idle", submission } as const);
-			if (!submission.value)
-				return json({ status: "error", submission } as const, { status: 400 });
+			const submission = processSubmission(
+				formData,
+				changeCollectionToEntitySchema,
+			);
 			await gqlClient.request(
 				AddEntityToCollectionDocument,
-				{ input: submission.value },
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
 			return json({ status: "success", submission } as const, {
@@ -109,15 +102,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		removeMediaFromCollection: async () => {
-			const submission = parse(formData, {
-				schema: changeCollectionToEntitySchema,
-			});
-			if (submission.intent !== "submit")
-				return json({ status: "idle", submission } as const);
-			if (!submission.value)
-				return json({ status: "error", submission } as const, { status: 400 });
+			const submission = processSubmission(
+				formData,
+				changeCollectionToEntitySchema,
+			);
 			await gqlClient.request(RemoveEntityFromCollectionDocument, {
-				input: submission.value,
+				input: submission,
 			});
 			return json({ status: "success", submission } as const);
 		},

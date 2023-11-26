@@ -1,5 +1,4 @@
 import { conform, useForm } from "@conform-to/react";
-import { parse } from "@conform-to/zod";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import {
 	ActionFunctionArgs,
@@ -20,6 +19,7 @@ import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
+import { processSubmission } from "~/lib/utils";
 import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";
@@ -57,15 +57,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	checkHoneypot(formData);
-	const submission = parse(formData, { schema });
-	if (submission.intent !== "submit")
-		return json({ status: "idle", submission } as const);
-	if (!submission.value)
-		return json({ status: "error", submission } as const, { status: 400 });
+	const submission = processSubmission(formData, schema);
 	const { registerUser } = await gqlClient.request(RegisterUserDocument, {
 		input: {
-			password: submission.value.password,
-			username: submission.value.username,
+			password: submission.password,
+			username: submission.username,
 		},
 	});
 	if (registerUser.__typename === "RegisterError") {
@@ -90,7 +86,6 @@ export default function Page() {
 	const [searchParams] = useSearchParams();
 	const lastSubmission = useActionData<typeof action>();
 	const [form, fields] = useForm({
-		lastSubmission: lastSubmission?.submission,
 		defaultValue: {
 			redirectTo: searchParams.get(redirectToQueryParam) ?? "",
 		},

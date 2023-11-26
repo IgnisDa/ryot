@@ -29,6 +29,7 @@ import { authCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
+import { processSubmission } from "~/lib/utils";
 import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";
@@ -55,21 +56,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	checkHoneypot(formData);
-	const submission = parse(formData, { schema });
-	if (submission.intent !== "submit")
-		return json({ status: "idle", submission } as const);
-	if (!submission.value)
-		return json({ status: "error", submission } as const, { status: 400 });
+	const submission = processSubmission(formData, schema);
 	const { loginUser } = await gqlClient.request(LoginUserDocument, {
 		input: {
-			password: submission.value.password,
-			username: submission.value.username,
+			password: submission.password,
+			username: submission.username,
 		},
 	});
 	if (loginUser.__typename === "LoginResponse") {
 		let redirectUrl = $path("/");
-		if (submission.value[redirectToQueryParam])
-			redirectUrl = safeRedirect(submission.value[redirectToQueryParam]);
+		if (submission[redirectToQueryParam])
+			redirectUrl = safeRedirect(submission[redirectToQueryParam]);
 		return redirect(redirectUrl, {
 			headers: {
 				"Set-Cookie": await authCookie.serialize(loginUser.apiKey, {
@@ -101,7 +98,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const lastSubmission = useActionData<typeof action>();
 	const [form, fields] = useForm({
-		lastSubmission: lastSubmission?.submission,
 		defaultValue: {
 			redirectTo: searchParams.get(redirectToQueryParam) ?? "",
 		},
