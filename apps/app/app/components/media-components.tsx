@@ -143,9 +143,7 @@ export const ReviewItemDisplay = (props: {
 										? "metadataGroup"
 										: props.collectionId
 										? "collection"
-										: props.personId
-										? "person"
-										: "existingReview",
+										: "person",
 									existingReviewId: props.review.id,
 									title: props.title,
 								},
