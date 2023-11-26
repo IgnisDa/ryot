@@ -701,40 +701,34 @@ export default function Page() {
 													{loaderData.userMediaDetails.nextEpisode ? (
 														<>
 															<Menu.Item
-																onClick={async () => {
-																	if (
-																		loaderData.mediaMainDetails.lot ===
-																		MetadataLot.Podcast
-																	)
-																		router.push(
-																			withQuery(
-																				APP_ROUTES.media.individualMediaItem
-																					.updateProgress,
+																component={Link}
+																to={
+																	loaderData.mediaMainDetails.lot ===
+																	MetadataLot.Podcast
+																		? $path(
+																				"/media/item/:id/update-progress",
+																				{ id: loaderData.metadataId },
+																				{
+																					podcastEpisodeNumber:
+																						loaderData.userMediaDetails
+																							.nextEpisode.episodeNumber,
+																				},
+																		  )
+																		: $path(
+																				"/media/item/:id/update-progress",
 																				{
 																					id: loaderData.metadataId,
-																					selectedPodcastEpisodeNumber:
-																						loaderData.userMediaDetails
-																							.nextEpisode?.episodeNumber,
 																				},
-																			),
-																		);
-																	else
-																		router.push(
-																			withQuery(
-																				APP_ROUTES.media.individualMediaItem
-																					.updateProgress,
 																				{
-																					id: loaderData.metadataId,
-																					selectedShowSeasonNumber:
+																					showSeasonNumber:
 																						loaderData.userMediaDetails
-																							.nextEpisode?.seasonNumber,
-																					selectedShowEpisodeNumber:
+																							.nextEpisode.seasonNumber,
+																					showEpisodeNumber:
 																						loaderData.userMediaDetails
-																							.nextEpisode?.episodeNumber,
+																							.nextEpisode.episodeNumber,
 																				},
-																			),
-																		);
-																}}
+																		  )
+																}
 															>
 																Mark{" "}
 																{loaderData.mediaMainDetails.lot ===
@@ -1201,6 +1195,7 @@ export default function Page() {
 												review={r}
 												key={r.id}
 												metadataId={loaderData.metadataId}
+												userPreferences={loaderData.userPreferences}
 											/>
 										))}
 									</Stack>

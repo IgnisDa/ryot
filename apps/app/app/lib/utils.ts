@@ -28,9 +28,9 @@ export type ApplicationUser = {
 };
 
 export const ShowAndPodcastSchema = z.object({
-	showSeasonNumber: z.number().optional(),
-	showEpisodeNumber: z.number().optional(),
-	podcastEpisodeNumber: z.number().optional(),
+	showSeasonNumber: z.number().optional().nullable(),
+	showEpisodeNumber: z.number().optional().nullable(),
+	podcastEpisodeNumber: z.number().optional().nullable(),
 });
 
 export const processSubmission = <Schema extends ZodTypeAny,>(
