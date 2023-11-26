@@ -3331,15 +3331,35 @@ impl MiscellaneousService {
             })
             .exec(&self.db)
             .await?;
-        UserToEntity::update_many()
-            .filter(user_to_entity::Column::MetadataId.eq(merge_from))
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .set(user_to_entity::ActiveModel {
-                metadata_id: ActiveValue::Set(Some(merge_into)),
-                ..Default::default()
-            })
-            .exec(&self.db)
-            .await?;
+        if let Some(association) =
+            get_user_and_metadata_association(&user_id, &merge_into, &self.db).await
+        {
+            let old_association =
+                get_user_and_metadata_association(&user_id, &merge_from, &self.db)
+                    .await
+                    .unwrap();
+            let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
+            if old_association.metadata_monitored.is_none() {
+                cloned.metadata_monitored = ActiveValue::Set(association.metadata_monitored);
+            }
+            if old_association.metadata_reminder.is_none() {
+                cloned.metadata_reminder = ActiveValue::Set(association.metadata_reminder);
+            }
+            if old_association.metadata_ownership.is_none() {
+                cloned.metadata_ownership = ActiveValue::Set(association.metadata_ownership);
+            }
+            cloned.update(&self.db).await?;
+        } else {
+            UserToEntity::update_many()
+                .filter(user_to_entity::Column::MetadataId.eq(merge_from))
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .set(user_to_entity::ActiveModel {
+                    metadata_id: ActiveValue::Set(Some(merge_into)),
+                    ..Default::default()
+                })
+                .exec(&self.db)
+                .await?;
+        }
         Ok(true)
     }
 
