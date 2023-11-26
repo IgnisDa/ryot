@@ -1,4 +1,3 @@
-import { parse } from "@conform-to/zod";
 import {
 	Accordion,
 	Alert,
@@ -32,6 +31,7 @@ import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	type CreateMediaReminderMutationVariables,
+	DeleteMediaReminderDocument,
 	DeployBulkProgressUpdateDocument,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
@@ -40,11 +40,10 @@ import {
 	MetadataSource,
 	MetadataVideoSource,
 	SeenState,
+	ToggleMediaMonitorDocument,
 	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
 	UserReviewScale,
-	DeleteMediaReminderDocument,
-	ToggleMediaMonitorDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -90,7 +89,7 @@ import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
 import { Verb, getVerb } from "~/lib/utilities";
-import { ShowAndPodcastSchema } from "~/lib/utils";
+import { ShowAndPodcastSchema, processSubmission } from "~/lib/utils";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [coreDetails, userPreferences] = await Promise.all([
@@ -134,16 +133,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		progressUpdate: async () => {
-			const submission = parse(formData, {
-				schema: bulkUpdateSchema,
-			});
-			if (submission.intent !== "submit")
-				return json({ status: "idle", submission } as const);
-			if (!submission.value)
-				return json({ status: "error", submission } as const, { status: 400 });
+			const submission = processSubmission(formData, bulkUpdateSchema);
 			await gqlClient.request(
 				DeployBulkProgressUpdateDocument,
-				{ input: submission.value },
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
 			await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -154,16 +147,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		deleteMediaReminder: async () => {
-			const submission = parse(formData, {
-				schema: metadataIdSchema,
-			});
-			if (submission.intent !== "submit")
-				return json({ status: "idle", submission } as const);
-			if (!submission.value)
-				return json({ status: "error", submission } as const, { status: 400 });
+			const submission = processSubmission(formData, metadataIdSchema);
 			await gqlClient.request(
 				DeleteMediaReminderDocument,
-				submission.value,
+				submission,
 				await getAuthorizationHeader(request),
 			);
 			return json({ status: "success", submission } as const, {
@@ -173,16 +160,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		toggleMediaMonitor: async () => {
-			const submission = parse(formData, {
-				schema: metadataIdSchema,
-			});
-			if (submission.intent !== "submit")
-				return json({ status: "idle", submission } as const);
-			if (!submission.value)
-				return json({ status: "error", submission } as const, { status: 400 });
+			const submission = processSubmission(formData, metadataIdSchema);
 			await gqlClient.request(
 				ToggleMediaMonitorDocument,
-				submission.value,
+				submission,
 				await getAuthorizationHeader(request),
 			);
 			return json({ status: "success", submission } as const, {

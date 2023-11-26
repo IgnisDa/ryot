@@ -1,5 +1,7 @@
+import { parse } from "@conform-to/zod";
+import { json } from "@remix-run/node";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
-import { z } from "zod";
+import { ZodTypeAny, output, z } from "zod";
 
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
@@ -30,3 +32,15 @@ export const ShowAndPodcastSchema = z.object({
 	showEpisodeNumber: z.number().optional(),
 	podcastEpisodeNumber: z.number().optional(),
 });
+
+export const processSubmission = <Schema extends ZodTypeAny,>(
+	formData: FormData,
+	schema: Schema,
+): output<Schema> => {
+	const submission = parse(formData, { schema });
+	if (submission.intent !== "submit")
+		throw json({ status: "idle", submission } as const);
+	if (!submission.value)
+		throw json({ status: "error", submission } as const, { status: 400 });
+	return submission.value;
+};
