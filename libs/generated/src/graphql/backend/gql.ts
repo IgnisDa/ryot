@@ -48,7 +48,7 @@ const documents = {
     "mutation RegisterUser($input: UserInput!) {\n  registerUser(input: $input) {\n    __typename\n    ... on RegisterError {\n      error\n    }\n    ... on IdObject {\n      id\n    }\n  }\n}": types.RegisterUserDocument,
     "mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}": types.RemoveEntityFromCollectionDocument,
     "mutation TestUserNotificationPlatforms {\n  testUserNotificationPlatforms\n}": types.TestUserNotificationPlatformsDocument,
-    "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}": types.ToggleMediaMonitorDocument,
+    "mutation ToggleMediaMonitor($metadataId: Int!) {\n  toggleMediaMonitor(metadataId: $metadataId)\n}": types.ToggleMediaMonitorDocument,
     "mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}": types.ToggleMediaOwnershipDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}": types.UpdateUserPreferenceDocument,
@@ -250,7 +250,7 @@ export function graphql(source: "mutation TestUserNotificationPlatforms {\n  tes
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}"): (typeof documents)["mutation ToggleMediaMonitor($toMonitorMetadataId: Int!) {\n  toggleMediaMonitor(toMonitorMetadataId: $toMonitorMetadataId)\n}"];
+export function graphql(source: "mutation ToggleMediaMonitor($metadataId: Int!) {\n  toggleMediaMonitor(metadataId: $metadataId)\n}"): (typeof documents)["mutation ToggleMediaMonitor($metadataId: Int!) {\n  toggleMediaMonitor(metadataId: $metadataId)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
