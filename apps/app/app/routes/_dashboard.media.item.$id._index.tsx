@@ -307,8 +307,8 @@ export default function Page() {
 	const PutOnHoldBtn = () => {
 		return (
 			<Form action="?intent=progressUpdate" method="post">
-				<input hidden name="metadataId" value={loaderData.metadataId} />
-				<input hidden name="changeState" value={SeenState.OnAHold} />
+				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
+				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
 			</Form>
 		);
@@ -316,8 +316,8 @@ export default function Page() {
 	const DropBtn = () => {
 		return (
 			<Form action="?intent=progressUpdate" method="post">
-				<input hidden name="metadataId" value={loaderData.metadataId} />
-				<input hidden name="changeState" value={SeenState.Dropped} />
+				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
+				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
 			</Form>
 		);
@@ -785,13 +785,13 @@ export default function Page() {
 														<input
 															hidden
 															name="metadataId"
-															value={loaderData.metadataId}
+															defaultValue={loaderData.metadataId}
 														/>
 														<input hidden name="progress" value={100} />
 														<input
 															hidden
 															name="date"
-															value={DateTime.now().toISODate() || ""}
+															defaultValue={DateTime.now().toISODate() || ""}
 														/>
 														<Menu.Item type="submit">
 															I finished{" "}
@@ -822,9 +822,9 @@ export default function Page() {
 														<input
 															hidden
 															name="metadataId"
-															value={loaderData.metadataId}
+															defaultValue={loaderData.metadataId}
 														/>
-														<input hidden name="progress" value={0} />
+														<input hidden name="progress" defaultValue={0} />
 														<Menu.Item type="submit">
 															I'm{" "}
 															{getVerb(
@@ -902,7 +902,7 @@ export default function Page() {
 												<input
 													hidden
 													name="metadataId"
-													value={loaderData.metadataId}
+													defaultValue={loaderData.metadataId}
 												/>
 												<Menu.Item
 													type="submit"
@@ -925,7 +925,7 @@ export default function Page() {
 												<input
 													hidden
 													name="metadataId"
-													value={loaderData.metadataId}
+													defaultValue={loaderData.metadataId}
 												/>
 												<Menu.Item type="submit">Update metadata</Menu.Item>
 											</Form>
@@ -937,7 +937,7 @@ export default function Page() {
 													<input
 														hidden
 														name="metadataId"
-														value={loaderData.metadataId}
+														defaultValue={loaderData.metadataId}
 													/>
 													<Menu.Item
 														type="submit"
@@ -963,7 +963,7 @@ export default function Page() {
 													<input
 														hidden
 														name="metadataId"
-														value={loaderData.metadataId}
+														defaultValue={loaderData.metadataId}
 													/>
 													<Menu.Item type="submit" color="red">
 														Remove ownership
@@ -1063,7 +1063,7 @@ export default function Page() {
 														</Text>
 													</Flex>
 													<Form action="?intent=deleteSeenItem" method="post">
-														<input hidden name="seenId" value={h.id} />
+														<input hidden name="seenId" defaultValue={h.id} />
 														<Button
 															variant="outline"
 															color="red"
@@ -1324,9 +1324,13 @@ const ProgressModal = (props: {
 			size="sm"
 		>
 			<Form action="?intent=progressUpdate" method="post">
-				<input hidden name="metadataId" value={props.metadataId} />
-				<input hidden name="progress" value={value} />
-				<input hidden name="date" value={DateTime.now().toISODate() || ""} />
+				<input hidden name="metadataId" defaultValue={props.metadataId} />
+				<input hidden name="progress" defaultValue={value} />
+				<input
+					hidden
+					name="date"
+					defaultValue={DateTime.now().toISODate() || ""}
+				/>
 				<Stack>
 					<Title order={3}>Set progress</Title>
 					<Group>
@@ -1417,7 +1421,7 @@ const CreateReminderModal = (props: {
 			centered
 		>
 			<Form method="post" action="?intent=createMediaReminder">
-				<input hidden name="metadataId" value={props.metadataId} />
+				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="remindOn" value={formatDateToNaiveDate(remindOn)} />
 				<Stack>
 					<Title order={3}>Create a reminder</Title>
@@ -1525,7 +1529,7 @@ const MergeMetadataModal = (props: {
 			centered
 		>
 			<Form method="post" action="?intent=mergeMetadata">
-				<input hidden name="mergeFrom" value={props.metadataId} />
+				<input hidden name="mergeFrom" defaultValue={props.metadataId} />
 				<Stack>
 					<Title order={3}>Merge media</Title>
 					<Text>
