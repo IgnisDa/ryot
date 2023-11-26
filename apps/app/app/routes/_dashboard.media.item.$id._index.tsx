@@ -782,18 +782,17 @@ export default function Page() {
 												<>
 													<Menu.Label>In progress</Menu.Label>
 													<Form action="?intent=progressUpdate" method="post">
-														<input
-															hidden
-															name="metadataId"
-															defaultValue={loaderData.metadataId}
-														/>
 														<input hidden name="progress" value={100} />
 														<input
 															hidden
 															name="date"
 															defaultValue={DateTime.now().toISODate() || ""}
 														/>
-														<Menu.Item type="submit">
+														<Menu.Item
+															type="submit"
+															name="metadataId"
+															value={loaderData.metadataId}
+														>
 															I finished{" "}
 															{getVerb(
 																Verb.Read,
@@ -819,13 +818,12 @@ export default function Page() {
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
 													<Form action="?intent=progressUpdate" method="post">
-														<input
-															hidden
-															name="metadataId"
-															defaultValue={loaderData.metadataId}
-														/>
 														<input hidden name="progress" defaultValue={0} />
-														<Menu.Item type="submit">
+														<Menu.Item
+															type="submit"
+															name="metadataId"
+															value={loaderData.metadataId}
+														>
 															I'm{" "}
 															{getVerb(
 																Verb.Read,
@@ -899,11 +897,6 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<Form action="?intent=toggleMediaMonitor" method="post">
-												<input
-													hidden
-													name="metadataId"
-													defaultValue={loaderData.metadataId}
-												/>
 												<Menu.Item
 													type="submit"
 													color={
@@ -911,6 +904,8 @@ export default function Page() {
 															? "red"
 															: undefined
 													}
+													name="metadataId"
+													value={loaderData.metadataId}
 												>
 													{loaderData.userMediaDetails.isMonitored
 														? "Stop"
@@ -922,23 +917,19 @@ export default function Page() {
 												action="?intent=deployUpdateMetadataJob"
 												method="post"
 											>
-												<input
-													hidden
+												<Menu.Item
+													type="submit"
 													name="metadataId"
-													defaultValue={loaderData.metadataId}
-												/>
-												<Menu.Item type="submit">Update metadata</Menu.Item>
+													value={loaderData.metadataId}
+												>
+													Update metadata
+												</Menu.Item>
 											</Form>
 											{loaderData.userMediaDetails.reminder ? (
 												<Form
 													action="?intent=deleteMediaReminder"
 													method="post"
 												>
-													<input
-														hidden
-														name="metadataId"
-														defaultValue={loaderData.metadataId}
-													/>
 													<Menu.Item
 														type="submit"
 														color={
@@ -946,6 +937,8 @@ export default function Page() {
 																? "red"
 																: undefined
 														}
+														name="metadataId"
+														value={loaderData.metadataId}
 													>
 														Remove reminder
 													</Menu.Item>
@@ -960,12 +953,12 @@ export default function Page() {
 													action="?intent=toggleMediaOwnership"
 													method="post"
 												>
-													<input
-														hidden
+													<Menu.Item
+														type="submit"
+														color="red"
 														name="metadataId"
-														defaultValue={loaderData.metadataId}
-													/>
-													<Menu.Item type="submit" color="red">
+														value={loaderData.metadataId}
+													>
 														Remove ownership
 													</Menu.Item>
 												</Form>
@@ -1063,7 +1056,6 @@ export default function Page() {
 														</Text>
 													</Flex>
 													<Form action="?intent=deleteSeenItem" method="post">
-														<input hidden name="seenId" defaultValue={h.id} />
 														<Button
 															variant="outline"
 															color="red"
@@ -1072,6 +1064,8 @@ export default function Page() {
 															}
 															size="compact-xs"
 															type="submit"
+															name="seenId"
+															value={h.id}
 														>
 															Delete
 														</Button>
@@ -1421,7 +1415,6 @@ const CreateReminderModal = (props: {
 			centered
 		>
 			<Form method="post" action="?intent=createMediaReminder">
-				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="remindOn" value={formatDateToNaiveDate(remindOn)} />
 				<Stack>
 					<Title order={3}>Create a reminder</Title>
@@ -1452,6 +1445,8 @@ const CreateReminderModal = (props: {
 						variant="outline"
 						type="submit"
 						onClick={props.onClose}
+						name="metadataId"
+						value={props.metadataId}
 					>
 						Submit
 					</Button>
