@@ -855,7 +855,7 @@ export default function Page() {
 											w="100%"
 											component={Link}
 											to={$path(
-												"/media/item/:id/post-review",
+												"/media/:id/post-review",
 												{ id: loaderData.metadataId },
 												{
 													entityType: "media",

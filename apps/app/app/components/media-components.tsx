@@ -125,7 +125,7 @@ export const ReviewItemDisplay = (props: {
 						<Anchor
 							component={Link}
 							to={$path(
-								"/media/item/:id/post-review",
+								"/media/:id/post-review",
 								{
 									id: String(
 										props.metadataId ||
@@ -459,7 +459,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 							e.preventDefault();
 							navigate(
 								$path(
-									"/media/item/:id/post-review",
+									"/media/:id/post-review",
 									{ id: props.item.identifier },
 									{ entityType: "media" },
 								),
