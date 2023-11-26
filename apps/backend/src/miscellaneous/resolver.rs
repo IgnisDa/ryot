@@ -1090,7 +1090,10 @@ impl MiscellaneousMutation {
         merge_into: i32,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.merge_metadata(merge_from, merge_into).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service
+            .merge_metadata(merge_from, merge_into, user_id)
+            .await
     }
 
     /// Fetch details about a media and create a media item in the database.
@@ -3273,9 +3276,15 @@ impl MiscellaneousService {
         Ok(job_id.to_string())
     }
 
-    pub async fn merge_metadata(&self, merge_from: i32, merge_into: i32) -> Result<bool> {
+    pub async fn merge_metadata(
+        &self,
+        merge_from: i32,
+        merge_into: i32,
+        user_id: i32,
+    ) -> Result<bool> {
         for old_seen in Seen::find()
             .filter(seen::Column::MetadataId.eq(merge_from))
+            .filter(seen::Column::UserId.eq(user_id))
             .all(&self.db)
             .await
             .unwrap()
@@ -3291,6 +3300,7 @@ impl MiscellaneousService {
         }
         for old_review in Review::find()
             .filter(review::Column::MetadataId.eq(merge_from))
+            .filter(review::Column::UserId.eq(user_id))
             .all(&self.db)
             .await
             .unwrap()
@@ -3304,15 +3314,32 @@ impl MiscellaneousService {
             new_review.insert(&self.db).await?;
             old_review.delete(&self.db).await?;
         }
+        let collections = Collection::find()
+            .filter(collection::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await
+            .unwrap()
+            .iter()
+            .map(|c| c.id)
+            .collect_vec();
         CollectionToEntity::update_many()
             .filter(collection_to_entity::Column::MetadataId.eq(merge_from))
+            .filter(collection_to_entity::Column::CollectionId.is_in(collections))
             .set(collection_to_entity::ActiveModel {
                 metadata_id: ActiveValue::Set(Some(merge_into)),
                 ..Default::default()
             })
             .exec(&self.db)
             .await?;
-        Metadata::delete_by_id(merge_from).exec(&self.db).await?;
+        UserToEntity::update_many()
+            .filter(user_to_entity::Column::MetadataId.eq(merge_from))
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .set(user_to_entity::ActiveModel {
+                metadata_id: ActiveValue::Set(Some(merge_into)),
+                ..Default::default()
+            })
+            .exec(&self.db)
+            .await?;
         Ok(true)
     }
 
