@@ -38,6 +38,7 @@ import {
 	EntityLot,
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
+	MergeMetadataDocument,
 	MetadataLot,
 	MetadataSource,
 	MetadataVideoSource,
@@ -90,7 +91,7 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
-import { createToastHeaders } from "~/lib/toast.server";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { Verb, getVerb } from "~/lib/utilities";
 import { ShowAndPodcastSchema, processSubmission } from "~/lib/utils";
 
@@ -214,16 +215,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		mergeMetadata: async () => {
+			const submission = processSubmission(formData, mergeMetadataSchema);
+			await gqlClient.request(
+				MergeMetadataDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return redirectWithToast(
+				$path("/media/item/:id", { id: submission.mergeInto }),
+				{ message: "Metadata merged successfully" },
+			);
+		},
 	});
 };
 
-const metadataIdSchema = z.object({
-	metadataId: zx.IntAsString,
-});
-
-const seenIdSchema = z.object({
-	seenId: zx.IntAsString,
-});
+const metadataIdSchema = z.object({ metadataId: zx.IntAsString });
 
 const bulkUpdateSchema = z
 	.object({
@@ -233,6 +240,13 @@ const bulkUpdateSchema = z
 	})
 	.merge(ShowAndPodcastSchema)
 	.merge(metadataIdSchema);
+
+const seenIdSchema = z.object({ seenId: zx.IntAsString });
+
+const mergeMetadataSchema = z.object({
+	mergeFrom: zx.IntAsString,
+	mergeInto: zx.IntAsString,
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -257,19 +271,10 @@ export default function Page() {
 		mediaOwnershipModalOpened,
 		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
-
-	// const mergeMetadata = useMutation({
-	// 	mutationFn: async (variables: MergeMetadataMutationVariables) => {
-	// 		const { mergeMetadata } = await gqlClient.request(
-	// 			MergeMetadataDocument,
-	// 			variables,
-	// 		);
-	// 		return mergeMetadata;
-	// 	},
-	// 	onSuccess: () => {
-	// 		router.push(APP_ROUTES.dashboard);
-	// 	},
-	// });
+	const [
+		mergeMetadataModalOpened,
+		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
+	] = useDisclosure(false);
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -309,6 +314,11 @@ export default function Page() {
 			<CreateOwnershipModal
 				onClose={mediaOwnershipModalClose}
 				opened={mediaOwnershipModalOpened}
+				metadataId={loaderData.metadataId}
+			/>
+			<MergeMetadataModal
+				onClose={mergeMetadataModalClose}
+				opened={mergeMetadataModalOpened}
 				metadataId={loaderData.metadataId}
 			/>
 			<Container>
@@ -897,28 +907,6 @@ export default function Page() {
 												/>
 												<Menu.Item type="submit">Update metadata</Menu.Item>
 											</Form>
-											{loaderData.mediaMainDetails.source === "CUSTOM" ? (
-												<Menu.Item
-													onClick={() => {
-														const mergeInto = prompt(
-															"Enter ID of the metadata you want to merge this with",
-														);
-														if (mergeInto) {
-															const yes = confirm(
-																"Are you sure you want to continue? This will delete the current media item",
-															);
-															if (yes) {
-																mergeMetadata.mutate({
-																	mergeFrom: loaderData.metadataId,
-																	mergeInto: parseInt(mergeInto),
-																});
-															}
-														}
-													}}
-												>
-													Merge media
-												</Menu.Item>
-											) : undefined}
 											{loaderData.userMediaDetails.reminder ? (
 												<Form
 													action="?intent=deleteMediaReminder"
@@ -955,6 +943,9 @@ export default function Page() {
 													Mark as owned
 												</Menu.Item>
 											)}
+											<Menu.Item onClick={mergeMetadataModalOpen}>
+												Merge media
+											</Menu.Item>
 										</Menu.Dropdown>
 									</Menu>
 								</SimpleGrid>
@@ -1511,6 +1502,36 @@ const CreateOwnershipModal = (props: {
 							Submit
 						</Button>
 					</SimpleGrid>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+const MergeMetadataModal = (props: {
+	opened: boolean;
+	metadataId: number;
+	onClose: () => void;
+}) => {
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form method="post" action="?intent=mergeMetadata">
+				<input hidden name="mergeFrom" value={props.metadataId} />
+				<Stack>
+					<Title order={3}>Merge media</Title>
+					<Text>
+						This will move all your history, reviews, and collections from the
+						source media to the destination media. This action is irreversible.
+					</Text>
+					<NumberInput label="Destination media ID" name="mergeInto" required />
+					<Button type="submit" onClick={props.onClose}>
+						Submit
+					</Button>
 				</Stack>
 			</Form>
 		</Modal>
