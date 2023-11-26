@@ -31,8 +31,8 @@ import { ShowAndPodcastSchema } from "~/lib/utils";
 const searchParamsSchema = z
 	.object({
 		entityType: z.enum([
-			"media",
-			"mediaGroup",
+			"metadata",
+			"metadataGroup",
 			"collection",
 			"person",
 			"existingReview",
@@ -62,7 +62,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		);
 		existingReview = review;
 	}
-	return json({ query, existingReview, userPreferences });
+	return json({ query, existingReview, userPreferences, id });
 };
 
 export default function Page() {
@@ -70,7 +70,24 @@ export default function Page() {
 
 	return (
 		<Container size="xs">
-			<Box component={Form}>
+			<Box component={Form} method="post" action="?postReview">
+				<input
+					hidden
+					name={
+						loaderData.query.entityType === "metadata"
+							? "metadataId"
+							: loaderData.query.entityType === "metadataGroup"
+							? "metadataGroupId"
+							: loaderData.query.entityType === "collection"
+							? "collectionId"
+							: loaderData.query.entityType === "person"
+							? "personId"
+							: loaderData.query.entityType === "existingReview"
+							? "reviewId"
+							: undefined
+					}
+					value={loaderData.id}
+				/>
 				<Stack>
 					<Title order={3}>Reviewing "{loaderData.query.title}"</Title>
 					<Flex align="center" gap="xl">

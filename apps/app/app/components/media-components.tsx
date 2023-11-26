@@ -138,9 +138,9 @@ export const ReviewItemDisplay = (props: {
 								},
 								{
 									entityType: props.metadataId
-										? "media"
+										? "metadata"
 										: props.metadataGroupId
-										? "mediaGroup"
+										? "metadataGroup"
 										: props.collectionId
 										? "collection"
 										: props.personId
@@ -465,7 +465,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 									"/media/:id/post-review",
 									{ id: props.item.identifier },
 									{
-										entityType: "media",
+										entityType: "metadata",
 										title: props.item.title,
 										isShow: props.lot === MetadataLot.Show,
 										isPodcast: props.lot === MetadataLot.Podcast,
