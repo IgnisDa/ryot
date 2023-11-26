@@ -32,6 +32,7 @@ import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	type CreateMediaReminderMutationVariables,
 	DeleteMediaReminderDocument,
+	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
@@ -186,11 +187,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		deleteSeenItem: async () => {
+			const submission = processSubmission(formData, seenIdSchema);
+			await gqlClient.request(
+				DeleteSeenItemDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Record deleted successfully",
+				}),
+			});
+		},
 	});
 };
 
 const metadataIdSchema = z.object({
 	metadataId: zx.IntAsString,
+});
+
+const seenIdSchema = z.object({
+	seenId: zx.IntAsString,
 });
 
 const bulkUpdateSchema = z
@@ -226,22 +244,6 @@ export default function Page() {
 		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
 
-	// const deleteSeenItem = useMutation({
-	// 	mutationFn: async (variables: DeleteSeenItemMutationVariables) => {
-	// 		const { deleteSeenItem } = await gqlClient.request(
-	// 			DeleteSeenItemDocument,
-	// 			variables,
-	// 		);
-	// 		return deleteSeenItem;
-	// 	},
-	// 	onSuccess: () => {
-	// 		userMediaDetails.refetch();
-	// 		notifications.show({
-	// 			title: "Deleted",
-	// 			message: "Record deleted from your history successfully",
-	// 		});
-	// 	},
-	// });
 	// const deployUpdateMetadataJob = useMutation({
 	// 	mutationFn: async (variables: DeployUpdateMetadataJobMutationVariables) => {
 	// 		const { deployUpdateMetadataJob } = await gqlClient.request(
@@ -1037,22 +1039,20 @@ export default function Page() {
 															).toLocaleString()}
 														</Text>
 													</Flex>
-													<Button
-														variant="outline"
-														color="red"
-														leftSection={
-															<IconX size={16} style={{ marginTop: 2 }} />
-														}
-														size="compact-xs"
-														onClick={() => {
-															const yes = confirm(
-																"Are you sure you want to delete this seen item?",
-															);
-															if (yes) deleteSeenItem.mutate({ seenId: h.id });
-														}}
-													>
-														Delete
-													</Button>
+													<Form action="?intent=deleteSeenItem" method="post">
+														<input hidden name="seenId" value={h.id} />
+														<Button
+															variant="outline"
+															color="red"
+															leftSection={
+																<IconX size={16} style={{ marginTop: 2 }} />
+															}
+															size="compact-xs"
+															type="submit"
+														>
+															Delete
+														</Button>
+													</Form>
 												</Flex>
 											</Flex>
 										</Flex>
