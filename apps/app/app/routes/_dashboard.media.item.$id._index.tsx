@@ -913,6 +913,15 @@ export default function Page() {
 													}
 													name="metadataId"
 													value={loaderData.metadataId}
+													onClick={(e) => {
+														if (loaderData.userMediaDetails.isMonitored)
+															if (
+																!confirm(
+																	"Are you sure you want to stop monitoring this media?",
+																)
+															)
+																e.preventDefault();
+													}}
 												>
 													{loaderData.userMediaDetails.isMonitored
 														? "Stop"
@@ -946,6 +955,14 @@ export default function Page() {
 														}
 														name="metadataId"
 														value={loaderData.metadataId}
+														onClick={(e) => {
+															if (
+																!confirm(
+																	"Are you sure you want to delete this reminder?",
+																)
+															)
+																e.preventDefault();
+														}}
 													>
 														Remove reminder
 													</Menu.Item>
@@ -965,6 +982,15 @@ export default function Page() {
 														color="red"
 														name="metadataId"
 														value={loaderData.metadataId}
+														onClick={(e) => {
+															if (loaderData.userMediaDetails.ownership)
+																if (
+																	!confirm(
+																		"Are you sure you want to remove ownership of this media?",
+																	)
+																)
+																	e.preventDefault();
+														}}
 													>
 														Remove ownership
 													</Menu.Item>
@@ -1073,6 +1099,14 @@ export default function Page() {
 															type="submit"
 															name="seenId"
 															value={h.id}
+															onClick={(e) => {
+																if (
+																	!confirm(
+																		"Are you sure you want to delete this record?",
+																	)
+																)
+																	e.preventDefault();
+															}}
 														>
 															Delete
 														</Button>
