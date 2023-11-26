@@ -41,6 +41,7 @@ import {
 	MetadataVideoSource,
 	SeenState,
 	ToggleMediaMonitorDocument,
+	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
 	UserReviewScale,
@@ -172,6 +173,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		toggleMediaOwnership: async () => {
+			const submission = processSubmission(formData, metadataIdSchema);
+			await gqlClient.request(
+				ToggleMediaOwnershipDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Ownership toggled successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -212,19 +226,6 @@ export default function Page() {
 		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
 
-	// const toggleMediaOwnership = useMutation({
-	// 	mutationFn: async (variables: ToggleMediaOwnershipMutationVariables) => {
-	// 		const { toggleMediaOwnership } = await gqlClient.request(
-	// 			ToggleMediaOwnershipDocument,
-	// 			variables,
-	// 		);
-	// 		return toggleMediaOwnership;
-	// 	},
-	// 	onSuccess: () => {
-	// 		mediaOwnershipModalClose();
-	// 		userMediaDetails.refetch();
-	// 	},
-	// });
 	// const deleteSeenItem = useMutation({
 	// 	mutationFn: async (variables: DeleteSeenItemMutationVariables) => {
 	// 		const { deleteSeenItem } = await gqlClient.request(
@@ -307,12 +308,7 @@ export default function Page() {
 			<CreateOwnershipModal
 				onClose={mediaOwnershipModalClose}
 				opened={mediaOwnershipModalOpened}
-				markMediaAsOwned={(v) =>
-					toggleMediaOwnership.mutate({
-						metadataId: loaderData.metadataId,
-						ownedOn: v,
-					})
-				}
+				metadataId={loaderData.metadataId}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -938,20 +934,19 @@ export default function Page() {
 												</Menu.Item>
 											)}
 											{loaderData.userMediaDetails.ownership ? (
-												<Menu.Item
-													onClick={() => {
-														const yes = confirm(
-															"Are you sure you want to remove ownership?",
-														);
-														if (yes)
-															toggleMediaOwnership.mutate({
-																metadataId: loaderData.metadataId,
-															});
-													}}
-													color="red"
+												<Form
+													action="?intent=toggleMediaOwnership"
+													method="post"
 												>
-													Remove ownership
-												</Menu.Item>
+													<input
+														hidden
+														name="metadataId"
+														value={loaderData.metadataId}
+													/>
+													<Menu.Item type="submit" color="red">
+														Remove ownership
+													</Menu.Item>
+												</Form>
 											) : (
 												<Menu.Item onClick={mediaOwnershipModalOpen}>
 													Mark as owned
@@ -1468,16 +1463,10 @@ const CreateReminderModal = (props: {
 
 const CreateOwnershipModal = (props: {
 	opened: boolean;
+	metadataId: number;
 	onClose: () => void;
-	markMediaAsOwned: (date?: string) => void;
 }) => {
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
-
-	const onClick = () => {
-		props.markMediaAsOwned(
-			ownedOn ? formatDateToNaiveDate(ownedOn) : undefined,
-		);
-	};
 
 	return (
 		<Modal
@@ -1486,29 +1475,43 @@ const CreateOwnershipModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Stack>
-				<Title order={3}>Mark media as owned</Title>
-				<DateInput
-					label="When did you get this media?"
-					clearable
-					popoverProps={{ withinPortal: true }}
-					onChange={setOwnedOn}
-					value={ownedOn}
-				/>
-				<SimpleGrid cols={2}>
-					<Button
-						variant="outline"
-						onClick={onClick}
-						disabled={!!ownedOn}
-						data-autofocus
-					>
-						Don't remember
-					</Button>
-					<Button disabled={!ownedOn} variant="outline" onClick={onClick}>
-						Submit
-					</Button>
-				</SimpleGrid>
-			</Stack>
+			<Form method="post" action="?intent=toggleMediaOwnership">
+				<Stack>
+					<Title order={3}>Mark media as owned</Title>
+					<DateInput
+						label="When did you get this media?"
+						clearable
+						popoverProps={{ withinPortal: true }}
+						onChange={setOwnedOn}
+						value={ownedOn}
+					/>
+					<input hidden name="metadataId" value={props.metadataId} />
+					<input
+						hidden
+						name="ownedOn"
+						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
+					/>
+					<SimpleGrid cols={2}>
+						<Button
+							variant="outline"
+							onClick={props.onClose}
+							disabled={!!ownedOn}
+							data-autofocus
+							type="submit"
+						>
+							I don't remember
+						</Button>
+						<Button
+							disabled={!ownedOn}
+							variant="outline"
+							type="submit"
+							onClick={props.onClose}
+						>
+							Submit
+						</Button>
+					</SimpleGrid>
+				</Stack>
+			</Form>
 		</Modal>
 	);
 };
