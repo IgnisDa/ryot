@@ -34,6 +34,7 @@ import {
 	DeleteMediaReminderDocument,
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
+	DeployUpdateMetadataJobDocument,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
@@ -200,6 +201,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		deployUpdateMetadataJob: async () => {
+			const submission = processSubmission(formData, metadataIdSchema);
+			await gqlClient.request(
+				DeployUpdateMetadataJobDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Metadata update job deployed successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -244,21 +258,6 @@ export default function Page() {
 		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
 
-	// const deployUpdateMetadataJob = useMutation({
-	// 	mutationFn: async (variables: DeployUpdateMetadataJobMutationVariables) => {
-	// 		const { deployUpdateMetadataJob } = await gqlClient.request(
-	// 			DeployUpdateMetadataJobDocument,
-	// 			variables,
-	// 		);
-	// 		return deployUpdateMetadataJob;
-	// 	},
-	// 	onSuccess: () => {
-	// 		notifications.show({
-	// 			title: "Deployed",
-	// 			message: "This record's metadata will be updated in the background.",
-	// 		});
-	// 	},
-	// });
 	// const mergeMetadata = useMutation({
 	// 	mutationFn: async (variables: MergeMetadataMutationVariables) => {
 	// 		const { mergeMetadata } = await gqlClient.request(
@@ -887,15 +886,17 @@ export default function Page() {
 													monitoring
 												</Menu.Item>
 											</Form>
-											<Menu.Item
-												onClick={() => {
-													deployUpdateMetadataJob.mutate({
-														metadataId: loaderData.metadataId,
-													});
-												}}
+											<Form
+												action="?intent=deployUpdateMetadataJob"
+												method="post"
 											>
-												Update metadata
-											</Menu.Item>
+												<input
+													hidden
+													name="metadataId"
+													value={loaderData.metadataId}
+												/>
+												<Menu.Item type="submit">Update metadata</Menu.Item>
+											</Form>
 											{loaderData.mediaMainDetails.source === "CUSTOM" ? (
 												<Menu.Item
 													onClick={() => {
