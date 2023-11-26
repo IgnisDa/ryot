@@ -89,26 +89,32 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import {
+	getCoreDetails,
+	getUserDetails,
+	getUserPreferences,
+} from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { Verb, getVerb } from "~/lib/utilities";
 import { ShowAndPodcastSchema, processSubmission } from "~/lib/utils";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
-		getUserPreferences(request),
-	]);
 	const id = params.id;
 	invariant(id, "No ID provided");
 	const metadataId = parseInt(id);
 	const [
+		coreDetails,
+		userPreferences,
+		userDetails,
 		{ mediaDetails: mediaMainDetails },
 		{ mediaDetails: mediaAdditionalDetails },
 		{ userMediaDetails },
 		{ userCollectionsList: collections },
 	] = await Promise.all([
+		getCoreDetails(),
+		getUserPreferences(request),
+		getUserDetails(request),
 		gqlClient.request(MediaMainDetailsDocument, { metadataId }),
 		gqlClient.request(MediaAdditionalDetailsDocument, { metadataId }),
 		gqlClient.request(
@@ -125,6 +131,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	return json({
 		userPreferences,
 		coreDetails,
+		userDetails,
 		metadataId,
 		mediaMainDetails,
 		mediaAdditionalDetails,
@@ -1196,6 +1203,7 @@ export default function Page() {
 												key={r.id}
 												metadataId={loaderData.metadataId}
 												userPreferences={loaderData.userPreferences}
+												user={loaderData.userDetails}
 											/>
 										))}
 									</Stack>

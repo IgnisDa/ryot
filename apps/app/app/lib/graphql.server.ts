@@ -1,6 +1,7 @@
 import {
 	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
+	UserDetailsDocument,
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -24,4 +25,14 @@ export const getUserPreferences = async (request: Request) => {
 		await getAuthorizationHeader(request),
 	);
 	return userPreferences;
+};
+
+export const getUserDetails = async (request: Request) => {
+	const { userDetails } = await gqlClient.request(
+		UserDetailsDocument,
+		undefined,
+		await getAuthorizationHeader(request),
+	);
+	if (userDetails.__typename === "User") return userDetails;
+	else throw new Error("User not found");
 };
