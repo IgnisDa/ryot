@@ -1,3 +1,4 @@
+import { parse } from "@conform-to/zod";
 import {
 	Accordion,
 	Alert,
@@ -27,11 +28,11 @@ import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	type CreateMediaReminderMutationVariables,
-	type DeployBulkProgressUpdateMutationVariables,
+	DeployBulkProgressUpdateDocument,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
@@ -69,8 +70,11 @@ import {
 import { DateTime } from "luxon";
 import { useState } from "react";
 import { $path } from "remix-routes";
+import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { z } from "zod";
+import { zx } from "zodix";
 import { MediaDetailsLayout } from "~/components/common";
 import {
 	AddEntityToCollectionModal,
@@ -82,7 +86,9 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
+import { createToastHeaders } from "~/lib/toast.server";
 import { Verb, getVerb } from "~/lib/utilities";
+import { ShowAndPodcastSchema } from "~/lib/utils";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [coreDetails, userPreferences] = await Promise.all([
@@ -122,6 +128,41 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
+const bulkUpdateSchema = z
+	.object({
+		metadataId: zx.IntAsString,
+		progress: zx.IntAsString.optional(),
+		date: z.string().optional(),
+		changeState: z.nativeEnum(SeenState).optional(),
+	})
+	.merge(ShowAndPodcastSchema);
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		progressUpdate: async () => {
+			const submission = parse(formData, {
+				schema: bulkUpdateSchema,
+			});
+			if (submission.intent !== "submit")
+				return json({ status: "idle", submission } as const);
+			if (!submission.value)
+				return json({ status: "error", submission } as const, { status: 400 });
+			await gqlClient.request(
+				DeployBulkProgressUpdateDocument,
+				{ input: submission.value },
+				await getAuthorizationHeader(request),
+			);
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Progress updated successfully",
+				}),
+			});
+		},
+	});
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
@@ -146,22 +187,6 @@ export default function Page() {
 		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
 	] = useDisclosure(false);
 
-	// const progressUpdate = useMutation({
-	// 	mutationFn: async (
-	// 		variables: DeployBulkProgressUpdateMutationVariables,
-	// 	) => {
-	// 		const { deployBulkProgressUpdate } = await gqlClient.request(
-	// 			DeployBulkProgressUpdateDocument,
-	// 			variables,
-	// 		);
-	// 		return deployBulkProgressUpdate;
-	// 	},
-	// 	onSuccess: () => {
-	// 		setTimeout(() => {
-	// 			userMediaDetails.refetch();
-	// 		}, 1000);
-	// 	},
-	// });
 	// const deleteMediaReminder = useMutation({
 	// 	mutationFn: async (variables: DeleteMediaReminderMutationVariables) => {
 	// 		const { deleteMediaReminder } = await gqlClient.request(
@@ -245,43 +270,20 @@ export default function Page() {
 
 	const PutOnHoldBtn = () => {
 		return (
-			<Menu.Item
-				onClick={() => {
-					progressUpdate.mutate({
-						input: [
-							{
-								metadataId: loaderData.metadataId,
-								changeState: SeenState.OnAHold,
-							},
-						],
-					});
-				}}
-			>
-				Put on hold
-			</Menu.Item>
+			<Form action="?intent=progressUpdate" method="post">
+				<input hidden name="metadataId" value={loaderData.metadataId} />
+				<input hidden name="changeState" value={SeenState.OnAHold} />
+				<Menu.Item type="submit">Put on hold</Menu.Item>
+			</Form>
 		);
 	};
 	const DropBtn = () => {
 		return (
-			<Menu.Item
-				color="red"
-				onClick={() => {
-					const yes = confirm(
-						"You will not be able to resume this session after this operation. Continue?",
-					);
-					if (yes)
-						progressUpdate.mutate({
-							input: [
-								{
-									metadataId: loaderData.metadataId,
-									changeState: SeenState.Dropped,
-								},
-							],
-						});
-				}}
-			>
-				Mark as dropped
-			</Menu.Item>
+			<Form action="?intent=progressUpdate" method="post">
+				<input hidden name="metadataId" value={loaderData.metadataId} />
+				<input hidden name="changeState" value={SeenState.Dropped} />
+				<Menu.Item type="submit">Mark as dropped</Menu.Item>
+			</Form>
 		);
 	};
 	const StateChangeButtons = () => {
@@ -749,26 +751,27 @@ export default function Page() {
 											{loaderData.userMediaDetails?.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
-													<Menu.Item
-														onClick={async () => {
-															await progressUpdate.mutateAsync({
-																input: [
-																	{
-																		progress: 100,
-																		metadataId: loaderData.metadataId,
-																		date: DateTime.now().toISODate(),
-																	},
-																],
-															});
-														}}
-													>
-														I finished{" "}
-														{getVerb(
-															Verb.Read,
-															loaderData.mediaMainDetails.lot,
-														)}
-														ing it
-													</Menu.Item>
+													<Form action="?intent=progressUpdate" method="post">
+														<input
+															hidden
+															name="metadataId"
+															value={loaderData.metadataId}
+														/>
+														<input hidden name="progress" value={100} />
+														<input
+															hidden
+															name="date"
+															value={DateTime.now().toISODate() || ""}
+														/>
+														<Menu.Item type="submit">
+															I finished{" "}
+															{getVerb(
+																Verb.Read,
+																loaderData.mediaMainDetails.lot,
+															)}
+															ing it
+														</Menu.Item>
+													</Form>
 													<Menu.Item onClick={progressModalOpen}>
 														Set progress
 													</Menu.Item>
@@ -785,25 +788,22 @@ export default function Page() {
 													MetadataLot.Podcast ? (
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
-													<Menu.Item
-														onClick={async () => {
-															await progressUpdate.mutateAsync({
-																input: [
-																	{
-																		metadataId: loaderData.metadataId,
-																		progress: 0,
-																	},
-																],
-															});
-														}}
-													>
-														I'm{" "}
-														{getVerb(
-															Verb.Read,
-															loaderData.mediaMainDetails.lot,
-														)}
-														ing it
-													</Menu.Item>
+													<Form action="?intent=progressUpdate" method="post">
+														<input
+															hidden
+															name="metadataId"
+															value={loaderData.metadataId}
+														/>
+														<input hidden name="progress" value={0} />
+														<Menu.Item type="submit">
+															I'm{" "}
+															{getVerb(
+																Verb.Read,
+																loaderData.mediaMainDetails.lot,
+															)}
+															ing it
+														</Menu.Item>
+													</Form>
 													<Menu.Item
 														component={Link}
 														to={$path("/media/item/:id/update-progress", {
@@ -1108,8 +1108,7 @@ export default function Page() {
 																			"/media/item/:id/update-progress",
 																			{ id: loaderData.metadataId },
 																			{
-																				selectedShowSeasonNumber:
-																					s.seasonNumber,
+																				showSeasonNumber: s.seasonNumber,
 																				onlySeason: true,
 																			},
 																		)}
@@ -1148,10 +1147,8 @@ export default function Page() {
 																				"/media/item/:id/update-progress",
 																				{ id: loaderData.metadataId },
 																				{
-																					selectedShowSeasonNumber:
-																						s.seasonNumber,
-																					selectedShowEpisodeNumber:
-																						e.episodeNumber,
+																					showSeasonNumber: s.seasonNumber,
+																					showEpisodeNumber: e.episodeNumber,
 																				},
 																			)}
 																		>
@@ -1195,7 +1192,7 @@ export default function Page() {
 														to={$path(
 															"/media/item/:id/update-progress",
 															{ id: loaderData.metadataId },
-															{ selectedPodcastEpisodeNumber: e.number },
+															{ podcastEpisodeNumber: e.number },
 														)}
 													>
 														Mark as seen
@@ -1284,23 +1281,6 @@ const ProgressModal = (props: {
 	lot: MetadataLot;
 }) => {
 	const [value, setValue] = useState(props.progress);
-	const progressUpdate = useMutation({
-		mutationFn: async (
-			variables: DeployBulkProgressUpdateMutationVariables,
-		) => {
-			// const { deployBulkProgressUpdate } = await gqlClient.request(
-			// 	DeployBulkProgressUpdateDocument,
-			// 	variables,
-			// );
-			// return deployBulkProgressUpdate;
-		},
-		onSuccess: () => {
-			props.onClose();
-			setTimeout(() => {
-				props.refetch();
-			}, 1000);
-		},
-	});
 
 	const [updateIcon, text] = match(props.lot)
 		.with(MetadataLot.Book, () => [<IconBook size={24} />, "Pages"])
@@ -1322,68 +1302,60 @@ const ProgressModal = (props: {
 			centered
 			size="sm"
 		>
-			<Stack>
-				<Title order={3}>Set progress</Title>
-				<Group>
-					<Slider
-						showLabelOnHover={false}
-						value={value}
-						onChange={setValue}
-						style={{ flexGrow: 1 }}
-					/>
-					<NumberInput
-						value={value}
-						onChange={(v) => setValue(Number(v))}
-						max={100}
-						min={0}
-						step={1}
-						w="20%"
-						hideControls
-						rightSection={<IconPercentage size={16} />}
-					/>
-				</Group>
-				{props.total ? (
-					<>
-						<Text ta="center" fw="bold">
-							OR
-						</Text>
-						<Flex align="center" gap="xs">
-							<NumberInput
-								value={Math.ceil(((props.total || 1) * value) / 100)}
-								onChange={(v) => {
-									const newVal = (Number(v) / (props.total || 1)) * 100;
-									setValue(Math.ceil(newVal));
-								}}
-								max={props.total}
-								min={0}
-								step={1}
-								hideControls
-								leftSection={updateIcon}
-							/>
-							<Text>{text}</Text>
-						</Flex>
-					</>
-				) : undefined}
-				<Button
-					variant="outline"
-					onClick={async () => {
-						await progressUpdate.mutateAsync({
-							input: [
-								{
-									progress: value,
-									metadataId: props.metadataId,
-									date: DateTime.now().toISODate(),
-								},
-							],
-						});
-					}}
-				>
-					Update
-				</Button>
-				<Button variant="outline" color="red" onClick={props.onClose}>
-					Cancel
-				</Button>
-			</Stack>
+			<Form action="?intent=progressUpdate" method="post">
+				<input hidden name="metadataId" value={props.metadataId} />
+				<input hidden name="progress" value={value} />
+				<input hidden name="date" value={DateTime.now().toISODate() || ""} />
+				<Stack>
+					<Title order={3}>Set progress</Title>
+					<Group>
+						<Slider
+							showLabelOnHover={false}
+							value={value}
+							onChange={setValue}
+							style={{ flexGrow: 1 }}
+						/>
+						<NumberInput
+							value={value}
+							onChange={(v) => setValue(Number(v))}
+							max={100}
+							min={0}
+							step={1}
+							w="20%"
+							hideControls
+							rightSection={<IconPercentage size={16} />}
+						/>
+					</Group>
+					{props.total ? (
+						<>
+							<Text ta="center" fw="bold">
+								OR
+							</Text>
+							<Flex align="center" gap="xs">
+								<NumberInput
+									value={Math.ceil(((props.total || 1) * value) / 100)}
+									onChange={(v) => {
+										const newVal = (Number(v) / (props.total || 1)) * 100;
+										setValue(Math.ceil(newVal));
+									}}
+									max={props.total}
+									min={0}
+									step={1}
+									hideControls
+									leftSection={updateIcon}
+								/>
+								<Text>{text}</Text>
+							</Flex>
+						</>
+					) : undefined}
+					<Button variant="outline" type="submit" onClick={props.onClose}>
+						Update
+					</Button>
+					<Button variant="outline" color="red" onClick={props.onClose}>
+						Cancel
+					</Button>
+				</Stack>
+			</Form>
 		</Modal>
 	);
 };
