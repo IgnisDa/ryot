@@ -1,4 +1,5 @@
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
+import { z } from "zod";
 
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
@@ -23,3 +24,9 @@ export type ApplicationUser = {
 	name: string;
 	lot: UserLot;
 };
+
+export const ShowAndPodcastSchema = z.object({
+	showSeasonNumber: z.number().optional(),
+	showEpisodeNumber: z.number().optional(),
+	podcastEpisodeNumber: z.number().optional(),
+});

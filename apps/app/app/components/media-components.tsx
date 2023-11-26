@@ -524,7 +524,7 @@ export const MediaSearchItem = (props: {
 						to={$path("/actions", {
 							...searchParams,
 							redirectTo: $path("/media/item/:id/update-progress", {
-								id: props.maybeItemId?.toString(),
+								id: props.maybeItemId?.toString() || "",
 							}),
 						})}
 					>
