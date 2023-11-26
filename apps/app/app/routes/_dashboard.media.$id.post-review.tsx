@@ -30,14 +30,11 @@ import { ShowAndPodcastSchema } from "~/lib/utils";
 
 const searchParamsSchema = z
 	.object({
-		entityType: z.enum([
-			"media",
-			"mediaGroup",
-			"collection",
-			"person",
-			"existingReview",
-		]),
 		title: z.string(),
+		metadataId: zx.IntAsString.optional(),
+		metadataGroupId: zx.IntAsString.optional(),
+		personId: zx.IntAsString.optional(),
+		collectionId: zx.IntAsString.optional(),
 		isShow: zx.BoolAsString.optional(),
 		isPodcast: zx.BoolAsString.optional(),
 		existingReviewId: zx.IntAsString.optional(),
@@ -52,7 +49,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(id, "No ID provided");
 	const [userPreferences] = await Promise.all([getUserPreferences(request)]);
 	let existingReview = undefined;
-	if (query.entityType === "existingReview") {
+	if (query.existingReviewId) {
 		const reviewId = query.existingReviewId;
 		invariant(reviewId, "No existingReviewId provided");
 		const { review } = await gqlClient.request(
@@ -70,7 +67,32 @@ export default function Page() {
 
 	return (
 		<Container size="xs">
-			<Box component={Form}>
+			<Box component={Form} method="post" action="?postReview">
+				{loaderData.query.collectionId ? (
+					<input
+						type="hidden"
+						name="collectionId"
+						value={loaderData.query.collectionId}
+					/>
+				) : loaderData.query.metadataId ? (
+					<input
+						type="hidden"
+						name="metadataId"
+						value={loaderData.query.metadataId}
+					/>
+				) : loaderData.query.metadataGroupId ? (
+					<input
+						type="hidden"
+						name="metadataGroupId"
+						value={loaderData.query.metadataGroupId}
+					/>
+				) : loaderData.query.personId ? (
+					<input
+						type="hidden"
+						name="personId"
+						value={loaderData.query.personId}
+					/>
+				) : undefined}
 				<Stack>
 					<Title order={3}>Reviewing "{loaderData.query.title}"</Title>
 					<Flex align="center" gap="xl">
