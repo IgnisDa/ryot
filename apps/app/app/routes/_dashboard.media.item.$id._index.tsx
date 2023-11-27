@@ -92,7 +92,7 @@ import {
 	getUserDetails,
 	getUserPreferences,
 } from "~/lib/graphql.server";
-import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
+import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { Verb, getVerb } from "~/lib/utilities";
 import { ShowAndPodcastSchema, processSubmission } from "~/lib/utils";
@@ -101,8 +101,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const id = params.id;
 	invariant(id, "No ID provided");
 	const metadataId = parseInt(id);
-	const url = new URL(request.url);
-	const selectedTab = url.searchParams.get("selectedTab") ?? "overview";
 	const [
 		coreDetails,
 		userPreferences,
@@ -137,7 +135,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		mediaAdditionalDetails,
 		userMediaDetails,
 		collections,
-		selectedTab,
 	});
 };
 
@@ -282,7 +279,6 @@ const mergeMetadataSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
-	const [_, { setP }] = useSearchParam();
 
 	const [
 		progressModalOpened,
@@ -546,11 +542,7 @@ export default function Page() {
 							ing this ({loaderData.userMediaDetails.inProgress.progress}%)
 						</Alert>
 					) : undefined}
-					<Tabs
-						variant="outline"
-						defaultValue={loaderData.selectedTab}
-						onChange={(v) => setP("selectedTab", v)}
-					>
+					<Tabs variant="outline" defaultValue="overview">
 						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"
