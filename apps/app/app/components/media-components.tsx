@@ -710,39 +710,46 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
+	const removeMediaFromCollectionFormRef = useRef<HTMLFormElement>(null);
+	const removeMediaFromCollection = useFetcher();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<Flex gap={2}>
-				<Anchor
-					component={Link}
-					truncate
-					style={{ all: "unset", cursor: "pointer" }}
-					to={$path("/media/collections/:id", {
-						id: props.col.id,
-					})}
-				>
-					{props.col.name}
-				</Anchor>
-				<ActionIcon
-					size={16}
-					onClick={() => {
-						const yes = confirm(
-							"Are you sure you want to remove this media from this collection?",
-						);
-						if (yes)
-							removeMediaFromCollection.mutate({
-								input: {
-									collectionName: props.col.name,
-									entityId: props.entityId.toString(),
-									entityLot: props.entityLot,
-								},
-							});
-					}}
-				>
-					<IconX />
-				</ActionIcon>
-			</Flex>
+			<Form
+				action="/actions?intent=removeMediaFromCollection"
+				method="post"
+				ref={removeMediaFromCollectionFormRef}
+			>
+				<Flex gap={2}>
+					<Anchor
+						component={Link}
+						truncate
+						style={{ all: "unset", cursor: "pointer" }}
+						to={$path("/media/collections/:id", {
+							id: props.col.id,
+						})}
+					>
+						{props.col.name}
+					</Anchor>
+					<input hidden name="entityId" defaultValue={props.entityId} />
+					<input hidden name="entityLot" defaultValue={props.entityLot} />
+					<input hidden name="collectionName" defaultValue={props.col.name} />
+					<ActionIcon
+						size={16}
+						onClick={() => {
+							const yes = confirm(
+								"Are you sure you want to remove this media from this collection?",
+							);
+							if (yes)
+								removeMediaFromCollection.submit(
+									removeMediaFromCollectionFormRef.current,
+								);
+						}}
+					>
+						<IconX />
+					</ActionIcon>
+				</Flex>
+			</Form>
 		</Badge>
 	);
 };
