@@ -81,7 +81,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
-					message: "Comment posted successfully",
+					message: `Comment ${
+						submission.shouldDelete ? "deleted" : "posted"
+					} successfully`,
 					type: "success",
 				}),
 			});
@@ -116,18 +118,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const formBoolean = z
-	.string()
-	.optional()
-	.transform((v) => v === "1" || v === "true" || v === "on" || v === "yes");
-
 const reviewCommentSchema = z.object({
 	reviewId: zx.IntAsString,
 	commentId: z.string().optional(),
 	text: z.string().optional(),
-	decrementLikes: formBoolean,
-	incrementLikes: formBoolean,
-	shouldDelete: formBoolean,
+	decrementLikes: zx.BoolAsString.optional(),
+	incrementLikes: zx.BoolAsString.optional(),
+	shouldDelete: zx.BoolAsString.optional(),
 });
 
 const changeCollectionToEntitySchema = z.object({

@@ -114,6 +114,9 @@ export const ReviewItemDisplay = (props: {
 	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
 	const createReviewCommentFetcher = useFetcher();
 
+	const deleteReviewCommentFormRef = useRef<HTMLFormElement>(null);
+	const deleteReviewCommentFetcher = useFetcher();
+
 	return (
 		<>
 			<Box key={props.review.id} data-review-id={props.review.id}>
@@ -262,24 +265,37 @@ export const ReviewItemDisplay = (props: {
 														</Text>
 													</Box>
 													{props.user && props.user.id === c?.user?.id ? (
-														<ActionIcon
-															color="red"
-															onClick={() => {
-																const yes = confirm(
-																	"Are you sure you want to delete this comment?",
-																);
-																if (props.review.id && yes)
-																	createReviewComment.mutate({
-																		input: {
-																			reviewId: props.review.id,
-																			commentId: c.id,
-																			shouldDelete: true,
-																		},
-																	});
-															}}
+														<Form
+															action="/actions?intent=createReviewComment"
+															method="post"
+															ref={deleteReviewCommentFormRef}
 														>
-															<IconTrash size={16} />
-														</ActionIcon>
+															<input
+																hidden
+																name="reviewId"
+																defaultValue={props.review.id}
+															/>
+															<input
+																hidden
+																name="commentId"
+																defaultValue={c?.id}
+															/>
+															<input hidden name="shouldDelete" value="true" />
+															<ActionIcon
+																color="red"
+																onClick={() => {
+																	const yes = confirm(
+																		"Are you sure you want to delete this comment?",
+																	);
+																	if (yes)
+																		deleteReviewCommentFetcher.submit(
+																			deleteReviewCommentFormRef.current,
+																		);
+																}}
+															>
+																<IconTrash size={16} />
+															</ActionIcon>
+														</Form>
 													) : undefined}
 													<ActionIcon
 														onClick={() => {
