@@ -413,6 +413,7 @@ export default function Page() {
 									{loaderData.mediaSearch.search.items.map((b, idx) => (
 										<MediaSearchItem
 											idx={idx}
+											action={Action.Search}
 											key={b.item.identifier}
 											item={{
 												...b.item,

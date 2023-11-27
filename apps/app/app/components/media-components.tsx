@@ -572,6 +572,7 @@ export const MediaSearchItem = (props: {
 	lot: MetadataLot;
 	source: MetadataSource;
 	userPreferences: UserPreferencesQuery["userPreferences"];
+	action: "search" | "list";
 	maybeItemId?: number;
 }) => {
 	const searchParams = {
@@ -603,13 +604,21 @@ export const MediaSearchItem = (props: {
 						size="compact-md"
 						to={
 							props.maybeItemId
-								? $path(
-										"/media/item/:id/update-progress",
-										{ id: props.maybeItemId.toString() },
+								? withQuery(
+										$path(
+											"/media/item/:id/update-progress",
+											{ id: props.maybeItemId.toString() },
+											{
+												title: props.item.title,
+												isShow: false,
+												isPodcast: props.lot === MetadataLot.Podcast,
+											},
+										),
 										{
-											title: props.item.title,
-											isShow: false,
-											isPodcast: props.lot === MetadataLot.Podcast,
+											redirectTo: $path("/media/:action/:lot", {
+												action: props.action,
+												lot: props.lot.toLowerCase(),
+											}),
 										},
 								  )
 								: $path("/actions", {
@@ -618,6 +627,10 @@ export const MediaSearchItem = (props: {
 											title: props.item.title,
 											isShow: false,
 											isPodcast: props.lot === MetadataLot.Podcast,
+											redirectTo: $path("/media/:action/:lot", {
+												action: props.action,
+												lot: props.lot.toLowerCase(),
+											}),
 										}),
 								  })
 						}

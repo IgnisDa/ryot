@@ -22,6 +22,7 @@ import { IconAlertCircle } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { useState } from "react";
 import { $path } from "remix-routes";
+import { safeRedirect } from "remix-utils/safe-redirect";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -34,6 +35,7 @@ const commonSchema = z.object({
 	onlySeason: zx.BoolAsString.optional(),
 	completeShow: zx.BoolAsString.optional(),
 	completePodcast: zx.BoolAsString.optional(),
+	redirectTo: z.string().optional(),
 });
 
 const searchParamsSchema = z
@@ -64,6 +66,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
+	const query = zx.parseQuery(request, commonSchema);
 	const submission = processSubmission(formData, actionSchema);
 	const variables = {
 		metadataId: submission.metadataId,
@@ -81,7 +84,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const podcastSpecifics = podcastSpecificsSchema.parse(
 		JSON.parse(submission.podcastSpecifics || "[]"),
 	);
-	if (submission.completeShow) {
+	if (query.completeShow) {
 		for (const season of showSpecifics) {
 			for (const episode of season.episodes) {
 				updates.push({
@@ -93,7 +96,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		}
 		needsFinalUpdate = true;
 	}
-	if (submission.completePodcast) {
+	if (query.completePodcast) {
 		for (const episode of podcastSpecifics) {
 			updates.push({
 				...variables,
@@ -102,7 +105,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		}
 		needsFinalUpdate = true;
 	}
-	if (submission.onlySeason) {
+	if (query.onlySeason) {
 		const selectedSeason = showSpecifics.find(
 			(s) => s.seasonNumber === submission.showSeasonNumber,
 		);
@@ -136,7 +139,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	);
 	if (deployBulkProgressUpdate) {
 		return redirectWithToast(
-			$path("/media/item/:id", { id: submission.metadataId }),
+			query.redirectTo
+				? safeRedirect(query.redirectTo)
+				: $path("/media/item/:id", { id: submission.metadataId }),
 			{ message: "Progress has been updated" },
 		);
 	} else
@@ -159,7 +164,6 @@ const actionSchema = z
 		allSeasonsBefore: zx.CheckboxAsString.optional(),
 		podcastSpecifics: z.string().optional(),
 	})
-	.merge(commonSchema)
 	.merge(ShowAndPodcastSchema);
 
 const showSpecificsSchema = z.array(
@@ -176,27 +180,6 @@ export default function Page() {
 		<Container size="xs">
 			<Form method="post">
 				<input hidden name="metadataId" defaultValue={loaderData.id} />
-				{loaderData.query.onlySeason ? (
-					<input
-						hidden
-						name="onlySeason"
-						defaultValue={loaderData.query.onlySeason.toString()}
-					/>
-				) : undefined}
-				{loaderData.query.completeShow ? (
-					<input
-						hidden
-						name="completeShow"
-						defaultValue={loaderData.query.completeShow.toString()}
-					/>
-				) : undefined}
-				{loaderData.query.completePodcast ? (
-					<input
-						hidden
-						name="completePodcast"
-						defaultValue={loaderData.query.completePodcast.toString()}
-					/>
-				) : undefined}
 				{loaderData.query.showEpisodeNumber ? (
 					<input
 						hidden
