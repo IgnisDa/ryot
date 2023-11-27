@@ -75,8 +75,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	};
 	let needsFinalUpdate = true;
 	const updates = [];
+	const showSpecifics = showSpecificsSchema.parse(
+		JSON.parse(submission.showSpecifics || "[]"),
+	);
+	const podcastSpecifics = podcastSpecificsSchema.parse(
+		JSON.parse(submission.podcastSpecifics || "[]"),
+	);
 	if (submission.completeShow) {
-		for (const season of submission.showSpecifics || []) {
+		for (const season of showSpecifics) {
 			for (const episode of season.episodes) {
 				updates.push({
 					...variables,
@@ -88,7 +94,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		needsFinalUpdate = true;
 	}
 	if (submission.completePodcast) {
-		for (const episode of submission.podcastSpecifics || []) {
+		for (const episode of podcastSpecifics) {
 			updates.push({
 				...variables,
 				podcastEpisodeNumber: episode.episodeNumber,
@@ -97,13 +103,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		needsFinalUpdate = true;
 	}
 	if (submission.onlySeason) {
-		const selectedSeason = submission.showSpecifics?.find(
+		const selectedSeason = showSpecifics.find(
 			(s) => s.seasonNumber === submission.showSeasonNumber,
 		);
 		invariant(selectedSeason, "No season selected");
 		needsFinalUpdate = true;
 		if (submission.allSeasonsBefore) {
-			for (const season of submission.showSpecifics || []) {
+			for (const season of showSpecifics) {
 				if (season.seasonNumber > selectedSeason.seasonNumber) break;
 				for (const episode of season.episodes || []) {
 					updates.push({
@@ -128,12 +134,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		{ input: updates },
 		await getAuthorizationHeader(request),
 	);
-	if (deployBulkProgressUpdate)
+	if (deployBulkProgressUpdate) {
 		return redirectWithToast(
 			$path("/media/item/:id", { id: submission.metadataId }),
 			{ message: "Progress has been updated" },
 		);
-	else
+	} else
 		return json(
 			{},
 			{
@@ -149,21 +155,18 @@ const actionSchema = z
 	.object({
 		metadataId: zx.IntAsString,
 		date: z.string().optional(),
-		showSpecifics: z
-			.array(
-				z.object({
-					seasonNumber: zx.IntAsString,
-					episodes: z.array(zx.IntAsString),
-				}),
-			)
-			.optional(),
+		showSpecifics: z.string().optional(),
 		allSeasonsBefore: zx.CheckboxAsString.optional(),
-		podcastSpecifics: z
-			.array(z.object({ episodeNumber: zx.IntAsString }))
-			.optional(),
+		podcastSpecifics: z.string().optional(),
 	})
 	.merge(commonSchema)
 	.merge(ShowAndPodcastSchema);
+
+const showSpecificsSchema = z.array(
+	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),
+);
+
+const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -173,6 +176,27 @@ export default function Page() {
 		<Container size="xs">
 			<Form method="post">
 				<input hidden name="metadataId" defaultValue={loaderData.id} />
+				{loaderData.query.onlySeason ? (
+					<input
+						hidden
+						name="onlySeason"
+						defaultValue={loaderData.query.onlySeason.toString()}
+					/>
+				) : undefined}
+				{loaderData.query.completeShow ? (
+					<input
+						hidden
+						name="completeShow"
+						defaultValue={loaderData.query.completeShow.toString()}
+					/>
+				) : undefined}
+				{loaderData.query.completePodcast ? (
+					<input
+						hidden
+						name="completePodcast"
+						defaultValue={loaderData.query.completePodcast.toString()}
+					/>
+				) : undefined}
 				{loaderData.query.showEpisodeNumber ? (
 					<input
 						hidden
