@@ -74,9 +74,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 		createReviewComment: async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
-			await gqlClient.request(CreateReviewCommentDocument, {
-				input: submission,
-			});
+			await gqlClient.request(
+				CreateReviewCommentDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					message: "Comment posted successfully",
@@ -120,7 +122,7 @@ const formBoolean = z
 	.transform((v) => v === "1" || v === "true" || v === "on" || v === "yes");
 
 const reviewCommentSchema = z.object({
-	reviewId: z.number(),
+	reviewId: zx.IntAsString,
 	commentId: z.string().optional(),
 	text: z.string().optional(),
 	decrementLikes: formBoolean,

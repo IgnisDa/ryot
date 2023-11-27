@@ -8,6 +8,7 @@ import {
 	Collapse,
 	Divider,
 	Flex,
+	Group,
 	Image,
 	Loader,
 	Modal,
@@ -16,13 +17,14 @@ import {
 	Select,
 	Stack,
 	Text,
+	TextInput,
 	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { Link, useNavigate } from "@remix-run/react";
+import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
 	CoreDetails,
 	EntityLot,
@@ -36,13 +38,14 @@ import {
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
+	IconCheck,
 	IconEdit,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
@@ -106,6 +109,10 @@ export const ReviewItemDisplay = (props: {
 	collectionId?: number;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
+	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
+		useDisclosure(false);
+	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
+	const createReviewCommentFetcher = useFetcher();
 
 	return (
 		<>
@@ -199,19 +206,43 @@ export const ReviewItemDisplay = (props: {
 							</>
 						)
 					) : undefined}
-					<Button
-						variant="subtle"
-						size="compact-md"
-						onClick={() => {
-							const comment = prompt("Enter comment");
-							if (comment && props.review.id)
-								createReviewComment.mutate({
-									input: { reviewId: props.review.id, text: comment },
-								});
-						}}
-					>
-						Leave comment
-					</Button>
+					{openedLeaveComment ? (
+						<Form
+							action="/actions?intent=createReviewComment"
+							method="post"
+							ref={createReviewCommentFormRef}
+						>
+							<input hidden name="reviewId" defaultValue={props.review.id} />
+							<Group>
+								<TextInput
+									name="text"
+									placeholder="Enter comment"
+									style={{ flex: 1 }}
+								/>
+								<ActionIcon
+									color="green"
+									onClick={() => {
+										createReviewCommentFetcher.submit(
+											createReviewCommentFormRef.current,
+										);
+										toggleLeaveComment();
+									}}
+								>
+									<IconCheck />
+								</ActionIcon>
+							</Group>
+						</Form>
+					) : undefined}
+					{!openedLeaveComment ? (
+						<Button
+							variant="subtle"
+							size="compact-md"
+							onClick={toggleLeaveComment}
+							type="submit"
+						>
+							Leave comment
+						</Button>
+					) : undefined}
 					{(props.review.comments?.length || 0) > 0 ? (
 						<Paper withBorder ml="xl" mt="sm" p="xs">
 							<Stack>
