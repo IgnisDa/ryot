@@ -17,16 +17,24 @@ tasks:
     deps:
       - routes
 
+  build-basic:
+    command: vite build
+
+  build-ssr:
+    command: vite build --ssr
+
   build:
-    command: vite build && vite build --ssr
+    deps:
+      - routes
+      - build-basic
+      - build-ssr
     inputs:
       - '@group(remix)'
     outputs:
       - build
-      - .cache
       - public/build
-    deps:
-      - routes
+    options:
+      runDepsInParallel: false
 
   typecheck:
     inputs:
