@@ -737,9 +737,13 @@ export default function Page() {
 																				"/media/item/:id/update-progress",
 																				{ id: loaderData.metadataId },
 																				{
+																					title:
+																						loaderData.mediaMainDetails.title,
 																					podcastEpisodeNumber:
 																						loaderData.userMediaDetails
 																							.nextEpisode.episodeNumber,
+																					isShow: false,
+																					isPodcast: true,
 																				},
 																		  )
 																		: $path(
@@ -748,12 +752,16 @@ export default function Page() {
 																					id: loaderData.metadataId,
 																				},
 																				{
+																					title:
+																						loaderData.mediaMainDetails.title,
 																					showSeasonNumber:
 																						loaderData.userMediaDetails
 																							.nextEpisode.seasonNumber,
 																					showEpisodeNumber:
 																						loaderData.userMediaDetails
 																							.nextEpisode.episodeNumber,
+																					isShow: true,
+																					isPodcast: false,
 																				},
 																		  )
 																}
@@ -834,9 +842,15 @@ export default function Page() {
 													</Form>
 													<Menu.Item
 														component={Link}
-														to={$path("/media/item/:id/update-progress", {
-															id: loaderData.metadataId,
-														})}
+														to={$path(
+															"/media/item/:id/update-progress",
+															{ id: loaderData.metadataId },
+															{
+																title: loaderData.mediaMainDetails.title,
+																isShow: false,
+																isPodcast: false,
+															},
+														)}
 													>
 														Add to{" "}
 														{getVerb(
@@ -1162,8 +1176,16 @@ export default function Page() {
 																			"/media/item/:id/update-progress",
 																			{ id: loaderData.metadataId },
 																			{
+																				title:
+																					loaderData.mediaMainDetails.title,
 																				showSeasonNumber: s.seasonNumber,
 																				onlySeason: true,
+																				isShow:
+																					loaderData.mediaMainDetails.lot ===
+																					MetadataLot.Show,
+																				isPodcast:
+																					loaderData.mediaMainDetails.lot ===
+																					MetadataLot.Podcast,
 																			},
 																		)}
 																	>
@@ -1201,8 +1223,16 @@ export default function Page() {
 																				"/media/item/:id/update-progress",
 																				{ id: loaderData.metadataId },
 																				{
+																					title:
+																						loaderData.mediaMainDetails.title,
 																					showSeasonNumber: s.seasonNumber,
 																					showEpisodeNumber: e.episodeNumber,
+																					isShow:
+																						loaderData.mediaMainDetails.lot ===
+																						MetadataLot.Show,
+																					isPodcast:
+																						loaderData.mediaMainDetails.lot ===
+																						MetadataLot.Podcast,
 																				},
 																			)}
 																		>
@@ -1246,7 +1276,16 @@ export default function Page() {
 														to={$path(
 															"/media/item/:id/update-progress",
 															{ id: loaderData.metadataId },
-															{ podcastEpisodeNumber: e.number },
+															{
+																title: loaderData.mediaMainDetails.title,
+																podcastEpisodeNumber: e.number,
+																isShow:
+																	loaderData.mediaMainDetails.lot ===
+																	MetadataLot.Show,
+																isPodcast:
+																	loaderData.mediaMainDetails.lot ===
+																	MetadataLot.Podcast,
+															},
 														)}
 													>
 														Mark as seen

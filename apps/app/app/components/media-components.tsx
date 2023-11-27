@@ -49,6 +49,7 @@ import { useRef } from "react";
 import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
 import { ApplicationUser } from "~/lib/utils";
@@ -602,12 +603,22 @@ export const MediaSearchItem = (props: {
 						size="compact-md"
 						to={
 							props.maybeItemId
-								? $path("/media/item/:id/update-progress", {
-										id: props.maybeItemId.toString(),
-								  })
+								? $path(
+										"/media/item/:id/update-progress",
+										{ id: props.maybeItemId.toString() },
+										{
+											title: props.item.title,
+											isShow: false,
+											isPodcast: props.lot === MetadataLot.Podcast,
+										},
+								  )
 								: $path("/actions", {
 										...searchParams,
-										redirectTo: "/media/item/:id/update-progress",
+										redirectTo: withQuery("/media/item/:id/update-progress", {
+											title: props.item.title,
+											isShow: false,
+											isPodcast: props.lot === MetadataLot.Podcast,
+										}),
 								  })
 						}
 					>
