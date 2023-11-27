@@ -13,27 +13,36 @@ import { DatePickerInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import { MediaAdditionalDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	DeployBulkProgressUpdateDocument,
+	MediaAdditionalDetailsDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import { gqlClient } from "~/lib/api.server";
+import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { Verb, getVerb } from "~/lib/utilities";
 import { ShowAndPodcastSchema, processSubmission } from "~/lib/utils";
+
+const commonSchema = z.object({
+	onlySeason: zx.BoolAsString.optional(),
+	completeShow: zx.BoolAsString.optional(),
+	completePodcast: zx.BoolAsString.optional(),
+});
 
 const searchParamsSchema = z
 	.object({
 		title: z.string(),
 		isShow: zx.BoolAsString.optional(),
 		isPodcast: zx.BoolAsString.optional(),
-		onlySeason: zx.BoolAsString.optional(),
-		completeShow: zx.BoolAsString.optional(),
-		completePodcast: zx.BoolAsString.optional(),
 	})
+	.merge(commonSchema)
 	.merge(ShowAndPodcastSchema);
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -56,28 +65,105 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	const submission = processSubmission(formData, actionSchema);
-	console.log(submission);
-	return json({});
+	const variables = {
+		metadataId: submission.metadataId,
+		progress: 100,
+		date: submission.date,
+		showEpisodeNumber: submission.showEpisodeNumber,
+		showSeasonNumber: submission.showSeasonNumber,
+		podcastEpisodeNumber: submission.podcastEpisodeNumber,
+	};
+	let needsFinalUpdate = true;
+	const updates = [];
+	if (submission.completeShow) {
+		for (const season of submission.showSpecifics || []) {
+			for (const episode of season.episodes) {
+				updates.push({
+					...variables,
+					showSeasonNumber: season.seasonNumber,
+					showEpisodeNumber: episode,
+				});
+			}
+		}
+		needsFinalUpdate = true;
+	}
+	if (submission.completePodcast) {
+		for (const episode of submission.podcastSpecifics || []) {
+			updates.push({
+				...variables,
+				podcastEpisodeNumber: episode.episodeNumber,
+			});
+		}
+		needsFinalUpdate = true;
+	}
+	if (submission.onlySeason) {
+		const selectedSeason = submission.showSpecifics?.find(
+			(s) => s.seasonNumber === submission.showSeasonNumber,
+		);
+		invariant(selectedSeason, "No season selected");
+		needsFinalUpdate = true;
+		if (submission.allSeasonsBefore) {
+			for (const season of submission.showSpecifics || []) {
+				if (season.seasonNumber > selectedSeason.seasonNumber) break;
+				for (const episode of season.episodes || []) {
+					updates.push({
+						...variables,
+						showSeasonNumber: season.seasonNumber,
+						showEpisodeNumber: episode,
+					});
+				}
+			}
+		} else {
+			for (const episode of selectedSeason.episodes || []) {
+				updates.push({
+					...variables,
+					showEpisodeNumber: episode,
+				});
+			}
+		}
+	}
+	if (needsFinalUpdate) updates.push(variables);
+	const { deployBulkProgressUpdate } = await gqlClient.request(
+		DeployBulkProgressUpdateDocument,
+		{ input: updates },
+		await getAuthorizationHeader(request),
+	);
+	if (deployBulkProgressUpdate)
+		return redirectWithToast(
+			$path("/media/item/:id", { id: submission.metadataId }),
+			{ message: "Progress has been updated" },
+		);
+	else
+		return json(
+			{},
+			{
+				headers: await createToastHeaders({
+					type: "error",
+					message: "Something went wrong",
+				}),
+			},
+		);
 };
 
-const actionSchema = z.object({
-	metadataId: zx.IntAsString,
-	date: z.string().optional(),
-	showEpisodeNumber: zx.IntAsString.optional(),
-	showSeasonNumber: zx.IntAsString.optional(),
-	podcastEpisodeNumber: zx.IntAsString.optional(),
-	showSpecifics: z
-		.array(
-			z.object({
-				seasonNumber: zx.IntAsString,
-				episodes: z.array(zx.IntAsString),
-			}),
-		)
-		.optional(),
-	podcastSpecifics: z
-		.array(z.object({ episodeNumber: zx.IntAsString }))
-		.optional(),
-});
+const actionSchema = z
+	.object({
+		metadataId: zx.IntAsString,
+		date: z.string().optional(),
+		showSpecifics: z
+			.array(
+				z.object({
+					seasonNumber: zx.IntAsString,
+					episodes: z.array(zx.IntAsString),
+				}),
+			)
+			.optional(),
+		allSeasonsBefore: zx.CheckboxAsString.optional(),
+		podcastSpecifics: z
+			.array(z.object({ episodeNumber: zx.IntAsString }))
+			.optional(),
+	})
+	.merge(commonSchema)
+	.merge(ShowAndPodcastSchema);
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -163,7 +249,10 @@ export default function Page() {
 								</>
 							) : undefined}
 							{loaderData.query.onlySeason ? (
-								<Checkbox label="Mark all seasons before this as seen" />
+								<Checkbox
+									label="Mark all seasons before this as seen"
+									name="allSeasonsBefore"
+								/>
 							) : undefined}
 							{!loaderData.query.onlySeason &&
 							loaderData.query.showSeasonNumber ? (
