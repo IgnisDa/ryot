@@ -45,7 +45,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
@@ -632,12 +632,12 @@ export const MediaSearchItem = (props: {
 							await fetch(
 								$path("/actions", {
 									...searchParams,
-									returnRaw: true,
+									returnRaw: "true",
 								}),
 							)
 						).json();
 						const form = new FormData();
-						form.append("intent", "addMediaToCollection");
+						form.append("intent", "addEntityToCollection");
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
 						form.append("collectionName", "Watchlist");
@@ -663,9 +663,8 @@ export const AddEntityToCollectionModal = (props: {
 	entityLot: EntityLot;
 	collections: string[];
 }) => {
-	const [selectedCollection, setSelectedCollection] = useState<string | null>(
-		null,
-	);
+	const addEntityToCollectionFormRef = useRef<HTMLFormElement>(null);
+	const addEntityToCollectionFetcher = useFetcher();
 
 	return (
 		<Modal
@@ -674,27 +673,24 @@ export const AddEntityToCollectionModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			{props.collections ? (
+			<Form
+				action="/actions?intent=addEntityToCollection"
+				method="post"
+				ref={addEntityToCollectionFormRef}
+			>
+				<input hidden name="entityId" defaultValue={props.entityId} />
+				<input hidden name="entityLot" defaultValue={props.entityLot} />
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					{props.collections.length > 0 ? (
-						<Select
-							data={props.collections}
-							onChange={setSelectedCollection}
-							searchable
-						/>
-					) : undefined}
+					<Select data={props.collections} searchable name="collectionName" />
 					<Button
 						data-autofocus
 						variant="outline"
 						onClick={() => {
-							addMediaToCollection.mutate({
-								input: {
-									collectionName: selectedCollection || "",
-									entityId: props.entityId.toString(),
-									entityLot: props.entityLot,
-								},
-							});
+							addEntityToCollectionFetcher.submit(
+								addEntityToCollectionFormRef.current,
+							);
+							props.onClose();
 						}}
 					>
 						Set
@@ -703,7 +699,7 @@ export const AddEntityToCollectionModal = (props: {
 						Cancel
 					</Button>
 				</Stack>
-			) : undefined}
+			</Form>
 		</Modal>
 	);
 };

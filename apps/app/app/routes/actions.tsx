@@ -91,7 +91,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
-		addMediaToCollection: async () => {
+		addEntityToCollection: async () => {
 			const submission = processSubmission(
 				formData,
 				changeCollectionToEntitySchema,
