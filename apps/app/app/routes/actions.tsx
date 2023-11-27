@@ -81,9 +81,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
-					message: `Comment ${
-						submission.shouldDelete ? "deleted" : "posted"
-					} successfully`,
+					message:
+						submission.incrementLikes || submission.decrementLikes
+							? "Score changed successfully"
+							: `Comment ${
+									submission.shouldDelete ? "deleted" : "posted"
+							  } successfully`,
 					type: "success",
 				}),
 			});
@@ -110,9 +113,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				formData,
 				changeCollectionToEntitySchema,
 			);
-			await gqlClient.request(RemoveEntityFromCollectionDocument, {
-				input: submission,
-			});
+			await gqlClient.request(
+				RemoveEntityFromCollectionDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
 			return json({ status: "success", submission } as const);
 		},
 	});

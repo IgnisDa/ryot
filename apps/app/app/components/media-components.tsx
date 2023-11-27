@@ -113,9 +113,10 @@ export const ReviewItemDisplay = (props: {
 		useDisclosure(false);
 	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
 	const createReviewCommentFetcher = useFetcher();
-
 	const deleteReviewCommentFormRef = useRef<HTMLFormElement>(null);
 	const deleteReviewCommentFetcher = useFetcher();
+	const changeScoreFormRef = useRef<HTMLFormElement>(null);
+	const changeScoreFetcher = useFetcher();
 
 	return (
 		<>
@@ -264,7 +265,7 @@ export const ReviewItemDisplay = (props: {
 															).toLocaleString()}
 														</Text>
 													</Box>
-													{props.user && props.user.id === c?.user?.id ? (
+													{props.user.id === c?.user?.id ? (
 														<Form
 															action="/actions?intent=createReviewComment"
 															method="post"
@@ -280,7 +281,11 @@ export const ReviewItemDisplay = (props: {
 																name="commentId"
 																defaultValue={c?.id}
 															/>
-															<input hidden name="shouldDelete" value="true" />
+															<input
+																hidden
+																name="shouldDelete"
+																defaultValue="true"
+															/>
 															<ActionIcon
 																color="red"
 																onClick={() => {
@@ -297,25 +302,46 @@ export const ReviewItemDisplay = (props: {
 															</ActionIcon>
 														</Form>
 													) : undefined}
-													<ActionIcon
-														onClick={() => {
-															const likedByUser = c?.likedBy?.includes(
-																props.user.id,
-															);
-															if (props.review.id)
-																createReviewComment.mutate({
-																	input: {
-																		reviewId: props.review.id,
-																		commentId: c?.id,
-																		incrementLikes: !likedByUser,
-																		decrementLikes: likedByUser,
-																	},
-																});
-														}}
+													<Form
+														action="/actions?intent=createReviewComment"
+														method="post"
+														ref={changeScoreFormRef}
 													>
-														<IconArrowBigUp size={16} />
-														<Text>{c?.likedBy?.length}</Text>
-													</ActionIcon>
+														<input
+															hidden
+															name="reviewId"
+															defaultValue={props.review.id}
+														/>
+														<input
+															hidden
+															name="commentId"
+															defaultValue={c?.id}
+														/>
+														<input
+															hidden
+															name="incrementLikes"
+															defaultValue={String(
+																!c?.likedBy?.includes(props.user.id),
+															)}
+														/>
+														<input
+															hidden
+															name="decrementLikes"
+															defaultValue={String(
+																c?.likedBy?.includes(props.user.id),
+															)}
+														/>
+														<ActionIcon
+															onClick={() => {
+																changeScoreFetcher.submit(
+																	changeScoreFormRef.current,
+																);
+															}}
+														>
+															<IconArrowBigUp size={16} />
+															<Text>{c?.likedBy?.length}</Text>
+														</ActionIcon>
+													</Form>
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
