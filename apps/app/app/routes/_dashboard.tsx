@@ -292,14 +292,18 @@ export default function Layout() {
 					<Link to={$path("/")} style={{ all: "unset" }}>
 						<Group>
 							<Image
-								src={
-									currentColorScheme === "dark"
-										? "/logo-light.png"
-										: "/icon-512x512.png"
-								}
+								src="/icon-512x512.png"
 								h={40}
 								w={40}
 								radius="md"
+								darkHidden
+							/>
+							<Image
+								src="/logo-light.png"
+								h={40}
+								w={40}
+								radius="md"
+								lightHidden
 							/>
 							<Text size="xl" className={classes.logoText}>
 								Ryot
