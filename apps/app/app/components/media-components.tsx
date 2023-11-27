@@ -714,15 +714,15 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const removeMediaFromCollectionFormRef = useRef<HTMLFormElement>(null);
-	const removeMediaFromCollection = useFetcher();
+	const removeEntityFromCollectionFormRef = useRef<HTMLFormElement>(null);
+	const removeEntityFromCollection = useFetcher();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
 			<Form
-				action="/actions?intent=removeMediaFromCollection"
+				action="/actions?intent=removeEntityFromCollection"
 				method="post"
-				ref={removeMediaFromCollectionFormRef}
+				ref={removeEntityFromCollectionFormRef}
 			>
 				<Flex gap={2}>
 					<Anchor
@@ -745,8 +745,8 @@ export const DisplayCollection = (props: {
 								"Are you sure you want to remove this media from this collection?",
 							);
 							if (yes)
-								removeMediaFromCollection.submit(
-									removeMediaFromCollectionFormRef.current,
+								removeEntityFromCollection.submit(
+									removeEntityFromCollectionFormRef.current,
 								);
 						}}
 					>

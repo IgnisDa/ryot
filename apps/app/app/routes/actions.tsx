@@ -110,7 +110,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
-		removeMediaFromCollection: async () => {
+		removeEntityFromCollection: async () => {
 			const submission = processSubmission(
 				formData,
 				changeCollectionToEntitySchema,
