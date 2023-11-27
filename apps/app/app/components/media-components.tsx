@@ -600,12 +600,16 @@ export const MediaSearchItem = (props: {
 						variant="outline"
 						w="100%"
 						size="compact-md"
-						to={$path("/actions", {
-							...searchParams,
-							redirectTo: $path("/media/item/:id/update-progress", {
-								id: props.maybeItemId?.toString() || "",
-							}),
-						})}
+						to={
+							props.maybeItemId
+								? $path("/media/item/:id/update-progress", {
+										id: props.maybeItemId.toString(),
+								  })
+								: $path("/actions", {
+										...searchParams,
+										redirectTo: "/media/item/:id/update-progress",
+								  })
+						}
 					>
 						Mark as {getVerb(Verb.Read, props.lot)}
 					</Button>

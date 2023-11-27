@@ -42,7 +42,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		if (values.returnRaw) return json(commitMedia);
 		return redirect(
 			values.redirectTo
-				? safeRedirect(values.redirectTo)
+				? safeRedirect(
+						values.redirectTo.replace(":id", commitMedia.id.toString()),
+				  )
 				: $path("/media/item/:id", { id: commitMedia.id.toString() }),
 		);
 	}
