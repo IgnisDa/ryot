@@ -117,11 +117,14 @@ export default function Layout() {
 		coreDetails,
 		currentColorScheme,
 	} = useLoaderData<typeof loader>();
-	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<{
-		media: boolean;
-		fitness: boolean;
-		settings: boolean;
-	}>({
+	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
+		| {
+				media: boolean;
+				fitness: boolean;
+				settings: boolean;
+		  }
+		| undefined
+	>({
 		key: LOCAL_STORAGE_KEYS.savedOpenedLinkGroups,
 		defaultValue: { fitness: false, media: false, settings: false },
 		getInitialValueInEffect: true,
@@ -162,11 +165,11 @@ export default function Layout() {
 							label="Media"
 							icon={IconDeviceSpeaker}
 							links={mediaLinks}
-							opened={openedLinkGroups.media}
+							opened={openedLinkGroups?.media || false}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
-										draft.media = k;
+										if (draft) draft.media = k;
 									}),
 								)
 							}
@@ -176,11 +179,11 @@ export default function Layout() {
 						<LinksGroup
 							label="Fitness"
 							icon={IconStretching}
-							opened={openedLinkGroups.fitness}
+							opened={openedLinkGroups?.fitness || false}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
-										draft.fitness = k;
+										if (draft) draft.fitness = k;
 									}),
 								)
 							}
@@ -204,11 +207,11 @@ export default function Layout() {
 					<LinksGroup
 						label="Settings"
 						icon={IconSettings}
-						opened={openedLinkGroups.settings}
+						opened={openedLinkGroups?.settings || false}
 						setOpened={(k) =>
 							setOpenedLinkGroups(
 								produce(openedLinkGroups, (draft) => {
-									draft.settings = k;
+									if (draft) draft.settings = k;
 								}),
 							)
 						}
