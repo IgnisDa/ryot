@@ -22,7 +22,7 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
+import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	ExerciseEquipment,
@@ -126,6 +126,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		exerciseParameters,
 		exercisesList,
 	});
+};
+
+export const meta: MetaFunction = () => {
+	return [{ title: "Exercises | Ryot" }];
 };
 
 export default function Page() {
