@@ -1,10 +1,7 @@
 {
 	"name": "@ryot/root",
 	"packageManager": "yarn@4.0.0",
-	"workspaces": [
-		"apps/*",
-		"libs/*"
-	],
+	"workspaces": ["apps/*", "libs/*"],
 	"engines": {
 		"node": "20.5.1"
 	},

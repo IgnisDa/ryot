@@ -15,9 +15,11 @@ TimeAgo.addDefaultLocale(en);
 /**
  * Format a `Date` into a human readable format.
  */
-export const formatTimeAgo = (time: Date) => {
+export const formatTimeAgo = (time: Date | string) => {
 	const timeAgo = new TimeAgo("en-US");
-	return timeAgo.format(time);
+	let newTime = time as Date;
+	if (typeof time === "string") newTime = new Date(time);
+	return timeAgo.format(newTime);
 };
 
 /**
