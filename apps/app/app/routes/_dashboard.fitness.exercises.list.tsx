@@ -55,7 +55,7 @@ import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
-import { gqlClientSide } from "~/lib/api.client";
+import { gqlClientSide } from "~/lib/api";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
