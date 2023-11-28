@@ -17,7 +17,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+import { Form, Link, useLoaderData, useNavigation } from "@remix-run/react";
 import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
@@ -26,7 +26,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
@@ -106,9 +106,23 @@ const createOrUpdateSchema = z.object({
 });
 
 export default function Page() {
+	const transition = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
-	const [toUpdateCollection, setToUpdateCollection] = useState<number>();
+	const [toUpdateCollection, setToUpdateCollection] = useState<{
+		name: string;
+		id: number;
+		description?: string | null;
+		visibility: Visibility;
+	}>();
 	const [opened, { open, close }] = useDisclosure(false);
+	const formRef = useRef<HTMLFormElement>(null);
+
+	useEffect(() => {
+		if (transition.state !== "submitting") {
+			close();
+			setToUpdateCollection(undefined);
+		}
+	}, [transition.state]);
 
 	return (
 		<Container>
@@ -154,18 +168,18 @@ export default function Page() {
 									color="blue"
 									variant="outline"
 									onClick={() => {
-										setToUpdateCollection(c.id);
-										form.setValues({
-											name: c?.name,
-											description: c?.description ?? undefined,
-											visibility: c?.visibility,
+										setToUpdateCollection({
+											name: c.name,
+											id: c.id,
+											description: c.description,
+											visibility: c.visibility,
 										});
 										open();
 									}}
 								>
 									<IconEdit size={18} />
 								</ActionIcon>
-								<Form action="?intent=delete" method="post">
+								<Form action="?intent=delete" method="post" ref={formRef}>
 									<ActionIcon
 										color="red"
 										variant="outline"
@@ -195,7 +209,14 @@ export default function Page() {
 							<Title order={3}>
 								{toUpdateCollection ? "Update" : "Create"} collection
 							</Title>
-							<TextInput label="Name" required name="name" />
+							<TextInput
+								label="Name"
+								required
+								name="name"
+								defaultValue={
+									toUpdateCollection ? toUpdateCollection.name : undefined
+								}
+							/>
 							<Box>
 								<Input.Label>Visibility</Input.Label>
 								<SegmentedControl
@@ -211,14 +232,27 @@ export default function Page() {
 										},
 									]}
 									name="visibility"
+									defaultValue={
+										toUpdateCollection
+											? toUpdateCollection.visibility
+											: Visibility.Private
+									}
 								/>
 							</Box>
-							<Textarea label="Description" name="description" />
+							<Textarea
+								label="Description"
+								name="description"
+								defaultValue={
+									toUpdateCollection?.description
+										? toUpdateCollection.description
+										: undefined
+								}
+							/>
 							<Button
 								variant="outline"
 								type="submit"
 								name={toUpdateCollection ? "updateId" : undefined}
-								value={toUpdateCollection ?? undefined}
+								value={toUpdateCollection ? toUpdateCollection.id : undefined}
 							>
 								{toUpdateCollection ? "Update" : "Create"}
 							</Button>
