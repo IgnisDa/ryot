@@ -1,5 +1,4 @@
 import { conform, useForm } from "@conform-to/react";
-import { parse } from "@conform-to/zod";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import {
 	ActionFunctionArgs,
@@ -11,7 +10,6 @@ import {
 import {
 	Form,
 	Link,
-	useActionData,
 	useLoaderData,
 	useSearchParams,
 } from "@remix-run/react";
@@ -96,7 +94,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function Page() {
 	const [searchParams] = useSearchParams();
 	const loaderData = useLoaderData<typeof loader>();
-	const lastSubmission = useActionData<typeof action>();
 	const [form, fields] = useForm({
 		defaultValue: {
 			redirectTo: searchParams.get(redirectToQueryParam) ?? "",

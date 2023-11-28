@@ -6,7 +6,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useActionData, useSearchParams } from "@remix-run/react";
+import { Form, Link, useSearchParams } from "@remix-run/react";
 import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
@@ -84,7 +84,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Page() {
 	const [searchParams] = useSearchParams();
-	const lastSubmission = useActionData<typeof action>();
 	const [form, fields] = useForm({
 		defaultValue: {
 			redirectTo: searchParams.get(redirectToQueryParam) ?? "",
