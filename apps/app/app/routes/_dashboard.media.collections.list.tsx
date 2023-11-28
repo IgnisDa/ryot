@@ -16,7 +16,12 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Form, Link, useLoaderData, useNavigation } from "@remix-run/react";
 import {
 	CreateOrUpdateCollectionDocument,
@@ -42,6 +47,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		await getAuthorizationHeader(request),
 	);
 	return json({ collections: userCollectionsList });
+};
+
+export const meta: MetaFunction = () => {
+	return [{ title: "Collections | Ryot" }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {

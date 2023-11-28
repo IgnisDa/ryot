@@ -11,7 +11,12 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
-import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeployBulkProgressUpdateDocument,
@@ -62,6 +67,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		extraDetails = mediaDetails;
 	}
 	return json({ query, id, extraDetails });
+};
+
+export const meta: MetaFunction = ({ data }) => {
+	return [
+		{
+			title: `Update progress for ${
+				// biome-ignore lint/suspicious/noExplicitAny:
+				(data as any).query.title
+			} | Ryot`,
+		},
+	];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {

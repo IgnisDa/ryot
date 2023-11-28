@@ -14,7 +14,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
+import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
@@ -159,6 +159,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		query,
 		numPage,
 	});
+};
+
+export const meta: MetaFunction = ({ params }) => {
+	return [
+		{
+			title: `${params.action === "list" ? "List" : "Search"} ${
+				params.lot?.toLowerCase() || ""
+			}s | Ryot`,
+		},
+	];
 };
 
 export default function Page() {

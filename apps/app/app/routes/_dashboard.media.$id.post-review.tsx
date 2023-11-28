@@ -12,7 +12,12 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteReviewDocument,
@@ -62,6 +67,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		existingReview = review;
 	}
 	return json({ query, existingReview, userPreferences, id });
+};
+
+export const meta: MetaFunction = ({ data }) => {
+	return [
+		{
+			title: `Post review for ${
+				// biome-ignore lint/suspicious/noExplicitAny:
+				(data as any).query.title
+			} | Ryot`,
+		},
+	];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {

@@ -26,7 +26,12 @@ import {
 import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
-import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	CreateMediaReminderDocument,
@@ -136,6 +141,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userMediaDetails,
 		collections,
 	});
+};
+
+export const meta: MetaFunction = ({ data }) => {
+	// biome-ignore lint/suspicious/noExplicitAny:
+	return [{ title: `${(data as any).mediaMainDetails.title} | Ryot` }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {

@@ -24,21 +24,6 @@ import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";
 
-const schema = z
-	.object({
-		username: z.string(),
-		password: z
-			.string()
-			.min(8, "Password should be at least 8 characters long"),
-		confirm: z.string(),
-	})
-	.refine((data) => data.password === data.confirm, {
-		message: "Passwords do not match",
-		path: ["confirm"],
-	});
-
-export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
@@ -53,6 +38,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		});
 	return json({});
 };
+
+export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
@@ -81,6 +68,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		message: "Please login with your new credentials",
 	});
 };
+
+const schema = z
+	.object({
+		username: z.string(),
+		password: z
+			.string()
+			.min(8, "Password should be at least 8 characters long"),
+		confirm: z.string(),
+	})
+	.refine((data) => data.password === data.confirm, {
+		message: "Passwords do not match",
+		path: ["confirm"],
+	});
 
 export default function Page() {
 	const [searchParams] = useSearchParams();

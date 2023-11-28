@@ -7,12 +7,7 @@ import {
 	json,
 	redirect,
 } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	useLoaderData,
-	useSearchParams,
-} from "@remix-run/react";
+import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
 import {
 	LoginErrorVariant,
 	LoginUserDocument,
@@ -32,14 +27,6 @@ import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";
 
-const schema = z.object({
-	username: z.string(),
-	password: z.string(),
-	[redirectToQueryParam]: z.string().optional(),
-});
-
-export const meta: MetaFunction = () => [{ title: "Login | Ryot" }];
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
@@ -50,6 +37,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const coreDetails = await getCoreDetails();
 	return json({ enabledFeatures, coreDetails });
 };
+
+export const meta: MetaFunction = () => [{ title: "Login | Ryot" }];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
@@ -90,6 +79,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		}),
 	});
 };
+
+const schema = z.object({
+	username: z.string(),
+	password: z.string(),
+	[redirectToQueryParam]: z.string().optional(),
+});
 
 export default function Page() {
 	const [searchParams] = useSearchParams();

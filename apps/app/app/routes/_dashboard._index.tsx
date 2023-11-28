@@ -13,7 +13,7 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
+import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CalendarEventPartFragment,
@@ -86,6 +86,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userUpcomingCalendarEvents,
 		collectionContents,
 	});
+};
+
+export const meta: MetaFunction = () => {
+	return [{ title: "Home | Ryot" }];
 };
 
 export default function Index() {
