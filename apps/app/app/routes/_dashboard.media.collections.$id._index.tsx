@@ -17,7 +17,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -129,7 +129,8 @@ export const meta: MetaFunction = ({ data }) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParams, { setP, delP }] = useSearchParam();
+	const navigate = useNavigate();
+	const [searchParams, { setP }] = useSearchParam();
 	const [query, setQuery] = useState(searchParams.get("query") || "");
 	const [
 		filtersModalOpened,
@@ -217,10 +218,7 @@ export default function Page() {
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {
-													delP("sortBy");
-													delP("orderBy");
-													delP("entityLot");
-													delP("metadataLot");
+													navigate(".");
 													closeFiltersModal();
 												}}
 											>

@@ -265,10 +265,7 @@ export default function Page() {
 										<Title order={3}>Filters</Title>
 										<ActionIcon
 											onClick={() => {
-												delP("generalFilter");
-												delP("sortBy");
-												delP("sortOrder");
-												delP("collectionFilter");
+												navigate(".");
 												closeFiltersModal();
 											}}
 										>
