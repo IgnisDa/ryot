@@ -423,7 +423,7 @@ export default function Page() {
 							}
 							const finishedDraft = finishDraft(draft);
 							setCurrentWorkout(finishedDraft);
-							navigate($path("/fitness/exercises/current-workout"));
+							navigate($path("/fitness/workouts/current"));
 						}}
 					>
 						<IconCheck size={32} />

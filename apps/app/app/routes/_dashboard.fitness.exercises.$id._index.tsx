@@ -203,7 +203,7 @@ export default function Page() {
 									<Paper key={h.workoutId} withBorder p="xs">
 										<Anchor
 											component={Link}
-											to={$path("/fitness/exercises/workouts/:id", {
+											to={$path("/fitness/workouts/:id", {
 												id: h.workoutId,
 											})}
 											fw="bold"

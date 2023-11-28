@@ -88,7 +88,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
-				href: joinURL("/fitness", f.name),
+				href: joinURL("/fitness", f.name, "list"),
 			})) || []),
 		{ label: "Exercises", href: $path("/fitness/exercises/list") },
 	].map((link) => ({

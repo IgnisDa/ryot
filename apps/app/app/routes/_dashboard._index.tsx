@@ -109,10 +109,7 @@ export default function Index() {
 					>
 						<Text size="lg">
 							You have a workout in progress. Click{" "}
-							<Anchor
-								component={Link}
-								to={$path("/fitness/exercises/current-workout")}
-							>
+							<Anchor component={Link} to={$path("/fitness/workouts/current")}>
 								here
 							</Anchor>{" "}
 							to continue.
@@ -417,7 +414,7 @@ export default function Index() {
 										currentWorkout ? (
 											<Button
 												variant="outline"
-												to={$path("/fitness/exercises/current-workout")}
+												to={$path("/fitness/workouts/current")}
 												component={Link}
 												leftSection={<IconBarbell />}
 											>
@@ -429,7 +426,7 @@ export default function Index() {
 												leftSection={<IconBarbell />}
 												onClick={() => {
 													setCurrentWorkout(getDefaultWorkout());
-													navigate($path("/fitness/exercises/current-workout"));
+													navigate($path("/fitness/workouts/current"));
 												}}
 											>
 												Start a workout
