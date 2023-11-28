@@ -5,18 +5,17 @@ import {
 	Center,
 	Container,
 	Flex,
-	Grid,
 	Group,
 	Modal,
-	Pagination,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
 	Title,
-	Text,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
@@ -29,31 +28,45 @@ import {
 import { changeCase, formatTimeAgo, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
-	IconUser,
-	IconMessageCircle2,
-	IconSearch,
-	IconX,
 	IconFilter,
 	IconFilterOff,
+	IconMessageCircle2,
+	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
+	IconUser,
+	IconX,
 } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
-import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
+import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media-components";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import {
+	getCoreDetails,
+	getUserDetails,
+	getUserPreferences,
+} from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+
+const defaultFiltersValue = {
+	sort: CollectionContentsSortBy.LastUpdatedOn,
+	order: GraphqlSortOrder.Desc,
+};
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.optional(),
 	query: z.string().optional(),
-	sortBy: z.nativeEnum(CollectionContentsSortBy).optional(),
-	orderBy: z.nativeEnum(GraphqlSortOrder).optional(),
+	sortBy: z
+		.nativeEnum(CollectionContentsSortBy)
+		.default(defaultFiltersValue.sort),
+	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFiltersValue.order),
 	entityLot: z.nativeEnum(EntityLot).optional(),
 	metadataLot: z.nativeEnum(MetadataLot).optional(),
 });
@@ -87,7 +100,20 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		},
 		await getAuthorizationHeader(request),
 	);
-	return json({ id, info, contents: contents.results });
+	const [coreDetails, userPreferences, userDetails] = await Promise.all([
+		getCoreDetails(),
+		getUserPreferences(request),
+		getUserDetails(request),
+	]);
+	return json({
+		id,
+		query,
+		info,
+		contents: contents.results,
+		coreDetails,
+		userPreferences,
+		userDetails,
+	});
 };
 
 export const meta: MetaFunction = ({ data }) => {
@@ -95,7 +121,7 @@ export const meta: MetaFunction = ({ data }) => {
 		{
 			title: `${
 				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).details.details.name
+				(data as any).info.details.name
 			} | Ryot`,
 		},
 	];
@@ -103,7 +129,14 @@ export const meta: MetaFunction = ({ data }) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useSearchParam();
+	const [searchParams, { setP, delP }] = useSearchParam();
+	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
+
+	useEffect(() => setP("query", query), [query]);
 
 	return (
 		<Container>
@@ -163,10 +196,10 @@ export default function Page() {
 								<ActionIcon
 									onClick={openFiltersModal}
 									color={
-										entityLotFilter !== undefined ||
-										metadataLotFilter !== undefined ||
-										sortBy !== defaultFiltersValue.by ||
-										sortOrder !== defaultFiltersValue.order
+										loaderData.query.entityLot !== undefined ||
+										loaderData.query.metadataLot !== undefined ||
+										loaderData.query.sortBy !== defaultFiltersValue.sort ||
+										loaderData.query.orderBy !== defaultFiltersValue.order
 											? "blue"
 											: "gray"
 									}
@@ -184,10 +217,10 @@ export default function Page() {
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {
-													setSortBy(defaultFiltersValue.by);
-													setSortOrder(defaultFiltersValue.order);
-													setEntityLotFilter(undefined);
-													setMetadataLotFilter(undefined);
+													delP("sortBy");
+													delP("orderBy");
+													delP("entityLot");
+													delP("metadataLot");
 													closeFiltersModal();
 												}}
 											>
@@ -208,19 +241,17 @@ export default function Page() {
 														),
 													},
 												]}
-												value={sortBy?.toString()}
-												onChange={(v) => {
-													if (v) setSortBy(v as CollectionContentsSortBy);
-												}}
+												defaultValue={loaderData.query.sortBy}
+												onChange={(v) => setP("sortBy", v)}
 											/>
 											<ActionIcon
 												onClick={() => {
-													if (sortOrder === GraphqlSortOrder.Asc)
-														setSortOrder(GraphqlSortOrder.Desc);
-													else setSortOrder(GraphqlSortOrder.Asc);
+													if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
+														setP("orderBy", GraphqlSortOrder.Desc);
+													else setP("orderBy", GraphqlSortOrder.Asc);
 												}}
 											>
-												{sortOrder === GraphqlSortOrder.Asc ? (
+												{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
 													<IconSortAscending />
 												) : (
 													<IconSortDescending />
@@ -229,38 +260,33 @@ export default function Page() {
 										</Flex>
 										<Select
 											placeholder="Select an entity type"
-											value={entityLotFilter}
+											defaultValue={loaderData.query.entityLot}
 											data={Object.values(EntityLot).map((o) => ({
 												value: o.toString(),
 												label: startCase(o.toLowerCase()),
 											}))}
-											onChange={(v) => {
-												setEntityLotFilter(v as EntityLot);
-											}}
+											onChange={(v) => setP("entityLot", v)}
 											clearable
 										/>
-										{entityLotFilter === EntityLot.Media ||
-										entityLotFilter === EntityLot.MediaGroup ? (
+										{loaderData.query.entityLot === EntityLot.Media ||
+										loaderData.query.entityLot === EntityLot.MediaGroup ? (
 											<Select
 												placeholder="Select a media type"
-												value={metadataLotFilter}
+												defaultValue={loaderData.query.metadataLot}
 												data={Object.values(MetadataLot).map((o) => ({
 													value: o.toString(),
 													label: startCase(o.toLowerCase()),
 												}))}
-												onChange={(v) => {
-													setMetadataLotFilter(v as MetadataLot);
-												}}
+												onChange={(v) => setP("metadataLot", v)}
 												clearable
 											/>
 										) : undefined}
 									</Stack>
 								</Modal>
 							</Group>
-							{collectionContents.data &&
-							collectionContents.data.results.items.length > 0 ? (
-								<Grid>
-									{collectionContents.data.results.items.map((lm) => (
+							{loaderData.contents.items.length > 0 ? (
+								<ApplicationGrid>
+									{loaderData.contents.items.map((lm) => (
 										<MediaItemWithoutUpdateModal
 											noRatingLink
 											key={lm.details.identifier}
@@ -270,24 +296,23 @@ export default function Page() {
 											}}
 											lot={lm.metadataLot}
 											entityLot={lm.entityLot}
+											userPreferences={loaderData.userPreferences}
 										/>
 									))}
-								</Grid>
+								</ApplicationGrid>
 							) : (
 								<Text>You have not added any media to this collection</Text>
 							)}
-							{collectionContents.data ? (
+							{loaderData.contents.details ? (
 								<Center>
-									<Pagination
+									<ApplicationPagination
 										size="sm"
-										value={activePage || 1}
-										onChange={(v) => setPage(v)}
+										defaultValue={loaderData.query.page}
+										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
-											collectionContents.data.results.details.total /
-												coreDetails.data.pageLimit,
+											loaderData.contents.details.total /
+												loaderData.coreDetails.pageLimit,
 										)}
-										boundaries={1}
-										siblings={0}
 									/>
 								</Center>
 							) : undefined}
@@ -299,8 +324,8 @@ export default function Page() {
 								variant="outline"
 								w="100%"
 								component={Link}
-								href={withQuery(APP_ROUTES.media.postReview, {
-									collectionId,
+								to={$path("/media/:id/post-review", {
+									id: loaderData.id,
 								})}
 							>
 								Post a review
@@ -309,12 +334,14 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="reviews">
 						<Stack>
-							{collectionContents.data?.reviews.map((r) => (
+							{loaderData.info.reviews.map((r) => (
 								<ReviewItemDisplay
+									title={loaderData.info.details.name}
 									review={r}
 									key={r.id}
-									collectionId={collectionId}
-									refetch={collectionContents.refetch}
+									collectionId={loaderData.id}
+									userPreferences={loaderData.userPreferences}
+									user={loaderData.userDetails}
 								/>
 							))}
 						</Stack>
