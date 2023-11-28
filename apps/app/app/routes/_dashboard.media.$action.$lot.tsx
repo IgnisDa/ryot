@@ -173,7 +173,7 @@ export const meta: MetaFunction = ({ params }) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParams, { setP, delP }] = useSearchParam();
+	const [searchParams, { setP }] = useSearchParam();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
