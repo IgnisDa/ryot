@@ -68,7 +68,7 @@ const defaultFiltersValue = {
 	force: undefined,
 	level: undefined,
 	mechanic: undefined,
-	sort: ExerciseSortBy.LastPerformed,
+	sort: ExerciseSortBy.NumTimesPerformed,
 };
 
 const searchParamsSchema = z.object({
