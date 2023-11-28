@@ -6189,7 +6189,6 @@ __metadata:
   dependencies:
     "@ryot/generated": "workspace:*"
     graphql-request: "npm:6.1.0"
-    graphql-scalars: "npm:1.22.4"
   languageName: unknown
   linkType: soft
 
@@ -10883,17 +10882,6 @@ __metadata:
   peerDependencies:
     graphql: 14 - 16
   checksum: d4b0831825c0a5732421cc0e9a15baef8772d1cb4371cba76aa265f247cbc602009ec4959ecb7ef087588c43277897e4f89ff9b6a97487f1525bb41de2f888f0
-  languageName: node
-  linkType: hard
-
-"graphql-scalars@npm:1.22.4":
-  version: 1.22.4
-  resolution: "graphql-scalars@npm:1.22.4"
-  dependencies:
-    tslib: "npm:^2.5.0"
-  peerDependencies:
-    graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
-  checksum: 110c1fa29d7564d9967c974de2df08c99d7ed43af98097e5a5729f952c064b21f66a9f5a68143c50eeac6a4ce14f0999aed2ce8f043d02331d133b0c59a9c1ec
   languageName: node
   linkType: hard
 
