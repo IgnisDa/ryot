@@ -90,7 +90,7 @@ import {
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ReviewItemDisplay,
-} from "~/components/media-components";
+} from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	getCoreDetails,

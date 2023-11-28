@@ -42,7 +42,7 @@ import {
 	AddEntityToCollectionModal,
 	DisplayCollection,
 	MediaScrollArea,
-} from "~/components/media-components";
+} from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { getSetColor } from "~/lib/utilities";

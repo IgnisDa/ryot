@@ -46,7 +46,7 @@ import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
-} from "~/components/media-components";
+} from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	getCoreDetails,
