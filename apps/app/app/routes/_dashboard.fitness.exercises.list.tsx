@@ -34,7 +34,6 @@ import {
 	ExerciseParametersDocument,
 	ExerciseSortBy,
 	ExercisesListDocument,
-	GraphqlSortOrder,
 	SetLot,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -56,6 +55,7 @@ import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
+import { gqlClientSide } from "~/lib/api.client";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
@@ -382,41 +382,41 @@ export default function Page() {
 						size="xl"
 						onClick={async () => {
 							const draft = createDraft(currentWorkout);
-							// for (const exercise of selectedExercises) {
-							// 	const { userExerciseDetails } = await gqlClient.request(
-							// 		UserExerciseDetailsDocument,
-							// 		{ input: { exerciseId: exercise.name, takeHistory: 1 } },
-							// 	);
-							// 	draft.exercises.push({
-							// 		exerciseId: exercise.name,
-							// 		lot: exercise.lot,
-							// 		name: exercise.name,
-							// 		sets: [
-							// 			{
-							// 				confirmed: false,
-							// 				statistic: {},
-							// 				lot: SetLot.Normal,
-							// 			},
-							// 		],
-							// 		alreadyDoneSets:
-							// 			userExerciseDetails?.history?.at(0)?.sets.map((s) => ({
-							// 				// biome-ignore lint/suspicious/noExplicitAny: required here
-							// 				statistic: s.statistic as any,
-							// 			})) || [],
-							// 		restTimer: loaderData.userPreferences.fitness.exercises
-							// 			.defaultTimer
-							// 			? {
-							// 					duration:
-							// 						loaderData.userPreferences.fitness.exercises
-							// 							.defaultTimer,
-							// 					enabled: true,
-							// 			  }
-							// 			: undefined,
-							// 		notes: [],
-							// 		images: [],
-							// 		videos: [],
-							// 	});
-							// }
+							for (const exercise of selectedExercises) {
+								const { userExerciseDetails } = await gqlClientSide.request(
+									UserExerciseDetailsDocument,
+									{ input: { exerciseId: exercise.name, takeHistory: 1 } },
+								);
+								draft.exercises.push({
+									exerciseId: exercise.name,
+									lot: exercise.lot,
+									name: exercise.name,
+									sets: [
+										{
+											confirmed: false,
+											statistic: {},
+											lot: SetLot.Normal,
+										},
+									],
+									alreadyDoneSets:
+										userExerciseDetails?.history?.at(0)?.sets.map((s) => ({
+											// biome-ignore lint/suspicious/noExplicitAny: required here
+											statistic: s.statistic as any,
+										})) || [],
+									restTimer: loaderData.userPreferences.fitness.exercises
+										.defaultTimer
+										? {
+												duration:
+													loaderData.userPreferences.fitness.exercises
+														.defaultTimer,
+												enabled: true,
+										  }
+										: undefined,
+									notes: [],
+									images: [],
+									videos: [],
+								});
+							}
 							const finishedDraft = finishDraft(draft);
 							setCurrentWorkout(finishedDraft);
 							navigate($path("/fitness/exercises/current-workout"));
