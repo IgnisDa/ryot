@@ -324,9 +324,14 @@ export default function Page() {
 								variant="outline"
 								w="100%"
 								component={Link}
-								to={$path("/media/:id/post-review", {
-									id: loaderData.id,
-								})}
+								to={$path(
+									"/media/:id/post-review",
+									{ id: loaderData.id },
+									{
+										entityType: "collection",
+										title: loaderData.info.details.name,
+									},
+								)}
 							>
 								Post a review
 							</Button>
