@@ -29,7 +29,6 @@ import { useSearchParam } from "~/lib/hooks";
 const searchParamsSchema = z.object({
 	date: z
 		.string()
-		.datetime()
 		.default(() => new Date().toISOString())
 		.transform((v) => DateTime.fromISO(v)),
 });
