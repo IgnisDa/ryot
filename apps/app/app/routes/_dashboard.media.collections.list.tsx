@@ -19,6 +19,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
+	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
 	UserCollectionsListDocument,
 	Visibility,
@@ -29,6 +30,7 @@ import { useState } from "react";
 import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
+import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utils";
@@ -45,6 +47,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
+		createOrUpdate: async () => {
+			const submission = processSubmission(formData, createOrUpdateSchema);
+			await gqlClient.request(
+				CreateOrUpdateCollectionDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json(
+				{},
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: submission.updateId
+							? "Collection updated"
+							: "Collection created",
+					}),
+				},
+			);
+		},
 		delete: async () => {
 			const submission = processSubmission(
 				formData,
@@ -76,6 +97,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 	});
 };
+
+const createOrUpdateSchema = z.object({
+	name: z.string(),
+	description: z.string().optional(),
+	visibility: z.nativeEnum(Visibility),
+	updateId: zx.IntAsString.optional(),
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -126,7 +154,7 @@ export default function Page() {
 									color="blue"
 									variant="outline"
 									onClick={() => {
-										setToUpdateCollection(c?.id);
+										setToUpdateCollection(c.id);
 										form.setValues({
 											name: c?.name,
 											description: c?.description ?? undefined,
@@ -162,14 +190,14 @@ export default function Page() {
 					))}
 				</SimpleGrid>
 				<Modal opened={opened} onClose={close} withCloseButton={false} centered>
-					<Box component={Form} method="post">
+					<Box component={Form} method="post" action="?intent=createOrUpdate">
 						<Stack>
 							<Title order={3}>
 								{toUpdateCollection ? "Update" : "Create"} collection
 							</Title>
-							<TextInput label="Name" required />
+							<TextInput label="Name" required name="name" />
 							<Box>
-								<Input.Label required>Visibility</Input.Label>
+								<Input.Label>Visibility</Input.Label>
 								<SegmentedControl
 									fullWidth
 									data={[
@@ -182,10 +210,16 @@ export default function Page() {
 											value: Visibility.Public,
 										},
 									]}
+									name="visibility"
 								/>
 							</Box>
-							<Textarea label="Description" />
-							<Button variant="outline" type="submit">
+							<Textarea label="Description" name="description" />
+							<Button
+								variant="outline"
+								type="submit"
+								name={toUpdateCollection ? "updateId" : undefined}
+								value={toUpdateCollection ?? undefined}
+							>
 								{toUpdateCollection ? "Update" : "Create"}
 							</Button>
 						</Stack>
