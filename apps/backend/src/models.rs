@@ -75,7 +75,7 @@ pub struct SearchInput {
     pub page: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
 pub struct SearchDetails {
     pub total: i32,
     pub next_page: Option<i32>,

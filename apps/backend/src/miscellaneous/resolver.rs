@@ -3885,141 +3885,163 @@ impl MiscellaneousService {
             }
         }
 
-        let paginator = CollectionToEntity::find()
-            .left_join(Metadata)
-            .left_join(MetadataGroup)
-            .left_join(Person)
-            .left_join(Exercise)
-            .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
-            .apply_if(search.query, |query, v| {
-                query.filter(
-                    Condition::any()
-                        .add(get_ilike_query(
-                            Expr::col((AliasedMetadata::Table, metadata::Column::Title)),
-                            &v,
-                        ))
-                        .add(get_ilike_query(
-                            Expr::col((AliasedMetadataGroup::Table, metadata_group::Column::Title)),
-                            &v,
-                        ))
-                        .add(get_ilike_query(
-                            Expr::col((AliasedPerson::Table, person::Column::Name)),
-                            &v,
-                        ))
-                        .add(get_ilike_query(
-                            Expr::col((AliasedExercise::Table, exercise::Column::Id)),
-                            &v,
-                        )),
+        let take = input
+            .take
+            .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap());
+        let results = if take != 0 {
+            let paginator = CollectionToEntity::find()
+                .left_join(Metadata)
+                .left_join(MetadataGroup)
+                .left_join(Person)
+                .left_join(Exercise)
+                .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+                .apply_if(search.query, |query, v| {
+                    query.filter(
+                        Condition::any()
+                            .add(get_ilike_query(
+                                Expr::col((AliasedMetadata::Table, metadata::Column::Title)),
+                                &v,
+                            ))
+                            .add(get_ilike_query(
+                                Expr::col((
+                                    AliasedMetadataGroup::Table,
+                                    metadata_group::Column::Title,
+                                )),
+                                &v,
+                            ))
+                            .add(get_ilike_query(
+                                Expr::col((AliasedPerson::Table, person::Column::Name)),
+                                &v,
+                            ))
+                            .add(get_ilike_query(
+                                Expr::col((AliasedExercise::Table, exercise::Column::Id)),
+                                &v,
+                            )),
+                    )
+                })
+                .apply_if(filter.metadata_lot, |query, v| {
+                    query.filter(
+                        Condition::any()
+                            .add(Expr::col((AliasedMetadata::Table, metadata::Column::Lot)).eq(v)),
+                    )
+                })
+                .apply_if(filter.entity_type, |query, v| {
+                    let f = match v {
+                        EntityLot::Media => collection_to_entity::Column::MetadataId.is_not_null(),
+                        EntityLot::MediaGroup => {
+                            collection_to_entity::Column::MetadataGroupId.is_not_null()
+                        }
+                        EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
+                        EntityLot::Exercise => {
+                            collection_to_entity::Column::ExerciseId.is_not_null()
+                        }
+                    };
+                    query.filter(f)
+                })
+                .order_by(
+                    match sort.by {
+                        CollectionContentsSortBy::LastUpdatedOn => {
+                            Expr::col(collection_to_entity::Column::LastUpdatedOn)
+                        }
+                        CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
+                            Expr::col((AliasedMetadata::Table, metadata::Column::Title)).into(),
+                            Expr::col((AliasedMetadataGroup::Table, metadata_group::Column::Title))
+                                .into(),
+                            Expr::col((AliasedPerson::Table, person::Column::Name)).into(),
+                            Expr::col((AliasedExercise::Table, exercise::Column::Id)).into(),
+                        ])),
+                        CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
+                            Expr::col((AliasedMetadata::Table, metadata::Column::PublishDate))
+                                .into(),
+                            Expr::col((AliasedPerson::Table, person::Column::BirthDate)).into(),
+                        ])),
+                    },
+                    sort.order.into(),
                 )
-            })
-            .apply_if(filter.metadata_lot, |query, v| {
-                query.filter(
-                    Condition::any()
-                        .add(Expr::col((AliasedMetadata::Table, metadata::Column::Lot)).eq(v)),
-                )
-            })
-            .apply_if(filter.entity_type, |query, v| {
-                let f = match v {
-                    EntityLot::Media => collection_to_entity::Column::MetadataId.is_not_null(),
-                    EntityLot::MediaGroup => {
-                        collection_to_entity::Column::MetadataGroupId.is_not_null()
+                .paginate(&self.db, take);
+            let mut items = vec![];
+            let ItemsAndPagesNumber {
+                number_of_items,
+                number_of_pages,
+            } = paginator.num_items_and_pages().await?;
+            for cte in paginator.fetch_page(page - 1).await? {
+                let item = if let Some(id) = cte.metadata_id {
+                    let m = Metadata::find_by_id(id).one(&self.db).await?.unwrap();
+                    MediaSearchItemWithLot {
+                        details: MediaSearchItem {
+                            identifier: m.id.to_string(),
+                            title: m.title,
+                            image: m.images.first_as_url(&self.file_storage_service).await,
+                            publish_year: m.publish_year,
+                        },
+                        metadata_lot: Some(m.lot),
+                        entity_lot: EntityLot::Media,
                     }
-                    EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
-                    EntityLot::Exercise => collection_to_entity::Column::ExerciseId.is_not_null(),
-                };
-                query.filter(f)
-            })
-            .order_by(
-                match sort.by {
-                    CollectionContentsSortBy::LastUpdatedOn => {
-                        Expr::col(collection_to_entity::Column::LastUpdatedOn)
+                } else if let Some(id) = cte.person_id {
+                    let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
+                    MediaSearchItemWithLot {
+                        details: MediaSearchItem {
+                            identifier: p.id.to_string(),
+                            title: p.name,
+                            image: p.images.first_as_url(&self.file_storage_service).await,
+                            publish_year: p.birth_date.map(|d| d.year()),
+                        },
+                        metadata_lot: None,
+                        entity_lot: EntityLot::Person,
                     }
-                    CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                        Expr::col((AliasedMetadata::Table, metadata::Column::Title)).into(),
-                        Expr::col((AliasedMetadataGroup::Table, metadata_group::Column::Title))
-                            .into(),
-                        Expr::col((AliasedPerson::Table, person::Column::Name)).into(),
-                        Expr::col((AliasedExercise::Table, exercise::Column::Id)).into(),
-                    ])),
-                    CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                        Expr::col((AliasedMetadata::Table, metadata::Column::PublishDate)).into(),
-                        Expr::col((AliasedPerson::Table, person::Column::BirthDate)).into(),
-                    ])),
-                },
-                sort.order.into(),
-            )
-            .paginate(
-                &self.db,
-                input
-                    .take
-                    .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap()),
-            );
-        let mut items = vec![];
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        for cte in paginator.fetch_page(page - 1).await? {
-            let item = if let Some(id) = cte.metadata_id {
-                let m = Metadata::find_by_id(id).one(&self.db).await?.unwrap();
-                MediaSearchItemWithLot {
-                    details: MediaSearchItem {
-                        identifier: m.id.to_string(),
-                        title: m.title,
-                        image: m.images.first_as_url(&self.file_storage_service).await,
-                        publish_year: m.publish_year,
-                    },
-                    metadata_lot: Some(m.lot),
-                    entity_lot: EntityLot::Media,
-                }
-            } else if let Some(id) = cte.person_id {
-                let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
-                MediaSearchItemWithLot {
-                    details: MediaSearchItem {
-                        identifier: p.id.to_string(),
-                        title: p.name,
-                        image: p.images.first_as_url(&self.file_storage_service).await,
-                        publish_year: p.birth_date.map(|d| d.year()),
-                    },
-                    metadata_lot: None,
-                    entity_lot: EntityLot::Person,
-                }
-            } else if let Some(id) = cte.metadata_group_id {
-                let g = MetadataGroup::find_by_id(id).one(&self.db).await?.unwrap();
-                MediaSearchItemWithLot {
-                    details: MediaSearchItem {
-                        identifier: g.id.to_string(),
-                        title: g.title,
-                        image: Some(g.images)
-                            .first_as_url(&self.file_storage_service)
-                            .await,
-                        publish_year: None,
-                    },
-                    metadata_lot: None,
-                    entity_lot: EntityLot::MediaGroup,
-                }
-            } else if let Some(id) = cte.exercise_id {
-                let e = Exercise::find_by_id(id).one(&self.db).await?.unwrap();
-                let image = if let Some(i) = e.attributes.internal_images.first().cloned() {
-                    Some(get_stored_asset(i, &self.file_storage_service).await)
+                } else if let Some(id) = cte.metadata_group_id {
+                    let g = MetadataGroup::find_by_id(id).one(&self.db).await?.unwrap();
+                    MediaSearchItemWithLot {
+                        details: MediaSearchItem {
+                            identifier: g.id.to_string(),
+                            title: g.title,
+                            image: Some(g.images)
+                                .first_as_url(&self.file_storage_service)
+                                .await,
+                            publish_year: None,
+                        },
+                        metadata_lot: None,
+                        entity_lot: EntityLot::MediaGroup,
+                    }
+                } else if let Some(id) = cte.exercise_id {
+                    let e = Exercise::find_by_id(id).one(&self.db).await?.unwrap();
+                    let image = if let Some(i) = e.attributes.internal_images.first().cloned() {
+                        Some(get_stored_asset(i, &self.file_storage_service).await)
+                    } else {
+                        None
+                    };
+                    MediaSearchItemWithLot {
+                        details: MediaSearchItem {
+                            identifier: e.id.to_string(),
+                            title: e.id,
+                            image,
+                            publish_year: None,
+                        },
+                        metadata_lot: None,
+                        entity_lot: EntityLot::Exercise,
+                    }
                 } else {
-                    None
+                    unreachable!()
                 };
-                MediaSearchItemWithLot {
-                    details: MediaSearchItem {
-                        identifier: e.id.to_string(),
-                        title: e.id,
-                        image,
-                        publish_year: None,
+                items.push(item);
+            }
+            SearchResults {
+                details: SearchDetails {
+                    total: number_of_items.try_into().unwrap(),
+                    next_page: if page < number_of_pages {
+                        Some((page + 1).try_into().unwrap())
+                    } else {
+                        None
                     },
-                    metadata_lot: None,
-                    entity_lot: EntityLot::Exercise,
-                }
-            } else {
-                unreachable!()
-            };
-            items.push(item);
-        }
+                },
+                items,
+            }
+        } else {
+            SearchResults {
+                details: SearchDetails::default(),
+                items: vec![],
+            }
+        };
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
         let reviews = self
             .item_reviews(
@@ -4033,17 +4055,7 @@ impl MiscellaneousService {
         Ok(CollectionContents {
             details: collection,
             reviews,
-            results: SearchResults {
-                details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
-                    next_page: if page < number_of_pages {
-                        Some((page + 1).try_into().unwrap())
-                    } else {
-                        None
-                    },
-                },
-                items,
-            },
+            results,
             user,
         })
     }
