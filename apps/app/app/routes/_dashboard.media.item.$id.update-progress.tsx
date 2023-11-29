@@ -163,16 +163,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				: $path("/media/item/:id", { id: submission.metadataId }),
 			{ message: "Progress has been updated" },
 		);
-	} else
-		return json(
-			{},
-			{
-				headers: await createToastHeaders({
-					type: "error",
-					message: "Something went wrong",
-				}),
-			},
-		);
+	}
+	return json(
+		{},
+		{
+			headers: await createToastHeaders({
+				type: "error",
+				message: "Something went wrong",
+			}),
+		},
+	);
 };
 
 const actionSchema = z

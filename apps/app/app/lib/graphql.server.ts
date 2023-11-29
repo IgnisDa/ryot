@@ -34,5 +34,5 @@ export const getUserDetails = async (request: Request) => {
 		await getAuthorizationHeader(request),
 	);
 	if (userDetails.__typename === "User") return userDetails;
-	else throw new Error("User not found");
+	throw new Error("User not found");
 };
