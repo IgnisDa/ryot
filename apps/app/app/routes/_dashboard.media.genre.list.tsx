@@ -21,7 +21,7 @@ import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
 
@@ -36,11 +36,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { genresList }] = await Promise.all([
 		getCoreDetails(),
-		gqlClient.request(
-			GenresListDocument,
-			{ input: { page: query.page, query: query.query } },
-			await getAuthorizationHeader(request),
-		),
+		gqlClient.request(GenresListDocument, {
+			input: { page: query.page, query: query.query },
+		}),
 	]);
 	return json({ coreDetails, query, listGenres: genresList });
 };
