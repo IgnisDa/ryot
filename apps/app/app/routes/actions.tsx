@@ -21,7 +21,7 @@ import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { authCookie, colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities";
+import { processSubmission } from "~/lib/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const url = new URL(request.url);

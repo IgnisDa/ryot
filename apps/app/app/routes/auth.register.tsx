@@ -19,7 +19,7 @@ import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities";
+import { processSubmission } from "~/lib/utils";
 import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";
