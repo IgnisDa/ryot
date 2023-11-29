@@ -52,7 +52,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
-import { ApplicationUser } from "~/lib/utils";
+import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
 
 export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {

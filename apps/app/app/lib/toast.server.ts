@@ -1,6 +1,6 @@
 import { createCookieSessionStorage, redirect } from "@remix-run/node";
 import { z } from "zod";
-import { combineHeaders } from "~/lib/utils";
+import { combineHeaders } from "~/lib/utilities.server";
 
 export const toastKey = "toast";
 

@@ -59,7 +59,7 @@ import { LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utils";
+import { processSubmission } from "~/lib/utilities.server";
 
 enum TimeSpan {
 	Last7Days = "Last 7 days",

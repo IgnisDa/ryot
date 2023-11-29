@@ -22,7 +22,7 @@ import { authCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utils";
+import { processSubmission } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
 export const redirectToQueryParam = "redirectTo";

@@ -58,7 +58,7 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { getSetColor } from "~/lib/utilities";
-import { processSubmission } from "~/lib/utils";
+import { processSubmission } from "~/lib/utilities.server";
 import { currentWorkoutAtom, duplicateOldWorkout } from "~/lib/workout";
 
 const service = new HumanizeDurationLanguage();
