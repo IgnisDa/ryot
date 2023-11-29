@@ -57,8 +57,7 @@ import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { getSetColor } from "~/lib/utilities";
-import { processSubmission } from "~/lib/utils";
+import { getSetColor, processSubmission } from "~/lib/utilities";
 import { currentWorkoutAtom, duplicateOldWorkout } from "~/lib/workout";
 
 const service = new HumanizeDurationLanguage();

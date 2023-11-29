@@ -38,7 +38,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utils";
+import { processSubmission } from "~/lib/utilities";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const { userCollectionsList } = await gqlClient.request(

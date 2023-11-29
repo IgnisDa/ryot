@@ -51,8 +51,12 @@ import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useGetMantineColor } from "~/lib/hooks";
-import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
-import { ApplicationUser } from "~/lib/utils";
+import {
+	ApplicationUser,
+	Verb,
+	getFallbackImageUrl,
+	getVerb,
+} from "~/lib/utilities";
 import classes from "~/styles/media-components.module.css";
 
 export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
@@ -156,7 +160,7 @@ export const ReviewItemDisplay = (props: {
 										: props.collectionId
 										? "collection"
 										: "person",
-									existingReviewId: props.review.id,
+									existingReviewId: props.review.id?.toString(),
 									title: props.title,
 								},
 							)}

@@ -31,7 +31,7 @@ import { HoneypotProvider } from "remix-utils/honeypot/react";
 import { Toaster } from "~/components/toaster";
 import { honeypot } from "~/lib/honeypot.server";
 import { getToast } from "~/lib/toast.server";
-import { combineHeaders } from "~/lib/utils";
+import { combineHeaders } from "~/lib/utilities";
 import { colorSchemeCookie } from "./lib/cookies.server";
 
 const theme = createTheme({
