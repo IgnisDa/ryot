@@ -25,7 +25,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useFetcher, useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserMeasurementDocument,
 	DeleteUserMeasurementDocument,
@@ -41,7 +41,6 @@ import {
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
 import { DataTable } from "mantine-datatable";
-import { useRef } from "react";
 import {
 	CartesianGrid,
 	Line,
@@ -109,7 +108,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		create: async () => {
-			const submission = processSubmission(formData, bulkUpdateSchema);
+			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
+			const submission: any = {};
+			for (const [name, value] of formData.entries())
+				if (value !== "") set(submission, name, value);
 			await gqlClient.request(
 				CreateUserMeasurementDocument,
 				{ input: submission },
@@ -149,30 +151,10 @@ export default function Page() {
 	});
 	const [_, { setP }] = useSearchParam();
 
-	const createFormRef = useRef<HTMLFormElement>(null);
-	const createFetcher = useFetcher();
-
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
-				<Box
-					component={createFetcher.Form}
-					ref={createFormRef}
-					onSubmit={(e) => {
-						e.preventDefault();
-						const submitData = {};
-						const formData = new FormData(e.currentTarget);
-						for (const [name, value] of formData.entries())
-							if (value !== "") set(submitData, name, value);
-						if (Object.keys(submitData).length > 0) {
-							createUserMeasurement.mutate({
-								// biome-ignore lint/suspicious/noExplicitAny: required
-								input: submitData as any,
-							});
-						}
-					}}
-					method="post"
-				>
+				<Box component={Form} method="post" action="?intent=create">
 					<Stack>
 						<DateTimePicker
 							label="Timestamp"
