@@ -19,9 +19,18 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { UserMeasurementsListDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
+import { Form, useFetcher, useLoaderData } from "@remix-run/react";
+import {
+	CreateUserMeasurementDocument,
+	DeleteUserMeasurementDocument,
+	UserMeasurementsListDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
@@ -32,6 +41,7 @@ import {
 import { get, set } from "lodash";
 import { DateTime } from "luxon";
 import { DataTable } from "mantine-datatable";
+import { useRef } from "react";
 import {
 	CartesianGrid,
 	Line,
@@ -41,6 +51,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -48,6 +59,8 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import { createToastHeaders } from "~/lib/toast.server";
+import { processSubmission } from "~/lib/utils";
 
 enum TimeSpan {
 	Last7Days = "Last 7 days",
@@ -92,6 +105,40 @@ export const meta: MetaFunction = () => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		create: async () => {
+			const submission = processSubmission(formData, bulkUpdateSchema);
+			await gqlClient.request(
+				CreateUserMeasurementDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Measurement submitted successfully",
+				}),
+			});
+		},
+		delete: async () => {
+			const submission = processSubmission(formData, deleteSchema);
+			await gqlClient.request(
+				DeleteUserMeasurementDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Measurement deleted successfully",
+				}),
+			});
+		},
+	});
+};
+
+const deleteSchema = z.object({ timestamp: z.string() });
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [opened, { open, close }] = useDisclosure(false);
@@ -102,11 +149,15 @@ export default function Page() {
 	});
 	const [_, { setP }] = useSearchParam();
 
+	const createFormRef = useRef<HTMLFormElement>(null);
+	const createFetcher = useFetcher();
+
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
 				<Box
-					component="form"
+					component={createFetcher.Form}
+					ref={createFormRef}
 					onSubmit={(e) => {
 						e.preventDefault();
 						const submitData = {};
@@ -120,6 +171,7 @@ export default function Page() {
 							});
 						}
 					}}
+					method="post"
 				>
 					<Stack>
 						<DateTimePicker
@@ -294,17 +346,24 @@ export default function Page() {
 									width: 80,
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<ActionIcon
-											color="red"
-											onClick={() => {
-												const yes = confirm(
-													"This action can not be undone. Are you sure you want to delete this measurement?",
-												);
-												if (yes) deleteUserMeasurement.mutate({ timestamp });
-											}}
-										>
-											<IconTrash />
-										</ActionIcon>
+										<Form action="?intent=delete" method="post">
+											<ActionIcon
+												color="red"
+												onClick={(e) => {
+													if (
+														!confirm(
+															"This action can not be undone. Are you sure you want to delete this measurement?",
+														)
+													)
+														e.preventDefault();
+												}}
+												type="submit"
+												value={timestamp}
+												name="timestamp"
+											>
+												<IconTrash />
+											</ActionIcon>
+										</Form>
 									),
 								},
 							]}
