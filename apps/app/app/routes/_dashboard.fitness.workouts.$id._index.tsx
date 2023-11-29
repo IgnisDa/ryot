@@ -17,9 +17,15 @@ import {
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Form, Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
+	DeleteUserWorkoutDocument,
 	SetLot,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -42,12 +48,16 @@ import { useAtom } from "jotai";
 import { DateTime } from "luxon";
 import { ReactElement } from "react";
 import { $path } from "remix-routes";
+import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { useGetMantineColor } from "~/lib/hooks";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { getSetColor } from "~/lib/utilities";
+import { processSubmission } from "~/lib/utils";
 import { currentWorkoutAtom, duplicateOldWorkout } from "~/lib/workout";
 
 const service = new HumanizeDurationLanguage();
@@ -79,6 +89,26 @@ export const meta: MetaFunction = ({ data }) => {
 		},
 	];
 };
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		create: async () => {},
+		delete: async () => {
+			const submission = processSubmission(formData, deleteSchema);
+			await gqlClient.request(
+				DeleteUserWorkoutDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return redirectWithToast($path("/fitness/workouts/list"), {
+				message: "Workout deleted successfully",
+			});
+		},
+	});
+};
+
+const deleteSchema = z.object({ workoutId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -147,18 +177,25 @@ export default function Page() {
 								>
 									Adjust time
 								</Menu.Item>
-								<Menu.Item
-									onClick={() => {
-										const yes = confirm(
-											"Are you sure you want to delete this workout? This action is not reversible.",
-										);
-										if (yes) deleteWorkout.mutate({ workoutId });
-									}}
-									color="red"
-									leftSection={<IconTrash size={14} />}
-								>
-									Delete
-								</Menu.Item>
+								<Form action="?intent=delete" method="post">
+									<Menu.Item
+										onClick={(e) => {
+											if (
+												!confirm(
+													"Are you sure you want to delete this workout? This action is not reversible.",
+												)
+											)
+												e.preventDefault();
+										}}
+										color="red"
+										leftSection={<IconTrash size={14} />}
+										type="submit"
+										value={loaderData.workoutId}
+										name="workoutId"
+									>
+										Delete
+									</Menu.Item>
+								</Form>
 							</Menu.Dropdown>
 						</Menu>
 					</Group>
