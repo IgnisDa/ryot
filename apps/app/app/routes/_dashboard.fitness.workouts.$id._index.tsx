@@ -16,6 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
+import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
 	ActionFunctionArgs,
@@ -26,6 +27,7 @@ import {
 import { Form, Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
+	EditUserWorkoutDocument,
 	SetLot,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -46,7 +48,6 @@ import {
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
 import { DateTime } from "luxon";
-import { ReactElement } from "react";
 import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -93,7 +94,19 @@ export const meta: MetaFunction = ({ data }) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
-		create: async () => {},
+		edit: async () => {
+			const submission = processSubmission(formData, editWorkoutSchema);
+			await gqlClient.request(
+				EditUserWorkoutDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Workout edited successfully",
+				}),
+			});
+		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await gqlClient.request(
@@ -109,6 +122,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const deleteSchema = z.object({ workoutId: z.string() });
+
+const editWorkoutSchema = z.object({
+	startTime: z.string(),
+	endTime: z.string(),
+	id: z.string(),
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -128,7 +147,7 @@ export default function Page() {
 				withCloseButton={false}
 				centered
 			>
-				<Box component={Form} action="?intent=adjustTime" method="post">
+				<Box component={Form} action="?intent=edit" method="post">
 					<Stack>
 						<Title order={3}>Adjust times</Title>
 						<DateTimePicker
@@ -143,8 +162,13 @@ export default function Page() {
 							name="endTime"
 							defaultValue={new Date(loaderData.workoutDetails.endTime)}
 						/>
-						<Button variant="outline" type="submit">
-							Adjust
+						<Button
+							variant="outline"
+							type="submit"
+							name="id"
+							value={loaderData.workoutId}
+						>
+							Submit
 						</Button>
 					</Stack>
 				</Box>
@@ -341,10 +365,7 @@ export default function Page() {
 	);
 }
 
-const DisplayStat = (props: {
-	icon: ReactElement;
-	data: string;
-}) => {
+const DisplayStat = (props: { icon: JSX.Element; data: string }) => {
 	return (
 		<Flex gap={4} align="center">
 			{props.icon}
