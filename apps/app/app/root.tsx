@@ -26,6 +26,7 @@ import {
 	useNavigation,
 } from "@remix-run/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "mantine-datatable/styles.layer.css";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import { Toaster } from "~/components/toaster";
 import { honeypot } from "~/lib/honeypot.server";
