@@ -152,10 +152,10 @@ export const ReviewItemDisplay = (props: {
 									entityType: props.metadataId
 										? "metadata"
 										: props.metadataGroupId
-										? "metadataGroup"
-										: props.collectionId
-										? "collection"
-										: "person",
+										  ? "metadataGroup"
+										  : props.collectionId
+											  ? "collection"
+											  : "person",
 									existingReviewId: props.review.id,
 									title: props.title,
 								},

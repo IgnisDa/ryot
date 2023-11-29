@@ -34,7 +34,7 @@ export const ShowAndPodcastSchema = z.object({
 	podcastEpisodeNumber: zx.IntAsString.optional().nullable(),
 });
 
-export const processSubmission = <Schema extends ZodTypeAny,>(
+export const processSubmission = <Schema extends ZodTypeAny>(
 	formData: FormData,
 	schema: Schema,
 ): output<Schema> => {

@@ -89,12 +89,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const redirectTo = submission.collectionId
 		? $path("/media/collections/:id", { id: submission.collectionId })
 		: submission.metadataGroupId
-		? $path("/media/groups/:id", { id: submission.metadataGroupId })
-		: submission.metadataId
-		? $path("/media/item/:id", { id: submission.metadataId })
-		: submission.personId
-		? $path("/media/people/:id", { id: submission.personId })
-		: "/";
+		  ? $path("/media/groups/:id", { id: submission.metadataGroupId })
+		  : submission.metadataId
+			  ? $path("/media/item/:id", { id: submission.metadataId })
+			  : submission.personId
+				  ? $path("/media/people/:id", { id: submission.personId })
+				  : "/";
 	return namedAction(request, {
 		create: async () => {
 			await gqlClient.request(
@@ -142,12 +142,12 @@ export default function Page() {
 						loaderData.query.entityType === "metadata"
 							? "metadataId"
 							: loaderData.query.entityType === "metadataGroup"
-							? "metadataGroupId"
-							: loaderData.query.entityType === "collection"
-							? "collectionId"
-							: loaderData.query.entityType === "person"
-							? "personId"
-							: undefined
+							  ? "metadataGroupId"
+							  : loaderData.query.entityType === "collection"
+								  ? "collectionId"
+								  : loaderData.query.entityType === "person"
+									  ? "personId"
+									  : undefined
 					}
 					value={loaderData.id}
 				/>

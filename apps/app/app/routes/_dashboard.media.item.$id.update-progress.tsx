@@ -252,8 +252,8 @@ export default function Page() {
 									{loaderData.query.onlySeason
 										? `This will mark all episodes of season ${loaderData.query.showSeasonNumber} as seen`
 										: loaderData.query.completeShow
-										? "This will mark all episodes for this show as seen"
-										: undefined}
+										  ? "This will mark all episodes for this show as seen"
+										  : undefined}
 								</Alert>
 							) : undefined}
 							{!loaderData.query.completeShow ? (
