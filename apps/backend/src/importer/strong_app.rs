@@ -43,7 +43,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
     let offset = timezone
         .offset_from_utc_datetime(&Utc::now().naive_utc())
         .fix()
-        .utc_minus_local();
+        .local_minus_utc();
     let offset = Duration::seconds(offset.into());
     let file_string = fs::read_to_string(&input.export_path)?;
     let mut workouts = vec![];
@@ -100,7 +100,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
         if next_entry.date != entry.date {
             let ndt = NaiveDateTime::parse_from_str(&entry.date, "%Y-%m-%d %H:%M:%S")
                 .expect("Failed to parse input string");
-            let ndt = DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc) + offset;
+            let ndt = DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc) - offset;
             let re = Regex::new(r"^(\d+h)?\s?(\d+m)?$").unwrap();
             let workout_duration = if let Some(captures) = re.captures(&entry.workout_duration) {
                 let hours = captures.get(1).map_or(0, |m| {
