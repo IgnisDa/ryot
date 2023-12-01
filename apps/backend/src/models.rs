@@ -1517,8 +1517,6 @@ pub mod fitness {
         pub exercises: Vec<ProcessedExercise>,
         #[serde(default)]
         pub assets: EntityAssets,
-        #[serde(default)] // FIXME: Remove this in the next major release
-        pub unit: UserUnitSystem,
     }
 
     /// The summary about an exercise done in a workout.

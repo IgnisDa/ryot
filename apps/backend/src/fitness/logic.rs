@@ -21,7 +21,6 @@ use crate::{
         WorkoutSetPersonalBest, WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals,
         WorkoutSummary, WorkoutSummaryExercise,
     },
-    users::UserExercisePreferences,
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -109,7 +108,8 @@ impl UserWorkoutInput {
         // TODO: Make this optional and a part of the input itself. If set, the
         // generated workout will have that as the ID.
         id: String,
-        preferences: UserExercisePreferences,
+        unit_system: UserUnitSystem,
+        save_history: usize,
     ) -> Result<String> {
         let mut input = self;
         let mut exercises = vec![];
@@ -174,7 +174,7 @@ impl UserWorkoutInput {
             ex.sets
                 .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
             for set in ex.sets.iter_mut() {
-                set.translate_units(preferences.unit_system);
+                set.translate_units(unit_system);
                 set.remove_invalids(&db_ex.lot);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
@@ -246,10 +246,8 @@ impl UserWorkoutInput {
                         data: set.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
-                        let mut data = LengthVec::from_vec_and_length(
-                            record.sets.clone(),
-                            preferences.save_history,
-                        );
+                        let mut data =
+                            LengthVec::from_vec_and_length(record.sets.clone(), save_history);
                         data.push_front(to_insert_record);
                         record.sets = data.into_vec();
                     } else {
@@ -305,7 +303,6 @@ impl UserWorkoutInput {
                 supersets: input.supersets,
                 assets: input.assets.clone(),
                 exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
-                unit: preferences.unit_system,
             },
         };
         let insert: workout::ActiveModel = model.into();
