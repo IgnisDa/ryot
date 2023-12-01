@@ -120,7 +120,7 @@ impl Default for UserExercisePreferences {
     fn default() -> Self {
         Self {
             save_history: 15,
-            default_timer: None,
+            default_timer: Some(60),
             unit_system: UserUnitSystem::Metric,
         }
     }
