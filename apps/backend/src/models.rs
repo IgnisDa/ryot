@@ -1220,7 +1220,7 @@ pub mod fitness {
         AddAssign,
         Schematic,
     )]
-    pub struct WorkoutTotalMeasurement {
+    pub struct WorkoutOrExerciseTotals {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
         pub weight: Decimal,
@@ -1428,7 +1428,7 @@ pub mod fitness {
     )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
-        pub lifetime_stats: WorkoutTotalMeasurement,
+        pub lifetime_stats: WorkoutOrExerciseTotals,
         pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
     }
 
@@ -1474,7 +1474,7 @@ pub mod fitness {
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
-        pub total: WorkoutTotalMeasurement,
+        pub total: WorkoutOrExerciseTotals,
         #[serde(default)]
         pub assets: EntityAssets,
     }
@@ -1533,7 +1533,7 @@ pub mod fitness {
         Schematic,
     )]
     pub struct WorkoutSummary {
-        pub total: WorkoutTotalMeasurement,
+        pub total: WorkoutOrExerciseTotals,
         pub exercises: Vec<WorkoutSummaryExercise>,
     }
 

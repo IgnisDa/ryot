@@ -17,9 +17,9 @@ use crate::{
     models::fitness::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
         UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
-        UserWorkoutSetRecord, WorkoutInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
-        WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
-        WorkoutTotalMeasurement,
+        UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest,
+        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
+        WorkoutSummaryExercise,
     },
     users::{UserExercisePreferences, UserUnitSystem},
 };
@@ -129,7 +129,7 @@ impl UserWorkoutInput {
                 Some(e) => e,
             };
             let mut sets = vec![];
-            let mut total = WorkoutTotalMeasurement::default();
+            let mut total = WorkoutOrExerciseTotals::default();
             let association = UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
                 .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id.clone()))
@@ -149,7 +149,7 @@ impl UserWorkoutInput {
                         exercise_extra_information: ActiveValue::Set(Some(
                             UserToExerciseExtraInformation {
                                 history: vec![history_item],
-                                lifetime_stats: WorkoutTotalMeasurement::default(),
+                                lifetime_stats: WorkoutOrExerciseTotals::default(),
                                 personal_bests: vec![],
                             },
                         )),
