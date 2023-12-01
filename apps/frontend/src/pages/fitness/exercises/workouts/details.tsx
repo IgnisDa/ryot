@@ -1,6 +1,6 @@
 import { DisplayExerciseStats } from "@/components/FitnessComponents";
 import { APP_ROUTES } from "@/lib/constants";
-import { useGetMantineColor } from "@/lib/hooks";
+import { useGetMantineColor, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -88,6 +88,7 @@ type EditWorkoutFormSchema = z.infer<typeof adjustWorkoutTimesFormSchema>;
 
 const Page: NextPageWithLayout = () => {
 	const router = useRouter();
+	const userPreferences = useUserPreferences();
 	const workoutId = router.query.id?.toString();
 	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const getMantineColor = useGetMantineColor();
@@ -141,7 +142,7 @@ const Page: NextPageWithLayout = () => {
 		},
 	});
 
-	return workoutDetails.data && workoutId ? (
+	return userPreferences.data && workoutDetails.data && workoutId ? (
 		<>
 			<Head>
 				<title>{workoutDetails.data.name} | Ryot</title>
@@ -242,7 +243,11 @@ const Page: NextPageWithLayout = () => {
 								icon={<IconWeight size={16} />}
 								data={new Intl.NumberFormat("en-us", {
 									style: "unit",
-									unit: "kilogram",
+									unit:
+										userPreferences.data.fitness.exercises.unitSystem ===
+										"IMPERIAL"
+											? "pound"
+											: "kilogram",
 								}).format(Number(workoutDetails.data.summary.total.weight))}
 							/>
 							<DisplayStat
@@ -327,6 +332,7 @@ const Page: NextPageWithLayout = () => {
 											<DisplayExerciseStats
 												lot={exercise.lot}
 												statistic={s.statistic}
+												unit={userPreferences.data.fitness.exercises.unitSystem}
 											/>
 										</Flex>
 										{s.personalBests.length > 0 ? (

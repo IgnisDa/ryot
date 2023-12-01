@@ -74,6 +74,7 @@ use crate::{
     jwt,
     miscellaneous::{CustomService, DefaultCollection},
     models::{
+        fitness::UserUnitSystem,
         media::{
             AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CreateOrUpdateCollectionInput,
             GenreListItem, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -114,8 +115,8 @@ use crate::{
     users::{
         UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserPreferences,
         UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserUnitSystem, UserYankIntegration,
-        UserYankIntegrationSetting, UserYankIntegrationSettingKind,
+        UserSinkIntegrationSettingKind, UserYankIntegration, UserYankIntegrationSetting,
+        UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,

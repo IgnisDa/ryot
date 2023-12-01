@@ -1,6 +1,6 @@
 import { getSetStatisticsTextToDisplay } from "@/components/FitnessComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
-import { useCoreDetails } from "@/lib/hooks";
+import { useCoreDetails, useUserPreferences } from "@/lib/hooks";
 import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
@@ -21,6 +21,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useLocalStorage } from "@mantine/hooks";
 import {
+	UserUnitSystem,
 	UserWorkoutListDocument,
 	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -56,10 +57,12 @@ const DisplayStat = (props: {
 
 const ExerciseDisplay = (props: {
 	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
+	unit: UserUnitSystem;
 }) => {
 	const [stat, _] = getSetStatisticsTextToDisplay(
 		props.exercise.lot,
 		props.exercise.bestSet.statistic,
+		props.unit,
 	);
 
 	return (
@@ -87,6 +90,7 @@ const Page: NextPageWithLayout = () => {
 	});
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(query, 1000);
 	const coreDetails = useCoreDetails();
+	const userPreferences = useUserPreferences();
 
 	const userWorkoutList = useQuery({
 		queryKey: ["userWorkoutList", activePage, debouncedQuery],
@@ -110,7 +114,7 @@ const Page: NextPageWithLayout = () => {
 			</ActionIcon>
 		) : undefined;
 
-	return coreDetails.data ? (
+	return userPreferences.data && coreDetails.data ? (
 		<>
 			<Head>
 				<title>Your Workouts | Ryot</title>
@@ -171,7 +175,11 @@ const Page: NextPageWithLayout = () => {
 														icon={<IconWeight size={16} />}
 														data={new Intl.NumberFormat("en-us", {
 															style: "unit",
-															unit: "kilogram",
+															unit:
+																userPreferences.data.fitness.exercises
+																	.unitSystem === "IMPERIAL"
+																	? "pound"
+																	: "kilogram",
 														}).format(Number(workout.summary.total.weight))}
 													/>
 													<DisplayStat
@@ -206,6 +214,10 @@ const Page: NextPageWithLayout = () => {
 														<ExerciseDisplay
 															exercise={exercise}
 															key={`${idx}-${exercise.id}`}
+															unit={
+																userPreferences.data.fitness.exercises
+																	.unitSystem
+															}
 														/>
 													))}
 												</>

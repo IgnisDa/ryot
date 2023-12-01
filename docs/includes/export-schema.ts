@@ -155,16 +155,21 @@ export interface WorkoutSetStatistic {
 	weight: string | null;
 }
 
+export interface WorkoutSetTotals {
+	weight: string | null;
+}
+
 /** Details about the set performed. */
 export interface WorkoutSetRecord {
 	confirmedAt: string | null;
 	lot: SetLot;
 	personalBests: WorkoutSetPersonalBest[];
 	statistic: WorkoutSetStatistic;
+	totals: WorkoutSetTotals;
 }
 
 /** The totals of a workout and the different bests achieved. */
-export interface WorkoutTotalMeasurement {
+export interface WorkoutOrExerciseTotals {
 	distance: string;
 	duration: string;
 	/** The number of personal bests achieved. */
@@ -183,7 +188,7 @@ export interface ProcessedExercise {
 	notes: string[];
 	restTime: number | null;
 	sets: WorkoutSetRecord[];
-	total: WorkoutTotalMeasurement;
+	total: WorkoutOrExerciseTotals;
 }
 
 /** Information about a workout done. */
@@ -207,7 +212,7 @@ export interface WorkoutSummaryExercise {
 
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
-	total: WorkoutTotalMeasurement;
+	total: WorkoutOrExerciseTotals;
 }
 
 /** A workout that was completed by the user. */

@@ -688,7 +688,12 @@ impl ExerciseService {
         let id = nanoid!(12);
         tracing::trace!("Creating new workout with id: {}", id);
         let identifier = input
-            .calculate_and_commit(user_id, &self.db, id, user.preferences.fitness.exercises)
+            .calculate_and_commit(
+                user_id,
+                &self.db,
+                id,
+                user.preferences.fitness.exercises.save_history,
+            )
             .await?;
         Ok(identifier)
     }

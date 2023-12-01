@@ -17,10 +17,10 @@ use crate::{
     models::fitness::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
         UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
-        UserWorkoutSetRecord, WorkoutInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
-        WorkoutSetStatistic, WorkoutSummary, WorkoutSummaryExercise, WorkoutTotalMeasurement,
+        UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest,
+        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
+        WorkoutSummaryExercise,
     },
-    users::{UserExercisePreferences, UserUnitSystem},
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -62,20 +62,6 @@ fn get_index_of_highest_pb(
 }
 
 impl UserWorkoutSetRecord {
-    pub fn translate_units(&mut self, unit_type: UserUnitSystem) {
-        match unit_type {
-            UserUnitSystem::Metric => {}
-            UserUnitSystem::Imperial => {
-                if let Some(w) = self.statistic.weight.as_mut() {
-                    *w *= dec!(0.45359);
-                }
-                if let Some(d) = self.statistic.distance.as_mut() {
-                    *d *= dec!(1.60934);
-                }
-            }
-        };
-    }
-
     /// Set the invalid statistics to `None` according to the type of exercise.
     pub fn remove_invalids(&mut self, exercise_lot: &ExerciseLot) {
         let mut stats = WorkoutSetStatistic {
@@ -108,7 +94,7 @@ impl UserWorkoutInput {
         // TODO: Make this optional and a part of the input itself. If set, the
         // generated workout will have that as the ID.
         id: String,
-        preferences: UserExercisePreferences,
+        save_history: usize,
     ) -> Result<String> {
         let mut input = self;
         let mut exercises = vec![];
@@ -128,7 +114,7 @@ impl UserWorkoutInput {
                 Some(e) => e,
             };
             let mut sets = vec![];
-            let mut total = WorkoutTotalMeasurement::default();
+            let mut total = WorkoutOrExerciseTotals::default();
             let association = UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
                 .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id.clone()))
@@ -148,7 +134,7 @@ impl UserWorkoutInput {
                         exercise_extra_information: ActiveValue::Set(Some(
                             UserToExerciseExtraInformation {
                                 history: vec![history_item],
-                                lifetime_stats: WorkoutTotalMeasurement::default(),
+                                lifetime_stats: WorkoutOrExerciseTotals::default(),
                                 personal_bests: vec![],
                             },
                         )),
@@ -173,7 +159,6 @@ impl UserWorkoutInput {
             ex.sets
                 .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
             for set in ex.sets.iter_mut() {
-                set.translate_units(preferences.unit_system);
                 set.remove_invalids(&db_ex.lot);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
@@ -187,10 +172,15 @@ impl UserWorkoutInput {
                 if let Some(d) = set.statistic.distance {
                     total.distance += d;
                 }
+                let mut totals = WorkoutSetTotals::default();
+                if let (Some(we), Some(re)) = (&set.statistic.weight, &set.statistic.reps) {
+                    totals.weight = Some(we * Decimal::from_usize(*re).unwrap());
+                }
                 let mut value = WorkoutSetRecord {
                     statistic: set.statistic.clone(),
                     lot: set.lot,
                     confirmed_at: set.confirmed_at,
+                    totals,
                     personal_bests: vec![],
                 };
                 value.statistic.one_rm = value.calculate_one_rm();
@@ -240,10 +230,8 @@ impl UserWorkoutInput {
                         data: set.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
-                        let mut data = LengthVec::from_vec_and_length(
-                            record.sets.clone(),
-                            preferences.save_history,
-                        );
+                        let mut data =
+                            LengthVec::from_vec_and_length(record.sets.clone(), save_history);
                         data.push_front(to_insert_record);
                         record.sets = data.into_vec();
                     } else {

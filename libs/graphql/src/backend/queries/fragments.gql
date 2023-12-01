@@ -43,7 +43,7 @@ fragment PartialMetadataPart on PartialMetadata {
   metadataId
 }
 
-fragment WorkoutTotalMeasurementPart on WorkoutTotalMeasurement {
+fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
   personalBestsAchieved
   weight
   reps
@@ -67,7 +67,7 @@ fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
 
 fragment WorkoutSummaryPart on WorkoutSummary {
   total {
-    ...WorkoutTotalMeasurementPart
+    ...WorkoutOrExerciseTotalsPart
   }
   exercises {
     numSets
