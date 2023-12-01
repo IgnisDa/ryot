@@ -122,7 +122,6 @@ export default function Page() {
 							`Death: ${loaderData.personDetails.details.deathDate}`,
 						loaderData.personDetails.details.place &&
 							loaderData.personDetails.details.place,
-
 						loaderData.personDetails.details.gender,
 					]
 						.filter(Boolean)
