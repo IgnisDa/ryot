@@ -15,6 +15,7 @@ import {
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
+	UserUnitSystem,
 	UserWorkoutListDocument,
 	UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -34,7 +35,7 @@ import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
+import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
 const searchParamsSchema = z.object({
@@ -46,21 +47,20 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [coreDetails, { userWorkoutList }] = await Promise.all([
-		getCoreDetails(),
-		gqlClient.request(
-			UserWorkoutListDocument,
-			{
-				input: { page: query.page, query: query.query },
-			},
-			await getAuthorizationHeader(request),
-		),
-	]);
-	return json({
-		coreDetails,
-		query,
-		userWorkoutList,
-	});
+	const [userPreferences, coreDetails, { userWorkoutList }] = await Promise.all(
+		[
+			getUserPreferences(request),
+			getCoreDetails(),
+			gqlClient.request(
+				UserWorkoutListDocument,
+				{
+					input: { page: query.page, query: query.query },
+				},
+				await getAuthorizationHeader(request),
+			),
+		],
+	);
+	return json({ userPreferences, coreDetails, query, userWorkoutList });
 };
 
 export const meta: MetaFunction = () => {
@@ -135,7 +135,11 @@ export default function Page() {
 													icon={<IconWeight size={16} />}
 													data={new Intl.NumberFormat("en-us", {
 														style: "unit",
-														unit: "kilogram",
+														unit:
+															loaderData.userPreferences.fitness.exercises
+																.unitSystem === UserUnitSystem.Imperial
+																? "pound"
+																: "kilogram",
 													}).format(Number(workout.summary.total.weight))}
 												/>
 												<DisplayStat
@@ -168,6 +172,10 @@ export default function Page() {
 													<ExerciseDisplay
 														exercise={exercise}
 														key={`${idx}-${exercise.id}`}
+														unit={
+															loaderData.userPreferences.fitness.exercises
+																.unitSystem
+														}
 													/>
 												))}
 											</>
@@ -214,10 +222,12 @@ const DisplayStat = (props: {
 
 const ExerciseDisplay = (props: {
 	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
+	unit: UserUnitSystem;
 }) => {
 	const [stat, _] = getSetStatisticsTextToDisplay(
 		props.exercise.lot,
 		props.exercise.bestSet.statistic,
+		props.unit,
 	);
 
 	return (

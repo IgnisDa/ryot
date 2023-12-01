@@ -29,6 +29,7 @@ import {
 	DeleteUserWorkoutDocument,
 	EditUserWorkoutDocument,
 	SetLot,
+	UserUnitSystem,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
@@ -55,6 +56,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { getSetColor } from "~/lib/utilities";
@@ -67,17 +69,15 @@ const humanizer = new HumanizeDuration(service);
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const workoutId = params.id;
 	invariant(workoutId, "No ID provided");
-	const [{ workoutDetails }] = await Promise.all([
+	const [userPreferences, { workoutDetails }] = await Promise.all([
+		getUserPreferences(request),
 		gqlClient.request(
 			WorkoutDetailsDocument,
 			{ workoutId },
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({
-		workoutId,
-		workoutDetails,
-	});
+	return json({ workoutId, userPreferences, workoutDetails });
 };
 
 export const meta: MetaFunction = ({ data }) => {
@@ -245,7 +245,11 @@ export default function Page() {
 								icon={<IconWeight size={16} />}
 								data={new Intl.NumberFormat("en-us", {
 									style: "unit",
-									unit: "kilogram",
+									unit:
+										loaderData.userPreferences.fitness.exercises.unitSystem ===
+										UserUnitSystem.Imperial
+											? "pound"
+											: "kilogram",
 								}).format(
 									Number(loaderData.workoutDetails.summary.total.weight),
 								)}
@@ -333,6 +337,10 @@ export default function Page() {
 												<DisplayExerciseStats
 													lot={exercise.lot}
 													statistic={s.statistic}
+													unit={
+														loaderData.userPreferences.fitness.exercises
+															.unitSystem
+													}
 												/>
 											</Flex>
 											{s.personalBests.length > 0 ? (

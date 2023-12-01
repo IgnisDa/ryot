@@ -1,6 +1,7 @@
 import { Text } from "@mantine/core";
 import {
 	ExerciseLot,
+	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
@@ -9,15 +10,16 @@ import type { ExerciseSetStats } from "~/lib/workout";
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
 	statistic: WorkoutSetStatistic | ExerciseSetStats,
+	unit: UserUnitSystem,
 ) => {
 	return match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${Number(statistic.distance).toFixed(2)} km for ${Number(
-				statistic.duration,
-			).toFixed(2)} min`,
+			`${Number(statistic.distance).toFixed(2)} ${
+				unit === UserUnitSystem.Imperial ? "mi" : "km"
+			} for ${Number(statistic.duration).toFixed(2)} min`,
 			`${(
 				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1)
-			).toFixed(2)} km/min`,
+			).toFixed(2)} ${unit === UserUnitSystem.Imperial ? "mi" : "km"}/min`,
 		])
 		.with(ExerciseLot.Duration, () => [
 			`${Number(statistic.duration).toFixed(2)} min`,
@@ -26,7 +28,9 @@ export const getSetStatisticsTextToDisplay = (
 		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			statistic.weight && statistic.weight !== "0"
-				? `${statistic.weight} kg  × ${statistic.reps}`
+				? `${statistic.weight} ${
+						unit === UserUnitSystem.Imperial ? "lb" : "kg"
+				  }  × ${statistic.reps}`
 				: `${statistic.reps} reps`,
 			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : undefined,
 		])
@@ -39,12 +43,14 @@ export const getSetStatisticsTextToDisplay = (
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
 	statistic: ExerciseSetStats | WorkoutSetStatistic;
+	unit: UserUnitSystem;
 	hideExtras?: boolean;
 	centerText?: boolean;
 }) => {
 	const [first, second] = getSetStatisticsTextToDisplay(
 		props.lot,
 		props.statistic,
+		props.unit,
 	);
 	return (
 		<>

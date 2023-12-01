@@ -25,6 +25,7 @@ import {
 	SetLot,
 	UserCollectionsListDocument,
 	UserExerciseDetailsDocument,
+	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import {
@@ -231,6 +232,10 @@ export default function Page() {
 												<DisplayExerciseStats
 													lot={loaderData.exerciseDetails.lot}
 													statistic={s.statistic}
+													unit={
+														loaderData.userPreferences.fitness.exercises
+															.unitSystem
+													}
 												/>
 											</Flex>
 										))}
@@ -248,7 +253,12 @@ export default function Page() {
 									</Text>
 									<DisplayLifetimeStatistic
 										stat="weight"
-										unit="KG"
+										unit={
+											loaderData.userPreferences.fitness.exercises
+												.unitSystem === UserUnitSystem.Metric
+												? "KG"
+												: "LB"
+										}
 										val={
 											loaderData.userExerciseDetails.details
 												.exerciseExtraInformation.lifetimeStats.weight
@@ -256,7 +266,12 @@ export default function Page() {
 									/>
 									<DisplayLifetimeStatistic
 										stat="distance"
-										unit="KM"
+										unit={
+											loaderData.userPreferences.fitness.exercises
+												.unitSystem === UserUnitSystem.Metric
+												? "KM"
+												: "MI"
+										}
 										val={
 											loaderData.userExerciseDetails.details
 												.exerciseExtraInformation.lifetimeStats.distance
