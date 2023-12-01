@@ -692,7 +692,6 @@ impl ExerciseService {
                 user_id,
                 &self.db,
                 id,
-                user.preferences.fitness.exercises.unit_system,
                 user.preferences.fitness.exercises.save_history,
             )
             .await?;

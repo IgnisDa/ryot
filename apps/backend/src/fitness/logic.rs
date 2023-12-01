@@ -16,10 +16,10 @@ use crate::{
     },
     models::fitness::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
-        UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserUnitSystem,
-        UserWorkoutInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals,
-        WorkoutSetPersonalBest, WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals,
-        WorkoutSummary, WorkoutSummaryExercise,
+        UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+        UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest,
+        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
+        WorkoutSummaryExercise,
     },
 };
 
@@ -62,20 +62,6 @@ fn get_index_of_highest_pb(
 }
 
 impl UserWorkoutSetRecord {
-    pub fn translate_units(&mut self, unit_type: UserUnitSystem) {
-        match unit_type {
-            UserUnitSystem::Metric => {}
-            UserUnitSystem::Imperial => {
-                if let Some(w) = self.statistic.weight.as_mut() {
-                    *w *= dec!(0.45359);
-                }
-                if let Some(d) = self.statistic.distance.as_mut() {
-                    *d *= dec!(1.60934);
-                }
-            }
-        };
-    }
-
     /// Set the invalid statistics to `None` according to the type of exercise.
     pub fn remove_invalids(&mut self, exercise_lot: &ExerciseLot) {
         let mut stats = WorkoutSetStatistic {
@@ -108,7 +94,6 @@ impl UserWorkoutInput {
         // TODO: Make this optional and a part of the input itself. If set, the
         // generated workout will have that as the ID.
         id: String,
-        unit_system: UserUnitSystem,
         save_history: usize,
     ) -> Result<String> {
         let mut input = self;
@@ -174,7 +159,6 @@ impl UserWorkoutInput {
             ex.sets
                 .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
             for set in ex.sets.iter_mut() {
-                set.translate_units(unit_system);
                 set.remove_invalids(&db_ex.lot);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
