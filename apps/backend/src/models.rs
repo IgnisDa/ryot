@@ -1352,6 +1352,8 @@ pub mod fitness {
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
         pub confirmed_at: Option<DateTimeUtc>,
+        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
+        #[serde(default)]
         pub totals: WorkoutSetTotals,
     }
 
