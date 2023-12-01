@@ -405,7 +405,11 @@ export default function Page() {
 					) : undefined}
 					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 						{[
-							loaderData.mediaMainDetails.publishYear,
+							loaderData.mediaMainDetails.publishDate
+								? DateTime.fromISO(
+										loaderData.mediaMainDetails.publishDate,
+								  ).toLocaleString(DateTime.DATE_FULL)
+								: loaderData.mediaMainDetails.publishYear,
 							loaderData.mediaMainDetails.productionStatus,
 							loaderData.mediaAdditionalDetails.bookSpecifics?.pages &&
 								`${loaderData.mediaAdditionalDetails.bookSpecifics.pages} pages`,
