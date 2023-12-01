@@ -1,6 +1,34 @@
+use async_graphql::Enum;
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
+use strum::EnumString;
 
 use super::m20230417_create_user::User;
+
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Enum,
+    Clone,
+    Eq,
+    PartialEq,
+    Copy,
+    EnumString,
+    Default,
+    DeriveActiveEnum,
+    EnumIter,
+)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
+pub enum UserUnitSystem {
+    #[sea_orm(string_value = "M")]
+    #[default]
+    Metric,
+    #[sea_orm(string_value = "I")]
+    Imperial,
+}
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

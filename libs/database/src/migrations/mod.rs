@@ -39,6 +39,7 @@ pub use m20230622_create_exercise::{
     Exercise as AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
     ExerciseMechanic, ExerciseMuscle, ExerciseSource,
 };
+pub use m20230819_create_workout::UserUnitSystem;
 pub use m20230901_create_metadata_group::MetadataGroup as AliasedMetadataGroup;
 pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
 pub use m20231003_create_partial_metadata_to_person::PersonToPartialMetadataRelation;
