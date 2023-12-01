@@ -175,7 +175,11 @@ const Page: NextPageWithLayout = () => {
 														icon={<IconWeight size={16} />}
 														data={new Intl.NumberFormat("en-us", {
 															style: "unit",
-															unit: "kilogram",
+															unit:
+																userPreferences.data.fitness.exercises
+																	.unitSystem === "IMPERIAL"
+																	? "pound"
+																	: "kilogram",
 														}).format(Number(workout.summary.total.weight))}
 													/>
 													<DisplayStat
