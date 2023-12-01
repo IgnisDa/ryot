@@ -1319,6 +1319,22 @@ pub mod fitness {
         Reps,
     }
 
+    #[derive(
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Schematic,
+        Default,
+    )]
+    pub struct WorkoutSetTotals {
+        pub weight: Option<Decimal>,
+    }
+
     /// Details about the set performed.
     #[derive(
         Clone,
@@ -1336,6 +1352,7 @@ pub mod fitness {
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
         pub confirmed_at: Option<DateTimeUtc>,
+        pub totals: WorkoutSetTotals,
     }
 
     impl WorkoutSetRecord {

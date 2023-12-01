@@ -18,7 +18,8 @@ use crate::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
         UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
         UserWorkoutSetRecord, WorkoutInformation, WorkoutSetPersonalBest, WorkoutSetRecord,
-        WorkoutSetStatistic, WorkoutSummary, WorkoutSummaryExercise, WorkoutTotalMeasurement,
+        WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
+        WorkoutTotalMeasurement,
     },
     users::{UserExercisePreferences, UserUnitSystem},
 };
@@ -187,10 +188,15 @@ impl UserWorkoutInput {
                 if let Some(d) = set.statistic.distance {
                     total.distance += d;
                 }
+                let mut totals = WorkoutSetTotals::default();
+                if let (Some(we), Some(re)) = (&set.statistic.weight, &set.statistic.reps) {
+                    totals.weight = Some(we * Decimal::from_usize(*re).unwrap());
+                }
                 let mut value = WorkoutSetRecord {
                     statistic: set.statistic.clone(),
                     lot: set.lot,
                     confirmed_at: set.confirmed_at,
+                    totals,
                     personal_bests: vec![],
                 };
                 value.statistic.one_rm = value.calculate_one_rm();
