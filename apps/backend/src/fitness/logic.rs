@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use chrono::Utc;
-use database::{ExerciseLot, UserUnitSystem};
+use database::ExerciseLot;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -21,7 +21,7 @@ use crate::{
         WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
         WorkoutSummaryExercise,
     },
-    users::UserExercisePreferences,
+    users::{UserExercisePreferences, UserUnitSystem},
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
