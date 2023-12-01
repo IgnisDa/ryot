@@ -22,6 +22,7 @@ use sea_orm::{
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::EnumString;
 
 use crate::{
     entities::{
@@ -1479,6 +1480,26 @@ pub mod fitness {
         pub assets: EntityAssets,
     }
 
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        Enum,
+        Clone,
+        Eq,
+        PartialEq,
+        FromJsonQueryResult,
+        Copy,
+        EnumString,
+        Default,
+    )]
+    #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
+    pub enum UserUnitSystem {
+        #[default]
+        Metric,
+        Imperial,
+    }
+
     /// Information about a workout done.
     #[derive(
         Clone,
@@ -1498,6 +1519,8 @@ pub mod fitness {
         pub exercises: Vec<ProcessedExercise>,
         #[serde(default)]
         pub assets: EntityAssets,
+        #[serde(default)] // FIXME: Remove this in the next major release
+        pub unit: UserUnitSystem,
     }
 
     /// The summary about an exercise done in a workout.

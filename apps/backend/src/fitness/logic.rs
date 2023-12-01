@@ -16,12 +16,12 @@ use crate::{
     },
     models::fitness::{
         ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
-        UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
-        UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest,
-        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
-        WorkoutSummaryExercise,
+        UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserUnitSystem,
+        UserWorkoutInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals,
+        WorkoutSetPersonalBest, WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals,
+        WorkoutSummary, WorkoutSummaryExercise,
     },
-    users::{UserExercisePreferences, UserUnitSystem},
+    users::UserExercisePreferences,
 };
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
@@ -305,6 +305,7 @@ impl UserWorkoutInput {
                 supersets: input.supersets,
                 assets: input.assets.clone(),
                 exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
+                unit: preferences.unit_system,
             },
         };
         let insert: workout::ActiveModel = model.into();

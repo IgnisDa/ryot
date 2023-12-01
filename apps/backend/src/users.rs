@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
 
+use crate::models::fitness::UserUnitSystem;
+
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
@@ -85,26 +87,6 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
             workouts: true,
         }
     }
-}
-
-#[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    Enum,
-    Clone,
-    Eq,
-    PartialEq,
-    FromJsonQueryResult,
-    Copy,
-    EnumString,
-    Default,
-)]
-#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
-pub enum UserUnitSystem {
-    #[default]
-    Metric,
-    Imperial,
 }
 
 #[derive(
