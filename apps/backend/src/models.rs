@@ -22,7 +22,6 @@ use sea_orm::{
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::EnumString;
 
 use crate::{
     entities::{
@@ -1490,10 +1489,9 @@ pub mod fitness {
         PartialEq,
         FromJsonQueryResult,
         Copy,
-        EnumString,
         Default,
+        ConfigEnum,
     )]
-    #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
     pub enum UserUnitSystem {
         #[default]
         Metric,

@@ -191,6 +191,8 @@ export interface ProcessedExercise {
 	total: WorkoutOrExerciseTotals;
 }
 
+export type UserUnitSystem = 'metric' | 'imperial';
+
 /** Information about a workout done. */
 export interface WorkoutInformation {
 	assets: EntityAssets;
@@ -200,6 +202,7 @@ export interface WorkoutInformation {
 	 * the `exercise.idx`.
 	 */
 	supersets: number[][];
+	unit: UserUnitSystem;
 }
 
 /** The summary about an exercise done in a workout. */

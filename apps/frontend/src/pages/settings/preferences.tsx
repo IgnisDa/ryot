@@ -30,6 +30,7 @@ import {
 	UpdateUserPreferenceDocument,
 	type UpdateUserPreferenceMutationVariables,
 	UserReviewScale,
+	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -420,25 +421,6 @@ const Page: NextPageWithLayout = () => {
 									cols={{ base: 1, md: 2 }}
 									style={{ alignItems: "center" }}
 								>
-									{/*
-							// TODO: Introduce this back when we figure out a way to handle units
-							<Select
-								size="xs"
-								label="Unit system to use for measurements"
-								data={Object.values(UserUnitSystem).map((c) => startCase(c))}
-								defaultValue={userPreferences.data.fitness.exercises.unitSystem}
-								disabled={!coreDetails.data.preferencesChangeAllowed}
-								onChange={(val) => {
-									if (val)
-										updateUserEnabledFeatures.mutate({
-											input: {
-												property: "fitness.exercises.unit_system",
-												value: val,
-											},
-										});
-								}}
-							/>
-							*/}
 									<NumberInput
 										size="xs"
 										label="The default rest timer to use during exercises. Leave empty for no default."
@@ -492,6 +474,25 @@ const Page: NextPageWithLayout = () => {
 											Show me notifications related to the current workout
 										</Text>
 									</Group>
+									<Select
+										size="xs"
+										label="Unit system to use for measurements"
+										data={Object.values(UserUnitSystem).map((c) => ({
+											value: c.toLowerCase(),
+											label: startCase(c.toLowerCase()),
+										}))}
+										defaultValue={userPreferences.data.fitness.exercises.unitSystem.toLowerCase()}
+										disabled={!coreDetails.data.preferencesChangeAllowed}
+										onChange={(val) => {
+											if (val)
+												updateUserPreferences.mutate({
+													input: {
+														property: "fitness.exercises.unit_system",
+														value: val,
+													},
+												});
+										}}
+									/>
 								</SimpleGrid>
 								<Text>The default measurements you want to keep track of.</Text>
 								<SimpleGrid cols={2}>
