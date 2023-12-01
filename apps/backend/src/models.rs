@@ -1220,7 +1220,7 @@ pub mod fitness {
         AddAssign,
         Schematic,
     )]
-    pub struct WorkoutTotalMeasurement {
+    pub struct WorkoutOrExerciseTotals {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
         pub weight: Decimal,
@@ -1319,6 +1319,22 @@ pub mod fitness {
         Reps,
     }
 
+    #[derive(
+        Clone,
+        Debug,
+        Deserialize,
+        Serialize,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        SimpleObject,
+        Schematic,
+        Default,
+    )]
+    pub struct WorkoutSetTotals {
+        pub weight: Option<Decimal>,
+    }
+
     /// Details about the set performed.
     #[derive(
         Clone,
@@ -1336,6 +1352,9 @@ pub mod fitness {
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
         pub confirmed_at: Option<DateTimeUtc>,
+        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
+        #[serde(default)]
+        pub totals: WorkoutSetTotals,
     }
 
     impl WorkoutSetRecord {
@@ -1411,7 +1430,7 @@ pub mod fitness {
     )]
     pub struct UserToExerciseExtraInformation {
         pub history: Vec<UserToExerciseHistoryExtraInformation>,
-        pub lifetime_stats: WorkoutTotalMeasurement,
+        pub lifetime_stats: WorkoutOrExerciseTotals,
         pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
     }
 
@@ -1457,9 +1476,28 @@ pub mod fitness {
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
-        pub total: WorkoutTotalMeasurement,
+        pub total: WorkoutOrExerciseTotals,
         #[serde(default)]
         pub assets: EntityAssets,
+    }
+
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        Enum,
+        Clone,
+        Eq,
+        PartialEq,
+        FromJsonQueryResult,
+        Copy,
+        Default,
+        ConfigEnum,
+    )]
+    pub enum UserUnitSystem {
+        #[default]
+        Metric,
+        Imperial,
     }
 
     /// Information about a workout done.
@@ -1516,7 +1554,7 @@ pub mod fitness {
         Schematic,
     )]
     pub struct WorkoutSummary {
-        pub total: WorkoutTotalMeasurement,
+        pub total: WorkoutOrExerciseTotals,
         pub exercises: Vec<WorkoutSummaryExercise>,
     }
 

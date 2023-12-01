@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
 
+use crate::models::fitness::UserUnitSystem;
+
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
@@ -88,26 +90,6 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
 }
 
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    Enum,
-    Clone,
-    Eq,
-    PartialEq,
-    FromJsonQueryResult,
-    Copy,
-    EnumString,
-    Default,
-)]
-#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
-pub enum UserUnitSystem {
-    #[default]
-    Metric,
-    Imperial,
-}
-
-#[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserExercisePreferences {
@@ -120,7 +102,7 @@ impl Default for UserExercisePreferences {
     fn default() -> Self {
         Self {
             save_history: 15,
-            default_timer: None,
+            default_timer: Some(60),
             unit_system: UserUnitSystem::Metric,
         }
     }

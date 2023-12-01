@@ -1,6 +1,7 @@
 import { DisplayExerciseStats } from "@/components/FitnessComponents";
 import { APP_ROUTES, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import { useEnabledCoreFeatures, useUserPreferences } from "@/lib/hooks";
+import LoadingPage from "@/lib/layouts/LoadingPage";
 import LoggedIn from "@/lib/layouts/LoggedIn";
 import { gqlClient } from "@/lib/services/api";
 import {
@@ -668,6 +669,7 @@ const ExerciseDisplay = (props: {
 											lot={props.exercise.lot}
 											hideExtras
 											centerText
+											unit={userPreferences.data.fitness.exercises.unitSystem}
 										/>
 									) : (
 										"—"
@@ -1050,6 +1052,7 @@ const Page: NextPageWithLayout = () => {
 	const router = useRouter();
 	const [time, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const userPreferences = useUserPreferences();
 	const [playCompleteWorkoutSound] = useSound("/workout-completed.wav", {
 		interrupt: true,
 	});
@@ -1129,7 +1132,7 @@ const Page: NextPageWithLayout = () => {
 		return interval.stop;
 	}, []);
 
-	return (
+	return userPreferences.data ? (
 		<>
 			<Head>
 				<title>Current Workout | Ryot</title>
@@ -1198,7 +1201,12 @@ const Page: NextPageWithLayout = () => {
 												? (s.statistic.reps || 0) * (s.statistic.weight || 0)
 												: 0,
 										),
-								).toFixed()} kg`}
+								).toFixed()} ${
+									userPreferences.data.fitness.exercises.unitSystem ===
+									UserUnitSystem.Imperial
+										? "lb"
+										: "kg"
+								}`}
 							/>
 							<StatDisplay
 								name="Sets"
@@ -1318,6 +1326,8 @@ const Page: NextPageWithLayout = () => {
 				)}
 			</Container>
 		</>
+	) : (
+		<LoadingPage />
 	);
 };
 

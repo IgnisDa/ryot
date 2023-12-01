@@ -17,7 +17,7 @@ query WorkoutDetails($workoutId: String!) {
         notes
         restTime
         total {
-          ...WorkoutTotalMeasurementPart
+          ...WorkoutOrExerciseTotalsPart
         }
         assets {
           ...EntityAssetsPart
