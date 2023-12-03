@@ -1,7 +1,9 @@
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import {
 	ActionIcon,
+	Affix,
 	Alert,
+	Button,
 	Container,
 	Divider,
 	Flex,
@@ -20,14 +22,21 @@ import {
 } from "@mantine/core";
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DashboardElementLot,
+	UpdateUserPreferenceDocument,
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import { IconCheckbox } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
 	IconBellRinging,
@@ -36,7 +45,9 @@ import {
 } from "@tabler/icons-react";
 import clsx from "clsx";
 import { Fragment } from "react";
+import { flushSync } from "react-dom";
 import { match } from "ts-pattern";
+import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import classes from "~/styles/preferences.module.css";
 
@@ -58,39 +69,98 @@ const notificationContent = {
 	message: "Changing preferences is disabled on this instance.",
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const entries = Object.entries(Object.fromEntries(await request.formData()));
+	const submission = [];
+	for (let [property, value] of entries) {
+		if (property === "reset") {
+			property = "";
+			value = "";
+		}
+		submission.push({
+			property,
+			value: value.toString(),
+		});
+	}
+	for (const input of submission) {
+		await gqlClient.request(
+			UpdateUserPreferenceDocument,
+			{ input },
+			await getAuthorizationHeader(request),
+		);
+	}
+	return json({ status: "success", submission } as const);
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [dashboardElements, dashboardElementsHandlers] = useListState(
 		loaderData.userPreferences.general.dashboard,
 	);
+	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
+		[string, string]
+	>([]);
+
+	const appendPref = (property: string, value: string) => {
+		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
+		if (index !== -1) updateUserPreferencesHandler.remove(index);
+		updateUserPreferencesHandler.append([property, value]);
+	};
 
 	return (
 		<Container size="xs">
+			{toUpdatePreferences.length > 0 ? (
+				<Affix position={{ bottom: rem(40), right: rem(30) }}>
+					<Form method="post" reloadDocument>
+						{toUpdatePreferences.map((pref) => (
+							<input
+								key={pref[0]}
+								hidden
+								name={pref[0]}
+								defaultValue={pref[1]}
+							/>
+						))}
+						<Button
+							color="green"
+							variant="outline"
+							leftSection={<IconCheckbox size={20} />}
+							type="submit"
+						>
+							Save changes ({toUpdatePreferences.length})
+						</Button>
+					</Form>
+				</Affix>
+			) : undefined}
 			<Stack>
 				<Group justify="space-between">
 					<Title>Preferences</Title>
-					<ActionIcon
-						color="red"
-						variant="outline"
-						onClick={async () => {
-							const yes = confirm(
-								"This will reset all your preferences to default. Are you sure you want to continue?",
-							);
-							if (loaderData.coreDetails.preferencesChangeAllowed) {
-								if (yes) {
-									await updateUserPreferences.mutateAsync({
-										input: {
-											property: "",
-											value: "",
-										},
-									});
-									router.reload();
-								}
-							} else notifications.show(notificationContent);
-						}}
-					>
-						<IconRotate360 size={20} />
-					</ActionIcon>
+					<Form method="post">
+						<ActionIcon
+							color="red"
+							variant="outline"
+							onClick={async (e) => {
+								if (loaderData.coreDetails.preferencesChangeAllowed) {
+									if (
+										!confirm(
+											"This will reset all your preferences to default. Are you sure you want to continue?",
+										)
+									)
+										e.preventDefault();
+									else
+										notifications.show({
+											message:
+												"Preferences have been reset. Please reload the page.",
+											color: "green",
+										});
+								} else notifications.show(notificationContent);
+							}}
+							type="submit"
+							name="reset"
+							value="reset"
+						>
+							<IconRotate360 size={20} />
+						</ActionIcon>
+					</Form>
 				</Group>
 				{!loaderData.coreDetails.preferencesChangeAllowed ? (
 					<Alert
@@ -112,12 +182,19 @@ export default function Page() {
 						<Text mb="md">The different sections on the dashboard.</Text>
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
-								if (loaderData.coreDetails.preferencesChangeAllowed)
-									dashboardElementsHandlers.reorder({
-										from: source.index,
-										to: destination?.index || 0,
+								if (loaderData.coreDetails.preferencesChangeAllowed) {
+									flushSync(() => {
+										dashboardElementsHandlers.reorder({
+											from: source.index,
+											to: destination?.index || 0,
+										});
 									});
-								else notifications.show(notificationContent);
+									// FIXME: https://github.com/mantinedev/mantine/issues/5362
+									appendPref(
+										"general.dashboard",
+										JSON.stringify(dashboardElements),
+									);
+								} else notifications.show(notificationContent);
 							}}
 						>
 							<Droppable droppableId="dnd-list">
@@ -128,6 +205,7 @@ export default function Page() {
 												key={de.section}
 												lot={de.section}
 												index={index}
+												appendPref={appendPref}
 											/>
 										))}
 										{provided.placeholder}
@@ -150,22 +228,20 @@ export default function Page() {
 											],
 										).map(([name, isEnabled]) => (
 											<Switch
-												size="xs"
 												key={name}
+												size="xs"
 												label={changeCase(snakeCase(name))}
 												// biome-ignore lint/suspicious/noExplicitAny: required here
-												checked={isEnabled as any}
+												defaultChecked={isEnabled as any}
 												disabled={
 													!loaderData.coreDetails.preferencesChangeAllowed
 												}
 												onChange={(ev) => {
 													const lot = snakeCase(name);
-													updateUserPreferences.mutate({
-														input: {
-															property: `features_enabled.${facet}.${lot}`,
-															value: String(ev.currentTarget.checked),
-														},
-													});
+													appendPref(
+														`features_enabled.${facet}.${lot}`,
+														String(ev.currentTarget.checked),
+													);
 												}}
 											/>
 										))}
@@ -187,45 +263,37 @@ export default function Page() {
 									defaultValue={loaderData.userPreferences.general.reviewScale}
 									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
 									onChange={(val) => {
-										if (val)
-											updateUserPreferences.mutate({
-												input: {
-													property: "general.review_scale",
-													value: val,
-												},
-											});
+										if (val) appendPref("general.review_scale", val);
 									}}
 								/>
 								<Switch
 									size="xs"
 									mt="md"
 									label="Whether NSFW will be displayed"
-									checked={loaderData.userPreferences.general.displayNsfw}
+									defaultChecked={
+										loaderData.userPreferences.general.displayNsfw
+									}
 									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
 									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: "general.display_nsfw",
-												value: String(ev.currentTarget.checked),
-											},
-										});
+										appendPref(
+											"general.display_nsfw",
+											String(ev.currentTarget.checked),
+										);
 									}}
 								/>
 								<Switch
 									size="xs"
 									mt="md"
 									label="Disable yank integrations"
-									checked={
+									defaultChecked={
 										loaderData.userPreferences.general.disableYankIntegrations
 									}
 									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
 									onChange={(ev) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: "general.disable_yank_integrations",
-												value: String(ev.currentTarget.checked),
-											},
-										});
+										appendPref(
+											"general.disable_yank_integrations",
+											String(ev.currentTarget.checked),
+										);
 									}}
 								/>
 							</SimpleGrid>
@@ -271,17 +339,15 @@ export default function Page() {
 														"Number of chapters/episodes changes for manga/anime",
 												)
 												.otherwise(() => undefined)}
-											checked={isEnabled}
+											defaultChecked={isEnabled}
 											disabled={
 												!loaderData.coreDetails.preferencesChangeAllowed
 											}
 											onChange={(ev) => {
-												updateUserPreferences.mutate({
-													input: {
-														property: `notifications.${snakeCase(name)}`,
-														value: String(ev.currentTarget.checked),
-													},
-												});
+												appendPref(
+													`notifications.${snakeCase(name)}`,
+													String(ev.currentTarget.checked),
+												);
 											}}
 										/>
 									),
@@ -304,12 +370,7 @@ export default function Page() {
 									}
 									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
 									onChange={(num) => {
-										updateUserPreferences.mutate({
-											input: {
-												property: "fitness.exercises.default_timer",
-												value: String(num),
-											},
-										});
+										appendPref("fitness.exercises.default_timer", String(num));
 									}}
 								/>
 								<NumberInput
@@ -321,12 +382,7 @@ export default function Page() {
 									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
 									onChange={(num) => {
 										if (num)
-											updateUserPreferences.mutate({
-												input: {
-													property: "fitness.exercises.save_history",
-													value: String(num),
-												},
-											});
+											appendPref("fitness.exercises.save_history", String(num));
 									}}
 								/>
 								<Group wrap="nowrap">
@@ -334,7 +390,7 @@ export default function Page() {
 										onClick={async () => {
 											if (Notification.permission !== "granted") {
 												await Notification.requestPermission();
-												router.reload();
+												window.location.reload();
 											}
 										}}
 										color={
@@ -360,13 +416,7 @@ export default function Page() {
 									defaultValue={loaderData.userPreferences.fitness.exercises.unitSystem.toLowerCase()}
 									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
 									onChange={(val) => {
-										if (val)
-											updateUserPreferences.mutate({
-												input: {
-													property: "fitness.exercises.unit_system",
-													value: val,
-												},
-											});
+										if (val) appendPref("fitness.exercises.unit_system", val);
 									}}
 								/>
 							</SimpleGrid>
@@ -379,17 +429,13 @@ export default function Page() {
 										size="xs"
 										key={name}
 										label={changeCase(snakeCase(name))}
-										checked={isEnabled}
+										defaultChecked={isEnabled}
 										disabled={!loaderData.coreDetails.preferencesChangeAllowed}
 										onChange={(ev) => {
-											updateUserPreferences.mutate({
-												input: {
-													property: `fitness.measurements.inbuilt.${snakeCase(
-														name,
-													)}`,
-													value: String(ev.currentTarget.checked),
-												},
-											});
+											appendPref(
+												`fitness.measurements.inbuilt.${snakeCase(name)}`,
+												String(ev.currentTarget.checked),
+											);
 										}}
 									/>
 								))}
@@ -406,12 +452,7 @@ export default function Page() {
 								autosize
 								formatOnBlur
 								onChange={(v) => {
-									updateUserPreferences.mutate({
-										input: {
-											property: "fitness.measurements.custom.dummy",
-											value: v,
-										},
-									});
+									appendPref("fitness.measurements.custom.dummy", v);
 								}}
 							/>
 						</Stack>
@@ -425,6 +466,7 @@ export default function Page() {
 const EditDashboardElement = (props: {
 	lot: DashboardElementLot;
 	index: number;
+	appendPref: (property: string, value: string) => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const focusedElementIndex =
@@ -473,12 +515,10 @@ const EditDashboardElement = (props: {
 									loaderData.userPreferences.general.dashboard,
 								);
 								newDashboardData[focusedElementIndex].hidden = newValue;
-								updateUserPreferences.mutate({
-									input: {
-										property: "general.dashboard",
-										value: JSON.stringify(newDashboardData),
-									},
-								});
+								props.appendPref(
+									"general.dashboard",
+									JSON.stringify(newDashboardData),
+								);
 							}}
 						/>
 					</Group>
@@ -495,12 +535,10 @@ const EditDashboardElement = (props: {
 											loaderData.userPreferences.general.dashboard,
 										);
 										newDashboardData[focusedElementIndex].numElements = num;
-										updateUserPreferences.mutate({
-											input: {
-												property: "general.dashboard",
-												value: JSON.stringify(newDashboardData),
-											},
-										});
+										props.appendPref(
+											"general.dashboard",
+											JSON.stringify(newDashboardData),
+										);
 									}
 								}}
 							/>
