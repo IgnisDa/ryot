@@ -17,9 +17,16 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
+	DeleteUserNotificationPlatformDocument,
+	TestUserNotificationPlatformsDocument,
 	UserNotificationPlatformsDocument,
 	UserNotificationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -27,8 +34,13 @@ import { changeCase } from "@ryot/ts-utils";
 import { IconTrash } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { useState } from "react";
+import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { z } from "zod";
+import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { createToastHeaders } from "~/lib/toast.server";
+import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
@@ -44,6 +56,83 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const meta: MetaFunction = () => {
 	return [{ title: "Notification Settings | Ryot" }];
 };
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		delete: async () => {
+			const submission = processSubmission(formData, deleteSchema);
+			await gqlClient.request(
+				DeleteUserNotificationPlatformDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Notification platform deleted successfully",
+				}),
+			});
+		},
+		test: async () => {
+			const { testUserNotificationPlatforms } = await gqlClient.request(
+				TestUserNotificationPlatformsDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: testUserNotificationPlatforms ? "success" : "error",
+					message: testUserNotificationPlatforms
+						? "Please check your notification platforms"
+						: "Something went wrong",
+				}),
+			});
+		},
+		// register: async () => {
+		// 	const submission = processSubmission(formData, registerFormSchema);
+		// 	const { registerUser } = await gqlClient.request(
+		// 		RegisterUserDocument,
+		// 		{ input: submission },
+		// 		await getAuthorizationHeader(request),
+		// 	);
+		// 	const success = registerUser.__typename === "IdObject";
+		// 	return json({ status: "success", submission } as const, {
+		// 		headers: await createToastHeaders({
+		// 			type: success ? "success" : "error",
+		// 			message: success
+		// 				? "User registered successfully"
+		// 				: match(registerUser.error)
+		// 						.with(
+		// 							RegisterErrorVariant.Disabled,
+		// 							() => "Registration is disabled",
+		// 						)
+		// 						.with(
+		// 							RegisterErrorVariant.UsernameAlreadyExists,
+		// 							() => "Username already exists",
+		// 						)
+		// 						.exhaustive(),
+		// 		}),
+		// 	});
+		// },
+	});
+};
+
+const deleteSchema = z.object({
+	notificationId: zx.NumAsString,
+});
+
+const createUserNotificationPlatformSchema = z.object({
+	baseUrl: z
+		.string()
+		.url()
+		.refine((val) => !val.endsWith("/"), {
+			message: "Trailing slash not allowed",
+		})
+		.optional(),
+	apiToken: z.string().optional(),
+	authHeader: z.string().optional(),
+	priority: z.number().optional(),
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -77,7 +166,7 @@ export default function Page() {
 								</Box>
 								<Group>
 									<Tooltip label="Delete">
-										<Form action="?delete" method="post">
+										<Form action="?intent=delete" method="post">
 											<ActionIcon
 												color="red"
 												variant="outline"
@@ -108,14 +197,11 @@ export default function Page() {
 					<Flex justify="end">
 						<Group>
 							{loaderData.userNotificationPlatforms.length > 0 ? (
-								<Button
-									size="xs"
-									variant="light"
-									color="green"
-									onClick={() => testUserNotificationPlatforms.mutate({})}
-								>
-									Trigger test notifications
-								</Button>
+								<Form action="?intent=test" method="post">
+									<Button size="xs" variant="light" color="green" type="submit">
+										Trigger test notifications
+									</Button>
+								</Form>
 							) : undefined}
 							<Button
 								size="xs"
