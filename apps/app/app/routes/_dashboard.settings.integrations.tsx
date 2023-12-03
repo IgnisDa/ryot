@@ -16,9 +16,16 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import {
+	DeleteUserIntegrationDocument,
+	UserIntegrationLot,
 	UserIntegrationsDocument,
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
@@ -26,7 +33,12 @@ import {
 import { IconCopy, IconTrash } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { useState } from "react";
+import { namedAction } from "remix-utils/named-action";
+import { z } from "zod";
+import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { createToastHeaders } from "~/lib/toast.server";
+import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -42,6 +54,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const meta: MetaFunction = () => {
 	return [{ title: "Integration Settings | Ryot" }];
 };
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		delete: async () => {
+			const submission = processSubmission(formData, deleteSchema);
+			await gqlClient.request(
+				DeleteUserIntegrationDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Integration deleted successfully",
+				}),
+			});
+		},
+	});
+};
+
+const deleteSchema = z.object({
+	integrationId: zx.NumAsString,
+	integrationLot: z.nativeEnum(UserIntegrationLot),
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -103,23 +139,31 @@ export default function Page() {
 											)}
 										</CopyButton>
 									) : undefined}
-									<ActionIcon
-										color="red"
-										variant="subtle"
-										size="sm"
-										onClick={() => {
-											const yes = confirm(
-												"Are you sure you want to delete this integration?",
-											);
-											if (yes)
-												deleteUserIntegration.mutate({
-													integrationId: i.id,
-													integrationLot: i.lot,
-												});
-										}}
-									>
-										<IconTrash />
-									</ActionIcon>
+									<Form action="?intent=delete" method="post">
+										<input
+											type="hidden"
+											name="integrationLot"
+											defaultValue={i.lot}
+										/>
+										<ActionIcon
+											color="red"
+											variant="subtle"
+											size="sm"
+											type="submit"
+											name="integrationId"
+											value={i.id}
+											onClick={(e) => {
+												if (
+													!confirm(
+														"Are you sure you want to delete this integration?",
+													)
+												)
+													e.preventDefault();
+											}}
+										>
+											<IconTrash />
+										</ActionIcon>
+									</Form>
 								</Group>
 							</Flex>
 						</Paper>
