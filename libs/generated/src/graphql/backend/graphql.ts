@@ -66,7 +66,8 @@ export enum BackgroundJob {
   EvaluateWorkouts = 'EVALUATE_WORKOUTS',
   RecalculateCalendarEvents = 'RECALCULATE_CALENDAR_EVENTS',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
-  UpdateAllMetadata = 'UPDATE_ALL_METADATA'
+  UpdateAllMetadata = 'UPDATE_ALL_METADATA',
+  YankIntegrationsData = 'YANK_INTEGRATIONS_DATA'
 }
 
 export type BookSpecifics = {

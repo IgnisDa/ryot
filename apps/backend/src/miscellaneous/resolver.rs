@@ -2620,6 +2620,11 @@ impl MiscellaneousService {
                     .push(ApplicationJob::RecalculateUserSummary(user_id))
                     .await?;
             }
+            BackgroundJob::YankIntegrationsData => {
+                sqlite_storage
+                    .push(ApplicationJob::YankIntegrationsData(user_id))
+                    .await?;
+            }
             BackgroundJob::UpdateAllMetadata => {
                 if !self.config.server.deploy_admin_jobs_allowed {
                     return Ok(false);

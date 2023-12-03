@@ -100,6 +100,7 @@ pub enum ApplicationJob {
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
+    YankIntegrationsData(i32),
 }
 
 impl Job for ApplicationJob {
@@ -131,6 +132,10 @@ pub async fn perform_application_job(
         }
         ApplicationJob::RecalculateUserSummary(user_id) => misc_service
             .calculate_user_summary(user_id, true)
+            .await
+            .is_ok(),
+        ApplicationJob::YankIntegrationsData(user_id) => misc_service
+            .yank_integrations_data_for_user(user_id)
             .await
             .is_ok(),
         ApplicationJob::ReEvaluateUserWorkouts(user_id) => exercise_service
