@@ -52,7 +52,6 @@ const documents = {
     "mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}": types.ToggleMediaOwnershipDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}": types.UpdateUserPreferenceDocument,
-    "mutation YankIntegrationData {\n  yankIntegrationData\n}": types.YankIntegrationDataDocument,
     "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    reviews {\n      ...ReviewItemPart\n    }\n    results {\n      details {\n        total\n        nextPage\n      }\n      items {\n        metadataLot\n        entityLot\n        details {\n          ...MediaSearchItemPart\n        }\n      }\n    }\n    details {\n      name\n      description\n      visibility\n      createdOn\n    }\n  }\n}": types.CollectionContentsDocument,
     "query CoreDetails {\n  coreDetails {\n    version\n    timezone\n    authorName\n    repositoryLink\n    docsLink\n    defaultCredentials\n    passwordChangeAllowed\n    preferencesChangeAllowed\n    usernameChangeAllowed\n    itemDetailsHeight\n    reviewsDisabled\n    videosDisabled\n    upgrade\n    pageLimit\n    deployAdminJobsAllowed\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
@@ -263,10 +262,6 @@ export function graphql(source: "mutation UpdateUser($input: UpdateUserInput!) {
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}"): (typeof documents)["mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "mutation YankIntegrationData {\n  yankIntegrationData\n}"): (typeof documents)["mutation YankIntegrationData {\n  yankIntegrationData\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -1217,13 +1217,6 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Yank data from all integrations for the currently logged in user.
-    async fn yank_integration_data(&self, gql_ctx: &Context<'_>) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.yank_integrations_data_for_user(user_id).await
-    }
-
     /// Delete a user. The account making the user must an `Admin`.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
