@@ -24,6 +24,8 @@ import {
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
+	CreateUserSinkIntegrationDocument,
+	CreateUserYankIntegrationDocument,
 	DeleteUserIntegrationDocument,
 	UserIntegrationLot,
 	UserIntegrationsDocument,
@@ -71,8 +73,48 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		create: async () => {
+			const submission = processSubmission(formData, createYankSchema);
+			if (submission.yankLot) {
+				await gqlClient.request(
+					CreateUserYankIntegrationDocument,
+					{
+						input: {
+							baseUrl: submission.baseUrl as string,
+							token: submission.token as string,
+							lot: submission.yankLot,
+						},
+					},
+					await getAuthorizationHeader(request),
+				);
+			} else if (submission.sinkLot) {
+				await gqlClient.request(
+					CreateUserSinkIntegrationDocument,
+					{
+						input: {
+							username: submission.username,
+							lot: submission.sinkLot,
+						},
+					},
+					await getAuthorizationHeader(request),
+				);
+			}
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Integration created successfully",
+				}),
+			});
+		},
 	});
 };
+
+const createYankSchema = z.object({
+	baseUrl: z.string().url().optional(),
+	token: z.string().optional(),
+	username: z.string().optional(),
+	yankLot: z.nativeEnum(UserYankIntegrationSettingKind).optional(),
+	sinkLot: z.nativeEnum(UserSinkIntegrationSettingKind).optional(),
+});
 
 const deleteSchema = z.object({
 	integrationId: zx.NumAsString,
@@ -186,32 +228,29 @@ export default function Page() {
 						withCloseButton={false}
 					>
 						<Box
-							component="form"
-							onSubmit={(values) => {
-								if (createUserYankIntegrationLot) {
-									createUserYankIntegration.mutate({
-										input: {
-											// biome-ignore lint/style/noNonNullAssertion: any is required here
-											baseUrl: values.baseUrl!,
-											// biome-ignore lint/style/noNonNullAssertion: any is required here
-											token: values.token!,
-											lot: createUserYankIntegrationLot,
-										},
-									});
-								} else if (createUserSinkIntegrationLot) {
-									createUserSinkIntegration.mutate({
-										input: {
-											lot: createUserSinkIntegrationLot,
-											username: values.username,
-										},
-									});
-								}
+							component={Form}
+							action="?intent=create"
+							method="post"
+							onSubmit={() => {
 								closeCreateUserYankIntegrationModal();
-								createUserYankIntegrationForm.reset();
 								setCreateUserYankIntegrationLot(undefined);
 								setCreateUserSinkIntegrationLot(undefined);
 							}}
 						>
+							{createUserYankIntegrationLot ? (
+								<input
+									type="hidden"
+									name="yankLot"
+									value={createUserYankIntegrationLot}
+								/>
+							) : undefined}
+							{createUserSinkIntegrationLot ? (
+								<input
+									type="hidden"
+									name="sinkLot"
+									value={createUserSinkIntegrationLot}
+								/>
+							) : undefined}
 							<Stack>
 								<Select
 									label="Select a source"
@@ -228,9 +267,7 @@ export default function Page() {
 													v,
 												)
 											) {
-												setCreateUserYankIntegrationLot(
-													v as UserYankIntegrationSettingKind,
-												);
+												setCreateUserYankIntegrationLot(v);
 												setCreateUserSinkIntegrationLot(undefined);
 											}
 											if (
@@ -238,9 +275,7 @@ export default function Page() {
 													v,
 												)
 											) {
-												setCreateUserSinkIntegrationLot(
-													v as UserSinkIntegrationSettingKind,
-												);
+												setCreateUserSinkIntegrationLot(v);
 												setCreateUserYankIntegrationLot(undefined);
 											}
 										}
