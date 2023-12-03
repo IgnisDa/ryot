@@ -6061,6 +6061,7 @@ __metadata:
   dependencies:
     "@conform-to/react": "npm:0.9.0"
     "@conform-to/zod": "npm:0.9.0"
+    "@hello-pangea/dnd": "npm:16.3.0"
     "@mantine/carousel": "npm:7.2.2"
     "@mantine/core": "npm:7.2.2"
     "@mantine/dates": "npm:7.2.2"
@@ -6081,6 +6082,7 @@ __metadata:
     "@types/luxon": "npm:3.3.3"
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.7"
+    clsx: "npm:2.0.0"
     crypto-js: "npm:4.2.0"
     embla-carousel-react: "npm:^7.1.0"
     graphql-request: "npm:6.1.0"
