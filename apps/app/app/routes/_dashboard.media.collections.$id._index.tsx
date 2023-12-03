@@ -25,7 +25,7 @@ import {
 	GraphqlSortOrder,
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatTimeAgo, startCase } from "@ryot/ts-utils";
+import { changeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -37,6 +37,7 @@ import {
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
+import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -150,7 +151,7 @@ export default function Page() {
 					<Text size="sm">
 						{loaderData.contents.details.total} items, created by{" "}
 						{loaderData.info.user.name}{" "}
-						{formatTimeAgo(loaderData.info.details.createdOn)}
+						{DateTime.fromISO(loaderData.info.details.createdOn).toRelative()}
 					</Text>
 				</Box>
 				<Text>{loaderData.info.details.description}</Text>

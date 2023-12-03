@@ -1,7 +1,6 @@
 {
 	"name": "@ryot/ts-utils",
 	"dependencies": {
-		"javascript-time-ago": "2.5.9",
 		"lodash": "4.17.21"
 	},
 	"devDependencies": {

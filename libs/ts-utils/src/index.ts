@@ -1,5 +1,3 @@
-import TimeAgo from "javascript-time-ago";
-import en from "javascript-time-ago/locale/en.json";
 import {
 	camelCase,
 	groupBy,
@@ -9,18 +7,6 @@ import {
 	sum,
 	cloneDeep,
 } from "lodash";
-
-TimeAgo.addDefaultLocale(en);
-
-/**
- * Format a `Date` into a human readable format.
- */
-export const formatTimeAgo = (time: Date | string) => {
-	const timeAgo = new TimeAgo("en-US");
-	let newTime = time as Date;
-	if (typeof time === "string") newTime = new Date(time);
-	return timeAgo.format(newTime);
-};
 
 /**
  * Format a `Date` into a Rust `NaiveDate`

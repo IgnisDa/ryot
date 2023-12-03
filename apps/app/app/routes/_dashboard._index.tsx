@@ -26,7 +26,6 @@ import {
 	UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { formatTimeAgo } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconBarbell,
@@ -157,9 +156,9 @@ export default function Index() {
 								<Title>Summary</Title>
 								<Text size="xs" mt={-15}>
 									Calculated{" "}
-									{formatTimeAgo(
-										new Date(loaderData.latestUserSummary.calculatedOn),
-									)}
+									{DateTime.fromISO(
+										loaderData.latestUserSummary.calculatedOn,
+									).toRelative()}
 								</Text>
 								<SimpleGrid
 									cols={{ base: 1, sm: 2, md: 3 }}

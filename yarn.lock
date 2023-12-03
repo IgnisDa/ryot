@@ -6209,7 +6209,6 @@ __metadata:
   resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
     "@types/lodash": "npm:4.14.200"
-    javascript-time-ago: "npm:2.5.9"
     lodash: "npm:4.17.21"
   languageName: unknown
   linkType: soft
@@ -12022,15 +12021,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"javascript-time-ago@npm:2.5.9":
-  version: 2.5.9
-  resolution: "javascript-time-ago@npm:2.5.9"
-  dependencies:
-    relative-time-format: "npm:^1.1.6"
-  checksum: 59fe93ff6e91122216b448ae04d253fff64070f0d1bb9e11085acdc2d0edfa4e0202ec5a7c0c67463d314b204efdff009eea5a2a01203e983d67ad4bb85e2549
-  languageName: node
-  linkType: hard
-
 "jest-worker@npm:^26.2.1":
   version: 26.6.2
   resolution: "jest-worker@npm:26.6.2"
@@ -15783,13 +15773,6 @@ __metadata:
   bin:
     regjsparser: bin/parser
   checksum: be7757ef76e1db10bf6996001d1021048b5fb12f5cb470a99b8cf7f3ff943f0f0e2291c0dcdbb418b458ddc4ac10e48680a822b69ef487a0284c8b6b77beddc3
-  languageName: node
-  linkType: hard
-
-"relative-time-format@npm:^1.1.6":
-  version: 1.1.6
-  resolution: "relative-time-format@npm:1.1.6"
-  checksum: b14bcca18f8d48c521b716ccb81279ecdc739518a4fb25daf3e60bcbd093cedad9507e4abba43b9fc86b74fef0f72d1bce6bcf99ac1f25730fa42cef3e1b336c
   languageName: node
   linkType: hard
 
