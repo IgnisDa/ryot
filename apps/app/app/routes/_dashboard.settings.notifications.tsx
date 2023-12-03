@@ -25,6 +25,7 @@ import {
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
+	CreateUserNotificationPlatformDocument,
 	DeleteUserNotificationPlatformDocument,
 	TestUserNotificationPlatformsDocument,
 	UserNotificationPlatformsDocument,
@@ -60,6 +61,15 @@ export const meta: MetaFunction = () => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
+		create: async () => {
+			const submission = processSubmission(formData, createSchema);
+			await gqlClient.request(
+				CreateUserNotificationPlatformDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const);
+		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await gqlClient.request(
@@ -88,40 +98,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
-		// register: async () => {
-		// 	const submission = processSubmission(formData, registerFormSchema);
-		// 	const { registerUser } = await gqlClient.request(
-		// 		RegisterUserDocument,
-		// 		{ input: submission },
-		// 		await getAuthorizationHeader(request),
-		// 	);
-		// 	const success = registerUser.__typename === "IdObject";
-		// 	return json({ status: "success", submission } as const, {
-		// 		headers: await createToastHeaders({
-		// 			type: success ? "success" : "error",
-		// 			message: success
-		// 				? "User registered successfully"
-		// 				: match(registerUser.error)
-		// 						.with(
-		// 							RegisterErrorVariant.Disabled,
-		// 							() => "Registration is disabled",
-		// 						)
-		// 						.with(
-		// 							RegisterErrorVariant.UsernameAlreadyExists,
-		// 							() => "Username already exists",
-		// 						)
-		// 						.exhaustive(),
-		// 		}),
-		// 	});
-		// },
 	});
 };
 
-const deleteSchema = z.object({
-	notificationId: zx.NumAsString,
-});
+const deleteSchema = z.object({ notificationId: zx.NumAsString });
 
-const createUserNotificationPlatformSchema = z.object({
+const createSchema = z.object({
+	lot: z.nativeEnum(UserNotificationSettingKind),
 	baseUrl: z
 		.string()
 		.url()
@@ -220,7 +203,7 @@ export default function Page() {
 					>
 						<Box
 							component={Form}
-							action="?create"
+							action="?intent=create"
 							method="post"
 							onSubmit={() => {
 								closeCreateUserNotificationPlatformModal();
@@ -250,20 +233,8 @@ export default function Page() {
 									? match(createUserNotificationPlatformLot)
 											.with(UserNotificationSettingKind.Apprise, () => (
 												<>
-													<TextInput
-														label="Base Url"
-														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"baseUrl",
-														)}
-													/>
-													<TextInput
-														label="Key"
-														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"apiToken",
-														)}
-													/>
+													<TextInput label="Base Url" required name="baseUrl" />
+													<TextInput label="Key" required name="apiToken" />
 												</>
 											))
 											.with(UserNotificationSettingKind.Discord, () => (
@@ -271,9 +242,7 @@ export default function Page() {
 													<TextInput
 														label="Webhook Url"
 														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"baseUrl",
-														)}
+														name="baseUrl"
 													/>
 												</>
 											))
@@ -282,40 +251,16 @@ export default function Page() {
 													<TextInput
 														label="Server Url"
 														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"baseUrl",
-														)}
+														name="baseUrl"
 													/>
-													<TextInput
-														label="Token"
-														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"apiToken",
-														)}
-													/>
-													<NumberInput
-														label="Priority"
-														{...createUserNotificationPlatformForm.getInputProps(
-															"priority",
-														)}
-													/>
+													<TextInput label="Token" required name="apiToken" />
+													<NumberInput label="Priority" name="priority" />
 												</>
 											))
 											.with(UserNotificationSettingKind.Ntfy, () => (
 												<>
-													<TextInput
-														label="Topic"
-														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"apiToken",
-														)}
-													/>
-													<TextInput
-														label="Server Url"
-														{...createUserNotificationPlatformForm.getInputProps(
-															"baseUrl",
-														)}
-													/>
+													<TextInput label="Topic" required name="apiToken" />
+													<TextInput label="Server Url" name="baseUrl" />
 													<TextInput
 														label="Access token"
 														description={
@@ -331,27 +276,14 @@ export default function Page() {
 																</Anchor>
 															</>
 														}
-														{...createUserNotificationPlatformForm.getInputProps(
-															"authHeader",
-														)}
+														name="authHeader"
 													/>
-													<NumberInput
-														label="Priority"
-														{...createUserNotificationPlatformForm.getInputProps(
-															"priority",
-														)}
-													/>
+													<NumberInput label="Priority" name="priority" />
 												</>
 											))
 											.with(UserNotificationSettingKind.PushBullet, () => (
 												<>
-													<TextInput
-														label="Token"
-														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"apiToken",
-														)}
-													/>
+													<TextInput label="Token" required name="apiToken" />
 												</>
 											))
 											.with(UserNotificationSettingKind.PushOver, () => (
@@ -359,27 +291,14 @@ export default function Page() {
 													<TextInput
 														label="User Key"
 														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"apiToken",
-														)}
+														name="apiToken"
 													/>
-													<TextInput
-														label="App Key"
-														{...createUserNotificationPlatformForm.getInputProps(
-															"baseUrl",
-														)}
-													/>
+													<TextInput label="App Key" name="baseUrl" />
 												</>
 											))
 											.with(UserNotificationSettingKind.PushSafer, () => (
 												<>
-													<TextInput
-														label="Key"
-														required
-														{...createUserNotificationPlatformForm.getInputProps(
-															"apiToken",
-														)}
-													/>
+													<TextInput label="Key" required name="apiToken" />
 												</>
 											))
 											.exhaustive()
