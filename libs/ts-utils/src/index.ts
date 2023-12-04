@@ -1,12 +1,10 @@
-import {
-	camelCase,
-	groupBy,
-	mapValues,
-	snakeCase,
-	startCase,
-	sum,
-	cloneDeep,
-} from "lodash-es";
+import camelCase from "lodash/camelCase";
+import cloneDeep from "lodash/cloneDeep";
+import groupBy from "lodash/groupBy";
+import mapValues from "lodash/mapValues";
+import snakeCase from "lodash/snakeCase";
+import startCase from "lodash/startCase";
+import sum from "lodash/sum";
 
 /**
  * Format a `Date` into a Rust `NaiveDate`

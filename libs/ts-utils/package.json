@@ -1,9 +1,9 @@
 {
 	"name": "@ryot/ts-utils",
 	"dependencies": {
-		"lodash-es": "4.17.21"
+		"lodash": "4.17.21"
 	},
 	"devDependencies": {
-		"@types/lodash-es": "^4"
+		"@types/lodash": "^4"
 	}
 }
