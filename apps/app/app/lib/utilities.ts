@@ -149,17 +149,6 @@ export const getVerb = (verb: Verb, lot: MetadataLot) => {
 };
 
 /**
- * Convert a file to its base64 representation.
- */
-export const fileToText = (file: File): Promise<string> =>
-	new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.readAsText(file);
-		reader.onload = () => resolve(reader.result?.toString() || "");
-		reader.onerror = reject;
-	});
-
-/**
  * Generate a random color based on a seed.
  * Taken from https://stackoverflow.com/a/8134122/11667450
  */
