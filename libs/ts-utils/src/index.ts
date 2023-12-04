@@ -6,7 +6,7 @@ import {
 	startCase,
 	sum,
 	cloneDeep,
-} from "lodash";
+} from "lodash-es";
 
 /**
  * Format a `Date` into a Rust `NaiveDate`
