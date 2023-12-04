@@ -44,7 +44,7 @@ RUN ./apps/backend/ci/build-app.sh
 FROM caddy:2.7.5 as reverse-proxy
 
 FROM node-base
-RUN apt-get update && apt-get install -y --no-install-recommends supervisor
+RUN apt-get update && apt-get install -y --no-install-recommends supervisor ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 USER ryot
