@@ -1,0 +1,10 @@
+{
+	auto_https off
+}
+
+:{$PORT:5000} {
+	handle_path /backend* {
+		reverse_proxy localhost:8000
+	}
+	reverse_proxy localhost:3000
+}
