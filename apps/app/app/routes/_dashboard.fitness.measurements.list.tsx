@@ -38,7 +38,8 @@ import {
 	IconTable,
 	IconTrash,
 } from "@tabler/icons-react";
-import { get, set } from "lodash";
+import get from "lodash/get";
+import set from "lodash/set";
 import { DateTime } from "luxon";
 import { DataTable } from "mantine-datatable";
 import {
