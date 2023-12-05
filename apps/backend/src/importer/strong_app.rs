@@ -67,7 +67,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
             .mapping
             .iter()
             .find(|m| m.source_name == entry.exercise_name.trim())
-            .unwrap();
+            .ok_or_else(|| format!("No mapping found for '{}'", entry.exercise_name))?;
         let mut weight = entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
         if let Some(mul) = target_exercise.multiplier {
             weight = weight.map(|w| w.saturating_mul(mul));

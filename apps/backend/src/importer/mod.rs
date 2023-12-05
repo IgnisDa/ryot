@@ -267,7 +267,7 @@ impl ImporterService {
     async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
-            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await?,
+            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await.unwrap(),
             _ => unreachable!(),
         };
         let details = ImportResultResponse {
@@ -290,21 +290,20 @@ impl ImporterService {
     async fn import_media(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let mut import = match input.source {
-            ImportSource::MediaTracker => {
-                media_tracker::import(input.media_tracker.unwrap()).await?
-            }
-            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
-            ImportSource::Mal => mal::import(input.mal.unwrap()).await?,
-            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
-            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
-            ImportSource::Movary => movary::import(input.movary.unwrap()).await?,
-            ImportSource::StoryGraph => {
-                story_graph::import(
-                    input.story_graph.unwrap(),
-                    &self.media_service.get_openlibrary_service().await?,
-                )
-                .await?
-            }
+            ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
+                .await
+                .unwrap(),
+            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await.unwrap(),
+            ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
+            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await.unwrap(),
+            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
+            ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
+            ImportSource::StoryGraph => story_graph::import(
+                input.story_graph.unwrap(),
+                &self.media_service.get_openlibrary_service().await.unwrap(),
+            )
+            .await
+            .unwrap(),
             _ => unreachable!(),
         };
         let preferences =
