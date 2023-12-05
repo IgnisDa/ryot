@@ -18,6 +18,7 @@ import {
 	IconMicrophone,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+import { gqlClientSide } from "./api";
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
@@ -191,7 +192,7 @@ export const uploadFileAndGetKey = async (
 	contentType: string,
 	body: ArrayBuffer | Buffer,
 ) => {
-	const { presignedPutS3Url } = await gqlClient.request(
+	const { presignedPutS3Url } = await gqlClientSide.request(
 		PresignedPutS3UrlDocument,
 		{
 			fileName,
@@ -206,7 +207,7 @@ export const uploadFileAndGetKey = async (
 };
 
 export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await gqlClient.request(
+	const { getPresignedS3Url } = await gqlClientSide.request(
 		GetPresignedS3UrlDocument,
 		{ key },
 	);
@@ -230,7 +231,7 @@ export const uploadFileToServiceAndGetPath = async (
 			const data: string[] = JSON.parse(xhr.responseText);
 			resolve(data[0]);
 		});
-		xhr.open("POST", `${API_URL}/upload`, true);
+		xhr.open("POST", "/backend/upload", true);
 		xhr.send(formData);
 	});
 	return data;

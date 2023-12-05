@@ -39,6 +39,7 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { uploadFileToServiceAndGetPath } from "~/lib/utilities";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
@@ -140,6 +141,14 @@ export default function Page() {
 	const actionData = useActionData<typeof action>();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
+
+	const [movaryRatingPath, setMovaryRatingPath] = useState("");
+	const [movaryHistoryPath, setMovaryHistoryPath] = useState("");
+	const [movaryWatchlistPath, setMovaryWatchlistPath] = useState("");
+
+	const onProgress = (event: ProgressEvent<XMLHttpRequestEventTarget>) =>
+		setProgress((event.loaded / event.total) * 100);
+	const onLoad = () => setProgress(null);
 
 	return (
 		<Container size="xs">
@@ -314,23 +323,68 @@ export default function Page() {
 											))
 											.with(ImportSource.Movary, () => (
 												<>
+													<input
+														hidden
+														name="history"
+														value={movaryHistoryPath}
+													/>
+													<input
+														hidden
+														name="ratings"
+														value={movaryRatingPath}
+													/>
+													<input
+														hidden
+														name="watchlist"
+														value={movaryWatchlistPath}
+													/>
 													<FileInput
 														label="History CSV file"
 														accept=".csv"
 														required
-														name="history"
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setMovaryHistoryPath(path);
+															}
+														}}
 													/>
 													<FileInput
 														label="Ratings CSV file"
 														accept=".csv"
 														required
-														name="history"
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setMovaryRatingPath(path);
+															}
+														}}
 													/>
 													<FileInput
 														label="Watchlist CSV file"
 														accept=".csv"
 														required
-														name="watchlist"
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setMovaryWatchlistPath(path);
+															}
+														}}
 													/>
 												</>
 											))
