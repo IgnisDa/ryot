@@ -807,7 +807,7 @@ export default function Page() {
 												<>
 													<Menu.Label>In progress</Menu.Label>
 													<Form action="?intent=progressUpdate" method="post">
-														<input hidden name="progress" value={100} />
+														<input hidden name="progress" defaultValue={100} />
 														<input
 															hidden
 															name="date"
@@ -1513,7 +1513,12 @@ const CreateReminderModal = (props: {
 			centered
 		>
 			<Form method="post" action="?intent=createMediaReminder">
-				<input hidden name="remindOn" value={formatDateToNaiveDate(remindOn)} />
+				<input
+					hidden
+					name="remindOn"
+					value={formatDateToNaiveDate(remindOn)}
+					readOnly
+				/>
 				<Stack>
 					<Title order={3}>Create a reminder</Title>
 					<Text>
@@ -1578,7 +1583,7 @@ const CreateOwnershipModal = (props: {
 						onChange={setOwnedOn}
 						value={ownedOn}
 					/>
-					<input hidden name="metadataId" value={props.metadataId} />
+					<input hidden name="metadataId" defaultValue={props.metadataId} />
 					<input
 						hidden
 						name="ownedOn"

@@ -336,16 +336,19 @@ export default function Page() {
 														hidden
 														name="history"
 														value={movaryHistoryPath}
+														readOnly
 													/>
 													<input
 														hidden
 														name="ratings"
 														value={movaryRatingPath}
+														readOnly
 													/>
 													<input
 														hidden
 														name="watchlist"
 														value={movaryWatchlistPath}
+														readOnly
 													/>
 													<FileInput
 														label="History CSV file"
@@ -403,6 +406,7 @@ export default function Page() {
 														hidden
 														name="export"
 														value={storyGraphExportPath}
+														readOnly
 													/>
 													<FileInput
 														label="CSV export file"
@@ -428,6 +432,7 @@ export default function Page() {
 														hidden
 														name="export"
 														value={mediaJsonExportPath}
+														readOnly
 													/>
 													<FileInput
 														label="JSON export file"
@@ -449,8 +454,18 @@ export default function Page() {
 											))
 											.with(ImportSource.Mal, () => (
 												<>
-													<input hidden name="animePath" value={malAnimePath} />
-													<input hidden name="mangaPath" value={malMangaPath} />
+													<input
+														hidden
+														name="animePath"
+														value={malAnimePath}
+														readOnly
+													/>
+													<input
+														hidden
+														name="mangaPath"
+														value={malMangaPath}
+														readOnly
+													/>
 													<FileInput
 														label="Anime export file"
 														required
@@ -489,6 +504,7 @@ export default function Page() {
 														hidden
 														name="exportPath"
 														value={strongAppExportPath}
+														readOnly
 													/>
 													<FileInput
 														label="CSV export file"
