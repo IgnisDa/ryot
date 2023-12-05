@@ -1,3 +1,5 @@
+use std::fs;
+
 use async_graphql::Result;
 
 use crate::{
@@ -6,7 +8,8 @@ use crate::{
 };
 
 pub async fn import(input: DeployMediaJsonImportInput) -> Result<ImportResult> {
-    let mut media = serde_json::from_str::<Vec<ImportOrExportMediaItem>>(&input.export).unwrap();
+    let export = fs::read_to_string(&input.export)?;
+    let mut media = serde_json::from_str::<Vec<ImportOrExportMediaItem>>(&export).unwrap();
     media.iter_mut().for_each(|m| {
         m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails(
             m.identifier.clone(),

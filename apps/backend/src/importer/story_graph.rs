@@ -1,3 +1,5 @@
+use std::fs;
+
 use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
@@ -57,7 +59,8 @@ pub async fn import(
     let source = MetadataSource::Openlibrary;
     let mut media = vec![];
     let mut failed_items = vec![];
-    let ratings_reader = Reader::from_reader(input.export.as_bytes())
+    let export = fs::read_to_string(&input.export)?;
+    let ratings_reader = Reader::from_reader(export.as_bytes())
         .deserialize()
         .collect_vec();
     let total = ratings_reader.len();

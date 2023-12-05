@@ -63,11 +63,11 @@ pub struct DeployTraktImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMovaryImportInput {
-    // The CSV contents of the history file.
+    // The file path of the uploaded CSV history file.
     history: String,
-    // The CSV contents of the ratings file.
+    // The file path of the uploaded CSV ratings file.
     ratings: String,
-    // The CSV contents of the watchlist file.
+    // The file path of the uploaded CSV watchlist file.
     watchlist: String,
 }
 
@@ -81,7 +81,7 @@ pub struct DeployMalImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployStoryGraphImportInput {
-    // The CSV contents of the export file.
+    // The file path of the uploaded CSV export file.
     export: String,
 }
 
@@ -101,7 +101,7 @@ pub struct DeployStrongAppImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMediaJsonImportInput {
-    // The contents of the JSON export.
+    // The file path of the uploaded JSON export.
     export: String,
 }
 
