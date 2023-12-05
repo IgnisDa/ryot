@@ -1,14 +1,23 @@
 import { Box, Container } from "@mantine/core";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
+import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
+import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
-	return json({});
+	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
+	return json({ coreEnabledFeatures });
+};
+
+export const meta: MetaFunction = () => {
+	return [{ title: "Create Media | Ryot" }];
 };
 
 export default function Page() {
+	const loaderData = useLoaderData<typeof loader>();
+
 	return (
 		<Container>
-			<Box>Hello world!</Box>
+			<Box>{JSON.stringify(loaderData)}</Box>
 		</Container>
 	);
 }
