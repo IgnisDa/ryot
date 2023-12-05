@@ -146,6 +146,15 @@ export default function Page() {
 	const [movaryHistoryPath, setMovaryHistoryPath] = useState("");
 	const [movaryWatchlistPath, setMovaryWatchlistPath] = useState("");
 
+	const [storyGraphExportPath, setStoryGraphExportPath] = useState("");
+
+	const [mediaJsonExportPath, setMediaJsonExportPath] = useState("");
+
+	const [malAnimePath, setMalAnimePath] = useState("");
+	const [malMangaPath, setMalMangaPath] = useState("");
+
+	const [strongAppExportPath, setStrongAppExportPath] = useState("");
+
 	const onProgress = (event: ProgressEvent<XMLHttpRequestEventTarget>) =>
 		setProgress((event.loaded / event.total) * 100);
 	const onLoad = () => setProgress(null);
@@ -390,67 +399,120 @@ export default function Page() {
 											))
 											.with(ImportSource.StoryGraph, () => (
 												<>
+													<input
+														hidden
+														name="export"
+														value={storyGraphExportPath}
+													/>
 													<FileInput
 														label="CSV export file"
 														accept=".csv"
 														required
-														name="export"
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setStoryGraphExportPath(path);
+															}
+														}}
 													/>
 												</>
 											))
 											.with(ImportSource.MediaJson, () => (
 												<>
+													<input
+														hidden
+														name="export"
+														value={mediaJsonExportPath}
+													/>
 													<FileInput
 														label="JSON export file"
 														accept=".json"
 														required
-														name="export"
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setMediaJsonExportPath(path);
+															}
+														}}
 													/>
 												</>
 											))
 											.with(ImportSource.Mal, () => (
 												<>
+													<input hidden name="animePath" value={malAnimePath} />
+													<input hidden name="mangaPath" value={malMangaPath} />
 													<FileInput
 														label="Anime export file"
 														required
 														onChange={async (file) => {
 															if (file) {
-																const path = await uploadFile(file);
-																malImportForm.setFieldValue("animePath", path);
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setMalAnimePath(path);
 															}
 														}}
-														name="animePath"
 													/>
 													<FileInput
 														label="Manga export file"
 														required
 														onChange={async (file) => {
 															if (file) {
-																const path = await uploadFile(file);
-																malImportForm.setFieldValue("mangaPath", path);
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setMalMangaPath(path);
 															}
 														}}
-														name="mangaPath"
 													/>
 												</>
 											))
 											.with(ImportSource.StrongApp, () => (
 												<>
+													<input
+														hidden
+														name="exportPath"
+														value={strongAppExportPath}
+													/>
 													<FileInput
 														label="CSV export file"
 														accept=".csv"
 														required
 														onChange={async (file) => {
 															if (file) {
-																const path = await uploadFile(file);
-																strongAppImportForm.setFieldValue(
-																	"exportPath",
-																	path,
-																);
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setStrongAppExportPath(path);
 															}
 														}}
 													/>
-													<JsonInput label="Mappings" required name="mapping" />
+													<JsonInput
+														label="Mappings"
+														required
+														name="mapping"
+														autosize
+														minRows={10}
+													/>
 												</>
 											))
 											.exhaustive()}
