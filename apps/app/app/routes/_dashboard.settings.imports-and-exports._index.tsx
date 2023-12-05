@@ -512,6 +512,22 @@ export default function Page() {
 														name="mapping"
 														autosize
 														minRows={10}
+														defaultValue={JSON.stringify(
+															[
+																{
+																	sourceName: "Bench Press (Barbell)",
+																	targetName:
+																		"Barbell Bench Press - Medium Grip",
+																},
+																{
+																	sourceName: "Bicep Curl (Barbell)",
+																	targetName: "Barbell Curl",
+																},
+															],
+															null,
+															4,
+														)}
+														description="This is an example. Every exercise must be mapped, otherwise the import will fail."
 													/>
 												</>
 											))
