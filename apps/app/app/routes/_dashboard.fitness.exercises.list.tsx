@@ -166,7 +166,7 @@ export default function Page() {
 						color="green"
 						component={Link}
 						variant="outline"
-						to={$path("/fitness/exercises/create-or-edit")}
+						to={$path("/fitness/exercises/create")}
 					>
 						<IconPlus size={16} />
 					</ActionIcon>

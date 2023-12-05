@@ -448,7 +448,7 @@ export default function Index() {
 											variant="outline"
 											component={Link}
 											leftSection={<IconWeight />}
-											to={$path("/fitness/exercises/create-or-edit")}
+											to={$path("/fitness/exercises/create")}
 										>
 											Create an exercise
 										</Button>
