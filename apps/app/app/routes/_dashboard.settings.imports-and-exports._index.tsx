@@ -9,6 +9,7 @@ import {
 	FileInput,
 	Flex,
 	Group,
+	JsonInput,
 	PasswordInput,
 	Progress,
 	Select,
@@ -18,8 +19,6 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useClipboard } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -28,22 +27,18 @@ import {
 } from "@remix-run/node";
 import { Form, Link, useActionData } from "@remix-run/react";
 import {
+	DeployImportJobDocument,
 	GenerateAuthTokenDocument,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep } from "@ryot/ts-utils";
+import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
-import { produce } from "immer";
-import { parse } from "postcss";
 import { useState } from "react";
 import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { createToastHeaders } from "~/lib/toast.server";
-import { fileToText } from "~/lib/utilities";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
@@ -65,18 +60,86 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", generateAuthToken } as const);
 		},
+		deployImport: async () => {
+			const source = formData.get("source") as ImportSource;
+			const values = await match(source)
+				.with(ImportSource.Goodreads, () => ({
+					goodreads: processSubmission(formData, goodreadsImportFormSchema),
+				}))
+				.with(ImportSource.Trakt, () => ({
+					trakt: processSubmission(formData, traktImportFormSchema),
+				}))
+				.with(ImportSource.MediaTracker, () => ({
+					mediaTracker: processSubmission(
+						formData,
+						mediaTrackerImportFormSchema,
+					),
+				}))
+				.with(ImportSource.Movary, async () => ({
+					movary: processSubmission(formData, movaryImportFormSchema),
+				}))
+				.with(ImportSource.StoryGraph, async () => ({
+					storyGraph: processSubmission(formData, storyGraphImportFormSchema),
+				}))
+				.with(ImportSource.MediaJson, async () => ({
+					mediaJson: processSubmission(formData, mediaJsonImportFormSchema),
+				}))
+				.with(ImportSource.Mal, async () => ({
+					mal: processSubmission(formData, malImportFormSchema),
+				}))
+				.with(ImportSource.StrongApp, async () => {
+					const newLocal = processSubmission(
+						formData,
+						strongAppImportFormSchema,
+					);
+					return {
+						strongApp: { ...newLocal, mapping: JSON.parse(newLocal.mapping) },
+					};
+				})
+				.exhaustive();
+			await gqlClient.request(
+				DeployImportJobDocument,
+				{ input: { source, ...values } },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", generateAuthToken: false } as const);
+		},
 	});
 };
 
-const deleteSchema = z.object({
-	integrationId: zx.NumAsString,
+const mediaTrackerImportFormSchema = z.object({
+	apiUrl: z.string().url(),
+	apiKey: z.string(),
+});
+
+const traktImportFormSchema = z.object({ username: z.string() });
+
+const goodreadsImportFormSchema = z.object({ rssUrl: z.string().url() });
+
+const movaryImportFormSchema = z.object({
+	ratings: z.string(),
+	history: z.string(),
+	watchlist: z.string(),
+});
+
+const storyGraphImportFormSchema = z.object({ export: z.string() });
+
+const strongAppImportFormSchema = z.object({
+	exportPath: z.string(),
+	mapping: z.string(),
+});
+
+const mediaJsonImportFormSchema = z.object({ export: z.string() });
+
+const malImportFormSchema = z.object({
+	animePath: z.string(),
+	mangaPath: z.string(),
 });
 
 export default function Page() {
 	const actionData = useActionData<typeof action>();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
-	const clipboard = useClipboard();
 
 	return (
 		<Container size="xs">
@@ -141,6 +204,7 @@ export default function Page() {
 											<TextInput
 												defaultValue={actionData.generateAuthToken}
 												readOnly
+												style={{ flex: 1 }}
 											/>
 										</Flex>
 									</Alert>
@@ -150,89 +214,19 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="import">
 						<Box
-							component="form"
+							component={Form}
 							onSubmit={async (e) => {
-								e.preventDefault();
-								const yes = confirm(
-									"Are you sure you want to deploy an import job? This action is irreversible.",
-								);
-								if (yes) {
-									if (deployImportSource) {
-										const values = await match(deployImportSource)
-											.with(ImportSource.Goodreads, () => ({
-												goodreads: goodreadsImportForm.values,
-											}))
-											.with(ImportSource.Trakt, () => ({
-												trakt: traktImportForm.values,
-											}))
-											.with(ImportSource.MediaTracker, () => ({
-												mediaTracker: mediaTrackerImportForm.values,
-											}))
-											.with(ImportSource.Movary, async () => ({
-												movary: {
-													ratings: await fileToText(
-														movaryImportForm.values.ratings,
-													),
-													history: await fileToText(
-														movaryImportForm.values.history,
-													),
-													watchlist: await fileToText(
-														movaryImportForm.values.watchlist,
-													),
-												},
-											}))
-											.with(ImportSource.StoryGraph, async () => ({
-												storyGraph: {
-													export: await fileToText(
-														storyGraphImportForm.values.export,
-													),
-												},
-											}))
-											.with(ImportSource.MediaJson, async () => ({
-												mediaJson: {
-													export: await fileToText(
-														mediaJsonImportForm.values.export,
-													),
-												},
-											}))
-											.with(ImportSource.Mal, async () => ({
-												mal: {
-													animePath: malImportForm.values.mangaPath,
-													mangaPath: malImportForm.values.mangaPath,
-												},
-											}))
-											.with(ImportSource.StrongApp, async () => {
-												const newExercises = cloneDeep(uniqueExercises);
-												newExercises.forEach((e) => (e.targetId = undefined));
-												clipboard.copy(JSON.stringify(newExercises));
-												notifications.show({
-													title: "Important",
-													autoClose: false,
-													color: "yellow",
-													message:
-														"Mappings have been copied to your clipboard. Please paste them into a JSON file and store it securely. You might need it later.",
-												});
-												return {
-													strongApp: {
-														exportPath: strongAppImportForm.values.exportPath,
-														// biome-ignore lint/suspicious/noExplicitAny: required here
-														mapping: newExercises as any,
-													},
-												};
-											})
-											.exhaustive();
-										if (values) {
-											deployImportJob.mutate({
-												input: {
-													source: deployImportSource,
-													...values,
-												},
-											});
-										}
-									}
-								}
+								if (
+									!confirm(
+										"Are you sure you want to deploy an import job? This action is irreversible.",
+									)
+								)
+									e.preventDefault();
 							}}
+							method="post"
+							action="?intent=deployImport"
 						>
+							<input hidden name="source" defaultValue={deployImportSource} />
 							<Stack>
 								<Flex justify="space-between" align="center">
 									<Title order={2}>Import data</Title>
@@ -294,23 +288,19 @@ export default function Page() {
 													<TextInput
 														label="Instance Url"
 														required
-														{...mediaTrackerImportForm.getInputProps("apiUrl")}
+														name="apiUrl"
 													/>
 													<PasswordInput
 														mt="sm"
 														label="API Key"
 														required
-														{...mediaTrackerImportForm.getInputProps("apiKey")}
+														name="apiKey"
 													/>
 												</>
 											))
 											.with(ImportSource.Goodreads, () => (
 												<>
-													<TextInput
-														label="RSS URL"
-														required
-														{...goodreadsImportForm.getInputProps("rssUrl")}
-													/>
+													<TextInput label="RSS URL" required name="rssUrl" />
 												</>
 											))
 											.with(ImportSource.Trakt, () => (
@@ -318,7 +308,7 @@ export default function Page() {
 													<TextInput
 														label="Username"
 														required
-														{...traktImportForm.getInputProps("username")}
+														name="username"
 													/>
 												</>
 											))
@@ -328,19 +318,19 @@ export default function Page() {
 														label="History CSV file"
 														accept=".csv"
 														required
-														{...movaryImportForm.getInputProps("history")}
+														name="history"
 													/>
 													<FileInput
 														label="Ratings CSV file"
 														accept=".csv"
 														required
-														{...movaryImportForm.getInputProps("ratings")}
+														name="history"
 													/>
 													<FileInput
 														label="Watchlist CSV file"
 														accept=".csv"
 														required
-														{...movaryImportForm.getInputProps("watchlist")}
+														name="watchlist"
 													/>
 												</>
 											))
@@ -350,7 +340,7 @@ export default function Page() {
 														label="CSV export file"
 														accept=".csv"
 														required
-														{...storyGraphImportForm.getInputProps("export")}
+														name="export"
 													/>
 												</>
 											))
@@ -360,7 +350,7 @@ export default function Page() {
 														label="JSON export file"
 														accept=".json"
 														required
-														{...mediaJsonImportForm.getInputProps("export")}
+														name="export"
 													/>
 												</>
 											))
@@ -375,6 +365,7 @@ export default function Page() {
 																malImportForm.setFieldValue("animePath", path);
 															}
 														}}
+														name="animePath"
 													/>
 													<FileInput
 														label="Manga export file"
@@ -385,6 +376,7 @@ export default function Page() {
 																malImportForm.setFieldValue("mangaPath", path);
 															}
 														}}
+														name="mangaPath"
 													/>
 												</>
 											))
@@ -396,25 +388,6 @@ export default function Page() {
 														required
 														onChange={async (file) => {
 															if (file) {
-																const clonedFile = new File([file], file.name, {
-																	type: file.type,
-																});
-																const text = await fileToText(clonedFile);
-																const csvText: {
-																	"Exercise Name": string;
-																}[] = parse(text, {
-																	columns: true,
-																	skip_empty_lines: true,
-																	delimiter: ";",
-																});
-																const exerciseNames = new Set(
-																	csvText.map((s) => s["Exercise Name"].trim()),
-																);
-																setUniqueExercises(
-																	[...exerciseNames]
-																		.toSorted()
-																		.map((e) => ({ sourceName: e })),
-																);
 																const path = await uploadFile(file);
 																strongAppImportForm.setFieldValue(
 																	"exportPath",
@@ -423,6 +396,7 @@ export default function Page() {
 															}
 														}}
 													/>
+													<JsonInput label="Mappings" required name="mapping" />
 												</>
 											))
 											.exhaustive()}
