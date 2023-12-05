@@ -9,6 +9,7 @@ use axum::{
     response::{Html, IntoResponse},
     Extension, Json,
 };
+use nanoid::nanoid;
 use serde_json::json;
 
 use crate::{
@@ -46,6 +47,7 @@ pub async fn upload_file(
             .map(String::from)
             .unwrap_or_else(|| "file.png".to_string());
         let data = file.bytes().await.unwrap();
+        let name = format!("{}-{}", nanoid!(), name);
         let path = temp_dir().join(name);
         write(&path, data).unwrap();
         res.push(path.canonicalize().unwrap());
