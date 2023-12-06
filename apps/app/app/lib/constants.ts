@@ -7,4 +7,5 @@ export const LOCAL_STORAGE_KEYS = {
 	currentWorkout: "currentWorkout",
 	savedMeasurementsDisplaySelectedStats: "2",
 	savedOpenedLinkGroups: "36",
+	defaultExerciseRestTimer: "42",
 } as const;

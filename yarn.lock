@@ -6114,6 +6114,7 @@ __metadata:
     "@tabler/icons-react": "npm:2.40.0"
     "@tanstack/react-query": "npm:5.8.4"
     "@types/crypto-js": "npm:^4"
+    "@types/howler": "npm:^2"
     "@types/luxon": "npm:3.3.3"
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.7"
@@ -6123,6 +6124,7 @@ __metadata:
     embla-carousel-react: "npm:^7.1.0"
     graphql: "npm:16.8.1"
     graphql-request: "npm:6.1.0"
+    howler: "npm:2.2.4"
     human-format: "npm:1.2.0"
     humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.0.3"
@@ -6144,7 +6146,6 @@ __metadata:
     typescript: "npm:5.1.6"
     typescript-plugin-css-modules: "npm:5.0.2"
     ufo: "npm:1.3.1"
-    use-sound: "npm:4.0.1"
     vite: "npm:4.5.0"
     vite-tsconfig-paths: "npm:4.2.1"
     zod: "npm:3.22.4"
@@ -6941,6 +6942,13 @@ __metadata:
     "@types/react": "npm:*"
     hoist-non-react-statics: "npm:^3.3.0"
   checksum: 071e6d75a0ed9aa0e9ca2cc529a8c15bf7ac3e4a37aac279772ea6036fd0bf969b67fb627b65cfce65adeab31fec1e9e95b4dcdefeab075b580c0c7174206f63
+  languageName: node
+  linkType: hard
+
+"@types/howler@npm:^2":
+  version: 2.2.11
+  resolution: "@types/howler@npm:2.2.11"
+  checksum: 2875810bc1c076cfe7117adaecb88bdd12126b674329488d2b35d4906d15375f606c91cba8ee671fb09bbe2728fd5d396616e9b5144c7a8fca0bdd49e2d410e7
   languageName: node
   linkType: hard
 
@@ -11133,6 +11141,13 @@ __metadata:
   dependencies:
     lru-cache: "npm:^7.5.1"
   checksum: 2e48e3fac799b52d82277ff5693916bfa33441a2c06d1f11f9e82886bd235514783c2bdffb3abde67b7aeb6af457a48df38e6894740c7fc2e1bb78f5bcfac61e
+  languageName: node
+  linkType: hard
+
+"howler@npm:2.2.4":
+  version: 2.2.4
+  resolution: "howler@npm:2.2.4"
+  checksum: e4177f6581ede99fdec68c2dc16a01e74ed3e4f3b28d4804030246f74f15a50311bd3d4d332a6e968a296e6bae1d0a8c8703e8e22d98ef8f5a3299e545e2fe55
   languageName: node
   linkType: hard
 
