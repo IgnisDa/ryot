@@ -172,7 +172,7 @@ export default function Page() {
 							/>
 							<input
 								hidden
-								value={JSON.stringify(imageUrls.map((i) => i.url))}
+								value={JSON.stringify(imageUrls.map((i) => i.key))}
 								name="images"
 								readOnly
 							/>
@@ -190,7 +190,7 @@ export default function Page() {
 							/>
 							<input
 								hidden
-								value={JSON.stringify(videoUrls.map((v) => v.url))}
+								value={JSON.stringify(videoUrls.map((v) => v.key))}
 								name="videos"
 								readOnly
 							/>
