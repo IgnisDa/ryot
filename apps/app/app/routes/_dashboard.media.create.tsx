@@ -18,17 +18,29 @@ import {
 } from "@mantine/core";
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+	redirect,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import {
+	CreateCustomMediaDocument,
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
+import { $path } from "remix-routes";
+import { z } from "zod";
 import { MediaDetailsLayout } from "~/components/common";
+import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
-import { uploadFileAndGetKey } from "~/lib/utilities";
+import { createToastHeaders } from "~/lib/toast.server";
+import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/utilities";
+import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
@@ -39,10 +51,58 @@ export const meta: MetaFunction = () => {
 	return [{ title: "Create Media | Ryot" }];
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.formData();
+	const submission = processSubmission(formData, schema);
+	const input: any = {
+		...submission,
+		images: JSON.parse(submission.images || "[]"),
+		videos: JSON.parse(submission.videos || "[]"),
+		[`${camelCase(submission.lot)}Specifics`]: JSON.parse(
+			submission.specifics || "{}",
+		),
+	};
+	input.specifics = undefined;
+	input.genres = input.genres?.split(", ");
+	input.creators = input.creators?.split(", ");
+	const { createCustomMedia } = await gqlClient.request(
+		CreateCustomMediaDocument,
+		{ input },
+		await getAuthorizationHeader(request),
+	);
+	if (createCustomMedia.__typename === "IdObject")
+		return redirect($path("/media/item/:id", { id: createCustomMedia.id }));
+	return json({ status: "error", submission } as const, {
+		headers: await createToastHeaders({
+			type: "error",
+			message: createCustomMedia.error,
+		}),
+	});
+};
+
+const optionalString = z.string().optional();
+
+const schema = z.object({
+	title: z.string(),
+	lot: z.nativeEnum(MetadataLot),
+	images: optionalString,
+	videos: optionalString,
+	description: optionalString,
+	isNsfw: z.boolean().optional(),
+	publishYear: z.number().optional(),
+	genres: optionalString,
+	creators: optionalString,
+	specifics: optionalString,
+});
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [imageUrls, setImageUrls] = useListState<string>([]);
-	const [videoUrls, setVideoUrls] = useListState<string>([]);
+	const [imageUrls, setImageUrls] = useListState<{ key: string; url: string }>(
+		[],
+	);
+	const [videoUrls, setVideoUrls] = useListState<{ key: string; url: string }>(
+		[],
+	);
 
 	const fileUploadNowAllowed = !loaderData.coreEnabledFeatures.fileStorage;
 
@@ -54,8 +114,9 @@ export default function Page() {
 					file.type,
 					await file.arrayBuffer(),
 				);
-				if (to === "image") setImageUrls.append(uploadedKey);
-				else if (to === "video") setVideoUrls.append(uploadedKey);
+				const url = await getPresignedGetUrl(uploadedKey);
+				if (to === "image") setImageUrls.append({ key: uploadedKey, url });
+				else if (to === "video") setVideoUrls.append({ key: uploadedKey, url });
 			}
 			notifications.show({
 				title: "Success",
@@ -67,28 +128,11 @@ export default function Page() {
 	return (
 		<Container>
 			<MediaDetailsLayout
-				images={imageUrls}
+				images={imageUrls.map((i) => i.url)}
 				externalLink={{ source: MetadataSource.Custom }}
 			>
 				<ScrollArea.Autosize mah={400}>
-					<Box
-						component="form"
-						onSubmit={(values) => {
-							// biome-ignore lint/suspicious/noExplicitAny: required
-							const input: any = {
-								...values,
-								images,
-								videos,
-								[`${camelCase(values.lot)}Specifics`]: JSON.parse(
-									values.specifics || "{}",
-								),
-							};
-							input.specifics = undefined;
-							input.genres = input.genres?.split(", ");
-							input.creators = input.creators?.split(", ");
-							createCustomMedia.mutate({ input });
-						}}
-					>
+					<Box component={Form} method="post">
 						<Stack>
 							<Title>Create Media</Title>
 							<TextInput label="Title" required autoFocus name="title" />
@@ -126,7 +170,12 @@ export default function Page() {
 								description="Markdown is supported"
 								name="description"
 							/>
-							<input hidden value={imageUrls} name="images" />
+							<input
+								hidden
+								value={JSON.stringify(imageUrls.map((i) => i.url))}
+								name="images"
+								readOnly
+							/>
 							<FileInput
 								label="Images"
 								multiple
@@ -139,7 +188,12 @@ export default function Page() {
 								accept="image/png,image/jpeg,image/jpg"
 								leftSection={<IconPhoto />}
 							/>
-							<input hidden value={videoUrls} name="videos" />
+							<input
+								hidden
+								value={JSON.stringify(videoUrls.map((v) => v.url))}
+								name="videos"
+								readOnly
+							/>
 							<FileInput
 								label="Videos"
 								multiple
