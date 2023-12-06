@@ -58,6 +58,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as ExerciseMuscle[])
 		: [];
+	const images = JSON.parse(submission.images || "[]");
 	const instructions = submission.instructions;
 	const newInput = Object.assign(submission, {});
 	newInput.muscles = undefined;
@@ -68,7 +69,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		...newInput,
 		muscles,
 		attributes: {
-			images: JSON.parse(submission.images || "[]"),
+			images,
 			instructions: instructions?.split("\n") || [],
 		},
 	};
