@@ -1,4 +1,19 @@
-import { Box, Container } from "@mantine/core";
+import {
+	Box,
+	Button,
+	Container,
+	FileInput,
+	Group,
+	MultiSelect,
+	ScrollArea,
+	Select,
+	Stack,
+	TextInput,
+	Textarea,
+	Title,
+} from "@mantine/core";
+import { useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -6,7 +21,7 @@ import {
 	json,
 	redirect,
 } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomExerciseDocument,
 	ExerciseEquipment,
@@ -16,11 +31,16 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 	ExerciseSource,
+	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/ts-utils";
+import { IconPhoto } from "@tabler/icons-react";
 import { $path } from "remix-routes";
 import { z } from "zod";
+import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
+import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/utilities";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
@@ -35,27 +55,31 @@ export const meta: MetaFunction = () => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	const submission = processSubmission(formData, schema);
-	const muscles = submission.muscles;
+	const muscles = submission.muscles
+		? (submission.muscles.split(",") as ExerciseMuscle[])
+		: [];
 	const instructions = submission.instructions;
-	const input = Object.assign(submission, {});
-	input.muscles = undefined;
-	input.instructions = undefined;
+	const newInput = Object.assign(submission, {});
+	newInput.muscles = undefined;
+	newInput.instructions = undefined;
+	newInput.images = undefined;
+	const input = {
+		source: ExerciseSource.Custom,
+		...newInput,
+		muscles,
+		attributes: {
+			images: JSON.parse(submission.images || "[]"),
+			instructions: instructions?.split("\n") || [],
+		},
+	};
 	const { createCustomExercise } = await gqlClient.request(
 		CreateCustomExerciseDocument,
-		{
-			input: {
-				source: ExerciseSource.Custom,
-				...input,
-				muscles: muscles || [],
-				attributes: {
-					images: JSON.parse(submission.images || "[]"),
-					instructions: instructions?.split("\n") || [],
-				},
-			},
-		},
+		{ input },
 		await getAuthorizationHeader(request),
 	);
-	return redirect($path("/media/item/:id", { id: createCustomExercise }));
+	return redirect(
+		$path("/fitness/exercises/:id", { id: createCustomExercise }),
+	);
 };
 
 const optionalString = z.string().optional();
@@ -67,17 +91,115 @@ const schema = z.object({
 	force: z.nativeEnum(ExerciseForce).optional(),
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
-	muscles: z.nativeEnum(ExerciseMuscle).array().optional(),
+	muscles: optionalString,
 	instructions: optionalString,
 	images: optionalString,
 });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const [imageUrls, setImageUrls] = useListState<{ key: string; url: string }>(
+		[],
+	);
+
+	const fileUploadNowAllowed = !loaderData.coreEnabledFeatures.fileStorage;
+
+	const uploadFiles = async (files: File[]) => {
+		if (files.length > 0) {
+			for (const file of files) {
+				const uploadedKey = await uploadFileAndGetKey(
+					file.name,
+					file.type,
+					await file.arrayBuffer(),
+				);
+				const url = await getPresignedGetUrl(uploadedKey);
+				setImageUrls.append({ key: uploadedKey, url });
+			}
+			notifications.show({
+				title: "Success",
+				message: `Uploaded ${files.length} files`,
+			});
+		}
+	};
 
 	return (
 		<Container>
-			<Box>{JSON.stringify(loaderData)}</Box>
+			<MediaDetailsLayout
+				images={imageUrls.map((i) => i.url)}
+				externalLink={{ source: MetadataSource.Custom }}
+			>
+				<ScrollArea.Autosize mah={400}>
+					<Box component={Form} method="post">
+						<Stack>
+							<Title>Create Exercise</Title>
+							<TextInput label="Name" required autoFocus name="id" />
+							<Select
+								label="Type"
+								data={Object.values(ExerciseLot).map((l) => ({
+									value: l,
+									label: changeCase(l),
+								}))}
+								required
+								name="lot"
+							/>
+							<Group wrap="nowrap">
+								<Select
+									label="Level"
+									data={Object.values(ExerciseLevel)}
+									required
+									name="level"
+								/>
+								<Select
+									label="Force"
+									data={Object.values(ExerciseForce)}
+									name="force"
+								/>
+							</Group>
+							<Group wrap="nowrap">
+								<Select
+									label="Equipment"
+									data={Object.values(ExerciseEquipment)}
+									name="equipment"
+								/>
+								<Select
+									label="Mechanic"
+									data={Object.values(ExerciseMechanic)}
+									name="mechanic"
+								/>
+							</Group>
+							<MultiSelect
+								label="Muscles"
+								data={Object.values(ExerciseMuscle)}
+								name="muscles"
+							/>
+							<Textarea
+								label="Instructions"
+								description="Separate each instruction with a newline"
+								name="instructions"
+							/>
+							<input
+								hidden
+								value={JSON.stringify(imageUrls.map((i) => i.key))}
+								name="images"
+								readOnly
+							/>
+							<FileInput
+								label="Images"
+								multiple
+								disabled={fileUploadNowAllowed}
+								description={
+									fileUploadNowAllowed &&
+									"Please set the S3 variables required to enable file uploading"
+								}
+								onChange={(f) => uploadFiles(f)}
+								accept="image/png,image/jpeg,image/jpg"
+								leftSection={<IconPhoto />}
+							/>
+							<Button type="submit">Create</Button>
+						</Stack>
+					</Box>
+				</ScrollArea.Autosize>
+			</MediaDetailsLayout>
 		</Container>
 	);
 }
