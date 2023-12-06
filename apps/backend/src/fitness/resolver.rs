@@ -116,6 +116,7 @@ struct UserExerciseDetails {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct UserExerciseDetailsInput {
+    user_id: i32,
     exercise_id: String,
     /// The number of elements to return in the history.
     take_history: Option<usize>,
@@ -189,8 +190,7 @@ impl ExerciseQuery {
         input: UserExerciseDetailsInput,
     ) -> Result<UserExerciseDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_exercise_details(user_id, input).await
+        service.user_exercise_details(input).await
     }
 
     /// Get all the measurements for a user.
@@ -362,12 +362,11 @@ impl ExerciseService {
 
     async fn user_exercise_details(
         &self,
-        user_id: i32,
         input: UserExerciseDetailsInput,
     ) -> Result<UserExerciseDetails> {
         let collections = entity_in_collections(
             &self.db,
-            user_id,
+            input.user_id,
             input.exercise_id.clone(),
             EntityLot::Exercise,
         )
@@ -378,7 +377,7 @@ impl ExerciseService {
             collections,
         };
         if let Some(association) = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::UserId.eq(input.user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(input.exercise_id))
             .one(&self.db)
             .await?
