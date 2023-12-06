@@ -76,9 +76,12 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.default("1"),
+	page: zx.IntAsString.default("1").optional(),
 	query: z.string().optional(),
-	sort: z.nativeEnum(ExerciseSortBy).default(defaultFiltersValue.sort),
+	sort: z
+		.nativeEnum(ExerciseSortBy)
+		.default(defaultFiltersValue.sort)
+		.optional(),
 	type: z.nativeEnum(ExerciseLot).optional(),
 	level: z.nativeEnum(ExerciseLevel).optional(),
 	force: z.nativeEnum(ExerciseForce).optional(),
