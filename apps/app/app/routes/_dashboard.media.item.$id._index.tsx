@@ -541,11 +541,7 @@ export default function Page() {
 						</Group>
 					) : undefined}
 					{loaderData.userMediaDetails?.reminder ? (
-						<Alert
-							icon={<IconAlertCircle size={16} />}
-							variant="outline"
-							color="violet"
-						>
+						<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 							Reminder for {loaderData.userMediaDetails.reminder.remindOn}
 							<Text c="green">
 								{loaderData.userMediaDetails.reminder.message}
@@ -553,7 +549,7 @@ export default function Page() {
 						</Alert>
 					) : undefined}
 					{loaderData.userMediaDetails?.inProgress ? (
-						<Alert icon={<IconAlertCircle size={16} />} variant="outline">
+						<Alert icon={<IconAlertCircle />} variant="outline">
 							You are currently{" "}
 							{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
 							ing this ({loaderData.userMediaDetails.inProgress.progress}%)
@@ -561,10 +557,7 @@ export default function Page() {
 					) : undefined}
 					<Tabs variant="outline" defaultValue="overview">
 						<Tabs.List mb="xs">
-							<Tabs.Tab
-								value="overview"
-								leftSection={<IconInfoCircle size={16} />}
-							>
+							<Tabs.Tab value="overview" leftSection={<IconInfoCircle />}>
 								Overview
 							</Tabs.Tab>
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>

@@ -163,11 +163,7 @@ export default function Page() {
 					</Form>
 				</Group>
 				{!loaderData.coreDetails.preferencesChangeAllowed ? (
-					<Alert
-						icon={<IconAlertCircle size={16} />}
-						variant="outline"
-						color="violet"
-					>
+					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						{notificationContent.message}
 					</Alert>
 				) : undefined}

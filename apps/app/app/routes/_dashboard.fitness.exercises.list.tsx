@@ -182,11 +182,7 @@ export default function Page() {
 					</ActionIcon>
 				</Flex>
 				{loaderData.exerciseParameters.downloadRequired ? (
-					<Alert
-						icon={<IconAlertCircle size={16} />}
-						variant="outline"
-						color="violet"
-					>
+					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						Please follow the{" "}
 						<Anchor
 							href="https://ignisda.github.io/ryot/guides/fitness.html"

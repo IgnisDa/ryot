@@ -101,11 +101,7 @@ export default function Index() {
 		<Container>
 			<Stack gap={32}>
 				{currentWorkout ? (
-					<Alert
-						icon={<IconAlertCircle size={16} />}
-						variant="outline"
-						color="yellow"
-					>
+					<Alert icon={<IconAlertCircle />} variant="outline" color="yellow">
 						<Text size="lg">
 							You have a workout in progress. Click{" "}
 							<Anchor component={Link} to={$path("/fitness/workouts/current")}>

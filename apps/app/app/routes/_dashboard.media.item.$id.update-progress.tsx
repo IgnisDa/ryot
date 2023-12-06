@@ -248,7 +248,7 @@ export default function Page() {
 					{loaderData.extraDetails?.showSpecifics ? (
 						<>
 							{loaderData.query.onlySeason || loaderData.query.completeShow ? (
-								<Alert color="yellow" icon={<IconAlertCircle size={16} />}>
+								<Alert color="yellow" icon={<IconAlertCircle />}>
 									{loaderData.query.onlySeason
 										? `This will mark all episodes of season ${loaderData.query.showSeasonNumber} as seen`
 										: loaderData.query.completeShow
@@ -303,7 +303,7 @@ export default function Page() {
 					) : undefined}
 					{loaderData.extraDetails?.podcastSpecifics ? (
 						loaderData.query.completePodcast ? (
-							<Alert color="yellow" icon={<IconAlertCircle size={16} />}>
+							<Alert color="yellow" icon={<IconAlertCircle />}>
 								This will mark all episodes for this podcast as seen
 							</Alert>
 						) : (
