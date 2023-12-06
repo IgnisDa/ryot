@@ -57,7 +57,11 @@ import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
 import { gqlClientSide } from "~/lib/api";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import {
+	getCoreDetails,
+	getUserDetails,
+	getUserPreferences,
+} from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { currentWorkoutAtom } from "~/lib/workout";
 
@@ -91,11 +95,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [
 		coreDetails,
 		userPreferences,
+		userDetails,
 		{ exerciseParameters },
 		{ exercisesList },
 	] = await Promise.all([
 		getCoreDetails(),
 		getUserPreferences(request),
+		getUserDetails(request),
 		gqlClient.request(ExerciseParametersDocument, {}),
 		gqlClient.request(
 			ExercisesListDocument,
@@ -122,6 +128,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return json({
 		coreDetails,
 		userPreferences,
+		userDetails,
 		query,
 		exerciseParameters,
 		exercisesList,
@@ -389,7 +396,13 @@ export default function Page() {
 							for (const exercise of selectedExercises) {
 								const { userExerciseDetails } = await gqlClientSide.request(
 									UserExerciseDetailsDocument,
-									{ input: { exerciseId: exercise.name, takeHistory: 1 } },
+									{
+										input: {
+											exerciseId: exercise.name,
+											takeHistory: 1,
+											userId: loaderData.userDetails.id,
+										},
+									},
 								);
 								draft.exercises.push({
 									exerciseId: exercise.name,
