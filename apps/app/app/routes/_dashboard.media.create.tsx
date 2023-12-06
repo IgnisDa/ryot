@@ -109,14 +109,14 @@ export default function Page() {
 	const uploadFiles = async (files: File[], to: "image" | "video") => {
 		if (files.length > 0) {
 			for (const file of files) {
-				const uploadedKey = await uploadFileAndGetKey(
+				const key = await uploadFileAndGetKey(
 					file.name,
 					file.type,
 					await file.arrayBuffer(),
 				);
-				const url = await getPresignedGetUrl(uploadedKey);
-				if (to === "image") setImageUrls.append({ key: uploadedKey, url });
-				else if (to === "video") setVideoUrls.append({ key: uploadedKey, url });
+				const url = await getPresignedGetUrl(key);
+				if (to === "image") setImageUrls.append({ key, url });
+				else if (to === "video") setVideoUrls.append({ key, url });
 			}
 			notifications.show({
 				title: "Success",

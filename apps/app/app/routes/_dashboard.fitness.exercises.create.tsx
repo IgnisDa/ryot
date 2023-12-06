@@ -107,13 +107,13 @@ export default function Page() {
 	const uploadFiles = async (files: File[]) => {
 		if (files.length > 0) {
 			for (const file of files) {
-				const uploadedKey = await uploadFileAndGetKey(
+				const key = await uploadFileAndGetKey(
 					file.name,
 					file.type,
 					await file.arrayBuffer(),
 				);
-				const url = await getPresignedGetUrl(uploadedKey);
-				setImageUrls.append({ key: uploadedKey, url });
+				const url = await getPresignedGetUrl(key);
+				setImageUrls.append({ key, url });
 			}
 			notifications.show({
 				title: "Success",
