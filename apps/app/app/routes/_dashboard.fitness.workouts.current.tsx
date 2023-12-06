@@ -31,8 +31,13 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
+import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	DeleteS3ObjectDocument,
 	ExerciseLot,
@@ -80,6 +85,7 @@ import {
 	timerAtom,
 } from "~/lib/workout";
 import { Howl } from "howler";
+import { redirectWithToast } from "~/lib/toast.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
@@ -90,6 +96,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const meta: MetaFunction = () => {
 	return [{ title: "Current Workout | Ryot" }];
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	console.log(Object.fromEntries(formData.entries()));
+	return redirectWithToast($path("/fitness/workouts/:id", { id: "hello" }), {
+		message: "Workout created",
+	});
 };
 
 export default function Page() {
@@ -147,15 +161,7 @@ export default function Page() {
 		setCurrentWorkout(RESET);
 	};
 
-	// const createUserWorkout = useMutation({
-	// 	mutationFn: async (input: CreateUserWorkoutMutationVariables) => {
-	// 		const { createUserWorkout } = await gqlClient.request(
-	// 			CreateUserWorkoutDocument,
-	// 			input,
-	// 		);
-	// 		return createUserWorkout;
-	// 	},
-	// });
+	const createUserWorkoutFetcher = useFetcher();
 
 	useEffect(() => {
 		const timeRemaining = currentTimer?.endAt
@@ -311,8 +317,9 @@ export default function Page() {
 										if (yes) {
 											const input =
 												currentWorkoutToCreateWorkoutInput(currentWorkout);
-											const done = await createUserWorkout.mutateAsync(input);
-											await finishWorkout(done);
+											createUserWorkoutFetcher.submit(input, {
+												method: "post",
+											});
 										}
 									}}
 								>
