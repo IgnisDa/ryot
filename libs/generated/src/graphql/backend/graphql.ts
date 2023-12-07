@@ -1696,7 +1696,6 @@ export type UserExerciseDetailsInput = {
   exerciseId: Scalars['String']['input'];
   /** The number of elements to return in the history. */
   takeHistory?: InputMaybe<Scalars['Int']['input']>;
-  userId: Scalars['Int']['input'];
 };
 
 export type UserExerciseHistoryInformation = {
