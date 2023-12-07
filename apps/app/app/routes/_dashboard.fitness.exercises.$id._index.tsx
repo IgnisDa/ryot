@@ -27,7 +27,7 @@ import {
 	UserExerciseDetailsDocument,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { changeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -169,6 +169,20 @@ export default function Page() {
 										) : undefined}
 									</>
 								))}
+								{loaderData.exerciseDetails.lot ? (
+									<DisplayData
+										name="Type"
+										data={changeCase(loaderData.exerciseDetails.lot)}
+									/>
+								) : undefined}
+								{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
+									<DisplayData
+										name="Last done on"
+										data={DateTime.fromISO(
+											loaderData.userExerciseDetails.details.lastUpdatedOn,
+										).toLocaleString(DateTime.DATE_MED)}
+									/>
+								) : undefined}
 							</SimpleGrid>
 							{loaderData.exerciseDetails.muscles.length > 0 ? (
 								<>
