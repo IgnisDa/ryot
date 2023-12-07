@@ -35,7 +35,6 @@ import {
 	ExerciseSortBy,
 	ExercisesListDocument,
 	SetLot,
-	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -55,7 +54,6 @@ import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
-import { gqlClientSide } from "~/lib/api";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	getCoreDetails,
@@ -64,6 +62,7 @@ import {
 } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { currentWorkoutAtom } from "~/lib/workout";
+import { loader as resourcesLoader } from "./resources";
 
 const defaultFiltersValue = {
 	muscle: undefined,
@@ -393,16 +392,12 @@ export default function Page() {
 						onClick={async () => {
 							const draft = createDraft(currentWorkout);
 							for (const exercise of selectedExercises) {
-								const { userExerciseDetails } = await gqlClientSide.request(
-									UserExerciseDetailsDocument,
-									{
-										input: {
-											exerciseId: exercise.name,
-											takeHistory: 1,
-											userId: loaderData.userDetails.id,
-										},
-									},
+								const userExerciseDetailsResp = await fetch(
+									$path("/resources", { exerciseId: exercise.name }),
 								);
+								const userExerciseDetails: Awaited<
+									ReturnType<typeof resourcesLoader>
+								> = await userExerciseDetailsResp.json();
 								draft.exercises.push({
 									exerciseId: exercise.name,
 									lot: exercise.lot,
@@ -415,7 +410,7 @@ export default function Page() {
 										},
 									],
 									alreadyDoneSets:
-										userExerciseDetails?.history?.at(0)?.sets.map((s) => ({
+										userExerciseDetails?.at(0)?.sets.map((s) => ({
 											// biome-ignore lint/suspicious/noExplicitAny: required here
 											statistic: s.statistic as any,
 										})) || [],
