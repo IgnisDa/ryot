@@ -62,7 +62,7 @@ import {
 } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { currentWorkoutAtom } from "~/lib/workout";
-import { loader as resourcesLoader } from "./resources";
+import { loader as resourcesLoader } from "./api.fitness.exercises.$id";
 
 const defaultFiltersValue = {
 	muscle: undefined,
@@ -393,7 +393,7 @@ export default function Page() {
 							const draft = createDraft(currentWorkout);
 							for (const exercise of selectedExercises) {
 								const userExerciseDetailsResp = await fetch(
-									$path("/resources", { exerciseId: exercise.name }),
+									$path("/api/fitness/exercises/:id", { id: exercise.name }),
 								);
 								const userExerciseDetails: Awaited<
 									ReturnType<typeof resourcesLoader>
