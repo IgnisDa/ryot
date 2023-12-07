@@ -126,7 +126,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
 		headers: combineHeaders(
 			{
-				"Set-Cookie": `${COOKIES_KEYS.currentWorkout}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/`,
+				"Set-Cookie": `${COOKIES_KEYS.currentWorkout}=; Expires=${new Date(
+					0,
+				)}; Path=/`,
 			},
 			await createToastHeaders({ message: "Workout created" }),
 		),
