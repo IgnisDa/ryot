@@ -36,6 +36,7 @@ import {
 	LoaderFunctionArgs,
 	MetaFunction,
 	json,
+	redirect,
 } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -71,18 +72,19 @@ import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { gqlClientSide } from "~/lib/api";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { LOCAL_STORAGE_KEYS } from "~/lib/constants";
+import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import {
 	getCoreDetails,
 	getCoreEnabledFeatures,
 	getUserPreferences,
 } from "~/lib/graphql.server";
-import { redirectWithToast } from "~/lib/toast.server";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	getPresignedGetUrl,
 	getSetColor,
 	uploadFileAndGetKey,
 } from "~/lib/utilities";
+import { combineHeaders } from "~/lib/utilities.server";
 import {
 	Exercise,
 	ExerciseSet,
@@ -92,6 +94,17 @@ import {
 } from "~/lib/workout";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const cookies = request.headers.get("Cookie");
+	let inProgress = false;
+	const cookieIter = cookies?.split(";") || [];
+	for (const cookie of cookieIter) {
+		const [name, _] = cookie.split("=");
+		if (name.trim() === COOKIES_KEYS.currentWorkout) inProgress = true;
+	}
+	if (!inProgress)
+		return redirectWithToast($path("/"), {
+			message: "No workout in progress",
+		});
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
 		[getCoreDetails(), getUserPreferences(request), getCoreEnabledFeatures()],
 	);
@@ -110,10 +123,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		workout,
 		await getAuthorizationHeader(request),
 	);
-	return redirectWithToast(
-		$path("/fitness/workouts/:id", { id: createUserWorkout }),
-		{ message: "Workout created" },
-	);
+	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
+		headers: combineHeaders(
+			{
+				"Set-Cookie": `${COOKIES_KEYS.currentWorkout}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/`,
+			},
+			await createToastHeaders({ message: "Workout created" }),
+		),
+	});
 };
 
 export default function Page() {
