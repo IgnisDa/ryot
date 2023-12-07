@@ -56,6 +56,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { Howl } from "howler";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -72,6 +73,7 @@ import {
 	getCoreEnabledFeatures,
 	getUserPreferences,
 } from "~/lib/graphql.server";
+import { redirectWithToast } from "~/lib/toast.server";
 import {
 	getPresignedGetUrl,
 	getSetColor,
@@ -84,8 +86,6 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/workout";
-import { Howl } from "howler";
-import { redirectWithToast } from "~/lib/toast.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
@@ -153,7 +153,7 @@ export default function Page() {
 	};
 
 	const finishWorkout = async (newWorkoutId?: string) => {
-		await navigate(
+		navigate(
 			newWorkoutId
 				? $path("/fitness/workouts/:id", { id: newWorkoutId })
 				: $path("/"),

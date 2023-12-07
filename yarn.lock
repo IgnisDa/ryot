@@ -6116,6 +6116,7 @@ __metadata:
     "@tanstack/react-query": "npm:5.8.4"
     "@types/crypto-js": "npm:^4"
     "@types/howler": "npm:^2"
+    "@types/js-cookie": "npm:^3"
     "@types/luxon": "npm:3.3.3"
     "@types/react": "npm:18.2.33"
     "@types/react-dom": "npm:18.2.7"
@@ -6131,6 +6132,7 @@ __metadata:
     immer: "npm:10.0.3"
     isbot: "npm:3.6.8"
     jotai: "npm:2.6.0"
+    js-cookie: "npm:3.0.5"
     luxon: "npm:3.4.3"
     mantine-datatable: "npm:^7.1.7"
     postcss: "npm:8.4.31"
@@ -6957,6 +6959,13 @@ __metadata:
   version: 4.0.1
   resolution: "@types/http-cache-semantics@npm:4.0.1"
   checksum: d059bf8a15d5163cc60da51ba00d17620507f968d0b792cd55f62043016344a5f0e1aa94fa411089d41114035fcd0ea656f968bda7eabb6663a97787e3445a1c
+  languageName: node
+  linkType: hard
+
+"@types/js-cookie@npm:^3":
+  version: 3.0.6
+  resolution: "@types/js-cookie@npm:3.0.6"
+  checksum: 272d551687547445cb210213c73e72e0e5d58ad73e2e444a65d688b8ff9425529779ee0cd6492aaa1f070161916d4254ef2b1a76d64179100437f60749d094ef
   languageName: node
   linkType: hard
 
@@ -12159,6 +12168,13 @@ __metadata:
   version: 3.1.1
   resolution: "joycon@npm:3.1.1"
   checksum: 4b36e3479144ec196425f46b3618f8a96ce7e1b658f091a309cd4906215f5b7a402d7df331a3e0a09681381a658d0c5f039cb3cf6907e0a1e17ed847f5d37775
+  languageName: node
+  linkType: hard
+
+"js-cookie@npm:3.0.5":
+  version: 3.0.5
+  resolution: "js-cookie@npm:3.0.5"
+  checksum: 366494b1630b9fb8abaef3659748db5dfd52c58c6fc3459b9f0a03b492593bc1b01c6dfcc066b46f6413c28edb3a00cc68fb61ea8cdf6991bedf1f100f8a389d
   languageName: node
   linkType: hard
 

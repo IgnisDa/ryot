@@ -5,9 +5,10 @@ import {
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { atomWithReset, atomWithStorage } from "jotai/utils";
+import { atomWithReset, atomWithStorage, createJSONStorage } from "jotai/utils";
+import Cookies from "js-cookie";
 import type { DateTime } from "luxon";
-import { LOCAL_STORAGE_KEYS } from "./constants";
+import { COOKIES_KEYS } from "./constants";
 
 export type ExerciseSetStats = {
 	duration?: number | null;
@@ -50,9 +51,20 @@ type InProgressWorkout = {
 	// supersets: Array<Array<number>>;
 };
 
-export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
-	LOCAL_STORAGE_KEYS.currentWorkout,
+type CurrentWorkout = InProgressWorkout | null;
+
+const cookieStorage = createJSONStorage<CurrentWorkout>(() => {
+	return {
+		getItem: () => Cookies.get(COOKIES_KEYS.currentWorkout) as any,
+		setItem: (ctx, value) => Cookies.set(ctx, value),
+		removeItem: (ctx) => Cookies.remove(ctx),
+	};
+});
+
+export const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
+	COOKIES_KEYS.currentWorkout,
 	null,
+	cookieStorage,
 );
 
 function getTimeOfDay(date: Date) {
