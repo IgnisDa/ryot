@@ -59,6 +59,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -95,12 +96,8 @@ import {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookies = request.headers.get("Cookie");
-	let inProgress = false;
-	const cookieIter = cookies?.split(";") || [];
-	for (const cookie of cookieIter) {
-		const [name, _] = cookie.split("=");
-		if (name.trim() === COOKIES_KEYS.currentWorkout) inProgress = true;
-	}
+	const inProgress =
+		typeof parse(cookies || "")[COOKIES_KEYS.currentWorkout] !== "undefined";
 	if (!inProgress)
 		return redirectWithToast($path("/"), {
 			message: "No workout in progress",

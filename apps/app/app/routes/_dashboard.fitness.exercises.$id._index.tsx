@@ -45,17 +45,12 @@ import {
 	MediaScrollArea,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import {
-	getCoreDetails,
-	getUserDetails,
-	getUserPreferences,
-} from "~/lib/graphql.server";
+import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { getSetColor } from "~/lib/utilities";
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const exerciseId = params.id;
 	invariant(typeof exerciseId === "string", "id must be a string");
-	const userDetails = await getUserDetails(request);
 	const [
 		coreDetails,
 		userPreferences,
@@ -68,7 +63,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
 		gqlClient.request(
 			UserExerciseDetailsDocument,
-			{ input: { exerciseId, userId: userDetails.id } },
+			{ input: { exerciseId } },
 			await getAuthorizationHeader(request),
 		),
 		gqlClient.request(
