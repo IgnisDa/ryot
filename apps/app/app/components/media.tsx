@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -23,8 +24,13 @@ import {
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
-import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
 import {
 	CoreDetails,
 	EntityLot,
@@ -45,11 +51,9 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
-import { useRef } from "react";
-import { $path } from "@ignisda/remix-routes";
+import { useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useGetMantineColor } from "~/lib/hooks";
 import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
 import { ApplicationUser } from "~/lib/utilities.server";
@@ -603,22 +607,13 @@ export const MediaSearchItem = (props: {
 	hasInteracted: boolean;
 	maybeItemId?: number;
 }) => {
-	const searchParams = {
-		intent: "commitMedia",
-		identifier: props.item.identifier,
-		lot: props.lot,
-		source: props.source,
-	};
 	const navigate = useNavigate();
-	const onClick = async (e: React.MouseEvent) => {
-		if (props.maybeItemId) return;
+	const [isLoading, setIsLoading] = useState(false);
+	const revalidator = useRevalidator();
+	const basicCommit = async (e: React.MouseEvent) => {
+		if (props.maybeItemId) return props.maybeItemId;
 		e.preventDefault();
-		const id = await commitMedia(
-			props.item.identifier,
-			props.lot,
-			props.source,
-		);
-		return navigate($path("/media/item/:id", { id }));
+		return await commitMedia(props.item.identifier, props.lot, props.source);
 	};
 
 	return (
@@ -626,65 +621,55 @@ export const MediaSearchItem = (props: {
 			item={props.item}
 			lot={props.lot}
 			userPreferences={props.userPreferences}
-			href={
-				props.maybeItemId
-					? $path("/media/item/:id", { id: props.maybeItemId })
-					: $path("/")
-			}
 			hasInteracted={props.hasInteracted}
+			imageOverlayForLoadingIndicator={isLoading}
 			noRatingLink
-			onClick={onClick}
+			onClick={async (e) => {
+				setIsLoading(true);
+				const id = await basicCommit(e);
+				setIsLoading(false);
+				return navigate($path("/media/item/:id", { id }));
+			}}
 		>
 			<>
 				{props.lot !== MetadataLot.Show ? (
 					<Button
-						component={Link}
 						variant="outline"
 						w="100%"
 						size="compact-md"
-						to={
-							props.maybeItemId
-								? withQuery(
-										$path(
-											"/media/item/:id/update-progress",
-											{ id: props.maybeItemId.toString() },
+						onClick={async (e) => {
+							const id = await basicCommit(e);
+							return navigate(
+								$path(
+									"/media/item/:id/update-progress",
+									{ id },
+									{
+										title: props.item.title,
+										redirectTo: $path(
+											"/media/:action/:lot",
 											{
-												title: props.item.title,
-												isShow: false,
-												isPodcast: props.lot === MetadataLot.Podcast,
+												action: props.action,
+												lot: props.lot.toLowerCase(),
 											},
+											{ query: props.query },
 										),
-										{
-											redirectTo: $path("/media/:action/:lot", {
-												action: props.action,
-												lot: props.lot.toLowerCase(),
-											}),
-										},
-								  )
-								: $path("/actions", {
-										...searchParams,
-										redirectTo: withQuery("/media/item/:id/update-progress", {
-											title: props.item.title,
-											isShow: false,
-											isPodcast: props.lot === MetadataLot.Podcast,
-											redirectTo: $path("/media/:action/:lot", {
-												action: props.action,
-												lot: props.lot.toLowerCase(),
-											}),
-										}),
-								  })
-						}
+									},
+								),
+							);
+						}}
 					>
 						Mark as {getVerb(Verb.Read, props.lot)}
 					</Button>
 				) : (
 					<>
 						<Button
-							component={Link}
 							variant="outline"
 							w="100%"
 							size="compact-md"
-							to={$path("/actions", searchParams)}
+							onClick={async (e) => {
+								const id = await basicCommit(e);
+								return navigate($path("/media/item/:id", { id }));
+							}}
 						>
 							Show details
 						</Button>
@@ -696,14 +681,12 @@ export const MediaSearchItem = (props: {
 					w="100%"
 					size="compact-md"
 					onClick={async () => {
-						const { id } = await (
-							await fetch(
-								$path("/actions", {
-									...searchParams,
-									returnRaw: "true",
-								}),
-							)
-						).json();
+						setIsLoading(true);
+						const id = await commitMedia(
+							props.item.identifier,
+							props.lot,
+							props.source,
+						);
 						const form = new FormData();
 						form.append("intent", "addEntityToCollection");
 						form.append("entityId", id);
@@ -714,7 +697,8 @@ export const MediaSearchItem = (props: {
 							method: "POST",
 							credentials: "include",
 						});
-						notifications.show({ message: "Media added to watchlist" });
+						setIsLoading(false);
+						revalidator.revalidate();
 					}}
 				>
 					Add to Watchlist
