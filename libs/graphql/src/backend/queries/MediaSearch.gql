@@ -6,6 +6,7 @@ query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchIn
     }
     items {
       databaseId
+      hasInteracted
       item {
         identifier
         title

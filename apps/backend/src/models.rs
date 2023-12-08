@@ -144,6 +144,7 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaSearchItemResponse {
         pub item: MediaSearchItem,
+        pub has_interacted: bool,
         pub database_id: Option<i32>,
     }
 

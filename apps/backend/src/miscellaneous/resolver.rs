@@ -34,13 +34,13 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, Iden, ItemsAndPagesNumber,
+    DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber,
     Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
     QueryTrait, RelationTrait, Statement,
 };
 use sea_query::{
-    Alias, Asterisk, Cond, Condition, Expr, Func, Keyword, NullOrdering, PostgresQueryBuilder,
-    Query, SelectStatement, UnionType, Value, Values,
+    Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering, PostgresQueryBuilder, Query,
+    SelectStatement, Value, Values,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -3421,89 +3421,32 @@ impl MiscellaneousService {
             let results = provider
                 .search(&q, input.page, preferences.general.display_nsfw)
                 .await?;
-            let mut all_idens = results
+            let all_idens = results
                 .items
                 .iter()
                 .map(|i| i.identifier.to_owned())
                 .collect_vec();
-            let data = if all_idens.is_empty() {
-                vec![]
-            } else {
-                #[derive(Iden)]
-                #[iden = "identifiers"]
-                enum TempIdentifiers {
-                    #[iden = "identifiers"]
-                    Alias,
-                    Identifier,
-                }
-                let metadata_alias = Alias::new("m");
-                // This can be done with `select id from metadata where identifier = '...'
-                // and lot = '...'` in a loop. But, I wanted to write a performant query.
-                let first_iden = all_idens.drain(..1).collect_vec().pop().unwrap();
-                let mut subquery = Query::select()
-                    .expr_as(Expr::val(first_iden), TempIdentifiers::Identifier)
-                    .to_owned();
-                for identifier in all_idens {
-                    subquery = subquery
-                        .union(
-                            UnionType::All,
-                            Query::select().expr(Expr::val(identifier)).to_owned(),
-                        )
-                        .to_owned();
-                }
-                let identifiers_query =
-                    Query::select()
-                        .expr(Expr::col((
-                            TempIdentifiers::Alias,
-                            TempIdentifiers::Identifier,
-                        )))
-                        .expr_as(
-                            Expr::case(
-                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
-                                    .is_not_null(),
-                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id)),
-                            )
-                            .finally(Keyword::Null),
-                            AliasedMetadata::Id,
-                        )
-                        .from_subquery(subquery, TempIdentifiers::Alias)
-                        .join_as(
-                            JoinType::LeftJoin,
-                            AliasedMetadata::Table,
-                            metadata_alias.clone(),
-                            Expr::col((TempIdentifiers::Alias, TempIdentifiers::Identifier))
-                                .equals((metadata_alias.clone(), AliasedMetadata::Identifier)),
-                        )
-                        .and_where(
-                            Expr::col((metadata_alias.clone(), AliasedMetadata::Lot))
-                                .eq(lot)
-                                .and(
-                                    Expr::col((metadata_alias.clone(), AliasedMetadata::Source))
-                                        .eq(source),
-                                )
-                                .or(Expr::col((metadata_alias.clone(), AliasedMetadata::Lot))
-                                    .is_null()),
-                        )
-                        .to_owned();
-                let stmt = self.get_db_stmt(identifiers_query);
-                #[derive(Debug, FromQueryResult)]
-                struct DbResponse {
-                    identifier: String,
-                    id: Option<i32>,
-                }
-                let identifiers = DbResponse::find_by_statement(stmt).all(&self.db).await?;
-                results
-                    .items
-                    .into_iter()
-                    .map(|i| MediaSearchItemResponse {
-                        database_id: identifiers
-                            .iter()
-                            .find(|&f| f.identifier == i.identifier)
-                            .and_then(|i| i.id),
-                        item: i,
-                    })
-                    .collect()
-            };
+            let interactions = Metadata::find()
+                .left_join(UserToEntity)
+                .select_only()
+                .column_as(Expr::col(metadata::Column::Identifier), "i")
+                .column_as(Expr::col(user_to_entity::Column::Id).is_not_null(), "m")
+                .filter(metadata::Column::Lot.eq(lot))
+                .filter(metadata::Column::Source.eq(source))
+                .filter(metadata::Column::Identifier.is_in(&all_idens))
+                .into_tuple::<(String, bool)>()
+                .all(&self.db)
+                .await?;
+            let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
+            let data = results
+                .items
+                .into_iter()
+                .map(|i| MediaSearchItemResponse {
+                    has_interacted: interactions.get(&i.identifier).cloned().unwrap_or_default(),
+                    database_id: None,
+                    item: i,
+                })
+                .collect();
             let results = SearchResults {
                 details: results.details,
                 items: data,
