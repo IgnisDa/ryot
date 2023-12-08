@@ -231,7 +231,7 @@ async fn main() -> Result<()> {
         .layer(cors);
 
     let port = env::var("PORT")
-        .unwrap_or_else(|_| "8000".to_owned())
+        .unwrap_or_else(|_| "5000".to_owned())
         .parse()
         .unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
