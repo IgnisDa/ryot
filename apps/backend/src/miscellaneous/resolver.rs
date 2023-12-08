@@ -4201,7 +4201,26 @@ impl MiscellaneousService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
-            // TODO: Also should be removed from cache but this is a very small edge case.
+            let (ssn, sen, pen) = match &si.extra_information {
+                None => (None, None, None),
+                Some(ei) => match ei {
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                        (Some(s.season), Some(s.episode), None)
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
+                        (None, None, Some(p.episode))
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Other(_) => (None, None, None),
+                },
+            };
+            let cache = ProgressUpdateCache {
+                user_id,
+                metadata_id: si.metadata_id,
+                show_season_number: ssn,
+                show_episode_number: sen,
+                podcast_episode_number: pen,
+            };
+            self.seen_progress_cache.remove(&cache).await;
             let seen_id = si.id;
             let progress = si.progress;
             let metadata_id = si.metadata_id;
