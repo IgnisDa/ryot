@@ -1,9 +1,4 @@
-import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	json,
-	redirect,
-} from "@remix-run/node";
+import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
 	CommitMediaDocument,
@@ -15,7 +10,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { $path } from "@ignisda/remix-routes";
 import { namedAction } from "remix-utils/named-action";
-import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -23,37 +17,20 @@ import { authCookie, colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const url = new URL(request.url);
-	const intent = url.searchParams.get("intent");
-	if (intent === "commitMedia") {
-		const values = zx.parseQuery(url.searchParams, {
-			identifier: z.string(),
-			lot: z.nativeEnum(MetadataLot),
-			source: z.nativeEnum(MetadataSource),
-			redirectTo: z.string().optional(),
-			returnRaw: zx.BoolAsString.optional(),
-		});
-		const { commitMedia } = await gqlClient.request(
-			CommitMediaDocument,
-			{ identifier: values.identifier, lot: values.lot, source: values.source },
-			await getAuthorizationHeader(request),
-		);
-		if (values.returnRaw) return json(commitMedia);
-		return redirect(
-			values.redirectTo
-				? safeRedirect(
-						values.redirectTo.replace(":id", commitMedia.id.toString()),
-				  )
-				: $path("/media/item/:id", { id: commitMedia.id.toString() }),
-		);
-	}
-	return redirect($path("/"));
-};
+export const loader = async () => redirect($path("/"));
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
+		commitMedia: async () => {
+			const submission = processSubmission(formData, commitMediaSchema);
+			const { commitMedia } = await gqlClient.request(
+				CommitMediaDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission, commitMedia } as const);
+		},
 		toggleColorScheme: async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
 				request.headers.get("Cookie") || "",
@@ -124,6 +101,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 	});
 };
+
+const commitMediaSchema = z.object({
+	identifier: z.string(),
+	lot: z.nativeEnum(MetadataLot),
+	source: z.nativeEnum(MetadataSource),
+});
 
 const reviewCommentSchema = z.object({
 	reviewId: zx.IntAsString,
