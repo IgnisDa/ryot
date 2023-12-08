@@ -156,7 +156,7 @@ export default function Page() {
 												typeof window !== "undefined"
 													? `${
 															window.location.origin
-													  }/webhooks/integrations/${i.description
+													  }/backend/webhooks/integrations/${i.description
 															.toLowerCase()
 															.split(" ")
 															.at(0)}/${i.slug}`
