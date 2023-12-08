@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	Alert,
 	Anchor,
@@ -41,7 +42,6 @@ import {
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
 import { DateTime } from "luxon";
-import { $path } from "@ignisda/remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";

@@ -1,5 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -67,7 +68,6 @@ import { RESET } from "jotai/utils";
 import { DateTime, Duration } from "luxon";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
-import { $path } from "@ignisda/remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";

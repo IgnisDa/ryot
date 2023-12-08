@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -49,7 +50,6 @@ import {
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
 import { DateTime } from "luxon";
-import { $path } from "@ignisda/remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

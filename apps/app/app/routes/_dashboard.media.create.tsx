@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
 	Box,
@@ -33,7 +34,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
-import { $path } from "@ignisda/remix-routes";
 import { z } from "zod";
 import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";

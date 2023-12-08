@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Alert,
@@ -34,7 +35,6 @@ import {
 import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useState } from "react";
-import { $path } from "@ignisda/remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";

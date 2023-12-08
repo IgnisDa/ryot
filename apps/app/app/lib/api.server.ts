@@ -1,7 +1,7 @@
+import { $path } from "@ignisda/remix-routes";
 import { redirect } from "@remix-run/node";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
-import { $path } from "@ignisda/remix-routes";
 import { authCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "./toast.server";
 

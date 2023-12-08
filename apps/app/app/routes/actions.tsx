@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
@@ -8,7 +9,6 @@ import {
 	MetadataSource,
 	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { $path } from "@ignisda/remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";

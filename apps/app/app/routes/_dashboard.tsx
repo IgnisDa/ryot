@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
 	AppShell,
@@ -39,7 +40,6 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { $path } from "@ignisda/remix-routes";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";

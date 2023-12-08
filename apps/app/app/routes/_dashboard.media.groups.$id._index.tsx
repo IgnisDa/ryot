@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	Button,
 	Container,
@@ -23,7 +24,6 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
-import { $path } from "@ignisda/remix-routes";
 import invariant from "tiny-invariant";
 import { MediaDetailsLayout } from "~/components/common";
 import {

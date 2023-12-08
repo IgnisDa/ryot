@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	Accordion,
 	ActionIcon,
@@ -29,7 +30,6 @@ import {
 } from "@tabler/icons-react";
 import { DateTime, Duration } from "luxon";
 import { ReactElement, useEffect, useState } from "react";
-import { $path } from "@ignisda/remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";

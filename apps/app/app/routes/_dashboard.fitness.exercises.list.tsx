@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Affix,
@@ -50,7 +51,6 @@ import { createDraft, finishDraft } from "immer";
 import { useAtom } from "jotai";
 import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
-import { $path } from "@ignisda/remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
