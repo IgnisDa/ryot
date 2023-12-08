@@ -44,7 +44,7 @@ RUN ./apps/backend/ci/build-app.sh
 FROM caddy:2.7.5 as reverse-proxy
 
 FROM node-base
-RUN apt-get update && apt-get install -y --no-install-recommends supervisor ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 USER ryot
@@ -56,4 +56,6 @@ COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json .
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/public ./public
 COPY --from=app-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
+HEALTHCHECK --interval=5m --timeout=3s \
+  CMD curl -f http://localhost:5000/config || exit 1
 CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf" ]
