@@ -11,6 +11,7 @@ services:
     ports:
       - "8000:8000"
       - "3000:3000"
+      - "5000:5000"
     user: archlinux
 
   minio:
