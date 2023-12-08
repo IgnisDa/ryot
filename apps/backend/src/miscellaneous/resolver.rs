@@ -3434,6 +3434,7 @@ impl MiscellaneousService {
                 .filter(metadata::Column::Lot.eq(lot))
                 .filter(metadata::Column::Source.eq(source))
                 .filter(metadata::Column::Identifier.is_in(&all_idens))
+                .filter(user_to_entity::Column::UserId.eq(user_id))
                 .into_tuple::<(String, bool)>()
                 .all(&self.db)
                 .await?;
