@@ -11,7 +11,7 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { match } from "ts-pattern";
 import { z } from "zod";

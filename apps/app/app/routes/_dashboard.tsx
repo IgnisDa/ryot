@@ -39,7 +39,7 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";

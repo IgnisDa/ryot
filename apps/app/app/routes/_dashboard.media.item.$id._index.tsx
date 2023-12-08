@@ -77,7 +77,7 @@ import {
 } from "humanize-duration-ts";
 import { DateTime } from "luxon";
 import { useState } from "react";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

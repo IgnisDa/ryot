@@ -35,7 +35,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { z } from "zod";
 import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";

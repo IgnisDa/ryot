@@ -46,7 +46,7 @@ import {
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { useRef } from "react";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

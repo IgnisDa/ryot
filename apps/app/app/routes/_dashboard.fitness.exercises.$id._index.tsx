@@ -35,7 +35,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";

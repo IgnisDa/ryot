@@ -37,7 +37,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";

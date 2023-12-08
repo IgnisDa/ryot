@@ -67,7 +67,7 @@ import { RESET } from "jotai/utils";
 import { DateTime, Duration } from "luxon";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";

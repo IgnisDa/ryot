@@ -27,7 +27,7 @@ import {
 	IconPlayerPlay,
 	IconUser,
 } from "@tabler/icons-react";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import invariant from "tiny-invariant";
 import { MediaDetailsLayout } from "~/components/common";
 import {

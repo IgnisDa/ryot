@@ -13,7 +13,7 @@ import {
 	MetadataSource,
 	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";

@@ -19,7 +19,7 @@ import {
 import { snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { DateTime } from "luxon";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";

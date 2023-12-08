@@ -26,7 +26,7 @@ import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { useState } from "react";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import invariant from "tiny-invariant";
 import { z } from "zod";

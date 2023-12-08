@@ -30,7 +30,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";

@@ -3,7 +3,7 @@ import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
-import { $path } from "remix-routes";
+import { $path } from "@ignisda/remix-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
