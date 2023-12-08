@@ -752,6 +752,7 @@ export type MediaSearchItem = {
 
 export type MediaSearchItemResponse = {
   databaseId?: Maybe<Scalars['Int']['output']>;
+  /** Whether the user has interacted with this media item. */
   hasInteracted: Scalars['Boolean']['output'];
   item: MediaSearchItem;
 };

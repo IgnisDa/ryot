@@ -3429,23 +3429,36 @@ impl MiscellaneousService {
             let interactions = Metadata::find()
                 .left_join(UserToEntity)
                 .select_only()
-                .column_as(Expr::col(metadata::Column::Identifier), "i")
-                .column_as(Expr::col(user_to_entity::Column::Id).is_not_null(), "m")
+                .column(metadata::Column::Identifier)
+                .column_as(
+                    Expr::col((Alias::new("metadata"), metadata::Column::Id)),
+                    "id",
+                )
+                .column_as(
+                    Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id))
+                        .is_not_null(),
+                    "m",
+                )
                 .filter(metadata::Column::Lot.eq(lot))
                 .filter(metadata::Column::Source.eq(source))
                 .filter(metadata::Column::Identifier.is_in(&all_idens))
                 .filter(user_to_entity::Column::UserId.eq(user_id))
-                .into_tuple::<(String, bool)>()
+                .into_tuple::<(String, i32, bool)>()
                 .all(&self.db)
-                .await?;
+                .await?
+                .into_iter()
+                .map(|(key, value1, value2)| (key, (value1, value2)));
             let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
             let data = results
                 .items
                 .into_iter()
-                .map(|i| MediaSearchItemResponse {
-                    has_interacted: interactions.get(&i.identifier).cloned().unwrap_or_default(),
-                    database_id: None,
-                    item: i,
+                .map(|i| {
+                    let interaction = interactions.get(&i.identifier).cloned();
+                    MediaSearchItemResponse {
+                        has_interacted: interaction.unwrap_or_default().1,
+                        database_id: interaction.map(|i| i.0),
+                        item: i,
+                    }
                 })
                 .collect();
             let results = SearchResults {
