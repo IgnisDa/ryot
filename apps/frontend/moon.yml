@@ -1,19 +1,41 @@
 fileGroups:
-  next:
-    - 'pages/**/*'
-    - 'public/**/*'
-    - 'src/**/*'
-    - 'next-env.d.ts'
-    - 'next.config.*'
+  remix:
+    - app/**/*
+    - public/**/*
+    - env.d.ts
+    - remix.config.*
 
 tasks:
+  routes:
+    command: remix-routes
+    inputs:
+      - '@group(remix)'
+
   dev:
-    command: 'next dev'
+    command: vite dev --port 3000 --host
     local: true
+    deps:
+      - routes
+
+  build-basic:
+    command: vite build
+
+  build-ssr:
+    command: vite build --ssr
 
   build:
-    command: 'next build'
+    deps:
+      - routes
+      - build-basic
+      - build-ssr
     inputs:
-      - '@group(next)'
+      - '@group(remix)'
     outputs:
-      - 'out'
+      - build
+      - public/build
+    options:
+      runDepsInParallel: false
+
+  typecheck:
+    inputs:
+      - '@group(remix)'

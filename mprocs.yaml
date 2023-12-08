@@ -4,6 +4,6 @@ procs:
   Backend:
     shell: "cargo watch -qx 'run --package ryot'"
   Frontend:
-    shell: "moon run app:dev"
+    shell: "moon run frontend:dev"
   Minio:
     shell: "caddy reverse-proxy --from :9000 --to minio:9000"

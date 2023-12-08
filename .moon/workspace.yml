@@ -1,7 +1,6 @@
 $schema: "https://moonrepo.dev/schemas/workspace.json"
 
 projects:
-  app: "apps/app"
   browser-extension: "apps/browser-extension"
   frontend: "apps/frontend"
   kodi: "apps/kodi"

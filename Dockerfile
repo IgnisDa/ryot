@@ -9,14 +9,14 @@ RUN npm install -g @moonrepo/cli && moon --version
 FROM base AS frontend-workspace
 WORKDIR /app
 COPY . .
-RUN moon docker scaffold app
+RUN moon docker scaffold frontend
 
 FROM base AS frontend-builder
 WORKDIR /app
 COPY --from=frontend-workspace /app/.moon/docker/workspace .
 RUN moon docker setup
 COPY --from=frontend-workspace /app/.moon/docker/sources .
-RUN moon run app:build
+RUN moon run frontend:build
 
 FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef AS chef
 RUN apt-get update && apt-get install -y --no-install-recommends musl-tools musl-dev clang llvm ca-certificates
@@ -51,9 +51,9 @@ USER ryot
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY config/Caddyfile /etc/caddy/Caddyfile
 COPY --from=reverse-proxy /usr/bin/caddy /usr/local/bin/caddy
-COPY --from=frontend-builder --chown=ryot:ryot /app/apps/app/node_modules ./node_modules
-COPY --from=frontend-builder --chown=ryot:ryot /app/apps/app/package.json ./package.json
-COPY --from=frontend-builder --chown=ryot:ryot /app/apps/app/build ./build
-COPY --from=frontend-builder --chown=ryot:ryot /app/apps/app/public ./public
+COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules ./node_modules
+COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
+COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
+COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/public ./public
 COPY --from=app-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
 CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf" ]
