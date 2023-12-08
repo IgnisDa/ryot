@@ -55,7 +55,26 @@ import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
 
+const commitMedia = async (
+	identifier: string,
+	lot: MetadataLot,
+	source: MetadataSource,
+) => {
+	const data = new FormData();
+	data.append("identifier", identifier);
+	data.append("lot", lot);
+	data.append("source", source);
+	const resp = await fetch("/actions?intent=commitMedia", {
+		method: "POST",
+		body: data,
+	});
+	const json = await resp.json();
+	return json.commitMedia.id;
+};
+
 export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
+	const navigate = useNavigate();
+
 	return (
 		<Anchor
 			component={Link}
@@ -63,13 +82,17 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 			to={
 				props.media.metadataId
 					? $path("/media/item/:id", { id: props.media.metadataId })
-					: $path("/actions", {
-							intent: "commitMedia",
-							identifier: props.media.identifier,
-							lot: props.media.lot,
-							source: props.media.source,
-					  })
+					: $path("/")
 			}
+			onClick={async (e) => {
+				e.preventDefault();
+				const id = await commitMedia(
+					props.media.identifier,
+					props.media.lot,
+					props.media.source,
+				);
+				return navigate($path("/media/item/:id", { id }));
+			}}
 		>
 			<Avatar
 				imageProps={{ loading: "lazy" }}
@@ -360,6 +383,7 @@ export const ReviewItemDisplay = (props: {
 
 export const BaseDisplayItem = (props: {
 	name: string;
+	onClick?: (e: React.MouseEvent) => Promise<void>;
 	imageLink?: string | null;
 	imagePlaceholder: string;
 	topRight?: JSX.Element;
@@ -386,6 +410,7 @@ export const BaseDisplayItem = (props: {
 				to={props.href}
 				style={{ flex: "none" }}
 				pos="relative"
+				onClick={props.onClick}
 			>
 				<Image
 					src={props.imageLink}
@@ -453,11 +478,13 @@ export const MediaItemWithoutUpdateModal = (props: {
 	hasInteracted?: boolean;
 	averageRating?: string;
 	noRatingLink?: boolean;
+	onClick?: (e: React.MouseEvent) => Promise<void>;
 }) => {
 	const navigate = useNavigate();
 
 	return (
 		<BaseDisplayItem
+			onClick={props.onClick}
 			href={
 				props.href
 					? props.href
@@ -582,6 +609,17 @@ export const MediaSearchItem = (props: {
 		lot: props.lot,
 		source: props.source,
 	};
+	const navigate = useNavigate();
+	const onClick = async (e: React.MouseEvent) => {
+		if (props.maybeItemId) return;
+		e.preventDefault();
+		const id = await commitMedia(
+			props.item.identifier,
+			props.lot,
+			props.source,
+		);
+		return navigate($path("/media/item/:id", { id }));
+	};
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -591,10 +629,11 @@ export const MediaSearchItem = (props: {
 			href={
 				props.maybeItemId
 					? $path("/media/item/:id", { id: props.maybeItemId })
-					: $path("/actions", searchParams)
+					: $path("/")
 			}
 			hasInteracted={props.hasInteracted}
 			noRatingLink
+			onClick={onClick}
 		>
 			<>
 				{props.lot !== MetadataLot.Show ? (
