@@ -3427,22 +3427,29 @@ impl MiscellaneousService {
                 .map(|i| i.identifier.to_owned())
                 .collect_vec();
             let interactions = Metadata::find()
-                .left_join(UserToEntity)
+                .join(
+                    JoinType::LeftJoin,
+                    metadata::Relation::UserToEntity
+                        .def()
+                        .on_condition(move |_left, right| {
+                            Condition::all()
+                                .add(Expr::col((right, user_to_entity::Column::UserId)).eq(user_id))
+                        }),
+                )
                 .select_only()
                 .column(metadata::Column::Identifier)
                 .column_as(
                     Expr::col((Alias::new("metadata"), metadata::Column::Id)),
-                    "id",
+                    "database_id",
                 )
                 .column_as(
                     Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id))
                         .is_not_null(),
-                    "m",
+                    "has_interacted",
                 )
                 .filter(metadata::Column::Lot.eq(lot))
                 .filter(metadata::Column::Source.eq(source))
                 .filter(metadata::Column::Identifier.is_in(&all_idens))
-                .filter(user_to_entity::Column::UserId.eq(user_id))
                 .into_tuple::<(String, i32, bool)>()
                 .all(&self.db)
                 .await?
