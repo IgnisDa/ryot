@@ -3,9 +3,6 @@
 	"files": [],
 	"references": [
 		{
-			"path": "apps/browser-extension"
-		},
-		{
 			"path": "apps/frontend"
 		},
 		{
