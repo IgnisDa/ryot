@@ -16,15 +16,14 @@ services:
     volumes:
       - postgres_storage:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
 
   ryot:
     image: "ghcr.io/ignisda/ryot:latest"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
-      # - SERVER_INSECURE_COOKIE=true # only needed in localhost or non-https
     ports:
       - "8000:8000"
     pull_policy: always
