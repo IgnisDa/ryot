@@ -55,13 +55,6 @@
   }
 }
 
-.navbar {
-  background-color: light-dark(
-    #ffffff,
-    #1f1f1f
-  );
-}
-
 .control2 {
   background-color: light-dark(
     var(--mantine-color-gray-0),

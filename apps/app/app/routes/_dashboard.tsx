@@ -144,7 +144,7 @@ export default function Layout() {
 				collapsed: { mobile: !opened },
 			}}
 		>
-			<AppShell.Navbar py="md" px="md" className={classes.navbar}>
+			<AppShell.Navbar py="md" px="md">
 				<Flex justify="end" hiddenFrom="sm">
 					<Burger
 						opened={opened}
