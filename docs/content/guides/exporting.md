@@ -5,10 +5,10 @@ Users can export either their entire data or individual parts of it.
 To start, login to your Ryot instance and go to the "Imports and Exports" section
 in the "Settings" section. Select the "Export" tab and then generate a new auth token.
 
-The endpoint is in the format of `/export/<type>`. So requests will look like:
+The endpoint is in the format of `/backend/export/<type>`. So requests will look like:
 
 ```bash
-curl <ryot_instance_url>/export/<type> --header 'X-Auth-Token: <token>'
+curl <ryot_instance_url>/backend/export/<type> --header 'X-Auth-Token: <token>'
 ```
 
 ## All (`type=all`)
