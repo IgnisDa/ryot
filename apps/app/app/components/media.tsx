@@ -64,7 +64,7 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 				props.media.metadataId
 					? $path("/media/item/:id", { id: props.media.metadataId })
 					: $path("/actions", {
-							action: "commitMedia",
+							intent: "commitMedia",
 							identifier: props.media.identifier,
 							lot: props.media.lot,
 							source: props.media.source,
