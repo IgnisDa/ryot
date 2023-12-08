@@ -30,6 +30,7 @@
 		"cookie": "0.6.0",
 		"crypto-js": "4.2.0",
 		"dayjs": "1.11.10",
+		"dotenv": "16.3.1",
 		"embla-carousel-react": "^7.1.0",
 		"graphql": "16.8.1",
 		"graphql-request": "6.1.0",

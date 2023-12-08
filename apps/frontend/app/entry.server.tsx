@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import { PassThrough } from "node:stream";
 
 import type { AppLoadContext, EntryContext } from "@remix-run/node";

@@ -5,9 +5,7 @@ import { GraphQLClient } from "graphql-request";
 import { authCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "./toast.server";
 
-export const API_URL = import.meta.env.VITE_API_URL;
-
-console.log({API_URL})
+export const API_URL = process.env.API_URL;
 
 export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
 	headers: { Connection: "keep-alive" },

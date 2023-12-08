@@ -4744,6 +4744,7 @@ __metadata:
     cookie: "npm:0.6.0"
     crypto-js: "npm:4.2.0"
     dayjs: "npm:1.11.10"
+    dotenv: "npm:16.3.1"
     embla-carousel-react: "npm:^7.1.0"
     graphql: "npm:16.8.1"
     graphql-request: "npm:6.1.0"
