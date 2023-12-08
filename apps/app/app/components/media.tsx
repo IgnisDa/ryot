@@ -450,7 +450,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	lot?: MetadataLot | null;
 	children?: JSX.Element;
 	imageOverlayForLoadingIndicator?: boolean;
-	existsInDatabase?: boolean;
+	hasInteracted?: boolean;
 	averageRating?: string;
 	noRatingLink?: boolean;
 }) => {
@@ -557,7 +557,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.lot ? props.lot : props.entityLot ? props.entityLot : "",
 			)}
 			highlightRightText={
-				props.existsInDatabase ? "This media exists in the database" : undefined
+				props.hasInteracted ? "This media exists in the database" : undefined
 			}
 			name={props.item.title}
 			children={props.children}
@@ -573,6 +573,7 @@ export const MediaSearchItem = (props: {
 	source: MetadataSource;
 	userPreferences: UserPreferencesQuery["userPreferences"];
 	action: "search" | "list";
+	hasInteracted: boolean;
 	maybeItemId?: number;
 }) => {
 	const searchParams = {
@@ -592,7 +593,7 @@ export const MediaSearchItem = (props: {
 					? $path("/media/item/:id", { id: props.maybeItemId })
 					: $path("/actions", searchParams)
 			}
-			existsInDatabase={!!props.maybeItemId}
+			hasInteracted={props.hasInteracted}
 			noRatingLink
 		>
 			<>

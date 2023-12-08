@@ -427,6 +427,7 @@ export default function Page() {
 												publishYear: b.item.publishYear?.toString(),
 											}}
 											maybeItemId={b.databaseId ?? undefined}
+											hasInteracted={b.hasInteracted}
 											query={query || ""}
 											lot={loaderData.lot}
 											source={
