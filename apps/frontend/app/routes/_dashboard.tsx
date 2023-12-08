@@ -264,7 +264,7 @@ export default function Layout() {
 									</Center>
 									<Text size="sm" className={classes.value}>
 										{upperFirst(
-											currentColorScheme === "light" ? "dark" : "light",
+											currentColorScheme === "dark" ? "light" : "dark",
 										)}{" "}
 										theme
 									</Text>

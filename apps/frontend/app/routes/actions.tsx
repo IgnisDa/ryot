@@ -35,7 +35,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const currentColorScheme = await colorSchemeCookie.parse(
 				request.headers.get("Cookie") || "",
 			);
-			const newColorScheme = currentColorScheme === "light" ? "dark" : "light";
+			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
 			return redirect($path("/"), {
 				headers: {
 					"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
