@@ -54,6 +54,7 @@ export const meta: MetaFunction = () => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	const submission = processSubmission(formData, schema);
+	// biome-ignore lint/suspicious/noExplicitAny: required here
 	const input: any = {
 		...submission,
 		images: JSON.parse(submission.images || "[]"),

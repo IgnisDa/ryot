@@ -55,6 +55,7 @@ type CurrentWorkout = InProgressWorkout | null;
 
 const cookieStorage = createJSONStorage<CurrentWorkout>(() => {
 	return {
+		// biome-ignore lint/suspicious/noExplicitAny: required here
 		getItem: () => Cookies.get(COOKIES_KEYS.currentWorkout) as any,
 		setItem: (ctx, value) => Cookies.set(ctx, value, { expires: 7 }),
 		removeItem: (ctx) => Cookies.remove(ctx),
