@@ -219,9 +219,10 @@ export default function Page() {
 								<Select
 									label="Select a platform"
 									required
-									data={Object.values(UserNotificationSettingKind).map(
-										(v) => ({ label: changeCase(v), value: v }),
-									)}
+									data={Object.values(UserNotificationSettingKind).map((v) => ({
+										label: changeCase(v),
+										value: v,
+									}))}
 									onChange={(v) => {
 										if (v)
 											setCreateUserNotificationPlatformLot(
