@@ -3061,6 +3061,7 @@ __metadata:
     "@types/cookie": "npm:^0.6.0"
     "@types/crypto-js": "npm:^4.2.1"
     "@types/howler": "npm:^2.2.11"
+    "@types/js-cookie": "npm:^3"
     "@types/luxon": "npm:3.3.7"
     "@types/react": "npm:18.2.42"
     "@types/react-dom": "npm:18.2.17"
@@ -3078,6 +3079,7 @@ __metadata:
     immer: "npm:10.0.3"
     isbot: "npm:3.7.1"
     jotai: "npm:2.6.0"
+    js-cookie: "npm:3.0.5"
     luxon: "npm:3.4.4"
     mantine-datatable: "npm:^7.3.0"
     postcss: "npm:8.4.32"
@@ -3331,6 +3333,13 @@ __metadata:
   version: 2.2.11
   resolution: "@types/howler@npm:2.2.11"
   checksum: 2875810bc1c076cfe7117adaecb88bdd12126b674329488d2b35d4906d15375f606c91cba8ee671fb09bbe2728fd5d396616e9b5144c7a8fca0bdd49e2d410e7
+  languageName: node
+  linkType: hard
+
+"@types/js-cookie@npm:^3":
+  version: 3.0.6
+  resolution: "@types/js-cookie@npm:3.0.6"
+  checksum: 272d551687547445cb210213c73e72e0e5d58ad73e2e444a65d688b8ff9425529779ee0cd6492aaa1f070161916d4254ef2b1a76d64179100437f60749d094ef
   languageName: node
   linkType: hard
 
@@ -6962,6 +6971,13 @@ __metadata:
     react:
       optional: true
   checksum: 7e635f4f5052582095ed3949aa46f26213b10237bc4876db242c936f0f4d4272129727d7419e4fd5b1b83fa55b7ad737575453116a955dcc6b3a26cba14591f2
+  languageName: node
+  linkType: hard
+
+"js-cookie@npm:3.0.5":
+  version: 3.0.5
+  resolution: "js-cookie@npm:3.0.5"
+  checksum: 366494b1630b9fb8abaef3659748db5dfd52c58c6fc3459b9f0a03b492593bc1b01c6dfcc066b46f6413c28edb3a00cc68fb61ea8cdf6991bedf1f100f8a389d
   languageName: node
   linkType: hard
 
