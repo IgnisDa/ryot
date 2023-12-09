@@ -24,7 +24,7 @@ import {
 	LatestUserSummaryDocument,
 	MetadataLot,
 	UserCollectionsListDocument,
-	UserPreferences,
+	UserMediaFeaturesEnabledPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -554,17 +554,17 @@ const ActualDisplayStat = (props: {
 const DisplayStatForMediaType = (props: {
 	lot: MetadataLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
-	userPreferences: UserPreferences;
+	media: UserMediaFeaturesEnabledPreferences;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const isEnabled = Object.entries(
-		props.userPreferences.featuresEnabled.media || {},
-	).find(([name, _]) => getLot(name) === props.lot);
+	const isEnabled = Object.entries(props.media || {}).find(
+		([name, _]) => getLot(name) === props.lot,
+	);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size={24} stroke={1.5} />;
 
 	return isEnabled ? (
-		isEnabled[1] && props.userPreferences.featuresEnabled.media.enabled ? (
+		isEnabled[1] && props.media.enabled ? (
 			<Link
 				to={$path("/media/:action/:lot", {
 					action: "list",

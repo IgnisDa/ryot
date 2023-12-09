@@ -32,13 +32,11 @@ import {
 	useRevalidator,
 } from "@remix-run/react";
 import {
-	CoreDetails,
 	EntityLot,
 	MetadataLot,
 	MetadataSource,
 	type PartialMetadata,
 	type ReviewItem,
-	UserPreferencesQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
@@ -117,10 +115,10 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 
 export const MediaScrollArea = (props: {
 	children: JSX.Element;
-	coreDetails: CoreDetails;
+	itemDetailsHeight: number;
 }) => {
 	return (
-		<ScrollArea.Autosize mah={props.coreDetails.itemDetailsHeight}>
+		<ScrollArea.Autosize mah={props.itemDetailsHeight}>
 			{props.children}
 		</ScrollArea.Autosize>
 	);
@@ -129,7 +127,7 @@ export const MediaScrollArea = (props: {
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	user: ApplicationUser;
-	userPreferences: UserPreferencesQuery["userPreferences"];
+	reviewScale: UserReviewScale;
 	title: string;
 	metadataId?: number;
 	metadataGroupId?: number;
@@ -209,8 +207,7 @@ export const ReviewItemDisplay = (props: {
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
 								{props.review.rating}
-								{props.userPreferences.general.reviewScale ===
-								UserReviewScale.OutOfFive
+								{props.reviewScale === UserReviewScale.OutOfFive
 									? undefined
 									: "%"}
 							</Text>
@@ -473,7 +470,7 @@ type Item = {
 
 export const MediaItemWithoutUpdateModal = (props: {
 	item: Item;
-	userPreferences: UserPreferencesQuery["userPreferences"];
+	reviewScale: UserReviewScale;
 	entityLot?: EntityLot | null;
 	href?: string;
 	lot?: MetadataLot | null;
@@ -537,15 +534,14 @@ export const MediaItemWithoutUpdateModal = (props: {
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 							<Text c="white" size="xs" fw="bold" pr={4}>
-								{match(props.userPreferences.general.reviewScale)
+								{match(props.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
 										// biome-ignore lint/style/noNonNullAssertion: it is validated above
 										parseFloat(props.averageRating!.toString()).toFixed(1),
 									)
 									.with(UserReviewScale.OutOfHundred, () => props.averageRating)
 									.exhaustive()}{" "}
-								{props.userPreferences.general.reviewScale ===
-								UserReviewScale.OutOfFive
+								{props.reviewScale === UserReviewScale.OutOfFive
 									? undefined
 									: "%"}
 							</Text>
@@ -602,9 +598,9 @@ export const MediaSearchItem = (props: {
 	query: string;
 	lot: MetadataLot;
 	source: MetadataSource;
-	userPreferences: UserPreferencesQuery["userPreferences"];
 	action: "search" | "list";
 	hasInteracted: boolean;
+	reviewScale: UserReviewScale;
 	maybeItemId?: number;
 }) => {
 	const navigate = useNavigate();
@@ -620,7 +616,7 @@ export const MediaSearchItem = (props: {
 		<MediaItemWithoutUpdateModal
 			item={props.item}
 			lot={props.lot}
-			userPreferences={props.userPreferences}
+			reviewScale={props.reviewScale}
 			hasInteracted={props.hasInteracted}
 			imageOverlayForLoadingIndicator={isLoading}
 			noRatingLink
