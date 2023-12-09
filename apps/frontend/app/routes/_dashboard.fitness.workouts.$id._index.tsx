@@ -355,6 +355,7 @@ export default function Page() {
 												<Flex mb={6} mt={2} ml="lg">
 													{s.personalBests.map((pb) => (
 														<Badge
+															key={pb}
 															variant="light"
 															size="xs"
 															leftSection={<IconTrophy size={16} />}
