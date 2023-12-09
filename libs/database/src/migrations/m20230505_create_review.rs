@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
-    m20230417_create_user::User, m20230507_create_collection::Collection,
-    m20230901_create_metadata_group::MetadataGroup,
+    m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
+    m20230504_create_collection::Collection,
 };
 
 #[derive(DeriveMigrationName)]
@@ -125,7 +125,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name(COLLECTION_TO_REVIEW_FOREIGN_KEY)
-                            .from(Review::Table, Review::PersonId)
+                            .from(Review::Table, Review::CollectionId)
                             .to(Collection::Table, Collection::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),

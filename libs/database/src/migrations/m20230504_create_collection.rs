@@ -1,5 +1,3 @@
-// FIXME: Change the name of this migration to `m20230504_create_collection`.
-
 use sea_orm_migration::prelude::*;
 
 use super::{m20230417_create_user::User, m20230505_create_review::Visibility};

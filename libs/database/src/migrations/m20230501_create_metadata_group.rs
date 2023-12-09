@@ -1,5 +1,3 @@
-// FIXME: Change the name of this migration to `m20230501_create_metadata_group`.
-
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
