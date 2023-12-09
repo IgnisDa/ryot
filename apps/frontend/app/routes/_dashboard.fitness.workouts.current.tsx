@@ -86,7 +86,7 @@ import {
 	getSetColor,
 	gqlClientSide,
 	uploadFileAndGetKey,
-} from "~/lib/utilities";
+} from "~/lib/generals";
 import { combineHeaders } from "~/lib/utilities.server";
 import {
 	Exercise,

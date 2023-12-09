@@ -53,7 +53,7 @@ import { useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { useGetMantineColor } from "~/lib/hooks";
-import { Verb, getFallbackImageUrl, getVerb } from "~/lib/utilities";
+import { Verb, getFallbackImageUrl, getVerb } from "~/lib/generals";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
 

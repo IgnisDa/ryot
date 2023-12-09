@@ -39,7 +39,7 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { uploadFileToServiceAndGetPath } from "~/lib/utilities";
+import { uploadFileToServiceAndGetPath } from "~/lib/generals";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {

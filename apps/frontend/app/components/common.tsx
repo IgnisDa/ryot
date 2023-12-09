@@ -21,7 +21,7 @@ import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { forwardRef } from "react";
 import { useState } from "react";
-import { getFallbackImageUrl } from "~/lib/utilities";
+import { getFallbackImageUrl } from "~/lib/generals";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {

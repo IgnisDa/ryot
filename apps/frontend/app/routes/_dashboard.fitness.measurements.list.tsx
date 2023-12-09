@@ -59,7 +59,7 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
-import { LOCAL_STORAGE_KEYS } from "~/lib/utilities";
+import { LOCAL_STORAGE_KEYS } from "~/lib/generals";
 import { processSubmission } from "~/lib/utilities.server";
 
 enum TimeSpan {

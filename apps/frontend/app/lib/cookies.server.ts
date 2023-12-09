@@ -1,5 +1,5 @@
 import { createCookie } from "@remix-run/node";
-import { COOKIES_KEYS } from "~/lib/utilities";
+import { COOKIES_KEYS } from "~/lib/generals";
 
 export const authCookie = createCookie(COOKIES_KEYS.auth, {});
 export const colorSchemeCookie = createCookie(COOKIES_KEYS.colorScheme, {

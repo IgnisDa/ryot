@@ -49,7 +49,7 @@ import { MediaItemWithoutUpdateModal } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
-import { getLot, getMetadataIcon } from "~/lib/utilities";
+import { getLot, getMetadataIcon } from "~/lib/generals";
 import {
 	currentWorkoutAtom,
 	getDefaultWorkout,

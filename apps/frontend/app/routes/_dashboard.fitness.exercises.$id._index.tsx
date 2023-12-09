@@ -46,7 +46,7 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
-import { getSetColor } from "~/lib/utilities";
+import { getSetColor } from "~/lib/generals";
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const exerciseId = params.id;

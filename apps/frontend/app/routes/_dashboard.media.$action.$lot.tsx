@@ -50,7 +50,7 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
-import { getLot } from "~/lib/utilities";
+import { getLot } from "~/lib/generals";
 
 export type SearchParams = {
 	query?: string;

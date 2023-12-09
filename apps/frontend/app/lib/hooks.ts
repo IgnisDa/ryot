@@ -1,6 +1,6 @@
 import { useMantineTheme } from "@mantine/core";
 import { useSearchParams } from "@remix-run/react";
-import { getStringAsciiValue } from "./utilities";
+import { getStringAsciiValue } from "./generals";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();

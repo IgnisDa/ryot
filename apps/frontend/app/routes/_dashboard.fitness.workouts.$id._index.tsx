@@ -59,7 +59,7 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { getSetColor } from "~/lib/utilities";
+import { getSetColor } from "~/lib/generals";
 import { processSubmission } from "~/lib/utilities.server";
 import {
 	currentWorkoutAtom,
