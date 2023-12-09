@@ -5,8 +5,8 @@ export const COOKIES_KEYS = {
 };
 
 export const LOCAL_STORAGE_KEYS = {
-	savedMeasurementsDisplaySelectedStats: "1",
-	savedOpenedLinkGroups: "2",
-	defaultExerciseRestTimer: "3",
-	currentWorkout: "4",
+	savedMeasurementsDisplaySelectedStats: "0",
+	savedOpenedLinkGroups: "1",
+	defaultExerciseRestTimer: "2",
+	currentWorkout: "3",
 } as const;
