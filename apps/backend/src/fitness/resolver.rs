@@ -394,6 +394,7 @@ impl ExerciseService {
                             .map(|h| h.workout_id.clone()),
                     ),
                 )
+                .order_by_desc(workout::Column::EndTime)
                 .all(&self.db)
                 .await?;
             let mut history = workouts
@@ -415,7 +416,6 @@ impl ExerciseService {
             if let Some(take) = input.take_history {
                 history = history.into_iter().take(take).collect_vec();
             }
-            history.reverse();
             resp.history = Some(history);
             resp.details = Some(association);
         }
