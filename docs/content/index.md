@@ -49,12 +49,4 @@ eget ignisda/ryot
 
 ## Compile and run from source
 
-First install [moonrepo](https://moonrepo.dev/) and then build and run projects:
-
-```bash
-# 1) Build the frontend
-moon run frontend:build
-
-# 2) Run the backend (with frontend bundled)
-cargo run --bin ryot
-```
+Please take a look at the development [docs](architecture.md#development).

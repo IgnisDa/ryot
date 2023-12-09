@@ -18,9 +18,7 @@ with all tools installed.
 
 In development, both servers are started independently running on `:3000` and `:5000`
 respectively and reverse proxied at `:8000`. To get them running, install
-[mprocs](https://github.com/pvolok/mprocs), and run `mprocs` in the project root. If you
-do not want to install `mprocs`, take a look at [`mproc.yaml`]({{ extra.file_path }}/mprocs.yaml)
-to see what all commands are needed to get it working.
+[mprocs](https://github.com/pvolok/mprocs), and run `mprocs` in the project root.
 
 Here is the minimal configuration required in development mode:
 
