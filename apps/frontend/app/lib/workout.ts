@@ -5,8 +5,7 @@ import {
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { atomWithReset, atomWithStorage, createJSONStorage } from "jotai/utils";
-import Cookies from "js-cookie";
+import { atomWithReset, atomWithStorage } from "jotai/utils";
 import type { DateTime } from "luxon";
 import { COOKIES_KEYS } from "./constants";
 
@@ -53,19 +52,9 @@ type InProgressWorkout = {
 
 type CurrentWorkout = InProgressWorkout | null;
 
-const cookieStorage = createJSONStorage<CurrentWorkout>(() => {
-	return {
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		getItem: () => Cookies.get(COOKIES_KEYS.currentWorkout) as any,
-		setItem: (ctx, value) => Cookies.set(ctx, value, { expires: 7 }),
-		removeItem: (ctx) => Cookies.remove(ctx),
-	};
-});
-
 export const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
 	COOKIES_KEYS.currentWorkout,
 	null,
-	cookieStorage,
 );
 
 function getTimeOfDay(date: Date) {
