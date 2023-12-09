@@ -47,9 +47,9 @@ import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getLot, getMetadataIcon } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
-import { getLot, getMetadataIcon } from "~/lib/generals";
 import {
 	currentWorkoutAtom,
 	getDefaultWorkout,

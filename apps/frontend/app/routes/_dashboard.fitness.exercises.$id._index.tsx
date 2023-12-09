@@ -35,7 +35,6 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
-import { DateTime } from "luxon";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";
@@ -45,8 +44,8 @@ import {
 	MediaScrollArea,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjs, getSetColor } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
-import { getSetColor } from "~/lib/generals";
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const exerciseId = params.id;
@@ -175,9 +174,10 @@ export default function Page() {
 								{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
 									<DisplayData
 										name="Last done on"
-										data={DateTime.fromISO(
+										data={dayjs(
 											loaderData.userExerciseDetails.details.lastUpdatedOn,
-										).toLocaleString(DateTime.DATE_MED)}
+										).format("ll")}
+										noCasing
 									/>
 								) : undefined}
 							</SimpleGrid>
@@ -228,9 +228,7 @@ export default function Page() {
 											{h.workoutName}
 										</Anchor>
 										<Text c="dimmed" fz="sm" mb="xs">
-											{DateTime.fromISO(h.workoutTime).toLocaleString(
-												DateTime.DATETIME_MED_WITH_WEEKDAY,
-											)}
+											{dayjs(h.workoutTime).format("LLLL")}
 										</Text>
 										{h.sets.map((s, idx) => (
 											<Flex key={`${idx}`} align="center">
@@ -342,14 +340,18 @@ export default function Page() {
 	);
 }
 
-const DisplayData = (props: { name: string; data: string }) => {
+const DisplayData = (props: {
+	name: string;
+	data: string;
+	noCasing?: boolean;
+}) => {
 	return (
 		<Box>
 			<Text ta="center" c="dimmed" tt="capitalize" fz="xs">
 				{startCase(props.name)}
 			</Text>
 			<Text ta="center" fz={{ base: "sm", md: "md" }}>
-				{startCase(props.data.toLowerCase())}
+				{props.noCasing ? props.data : startCase(props.data.toLowerCase())}
 			</Text>
 		</Box>
 	);

@@ -48,9 +48,9 @@ import {
 	MediaSearchItem,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getLot } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
-import { getLot } from "~/lib/generals";
 
 export type SearchParams = {
 	query?: string;

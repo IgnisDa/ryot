@@ -39,8 +39,8 @@ import { IconPhoto } from "@tabler/icons-react";
 import { z } from "zod";
 import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
+import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {

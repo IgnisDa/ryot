@@ -37,9 +37,9 @@ import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
 import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {

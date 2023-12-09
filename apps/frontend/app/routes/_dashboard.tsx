@@ -44,8 +44,8 @@ import { match } from "ts-pattern";
 import { joinURL } from "ufo";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { LOCAL_STORAGE_KEYS, getLot } from "~/lib/generals";
+import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

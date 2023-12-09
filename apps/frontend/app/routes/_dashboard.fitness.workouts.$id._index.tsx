@@ -56,10 +56,10 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getSetColor } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { getSetColor } from "~/lib/generals";
 import { processSubmission } from "~/lib/utilities.server";
 import {
 	currentWorkoutAtom,

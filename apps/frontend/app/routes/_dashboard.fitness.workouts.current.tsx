@@ -74,12 +74,6 @@ import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
-	getCoreDetails,
-	getCoreEnabledFeatures,
-	getUserPreferences,
-} from "~/lib/graphql.server";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import {
 	COOKIES_KEYS,
 	LOCAL_STORAGE_KEYS,
 	getPresignedGetUrl,
@@ -87,6 +81,12 @@ import {
 	gqlClientSide,
 	uploadFileAndGetKey,
 } from "~/lib/generals";
+import {
+	getCoreDetails,
+	getCoreEnabledFeatures,
+	getUserPreferences,
+} from "~/lib/graphql.server";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { combineHeaders } from "~/lib/utilities.server";
 import {
 	Exercise,

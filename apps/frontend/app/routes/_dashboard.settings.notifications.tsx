@@ -33,7 +33,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconTrash } from "@tabler/icons-react";
-import { DateTime } from "luxon";
+import dayjs from "dayjs";
 import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -144,7 +144,7 @@ export default function Page() {
 										{not.description}
 									</Text>
 									<Text size="xs">
-										{DateTime.fromISO(not.timestamp).toRelative()}
+										{dayjs(not.timestamp).fromNow()}
 									</Text>
 								</Box>
 								<Group>

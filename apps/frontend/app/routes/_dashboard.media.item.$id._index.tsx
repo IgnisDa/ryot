@@ -92,6 +92,7 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { Verb, getVerb } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getUserDetails,
@@ -99,7 +100,6 @@ import {
 } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { Verb, getVerb } from "~/lib/generals";
 import {
 	ShowAndPodcastSchema,
 	processSubmission,
