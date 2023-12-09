@@ -14,7 +14,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const { userExerciseDetails } = await gqlClient.request(
 		UserExerciseDetailsDocument,
-		{ input: { exerciseId: query.exerciseId, takeHistory: 12 } },
+		{ input: { exerciseId: query.exerciseId, takeHistory: 1 } },
 		await getAuthorizationHeader(request),
 	);
 	return userExerciseDetails.history;
