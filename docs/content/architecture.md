@@ -44,6 +44,8 @@ RUST_LOG="ryot=trace,sea_orm=debug"
 API_URL=http://localhost:5000
 ```
 
+Your website would be available at `http://localhost:8000`.
+
 ### Testing webhooks
 
 You can use [Serveo](https://serveo.net/) to test webhooks.

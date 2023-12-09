@@ -1,11 +1,12 @@
 # Importing
 
 Importing is meant to be a one-time operation. They are irreversible. Ryot
-supports importing media from a number of sources. To start importing, click on
-"Imports and Exports" link under the "Settings" section in the sidebar.
+supports importing media from a number of sources. I recommend you make a database backup
+before starting an import. To start, click on "Imports and Exports" link under the
+"Settings" section in the sidebar.
 
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
-You can go to the reports page by click on "Reports" link on the imports page.
+You can go to the reports page by clicking on "Reports" link on the imports page.
 
 ## Goodreads
 
