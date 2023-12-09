@@ -17,8 +17,12 @@ import {
 	IconHeadphones,
 	IconMicrophone,
 } from "@tabler/icons-react";
+import { GraphQLClient } from "graphql-request";
 import { match } from "ts-pattern";
-import { gqlClientSide } from "./api";
+
+export const gqlClientSide = new GraphQLClient("/backend/graphql", {
+	credentials: "include",
+});
 
 export const getSetColor = (l: SetLot) =>
 	match(l)

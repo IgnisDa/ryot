@@ -72,7 +72,6 @@ import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";
-import { gqlClientSide } from "~/lib/api";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import {
@@ -84,6 +83,7 @@ import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	getPresignedGetUrl,
 	getSetColor,
+	gqlClientSide,
 	uploadFileAndGetKey,
 } from "~/lib/utilities";
 import { combineHeaders } from "~/lib/utilities.server";
