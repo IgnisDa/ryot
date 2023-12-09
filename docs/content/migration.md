@@ -2,10 +2,11 @@
 
 ## From `v3.*` to `v4.*`
 
-1. Upgrade the server to `v3.14.16` to make sure all pending migrations are applied.
+1. Upgrade the server to `v3.4.16` to make sure all pending migrations are applied. For example,
+   if using docker-compose, you can make this change: `image: "ghcr.io/ignisda/ryot:v3.4.16"`.
 
 2. Go to the "Preferences" settings, then the "General" tab, and click on "Disable yank
-   integrations" twice. This will ensure that latest settings have been applied.
+   integrations" twice. This will ensure that latest preferences have been applied.
 
 3. Go to the "Miscellaneous" settings and click on "Re-evaluate workouts".
 
@@ -17,7 +18,7 @@
    [Here](https://intercom.help/scoutpad/en/articles/3478364-how-to-clear-local-storage-of-web-browser)
    is a guide on how to do this. You need to do this on the PWA too if you use it.
 
-6. Stop the running server and create a backup of your database.
+6. Stop the running server and **create a backup of your database**.
 
 7. Connect to the database and run these SQL queries:
    ```sql
@@ -42,7 +43,8 @@
    INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231017_create_user_to_entity', 1697640078);
    ```
 
-8. Now you can upgrade to the latest version (`v4.*`) safely.
+8. Now you can upgrade to the latest version (`v4.*`) safely. For example you can make this
+   change: `image: "ghcr.io/ignisda/ryot:latest"`.
 
 ## From `v2.*` to `v3.*`
 
