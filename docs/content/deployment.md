@@ -12,7 +12,7 @@ non-exhaustive set of guides to deploy Ryot.
 3. Click on "+ New" again and select "Docker Image". Type `ghcr.io/ignisda/ryot`
   and hit Enter.
 4. Click on the newly created service and go to the "Variables" section. Click on
-  "New Variable" and then "Add Reference". Click on "Add". 
+  "New Variable" and then "Add Reference". Click on "Add".
 5. Go to the "Settings" tab and then click on "Generate Domain".
 6. Optionally, you can set the [healthcheck](https://docs.railway.app/deploy/healthchecks)
   path to `/config`.
@@ -59,6 +59,8 @@ if dokku apps:exists $APPNAME; then
 fi
 
 dokku apps:create "$APPNAME"
+dokku postgres:create "$APPNAME-service"
+dokku postgres:link "$APPNAME-service" "$APPNAME"
 
 # check if required dokku plugin exists
 if ! dokku plugin:list | grep letsencrypt; then
@@ -69,17 +71,6 @@ dokku domains:add $APPNAME $APPNAME."$(cat /home/dokku/VHOST)"
 dokku letsencrypt:enable "$APPNAME"
 dokku git:from-image "$APPNAME" "$image_sha"
 ```
-
-
-!!! danger "Production usage"
-
-    The above will start a Ryot instance using the default SQLite database backend. To use a
-    separate database, link a database service to your app. For example with Postgres:
-
-    ```bash
-    dokku postgres:create "$APPNAME-service"
-    dokku postgres:link "$APPNAME-service" "$APPNAME"
-    ```
 
 ## Fly
 
@@ -93,10 +84,10 @@ are required to deploy to Fly.
 
 2. Copy the [`fly.toml`]({{ extra.file_path }}/config/fly.toml) file from this
    repository to your own repository. You **WILL** have to change the `app` key to
-   a name of your choosing. Deploy it using the below command.
-   `bash
- flyctl launch
- `
+   a unique name. Deploy it using the below command.
+   ```bash
+   flyctl launch
+   ```
 3. Connect the database.
    ```bash
    fly postgres attach --app ryot ryot-db
