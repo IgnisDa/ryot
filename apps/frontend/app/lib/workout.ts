@@ -8,7 +8,7 @@ import {
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import type { DateTime } from "luxon";
-import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/constants";
+import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/utilities";
 
 export type ExerciseSetStats = {
 	duration?: number | null;

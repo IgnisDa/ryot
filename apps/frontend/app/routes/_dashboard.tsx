@@ -43,10 +43,9 @@ import { produce } from "immer";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
-import { LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
-import { getLot } from "~/lib/utilities";
+import { LOCAL_STORAGE_KEYS, getLot } from "~/lib/utilities";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

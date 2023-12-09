@@ -56,10 +56,10 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { LOCAL_STORAGE_KEYS } from "~/lib/constants";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
+import { LOCAL_STORAGE_KEYS } from "~/lib/utilities";
 import { processSubmission } from "~/lib/utilities.server";
 
 enum TimeSpan {
