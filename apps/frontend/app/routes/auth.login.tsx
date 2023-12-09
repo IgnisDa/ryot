@@ -35,7 +35,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		});
 	const enabledFeatures = await getCoreEnabledFeatures();
 	const coreDetails = await getCoreDetails();
-	return json({ enabledFeatures, coreDetails });
+	return json({
+		enabledFeatures: { signupAllowed: enabledFeatures.signupAllowed },
+		coreDetails,
+	});
 };
 
 export const meta: MetaFunction = () => [{ title: "Login | Ryot" }];

@@ -105,7 +105,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
 		[getCoreDetails(), getUserPreferences(request), getCoreEnabledFeatures()],
 	);
-	return json({ coreDetails, userPreferences, coreEnabledFeatures });
+	return json({
+		coreDetails,
+		userPreferences,
+		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
+	});
 };
 
 export const meta: MetaFunction = () => {

@@ -44,7 +44,9 @@ import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
-	return json({ coreEnabledFeatures });
+	return json({
+		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
+	});
 };
 
 export const meta: MetaFunction = () => {
