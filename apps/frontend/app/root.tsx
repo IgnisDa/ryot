@@ -9,7 +9,6 @@ import {
 } from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
-import { LiveReload, useSWEffect } from "@remix-pwa/sw";
 import {
 	LinksFunction,
 	LoaderFunctionArgs,
@@ -18,6 +17,7 @@ import {
 } from "@remix-run/node";
 import {
 	Links,
+	LiveReload,
 	Meta,
 	Outlet,
 	Scripts,
@@ -99,7 +99,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 const queryClient = new QueryClient();
 
 export default function App() {
-	useSWEffect();
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
 
