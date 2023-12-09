@@ -14,7 +14,6 @@ pub struct UserNotificationsPreferences {
     pub status_changed: bool,
     pub episode_released: bool,
     pub release_date_changed: bool,
-    #[serde(default)] // FIXME: Remove this
     pub episode_images_changed: bool,
     // Show
     pub episode_name_changed: bool,
@@ -267,7 +266,6 @@ pub struct UserGeneralDashboardElement {
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
-    #[serde(default)] // FIXME: Remove this
     pub disable_yank_integrations: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
 }

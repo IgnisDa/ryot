@@ -1231,7 +1231,6 @@ pub mod fitness {
         pub distance: Decimal,
         pub duration: Decimal,
         /// The total seconds that were logged in the rest timer.
-        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
         #[serde(default)]
         pub rest_time: u16,
     }
@@ -1355,7 +1354,6 @@ pub mod fitness {
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
         pub confirmed_at: Option<DateTimeUtc>,
-        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
         #[serde(default)]
         pub totals: WorkoutSetTotals,
     }
@@ -1472,7 +1470,6 @@ pub mod fitness {
         Schematic,
     )]
     pub struct ProcessedExercise {
-        // FIXME: Ask users to recalculate user_to_entity and then remove this
         #[serde(rename = "name")]
         pub id: String,
         pub lot: ExerciseLot,
@@ -1538,7 +1535,6 @@ pub mod fitness {
     )]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
-        // FIXME: Ask users to recalculate user_to_entity and then remove this
         #[serde(alias = "name")]
         pub id: String,
         pub lot: ExerciseLot,
