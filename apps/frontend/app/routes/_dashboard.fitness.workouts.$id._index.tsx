@@ -296,7 +296,7 @@ export default function Page() {
 										<Group justify="space-between">
 											<Anchor
 												component={Link}
-												to={$path("/fitness/workouts/:id", { id: exercise.id })}
+												to={$path("/fitness/exercises/:id", { id: exercise.id })}
 												fw="bold"
 											>
 												{exercise.id}
