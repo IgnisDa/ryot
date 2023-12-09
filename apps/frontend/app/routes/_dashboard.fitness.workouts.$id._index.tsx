@@ -61,7 +61,11 @@ import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { getSetColor } from "~/lib/utilities";
 import { processSubmission } from "~/lib/utilities.server";
-import { currentWorkoutAtom, duplicateOldWorkout } from "~/lib/workout";
+import {
+	currentWorkoutAtom,
+	duplicateOldWorkout,
+	startWorkout,
+} from "~/lib/workout";
 
 const service = new HumanizeDurationLanguage();
 const humanizer = new HumanizeDuration(service);
@@ -195,6 +199,7 @@ export default function Page() {
 										setCurrentWorkout(
 											duplicateOldWorkout(loaderData.workoutDetails),
 										);
+										startWorkout();
 										navigate($path("/fitness/workouts/current"));
 									}}
 									leftSection={<IconRepeat size={14} />}

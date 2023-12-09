@@ -6,8 +6,9 @@ import {
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import Cookies from "js-cookie";
 import type { DateTime } from "luxon";
-import { COOKIES_KEYS } from "./constants";
+import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/constants";
 
 export type ExerciseSetStats = {
 	duration?: number | null;
@@ -53,7 +54,7 @@ type InProgressWorkout = {
 type CurrentWorkout = InProgressWorkout | null;
 
 export const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
-	COOKIES_KEYS.currentWorkout,
+	LOCAL_STORAGE_KEYS.currentWorkout,
 	null,
 );
 
@@ -64,6 +65,10 @@ function getTimeOfDay(date: Date) {
 	if (hours >= 17 && hours < 21) return "Evening";
 	return "Night";
 }
+
+export const startWorkout = () => {
+	Cookies.set(COOKIES_KEYS.isWorkoutInProgress, "true", { expires: 2 });
+};
 
 export const getDefaultWorkout = (): InProgressWorkout => {
 	const date = new Date();

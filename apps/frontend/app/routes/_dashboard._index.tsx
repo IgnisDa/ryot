@@ -50,7 +50,11 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { getLot, getMetadataIcon } from "~/lib/utilities";
-import { currentWorkoutAtom, getDefaultWorkout } from "~/lib/workout";
+import {
+	currentWorkoutAtom,
+	getDefaultWorkout,
+	startWorkout,
+} from "~/lib/workout";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userPreferences = await getUserPreferences(request);
@@ -424,6 +428,7 @@ export default function Index() {
 												leftSection={<IconBarbell />}
 												onClick={() => {
 													setCurrentWorkout(getDefaultWorkout());
+													startWorkout();
 													navigate($path("/fitness/workouts/current"));
 												}}
 											>

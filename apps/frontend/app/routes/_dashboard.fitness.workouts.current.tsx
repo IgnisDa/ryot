@@ -65,6 +65,7 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
+import Cookies from "js-cookie";
 import { DateTime, Duration } from "luxon";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
@@ -97,7 +98,7 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookies = request.headers.get("Cookie");
 	const inProgress =
-		typeof parse(cookies || "")[COOKIES_KEYS.currentWorkout] !== "undefined";
+		parse(cookies || "")[COOKIES_KEYS.isWorkoutInProgress] === "true";
 	if (!inProgress)
 		return redirectWithToast($path("/"), {
 			message: "No workout in progress",
@@ -129,7 +130,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
 		headers: combineHeaders(
 			{
-				"Set-Cookie": `${COOKIES_KEYS.currentWorkout}=; Expires=${new Date(
+				"Set-Cookie": `${COOKIES_KEYS.isWorkoutInProgress}=; Expires=${new Date(
 					0,
 				)}; Path=/`,
 			},
@@ -182,15 +183,6 @@ export default function Page() {
 
 	const stopTimer = () => {
 		setCurrentTimer(RESET);
-	};
-
-	const finishWorkout = async (newWorkoutId?: string) => {
-		navigate(
-			newWorkoutId
-				? $path("/fitness/workouts/:id", { id: newWorkoutId })
-				: $path("/"),
-		);
-		setCurrentWorkout(RESET);
 	};
 
 	const createUserWorkoutFetcher = useFetcher();
@@ -371,7 +363,11 @@ export default function Page() {
 										const yes = confirm(
 											"Are you sure you want to cancel this workout?",
 										);
-										if (yes) await finishWorkout();
+										if (yes) {
+											navigate($path("/"));
+											Cookies.remove(COOKIES_KEYS.isWorkoutInProgress);
+											setCurrentWorkout(RESET);
+										}
 									}}
 								>
 									Cancel
