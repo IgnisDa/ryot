@@ -107,7 +107,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	);
 	return json({
 		coreDetails,
-		userPreferences,
+		userPreferences: {
+			unitSystem: userPreferences.fitness.exercises.unitSystem,
+		},
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
 	});
 };
@@ -281,7 +283,7 @@ export default function Page() {
 													: 0,
 											),
 									).toFixed()} ${
-										loaderData.userPreferences.fitness.exercises.unitSystem ===
+										loaderData.userPreferences.unitSystem ===
 										UserUnitSystem.Imperial
 											? "lb"
 											: "kg"
@@ -895,9 +897,7 @@ const ExerciseDisplay = (props: {
 							{distanceCol ? (
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									DISTANCE (
-									{match(
-										loaderData.userPreferences.fitness.exercises.unitSystem,
-									)
+									{match(loaderData.userPreferences.unitSystem)
 										.with(UserUnitSystem.Metric, () => "KM")
 										.with(UserUnitSystem.Imperial, () => "MI")
 										.exhaustive()}
@@ -907,9 +907,7 @@ const ExerciseDisplay = (props: {
 							{weightCol ? (
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									WEIGHT (
-									{match(
-										loaderData.userPreferences.fitness.exercises.unitSystem,
-									)
+									{match(loaderData.userPreferences.unitSystem)
 										.with(UserUnitSystem.Metric, () => "KG")
 										.with(UserUnitSystem.Imperial, () => "LB")
 										.exhaustive()}
@@ -1001,9 +999,7 @@ const ExerciseDisplay = (props: {
 											lot={props.exercise.lot}
 											hideExtras
 											centerText
-											unit={
-												loaderData.userPreferences.fitness.exercises.unitSystem
-											}
+											unit={loaderData.userPreferences.unitSystem}
 										/>
 									) : (
 										"—"

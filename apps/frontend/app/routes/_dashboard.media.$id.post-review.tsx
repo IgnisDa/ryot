@@ -69,7 +69,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		);
 		existingReview = review;
 	}
-	return json({ query, existingReview, userPreferences, id });
+	return json({
+		query,
+		existingReview,
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		id,
+	});
 };
 
 export const meta: MetaFunction = ({ data }) => {
@@ -161,7 +166,7 @@ export default function Page() {
 				<Stack>
 					<Title order={3}>Reviewing "{loaderData.query.title}"</Title>
 					<Flex align="center" gap="xl">
-						{match(loaderData.userPreferences.general.reviewScale)
+						{match(loaderData.userPreferences.reviewScale)
 							.with(UserReviewScale.OutOfFive, () => (
 								<Flex gap="sm" mt="lg">
 									<Input.Label>Rating:</Input.Label>

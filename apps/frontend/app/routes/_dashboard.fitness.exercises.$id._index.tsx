@@ -76,7 +76,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		exerciseDetails,
 		userExerciseDetails,
 		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
-		userPreferences,
+		userPreferences: {
+			unitSystem: userPreferences.fitness.exercises.unitSystem,
+		},
 		exerciseId,
 		collections,
 	});
@@ -246,10 +248,7 @@ export default function Page() {
 												<DisplayExerciseStats
 													lot={loaderData.exerciseDetails.lot}
 													statistic={s.statistic}
-													unit={
-														loaderData.userPreferences.fitness.exercises
-															.unitSystem
-													}
+													unit={loaderData.userPreferences.unitSystem}
 												/>
 											</Flex>
 										))}
@@ -268,8 +267,8 @@ export default function Page() {
 									<DisplayLifetimeStatistic
 										stat="weight"
 										unit={
-											loaderData.userPreferences.fitness.exercises
-												.unitSystem === UserUnitSystem.Metric
+											loaderData.userPreferences.unitSystem ===
+											UserUnitSystem.Metric
 												? "KG"
 												: "LB"
 										}
@@ -281,8 +280,8 @@ export default function Page() {
 									<DisplayLifetimeStatistic
 										stat="distance"
 										unit={
-											loaderData.userPreferences.fitness.exercises
-												.unitSystem === UserUnitSystem.Metric
+											loaderData.userPreferences.unitSystem ===
+											UserUnitSystem.Metric
 												? "KM"
 												: "MI"
 										}

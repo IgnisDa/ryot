@@ -77,7 +77,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({ workoutId, userPreferences, workoutDetails });
+	return json({
+		workoutId,
+		userPreferences: {
+			unitSystem: userPreferences.fitness.exercises.unitSystem,
+		},
+		workoutDetails,
+	});
 };
 
 export const meta: MetaFunction = ({ data }) => {
@@ -246,7 +252,7 @@ export default function Page() {
 								data={new Intl.NumberFormat("en-us", {
 									style: "unit",
 									unit:
-										loaderData.userPreferences.fitness.exercises.unitSystem ===
+										loaderData.userPreferences.unitSystem ===
 										UserUnitSystem.Imperial
 											? "pound"
 											: "kilogram",
@@ -337,10 +343,7 @@ export default function Page() {
 												<DisplayExerciseStats
 													lot={exercise.lot}
 													statistic={s.statistic}
-													unit={
-														loaderData.userPreferences.fitness.exercises
-															.unitSystem
-													}
+													unit={loaderData.userPreferences.unitSystem}
 												/>
 											</Flex>
 											{s.personalBests.length > 0 ? (

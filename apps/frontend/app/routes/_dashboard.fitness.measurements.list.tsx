@@ -96,7 +96,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	]);
 	return json({
 		query,
-		userPreferences,
+		userPreferences: { fitness: userPreferences.fitness },
 		userMeasurementsList,
 	});
 };

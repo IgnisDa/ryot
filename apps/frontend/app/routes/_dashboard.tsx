@@ -117,7 +117,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return json({
 		mediaLinks,
 		fitnessLinks,
-		userPreferences,
+		userPreferences: {
+			media: userPreferences.featuresEnabled.media,
+			fitness: userPreferences.featuresEnabled.fitness,
+		},
 		userDetails,
 		coreDetails,
 		currentColorScheme,
@@ -170,7 +173,7 @@ export default function Layout() {
 						opened={false}
 						setOpened={() => {}}
 					/>
-					{loaderData.userPreferences.featuresEnabled.media.enabled ? (
+					{loaderData.userPreferences.media.enabled ? (
 						<LinksGroup
 							label="Media"
 							icon={IconDeviceSpeaker}
@@ -185,7 +188,7 @@ export default function Layout() {
 							}
 						/>
 					) : undefined}
-					{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
+					{loaderData.userPreferences.fitness.enabled ? (
 						<LinksGroup
 							label="Fitness"
 							icon={IconStretching}
