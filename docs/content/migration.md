@@ -1,5 +1,8 @@
 # Migration
 
+All steps below are required unless otherwise stated. Please follow them in the correct
+order.
+
 ## From `v3.*` to `v4.*`
 
 All webhooks urls will now have the `/backend` prefix. Please take a look at the
