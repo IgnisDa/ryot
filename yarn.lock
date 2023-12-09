@@ -3091,6 +3091,7 @@ __metadata:
     recharts: "npm:2.10.3"
     remix-utils: "npm:7.3.0"
     tiny-invariant: "npm:1.3.1"
+    ts-essentials: "npm:^9.4.1"
     ts-pattern: "npm:5.0.6"
     typescript: "npm:5.3.3"
     typescript-plugin-css-modules: "npm:5.0.2"
@@ -10725,6 +10726,18 @@ __metadata:
   version: 2.1.0
   resolution: "trough@npm:2.1.0"
   checksum: 6ca8a545d0080ce40c3d0e1e44cf9aa0484a272a91f3a5a02ac433bf1e3ed16983d39da0a77a96467237f7f983cfbf19abc5ab1994c27cde9417e21a2aec76cc
+  languageName: node
+  linkType: hard
+
+"ts-essentials@npm:^9.4.1":
+  version: 9.4.1
+  resolution: "ts-essentials@npm:9.4.1"
+  peerDependencies:
+    typescript: ">=4.1.0"
+  peerDependenciesMeta:
+    typescript:
+      optional: true
+  checksum: e689fb92545ea3ab70d3b6846696866b79813e20bd23ec34fdf1812b6be5aaa70eea374f7363b9f850f2e1bf864d90b6390b9f1fc3ce3c4e6207a9aa068252f0
   languageName: node
   linkType: hard
 
