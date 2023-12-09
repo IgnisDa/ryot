@@ -118,7 +118,7 @@ struct UserExerciseDetails {
 struct UserExerciseDetailsInput {
     exercise_id: String,
     /// The number of elements to return in the history.
-    take_history: Option<usize>,
+    take_history: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
@@ -394,10 +394,11 @@ impl ExerciseService {
                             .map(|h| h.workout_id.clone()),
                     ),
                 )
+                .limit(input.take_history)
                 .order_by_desc(workout::Column::EndTime)
                 .all(&self.db)
                 .await?;
-            let mut history = workouts
+            let history = workouts
                 .into_iter()
                 .map(|w| {
                     let element = user_to_exercise_extra_information
@@ -413,9 +414,6 @@ impl ExerciseService {
                     }
                 })
                 .collect_vec();
-            if let Some(take) = input.take_history {
-                history = history.into_iter().take(take).collect_vec();
-            }
             resp.history = Some(history);
             resp.details = Some(association);
         }
