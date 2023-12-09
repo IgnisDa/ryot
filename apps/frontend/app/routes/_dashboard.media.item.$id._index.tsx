@@ -135,8 +135,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 	]);
 	return json({
-		userPreferences,
-		coreDetails,
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		coreDetails: {
+			itemDetailsHeight: coreDetails.itemDetailsHeight,
+			reviewsDisabled: coreDetails.reviewsDisabled,
+			videosDisabled: coreDetails.videosDisabled,
+		},
 		userDetails,
 		metadataId,
 		mediaMainDetails,
@@ -531,7 +535,7 @@ export default function Page() {
 										{Number(loaderData.userMediaDetails.averageRating).toFixed(
 											1,
 										)}
-										{loaderData.userPreferences.general.reviewScale ===
+										{loaderData.userPreferences.reviewScale ===
 										UserReviewScale.OutOfFive
 											? undefined
 											: "%"}
@@ -617,7 +621,9 @@ export default function Page() {
 							) : undefined}
 						</Tabs.List>
 						<Tabs.Panel value="overview">
-							<MediaScrollArea coreDetails={loaderData.coreDetails}>
+							<MediaScrollArea
+								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+							>
 								<Stack gap="sm">
 									<SimpleGrid
 										cols={{ base: 3, xl: 4 }}
@@ -701,7 +707,9 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
-							<MediaScrollArea coreDetails={loaderData.coreDetails}>
+							<MediaScrollArea
+								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+							>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{loaderData.userMediaDetails.inProgress ? (
 										<ProgressModal
@@ -1033,7 +1041,9 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
-							<MediaScrollArea coreDetails={loaderData.coreDetails}>
+							<MediaScrollArea
+								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+							>
 								<Stack>
 									<Box>
 										<Text>
@@ -1144,7 +1154,9 @@ export default function Page() {
 						</Tabs.Panel>
 						{loaderData.mediaAdditionalDetails.showSpecifics ? (
 							<Tabs.Panel value="seasons">
-								<MediaScrollArea coreDetails={loaderData.coreDetails}>
+								<MediaScrollArea
+									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+								>
 									<Accordion chevronPosition="right" variant="contained">
 										{loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
 											(s) => (
@@ -1264,7 +1276,9 @@ export default function Page() {
 						) : undefined}
 						{loaderData.mediaAdditionalDetails.podcastSpecifics ? (
 							<Tabs.Panel value="episodes">
-								<MediaScrollArea coreDetails={loaderData.coreDetails}>
+								<MediaScrollArea
+									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+								>
 									<Stack ml="md">
 										{loaderData.mediaAdditionalDetails.podcastSpecifics.episodes.map(
 											(e) => (
@@ -1309,14 +1323,16 @@ export default function Page() {
 						) : undefined}
 						{!loaderData.coreDetails.reviewsDisabled ? (
 							<Tabs.Panel value="reviews">
-								<MediaScrollArea coreDetails={loaderData.coreDetails}>
+								<MediaScrollArea
+									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+								>
 									<Stack>
 										{loaderData.userMediaDetails.reviews.map((r) => (
 											<ReviewItemDisplay
 												review={r}
 												key={r.id}
 												metadataId={loaderData.metadataId}
-												userPreferences={loaderData.userPreferences}
+												reviewScale={loaderData.userPreferences.reviewScale}
 												user={loaderData.userDetails}
 												title={loaderData.mediaMainDetails.title}
 											/>
@@ -1326,7 +1342,9 @@ export default function Page() {
 							</Tabs.Panel>
 						) : undefined}
 						<Tabs.Panel value="suggestions">
-							<MediaScrollArea coreDetails={loaderData.coreDetails}>
+							<MediaScrollArea
+								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+							>
 								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 									{loaderData.mediaAdditionalDetails.suggestions.map((sug) => (
 										<PartialMetadataDisplay key={sug.identifier} media={sug} />
@@ -1336,7 +1354,9 @@ export default function Page() {
 						</Tabs.Panel>
 						{!loaderData.coreDetails.videosDisabled ? (
 							<Tabs.Panel value="videos">
-								<MediaScrollArea coreDetails={loaderData.coreDetails}>
+								<MediaScrollArea
+									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+								>
 									<Stack>
 										{loaderData.mediaAdditionalDetails.assets.videos.map(
 											(v) => (

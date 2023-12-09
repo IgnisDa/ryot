@@ -67,8 +67,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 	]);
 	return json({
-		coreDetails,
-		userPreferences,
+		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		userDetails,
 		collections,
 		metadataGroupId,
@@ -143,7 +143,9 @@ export default function Page() {
 						) : undefined}
 					</Tabs.List>
 					<Tabs.Panel value="media">
-						<MediaScrollArea coreDetails={loaderData.coreDetails}>
+						<MediaScrollArea
+							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+						>
 							<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 								{loaderData.metadataGroupDetails.contents.map((media) => (
 									<PartialMetadataDisplay
@@ -155,7 +157,9 @@ export default function Page() {
 						</MediaScrollArea>
 					</Tabs.Panel>
 					<Tabs.Panel value="actions">
-						<MediaScrollArea coreDetails={loaderData.coreDetails}>
+						<MediaScrollArea
+							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+						>
 							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 								<Button
 									variant="outline"
@@ -186,14 +190,16 @@ export default function Page() {
 						</MediaScrollArea>
 					</Tabs.Panel>
 					<Tabs.Panel value="reviews">
-						<MediaScrollArea coreDetails={loaderData.coreDetails}>
+						<MediaScrollArea
+							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+						>
 							<Stack>
 								{loaderData.userMetadataGroupDetails.reviews.map((r) => (
 									<ReviewItemDisplay
 										review={r}
 										key={r.id}
 										metadataGroupId={loaderData.metadataGroupId}
-										userPreferences={loaderData.userPreferences}
+										reviewScale={loaderData.userPreferences.reviewScale}
 										user={loaderData.userDetails}
 										title={loaderData.metadataGroupDetails.details.title}
 									/>

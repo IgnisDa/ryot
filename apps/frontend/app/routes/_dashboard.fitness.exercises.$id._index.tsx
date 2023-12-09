@@ -75,7 +75,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	return json({
 		exerciseDetails,
 		userExerciseDetails,
-		coreDetails,
+		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userPreferences,
 		exerciseId,
 		collections,
@@ -320,7 +320,9 @@ export default function Page() {
 						</Tabs.Panel>
 					) : undefined}
 					<Tabs.Panel value="actions">
-						<MediaScrollArea coreDetails={loaderData.coreDetails}>
+						<MediaScrollArea
+							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+						>
 							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 								<Button variant="outline" onClick={collectionModalOpen}>
 									Add to collection

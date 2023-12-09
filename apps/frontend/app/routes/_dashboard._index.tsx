@@ -80,7 +80,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		await getAuthorizationHeader(request),
 	);
 	return json({
-		userPreferences,
+		userPreferences: {
+			reviewScale: userPreferences.general.reviewScale,
+			dashboard: userPreferences.general.dashboard,
+			media: userPreferences.featuresEnabled.media,
+			fitness: userPreferences.featuresEnabled.fitness,
+		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
 		collectionContents,
@@ -111,7 +116,7 @@ export default function Index() {
 						</Text>
 					</Alert>
 				) : undefined}
-				{loaderData.userPreferences.general.dashboard.map((de) =>
+				{loaderData.userPreferences.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
@@ -133,7 +138,7 @@ export default function Index() {
 										{loaderData.collectionContents.results.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
 												key={lm.details.identifier}
-												userPreferences={loaderData.userPreferences}
+												reviewScale={loaderData.userPreferences.reviewScale}
 												item={{
 													...lm.details,
 													publishYear: lm.details.publishYear?.toString(),
@@ -162,7 +167,7 @@ export default function Index() {
 									spacing="xs"
 								>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.Movie}
 										data={[
 											{
@@ -180,7 +185,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.Show}
 										data={[
 											{
@@ -210,7 +215,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.VideoGame}
 										data={[
 											{
@@ -222,7 +227,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.VisualNovel}
 										data={[
 											{
@@ -242,7 +247,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.AudioBook}
 										data={[
 											{
@@ -260,7 +265,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.Book}
 										data={[
 											{
@@ -276,7 +281,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.Podcast}
 										data={[
 											{
@@ -301,7 +306,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.Manga}
 										data={[
 											{
@@ -318,7 +323,7 @@ export default function Index() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										userPreferences={loaderData.userPreferences}
+										media={loaderData.userPreferences.media}
 										lot={MetadataLot.Anime}
 										data={[
 											{
@@ -334,7 +339,7 @@ export default function Index() {
 											},
 										]}
 									/>
-									{loaderData.userPreferences.featuresEnabled.media.enabled ? (
+									{loaderData.userPreferences.media.enabled ? (
 										<ActualDisplayStat
 											icon={<IconFriends />}
 											lot="General stats"
@@ -364,8 +369,7 @@ export default function Index() {
 											]}
 										/>
 									) : undefined}
-									{loaderData.userPreferences.featuresEnabled.fitness
-										.enabled ? (
+									{loaderData.userPreferences.fitness.enabled ? (
 										<ActualDisplayStat
 											icon={<IconScaleOutline stroke={1.3} />}
 											lot="Fitness"
@@ -404,8 +408,7 @@ export default function Index() {
 							<Section key="actions">
 								<Title>Actions</Title>
 								<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-									{loaderData.userPreferences.featuresEnabled.fitness
-										.enabled ? (
+									{loaderData.userPreferences.fitness.enabled ? (
 										currentWorkout ? (
 											<Button
 												variant="outline"
@@ -428,7 +431,7 @@ export default function Index() {
 											</Button>
 										)
 									) : undefined}
-									{loaderData.userPreferences.featuresEnabled.media.enabled ? (
+									{loaderData.userPreferences.media.enabled ? (
 										<Button
 											variant="outline"
 											component={Link}
@@ -438,8 +441,7 @@ export default function Index() {
 											Create a media item
 										</Button>
 									) : undefined}
-									{loaderData.userPreferences.featuresEnabled.fitness
-										.enabled ? (
+									{loaderData.userPreferences.fitness.enabled ? (
 										<Button
 											variant="outline"
 											component={Link}
@@ -469,7 +471,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 
 	return (
 		<MediaItemWithoutUpdateModal
-			userPreferences={loaderData.userPreferences}
+			reviewScale={loaderData.userPreferences.reviewScale}
 			item={{
 				identifier: um.metadataId.toString(),
 				title: um.metadataTitle,

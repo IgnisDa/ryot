@@ -112,7 +112,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		info,
 		contents: contents.results,
 		coreDetails,
-		userPreferences,
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		userDetails,
 	});
 };
@@ -295,7 +295,7 @@ export default function Page() {
 											}}
 											lot={lm.metadataLot}
 											entityLot={lm.entityLot}
-											userPreferences={loaderData.userPreferences}
+											reviewScale={loaderData.userPreferences.reviewScale}
 										/>
 									))}
 								</ApplicationGrid>
@@ -344,7 +344,7 @@ export default function Page() {
 									review={r}
 									key={r.id}
 									collectionId={loaderData.id}
-									userPreferences={loaderData.userPreferences}
+									reviewScale={loaderData.userPreferences.reviewScale}
 									user={loaderData.userDetails}
 								/>
 							))}

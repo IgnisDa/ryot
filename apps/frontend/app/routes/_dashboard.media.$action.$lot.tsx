@@ -150,9 +150,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		})
 		.exhaustive();
 	return json({
-		userPreferences,
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		lot,
-		coreDetails,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
 		action,
 		mediaList,
 		mediaSearch,
@@ -363,7 +363,7 @@ export default function Page() {
 											href={$path("/media/item/:id", {
 												id: lm.data.identifier,
 											})}
-											userPreferences={loaderData.userPreferences}
+											reviewScale={loaderData.userPreferences.reviewScale}
 										/>
 									))}
 								</ApplicationGrid>
@@ -434,7 +434,7 @@ export default function Page() {
 												loaderData.mediaSearch?.url.source ||
 												MetadataSource.Anilist
 											}
-											userPreferences={loaderData.userPreferences}
+											reviewScale={loaderData.userPreferences.reviewScale}
 										/>
 									))}
 								</ApplicationGrid>
