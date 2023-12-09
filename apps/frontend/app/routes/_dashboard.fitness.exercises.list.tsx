@@ -128,7 +128,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		),
 	]);
 	return json({
-		coreDetails,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
 		userPreferences,
 		userDetails,
 		query,

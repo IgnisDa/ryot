@@ -29,7 +29,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			input: { genreId, page: query.page },
 		}),
 	]);
-	return json({ query, coreDetails, genreDetails });
+	return json({
+		query,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
+		genreDetails,
+	});
 };
 
 export const meta: MetaFunction = ({ data }) => {

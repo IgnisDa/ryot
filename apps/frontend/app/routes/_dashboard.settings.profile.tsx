@@ -26,7 +26,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		getCoreDetails(),
 		getUserDetails(request),
 	]);
-	return json({ coreDetails, userDetails });
+	return json({
+		coreDetails: {
+			usernameChangeAllowed: coreDetails.usernameChangeAllowed,
+			passwordChangeAllowed: coreDetails.passwordChangeAllowed,
+		},
+		userDetails,
+	});
 };
 
 export const meta: MetaFunction = () => {

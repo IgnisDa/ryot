@@ -39,7 +39,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			input: { page: query.page, query: query.query },
 		}),
 	]);
-	return json({ coreDetails, query, metadataGroupsList });
+	return json({
+		coreDetails: { pageLimit: coreDetails.pageLimit },
+		query,
+		metadataGroupsList,
+	});
 };
 
 export const meta: MetaFunction = () => {

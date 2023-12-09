@@ -64,7 +64,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			},
 		}),
 	]);
-	return json({ query, coreDetails, peopleList });
+	return json({
+		query,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
+		peopleList,
+	});
 };
 
 export const meta: MetaFunction = () => {

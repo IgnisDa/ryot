@@ -56,7 +56,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		getCoreDetails(),
 		getUserPreferences(request),
 	]);
-	return json({ coreDetails, userPreferences });
+	return json({
+		coreDetails: {
+			preferencesChangeAllowed: coreDetails.preferencesChangeAllowed,
+		},
+		userPreferences,
+	});
 };
 
 export const meta: MetaFunction = () => {

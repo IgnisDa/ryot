@@ -60,7 +60,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			),
 		],
 	);
-	return json({ userPreferences, coreDetails, query, userWorkoutList });
+	return json({
+		userPreferences,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
+		query,
+		userWorkoutList,
+	});
 };
 
 export const meta: MetaFunction = () => {

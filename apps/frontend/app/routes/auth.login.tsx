@@ -37,7 +37,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const coreDetails = await getCoreDetails();
 	return json({
 		enabledFeatures: { signupAllowed: enabledFeatures.signupAllowed },
-		coreDetails,
+		coreDetails: { defaultCredentials: coreDetails.defaultCredentials },
 	});
 };
 

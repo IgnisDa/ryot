@@ -111,7 +111,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		query,
 		info,
 		contents: contents.results,
-		coreDetails,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		userDetails,
 	});

@@ -31,7 +31,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		getCoreDetails(),
 		getUserDetails(request),
 	]);
-	return json({ coreDetails, userDetails });
+	return json({
+		coreDetails: { deployAdminJobsAllowed: coreDetails.deployAdminJobsAllowed },
+		userDetails,
+	});
 };
 
 export const meta: MetaFunction = () => {
