@@ -3,7 +3,7 @@
 ## From `v3.*` to `v4.*`
 
 1. Upgrade the server to `v3.4.16` to make sure all pending migrations are applied. For example,
-   if using docker-compose, you can make this change: `image: "ghcr.io/ignisda/ryot:v3.4.16"`.
+   you can make this change: `image: "ghcr.io/ignisda/ryot:v3.4.16"` in your docker-compose file.
 
 2. Go to the "Preferences" settings, then the "General" tab, and click on "Disable yank
    integrations" twice. This will ensure that latest preferences have been applied.
@@ -18,7 +18,7 @@
    [Here](https://intercom.help/scoutpad/en/articles/3478364-how-to-clear-local-storage-of-web-browser)
    is a guide on how to do this. You need to do this on the PWA too if you use it.
 
-6. Stop the running server and **create a backup of your database**.
+6. Stop the running server and [**create a backup of your database**](https://stackoverflow.com/a/29913462/11667450).
 
 7. Connect to the database and run these SQL queries:
    ```sql
@@ -44,7 +44,7 @@
    ```
 
 8. Now you can upgrade to the latest version (`v4.*`) safely. For example you can make this
-   change: `image: "ghcr.io/ignisda/ryot:latest"`.
+   change: `image: "ghcr.io/ignisda/ryot:latest"` in your docker-compose file.
 
 ## From `v2.*` to `v3.*`
 
