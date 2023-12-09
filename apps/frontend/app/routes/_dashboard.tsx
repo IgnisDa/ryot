@@ -95,6 +95,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		label: link.label,
 		link: link.href,
 	}));
+
+	const settingsLinks = [
+		{ label: "Preferences", link: $path("/settings/preferences") },
+		{
+			label: "Imports and Exports",
+			link: $path("/settings/imports-and-exports"),
+		},
+		{ label: "Profile", link: $path("/settings/profile") },
+		{ label: "Integrations", link: $path("/settings/integrations") },
+		{ label: "Notifications", link: $path("/settings/notifications") },
+		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
+		userDetails.__typename === "User" && userDetails.lot === UserLot.Admin
+			? { label: "Users", link: $path("/settings/users") }
+			: undefined,
+	];
+
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("Cookie") || "",
 	);
@@ -105,18 +121,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userDetails,
 		coreDetails,
 		currentColorScheme,
+		settingsLinks,
 	});
 };
 
 export default function Layout() {
-	const {
-		fitnessLinks,
-		mediaLinks,
-		userPreferences,
-		userDetails,
-		coreDetails,
-		currentColorScheme,
-	} = useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof loader>();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -131,7 +141,7 @@ export default function Layout() {
 	});
 	const theme = useMantineTheme();
 	const [opened, { toggle }] = useDisclosure(false);
-	const Icon = currentColorScheme === "dark" ? IconSun : IconMoon;
+	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 
 	return (
 		<AppShell
@@ -160,11 +170,11 @@ export default function Layout() {
 						opened={false}
 						setOpened={() => {}}
 					/>
-					{userPreferences.featuresEnabled.media.enabled ? (
+					{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 						<LinksGroup
 							label="Media"
 							icon={IconDeviceSpeaker}
-							links={mediaLinks}
+							links={loaderData.mediaLinks}
 							opened={openedLinkGroups?.media || false}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
@@ -175,7 +185,7 @@ export default function Layout() {
 							}
 						/>
 					) : undefined}
-					{userPreferences.featuresEnabled.fitness.enabled ? (
+					{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
 						<LinksGroup
 							label="Fitness"
 							icon={IconStretching}
@@ -187,7 +197,7 @@ export default function Layout() {
 									}),
 								)
 							}
-							links={fitnessLinks}
+							links={loaderData.fitnessLinks}
 						/>
 					) : undefined}
 					<LinksGroup
@@ -215,38 +225,7 @@ export default function Layout() {
 								}),
 							)
 						}
-						links={
-							[
-								{
-									label: "Preferences",
-									link: $path("/settings/preferences"),
-								},
-								{
-									label: "Imports and Exports",
-									link: $path("/settings/imports-and-exports"),
-								},
-								{ label: "Profile", link: $path("/settings/profile") },
-								{
-									label: "Integrations",
-									link: $path("/settings/integrations"),
-								},
-								{
-									label: "Notifications",
-									link: $path("/settings/notifications"),
-								},
-								{
-									label: "Miscellaneous",
-									link: $path("/settings/miscellaneous"),
-								},
-								userDetails.__typename === "User" &&
-								userDetails.lot === UserLot.Admin
-									? { label: "Users", link: $path("/settings/users") }
-									: undefined,
-							]
-								// TODO: remove this filter by generating the above array in the loader
-								// biome-ignore lint/suspicious/noExplicitAny: required here
-								.filter(Boolean) as any
-						}
+						links={loaderData.settingsLinks}
 					/>
 				</Box>
 				<Stack gap="xs">
@@ -264,7 +243,9 @@ export default function Layout() {
 									</Center>
 									<Text size="sm" className={classes.value}>
 										{upperFirst(
-											currentColorScheme === "dark" ? "light" : "dark",
+											loaderData.currentColorScheme === "dark"
+												? "light"
+												: "dark",
 										)}{" "}
 										theme
 									</Text>
@@ -321,7 +302,7 @@ export default function Layout() {
 						<Outlet />
 					</Box>
 					<Box className={classes.shellFooter}>
-						<Footer coreDetails={coreDetails} />
+						<Footer coreDetails={loaderData.coreDetails} />
 					</Box>
 				</AppShell.Main>
 			</Flex>
