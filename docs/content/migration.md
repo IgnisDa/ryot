@@ -2,6 +2,9 @@
 
 ## From `v3.*` to `v4.*`
 
+All webhooks urls will now have the `/backend` prefix. Please take a look at the
+[integration](./integrations#sink-plugins) docs for the new format.
+
 1. Upgrade the server to `v3.4.16` to make sure all pending migrations are applied. For example,
    you can make this change: `image: "ghcr.io/ignisda/ryot:v3.4.16"` in your docker-compose file.
 
