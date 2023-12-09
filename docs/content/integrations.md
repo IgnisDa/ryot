@@ -30,6 +30,14 @@ media which have a match from _Audible_.
 
 ## Sink plugins
 
+All webhook URLs follow this format:
+
+```txt
+https://<instance_url>/backend/webhooks/integrations/<name>/<slug>
+# example
+https://ryot.fly.dev/backend/webhooks/integrations/plex/nBrLZdk53g--5V6T1
+```
+
 !!! warning
 
     Keep your webhook urls private to prevent abuse.
