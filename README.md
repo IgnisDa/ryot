@@ -72,8 +72,9 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 ## 🙏 Acknowledgements
 
-It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker).
-Moreover thanks to all those people whose stuff I have used.
+It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
+similar projects. Also a massive thanks to all the
+[contributors](https://github.com/IgnisDa/ryot/graphs/contributors).
 
 The logo is taken from
 [Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).
