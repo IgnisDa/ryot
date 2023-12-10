@@ -189,7 +189,9 @@ export default function Page() {
 											{c.numItems} items, {changeCase(c.visibility || "")}
 										</Text>
 									</Flex>
-									{c.description ? <Text>{c.description}</Text> : undefined}
+									{c.description ? (
+										<Text lineClamp={3}>{c.description}</Text>
+									) : undefined}
 								</Box>
 								<Flex gap="sm" style={{ flex: 0 }}>
 									<ActionIcon
@@ -255,7 +257,7 @@ export default function Page() {
 										<Title order={4}>{c.name}</Title>
 									</Anchor>
 									<Text c="dimmed" size="xs">
-										by {c.username || "hello"}
+										by {c.username}
 									</Text>
 								</Box>
 							</Group>
