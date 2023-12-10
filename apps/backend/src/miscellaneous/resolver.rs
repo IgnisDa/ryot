@@ -3828,7 +3828,13 @@ impl MiscellaneousService {
         input: SearchInput,
     ) -> Result<SearchResults<PublicCollectionItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let c_alias = Alias::new("collection");
+        let u_alias = Alias::new("user");
         let paginator = Collection::find()
+            .select_only()
+            .column_as(Expr::col((c_alias, collection::Column::Id)), "id")
+            .column_as(Expr::col((u_alias, user::Column::Name)), "username")
+            .column(collection::Column::Name)
             .filter(collection::Column::Visibility.eq(Visibility::Public))
             .apply_if(input.query, |query, v| {
                 query.filter(
@@ -3840,7 +3846,9 @@ impl MiscellaneousService {
                         )),
                 )
             })
+            .left_join(User)
             .order_by_desc(collection::Column::LastUpdatedOn)
+            .into_model::<PublicCollectionItem>()
             .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let mut data = vec![];
         let ItemsAndPagesNumber {
@@ -3848,11 +3856,7 @@ impl MiscellaneousService {
             number_of_pages,
         } = paginator.num_items_and_pages().await?;
         for collection in paginator.fetch_page(page - 1).await? {
-            data.push(PublicCollectionItem {
-                id: collection.id,
-                name: collection.name,
-                username: "".to_string(),
-            });
+            data.push(collection);
         }
         let results = SearchResults {
             details: SearchDetails {

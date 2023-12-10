@@ -146,7 +146,7 @@ pub struct IdAndNamedObject {
 pub mod media {
     use super::*;
 
-    #[derive(Debug, SimpleObject)]
+    #[derive(Clone, Debug, PartialEq, Eq, FromQueryResult, SimpleObject)]
     pub struct PublicCollectionItem {
         pub id: i32,
         pub name: String,
