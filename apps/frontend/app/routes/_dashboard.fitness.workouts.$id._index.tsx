@@ -29,9 +29,11 @@ import { Form, Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
 	EditUserWorkoutDocument,
+	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
 	WorkoutDetailsDocument,
+	WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { humanizeDuration, startCase } from "@ryot/ts-utils";
 import {
@@ -134,7 +136,6 @@ const editWorkoutSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-	const getMantineColor = useGetMantineColor();
 	const [
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
@@ -324,41 +325,7 @@ export default function Page() {
 										) : undefined}
 									</Box>
 									{exercise.sets.map((s, idx) => (
-										<Box key={`${idx}`} mb={2}>
-											<Flex align="center">
-												<Text
-													fz="sm"
-													c={getSetColor(s.lot)}
-													mr="md"
-													fw="bold"
-													ff="monospace"
-												>
-													{match(s.lot)
-														.with(SetLot.Normal, () => idx + 1)
-														.otherwise(() => s.lot.at(0))}
-												</Text>
-												<DisplayExerciseStats
-													lot={exercise.lot}
-													statistic={s.statistic}
-													unit={loaderData.userPreferences.unitSystem}
-												/>
-											</Flex>
-											{s.personalBests.length > 0 ? (
-												<Flex mb={6} mt={2} ml="lg">
-													{s.personalBests.map((pb) => (
-														<Badge
-															key={pb}
-															variant="light"
-															size="xs"
-															leftSection={<IconTrophy size={16} />}
-															color={getMantineColor(pb)}
-														>
-															{startCase(pb)}
-														</Badge>
-													))}
-												</Flex>
-											) : undefined}
-										</Box>
+										<DisplaySet set={s} idx={idx} exerciseLot={exercise.lot} />
 									))}
 								</Paper>
 							),
@@ -373,6 +340,56 @@ export default function Page() {
 		</>
 	);
 }
+
+type Set =
+	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number]["sets"][number];
+
+const DisplaySet = (props: {
+	set: Set;
+	idx: number;
+	exerciseLot: ExerciseLot;
+}) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const getMantineColor = useGetMantineColor();
+
+	return (
+		<Box key={`${props.idx}`} mb={2}>
+			<Flex align="center">
+				<Text
+					fz="sm"
+					c={getSetColor(props.set.lot)}
+					mr="md"
+					fw="bold"
+					ff="monospace"
+				>
+					{match(props.set.lot)
+						.with(SetLot.Normal, () => props.idx + 1)
+						.otherwise(() => props.set.lot.at(0))}
+				</Text>
+				<DisplayExerciseStats
+					lot={props.exerciseLot}
+					statistic={props.set.statistic}
+					unit={loaderData.userPreferences.unitSystem}
+				/>
+			</Flex>
+			{props.set.personalBests.length > 0 ? (
+				<Flex mb={6} mt={2} ml="lg">
+					{props.set.personalBests.map((pb) => (
+						<Badge
+							key={pb}
+							variant="light"
+							size="xs"
+							leftSection={<IconTrophy size={16} />}
+							color={getMantineColor(pb)}
+						>
+							{startCase(pb)}
+						</Badge>
+					))}
+				</Flex>
+			) : undefined}
+		</Box>
+	);
+};
 
 const DisplayStat = (props: { icon: JSX.Element; data: string }) => {
 	return (
