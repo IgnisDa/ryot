@@ -56,7 +56,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
                     .col(
                         ColumnDef::new(UserToEntity::MetadataOwnership)
-                            .json()
+                            .json_binary()
                             .null(),
                     )
                     .col(
@@ -65,7 +65,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(1),
                     )
-                    .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json())
+                    .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")

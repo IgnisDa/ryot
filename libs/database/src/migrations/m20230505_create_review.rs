@@ -86,8 +86,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(Review::Comments).json().not_null())
-                    .col(ColumnDef::new(Review::ExtraInformation).json())
+                    .col(ColumnDef::new(Review::Comments).json_binary().not_null())
+                    .col(ColumnDef::new(Review::ExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(Review::Visibility)
                             .string_len(2)

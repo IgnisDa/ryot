@@ -38,7 +38,11 @@ impl MigrationTrait for Migration {
                             .col(UserMeasurement::UserId)
                             .col(UserMeasurement::Timestamp),
                     )
-                    .col(ColumnDef::new(UserMeasurement::Stats).json().not_null())
+                    .col(
+                        ColumnDef::new(UserMeasurement::Stats)
+                            .json_binary()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_measurement-user_id")
