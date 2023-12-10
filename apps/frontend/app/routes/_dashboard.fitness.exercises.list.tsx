@@ -62,7 +62,7 @@ import {
 } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { currentWorkoutAtom } from "~/lib/workout";
-import { loader as resourcesLoader } from "./api.fitness.exercises";
+import { loader as resourcesLoader } from "./api.fitness.exercises.$id";
 
 const defaultFiltersValue = {
 	muscle: undefined,

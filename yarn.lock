@@ -2449,9 +2449,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ignisda/remix-routes@npm:3.2.0":
-  version: 3.2.0
-  resolution: "@ignisda/remix-routes@npm:3.2.0"
+"@ignisda/remix-routes@npm:3.3.0":
+  version: 3.3.0
+  resolution: "@ignisda/remix-routes@npm:3.3.0"
   dependencies:
     chokidar: "npm:^3.5.2"
     ejs: "npm:^3.1.9"
@@ -2460,7 +2460,7 @@ __metadata:
     slash: "npm:3"
   bin:
     remix-routes: lib/cli.js
-  checksum: b9f648932c71e3038aa0e446543d3cefdc03a9a88b659455fa298086a256e7d767a093c995241fdfac2fb8521fa0b6e9fe38b0da493e9dc1128193ac8157097b
+  checksum: 0da4f3fdf1e1e11131762a754cf17872e42d03a66c814ae5ca000c2ca8fa4865dcb4be397b8334ae100a92c8c0ac7d70dbc087d647117904ee95c0da47aafc6e
   languageName: node
   linkType: hard
 
@@ -3041,7 +3041,7 @@ __metadata:
     "@conform-to/zod": "npm:0.9.1"
     "@formkit/auto-animate": "npm:0.8.1"
     "@hello-pangea/dnd": "npm:16.5.0"
-    "@ignisda/remix-routes": "npm:3.2.0"
+    "@ignisda/remix-routes": "npm:3.3.0"
     "@mantine/carousel": "npm:7.3.1"
     "@mantine/core": "npm:7.3.1"
     "@mantine/dates": "npm:7.3.1"
