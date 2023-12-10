@@ -3921,6 +3921,7 @@ impl MiscellaneousService {
                     }
                     EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
                     EntityLot::Exercise => collection_to_entity::Column::ExerciseId.is_not_null(),
+                    EntityLot::Collection => unreachable!(),
                 };
                 query.filter(f)
             })
@@ -4255,6 +4256,7 @@ impl MiscellaneousService {
             EntityLot::Person => collection_to_entity::Column::PersonId,
             EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
             EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+            EntityLot::Collection => unreachable!(),
         };
         CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::CollectionId.eq(collect.id))
