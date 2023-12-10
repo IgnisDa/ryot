@@ -6794,7 +6794,7 @@ impl MiscellaneousService {
             self.send_notifications_to_user_platforms(
                 user.id,
                 &format!(
-                    "New review posted for {:?} ({}) by {}.",
+                    "New review posted for {} ({}) by {}.",
                     event.obj_title, event.entity_lot, event.username
                 ),
             )
