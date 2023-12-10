@@ -1,6 +1,7 @@
 {
 	"name": "@ryot/ts-utils",
 	"dependencies": {
+		"humanize-duration-ts": "2.1.1",
 		"lodash": "4.17.21"
 	},
 	"devDependencies": {

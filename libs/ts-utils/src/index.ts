@@ -1,7 +1,25 @@
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+	HumanizeDurationOptions,
+} from "humanize-duration-ts";
 import camelCase from "lodash/camelCase";
 import snakeCase from "lodash/snakeCase";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
+
+const service = new HumanizeDurationLanguage();
+const humanizer = new HumanizeDuration(service);
+
+/**
+ * Humanize a duration.
+ */
+export const humanizeDuration = (
+	duration: number,
+	options?: HumanizeDurationOptions,
+) => {
+	return humanizer.humanize(duration, options);
+};
 
 /**
  * Format a `Date` into a Rust `NaiveDate`

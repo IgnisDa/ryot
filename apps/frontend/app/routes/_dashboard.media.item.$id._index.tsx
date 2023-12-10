@@ -54,7 +54,11 @@ import {
 	UserMediaDetailsDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
+import {
+	changeCase,
+	formatDateToNaiveDate,
+	humanizeDuration,
+} from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconBook,
@@ -72,10 +76,6 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import {
-	HumanizeDuration,
-	HumanizeDurationLanguage,
-} from "humanize-duration-ts";
 import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -424,7 +424,7 @@ export default function Page() {
 							loaderData.mediaAdditionalDetails.mangaSpecifics?.volumes &&
 								`${loaderData.mediaAdditionalDetails.mangaSpecifics.volumes} volumes`,
 							loaderData.mediaAdditionalDetails.movieSpecifics?.runtime &&
-								`${humanizer.humanize(
+								`${humanizeDuration(
 									loaderData.mediaAdditionalDetails.movieSpecifics.runtime *
 										1000 *
 										60,
@@ -432,7 +432,7 @@ export default function Page() {
 							loaderData.mediaAdditionalDetails.showSpecifics?.seasons &&
 								`${loaderData.mediaAdditionalDetails.showSpecifics.seasons.length} seasons`,
 							loaderData.mediaAdditionalDetails.audioBookSpecifics?.runtime &&
-								`${humanizer.humanize(
+								`${humanizeDuration(
 									loaderData.mediaAdditionalDetails.audioBookSpecifics.runtime *
 										1000 *
 										60,
@@ -1388,9 +1388,6 @@ export default function Page() {
 	);
 }
 
-const service = new HumanizeDurationLanguage();
-const humanizer = new HumanizeDuration(service);
-
 const ProgressModal = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -1658,7 +1655,7 @@ const AccordionLabel = (props: {
 	publishDate?: string | null;
 }) => {
 	const display = [
-		props.runtime ? humanizer.humanize(props.runtime * 1000 * 60) : undefined,
+		props.runtime ? humanizeDuration(props.runtime * 1000 * 60) : undefined,
 		props.publishDate ? dayjsLib(props.publishDate).format("ll") : undefined,
 		props.numEpisodes ? `${props.numEpisodes} episodes` : undefined,
 	]

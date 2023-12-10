@@ -33,7 +33,7 @@ import {
 	UserUnitSystem,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { humanizeDuration, startCase } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconClockEdit,
@@ -44,10 +44,6 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import {
-	HumanizeDuration,
-	HumanizeDurationLanguage,
-} from "humanize-duration-ts";
 import { useAtom } from "jotai";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -65,9 +61,6 @@ import {
 	duplicateOldWorkout,
 	startWorkout,
 } from "~/lib/workout";
-
-const service = new HumanizeDurationLanguage();
-const humanizer = new HumanizeDuration(service);
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const workoutId = params.id;
@@ -243,7 +236,7 @@ export default function Page() {
 						<Group mt="xs" gap="lg">
 							<DisplayStat
 								icon={<IconClock size={16} />}
-								data={humanizer.humanize(
+								data={humanizeDuration(
 									new Date(loaderData.workoutDetails.endTime).getTime() -
 										new Date(loaderData.workoutDetails.startTime).getTime(),
 									{ round: true, units: ["h", "m"] },
@@ -269,7 +262,7 @@ export default function Page() {
 							{loaderData.workoutDetails.summary.total.restTime > 0 ? (
 								<DisplayStat
 									icon={<IconZzz size={16} />}
-									data={humanizer.humanize(
+									data={humanizeDuration(
 										loaderData.workoutDetails.summary.total.restTime * 1e3,
 										{ round: true, units: ["m", "s"] },
 									)}

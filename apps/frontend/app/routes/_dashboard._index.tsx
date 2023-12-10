@@ -27,6 +27,7 @@ import {
 	UserMediaFeaturesEnabledPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconBarbell,
@@ -36,10 +37,6 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import humanFormat from "human-format";
-import {
-	HumanizeDuration,
-	HumanizeDurationLanguage,
-} from "humanize-duration-ts";
 import { useAtom } from "jotai";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -497,9 +494,6 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	);
 };
 
-const service = new HumanizeDurationLanguage();
-const humanizer = new HumanizeDuration(service);
-
 const ActualDisplayStat = (props: {
 	icon: JSX.Element;
 	lot: string;
@@ -533,7 +527,7 @@ const ActualDisplayStat = (props: {
 								fz={{ base: "md", md: "sm", xl: "md" }}
 							>
 								{d.type === "duration"
-									? humanizer.humanize(d.value * 1000 * 60, {
+									? humanizeDuration(d.value * 1000 * 60, {
 											round: true,
 											largest: 3,
 									  })

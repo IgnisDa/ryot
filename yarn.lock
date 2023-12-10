@@ -3136,6 +3136,7 @@ __metadata:
   resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
     "@types/lodash": "npm:^4.14.202"
+    humanize-duration-ts: "npm:2.1.1"
     lodash: "npm:4.17.21"
   languageName: unknown
   linkType: soft
