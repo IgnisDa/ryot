@@ -90,7 +90,7 @@ use crate::{
             MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewPostedEvent,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
             UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
@@ -333,7 +333,7 @@ struct CollectionContentsFilter {
     metadata_lot: Option<MetadataLot>,
 }
 
-#[derive(Debug, InputObject)]
+#[derive(Debug, InputObject,)]
 struct CollectionContentsInput {
     collection_id: i32,
     search: Option<SearchInput>,
@@ -4067,7 +4067,6 @@ impl MiscellaneousService {
         if input.rating.is_none() && input.text.is_none() {
             return Err(Error::new("At-least one of rating or review is required."));
         }
-
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
@@ -4098,9 +4097,43 @@ impl MiscellaneousService {
         if let Some(d) = input.date {
             review_obj.posted_on = ActiveValue::Set(d);
         }
-        let insert = review_obj.save(&self.db).await.unwrap();
+        let insert = review_obj.insert(&self.db).await.unwrap();
+        if insert.visibility == Visibility::Public {
+            let title = if let Some(mi) = insert.metadata_id {
+                self.generic_metadata(mi).await?.model.title
+            } else if let Some(mgi) = insert.metadata_group_id {
+                self.metadata_group_details(mgi).await?.details.title
+            } else if let Some(pi) = insert.person_id {
+                self.person_details(pi).await?.details.name
+            } else if let Some(ci) = insert.collection_id {
+                self.collection_contents(
+                    Some(user_id),
+                    CollectionContentsInput {
+                        collection_id: ci,
+                        filter: None,
+                        search: None,
+                        take: None,
+                        sort: None
+                    },
+                )
+                .await?
+                .details
+                .name
+            } else {
+                unreachable!()
+            };
+            let user = user_by_id(&self.db, insert.user_id).await?;
+            self.perform_application_job
+                .clone()
+                .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                    obj_title: title,
+                    username: user.name,
+                    review_id: insert.id.clone(),
+                }))
+                .await?;
+        }
         Ok(IdObject {
-            id: insert.id.unwrap(),
+            id: insert.id.clone(),
         })
     }
 
@@ -6726,6 +6759,11 @@ impl MiscellaneousService {
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.update(&self.db).await.ok();
         Ok(provider_person.related)
+    }
+
+    pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
+        dbg!(event);
+        todo!()
     }
 }
 

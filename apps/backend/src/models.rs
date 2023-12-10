@@ -1091,10 +1091,16 @@ pub mod media {
         Podcast(SeenPodcastExtraInformation),
         Other(()),
     }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct ReviewPostedEvent {
+        pub obj_title: String,
+        pub username: String,
+        pub review_id: i32,
+    }
 }
 
 pub mod fitness {
-
     use super::*;
 
     #[derive(

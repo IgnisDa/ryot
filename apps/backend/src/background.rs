@@ -14,7 +14,7 @@ use crate::{
     miscellaneous::resolver::MiscellaneousService,
     models::{
         fitness::Exercise,
-        media::{PartialMetadataPerson, ProgressUpdateInput},
+        media::{PartialMetadataPerson, ProgressUpdateInput, ReviewPostedEvent},
     },
 };
 
@@ -100,6 +100,7 @@ pub enum ApplicationJob {
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
+    ReviewPosted(ReviewPostedEvent),
 }
 
 impl Job for ApplicationJob {
@@ -173,6 +174,9 @@ pub async fn perform_application_job(
             .associate_group_with_metadata(lot, source, group_identifier)
             .await
             .is_ok(),
+        ApplicationJob::ReviewPosted(event) => {
+            misc_service.handle_review_posted_event(event).await.is_ok()
+        }
     };
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
