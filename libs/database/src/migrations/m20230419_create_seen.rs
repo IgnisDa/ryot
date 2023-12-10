@@ -76,7 +76,7 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Seen::ExtraInformation).json())
+                    .col(ColumnDef::new(Seen::ExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")

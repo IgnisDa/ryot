@@ -24,11 +24,11 @@ pub struct Model {
     pub user_id: i32,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
+    pub metadata_group_id: Option<i32>,
+    pub collection_id: Option<i32>,
     pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
     #[sea_orm(column_type = "Json")]
     pub comments: Vec<ImportOrExportItemReviewComment>,
-    pub metadata_group_id: Option<i32>,
-    pub collection_id: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -52,11 +52,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Email).unique_key().string())
                     .col(ColumnDef::new(User::Password).string().not_null())
                     .col(ColumnDef::new(User::Lot).string_len(1).not_null())
-                    .col(ColumnDef::new(User::Preferences).json().not_null())
-                    .col(ColumnDef::new(User::YankIntegrations).json())
-                    .col(ColumnDef::new(User::SinkIntegrations).json())
-                    .col(ColumnDef::new(User::Notifications).json())
-                    .col(ColumnDef::new(User::Summary).json())
+                    .col(ColumnDef::new(User::Preferences).json_binary().not_null())
+                    .col(ColumnDef::new(User::YankIntegrations).json_binary())
+                    .col(ColumnDef::new(User::SinkIntegrations).json_binary())
+                    .col(ColumnDef::new(User::Notifications).json_binary())
+                    .col(ColumnDef::new(User::Summary).json_binary())
                     .to_owned(),
             )
             .await?;

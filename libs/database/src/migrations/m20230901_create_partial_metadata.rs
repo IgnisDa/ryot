@@ -68,7 +68,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(PartialMetadata::Title).string().not_null())
-                    .col(ColumnDef::new(PartialMetadata::Image).text().null())
+                    .col(ColumnDef::new(PartialMetadata::Image).text())
                     .col(
                         ColumnDef::new(PartialMetadata::Lot)
                             .string_len(2)
@@ -79,11 +79,7 @@ impl MigrationTrait for Migration {
                             .string_len(2)
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(MetadataToPartialMetadata::MetadataId)
-                            .integer()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(MetadataToPartialMetadata::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(PARTIAL_METADATA_FK_1)

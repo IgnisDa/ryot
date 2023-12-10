@@ -22,6 +22,7 @@ use sea_orm::{
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::Display;
 
 use crate::{
     entities::{
@@ -43,13 +44,14 @@ pub enum BackgroundJob {
     YankIntegrationsData,
 }
 
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
 pub enum EntityLot {
     #[default]
     Media,
     Person,
     MediaGroup,
     Exercise,
+    Collection,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -1094,10 +1096,18 @@ pub mod media {
         Podcast(SeenPodcastExtraInformation),
         Other(()),
     }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct ReviewPostedEvent {
+        pub obj_id: i32,
+        pub obj_title: String,
+        pub username: String,
+        pub review_id: i32,
+        pub entity_lot: EntityLot,
+    }
 }
 
 pub mod fitness {
-
     use super::*;
 
     #[derive(
