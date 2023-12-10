@@ -4147,13 +4147,11 @@ impl MiscellaneousService {
                     obj_title,
                     entity_lot,
                     username: user.name,
-                    review_id: insert.id.clone(),
+                    review_id: insert.id,
                 }))
                 .await?;
         }
-        Ok(IdObject {
-            id: insert.id.clone(),
-        })
+        Ok(IdObject { id: insert.id })
     }
 
     pub async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
