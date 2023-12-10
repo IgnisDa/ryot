@@ -12,6 +12,7 @@ import {
 	Menu,
 	Modal,
 	Paper,
+	Popover,
 	Stack,
 	Text,
 	Title,
@@ -325,7 +326,12 @@ export default function Page() {
 										) : undefined}
 									</Box>
 									{exercise.sets.map((s, idx) => (
-										<DisplaySet set={s} idx={idx} exerciseLot={exercise.lot} />
+										<DisplaySet
+											key={`${idx}`}
+											set={s}
+											idx={idx}
+											exerciseLot={exercise.lot}
+										/>
 									))}
 								</Paper>
 							),
@@ -351,6 +357,7 @@ const DisplaySet = (props: {
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
+	const [opened, { close, open }] = useDisclosure(false);
 
 	return (
 		<Box key={`${props.idx}`} mb={2}>
@@ -366,27 +373,40 @@ const DisplaySet = (props: {
 						.with(SetLot.Normal, () => props.idx + 1)
 						.otherwise(() => props.set.lot.at(0))}
 				</Text>
+				{props.set.personalBests.length > 0 ? (
+					<Popover position="left" withArrow shadow="md" opened={opened}>
+						<Popover.Target>
+							<ActionIcon
+								onMouseEnter={open}
+								onMouseLeave={close}
+								variant="transparent"
+								color="grape"
+							>
+								<IconTrophy size={18} />
+							</ActionIcon>
+						</Popover.Target>
+						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
+							<Flex>
+								{props.set.personalBests.map((pb) => (
+									<Badge
+										key={pb}
+										variant="light"
+										size="xs"
+										color={getMantineColor(pb)}
+									>
+										{startCase(pb)}
+									</Badge>
+								))}
+							</Flex>
+						</Popover.Dropdown>
+					</Popover>
+				) : undefined}
 				<DisplayExerciseStats
 					lot={props.exerciseLot}
 					statistic={props.set.statistic}
 					unit={loaderData.userPreferences.unitSystem}
 				/>
 			</Flex>
-			{props.set.personalBests.length > 0 ? (
-				<Flex mb={6} mt={2} ml="lg">
-					{props.set.personalBests.map((pb) => (
-						<Badge
-							key={pb}
-							variant="light"
-							size="xs"
-							leftSection={<IconTrophy size={16} />}
-							color={getMantineColor(pb)}
-						>
-							{startCase(pb)}
-						</Badge>
-					))}
-				</Flex>
-			) : undefined}
 		</Box>
 	);
 };
