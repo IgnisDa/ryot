@@ -3832,16 +3832,19 @@ impl MiscellaneousService {
         let u_alias = Alias::new("user");
         let paginator = Collection::find()
             .select_only()
-            .column_as(Expr::col((c_alias, collection::Column::Id)), "id")
+            .column_as(Expr::col((c_alias.clone(), collection::Column::Id)), "id")
             .column_as(Expr::col((u_alias, user::Column::Name)), "username")
             .column(collection::Column::Name)
             .filter(collection::Column::Visibility.eq(Visibility::Public))
             .apply_if(input.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(get_ilike_query(Expr::col(collection::Column::Name), &v))
                         .add(get_ilike_query(
-                            Expr::col(collection::Column::Description),
+                            Expr::col((c_alias.clone(), collection::Column::Name)),
+                            &v,
+                        ))
+                        .add(get_ilike_query(
+                            Expr::col((c_alias.clone(), collection::Column::Description)),
                             &v,
                         )),
                 )
