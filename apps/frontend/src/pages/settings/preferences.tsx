@@ -398,6 +398,10 @@ const Page: NextPageWithLayout = () => {
 														() =>
 															"Number of chapters/episodes changes for manga/anime",
 													)
+													.with(
+														"newReviewPosted",
+														() => "A new public review is posted",
+													)
 													.otherwise(() => undefined)}
 												checked={isEnabled}
 												disabled={!coreDetails.data.preferencesChangeAllowed}
