@@ -333,7 +333,8 @@ export function LinksGroup({
 	const { dir } = useDirection();
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
-	const items = (hasLinks ? links : []).map((link) => (
+	const allLinks = (hasLinks ? links || [] : []).filter(Boolean);
+	const items = allLinks.map((link) => (
 		<Link className={classes.link} to={link.link} key={link.label}>
 			{link.label}
 		</Link>
