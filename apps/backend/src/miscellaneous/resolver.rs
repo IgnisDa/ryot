@@ -6783,8 +6783,23 @@ impl MiscellaneousService {
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        dbg!(event);
-        todo!()
+        let users = User::find()
+            .filter(Expr::cust(
+                "(preferences -> 'notifications' -> 'new_review_posted') = 'true'::jsonb",
+            ))
+            .all(&self.db)
+            .await?;
+        for user in users {
+            self.send_notifications_to_user_platforms(
+                user.id,
+                &format!(
+                    "New review posted for {:?} by {}.",
+                    event.obj_title, event.username
+                ),
+            )
+            .await?;
+        }
+        Ok(())
     }
 }
 
