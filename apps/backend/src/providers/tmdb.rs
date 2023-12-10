@@ -144,6 +144,16 @@ impl TmdbService {
     fn get_cover_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.settings.image_url, "original", c)
     }
+
+    fn get_language_name(&self, iso: Option<String>) -> Option<String> {
+        iso.and_then(|i| {
+            self.settings
+                .languages
+                .iter()
+                .find(|l| l.iso_639_1 == i)
+                .map(|l| l.english_name.clone())
+        })
+    }
 }
 
 impl MediaProviderLanguages for TmdbService {
@@ -449,7 +459,7 @@ impl MediaProvider for TmdbMovieService {
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
-            original_language: data.original_language,
+            original_language: self.base.get_language_name(data.original_language),
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
             production_status: data.status,
@@ -707,7 +717,7 @@ impl MediaProvider for TmdbShowService {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
-            original_language: show_data.original_language,
+            original_language: self.base.get_language_name(show_data.original_language),
             lot: MetadataLot::Show,
             production_status: show_data.status,
             source: MetadataSource::Tmdb,
