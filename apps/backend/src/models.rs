@@ -85,6 +85,7 @@ pub struct SearchDetails {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "PublicCollectionsListResults", params(IdAndNamedObject)))]
 #[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
@@ -131,6 +132,12 @@ pub struct ChangeCollectionToEntityInput {
     pub collection_name: String,
     pub entity_id: String,
     pub entity_lot: EntityLot,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Default)]
+pub struct IdAndNamedObject {
+    pub id: i32,
+    pub name: String,
 }
 
 pub mod media {

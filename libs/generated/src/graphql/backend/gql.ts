@@ -73,6 +73,7 @@ const documents = {
     "query PersonDetails($personId: Int!) {\n  personDetails(personId: $personId) {\n    sourceUrl\n    details {\n      id\n      name\n      source\n      description\n      birthDate\n      deathDate\n      place\n      website\n      gender\n      displayImages\n    }\n    contents {\n      name\n      items {\n        metadataId\n        title\n        image\n      }\n    }\n    workedOn {\n      lot\n      source\n      identifier\n      title\n      image\n      metadataId\n    }\n  }\n}": types.PersonDetailsDocument,
     "query PeopleList($input: PeopleListInput!) {\n  peopleList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.PeopleListDocument,
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
+    "query PublicCollectionsList($input: SearchInput!) {\n  publicCollectionsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n    }\n  }\n}": types.PublicCollectionsListDocument,
     "query Review($reviewId: Int!) {\n  review(reviewId: $reviewId) {\n    rating\n    text\n    visibility\n    spoiler\n    showSeason\n    showEpisode\n    podcastEpisode\n  }\n}": types.ReviewDocument,
     "query UserCalendarEvents($input: UserCalendarEventInput!) {\n  userCalendarEvents(input: $input) {\n    date\n    events {\n      ...CalendarEventPart\n    }\n  }\n}": types.UserCalendarEventsDocument,
     "query UserCollectionsList($name: String) {\n  userCollectionsList(name: $name) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.UserCollectionsListDocument,
@@ -346,6 +347,10 @@ export function graphql(source: "query PeopleList($input: PeopleListInput!) {\n 
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}"): (typeof documents)["query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query PublicCollectionsList($input: SearchInput!) {\n  publicCollectionsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n    }\n  }\n}"): (typeof documents)["query PublicCollectionsList($input: SearchInput!) {\n  publicCollectionsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

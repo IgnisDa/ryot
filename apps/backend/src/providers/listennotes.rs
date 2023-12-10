@@ -20,7 +20,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
-        SearchDetails, SearchResults,
+        IdAndNamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,
@@ -267,13 +267,8 @@ async fn get_client_config(url: &str, api_token: &str) -> Client {
     let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
     if GENRES.get().is_none() {
         #[derive(Debug, Serialize, Deserialize, Default)]
-        struct Genre {
-            id: i32,
-            name: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Default)]
         struct GenreResponse {
-            genres: Vec<Genre>,
+            genres: Vec<IdAndNamedObject>,
         }
         let mut rsp = client.get("genres").await.unwrap();
         let data: GenreResponse = rsp.body_json().await.unwrap_or_default();

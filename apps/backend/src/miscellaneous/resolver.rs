@@ -90,8 +90,8 @@ use crate::{
             SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
             UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdObject, SearchDetails,
-        SearchInput, SearchResults, StoredUrl,
+        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
+        SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
@@ -347,12 +347,6 @@ struct CollectionContents {
 }
 
 #[derive(Debug, SimpleObject)]
-struct ReviewPostedBy {
-    id: i32,
-    name: String,
-}
-
-#[derive(Debug, SimpleObject)]
 struct ReviewItem {
     id: i32,
     posted_on: DateTimeUtc,
@@ -360,7 +354,7 @@ struct ReviewItem {
     text: Option<String>,
     visibility: Visibility,
     spoiler: bool,
-    posted_by: ReviewPostedBy,
+    posted_by: IdAndNamedObject,
     show_season: Option<i32>,
     show_episode: Option<i32>,
     podcast_episode: Option<i32>,
@@ -734,6 +728,16 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_collections_list(user_id, name).await
+    }
+
+    /// Get a list of publically visible collections.
+    async fn public_collections_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<IdAndNamedObject>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.public_collections_list(input).await
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -3731,7 +3735,7 @@ impl MiscellaneousService {
                     show_season: show_se,
                     show_episode: show_ep,
                     podcast_episode: podcast_ep,
-                    posted_by: ReviewPostedBy {
+                    posted_by: IdAndNamedObject {
                         id: user.id,
                         name: user.name,
                     },
@@ -3817,6 +3821,50 @@ impl MiscellaneousService {
             });
         }
         Ok(data)
+    }
+
+    async fn public_collections_list(
+        &self,
+        input: SearchInput,
+    ) -> Result<SearchResults<IdAndNamedObject>> {
+        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let paginator = Collection::find()
+            .filter(collection::Column::Visibility.eq(Visibility::Public))
+            .apply_if(input.query, |query, v| {
+                query.filter(
+                    Condition::any()
+                        .add(get_ilike_query(Expr::col(collection::Column::Name), &v))
+                        .add(get_ilike_query(
+                            Expr::col(collection::Column::Description),
+                            &v,
+                        )),
+                )
+            })
+            .order_by_desc(collection::Column::LastUpdatedOn)
+            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let mut data = vec![];
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        for collection in paginator.fetch_page(page - 1).await? {
+            data.push(IdAndNamedObject {
+                id: collection.id,
+                name: collection.name,
+            });
+        }
+        let results = SearchResults {
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
+            items: data,
+        };
+        Ok(results)
     }
 
     async fn collection_contents(
