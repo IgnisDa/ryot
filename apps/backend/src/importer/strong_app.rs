@@ -114,6 +114,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 Duration::seconds(0)
             };
             workouts.push(UserWorkoutInput {
+                id: None,
                 name: entry.workout_name,
                 comment: entry.workout_notes,
                 start_time: ndt,

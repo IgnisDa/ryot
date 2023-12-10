@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 use chrono::Utc;
 use database::ExerciseLot;
+use nanoid::nanoid;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -91,12 +92,10 @@ impl UserWorkoutInput {
         self,
         user_id: i32,
         db: &DatabaseConnection,
-        // TODO: Make this optional and a part of the input itself. If set, the
-        // generated workout will have that as the ID.
-        id: String,
         save_history: usize,
     ) -> Result<String> {
         let mut input = self;
+        let id = input.id.unwrap_or_else(|| nanoid!(12));
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         if input.exercises.is_empty() {

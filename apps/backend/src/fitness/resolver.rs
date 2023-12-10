@@ -689,7 +689,6 @@ impl ExerciseService {
             .calculate_and_commit(
                 user_id,
                 &self.db,
-                id,
                 user.preferences.fitness.exercises.save_history,
             )
             .await?;
@@ -792,6 +791,7 @@ impl ExerciseService {
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
             let workout_input = UserWorkoutInput {
+                id: Some(workout.id),
                 name: workout.name,
                 comment: workout.comment,
                 start_time: workout.start_time,
