@@ -20,7 +20,6 @@ pub struct UserNotificationsPreferences {
     pub number_of_seasons_changed: bool,
     // Anime and Manga
     pub number_of_chapters_or_episodes_changed: bool,
-    #[serde(default)] // FIXME: Remove this
     pub new_review_posted: bool,
 }
 
