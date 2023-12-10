@@ -411,6 +411,7 @@ export default function Page() {
 							loaderData.mediaMainDetails.publishDate
 								? dayjsLib(loaderData.mediaMainDetails.publishDate).format("LL")
 								: loaderData.mediaMainDetails.publishYear,
+							loaderData.mediaMainDetails.originalLanguage,
 							loaderData.mediaMainDetails.productionStatus,
 							loaderData.mediaAdditionalDetails.bookSpecifics?.pages &&
 								`${loaderData.mediaAdditionalDetails.bookSpecifics.pages} pages`,
