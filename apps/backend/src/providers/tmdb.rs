@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -27,11 +27,23 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::{get_base_http_client, TEMP_DIR},
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";
-static IMAGE_URL: OnceLock<String> = OnceLock::new();
+static FILE: &str = "tmdb.json";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Settings {
+    image_url: String,
+    languages: Vec<TmdbLanguage>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbLanguage {
+    iso_639_1: String,
+    english_name: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
@@ -104,6 +116,7 @@ struct TmdbSeasonNumber {
 struct TmdbMediaEntry {
     id: i32,
     name: Option<String>,
+    original_language: Option<String>,
     title: Option<String>,
     adult: Option<bool>,
     vote_average: Option<Decimal>,
@@ -124,11 +137,22 @@ struct TmdbMediaEntry {
 #[derive(Debug, Clone)]
 pub struct TmdbService {
     language: String,
+    settings: Settings,
 }
 
 impl TmdbService {
     fn get_cover_image_url(&self, c: String) -> String {
-        format!("{}{}{}", IMAGE_URL.get().unwrap(), "original", c)
+        format!("{}{}{}", self.settings.image_url, "original", c)
+    }
+
+    fn get_language_name(&self, iso: Option<String>) -> Option<String> {
+        iso.and_then(|i| {
+            self.settings
+                .languages
+                .iter()
+                .find(|l| l.iso_639_1 == i)
+                .map(|l| l.english_name.clone())
+        })
     }
 }
 
@@ -152,10 +176,10 @@ pub struct NonMediaTmdbService {
 
 impl NonMediaTmdbService {
     pub async fn new(access_token: String, language: String) -> Self {
-        let client = get_client_config(URL, &access_token).await;
+        let (client, settings) = get_client_config(URL, &access_token).await;
         Self {
             client,
-            base: TmdbService { language },
+            base: TmdbService { language, settings },
         }
     }
 }
@@ -246,11 +270,12 @@ pub struct TmdbMovieService {
 
 impl TmdbMovieService {
     pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
-        let client = get_client_config(URL, &config.access_token).await;
+        let (client, settings) = get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
                 language: config.locale.clone(),
+                settings,
             },
         }
     }
@@ -434,6 +459,7 @@ impl MediaProvider for TmdbMovieService {
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
+            original_language: self.base.get_language_name(data.original_language),
             lot: MetadataLot::Movie,
             source: MetadataSource::Tmdb,
             production_status: data.status,
@@ -536,11 +562,12 @@ pub struct TmdbShowService {
 
 impl TmdbShowService {
     pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
-        let client = get_client_config(URL, &config.access_token).await;
+        let (client, settings) = get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
                 language: config.locale.clone(),
+                settings,
             },
         }
     }
@@ -690,6 +717,7 @@ impl MediaProvider for TmdbShowService {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
+            original_language: self.base.get_language_name(show_data.original_language),
             lot: MetadataLot::Show,
             production_status: show_data.status,
             source: MetadataSource::Tmdb,
@@ -817,10 +845,11 @@ impl MediaProvider for TmdbShowService {
     }
 }
 
-async fn get_client_config(url: &str, access_token: &str) -> Client {
+async fn get_client_config(url: &str, access_token: &str) -> (Client, Settings) {
     let client: Client =
         get_base_http_client(url, vec![(AUTHORIZATION, format!("Bearer {access_token}"))]);
-    if IMAGE_URL.get().is_none() {
+    let path = PathBuf::new().join(TEMP_DIR).join(FILE);
+    let tmdb_settings = if !path.exists() {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbImageConfiguration {
             secure_base_url: String,
@@ -830,10 +859,21 @@ async fn get_client_config(url: &str, access_token: &str) -> Client {
             images: TmdbImageConfiguration,
         }
         let mut rsp = client.get("configuration").await.unwrap();
-        let data: TmdbConfiguration = rsp.body_json().await.unwrap();
-        IMAGE_URL.set(data.images.secure_base_url).ok();
+        let data_1: TmdbConfiguration = rsp.body_json().await.unwrap();
+        let mut rsp = client.get("configuration/languages").await.unwrap();
+        let data_2: Vec<TmdbLanguage> = rsp.body_json().await.unwrap();
+        let tmdb_settings = Settings {
+            image_url: data_1.images.secure_base_url,
+            languages: data_2,
+        };
+        let data_to_write = serde_json::to_string(&tmdb_settings);
+        fs::write(path, data_to_write.unwrap()).unwrap();
+        tmdb_settings
+    } else {
+        let data = fs::read_to_string(path).unwrap();
+        serde_json::from_str(&data).unwrap()
     };
-    client
+    (client, tmdb_settings)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

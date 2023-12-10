@@ -242,6 +242,7 @@ impl VndbService {
             creators: vec![],
             s3_images: vec![],
             group_identifiers: vec![],
+            original_language: None,
         }
     }
 }

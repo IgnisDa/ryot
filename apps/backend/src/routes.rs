@@ -1,4 +1,4 @@
-use std::{env::temp_dir, fs::write, sync::Arc};
+use std::{fs::write, path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use async_graphql::http::GraphiQLSource;
@@ -13,8 +13,11 @@ use nanoid::nanoid;
 use serde_json::json;
 
 use crate::{
-    fitness::resolver::ExerciseService, graphql::GraphqlSchema,
-    miscellaneous::resolver::MiscellaneousService, models::ExportAllResponse, utils::AuthContext,
+    fitness::resolver::ExerciseService,
+    graphql::GraphqlSchema,
+    miscellaneous::resolver::MiscellaneousService,
+    models::ExportAllResponse,
+    utils::{AuthContext, TEMP_DIR},
 };
 
 pub async fn graphql_handler(
@@ -48,7 +51,7 @@ pub async fn upload_file(
             .unwrap_or_else(|| "file.png".to_string());
         let data = file.bytes().await.unwrap();
         let name = format!("{}-{}", nanoid!(), name);
-        let path = temp_dir().join(name);
+        let path = PathBuf::new().join(TEMP_DIR).join(name);
         write(&path, data).unwrap();
         res.push(path.canonicalize().unwrap());
     }

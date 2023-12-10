@@ -1,5 +1,3 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 
 mod length_vec;
@@ -38,11 +36,4 @@ pub fn convert_naive_to_utc(d: NaiveDate) -> DateTime<Utc> {
         NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         Utc,
     )
-}
-
-pub fn get_now_timestamp() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis()
 }

@@ -300,6 +300,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     production_status: None,
                     people: vec![],
                     s3_images: vec![],
+                    original_language: None,
                 })),
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             }),
