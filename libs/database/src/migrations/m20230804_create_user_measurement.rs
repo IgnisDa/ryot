@@ -30,8 +30,8 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(UserMeasurement::UserId).integer().not_null())
-                    .col(ColumnDef::new(UserMeasurement::Name).string().null())
-                    .col(ColumnDef::new(UserMeasurement::Comment).text().null())
+                    .col(ColumnDef::new(UserMeasurement::Name).string())
+                    .col(ColumnDef::new(UserMeasurement::Comment).text())
                     .primary_key(
                         Index::create()
                             .name(USER_MEASUREMENT_PRIMARY_KEY)

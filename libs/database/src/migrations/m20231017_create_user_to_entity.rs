@@ -54,11 +54,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
                     .col(ColumnDef::new(UserToEntity::MetadataMonitored).boolean())
                     .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
-                    .col(
-                        ColumnDef::new(UserToEntity::MetadataOwnership)
-                            .json_binary()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(UserToEntity::MetadataOwnership).json_binary())
                     .col(
                         ColumnDef::new(UserToEntity::NumTimesInteracted)
                             .integer()

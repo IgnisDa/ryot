@@ -103,7 +103,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::MetadataId).integer().null())
+                    .col(ColumnDef::new(Review::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_metadata_foreign_key")
@@ -112,7 +112,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::PersonId).integer().null())
+                    .col(ColumnDef::new(Review::PersonId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(PERSON_TO_REVIEW_FOREIGN_KEY)
@@ -121,7 +121,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::CollectionId).integer().null())
+                    .col(ColumnDef::new(Review::CollectionId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(COLLECTION_TO_REVIEW_FOREIGN_KEY)
@@ -130,7 +130,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::MetadataGroupId).integer().null())
+                    .col(ColumnDef::new(Review::MetadataGroupId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_GROUP_TO_REVIEW_FOREIGN_KEY)

@@ -59,7 +59,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Workout::Name).string().not_null())
-                    .col(ColumnDef::new(Workout::Comment).string().null())
+                    .col(ColumnDef::new(Workout::Comment).string())
                     .to_owned(),
             )
             .await?;

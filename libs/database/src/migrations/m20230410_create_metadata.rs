@@ -168,7 +168,7 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone(),
                     )
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
-                    .col(ColumnDef::new(Metadata::ProviderRating).decimal().null())
+                    .col(ColumnDef::new(Metadata::ProviderRating).decimal())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json_binary())
                     .col(ColumnDef::new(Metadata::Videos).json_binary())
