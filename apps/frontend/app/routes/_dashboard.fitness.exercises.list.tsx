@@ -392,8 +392,8 @@ export default function Page() {
 							const draft = createDraft(currentWorkout);
 							for (const exercise of selectedExercises) {
 								const userExerciseDetailsResp = await fetch(
-									$path("/api/fitness/exercises", {
-										exerciseId: exercise.name,
+									$path("/api/fitness/exercises/:id", {
+										id: exercise.name,
 									}),
 								);
 								const userExerciseDetails: Awaited<
