@@ -48,11 +48,10 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { DateTime } from "luxon";
 import { useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { Verb, getFallbackImageUrl, getVerb } from "~/lib/generals";
+import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
@@ -153,11 +152,7 @@ export const ReviewItemDisplay = (props: {
 					</Avatar>
 					<Box>
 						<Text>{props.review.postedBy?.name}</Text>
-						<Text>
-							{DateTime.fromISO(
-								props.review.postedOn || new Date().toISOString(),
-							).toLocaleString()}
-						</Text>
+						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 					</Box>
 					{props.user && props.user.id === props.review.postedBy?.id ? (
 						<Anchor
@@ -284,11 +279,9 @@ export const ReviewItemDisplay = (props: {
 													</Avatar>
 													<Box>
 														<Text>{c?.user?.name}</Text>
-														<Text>
-															{DateTime.fromISO(
-																c?.createdOn || new Date().toISOString(),
-															).toLocaleString()}
-														</Text>
+														{c?.createdOn ? (
+															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
+														) : undefined}
 													</Box>
 													{props.user.id === c?.user?.id ? (
 														<Form

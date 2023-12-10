@@ -3062,7 +3062,6 @@ __metadata:
     "@types/crypto-js": "npm:^4.2.1"
     "@types/howler": "npm:^2.2.11"
     "@types/js-cookie": "npm:^3"
-    "@types/luxon": "npm:3.3.7"
     "@types/react": "npm:18.2.42"
     "@types/react-dom": "npm:18.2.17"
     clsx: "npm:2.0.0"
@@ -3080,7 +3079,6 @@ __metadata:
     isbot: "npm:3.7.1"
     jotai: "npm:2.6.0"
     js-cookie: "npm:3.0.5"
-    luxon: "npm:3.4.4"
     mantine-datatable: "npm:^7.3.0"
     postcss: "npm:8.4.32"
     postcss-preset-mantine: "npm:1.11.1"
@@ -3361,13 +3359,6 @@ __metadata:
   version: 4.14.202
   resolution: "@types/lodash@npm:4.14.202"
   checksum: 1bb9760a5b1dda120132c4b987330d67979c95dbc22612678682cd61b00302e190f4207228f3728580059cdab5582362262e3819aea59960c1017bd2b9fb26f6
-  languageName: node
-  linkType: hard
-
-"@types/luxon@npm:3.3.7":
-  version: 3.3.7
-  resolution: "@types/luxon@npm:3.3.7"
-  checksum: 282ac72fd55da0c9d57f376ba9061ce83506cf6239c32259dacde0800964089f6183d2e449ef2ddd89b079fb8bfdffd7e5dbf187eb5c9f106aeaeca2aa60ed09
   languageName: node
   linkType: hard
 
@@ -7324,13 +7315,6 @@ __metadata:
   version: 10.0.1
   resolution: "lru-cache@npm:10.0.1"
   checksum: 5bb91a97a342a41fd049c3494b44d9e21a7d4843f9284d0a0b26f00bb0e436f1f627d0641c78f88be16b86b4231546c5ee4f284733fb530c7960f0bcd7579026
-  languageName: node
-  linkType: hard
-
-"luxon@npm:3.4.4":
-  version: 3.4.4
-  resolution: "luxon@npm:3.4.4"
-  checksum: c14164bc338987349075a08e63ea3ff902866735f7f5553a355b27be22667919765ff96fde4d3413d0e9a0edc4ff9e2e74ebcb8f86eae0ce8b14b27330d87d6e
   languageName: node
   linkType: hard
 

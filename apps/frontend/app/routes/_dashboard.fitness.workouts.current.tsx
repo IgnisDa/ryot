@@ -66,7 +66,6 @@ import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { DateTime, Duration } from "luxon";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
@@ -76,6 +75,7 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	COOKIES_KEYS,
 	LOCAL_STORAGE_KEYS,
+	dayjsLib,
 	getPresignedGetUrl,
 	getSetColor,
 	gqlClientSide,
@@ -175,7 +175,7 @@ export default function Page() {
 	) => {
 		setCurrentTimer({
 			totalTime: duration,
-			endAt: DateTime.now().plus({ seconds: duration }),
+			endAt: dayjsLib().add(duration, "second"),
 			triggeredByIdx,
 		});
 		interval.stop();
@@ -189,9 +189,7 @@ export default function Page() {
 	const createUserWorkoutFetcher = useFetcher();
 
 	useEffect(() => {
-		const timeRemaining = currentTimer?.endAt
-			.diff(DateTime.now())
-			.as("seconds");
+		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
 		if (timeRemaining && timeRemaining <= 3) {
 			navigator.vibrate(200);
 			if (timeRemaining <= 1) {
@@ -307,7 +305,9 @@ export default function Page() {
 									size="compact-md"
 								>
 									{currentTimer
-										? currentTimer.endAt.diff(DateTime.now()).toFormat("m:ss")
+										? dayjsLib
+												.duration(currentTimer.endAt.diff(dayjsLib()))
+												.format("m:ss")
 										: "Timer"}
 								</Button>
 								{currentWorkout.exercises.length > 1 ? (
@@ -420,10 +420,8 @@ const StatDisplay = (props: { name: string; value: string }) => {
 };
 
 const offsetDate = (startTime: string) => {
-	const now = DateTime.now();
-	const duration = now.diff(DateTime.fromISO(startTime));
-	const diff = duration.as("seconds");
-	return diff;
+	const now = dayjsLib();
+	return now.diff(dayjsLib(startTime), "seconds");
 };
 
 const DurationTimer = ({ startTime }: { startTime: string }) => {
@@ -441,7 +439,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 	return (
 		<StatDisplay
 			name="Duration"
-			value={Duration.fromObject({ seconds }).toFormat(format)}
+			value={dayjsLib.duration(seconds * 1000).format(format)}
 		/>
 	);
 };
@@ -762,8 +760,7 @@ const ExerciseDisplay = (props: {
 										color="violet"
 										bottom={-6}
 										value={
-											(currentTimer.endAt.diff(DateTime.now()).as("seconds") *
-												100) /
+											(currentTimer.endAt.diff(dayjsLib(), "seconds") * 100) /
 											currentTimer.totalTime
 										}
 										size="xs"
@@ -1095,7 +1092,7 @@ const ExerciseDisplay = (props: {
 															].confirmed = newConfirmed;
 															draft.exercises[props.exerciseIdx].sets[
 																idx
-															].confirmedAt = DateTime.now().toISO();
+															].confirmedAt = dayjsLib().toISOString();
 														}),
 													);
 												}}
@@ -1171,8 +1168,7 @@ const TimerDrawer = (props: {
 							sections={[
 								{
 									value:
-										(currentTimer.endAt.diff(DateTime.now()).as("seconds") *
-											100) /
+										(currentTimer.endAt.diff(dayjsLib(), "seconds") * 100) /
 										currentTimer.totalTime,
 									color: "orange",
 								},
@@ -1180,12 +1176,14 @@ const TimerDrawer = (props: {
 							label={
 								<>
 									<Text ta="center" fz={64}>
-										{currentTimer.endAt.diff(DateTime.now()).toFormat("m:ss")}
+										{dayjsLib
+											.duration(currentTimer.endAt.diff(dayjsLib()))
+											.format("m:ss")}
 									</Text>
 									<Text ta="center" c="dimmed" fz="lg" mt="-md">
-										{Duration.fromObject({
-											seconds: currentTimer.totalTime,
-										}).toFormat("m:ss")}
+										{dayjsLib
+											.duration(currentTimer.totalTime * 1000)
+											.format("m:ss")}
 									</Text>
 								</>
 							}
@@ -1197,7 +1195,7 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = draft.endAt.minus({ seconds: 30 });
+												draft.endAt = draft.endAt.subtract(30, "seconds");
 												draft.totalTime -= 30;
 											}
 										}),
@@ -1205,9 +1203,7 @@ const TimerDrawer = (props: {
 								}}
 								size="compact-lg"
 								variant="outline"
-								disabled={
-									currentTimer.endAt.diff(DateTime.now()).as("seconds") <= 30
-								}
+								disabled={currentTimer.endAt.diff(dayjsLib(), "seconds") <= 30}
 							>
 								-30 sec
 							</Button>
@@ -1217,7 +1213,7 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = draft.endAt.plus({ seconds: 30 });
+												draft.endAt = draft.endAt.add(30, "seconds");
 												draft.totalTime += 30;
 											}
 										}),

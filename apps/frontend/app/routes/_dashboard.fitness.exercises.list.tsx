@@ -49,12 +49,12 @@ import {
 } from "@tabler/icons-react";
 import { createDraft, finishDraft } from "immer";
 import { useAtom } from "jotai";
-import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjsLib } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getUserDetails,
@@ -351,9 +351,9 @@ export default function Page() {
 														{exercise.lastUpdatedOn ? (
 															<Text size="xs" c="dimmed">
 																{exercise.muscle ? "," : undefined}{" "}
-																{DateTime.fromISO(
-																	exercise.lastUpdatedOn,
-																).toFormat("d LLL")}
+																{dayjsLib(exercise.lastUpdatedOn).format(
+																	"D MMM",
+																)}
 															</Text>
 														) : undefined}
 													</Flex>

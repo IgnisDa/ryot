@@ -5,9 +5,9 @@ import {
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
+import { Dayjs } from "dayjs";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
-import type { DateTime } from "luxon";
 import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/generals";
 
 export type ExerciseSetStats = {
@@ -175,7 +175,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 
 type Timer = {
 	totalTime: number;
-	endAt: DateTime;
+	endAt: Dayjs;
 	triggeredByIdx?: { exercise: number; set: number };
 };
 

@@ -41,13 +41,12 @@ import {
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
-import { DateTime } from "luxon";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getLot, getMetadataIcon } from "~/lib/generals";
+import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import {
@@ -161,9 +160,9 @@ export default function Index() {
 								<Title>Summary</Title>
 								<Text size="xs" mt={-15}>
 									Calculated{" "}
-									{DateTime.fromISO(
+									{dayjsLib(
 										loaderData.latestUserSummary.calculatedOn,
-									).toRelative()}
+									).fromNow()}
 								</Text>
 								<SimpleGrid
 									cols={{ base: 1, sm: 2, md: 3 }}
@@ -466,12 +465,9 @@ export default function Index() {
 	);
 }
 
-const today = new Date();
-today.setHours(0, 0, 0, 0);
-
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
-	const diff = DateTime.fromISO(um.date).diff(DateTime.fromJSDate(today));
-	const numDaysLeft = parseInt(diff.as("days").toFixed(0));
+	const today = dayjsLib().startOf("day");
+	const numDaysLeft = dayjsLib(um.date).diff(today, "day");
 	const loaderData = useLoaderData<typeof loader>();
 
 	return (

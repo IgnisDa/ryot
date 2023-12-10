@@ -19,10 +19,10 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
-import { DateTime } from "luxon";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjsLib } from "~/lib/generals";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
@@ -30,7 +30,7 @@ const searchParamsSchema = z.object({
 	date: z
 		.string()
 		.default(() => new Date().toISOString())
-		.transform((v) => DateTime.fromISO(v)),
+		.transform((v) => dayjsLib(v)),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -41,7 +41,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		getCoreDetails(),
 		gqlClient.request(
 			UserCalendarEventsDocument,
-			{ input: { month: query.date.month, year: query.date.year } },
+			{ input: { month: query.date.month(), year: query.date.year() } },
 			await getAuthorizationHeader(request),
 		),
 	]);
@@ -59,21 +59,21 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const [_, { setP }] = useSearchParam();
 	const loaderData = useLoaderData<typeof loader>();
-	const date = DateTime.fromISO(loaderData.query.date || "");
+	const date = dayjsLib(loaderData.query.date);
 
 	return (
 		<Container size="xs">
 			<Stack>
 				<Group justify="space-between">
 					<Title order={3} td="underline">
-						{date.toFormat("LLLL, yyyy")}
+						{date.format("MMMM, YYYY")}
 					</Title>
 					<Button.Group>
 						<ActionIcon
 							variant="outline"
 							onClick={() => {
-								const newMonth = date.minus({ month: 1 });
-								setP("date", newMonth.toISO());
+								const newMonth = date.subtract(1, "month");
+								setP("date", newMonth.toISOString());
 							}}
 						>
 							<IconChevronLeft />
@@ -82,8 +82,8 @@ export default function Page() {
 							variant="outline"
 							ml="xs"
 							onClick={() => {
-								const newMonth = date.plus({ month: 1 });
-								setP("date", newMonth.toISO());
+								const newMonth = date.add(1, "month");
+								setP("date", newMonth.toISOString());
 							}}
 						>
 							<IconChevronRight />
@@ -113,7 +113,7 @@ export default function Page() {
 const CalendarEvent = (props: {
 	day: UserCalendarEventsQuery["userCalendarEvents"][number];
 }) => {
-	const date = DateTime.fromISO(props.day.date);
+	const date = dayjsLib(props.day.date);
 
 	return (
 		<Card
@@ -125,8 +125,8 @@ const CalendarEvent = (props: {
 		>
 			<Card.Section withBorder p="sm">
 				<Group justify="space-between">
-					<Text>{date.toFormat("d LLLL")}</Text>
-					<Text>{date.toFormat("cccc")}</Text>
+					<Text>{date.format("D MMMM")}</Text>
+					<Text>{date.format("dddd")}</Text>
 				</Group>
 			</Card.Section>
 			{props.day.events.map((evt) => (

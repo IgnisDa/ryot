@@ -14,8 +14,8 @@ import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { ImportReportsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
-import { DateTime } from "luxon";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjsLib } from "~/lib/generals";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ importReports }] = await Promise.all([
@@ -68,10 +68,10 @@ export default function Page() {
 												: undefined
 										}
 									>
-										{changeCase(report.source)} on{" "}
-										{DateTime.fromISO(report.startedOn).toLocaleString(
-											DateTime.DATETIME_SHORT,
-										)}
+										{changeCase(report.source)}{" "}
+										<Text size="xs" span c="dimmed">
+											({dayjsLib(report.startedOn).fromNow()})
+										</Text>
 									</Indicator>
 								</Accordion.Control>
 								<Accordion.Panel>

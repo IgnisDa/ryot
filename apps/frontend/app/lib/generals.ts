@@ -17,8 +17,16 @@ import {
 	IconHeadphones,
 	IconMicrophone,
 } from "@tabler/icons-react";
+import dayjs from "dayjs";
+import duration from "dayjs/plugin/duration";
+import localizedFormat from "dayjs/plugin/localizedFormat";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { GraphQLClient } from "graphql-request";
 import { match } from "ts-pattern";
+
+dayjs.extend(relativeTime);
+dayjs.extend(duration);
+dayjs.extend(localizedFormat);
 
 export const COOKIES_KEYS = {
 	auth: "0",
@@ -263,3 +271,5 @@ export const serializeLocalStorage = (value: string | undefined) => {
 	if (typeof value === "undefined") return "__undefined";
 	return value;
 };
+
+export { dayjs as dayjsLib };

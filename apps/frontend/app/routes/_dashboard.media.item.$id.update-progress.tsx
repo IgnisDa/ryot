@@ -25,14 +25,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconAlertCircle } from "@tabler/icons-react";
-import { DateTime } from "luxon";
 import { useState } from "react";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { Verb, getVerb } from "~/lib/generals";
+import { Verb, dayjsLib, getVerb } from "~/lib/generals";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	ShowAndPodcastSchema,
@@ -331,7 +330,7 @@ export default function Page() {
 						variant="outline"
 						type="submit"
 						name="date"
-						value={DateTime.now().toISODate() || ""}
+						value={dayjsLib().toISOString()}
 					>
 						Now
 					</Button>

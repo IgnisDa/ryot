@@ -49,14 +49,13 @@ import {
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
 import { useAtom } from "jotai";
-import { DateTime } from "luxon";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getSetColor } from "~/lib/generals";
+import { dayjsLib, getSetColor } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
@@ -239,9 +238,7 @@ export default function Page() {
 							Done on{" "}
 						</Text>
 						<Text span>
-							{DateTime.fromISO(
-								loaderData.workoutDetails.startTime,
-							).toLocaleString(DateTime.DATETIME_MED)}
+							{dayjsLib(loaderData.workoutDetails.startTime).format("LLL")}
 						</Text>
 						<Group mt="xs" gap="lg">
 							<DisplayStat

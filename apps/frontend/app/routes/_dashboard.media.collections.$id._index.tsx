@@ -38,7 +38,6 @@ import {
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
-import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
@@ -49,6 +48,7 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjsLib } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getUserDetails,
@@ -151,7 +151,7 @@ export default function Page() {
 					<Text size="sm">
 						{loaderData.contents.details.total} items, created by{" "}
 						{loaderData.info.user.name}{" "}
-						{DateTime.fromISO(loaderData.info.details.createdOn).toRelative()}
+						{dayjsLib(loaderData.info.details.createdOn).fromNow()}
 					</Text>
 				</Box>
 				<Text>{loaderData.info.details.description}</Text>

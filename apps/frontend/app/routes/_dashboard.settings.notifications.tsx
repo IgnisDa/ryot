@@ -33,13 +33,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconTrash } from "@tabler/icons-react";
-import dayjs from "dayjs";
 import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjsLib } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
@@ -143,9 +143,7 @@ export default function Page() {
 									<Text size="xs" lineClamp={1}>
 										{not.description}
 									</Text>
-									<Text size="xs">
-										{dayjs(not.timestamp).fromNow()}
-									</Text>
+									<Text size="xs">{dayjsLib(not.timestamp).fromNow()}</Text>
 								</Box>
 								<Group>
 									<Tooltip label="Delete">

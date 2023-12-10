@@ -44,7 +44,7 @@ import {
 	MediaScrollArea,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { dayjs, getSetColor } from "~/lib/generals";
+import { dayjsLib, getSetColor } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
@@ -174,7 +174,7 @@ export default function Page() {
 								{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
 									<DisplayData
 										name="Last done on"
-										data={dayjs(
+										data={dayjsLib(
 											loaderData.userExerciseDetails.details.lastUpdatedOn,
 										).format("ll")}
 										noCasing
@@ -228,7 +228,7 @@ export default function Page() {
 											{h.workoutName}
 										</Anchor>
 										<Text c="dimmed" fz="sm" mb="xs">
-											{dayjs(h.workoutTime).format("LLLL")}
+											{dayjsLib(h.workoutTime).format("LLLL")}
 										</Text>
 										{h.sets.map((s, idx) => (
 											<Flex key={`${idx}`} align="center">

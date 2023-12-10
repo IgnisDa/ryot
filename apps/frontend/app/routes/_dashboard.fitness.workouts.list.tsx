@@ -28,13 +28,13 @@ import {
 	IconWeight,
 	IconX,
 } from "@tabler/icons-react";
-import { DateTime, Duration } from "luxon";
 import { ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjsLib } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
@@ -118,25 +118,18 @@ export default function Page() {
 													{workout.name}
 												</Text>
 												<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-													{DateTime.fromISO(workout.startTime).toLocaleString({
-														month: "long",
-														year: "numeric",
-														day: "numeric",
-													})}
+													{dayjsLib(workout.startTime).format("LL")}
 												</Text>
 											</Group>
 											<Group mt="xs" gap="lg">
 												<DisplayStat
 													icon={<IconClock size={16} />}
-													data={((dur: number) => {
-														let format = "";
-														if (dur > 3600000) format += "h'h', ";
-														format += "m'm'";
-														return Duration.fromMillis(dur).toFormat(format);
-													})(
-														new Date(workout.endTime).getTime() -
-															new Date(workout.startTime).getTime(),
-													)}
+													data={dayjsLib
+														.duration(
+															new Date(workout.endTime).getTime() -
+																new Date(workout.startTime).getTime(),
+														)
+														.humanize()}
 												/>
 												<DisplayStat
 													icon={<IconWeight size={16} />}

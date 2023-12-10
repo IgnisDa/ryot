@@ -33,12 +33,12 @@ import {
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCopy, IconTrash } from "@tabler/icons-react";
-import { DateTime } from "luxon";
 import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { dayjsLib } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
@@ -145,9 +145,7 @@ export default function Page() {
 							<Flex align="center" justify="space-between">
 								<Box>
 									<Text size="xs">{i.description}</Text>
-									<Text size="xs">
-										{DateTime.fromISO(i.timestamp).toRelative()}
-									</Text>
+									<Text size="xs">{dayjsLib(i.timestamp).fromNow()}</Text>
 								</Box>
 								<Group>
 									{i.slug ? (

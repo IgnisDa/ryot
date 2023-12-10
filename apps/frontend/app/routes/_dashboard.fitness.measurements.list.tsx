@@ -40,7 +40,6 @@ import {
 } from "@tabler/icons-react";
 import get from "lodash/get";
 import set from "lodash/set";
-import { DateTime } from "luxon";
 import { DataTable } from "mantine-datatable";
 import {
 	CartesianGrid,
@@ -56,7 +55,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { LOCAL_STORAGE_KEYS } from "~/lib/generals";
+import { LOCAL_STORAGE_KEYS, dayjsLib } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -78,19 +77,24 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const now = DateTime.now();
+	const now = dayjsLib();
 	const [startTime, endTime] = match(query.timeSpan)
-		.with(TimeSpan.Last7Days, () => [now, now.minus({ days: 7 })])
-		.with(TimeSpan.Last30Days, () => [now, now.minus({ days: 30 })])
-		.with(TimeSpan.Last90Days, () => [now, now.minus({ days: 90 })])
-		.with(TimeSpan.Last365Days, () => [now, now.minus({ days: 365 })])
+		.with(TimeSpan.Last7Days, () => [now, now.subtract(7, "days")])
+		.with(TimeSpan.Last30Days, () => [now, now.subtract(30, "days")])
+		.with(TimeSpan.Last90Days, () => [now, now.subtract(90, "days")])
+		.with(TimeSpan.Last365Days, () => [now, now.subtract(365, "days")])
 		.with(TimeSpan.AllTime, () => [null, null])
 		.exhaustive();
 	const [userPreferences, { userMeasurementsList }] = await Promise.all([
 		getUserPreferences(request),
 		gqlClient.request(
 			UserMeasurementsListDocument,
-			{ input: { startTime: startTime?.toISO(), endTime: endTime?.toISO() } },
+			{
+				input: {
+					startTime: startTime?.toISOString(),
+					endTime: endTime?.toISOString(),
+				},
+			},
 			await getAuthorizationHeader(request),
 		),
 	]);
@@ -260,11 +264,7 @@ export default function Page() {
 										margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
 									>
 										<CartesianGrid strokeDasharray="3 3" />
-										<XAxis
-											dataKey="timestamp"
-											tickFormatter={dateFormatter}
-											hide
-										/>
+										<XAxis dataKey="timestamp" tickFormatter={tickFormatter} />
 										<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
 										<Tooltip />
 										{selectedStats.map((s) => (
@@ -297,10 +297,7 @@ export default function Page() {
 								{
 									accessor: "timestamp",
 									width: 200,
-									render: ({ timestamp }) =>
-										DateTime.fromISO(timestamp).toLocaleString(
-											DateTime.DATETIME_SHORT,
-										),
+									render: ({ timestamp }) => dayjsLib(timestamp).format("lll"),
 								},
 								...([
 									...Object.entries(
@@ -361,6 +358,4 @@ export default function Page() {
 	);
 }
 
-const dateFormatter = (date: Date) => {
-	return DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_SHORT);
-};
+const tickFormatter = (date: Date) => dayjsLib(date).format("L");

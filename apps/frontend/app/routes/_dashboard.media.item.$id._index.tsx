@@ -76,7 +76,6 @@ import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
 } from "humanize-duration-ts";
-import { DateTime } from "luxon";
 import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -92,7 +91,7 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { Verb, getVerb } from "~/lib/generals";
+import { Verb, dayjsLib, getVerb } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getUserDetails,
@@ -410,9 +409,7 @@ export default function Page() {
 					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 						{[
 							loaderData.mediaMainDetails.publishDate
-								? DateTime.fromISO(
-										loaderData.mediaMainDetails.publishDate,
-								  ).toLocaleString(DateTime.DATE_FULL)
+								? dayjsLib(loaderData.mediaMainDetails.publishDate).format("LL")
 								: loaderData.mediaMainDetails.publishYear,
 							loaderData.mediaMainDetails.productionStatus,
 							loaderData.mediaAdditionalDetails.bookSpecifics?.pages &&
@@ -812,7 +809,7 @@ export default function Page() {
 														<input
 															hidden
 															name="date"
-															defaultValue={DateTime.now().toISODate() || ""}
+															defaultValue={dayjsLib().toISOString()}
 														/>
 														<Menu.Item
 															type="submit"
@@ -1098,7 +1095,7 @@ export default function Page() {
 														<Text size="sm">Started:</Text>
 														<Text size="sm" fw="bold">
 															{h.startedOn
-																? DateTime.fromISO(h.startedOn).toLocaleString()
+																? dayjsLib(h.startedOn).format("L")
 																: "N/A"}
 														</Text>
 													</Flex>
@@ -1106,9 +1103,7 @@ export default function Page() {
 														<Text size="sm">Ended:</Text>
 														<Text size="sm" fw="bold">
 															{h.finishedOn
-																? DateTime.fromISO(
-																		h.finishedOn,
-																  ).toLocaleString()
+																? dayjsLib(h.finishedOn).format("L")
 																: "N/A"}
 														</Text>
 													</Flex>
@@ -1117,9 +1112,7 @@ export default function Page() {
 													<Flex gap="xs">
 														<Text size="sm">Updated:</Text>
 														<Text size="sm" fw="bold">
-															{DateTime.fromISO(
-																h.lastUpdatedOn,
-															).toLocaleString()}
+															{dayjsLib(h.lastUpdatedOn).format("L")}
 														</Text>
 													</Flex>
 													<Form action="?intent=deleteSeenItem" method="post">
@@ -1431,11 +1424,7 @@ const ProgressModal = (props: {
 			<Form action="?intent=progressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="progress" defaultValue={value} />
-				<input
-					hidden
-					name="date"
-					defaultValue={DateTime.now().toISODate() || ""}
-				/>
+				<input hidden name="date" defaultValue={dayjsLib().toISOString()} />
 				<Stack>
 					<Title order={3}>Set progress</Title>
 					<Group>
@@ -1670,9 +1659,7 @@ const AccordionLabel = (props: {
 }) => {
 	const display = [
 		props.runtime ? humanizer.humanize(props.runtime * 1000 * 60) : undefined,
-		props.publishDate
-			? DateTime.fromISO(props.publishDate).toLocaleString(DateTime.DATE_MED)
-			: undefined,
+		props.publishDate ? dayjsLib(props.publishDate).format("ll") : undefined,
 		props.numEpisodes ? `${props.numEpisodes} episodes` : undefined,
 	]
 		.filter(Boolean)
