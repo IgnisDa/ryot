@@ -6818,15 +6818,8 @@ impl MiscellaneousService {
             ))
             .all(&self.db)
             .await?;
-        let url = match event.entity_lot {
-            EntityLot::Media => format!("media/item/{}", event.obj_id),
-            EntityLot::Person => format!("media/people/{}", event.obj_id),
-            EntityLot::MediaGroup => format!("media/groups/{}", event.obj_id),
-            EntityLot::Exercise => format!("fitness/exercises/{}", event.obj_id),
-            EntityLot::Collection => format!("collections/{}", event.obj_id),
-        };
-        let url = format!("{}/{}", self.config.frontend.url, url);
         for user in users {
+            let url = self.get_frontend_url(event.obj_id, event.entity_lot);
             self.send_notifications_to_user_platforms(
                 user.id,
                 &format!(
@@ -6837,6 +6830,17 @@ impl MiscellaneousService {
             .await?;
         }
         Ok(())
+    }
+
+    fn get_frontend_url(&self, id: i32, entity_lot: EntityLot) -> String {
+        let url = match entity_lot {
+            EntityLot::Media => format!("media/item/{}", id),
+            EntityLot::Person => format!("media/people/{}", id),
+            EntityLot::MediaGroup => format!("media/groups/{}", id),
+            EntityLot::Exercise => format!("fitness/exercises/{}", id),
+            EntityLot::Collection => format!("collections/{}", id),
+        };
+        format!("{}/{}", self.config.frontend.url, url)
     }
 }
 
