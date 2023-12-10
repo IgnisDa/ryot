@@ -362,8 +362,8 @@ const Page: NextPageWithLayout = () => {
 						<Tabs.Panel value="notifications" mt="md">
 							<Stack>
 								<Text>
-									The following applies to media in your Watchlist or the ones
-									you have monitored explicitly.
+									The notifications you want to receive in your configured
+									providers.
 								</Text>
 								<SimpleGrid cols={2}>
 									{Object.entries(userPreferences.data.notifications).map(
@@ -397,6 +397,10 @@ const Page: NextPageWithLayout = () => {
 														"numberOfChaptersOrEpisodesChanged",
 														() =>
 															"Number of chapters/episodes changes for manga/anime",
+													)
+													.with(
+														"newReviewPosted",
+														() => "A new public review is posted",
 													)
 													.otherwise(() => undefined)}
 												checked={isEnabled}

@@ -90,7 +90,7 @@ use crate::{
             MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser,
+            ProgressUpdateResultUnion, ReviewCommentUser, ReviewPostedEvent,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
             UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
@@ -3921,6 +3921,7 @@ impl MiscellaneousService {
                     }
                     EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
                     EntityLot::Exercise => collection_to_entity::Column::ExerciseId.is_not_null(),
+                    EntityLot::Collection => unreachable!(),
                 };
                 query.filter(f)
             })
@@ -4067,7 +4068,6 @@ impl MiscellaneousService {
         if input.rating.is_none() && input.text.is_none() {
             return Err(Error::new("At-least one of rating or review is required."));
         }
-
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
@@ -4098,10 +4098,60 @@ impl MiscellaneousService {
         if let Some(d) = input.date {
             review_obj.posted_on = ActiveValue::Set(d);
         }
-        let insert = review_obj.save(&self.db).await.unwrap();
-        Ok(IdObject {
-            id: insert.id.unwrap(),
-        })
+        let insert = review_obj.insert(&self.db).await.unwrap();
+        if insert.visibility == Visibility::Public {
+            let (obj_id, obj_title, entity_lot) = if let Some(mi) = insert.metadata_id {
+                (
+                    mi,
+                    self.generic_metadata(mi).await?.model.title,
+                    EntityLot::Media,
+                )
+            } else if let Some(mgi) = insert.metadata_group_id {
+                (
+                    mgi,
+                    self.metadata_group_details(mgi).await?.details.title,
+                    EntityLot::MediaGroup,
+                )
+            } else if let Some(pi) = insert.person_id {
+                (
+                    pi,
+                    self.person_details(pi).await?.details.name,
+                    EntityLot::Person,
+                )
+            } else if let Some(ci) = insert.collection_id {
+                (
+                    ci,
+                    self.collection_contents(
+                        Some(user_id),
+                        CollectionContentsInput {
+                            collection_id: ci,
+                            filter: None,
+                            search: None,
+                            take: None,
+                            sort: None,
+                        },
+                    )
+                    .await?
+                    .details
+                    .name,
+                    EntityLot::Collection,
+                )
+            } else {
+                unreachable!()
+            };
+            let user = user_by_id(&self.db, insert.user_id).await?;
+            self.perform_application_job
+                .clone()
+                .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                    obj_id,
+                    obj_title,
+                    entity_lot,
+                    username: user.name,
+                    review_id: insert.id,
+                }))
+                .await?;
+        }
+        Ok(IdObject { id: insert.id })
     }
 
     pub async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
@@ -4204,6 +4254,7 @@ impl MiscellaneousService {
             EntityLot::Person => collection_to_entity::Column::PersonId,
             EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
             EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+            EntityLot::Collection => unreachable!(),
         };
         CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::CollectionId.eq(collect.id))
@@ -5040,6 +5091,9 @@ impl MiscellaneousService {
                         }
                         "status_changed" => {
                             preferences.notifications.status_changed = value_bool.unwrap()
+                        }
+                        "new_review_posted" => {
+                            preferences.notifications.new_review_posted = value_bool.unwrap()
                         }
                         "release_date_changed" => {
                             preferences.notifications.release_date_changed = value_bool.unwrap()
@@ -6726,6 +6780,27 @@ impl MiscellaneousService {
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.update(&self.db).await.ok();
         Ok(provider_person.related)
+    }
+
+    pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
+        let users = User::find()
+            .filter(Expr::cust(
+                "(preferences -> 'notifications' -> 'new_review_posted') = 'true'::jsonb",
+            ))
+            .all(&self.db)
+            .await?;
+        for user in users {
+            // TODO: Add an env variable `frontend.url` and use the `obj_id` to send the URL as well.
+            self.send_notifications_to_user_platforms(
+                user.id,
+                &format!(
+                    "New review posted for {} ({}) by {}.",
+                    event.obj_title, event.entity_lot, event.username
+                ),
+            )
+            .await?;
+        }
+        Ok(())
     }
 }
 

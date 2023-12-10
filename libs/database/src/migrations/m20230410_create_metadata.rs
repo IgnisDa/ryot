@@ -168,15 +168,15 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone(),
                     )
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
-                    .col(ColumnDef::new(Metadata::ProviderRating).decimal().null())
+                    .col(ColumnDef::new(Metadata::ProviderRating).decimal())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
-                    .col(ColumnDef::new(Metadata::Images).json())
-                    .col(ColumnDef::new(Metadata::Videos).json())
+                    .col(ColumnDef::new(Metadata::Images).json_binary())
+                    .col(ColumnDef::new(Metadata::Videos).json_binary())
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean().default(false))
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
-                    .col(ColumnDef::new(Metadata::Specifics).json().not_null())
-                    .col(ColumnDef::new(Metadata::FreeCreators).json())
+                    .col(ColumnDef::new(Metadata::Specifics).json_binary().not_null())
+                    .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
                     .to_owned(),
             )
             .await?;

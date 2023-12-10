@@ -212,6 +212,7 @@ pub async fn entity_in_collections(
         EntityLot::Person => collection_to_entity::Column::PersonId,
         EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+        EntityLot::Collection => unreachable!(),
     };
     let mtc = CollectionToEntity::find()
         .filter(
@@ -245,6 +246,7 @@ pub async fn add_entity_to_collection(
         EntityLot::Person => collection_to_entity::Column::PersonId,
         EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
         EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
+        EntityLot::Collection => unreachable!(),
     };
     let collection = Collection::find()
         .filter(collection::Column::UserId.eq(user_id.to_owned()))
@@ -291,6 +293,7 @@ pub async fn add_entity_to_collection(
             EntityLot::Exercise => {
                 created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
             }
+            EntityLot::Collection => unreachable!(),
         };
         Ok(created_collection.insert(db).await.is_ok())
     }

@@ -54,18 +54,14 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
                     .col(ColumnDef::new(UserToEntity::MetadataMonitored).boolean())
                     .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
-                    .col(
-                        ColumnDef::new(UserToEntity::MetadataOwnership)
-                            .json()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(UserToEntity::MetadataOwnership).json_binary())
                     .col(
                         ColumnDef::new(UserToEntity::NumTimesInteracted)
                             .integer()
                             .not_null()
                             .default(1),
                     )
-                    .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json())
+                    .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")
