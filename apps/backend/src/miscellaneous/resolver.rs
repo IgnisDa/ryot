@@ -5092,6 +5092,9 @@ impl MiscellaneousService {
                         "status_changed" => {
                             preferences.notifications.status_changed = value_bool.unwrap()
                         }
+                        "new_review_posted" => {
+                            preferences.notifications.new_review_posted = value_bool.unwrap()
+                        }
                         "release_date_changed" => {
                             preferences.notifications.release_date_changed = value_bool.unwrap()
                         }
