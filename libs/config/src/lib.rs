@@ -246,6 +246,8 @@ pub struct FileStorageConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
+    #[setting(default = "https://ryot.fly.dev")]
+    pub url: String,
     /// The height of the right section of an item's details page in pixels.
     #[setting(default = 300)]
     pub item_details_height: u32,

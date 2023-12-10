@@ -101,6 +101,8 @@ export interface FrontendConfig {
 	 * @default 20
 	 */
 	page_size: number;
+	/** @default 'https://ryot.fly.dev' */
+	url: string;
 }
 
 export interface IntegrationConfig {
