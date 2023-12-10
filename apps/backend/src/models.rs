@@ -22,6 +22,7 @@ use sea_orm::{
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::Display;
 
 use crate::{
     entities::{
@@ -42,7 +43,7 @@ pub enum BackgroundJob {
     RecalculateCalendarEvents,
 }
 
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
 pub enum EntityLot {
     #[default]
     Media,

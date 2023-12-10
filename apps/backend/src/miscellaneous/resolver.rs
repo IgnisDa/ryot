@@ -6790,11 +6790,12 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         for user in users {
+            // TODO: Add an env variable `frontend.url` and use the `obj_id` to send the URL as well.
             self.send_notifications_to_user_platforms(
                 user.id,
                 &format!(
-                    "New review posted for {:?} by {}.",
-                    event.obj_title, event.username
+                    "New review posted for {:?} ({}) by {}.",
+                    event.obj_title, event.entity_lot, event.username
                 ),
             )
             .await?;
