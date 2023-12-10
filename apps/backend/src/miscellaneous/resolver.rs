@@ -85,7 +85,7 @@ use crate::{
             MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewCommentUser, ReviewPostedEvent,
+            ProgressUpdateResultUnion, PublicCollectionItem, ReviewCommentUser, ReviewPostedEvent,
             SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
             UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
@@ -735,7 +735,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
-    ) -> Result<SearchResults<IdAndNamedObject>> {
+    ) -> Result<SearchResults<PublicCollectionItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.public_collections_list(input).await
     }
@@ -3826,7 +3826,7 @@ impl MiscellaneousService {
     async fn public_collections_list(
         &self,
         input: SearchInput,
-    ) -> Result<SearchResults<IdAndNamedObject>> {
+    ) -> Result<SearchResults<PublicCollectionItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let paginator = Collection::find()
             .filter(collection::Column::Visibility.eq(Visibility::Public))
@@ -3848,9 +3848,10 @@ impl MiscellaneousService {
             number_of_pages,
         } = paginator.num_items_and_pages().await?;
         for collection in paginator.fetch_page(page - 1).await? {
-            data.push(IdAndNamedObject {
+            data.push(PublicCollectionItem {
                 id: collection.id,
                 name: collection.name,
+                username: "".to_string(),
             });
         }
         let results = SearchResults {

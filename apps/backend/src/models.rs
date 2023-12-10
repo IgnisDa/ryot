@@ -85,13 +85,16 @@ pub struct SearchDetails {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "PublicCollectionsListResults", params(IdAndNamedObject)))]
 #[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media::MediaSearchItemWithLot)
 ))]
 #[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItemResponse)))]
+#[graphql(concrete(
+    name = "PublicCollectionsListResults",
+    params(media::PublicCollectionItem)
+))]
 #[graphql(concrete(
     name = "MediaCreatorSearchResults",
     params(media::MediaCreatorSearchItem)
@@ -142,6 +145,13 @@ pub struct IdAndNamedObject {
 
 pub mod media {
     use super::*;
+
+    #[derive(Debug, SimpleObject)]
+    pub struct PublicCollectionItem {
+        pub id: i32,
+        pub name: String,
+        pub username: String,
+    }
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MediaSearchItemWithLot {
