@@ -1,9 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
+    fs,
     iter::zip,
+    path::PathBuf,
     str::FromStr,
-    sync::{Arc, OnceLock},
-    time::SystemTime,
+    sync::Arc,
 };
 
 use anyhow::anyhow;
@@ -126,7 +127,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
         get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, TEMP_DIR, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -1420,32 +1421,30 @@ async fn get_service_latest_version() -> Result<String> {
     Ok(tag)
 }
 
-static LATEST_VERSION: OnceLock<(String, SystemTime)> = OnceLock::new();
+static FILE: &str = "core_details.json";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Settings {
+    latest_version: String,
+}
 
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
-        let tag = if let Some((tag, the_time)) = LATEST_VERSION.get() {
-            if the_time.elapsed()?.as_secs() > 60 {
-                let latest_version = get_service_latest_version().await.ok();
-                LATEST_VERSION
-                    .set((
-                        latest_version.clone().unwrap_or_default(),
-                        SystemTime::now(),
-                    ))
-                    .ok();
-                latest_version.unwrap_or_default()
-            } else {
-                tag.clone()
-            }
+        let path = PathBuf::new().join(TEMP_DIR).join(FILE);
+        let settings = if !path.exists() {
+            let tag = get_service_latest_version().await?;
+            let settings = Settings {
+                latest_version: tag,
+            };
+            let data_to_write = serde_json::to_string(&settings);
+            fs::write(path, data_to_write.unwrap()).unwrap();
+            settings
         } else {
-            let tag = get_service_latest_version().await.ok();
-            LATEST_VERSION
-                .set((tag.clone().unwrap_or_default(), SystemTime::now()))
-                .ok();
-            tag.unwrap_or_default()
+            let data = fs::read_to_string(path).unwrap();
+            serde_json::from_str(&data).unwrap()
         };
-        let latest_version =
-            Version::parse(&tag).unwrap_or_else(|_| Version::parse("0.0.0").unwrap());
+        let latest_version = Version::parse(&settings.latest_version)
+            .unwrap_or_else(|_| Version::parse("0.0.0").unwrap());
         let current_version = Version::parse(VERSION).unwrap();
         let upgrade = if latest_version > current_version {
             Some(if latest_version.major > current_version.major {
