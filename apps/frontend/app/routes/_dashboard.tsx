@@ -110,6 +110,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			: undefined,
 	];
 
+	const collectionLinks = [
+		{ label: "Yours", link: $path("/collections/list/yours") },
+		{
+			label: "Public",
+			link: $path("/collections/list/public"),
+		},
+	];
+
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("Cookie") || "",
 	);
@@ -124,6 +132,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		coreDetails,
 		currentColorScheme,
 		settingsLinks,
+		collectionLinks,
 	});
 };
 
@@ -134,11 +143,17 @@ export default function Layout() {
 				media: boolean;
 				fitness: boolean;
 				settings: boolean;
+				collection: boolean;
 		  }
 		| undefined
 	>({
 		key: LOCAL_STORAGE_KEYS.savedOpenedLinkGroups,
-		defaultValue: { fitness: false, media: false, settings: false },
+		defaultValue: {
+			fitness: false,
+			media: false,
+			settings: false,
+			collection: false,
+		},
 		getInitialValueInEffect: true,
 	});
 	const theme = useMantineTheme();
@@ -212,9 +227,15 @@ export default function Layout() {
 					<LinksGroup
 						label="Collections"
 						icon={IconArchive}
-						href={$path("/media/collections/list")}
-						opened={false}
-						setOpened={() => {}}
+						opened={openedLinkGroups?.collection || false}
+						setOpened={(k) => {
+							setOpenedLinkGroups(
+								produce(openedLinkGroups, (draft) => {
+									if (draft) draft.collection = k;
+								}),
+							);
+						}}
+						links={loaderData.collectionLinks}
 					/>
 					<LinksGroup
 						label="Settings"

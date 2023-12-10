@@ -67,7 +67,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-	return [{ title: "Collections | Ryot" }];
+	return [{ title: "Your collections | Ryot" }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -181,7 +181,7 @@ export default function Page() {
 									<Flex align="center" gap="xs">
 										<Anchor
 											component={Link}
-											to={$path("/media/collections/:id", { id: c.id })}
+											to={$path("/collections/:id", { id: c.id })}
 										>
 											<Title order={4}>{c.name}</Title>
 										</Anchor>
@@ -252,7 +252,7 @@ export default function Page() {
 								<Box>
 									<Anchor
 										component={Link}
-										to={$path("/media/collections/:id", { id: c.id })}
+										to={$path("/collections/:id", { id: c.id })}
 									>
 										<Title order={4}>{c.name}</Title>
 									</Anchor>

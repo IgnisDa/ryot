@@ -495,6 +495,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 							.with(EntityLot.Exercise, () =>
 								$path("/fitness/exercises/:id", { id: props.item.identifier }),
 							)
+							.with(EntityLot.Collection, () =>
+								$path("/collections/:id", { id: props.item.identifier }),
+							)
 							.exhaustive()
 			}
 			imageLink={props.item.image}
@@ -766,7 +769,7 @@ export const DisplayCollection = (props: {
 						component={Link}
 						truncate
 						style={{ all: "unset", cursor: "pointer" }}
-						to={$path("/media/collections/:id", {
+						to={$path("/collections/:id", {
 							id: props.col.id,
 						})}
 					>

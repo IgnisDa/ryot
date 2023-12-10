@@ -92,7 +92,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const submission = processSubmission(formData, reviewSchema);
 	const redirectTo = submission.collectionId
-		? $path("/media/collections/:id", { id: submission.collectionId })
+		? $path("/collections/:id", { id: submission.collectionId })
 		: submission.metadataGroupId
 		  ? $path("/media/groups/:id", { id: submission.metadataGroupId })
 		  : submission.metadataId
