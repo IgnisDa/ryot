@@ -53,16 +53,16 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const { userCollectionsList } = await gqlClient.request(
-		UserCollectionsListDocument,
-		{},
-		await getAuthorizationHeader(request),
-	);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const { publicCollectionsList } = await gqlClient.request(
-		PublicCollectionsListDocument,
-		{ input: query },
-	);
+	const [{ userCollectionsList }, { publicCollectionsList }] =
+		await Promise.all([
+			gqlClient.request(
+				UserCollectionsListDocument,
+				{},
+				await getAuthorizationHeader(request),
+			),
+			gqlClient.request(PublicCollectionsListDocument, { input: query }),
+		]);
 	return json({ collections: userCollectionsList, publicCollectionsList });
 };
 
