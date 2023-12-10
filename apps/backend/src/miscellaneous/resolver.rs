@@ -333,7 +333,7 @@ struct CollectionContentsFilter {
     metadata_lot: Option<MetadataLot>,
 }
 
-#[derive(Debug, InputObject,)]
+#[derive(Debug, InputObject)]
 struct CollectionContentsInput {
     collection_id: i32,
     search: Option<SearchInput>,
@@ -4099,26 +4099,42 @@ impl MiscellaneousService {
         }
         let insert = review_obj.insert(&self.db).await.unwrap();
         if insert.visibility == Visibility::Public {
-            let title = if let Some(mi) = insert.metadata_id {
-                self.generic_metadata(mi).await?.model.title
-            } else if let Some(mgi) = insert.metadata_group_id {
-                self.metadata_group_details(mgi).await?.details.title
-            } else if let Some(pi) = insert.person_id {
-                self.person_details(pi).await?.details.name
-            } else if let Some(ci) = insert.collection_id {
-                self.collection_contents(
-                    Some(user_id),
-                    CollectionContentsInput {
-                        collection_id: ci,
-                        filter: None,
-                        search: None,
-                        take: None,
-                        sort: None
-                    },
+            let (obj_id, obj_title, entity_lot) = if let Some(mi) = insert.metadata_id {
+                (
+                    mi,
+                    self.generic_metadata(mi).await?.model.title,
+                    EntityLot::Media,
                 )
-                .await?
-                .details
-                .name
+            } else if let Some(mgi) = insert.metadata_group_id {
+                (
+                    mgi,
+                    self.metadata_group_details(mgi).await?.details.title,
+                    EntityLot::MediaGroup,
+                )
+            } else if let Some(pi) = insert.person_id {
+                (
+                    pi,
+                    self.person_details(pi).await?.details.name,
+                    EntityLot::Person,
+                )
+            } else if let Some(ci) = insert.collection_id {
+                (
+                    ci,
+                    self.collection_contents(
+                        Some(user_id),
+                        CollectionContentsInput {
+                            collection_id: ci,
+                            filter: None,
+                            search: None,
+                            take: None,
+                            sort: None,
+                        },
+                    )
+                    .await?
+                    .details
+                    .name,
+                    EntityLot::Collection,
+                )
             } else {
                 unreachable!()
             };
@@ -4126,7 +4142,9 @@ impl MiscellaneousService {
             self.perform_application_job
                 .clone()
                 .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
-                    obj_title: title,
+                    obj_id,
+                    obj_title,
+                    entity_lot,
                     username: user.name,
                     review_id: insert.id.clone(),
                 }))

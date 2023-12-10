@@ -49,6 +49,7 @@ pub enum EntityLot {
     Person,
     MediaGroup,
     Exercise,
+    Collection,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -1094,9 +1095,11 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ReviewPostedEvent {
+        pub obj_id: i32,
         pub obj_title: String,
         pub username: String,
         pub review_id: i32,
+        pub entity_lot: EntityLot,
     }
 }
 
