@@ -403,6 +403,7 @@ impl ImporterService {
                             rating,
                             text,
                             spoiler,
+                            visibility: review.review.clone().and_then(|r| r.visibility),
                             date: date.flatten(),
                             metadata_id: Some(metadata.id),
                             show_season_number: review.show_season_number,

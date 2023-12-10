@@ -871,6 +871,8 @@ pub mod media {
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportItemReview {
+        /// The visibility set by the user.
+        pub visibility: Option<Visibility>,
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
         /// Whether to mark the review as a spoiler. Defaults to false.

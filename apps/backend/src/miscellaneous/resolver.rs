@@ -6871,6 +6871,7 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
 fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
     ImportOrExportItemRating {
         review: Some(ImportOrExportItemReview {
+            visibility: Some(rev.visibility),
             date: Some(rev.posted_on),
             spoiler: Some(rev.spoiler),
             text: rev.text,

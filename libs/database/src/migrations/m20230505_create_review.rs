@@ -1,4 +1,5 @@
 use async_graphql::Enum;
+use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -28,6 +29,7 @@ pub static COLLECTION_TO_REVIEW_FOREIGN_KEY: &str = "review_to_collection_foreig
     Serialize,
     Enum,
     Default,
+    ConfigEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum Visibility {

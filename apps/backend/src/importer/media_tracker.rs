@@ -310,6 +310,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         date: None,
                         spoiler: Some(false),
                         text: r.review,
+                        visibility: None,
                     })
                 } else {
                     None

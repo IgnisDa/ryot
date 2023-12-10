@@ -126,6 +126,7 @@ pub async fn import(
                             date: None,
                             spoiler: Some(false),
                             text: Some(r),
+                            visibility: None,
                         }),
                         ..Default::default()
                     }],

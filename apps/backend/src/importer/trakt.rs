@@ -135,8 +135,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                             .map(|e| e * dec!(10)),
                         review: Some(ImportOrExportItemReview {
                             spoiler: Some(false),
-                            text: Some("".to_owned()),
+                            text: None,
                             date: item.rated_at,
+                            visibility: None,
                         }),
                         ..Default::default()
                     });

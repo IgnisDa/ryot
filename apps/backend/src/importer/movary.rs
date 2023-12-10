@@ -134,6 +134,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             spoiler: Some(false),
             text: Some(c),
             date: watched_at,
+            visibility: None,
         });
         if let Some(media) = media
             .iter_mut()

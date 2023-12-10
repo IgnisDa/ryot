@@ -60,6 +60,8 @@ export interface ImportOrExportItemReviewComment {
 	user: ReviewCommentUser;
 }
 
+export type Visibility = 'public' | 'private';
+
 /** Review data associated to a rating. */
 export interface ImportOrExportItemReview {
 	/** The date the review was posted. */
@@ -68,6 +70,8 @@ export interface ImportOrExportItemReview {
 	spoiler: boolean | null;
 	/** Actual text for the review. */
 	text: string | null;
+	/** The visibility set by the user. */
+	visibility: Visibility | null;
 }
 
 /** A rating given to an entity. */
