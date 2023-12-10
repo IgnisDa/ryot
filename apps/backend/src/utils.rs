@@ -56,6 +56,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
 );
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
+pub const TEMP_DIR: &str = "tmp";
 
 /// All the services that are used by the app
 pub struct AppServices {
