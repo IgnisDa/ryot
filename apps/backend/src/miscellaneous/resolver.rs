@@ -4138,27 +4138,27 @@ impl MiscellaneousService {
         if let Some(d) = input.date {
             review_obj.posted_on = ActiveValue::Set(d);
         }
-        let insert = review_obj.insert(&self.db).await.unwrap();
-        if insert.visibility == Visibility::Public {
-            let (obj_id, obj_title, entity_lot) = if let Some(mi) = insert.metadata_id {
+        let insert = review_obj.save(&self.db).await.unwrap();
+        if insert.visibility.unwrap() == Visibility::Public {
+            let (obj_id, obj_title, entity_lot) = if let Some(mi) = insert.metadata_id.unwrap() {
                 (
                     mi,
                     self.generic_metadata(mi).await?.model.title,
                     EntityLot::Media,
                 )
-            } else if let Some(mgi) = insert.metadata_group_id {
+            } else if let Some(mgi) = insert.metadata_group_id.unwrap() {
                 (
                     mgi,
                     self.metadata_group_details(mgi).await?.details.title,
                     EntityLot::MediaGroup,
                 )
-            } else if let Some(pi) = insert.person_id {
+            } else if let Some(pi) = insert.person_id.unwrap() {
                 (
                     pi,
                     self.person_details(pi).await?.details.name,
                     EntityLot::Person,
                 )
-            } else if let Some(ci) = insert.collection_id {
+            } else if let Some(ci) = insert.collection_id.unwrap() {
                 (
                     ci,
                     self.collection_contents(
@@ -4179,7 +4179,7 @@ impl MiscellaneousService {
             } else {
                 unreachable!()
             };
-            let user = user_by_id(&self.db, insert.user_id).await?;
+            let user = user_by_id(&self.db, insert.user_id.unwrap()).await?;
             self.perform_application_job
                 .clone()
                 .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
@@ -4187,11 +4187,13 @@ impl MiscellaneousService {
                     obj_title,
                     entity_lot,
                     username: user.name,
-                    review_id: insert.id,
+                    review_id: insert.id.clone().unwrap(),
                 }))
                 .await?;
         }
-        Ok(IdObject { id: insert.id })
+        Ok(IdObject {
+            id: insert.id.unwrap(),
+        })
     }
 
     pub async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
