@@ -289,6 +289,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         group_identifiers: vec![],
         people: vec![],
         s3_images: vec![],
+        original_language: None,
     };
     Ok(data)
 }

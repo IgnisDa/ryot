@@ -298,7 +298,7 @@ impl MediaProvider for MangaUpdatesService {
                 });
             }
         }
-        let data = MediaDetails {
+        Ok(MediaDetails {
             identifier: data.series_id.unwrap().to_string(),
             title: data.title.unwrap(),
             description: data.description,
@@ -339,8 +339,8 @@ impl MediaProvider for MangaUpdatesService {
             is_nsfw: None,
             creators: vec![],
             s3_images: vec![],
-        };
-        Ok(data)
+            original_language: None,
+        })
     }
 
     async fn search(

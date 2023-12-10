@@ -4788,6 +4788,7 @@ impl MiscellaneousService {
             suggestions: vec![],
             group_identifiers: vec![],
             people: vec![],
+            original_language: None,
         };
         let media = self.commit_media_internal(details).await?;
         self.add_entity_to_collection(
