@@ -243,7 +243,6 @@ export default function Page() {
 											</ActionIcon>
 										</Group>
 										<Select
-											clearable
 											data={Object.values(ExerciseSortBy).map((v) => ({
 												label: startCase(snakeCase(v)),
 												value: v,
