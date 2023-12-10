@@ -1,3 +1,4 @@
+use sea_orm::TransactionTrait;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -9,7 +10,8 @@ async fn change_column_from_json_to_jsonb<'a>(
     column: &str,
 ) -> Result<(), DbErr> {
     let db = manager.get_connection();
-    db.execute_unprepared(&format!(
+    let txn = db.begin().await?;
+    txn.execute_unprepared(&format!(
         r#"
 alter table "{table}" add column "{column}_jsonb" jsonb;
 update "{table}" set "{column}_jsonb" = "{column}"::jsonb;
@@ -18,6 +20,7 @@ alter table "{table}" rename column "{column}_jsonb" to "{column}";
 "#,
     ))
     .await?;
+    txn.commit().await?;
     Ok(())
 }
 
