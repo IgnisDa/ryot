@@ -5,9 +5,7 @@ import {
 	Box,
 	Button,
 	Container,
-	Divider,
 	Flex,
-	Group,
 	Input,
 	Modal,
 	SegmentedControl,
@@ -29,7 +27,6 @@ import { Form, Link, useLoaderData, useNavigation } from "@remix-run/react";
 import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
-	PublicCollectionsListDocument,
 	UserCollectionsListDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -39,31 +36,19 @@ import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
-const searchParamsSchema = z.object({
-	page: zx.IntAsString.optional(),
-	query: z.string().optional(),
-});
-
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
-	const [{ userCollectionsList }, { publicCollectionsList }] =
-		await Promise.all([
-			gqlClient.request(
-				UserCollectionsListDocument,
-				{},
-				await getAuthorizationHeader(request),
-			),
-			gqlClient.request(PublicCollectionsListDocument, { input: query }),
-		]);
-	return json({ collections: userCollectionsList, publicCollectionsList });
+	const [{ userCollectionsList }] = await Promise.all([
+		gqlClient.request(
+			UserCollectionsListDocument,
+			{},
+			await getAuthorizationHeader(request),
+		),
+	]);
+	return json({ collections: userCollectionsList });
 };
 
 export const meta: MetaFunction = () => {
@@ -134,7 +119,6 @@ const createOrUpdateSchema = z.object({
 export default function Page() {
 	const transition = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
-	const getMantineColor = useGetMantineColor();
 	const [toUpdateCollection, setToUpdateCollection] = useState<{
 		name: string;
 		id: number;
@@ -233,36 +217,6 @@ export default function Page() {
 							</Flex>
 						))}
 					</SimpleGrid>
-					<Divider mt="xl" />
-					<Flex align="center" gap="xs">
-						<Title>Public collections</Title>
-						<Text c="dimmed">
-							{loaderData.publicCollectionsList.details.total} items
-						</Text>
-					</Flex>
-					<ApplicationGrid>
-						{loaderData.publicCollectionsList.items.map((c) => (
-							<Group key={c.id}>
-								<Box
-									h={11}
-									w={11}
-									style={{ borderRadius: 2 }}
-									bg={getMantineColor(c.name)}
-								/>
-								<Box>
-									<Anchor
-										component={Link}
-										to={$path("/collections/:id", { id: c.id })}
-									>
-										<Title order={4}>{c.name}</Title>
-									</Anchor>
-									<Text c="dimmed" size="xs">
-										by {c.username}
-									</Text>
-								</Box>
-							</Group>
-						))}
-					</ApplicationGrid>
 				</Stack>
 			</Container>
 			<Modal opened={opened} onClose={close} withCloseButton={false} centered>
