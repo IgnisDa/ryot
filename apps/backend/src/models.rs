@@ -803,6 +803,7 @@ pub mod media {
         pub title: String,
         pub source: MetadataSource,
         pub description: Option<String>,
+        pub original_language: Option<String>,
         pub lot: MetadataLot,
         pub production_status: Option<String>,
         pub creators: Vec<MetadataFreeCreator>,

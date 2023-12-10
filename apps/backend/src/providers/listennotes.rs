@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, sync::OnceLock};
+use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -23,16 +23,22 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::{get_base_http_client, TEMP_DIR},
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
-static GENRES: OnceLock<HashMap<i32, String>> = OnceLock::new();
+static FILE: &str = "listennotes.json";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Settings {
+    genres: HashMap<i32, String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
     client: Client,
     page_limit: i32,
+    settings: Settings,
 }
 
 impl MediaProviderLanguages for ListennotesService {
@@ -47,14 +53,18 @@ impl MediaProviderLanguages for ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &config::PodcastConfig, page_limit: i32) -> Self {
-        let client = get_client_config(
+        let (client, settings) = get_client_config(
             env::var("LISTENNOTES_API_URL")
                 .unwrap_or_else(|_| URL.to_owned())
                 .as_str(),
             &config.listennotes.api_token,
         )
         .await;
-        Self { client, page_limit }
+        Self {
+            client,
+            page_limit,
+            settings,
+        }
     }
 }
 
@@ -230,7 +240,7 @@ impl ListennotesService {
             genres: podcast_data
                 .genre_ids
                 .into_iter()
-                .filter_map(|g| GENRES.get().unwrap().get(&g).cloned())
+                .filter_map(|g| self.settings.genres.get(&g).cloned())
                 .unique()
                 .collect(),
             url_images: Vec::from_iter(podcast_data.image.map(|a| MetadataImageForMediaDetails {
@@ -259,13 +269,15 @@ impl ListennotesService {
             people: vec![],
             s3_images: vec![],
             production_status: None,
+            original_language: None,
         })
     }
 }
 
-async fn get_client_config(url: &str, api_token: &str) -> Client {
+async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
     let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
-    if GENRES.get().is_none() {
+    let path = PathBuf::new().join(TEMP_DIR).join(FILE);
+    let settings = if !path.exists() {
         #[derive(Debug, Serialize, Deserialize, Default)]
         struct Genre {
             id: i32,
@@ -281,7 +293,13 @@ async fn get_client_config(url: &str, api_token: &str) -> Client {
         for genre in data.genres {
             genres.insert(genre.id, genre.name);
         }
-        GENRES.set(genres).ok();
+        let settings = Settings { genres };
+        let data_to_write = serde_json::to_string(&settings);
+        fs::write(path, data_to_write.unwrap()).unwrap();
+        settings
+    } else {
+        let data = fs::read_to_string(path).unwrap();
+        serde_json::from_str(&data).unwrap()
     };
-    client
+    (client, settings)
 }

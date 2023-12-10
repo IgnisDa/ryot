@@ -1,16 +1,17 @@
 query MediaMainDetails($metadataId: Int!) {
   mediaDetails(metadataId: $metadataId) {
     title
-    description
-    identifier
     lot
     source
     isNsfw
-    providerRating
+    sourceUrl
+    identifier
+    description
     publishYear
     publishDate
+    providerRating
     productionStatus
-    sourceUrl
+    originalLanguage
     genres {
       id
       name

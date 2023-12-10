@@ -24,6 +24,7 @@ pub struct Model {
     pub is_nsfw: bool,
     pub identifier: String,
     pub description: Option<String>,
+    pub original_language: Option<String>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     #[sea_orm(column_type = "Json")]

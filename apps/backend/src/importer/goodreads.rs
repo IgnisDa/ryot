@@ -135,6 +135,7 @@ pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
                             is_nsfw: None,
                             people: vec![],
                             s3_images: vec![],
+                            original_language: None,
                         }),
                     )),
                     identifier: "".to_string(),

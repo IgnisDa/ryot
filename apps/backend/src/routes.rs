@@ -14,8 +14,11 @@ use rust_embed::RustEmbed;
 use serde_json::json;
 
 use crate::{
-    fitness::resolver::ExerciseService, graphql::GraphqlSchema,
-    miscellaneous::resolver::MiscellaneousService, models::ExportAllResponse, utils::AuthContext,
+    fitness::resolver::ExerciseService,
+    graphql::GraphqlSchema,
+    miscellaneous::resolver::MiscellaneousService,
+    models::ExportAllResponse,
+    utils::{AuthContext, TEMP_DIR},
 };
 
 static INDEX_HTML: &str = "index.html";
@@ -99,7 +102,7 @@ pub async fn upload_file(
             .map(String::from)
             .unwrap_or_else(|| "file.png".to_string());
         let data = file.bytes().await.unwrap();
-        let tmp_dir = PathBuf::new().join("tmp");
+        let tmp_dir = PathBuf::new().join(TEMP_DIR);
         let path = tmp_dir.join(name);
         write(&path, data).unwrap();
         res.push(path.canonicalize().unwrap());

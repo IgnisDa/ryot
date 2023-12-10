@@ -1,9 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
+    fs,
     iter::zip,
+    path::PathBuf,
     str::FromStr,
-    sync::{Arc, OnceLock},
-    time::SystemTime,
+    sync::Arc,
 };
 
 use anyhow::anyhow;
@@ -126,7 +127,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
         get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, USER_AGENT_STR, VERSION,
+        user_by_id, user_id_from_token, AUTHOR, COOKIE_NAME, TEMP_DIR, USER_AGENT_STR, VERSION,
     },
 };
 
@@ -463,6 +464,7 @@ struct GraphqlMediaDetails {
     identifier: String,
     is_nsfw: bool,
     description: Option<String>,
+    original_language: Option<String>,
     provider_rating: Option<Decimal>,
     production_status: Option<String>,
     lot: MetadataLot,
@@ -1420,32 +1422,30 @@ async fn get_service_latest_version() -> Result<String> {
     Ok(tag)
 }
 
-static LATEST_VERSION: OnceLock<(String, SystemTime)> = OnceLock::new();
+static FILE: &str = "core_details.json";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Settings {
+    latest_version: String,
+}
 
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
-        let tag = if let Some((tag, the_time)) = LATEST_VERSION.get() {
-            if the_time.elapsed()?.as_secs() > 60 {
-                let latest_version = get_service_latest_version().await.ok();
-                LATEST_VERSION
-                    .set((
-                        latest_version.clone().unwrap_or_default(),
-                        SystemTime::now(),
-                    ))
-                    .ok();
-                latest_version.unwrap_or_default()
-            } else {
-                tag.clone()
-            }
+        let path = PathBuf::new().join(TEMP_DIR).join(FILE);
+        let settings = if !path.exists() {
+            let tag = get_service_latest_version().await?;
+            let settings = Settings {
+                latest_version: tag,
+            };
+            let data_to_write = serde_json::to_string(&settings);
+            fs::write(path, data_to_write.unwrap()).unwrap();
+            settings
         } else {
-            let tag = get_service_latest_version().await.ok();
-            LATEST_VERSION
-                .set((tag.clone().unwrap_or_default(), SystemTime::now()))
-                .ok();
-            tag.unwrap_or_default()
+            let data = fs::read_to_string(path).unwrap();
+            serde_json::from_str(&data).unwrap()
         };
-        let latest_version =
-            Version::parse(&tag).unwrap_or_else(|_| Version::parse("0.0.0").unwrap());
+        let latest_version = Version::parse(&settings.latest_version)
+            .unwrap_or_else(|_| Version::parse("0.0.0").unwrap());
         let current_version = Version::parse(VERSION).unwrap();
         let upgrade = if latest_version > current_version {
             Some(if latest_version.major > current_version.major {
@@ -1711,6 +1711,7 @@ impl MiscellaneousService {
             publish_year: model.publish_year,
             provider_rating: model.provider_rating,
             production_status: model.production_status,
+            original_language: model.original_language,
             book_specifics: None,
             show_specifics: None,
             movie_specifics: None,
@@ -2775,6 +2776,7 @@ impl MiscellaneousService {
         people: Vec<PartialMetadataPerson>,
         genres: Vec<String>,
         production_status: Option<String>,
+        original_language: Option<String>,
         publish_year: Option<i32>,
         publish_date: Option<NaiveDate>,
         suggestions: Vec<PartialMetadataWithoutId>,
@@ -2959,6 +2961,7 @@ impl MiscellaneousService {
         meta.images = ActiveValue::Set(Some(images));
         meta.videos = ActiveValue::Set(Some(videos));
         meta.production_status = ActiveValue::Set(production_status);
+        meta.original_language = ActiveValue::Set(original_language);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.publish_date = ActiveValue::Set(publish_date);
         meta.free_creators = ActiveValue::Set(if creators.is_empty() {
@@ -3147,8 +3150,9 @@ impl MiscellaneousService {
             videos: ActiveValue::Set(Some(details.videos)),
             identifier: ActiveValue::Set(details.identifier),
             specifics: ActiveValue::Set(details.specifics),
-            production_status: ActiveValue::Set(details.production_status),
             provider_rating: ActiveValue::Set(details.provider_rating),
+            production_status: ActiveValue::Set(details.production_status),
+            original_language: ActiveValue::Set(details.original_language),
             is_nsfw: match details.is_nsfw {
                 None => ActiveValue::NotSet,
                 Some(n) => ActiveValue::Set(n),
@@ -4324,6 +4328,7 @@ impl MiscellaneousService {
                     details.people,
                     details.genres,
                     details.production_status,
+                    details.original_language,
                     details.publish_year,
                     details.publish_date,
                     details.suggestions,
@@ -4789,6 +4794,7 @@ impl MiscellaneousService {
             suggestions: vec![],
             group_identifiers: vec![],
             people: vec![],
+            original_language: None,
         };
         let media = self.commit_media_internal(details).await?;
         self.add_entity_to_collection(

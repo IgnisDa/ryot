@@ -39,6 +39,7 @@ use tower_http::{
 };
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
+use utils::TEMP_DIR;
 
 use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
@@ -327,7 +328,7 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
 }
 
 fn init_tracing() -> Result<WorkerGuard> {
-    let tmp_dir = PathBuf::new().join("tmp");
+    let tmp_dir = PathBuf::new().join(TEMP_DIR);
     create_dir_all(&tmp_dir)?;
     let path = tmp_dir.join(format!("{}.log", PROJECT_NAME));
     let file_appender = tracing_appender::rolling::daily(".", path);

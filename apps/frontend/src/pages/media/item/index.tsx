@@ -749,6 +749,9 @@ const Page: NextPageWithLayout = () => {
 							{mediaDetails.data.productionStatus ? (
 								<Text> • {mediaDetails.data.productionStatus}</Text>
 							) : undefined}
+							{mediaDetails.data.originalLanguage ? (
+								<Text> • {mediaDetails.data.originalLanguage}</Text>
+							) : undefined}
 							{mediaSpecifics.data?.bookSpecifics?.pages ? (
 								<Text> • {mediaSpecifics.data.bookSpecifics.pages} pages</Text>
 							) : undefined}

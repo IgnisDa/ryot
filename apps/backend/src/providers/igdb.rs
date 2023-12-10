@@ -1,11 +1,10 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use database::{MetadataLot, MetadataSource};
 use itertools::Itertools;
-use rs_utils::get_now_timestamp;
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
@@ -27,12 +26,18 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::{get_base_http_client, TEMP_DIR},
 };
 
 static URL: &str = "https://api.igdb.com/v4/";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
 static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
+static FILE: &str = "igdb.json";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Settings {
+    access_token: String,
+}
 
 static GAME_FIELDS: &str = "
 fields
@@ -473,6 +478,7 @@ impl IgdbService {
             creators: vec![],
             s3_images: vec![],
             production_status: None,
+            original_language: None,
         }
     }
 
@@ -481,13 +487,7 @@ impl IgdbService {
     }
 }
 
-#[derive(Deserialize, Debug, Serialize)]
-struct Credentials {
-    access_token: String,
-    expires_at: u128,
-}
-
-async fn get_access_token(config: &config::VideoGameConfig) -> Credentials {
+async fn get_access_token(config: &config::VideoGameConfig) -> String {
     let mut access_res = surf::post(AUTH_URL)
         .query(&json!({
             "client_id": config.twitch.client_id.to_owned(),
@@ -507,37 +507,26 @@ async fn get_access_token(config: &config::VideoGameConfig) -> Credentials {
         .body_json::<AccessResponse>()
         .await
         .unwrap_or_default();
-    let expires_at = get_now_timestamp() + (access.expires_in * 1000);
-    let access_token = format!("{} {}", access.token_type, access.access_token);
-    Credentials {
-        access_token,
-        expires_at,
-    }
+    format!("{} {}", access.token_type, access.access_token)
 }
 
 async fn get_client(config: &config::VideoGameConfig) -> Client {
-    static TOKEN: OnceLock<Credentials> = OnceLock::new();
-    async fn set_and_return_token(config: &config::VideoGameConfig) -> String {
-        let creds = get_access_token(config).await;
-        let tok = creds.access_token.clone();
-        TOKEN.set(creds).ok();
-        tok
-    }
-    let access_token = if let Some(credential_details) = TOKEN.get() {
-        if credential_details.expires_at < get_now_timestamp() {
-            tracing::debug!("Access token has expired, refreshing...");
-            set_and_return_token(config).await
-        } else {
-            credential_details.access_token.clone()
-        }
+    let path = PathBuf::new().join(TEMP_DIR).join(FILE);
+    let settings = if !path.exists() {
+        let tok = get_access_token(config).await;
+        let settings = Settings { access_token: tok };
+        let data_to_write = serde_json::to_string(&settings).unwrap();
+        fs::write(path, data_to_write).unwrap();
+        settings
     } else {
-        set_and_return_token(config).await
+        let data = fs::read_to_string(path).unwrap();
+        serde_json::from_str(&data).unwrap()
     };
     get_base_http_client(
         URL,
         vec![
             ("Client-ID".into(), config.twitch.client_id.to_owned()),
-            (AUTHORIZATION, access_token),
+            (AUTHORIZATION, settings.access_token),
         ],
     )
 }
