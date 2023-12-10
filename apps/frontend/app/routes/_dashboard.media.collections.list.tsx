@@ -242,7 +242,7 @@ export default function Page() {
 					</Flex>
 					<ApplicationGrid>
 						{loaderData.publicCollectionsList.items.map((c) => (
-							<Group>
+							<Group key={c.id}>
 								<Box
 									h={11}
 									w={11}
