@@ -26,6 +26,7 @@ mod m20231105_change_calendar_event_column_type;
 mod m20231106_change_primary_key_exercise;
 mod m20231113_add_media_ownership;
 mod m20231210_change_json_to_jsonb;
+mod m20231211_add_original_language;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -76,6 +77,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231106_change_primary_key_exercise::Migration),
             Box::new(m20231113_add_media_ownership::Migration),
             Box::new(m20231210_change_json_to_jsonb::Migration),
+            Box::new(m20231211_add_original_language::Migration),
         ]
     }
 }
