@@ -28,6 +28,10 @@ import {
 	IconWeight,
 	IconX,
 } from "@tabler/icons-react";
+import {
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+} from "humanize-duration-ts";
 import { ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -37,6 +41,9 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+
+const service = new HumanizeDurationLanguage();
+const humanizer = new HumanizeDuration(service);
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -124,12 +131,11 @@ export default function Page() {
 											<Group mt="xs" gap="lg">
 												<DisplayStat
 													icon={<IconClock size={16} />}
-													data={dayjsLib
-														.duration(
-															new Date(workout.endTime).getTime() -
-																new Date(workout.startTime).getTime(),
-														)
-														.humanize()}
+													data={humanizer.humanize(
+														new Date(workout.endTime).getTime() -
+															new Date(workout.startTime).getTime(),
+														{ round: true, units: ["h", "m"] },
+													)}
 												/>
 												<DisplayStat
 													icon={<IconWeight size={16} />}
