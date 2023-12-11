@@ -113,6 +113,8 @@ pub enum Metadata {
     PublishDate,
     // production status
     ProductionStatus,
+    // the original language
+    OriginalLanguage,
     // all the images for this media item
     Images,
     // all the videos for this media item
@@ -163,6 +165,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Title).string().not_null())
                     .col(ColumnDef::new(Metadata::Description).text())
                     .col(ColumnDef::new(Metadata::ProductionStatus).string())
+                    .col(ColumnDef::new(Metadata::OriginalLanguage).string())
                     .col(
                         ColumnDef::new(Metadata::LastProcessedOnForCalendar)
                             .timestamp_with_time_zone(),
