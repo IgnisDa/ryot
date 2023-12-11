@@ -104,7 +104,16 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
+const searchParamsSchema = z
+	.object({
+		defaultTab: z.string().optional().default("overview"),
+	})
+	.merge(ShowAndPodcastSchema);
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+	const query = zx.parseQuery(request, searchParamsSchema);
 	const id = params.id;
 	invariant(id, "No ID provided");
 	const metadataId = parseInt(id);
@@ -134,6 +143,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 	]);
 	return json({
+		query,
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		coreDetails: {
 			itemDetailsHeight: coreDetails.itemDetailsHeight,
@@ -557,7 +567,7 @@ export default function Page() {
 							ing this ({loaderData.userMediaDetails.inProgress.progress}%)
 						</Alert>
 					) : undefined}
-					<Tabs variant="outline" defaultValue="overview">
+					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="overview" leftSection={<IconInfoCircle />}>
 								Overview
@@ -1151,7 +1161,11 @@ export default function Page() {
 								<MediaScrollArea
 									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
 								>
-									<Accordion chevronPosition="right" variant="contained">
+									<Accordion
+										chevronPosition="right"
+										variant="contained"
+										defaultValue={loaderData.query.showSeasonNumber?.toString()}
+									>
 										{loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
 											(s) => (
 												<Accordion.Item
