@@ -41,7 +41,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		getCoreDetails(),
 		gqlClient.request(
 			UserCalendarEventsDocument,
-			{ input: { month: query.date.month(), year: query.date.year() } },
+			{ input: { month: query.date.month() + 1, year: query.date.year() } },
 			await getAuthorizationHeader(request),
 		),
 	]);
