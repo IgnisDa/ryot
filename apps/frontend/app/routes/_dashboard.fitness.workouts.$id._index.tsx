@@ -293,7 +293,8 @@ export default function Page() {
 												})}
 												fw="bold"
 											>
-												{exercise.id}
+												{exercise.id.slice(0, 40)}
+												{exercise.id.length > 40 ? "..." : undefined}
 											</Anchor>
 											{exercise.restTime ? (
 												<Flex align="center" gap="xs">
