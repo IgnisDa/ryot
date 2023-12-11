@@ -4638,10 +4638,8 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
-        self.perform_application_job
-            .clone()
-            .push(ApplicationJob::UserCreated(user.id))
-            .await?;
+        self.user_created_job(user.id).await?;
+        self.calculate_user_summary(user.id, true).await?;
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
