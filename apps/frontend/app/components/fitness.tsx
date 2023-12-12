@@ -4,7 +4,7 @@ import {
 	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { displayWeightWithUnit } from "@ryot/ts-utils";
+import { displayDistanceWithUnit, displayWeightWithUnit } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type { ExerciseSetStats } from "~/lib/workout";
 
@@ -15,12 +15,13 @@ export const getSetStatisticsTextToDisplay = (
 ) => {
 	return match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${Number(statistic.distance).toFixed(2)} ${
-				unit === UserUnitSystem.Metric ? "km" : "mi"
-			} for ${Number(statistic.duration).toFixed(2)} min`,
-			`${(
-				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1)
-			).toFixed(2)} ${unit === UserUnitSystem.Metric ? "km" : "mi"}/min`,
+			`${displayDistanceWithUnit(unit, statistic.distance)} for ${Number(
+				statistic.duration,
+			).toFixed(2)} min`,
+			`${displayDistanceWithUnit(
+				unit,
+				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1),
+			)}/min`,
 		])
 		.with(ExerciseLot.Duration, () => [
 			`${Number(statistic.duration).toFixed(2)} min`,

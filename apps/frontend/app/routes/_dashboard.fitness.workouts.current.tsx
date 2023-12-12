@@ -48,7 +48,12 @@ import {
 	SetLot,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase, startCase, sum } from "@ryot/ts-utils";
+import {
+	displayWeightWithUnit,
+	snakeCase,
+	startCase,
+	sum,
+} from "@ryot/ts-utils";
 import {
 	IconCamera,
 	IconCameraRotate,
@@ -265,20 +270,19 @@ export default function Page() {
 								/>
 								<StatDisplay
 									name="Weight"
-									value={`${sum(
-										currentWorkout.exercises
-											.flatMap((e) => e.sets)
-											.flatMap((s) =>
-												s.confirmed
-													? (s.statistic.reps || 0) * (s.statistic.weight || 0)
-													: 0,
-											),
-									).toFixed()} ${
-										loaderData.userPreferences.unitSystem ===
-										UserUnitSystem.Metric
-											? "kg"
-											: "lb"
-									}`}
+									value={`${displayWeightWithUnit(
+										loaderData.userPreferences.unitSystem,
+										sum(
+											currentWorkout.exercises
+												.flatMap((e) => e.sets)
+												.flatMap((s) =>
+													s.confirmed
+														? (s.statistic.reps || 0) *
+														  (s.statistic.weight || 0)
+														: 0,
+												),
+										).toFixed(),
+									)}`}
 								/>
 								<StatDisplay
 									name="Sets"

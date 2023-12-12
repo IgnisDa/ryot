@@ -36,6 +36,7 @@ import {
 	WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	humanizeDuration,
 	startCase,
@@ -370,7 +371,11 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 									<Flex align="center" gap="xs">
 										<IconRun size={14} />
 										<Text fz="xs">
-											Distance: {props.exercise.total.distance}
+											Distance:{" "}
+											{displayDistanceWithUnit(
+												loaderData.userPreferences.unitSystem,
+												props.exercise.total.distance,
+											)}
 										</Text>
 									</Flex>
 								) : undefined}

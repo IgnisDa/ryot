@@ -27,12 +27,25 @@ export const humanizeDuration = (
  */
 export const displayWeightWithUnit = (
 	unit: UserUnitSystem,
-	data: string | number,
+	data: string | number | null | undefined,
 ) => {
 	return new Intl.NumberFormat("en-us", {
 		style: "unit",
 		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
-	}).format(Number(data.toString()));
+	}).format(Number((data || 0).toString()));
+};
+
+/**
+ * Display the correct distance unit for a given unit.
+ */
+export const displayDistanceWithUnit = (
+	unit: UserUnitSystem,
+	data: string | number | null | undefined,
+) => {
+	return new Intl.NumberFormat("en-us", {
+		style: "unit",
+		unit: unit === UserUnitSystem.Metric ? "meter" : "mile",
+	}).format(Number((data || 0).toString()));
 };
 
 /**
