@@ -1,6 +1,5 @@
 query MediaAdditionalDetails($metadataId: Int!) {
   mediaDetails(metadataId: $metadataId) {
-    title
     lot
     creators {
       name
