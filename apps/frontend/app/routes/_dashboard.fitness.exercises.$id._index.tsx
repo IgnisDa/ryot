@@ -35,6 +35,7 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
+import { Fragment } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { DisplayExerciseStats } from "~/components/fitness";
@@ -153,17 +154,16 @@ export default function Page() {
 							</ScrollArea>
 							<SimpleGrid py="xs" cols={4}>
 								{["level", "force", "mechanic", "equipment"].map((f) => (
-									<>
+									<Fragment key={f}>
 										{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
 										{(loaderData.exerciseDetails as any)[f] ? (
 											<DisplayData
 												name={f}
 												// biome-ignore lint/suspicious/noExplicitAny: required here
 												data={(loaderData.exerciseDetails as any)[f]}
-												key={f}
 											/>
 										) : undefined}
-									</>
+									</Fragment>
 								))}
 								{loaderData.exerciseDetails.lot ? (
 									<DisplayData
