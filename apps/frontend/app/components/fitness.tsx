@@ -15,11 +15,11 @@ export const getSetStatisticsTextToDisplay = (
 	return match(lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [
 			`${Number(statistic.distance).toFixed(2)} ${
-				unit === UserUnitSystem.Imperial ? "mi" : "km"
+				unit === UserUnitSystem.Metric ? "km" : "mi"
 			} for ${Number(statistic.duration).toFixed(2)} min`,
 			`${(
 				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1)
-			).toFixed(2)} ${unit === UserUnitSystem.Imperial ? "mi" : "km"}/min`,
+			).toFixed(2)} ${unit === UserUnitSystem.Metric ? "km" : "mi"}/min`,
 		])
 		.with(ExerciseLot.Duration, () => [
 			`${Number(statistic.duration).toFixed(2)} min`,
@@ -29,7 +29,7 @@ export const getSetStatisticsTextToDisplay = (
 		.with(ExerciseLot.RepsAndWeight, () => [
 			statistic.weight && statistic.weight !== "0"
 				? `${statistic.weight} ${
-						unit === UserUnitSystem.Imperial ? "lb" : "kg"
+						unit === UserUnitSystem.Metric ? "kg" : "lb"
 				  }  × ${statistic.reps}`
 				: `${statistic.reps} reps`,
 			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : undefined,

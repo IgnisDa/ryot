@@ -253,9 +253,9 @@ export default function Page() {
 									style: "unit",
 									unit:
 										loaderData.userPreferences.unitSystem ===
-										UserUnitSystem.Imperial
-											? "pound"
-											: "kilogram",
+										UserUnitSystem.Metric
+											? "kilogram"
+											: "pound",
 								}).format(
 									Number(loaderData.workoutDetails.summary.total.weight),
 								)}

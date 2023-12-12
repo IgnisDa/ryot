@@ -275,9 +275,9 @@ export default function Page() {
 											),
 									).toFixed()} ${
 										loaderData.userPreferences.unitSystem ===
-										UserUnitSystem.Imperial
-											? "lb"
-											: "kg"
+										UserUnitSystem.Metric
+											? "kg"
+											: "lb"
 									}`}
 								/>
 								<StatDisplay
