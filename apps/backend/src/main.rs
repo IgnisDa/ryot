@@ -5,7 +5,7 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -28,6 +28,7 @@ use axum::{
 };
 use database::Migrator;
 use itertools::Itertools;
+use logs_wheel::LogFileInitializer;
 use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
@@ -37,7 +38,6 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 use utils::TEMP_DIR;
 
@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
     }
-    let _guard = init_tracing();
+    init_tracing()?;
 
     tracing::info!("Running version: {}", VERSION);
 
@@ -326,24 +326,23 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
     st
 }
 
-// TODO: Look into https://docs.rs/logs-wheel/latest/logs_wheel/
-fn init_tracing() -> Result<WorkerGuard> {
+fn init_tracing() -> Result<()> {
     let tmp_dir = PathBuf::new().join(TEMP_DIR);
     create_dir_all(&tmp_dir)?;
-    let path = tmp_dir.join(format!("{}.log", PROJECT_NAME));
-    let file_appender = tracing_appender::rolling::daily(".", path);
-    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let log_file = LogFileInitializer {
+        directory: tmp_dir,
+        filename: PROJECT_NAME,
+        max_n_old_files: 2,
+        preferred_max_file_size_mib: 1,
+    }
+    .init()?;
+    let writer = Mutex::new(log_file);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .finish()
-            // add additional writers
-            .with(
-                fmt::Layer::default()
-                    .with_writer(non_blocking)
-                    .with_ansi(false),
-            ),
+            .with(fmt::Layer::default().with_writer(writer).with_ansi(false)),
     )
     .expect("Unable to set global tracing subscriber");
-    Ok(guard)
+    Ok(())
 }

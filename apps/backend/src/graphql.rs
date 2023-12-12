@@ -1,4 +1,4 @@
-use async_graphql::{EmptySubscription, MergedObject, Schema};
+use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
 
 use crate::{
     fitness::resolver::{ExerciseMutation, ExerciseQuery},
@@ -21,6 +21,7 @@ pub async fn get_schema(app_services: &AppServices) -> GraphqlSchema {
         MutationRoot::default(),
         EmptySubscription,
     )
+    .extension(Tracing)
     .data(app_services.media_service.clone())
     .data(app_services.importer_service.clone())
     .data(app_services.exercise_service.clone())
