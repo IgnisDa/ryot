@@ -4,6 +4,7 @@ import {
 	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
+import { displayWeightWithUnit } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type { ExerciseSetStats } from "~/lib/workout";
 
@@ -28,9 +29,7 @@ export const getSetStatisticsTextToDisplay = (
 		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			statistic.weight && statistic.weight !== "0"
-				? `${statistic.weight} ${
-						unit === UserUnitSystem.Metric ? "kg" : "lb"
-				  }  × ${statistic.reps}`
+				? `${displayWeightWithUnit(unit, statistic.weight)} × ${statistic.reps}`
 				: `${statistic.reps} reps`,
 			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : undefined,
 		])

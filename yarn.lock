@@ -3135,6 +3135,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
+    "@ryot/generated": "workspace:*"
     "@types/lodash": "npm:^4.14.202"
     humanize-duration-ts: "npm:2.1.1"
     lodash: "npm:4.17.21"

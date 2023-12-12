@@ -1,3 +1,4 @@
+import { UserUnitSystem } from "@ryot/generated/graphql/backend/graphql";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
@@ -19,6 +20,19 @@ export const humanizeDuration = (
 	options?: HumanizeDurationOptions,
 ) => {
 	return humanizer.humanize(duration, options);
+};
+
+/**
+ * Display the correct weight unit for a given unit.
+ */
+export const displayWeightWithUnit = (
+	unit: UserUnitSystem,
+	data: string | number,
+) => {
+	return new Intl.NumberFormat("en-us", {
+		style: "unit",
+		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
+	}).format(Number(data.toString()));
 };
 
 /**

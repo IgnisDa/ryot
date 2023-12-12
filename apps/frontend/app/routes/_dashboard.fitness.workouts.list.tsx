@@ -20,7 +20,7 @@ import {
 	UserWorkoutListDocument,
 	UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils";
+import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
@@ -133,14 +133,10 @@ export default function Page() {
 												/>
 												<DisplayStat
 													icon={<IconWeight size={16} />}
-													data={new Intl.NumberFormat("en-us", {
-														style: "unit",
-														unit:
-															loaderData.userPreferences.unitSystem ===
-															UserUnitSystem.Metric
-																? "kilogram"
-																: "pound",
-													}).format(Number(workout.summary.total.weight))}
+													data={displayWeightWithUnit(
+														loaderData.userPreferences.unitSystem,
+														workout.summary.total.weight,
+													)}
 												/>
 												<DisplayStat
 													icon={<IconTrophy size={16} />}

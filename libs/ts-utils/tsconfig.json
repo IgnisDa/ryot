@@ -10,7 +10,20 @@
     ],
     "preserveConstEnums": true,
     "strict": true,
-    "outDir": "../../.moon/cache/types/libs/ts-utils"
+    "outDir": "../../.moon/cache/types/libs/ts-utils",
+    "paths": {
+      "@ryot/generated/*": [
+        "../generated/src/*"
+      ]
+    }
   },
-  "exclude": []
+  "exclude": [],
+  "references": [
+    {
+      "path": "../../libs/generated"
+    },
+    {
+      "path": "../generated"
+    }
+  ]
 }

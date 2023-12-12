@@ -32,11 +32,14 @@ import {
 	EditUserWorkoutDocument,
 	ExerciseLot,
 	SetLot,
-	UserUnitSystem,
 	WorkoutDetailsDocument,
 	WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration, startCase } from "@ryot/ts-utils";
+import {
+	displayWeightWithUnit,
+	humanizeDuration,
+	startCase,
+} from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconClockEdit,
@@ -249,15 +252,9 @@ export default function Page() {
 							/>
 							<DisplayStat
 								icon={<IconWeight size={16} />}
-								data={new Intl.NumberFormat("en-us", {
-									style: "unit",
-									unit:
-										loaderData.userPreferences.unitSystem ===
-										UserUnitSystem.Metric
-											? "kilogram"
-											: "pound",
-								}).format(
-									Number(loaderData.workoutDetails.summary.total.weight),
+								data={displayWeightWithUnit(
+									loaderData.userPreferences.unitSystem,
+									loaderData.workoutDetails.summary.total.weight,
 								)}
 							/>
 							<DisplayStat
@@ -308,6 +305,7 @@ type Exercise =
 	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const [opened, { close, open }] = useDisclosure(false);
 
 	return (
@@ -359,7 +357,13 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 								{Number(props.exercise.total.weight) > 0 ? (
 									<Flex align="center" gap="xs">
 										<IconWeight size={14} />
-										<Text fz="xs">Weight: {props.exercise.total.weight}</Text>
+										<Text fz="xs">
+											Weight:{" "}
+											{displayWeightWithUnit(
+												loaderData.userPreferences.unitSystem,
+												props.exercise.total.weight,
+											)}
+										</Text>
 									</Flex>
 								) : undefined}{" "}
 								{Number(props.exercise.total.distance) > 0 ? (
