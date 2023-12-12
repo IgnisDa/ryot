@@ -283,58 +283,11 @@ export default function Page() {
 					{loaderData.workoutDetails.information.exercises.length > 0 ? (
 						loaderData.workoutDetails.information.exercises.map(
 							(exercise, idx) => (
-								<Paper key={`${exercise.id}-${idx}`} withBorder p="xs">
-									<Box mb="xs">
-										<Group justify="space-between">
-											<Anchor
-												component={Link}
-												to={$path("/fitness/exercises/:id", {
-													id: exercise.id,
-												})}
-												fw="bold"
-											>
-												{exercise.id.slice(0, 40)}
-												{exercise.id.length > 40 ? "..." : undefined}
-											</Anchor>
-											{exercise.restTime ? (
-												<Flex align="center" gap="xs">
-													<IconZzz size={14} />
-													<Text fz="xs">{exercise.restTime}s</Text>
-												</Flex>
-											) : undefined}
-										</Group>
-										{exercise.notes.map((n, idxN) => (
-											<Text c="dimmed" key={n} size="xs">
-												{exercise.notes.length === 1
-													? undefined
-													: `${idxN + 1})`}{" "}
-												{n}
-											</Text>
-										))}
-										{exercise.assets.images.length > 0 ? (
-											<Avatar.Group>
-												{exercise.assets.images.map((i) => (
-													<Anchor
-														key={i}
-														href={i}
-														target="_blank"
-														rel="noopener noreferrer"
-													>
-														<Avatar src={i} />
-													</Anchor>
-												))}
-											</Avatar.Group>
-										) : undefined}
-									</Box>
-									{exercise.sets.map((s, idx) => (
-										<DisplaySet
-											key={`${idx}`}
-											set={s}
-											idx={idx}
-											exerciseLot={exercise.lot}
-										/>
-									))}
-								</Paper>
+								<DisplayExercise
+									key={`${exercise.id}-${idx}`}
+									exercise={exercise}
+									idx={idx}
+								/>
 							),
 						)
 					) : (
@@ -348,8 +301,64 @@ export default function Page() {
 	);
 }
 
-type Set =
-	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number]["sets"][number];
+type Exercise =
+	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
+
+const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
+	return (
+		<Paper withBorder p="xs">
+			<Box mb="xs">
+				<Group justify="space-between">
+					<Anchor
+						component={Link}
+						to={$path("/fitness/exercises/:id", {
+							id: props.exercise.id,
+						})}
+						fw="bold"
+					>
+						{props.exercise.id.slice(0, 40)}
+						{props.exercise.id.length > 40 ? "..." : undefined}
+					</Anchor>
+					{props.exercise.restTime ? (
+						<Flex align="center" gap="xs">
+							<IconZzz size={14} />
+							<Text fz="xs">{props.exercise.restTime}s</Text>
+						</Flex>
+					) : undefined}
+				</Group>
+				{props.exercise.notes.map((n, idxN) => (
+					<Text c="dimmed" key={n} size="xs">
+						{props.exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
+					</Text>
+				))}
+				{props.exercise.assets.images.length > 0 ? (
+					<Avatar.Group>
+						{props.exercise.assets.images.map((i) => (
+							<Anchor
+								key={i}
+								href={i}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								<Avatar src={i} />
+							</Anchor>
+						))}
+					</Avatar.Group>
+				) : undefined}
+			</Box>
+			{props.exercise.sets.map((s, idx) => (
+				<DisplaySet
+					key={`${idx}`}
+					set={s}
+					idx={idx}
+					exerciseLot={props.exercise.lot}
+				/>
+			))}
+		</Paper>
+	);
+};
+
+type Set = Exercise["sets"][number];
 
 const DisplaySet = (props: {
 	set: Set;
