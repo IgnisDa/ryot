@@ -750,7 +750,8 @@ const ExerciseDisplay = (props: {
 									})}
 									fw="bold"
 								>
-									{props.exercise.name}
+									{props.exercise.name.slice(0, 40)}
+									{props.exercise.name.length > 40 ? "..." : undefined}
 								</Anchor>
 								<Menu.Target>
 									<ActionIcon color="blue" mr={-10}>
