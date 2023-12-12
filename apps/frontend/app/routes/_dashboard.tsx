@@ -166,7 +166,7 @@ export default function Layout() {
 			padding={0}
 			layout="alt"
 			navbar={{
-				width: { sm: 200, lg: 220 },
+				width: { sm: 220, lg: 250 },
 				breakpoint: "sm",
 				collapsed: { mobile: !opened },
 			}}
