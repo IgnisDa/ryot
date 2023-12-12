@@ -41,7 +41,10 @@ import {
 	IconClock,
 	IconClockEdit,
 	IconDotsVertical,
+	IconInfoCircle,
 	IconRepeat,
+	IconRotateClockwise,
+	IconRun,
 	IconTrash,
 	IconTrophy,
 	IconWeight,
@@ -305,6 +308,8 @@ type Exercise =
 	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
+	const [opened, { close, open }] = useDisclosure(false);
+
 	return (
 		<Paper withBorder p="xs">
 			<Box mb="xs">
@@ -319,12 +324,55 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						{props.exercise.id.slice(0, 40)}
 						{props.exercise.id.length > 40 ? "..." : undefined}
 					</Anchor>
-					{props.exercise.restTime ? (
-						<Flex align="center" gap="xs">
-							<IconZzz size={14} />
-							<Text fz="xs">{props.exercise.restTime}s</Text>
-						</Flex>
-					) : undefined}
+					<Popover position="top" opened={opened}>
+						<Popover.Target>
+							<ActionIcon
+								onMouseEnter={open}
+								onMouseLeave={close}
+								variant="transparent"
+							>
+								<IconInfoCircle size={18} />
+							</ActionIcon>
+						</Popover.Target>
+						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
+							<Stack gap={4}>
+								{props.exercise.restTime ? (
+									<Flex align="center" gap="xs">
+										<IconZzz size={14} />
+										<Text fz="xs">Rest time: {props.exercise.restTime}s</Text>
+									</Flex>
+								) : undefined}
+								{Number(props.exercise.total.reps) > 0 ? (
+									<Flex align="center" gap="xs">
+										<IconRotateClockwise size={14} />
+										<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
+									</Flex>
+								) : undefined}
+								{Number(props.exercise.total.duration) > 0 ? (
+									<Flex align="center" gap="xs">
+										<IconClock size={14} />
+										<Text fz="xs">
+											Duration: {props.exercise.total.duration} min
+										</Text>
+									</Flex>
+								) : undefined}
+								{Number(props.exercise.total.weight) > 0 ? (
+									<Flex align="center" gap="xs">
+										<IconWeight size={14} />
+										<Text fz="xs">Weight: {props.exercise.total.weight}</Text>
+									</Flex>
+								) : undefined}{" "}
+								{Number(props.exercise.total.distance) > 0 ? (
+									<Flex align="center" gap="xs">
+										<IconRun size={14} />
+										<Text fz="xs">
+											Distance: {props.exercise.total.distance}
+										</Text>
+									</Flex>
+								) : undefined}
+							</Stack>
+						</Popover.Dropdown>
+					</Popover>
 				</Group>
 				{props.exercise.notes.map((n, idxN) => (
 					<Text c="dimmed" key={n} size="xs">
