@@ -212,7 +212,7 @@ export default function Page() {
 	}, []);
 
 	return (
-		<ClientOnly>
+		<ClientOnly fallback={<Text>Loading workout...</Text>}>
 			{() => (
 				<Container size="sm">
 					{currentWorkout ? (
