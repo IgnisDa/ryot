@@ -36,6 +36,7 @@ import {
 	IconScaleOutline,
 	IconWeight,
 } from "@tabler/icons-react";
+import { parse } from "cookie";
 import humanFormat from "human-format";
 import { useAtom } from "jotai";
 import invariant from "tiny-invariant";
@@ -43,7 +44,12 @@ import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
+import {
+	COOKIES_KEYS,
+	dayjsLib,
+	getLot,
+	getMetadataIcon,
+} from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import {
@@ -79,7 +85,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		undefined,
 		await getAuthorizationHeader(request),
 	);
+	const cookies = request.headers.get("Cookie");
+	const workoutInProgress =
+		parse(cookies || "")[COOKIES_KEYS.isWorkoutInProgress] === "true";
 	return json({
+		workoutInProgress,
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
 			dashboard: userPreferences.general.dashboard,
@@ -96,16 +106,16 @@ export const meta: MetaFunction = () => {
 	return [{ title: "Home | Ryot" }];
 };
 
-export default function Index() {
+export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	return (
 		<Container>
 			<Stack gap={32}>
-				{currentWorkout ? (
+				{loaderData.workoutInProgress ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="yellow">
 						<Text size="lg">
 							You have a workout in progress. Click{" "}
@@ -408,30 +418,29 @@ export default function Index() {
 							<Section key="actions">
 								<Title>Actions</Title>
 								<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-									{loaderData.userPreferences.fitness.enabled ? (
-										currentWorkout ? (
-											<Button
-												variant="outline"
-												to={$path("/fitness/workouts/current")}
-												component={Link}
-												leftSection={<IconBarbell />}
-											>
-												Go to current workout
-											</Button>
-										) : (
-											<Button
-												variant="outline"
-												leftSection={<IconBarbell />}
-												onClick={() => {
-													setCurrentWorkout(getDefaultWorkout());
-													startWorkout();
-													navigate($path("/fitness/workouts/current"));
-												}}
-											>
-												Start a workout
-											</Button>
-										)
-									) : undefined}
+									{loaderData.userPreferences.fitness.enabled &&
+									loaderData.workoutInProgress ? (
+										<Button
+											variant="outline"
+											to={$path("/fitness/workouts/current")}
+											component={Link}
+											leftSection={<IconBarbell />}
+										>
+											Go to current workout
+										</Button>
+									) : (
+										<Button
+											variant="outline"
+											leftSection={<IconBarbell />}
+											onClick={() => {
+												setCurrentWorkout(getDefaultWorkout());
+												startWorkout();
+												navigate($path("/fitness/workouts/current"));
+											}}
+										>
+											Start a workout
+										</Button>
+									)}
 									{loaderData.userPreferences.media.enabled ? (
 										<Button
 											variant="outline"
