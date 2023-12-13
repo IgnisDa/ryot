@@ -438,7 +438,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 	}, []);
 
 	let format = "mm:ss";
-	if (seconds > 3600) format = `h:${format}`;
+	if (seconds > 3600) format = `H:${format}`;
 
 	return (
 		<StatDisplay
