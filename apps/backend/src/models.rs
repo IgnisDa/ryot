@@ -1500,7 +1500,7 @@ pub mod fitness {
         Schematic,
     )]
     pub struct ProcessedExercise {
-        pub id: String,
+        pub name: String,
         pub lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,

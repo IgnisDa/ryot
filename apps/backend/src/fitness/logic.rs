@@ -252,7 +252,7 @@ impl UserWorkoutInput {
             exercises.push((
                 db_ex.lot,
                 ProcessedExercise {
-                    id: db_ex.id,
+                    name: db_ex.id,
                     lot: db_ex.lot,
                     sets,
                     notes: ex.notes.clone(),
@@ -277,7 +277,7 @@ impl UserWorkoutInput {
                     .iter()
                     .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
-                        id: e.id.clone(),
+                        id: e.name.clone(),
                         lot: *lot,
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
@@ -301,7 +301,7 @@ impl workout::Model {
         for (idx, ex) in self.information.exercises.iter().enumerate() {
             let association = match UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(user_to_entity::Column::ExerciseId.eq(ex.id.clone()))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
                 .one(db)
                 .await?
             {

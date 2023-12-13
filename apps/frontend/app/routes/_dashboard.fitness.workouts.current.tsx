@@ -177,12 +177,12 @@ export default function Page() {
 
 	const startTimer = (
 		duration: number,
-		triggeredByIdx?: { exercise: number; set: number },
+		triggeredBy?: { exerciseIdentifier: string; setIdx: number },
 	) => {
 		setCurrentTimer({
 			totalTime: duration,
 			endAt: dayjsLib().add(duration, "second"),
-			triggeredByIdx,
+			triggeredBy: triggeredBy,
 		});
 		interval.stop();
 		interval.start();
@@ -574,7 +574,7 @@ const ExerciseDisplay = (props: {
 	exercise: Exercise;
 	startTimer: (
 		duration: number,
-		triggeredByIdx: { exercise: number; set: number },
+		triggeredBy: { exerciseIdentifier: string; setIdx: number },
 	) => void;
 	openTimerDrawer: () => void;
 	stopTimer: () => void;
@@ -801,8 +801,8 @@ const ExerciseDisplay = (props: {
 										<IconDotsVertical />
 									</ActionIcon>
 								</Menu.Target>
-								{currentTimer?.triggeredByIdx?.exercise ===
-								props.exerciseIdx ? (
+								{currentTimer?.triggeredBy?.exerciseIdentifier ===
+								props.exercise.identifier ? (
 									<Progress
 										pos="absolute"
 										color="violet"
@@ -1131,9 +1131,9 @@ const ExerciseDisplay = (props: {
 													const newConfirmed = !s.confirmed;
 													if (
 														!newConfirmed &&
-														currentTimer?.triggeredByIdx?.exercise ===
-															props.exerciseIdx &&
-														currentTimer?.triggeredByIdx?.set === idx
+														currentTimer?.triggeredBy?.exerciseIdentifier ===
+															props.exercise.identifier &&
+														currentTimer?.triggeredBy?.setIdx === idx
 													)
 														props.stopTimer();
 													if (
@@ -1143,7 +1143,10 @@ const ExerciseDisplay = (props: {
 													) {
 														props.startTimer(
 															props.exercise.restTimer.duration,
-															{ exercise: props.exerciseIdx, set: idx },
+															{
+																exerciseIdentifier: props.exercise.identifier,
+																setIdx: idx,
+															},
 														);
 													}
 													setCurrentWorkout(

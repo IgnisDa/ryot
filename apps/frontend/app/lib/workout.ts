@@ -107,7 +107,7 @@ export const duplicateOldWorkout = (
 			videos: [],
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic }) as any),
-			exerciseId: ex.id,
+			exerciseId: ex.name,
 			lot: ex.lot,
 			notes: ex.notes,
 			supersetWith: ex.supersetWith,
@@ -175,7 +175,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 type Timer = {
 	totalTime: number;
 	endAt: Dayjs;
-	triggeredByIdx?: { exercise: number; set: number };
+	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
 export const timerAtom = atomWithReset<Timer | null>(null);

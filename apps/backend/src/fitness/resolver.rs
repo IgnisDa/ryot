@@ -801,7 +801,7 @@ impl ExerciseService {
                     .exercises
                     .into_iter()
                     .map(|e| UserExerciseInput {
-                        exercise_id: e.id,
+                        exercise_id: e.name,
                         sets: e
                             .sets
                             .into_iter()

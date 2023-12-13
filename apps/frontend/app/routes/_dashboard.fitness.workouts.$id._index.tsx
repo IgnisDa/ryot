@@ -285,7 +285,7 @@ export default function Page() {
 						loaderData.workoutDetails.information.exercises.map(
 							(exercise, idx) => (
 								<DisplayExercise
-									key={`${exercise.id}-${idx}`}
+									key={`${exercise.name}-${idx}`}
 									exercise={exercise}
 									idx={idx}
 								/>
@@ -316,12 +316,12 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 					<Anchor
 						component={Link}
 						to={$path("/fitness/exercises/:id", {
-							id: props.exercise.id,
+							id: props.exercise.name,
 						})}
 						fw="bold"
 					>
-						{props.exercise.id.slice(0, 40)}
-						{props.exercise.id.length > 40 ? "..." : undefined}
+						{props.exercise.name.slice(0, 40)}
+						{props.exercise.name.length > 40 ? "..." : undefined}
 					</Anchor>
 					<Popover position="top" opened={opened}>
 						<Popover.Target>
