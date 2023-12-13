@@ -246,8 +246,8 @@ export default function Page() {
 							<DisplayStat
 								icon={<IconClock size={16} />}
 								data={humanizeDuration(
-									new Date(loaderData.workoutDetails.endTime).getTime() -
-										new Date(loaderData.workoutDetails.startTime).getTime(),
+									new Date(loaderData.workoutDetails.endTime).valueOf() -
+										new Date(loaderData.workoutDetails.startTime).valueOf(),
 									{ round: true, units: ["h", "m"] },
 								)}
 							/>
