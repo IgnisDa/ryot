@@ -211,25 +211,25 @@ export default function Page() {
 		return interval.stop;
 	}, []);
 
-	return (
-		<ClientOnly fallback={<Text>Loading workout...</Text>}>
-			{() => (
-				<Container size="sm">
-					{currentWorkout ? (
+	return currentWorkout ? (
+		<Container size="sm">
+			<ClientOnly fallback={<Text>Loading workout...</Text>}>
+				{() => (
+					<>
+						<TimerDrawer
+							opened={timerDrawerOpened}
+							onClose={timerDrawerClose}
+							startTimer={startTimer}
+							stopTimer={stopTimer}
+						/>
+						<ReorderDrawer
+							opened={reorderDrawerOpened}
+							onClose={reorderDrawerClose}
+							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+							exercises={currentWorkout.exercises as any}
+							key={currentWorkout.exercises.toString()}
+						/>
 						<Stack ref={parent}>
-							<TimerDrawer
-								opened={timerDrawerOpened}
-								onClose={timerDrawerClose}
-								startTimer={startTimer}
-								stopTimer={stopTimer}
-							/>
-							<ReorderDrawer
-								opened={reorderDrawerOpened}
-								onClose={reorderDrawerClose}
-								// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-								exercises={currentWorkout.exercises as any}
-								key={currentWorkout.exercises.toString()}
-							/>
 							<TextInput
 								size="sm"
 								label="Name"
@@ -403,11 +403,11 @@ export default function Page() {
 								</Button>
 							</Group>
 						</Stack>
-					) : undefined}
-				</Container>
-			)}
-		</ClientOnly>
-	);
+					</>
+				)}
+			</ClientOnly>
+		</Container>
+	) : undefined;
 }
 
 const StatDisplay = (props: { name: string; value: string }) => {
