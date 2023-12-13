@@ -17,7 +17,6 @@ import {
 	NumberInput,
 	Paper,
 	Progress,
-	Radio,
 	RingProgress,
 	SimpleGrid,
 	Skeleton,
@@ -537,6 +536,38 @@ const ImageDisplay = (props: {
 	) : undefined;
 };
 
+const SupersetExerciseModal = (props: {
+	exerciseIdx: number;
+	opened: boolean;
+	onClose: () => void;
+}) => {
+	const [currentWorkout, _] = useAtom(currentWorkoutAtom);
+	return currentWorkout ? (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+		>
+			<Stack>
+				<Text size="lg">
+					Superset {currentWorkout.exercises[props.exerciseIdx].name} with:
+				</Text>
+				{currentWorkout.exercises
+					.filter((_, idx) => idx !== props.exerciseIdx)
+					.map((e, idx) => (
+						<Switch
+							key={`${idx}`}
+							onChange={(event) => {
+								console.log(event);
+							}}
+							label={e.name}
+						/>
+					))}
+			</Stack>
+		</Modal>
+	) : undefined;
+};
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	exercise: Exercise;
@@ -588,26 +619,11 @@ const ExerciseDisplay = (props: {
 
 	return currentWorkout ? (
 		<>
-			<Modal
+			<SupersetExerciseModal
+				exerciseIdx={props.exerciseIdx}
 				opened={supersetModalOpened}
 				onClose={supersetModalClose}
-				withCloseButton={false}
-			>
-				<Stack>
-					<Text c="dimmed">Superset {props.exercise.name} with:</Text>
-					{currentWorkout.exercises
-						.filter((_, idx) => idx !== props.exerciseIdx)
-						.map((e, idx) => (
-							<Radio
-								key={`${idx}`}
-								onChange={(event) => {
-									console.log(event);
-								}}
-								label={e.name}
-							/>
-						))}
-				</Stack>
-			</Modal>
+			/>
 			<Modal
 				opened={restTimerModalOpened}
 				onClose={restTimerModalClose}
@@ -681,7 +697,7 @@ const ExerciseDisplay = (props: {
 				withCloseButton={false}
 			>
 				<Stack>
-					<Text c="dimmed">Images for {props.exercise.name}</Text>
+					<Text size="lg">Images for {props.exercise.name}</Text>
 					{loaderData.coreEnabledFeatures.fileStorage ? (
 						<>
 							{props.exercise.images.length > 0 ? (
@@ -879,6 +895,13 @@ const ExerciseDisplay = (props: {
 							<Menu.Item
 								leftSection={<IconLayersIntersect size={14} />}
 								onClick={supersetModalToggle}
+								rightSection={
+									currentWorkout.exercises[props.exerciseIdx].supersetWith
+										.length > 0
+										? currentWorkout.exercises[props.exerciseIdx].supersetWith
+												.length
+										: "Off"
+								}
 							>
 								Superset
 							</Menu.Item>
@@ -891,7 +914,7 @@ const ExerciseDisplay = (props: {
 								}
 								onClick={assetsModalToggle}
 							>
-								Add image
+								Images
 							</Menu.Item>
 							<Menu.Item
 								color="red"
