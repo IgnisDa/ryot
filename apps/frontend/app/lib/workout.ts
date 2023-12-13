@@ -28,6 +28,7 @@ export type ExerciseSet = {
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
 export type Exercise = {
+	identifier: string;
 	exerciseId: string;
 	lot: ExerciseLot;
 	notes: Array<string>;
@@ -102,6 +103,7 @@ export const duplicateOldWorkout = (
 			endedAt: s.confirmedAt,
 		}));
 		inProgress.exercises.push({
+			identifier: crypto.randomUUID(),
 			images: [],
 			videos: [],
 			// biome-ignore lint/suspicious/noExplicitAny: required here

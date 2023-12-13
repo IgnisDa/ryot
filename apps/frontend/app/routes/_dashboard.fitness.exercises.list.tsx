@@ -400,6 +400,7 @@ export default function Page() {
 									ReturnType<typeof resourcesLoader>
 								> = await userExerciseDetailsResp.json();
 								draft.exercises.push({
+									identifier: crypto.randomUUID(),
 									exerciseId: exercise.name,
 									lot: exercise.lot,
 									sets: [
