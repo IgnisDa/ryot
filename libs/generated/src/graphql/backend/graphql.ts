@@ -1262,6 +1262,8 @@ export type ProcessedExercise = {
   notes: Array<Scalars['String']['output']>;
   restTime?: Maybe<Scalars['Int']['output']>;
   sets: Array<WorkoutSetRecord>;
+  /** The indices of the exercises with which this has been superset with. */
+  supersetWith: Array<Scalars['Int']['output']>;
   total: WorkoutOrExerciseTotals;
 };
 
@@ -1733,6 +1735,7 @@ export type UserExerciseInput = {
   notes: Array<Scalars['String']['input']>;
   restTime?: InputMaybe<Scalars['Int']['input']>;
   sets: Array<UserWorkoutSetRecord>;
+  supersetWith: Array<Scalars['Int']['input']>;
 };
 
 export type UserExercisePreferences = {
@@ -2069,7 +2072,6 @@ export type UserWorkoutInput = {
   exercises: Array<UserExerciseInput>;
   name: Scalars['String']['input'];
   startTime: Scalars['DateTime']['input'];
-  supersets: Array<Array<Scalars['Int']['input']>>;
 };
 
 export type UserWorkoutSetRecord = {
@@ -2127,11 +2129,6 @@ export type Workout = {
 export type WorkoutInformation = {
   assets: EntityAssets;
   exercises: Array<ProcessedExercise>;
-  /**
-   * Each grouped superset of exercises will be in a vector. They will contain
-   * the `exercise.idx`.
-   */
-  supersets: Array<Array<Scalars['Int']['output']>>;
 };
 
 export type WorkoutListItem = {

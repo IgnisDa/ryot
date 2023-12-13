@@ -1507,8 +1507,11 @@ pub mod fitness {
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
         pub total: WorkoutOrExerciseTotals,
-        #[serde(default)]
+        #[serde(default)] // FIXME: Remove this
         pub assets: EntityAssets,
+        /// The indices of the exercises with which this has been superset with.
+        #[serde(default)] // FIXME: Remove this
+        pub superset_with: Vec<u16>,
     }
 
     #[derive(
@@ -1543,11 +1546,8 @@ pub mod fitness {
         Schematic,
     )]
     pub struct WorkoutInformation {
-        /// Each grouped superset of exercises will be in a vector. They will contain
-        /// the `exercise.idx`.
-        pub supersets: Vec<Vec<u16>>,
         pub exercises: Vec<ProcessedExercise>,
-        #[serde(default)]
+        #[serde(default)] // FIXME: Remove this
         pub assets: EntityAssets,
     }
 
@@ -1621,6 +1621,8 @@ pub mod fitness {
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
         pub assets: EntityAssets,
+        #[serde(default)] // FIXME: Remove this
+        pub superset_with: Vec<u16>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
@@ -1633,7 +1635,6 @@ pub mod fitness {
         pub start_time: DateTimeUtc,
         pub end_time: DateTimeUtc,
         pub exercises: Vec<UserExerciseInput>,
-        pub supersets: Vec<Vec<u16>>,
         pub assets: EntityAssets,
     }
 }

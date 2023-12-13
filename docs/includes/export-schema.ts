@@ -192,6 +192,8 @@ export interface ProcessedExercise {
 	notes: string[];
 	restTime: number | null;
 	sets: WorkoutSetRecord[];
+	/** The indices of the exercises with which this has been superset with. */
+	supersetWith: number[];
 	total: WorkoutOrExerciseTotals;
 }
 
@@ -199,11 +201,6 @@ export interface ProcessedExercise {
 export interface WorkoutInformation {
 	assets: EntityAssets;
 	exercises: ProcessedExercise[];
-	/**
-	 * Each grouped superset of exercises will be in a vector. They will contain
-	 * the `exercise.idx`.
-	 */
-	supersets: number[][];
 }
 
 /** The summary about an exercise done in a workout. */

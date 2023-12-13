@@ -258,6 +258,7 @@ impl UserWorkoutInput {
                     notes: ex.notes.clone(),
                     rest_time: ex.rest_time,
                     assets: ex.assets.clone(),
+                    superset_with: ex.superset_with.clone(),
                     total,
                 },
             ));
@@ -283,7 +284,6 @@ impl UserWorkoutInput {
                     .collect(),
             },
             information: WorkoutInformation {
-                supersets: input.supersets,
                 assets: input.assets.clone(),
                 exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
             },
