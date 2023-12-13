@@ -77,7 +77,6 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 		exercises: [],
 		images: [],
 		videos: [],
-		// supersets: [],
 	};
 };
 
