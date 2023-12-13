@@ -1490,7 +1490,7 @@ pub mod fitness {
         pub total: WorkoutOrExerciseTotals,
         #[serde(default)] // FIXME: Remove this
         pub assets: EntityAssets,
-        /// The index of the exercises with which this has been superset with.
+        /// The indices of the exercises with which this has been superset with.
         #[serde(default)] // FIXME: Remove this
         pub superset_with: Vec<u16>,
     }

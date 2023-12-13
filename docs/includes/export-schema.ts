@@ -188,7 +188,7 @@ export interface ProcessedExercise {
 	notes: string[];
 	restTime: number | null;
 	sets: WorkoutSetRecord[];
-	/** The index of the exercises with which this has been superset with. */
+	/** The indices of the exercises with which this has been superset with. */
 	supersetWith: number[];
 	total: WorkoutOrExerciseTotals;
 }

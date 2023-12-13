@@ -1257,7 +1257,7 @@ export type ProcessedExercise = {
   notes: Array<Scalars['String']['output']>;
   restTime?: Maybe<Scalars['Int']['output']>;
   sets: Array<WorkoutSetRecord>;
-  /** The index of the exercises with which this has been superset with. */
+  /** The indices of the exercises with which this has been superset with. */
   supersetWith: Array<Scalars['Int']['output']>;
   total: WorkoutOrExerciseTotals;
 };
