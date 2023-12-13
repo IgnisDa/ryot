@@ -410,6 +410,7 @@ export default function Page() {
 											lot: SetLot.Normal,
 										},
 									],
+									supersetWith: [],
 									alreadyDoneSets:
 										userExerciseDetails?.at(0)?.sets.map((s) => ({
 											// biome-ignore lint/suspicious/noExplicitAny: required here

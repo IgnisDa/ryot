@@ -19,6 +19,7 @@ query WorkoutDetails($workoutId: String!) {
         total {
           ...WorkoutOrExerciseTotalsPart
         }
+        supersetWith
         assets {
           ...EntityAssetsPart
         }
