@@ -32,7 +32,7 @@ hosted tracker you will ever need!
 ## IMPORTANT NOTE FOR `v3.*` USERS
 
 If you were using `v3.*` of Ryot, please read the
-[migration guide](https://ignisda.github.io/ryot/migration.html) for instructions.
+[migration guide](https://ignisda.github.io/ryot/migration.html#from-v3-to-v4) for instructions.
 
 ## 💻 Demo
 
