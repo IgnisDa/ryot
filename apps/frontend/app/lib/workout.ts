@@ -28,7 +28,7 @@ export type ExerciseSet = {
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
 export type Exercise = {
-	// identifier: string;
+	identifier: string;
 	exerciseId: string;
 	lot: ExerciseLot;
 	notes: Array<string>;
@@ -102,7 +102,7 @@ export const duplicateOldWorkout = (
 			endedAt: s.confirmedAt,
 		}));
 		inProgress.exercises.push({
-			// identifier: crypto.randomUUID(),
+			identifier: crypto.randomUUID(),
 			images: [],
 			videos: [],
 			// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -175,7 +175,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 type Timer = {
 	totalTime: number;
 	endAt: Dayjs;
-	triggeredByIdx?: { exercise: number; set: number };
+	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
 export const timerAtom = atomWithReset<Timer | null>(null);
