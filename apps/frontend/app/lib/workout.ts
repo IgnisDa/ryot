@@ -28,7 +28,6 @@ export type ExerciseSet = {
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
 export type Exercise = {
-	name: string;
 	exerciseId: string;
 	lot: ExerciseLot;
 	notes: Array<string>;
@@ -109,7 +108,6 @@ export const duplicateOldWorkout = (
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic }) as any),
 			exerciseId: ex.id,
 			lot: ex.lot,
-			name: ex.id,
 			notes: ex.notes,
 			supersetWith: ex.supersetWith,
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,

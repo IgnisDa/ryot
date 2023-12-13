@@ -402,7 +402,6 @@ export default function Page() {
 								draft.exercises.push({
 									exerciseId: exercise.name,
 									lot: exercise.lot,
-									name: exercise.name,
 									sets: [
 										{
 											confirmed: false,

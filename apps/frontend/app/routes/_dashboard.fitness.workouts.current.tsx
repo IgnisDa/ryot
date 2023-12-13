@@ -550,7 +550,8 @@ const SupersetExerciseModal = (props: {
 		>
 			<Stack>
 				<Text size="lg">
-					Superset {currentWorkout.exercises[props.exerciseIdx].name} with:
+					Superset {currentWorkout.exercises[props.exerciseIdx].exerciseId}{" "}
+					with:
 				</Text>
 				{currentWorkout.exercises
 					.filter((_, idx) => idx !== props.exerciseIdx)
@@ -560,7 +561,7 @@ const SupersetExerciseModal = (props: {
 							onChange={(event) => {
 								console.log(event);
 							}}
-							label={e.name}
+							label={e.exerciseId}
 						/>
 					))}
 			</Stack>
@@ -697,7 +698,7 @@ const ExerciseDisplay = (props: {
 				withCloseButton={false}
 			>
 				<Stack>
-					<Text size="lg">Images for {props.exercise.name}</Text>
+					<Text size="lg">Images for {props.exercise.exerciseId}</Text>
 					{loaderData.coreEnabledFeatures.fileStorage ? (
 						<>
 							{props.exercise.images.length > 0 ? (
@@ -792,8 +793,8 @@ const ExerciseDisplay = (props: {
 									})}
 									fw="bold"
 								>
-									{props.exercise.name.slice(0, 40)}
-									{props.exercise.name.length > 40 ? "..." : undefined}
+									{props.exercise.exerciseId.slice(0, 40)}
+									{props.exercise.exerciseId.length > 40 ? "..." : undefined}
 								</Anchor>
 								<Menu.Target>
 									<ActionIcon color="blue" mr={-10}>
@@ -921,7 +922,7 @@ const ExerciseDisplay = (props: {
 								leftSection={<IconTrash size={14} />}
 								onClick={() => {
 									const yes = confirm(
-										`This removes '${props.exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+										`This removes '${props.exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 									);
 									if (yes)
 										setCurrentWorkout(
@@ -1360,7 +1361,7 @@ const ReorderDrawer = (props: {
 				if (draft) {
 					draft.exercises = exerciseElements.map((de) =>
 						// biome-ignore lint/suspicious/noExplicitAny: required here
-						draft.exercises.find((e: any) => e.name === de.name),
+						draft.exercises.find((e: any) => e.name === de.exerciseId),
 					);
 				}
 			}),
@@ -1395,7 +1396,7 @@ const ReorderDrawer = (props: {
 								<Draggable
 									index={index}
 									draggableId={index.toString()}
-									key={`${index}-${de.name}`}
+									key={`${index}-${de.exerciseId}`}
 								>
 									{(provided) => (
 										<Paper
@@ -1408,7 +1409,7 @@ const ReorderDrawer = (props: {
 											{...provided.dragHandleProps}
 										>
 											<Group justify="space-between" wrap="nowrap">
-												<Text size="sm">{de.name}</Text>
+												<Text size="sm">{de.exerciseId}</Text>
 												{currentWorkout.exercises[index].sets.every(
 													(s) => s.confirmed,
 												) ? (
