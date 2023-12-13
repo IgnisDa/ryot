@@ -133,7 +133,6 @@ export default function Page() {
 							<Anchor
 								href={loaderData.personDetails.details.website}
 								target="_blank"
-								rel="noopener noreferrer"
 							>
 								Website
 							</Anchor>

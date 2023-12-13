@@ -391,12 +391,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 				{props.exercise.assets.images.length > 0 ? (
 					<Avatar.Group>
 						{props.exercise.assets.images.map((i) => (
-							<Anchor
-								key={i}
-								href={i}
-								target="_blank"
-								rel="noopener noreferrer"
-							>
+							<Anchor key={i} href={i} target="_blank">
 								<Avatar src={i} />
 							</Anchor>
 						))}

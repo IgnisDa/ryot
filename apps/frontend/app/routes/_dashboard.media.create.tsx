@@ -156,12 +156,7 @@ export default function Page() {
 								description={
 									<>
 										Please search for <Code>Specifics</Code> inputs at the{" "}
-										<Anchor
-											href="/graphql"
-											size="xs"
-											target="_blank"
-											rel="noopener noreferrer"
-										>
+										<Anchor href="/graphql" size="xs" target="_blank">
 											graphql endpoint
 										</Anchor>{" "}
 										for the required JSON structure

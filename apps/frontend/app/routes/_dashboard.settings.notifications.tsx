@@ -269,7 +269,6 @@ export default function Page() {
 																	size="xs"
 																	href="https://docs.ntfy.sh/publish/#access-tokens"
 																	target="_blank"
-																	rel="noopener noreferrer"
 																>
 																	protected topic
 																</Anchor>
