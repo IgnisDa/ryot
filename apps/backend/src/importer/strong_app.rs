@@ -93,6 +93,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 notes,
                 rest_time: None,
                 assets: EntityAssets::default(),
+                superset_with: vec![],
             });
             sets = vec![];
             notes = vec![];
@@ -119,7 +120,6 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 start_time: ndt,
                 end_time: ndt + workout_duration,
                 exercises,
-                supersets: vec![],
                 assets: EntityAssets::default(),
             });
             exercises = vec![];

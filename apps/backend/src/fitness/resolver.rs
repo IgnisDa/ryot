@@ -816,9 +816,9 @@ impl ExerciseService {
                         notes: e.notes,
                         rest_time: e.rest_time,
                         assets: e.assets,
+                        superset_with: e.superset_with,
                     })
                     .collect(),
-                supersets: workout.information.supersets,
                 assets: workout.information.assets,
             };
             self.create_user_workout(user_id, workout_input).await?;
