@@ -17,6 +17,7 @@ import {
 	NumberInput,
 	Paper,
 	Progress,
+	Radio,
 	RingProgress,
 	SimpleGrid,
 	Skeleton,
@@ -60,6 +61,7 @@ import {
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
+	IconLayersIntersect,
 	IconPhoto,
 	IconTrash,
 	IconZzz,
@@ -567,6 +569,10 @@ const ExerciseDisplay = (props: {
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
+	const [
+		supersetModalOpened,
+		{ close: supersetModalClose, toggle: supersetModalToggle },
+	] = useDisclosure(false);
 
 	const [durationCol, distanceCol, weightCol, repsCol] = match(
 		props.exercise.lot,
@@ -582,163 +588,183 @@ const ExerciseDisplay = (props: {
 
 	return currentWorkout ? (
 		<>
-			<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
-				<Modal
-					opened={restTimerModalOpened}
-					onClose={restTimerModalClose}
-					withCloseButton={false}
-					size="xs"
-				>
-					<Stack>
-						<Switch
-							label="Enabled"
-							labelPosition="left"
-							styles={{ body: { justifyContent: "space-between" } }}
-							defaultChecked={props.exercise.restTimer?.enabled}
-							onChange={(v) => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const defaultDuration = parseInt(
-											localStorage.getItem(
-												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
-											) || "20",
+			<Modal
+				opened={supersetModalOpened}
+				onClose={supersetModalClose}
+				withCloseButton={false}
+			>
+				<Stack>
+					<Text c="dimmed">Superset {props.exercise.name} with:</Text>
+					{currentWorkout.exercises
+						.filter((_, idx) => idx !== props.exerciseIdx)
+						.map((e, idx) => (
+							<Radio
+								key={`${idx}`}
+								onChange={(event) => {
+									console.log(event);
+								}}
+								label={e.name}
+							/>
+						))}
+				</Stack>
+			</Modal>
+			<Modal
+				opened={restTimerModalOpened}
+				onClose={restTimerModalClose}
+				withCloseButton={false}
+				size="xs"
+			>
+				<Stack>
+					<Switch
+						label="Enabled"
+						labelPosition="left"
+						styles={{ body: { justifyContent: "space-between" } }}
+						defaultChecked={props.exercise.restTimer?.enabled}
+						onChange={(v) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									const defaultDuration = parseInt(
+										localStorage.getItem(
+											LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
+										) || "20",
+									);
+									draft.exercises[props.exerciseIdx].restTimer = {
+										enabled: v.currentTarget.checked,
+										duration:
+											props.exercise.restTimer?.duration ?? defaultDuration,
+									};
+								}),
+							);
+						}}
+					/>
+					<NumberInput
+						value={
+							currentWorkout.exercises[props.exerciseIdx].restTimer?.duration
+						}
+						onChange={(v) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									const value = typeof v === "number" ? v : undefined;
+									const restTimer =
+										draft.exercises[props.exerciseIdx].restTimer;
+									if (restTimer && value) {
+										restTimer.duration = value;
+										localStorage.setItem(
+											LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
+											value.toString(),
 										);
-										draft.exercises[props.exerciseIdx].restTimer = {
-											enabled: v.currentTarget.checked,
-											duration:
-												props.exercise.restTimer?.duration ?? defaultDuration,
-										};
-									}),
-								);
-							}}
-						/>
-						<NumberInput
-							value={
-								currentWorkout.exercises[props.exerciseIdx].restTimer?.duration
-							}
-							onChange={(v) => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const value = typeof v === "number" ? v : undefined;
-										const restTimer =
-											draft.exercises[props.exerciseIdx].restTimer;
-										if (restTimer && value) {
-											restTimer.duration = value;
-											localStorage.setItem(
-												LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
-												value.toString(),
-											);
-										}
-									}),
-								);
-							}}
-							disabled={
-								!currentWorkout.exercises[props.exerciseIdx].restTimer?.enabled
-							}
-							hideControls
-							suffix="s"
-							label="Duration"
-							styles={{
-								root: {
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "space-between",
-								},
-								label: { flex: "none" },
-								input: { width: "90px", textAlign: "right" },
-							}}
-						/>
-					</Stack>
-				</Modal>
-				<Modal
-					opened={assetsModalOpened}
-					onClose={assetsModalClose}
-					withCloseButton={false}
-				>
-					<Stack>
-						<Text c="dimmed">Images for {props.exercise.name}</Text>
-						{loaderData.coreEnabledFeatures.fileStorage ? (
-							<>
-								{props.exercise.images.length > 0 ? (
-									<Avatar.Group spacing="xs">
-										{props.exercise.images.map((i) => (
-											<ImageDisplay
-												key={i}
-												imageKey={i}
-												removeImage={() => {
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															draft.exercises[props.exerciseIdx].images =
-																draft.exercises[
-																	props.exerciseIdx
-																].images.filter((image) => image !== i);
-														}),
-													);
-												}}
-											/>
-										))}
-									</Avatar.Group>
-								) : undefined}
-								<Group justify="center" gap={4}>
-									<Paper radius="md" style={{ overflow: "hidden" }}>
-										<Webcam
-											ref={webcamRef}
-											height={180}
-											width={240}
-											videoConstraints={{ facingMode: cameraFacing }}
-											screenshotFormat={fileType}
-										/>
-									</Paper>
-									<Stack>
-										<ActionIcon
-											size="xl"
-											onClick={() => {
-												setCameraFacing(
-													cameraFacing === "user" ? "environment" : "user",
+									}
+								}),
+							);
+						}}
+						disabled={
+							!currentWorkout.exercises[props.exerciseIdx].restTimer?.enabled
+						}
+						hideControls
+						suffix="s"
+						label="Duration"
+						styles={{
+							root: {
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+							},
+							label: { flex: "none" },
+							input: { width: "90px", textAlign: "right" },
+						}}
+					/>
+				</Stack>
+			</Modal>
+			<Modal
+				opened={assetsModalOpened}
+				onClose={assetsModalClose}
+				withCloseButton={false}
+			>
+				<Stack>
+					<Text c="dimmed">Images for {props.exercise.name}</Text>
+					{loaderData.coreEnabledFeatures.fileStorage ? (
+						<>
+							{props.exercise.images.length > 0 ? (
+								<Avatar.Group spacing="xs">
+									{props.exercise.images.map((i) => (
+										<ImageDisplay
+											key={i}
+											imageKey={i}
+											removeImage={() => {
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].images =
+															draft.exercises[props.exerciseIdx].images.filter(
+																(image) => image !== i,
+															);
+													}),
 												);
 											}}
-										>
-											<IconCameraRotate size={32} />
-										</ActionIcon>
-										<ActionIcon
-											size="xl"
-											onClick={async () => {
-												const imageSrc = webcamRef.current?.getScreenshot();
-												if (imageSrc) {
-													const buffer = Buffer.from(
-														imageSrc.replace(/^data:image\/\w+;base64,/, ""),
-														"base64",
-													);
-													const uploadedKey = await uploadFileAndGetKey(
-														"image.jpeg",
-														fileType,
-														buffer,
-													);
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															draft.exercises[props.exerciseIdx].images.push(
-																uploadedKey,
-															);
-														}),
-													);
-												}
-											}}
-										>
-											<IconCamera size={32} />
-										</ActionIcon>
-									</Stack>
-								</Group>
-								<Button fullWidth variant="outline" onClick={assetsModalClose}>
-									Done
-								</Button>
-							</>
-						) : (
-							<Text c="red" size="sm">
-								Please set the S3 variables required to enable file uploading
-							</Text>
-						)}
-					</Stack>
-				</Modal>
+										/>
+									))}
+								</Avatar.Group>
+							) : undefined}
+							<Group justify="center" gap={4}>
+								<Paper radius="md" style={{ overflow: "hidden" }}>
+									<Webcam
+										ref={webcamRef}
+										height={180}
+										width={240}
+										videoConstraints={{ facingMode: cameraFacing }}
+										screenshotFormat={fileType}
+									/>
+								</Paper>
+								<Stack>
+									<ActionIcon
+										size="xl"
+										onClick={() => {
+											setCameraFacing(
+												cameraFacing === "user" ? "environment" : "user",
+											);
+										}}
+									>
+										<IconCameraRotate size={32} />
+									</ActionIcon>
+									<ActionIcon
+										size="xl"
+										onClick={async () => {
+											const imageSrc = webcamRef.current?.getScreenshot();
+											if (imageSrc) {
+												const buffer = Buffer.from(
+													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
+													"base64",
+												);
+												const uploadedKey = await uploadFileAndGetKey(
+													"image.jpeg",
+													fileType,
+													buffer,
+												);
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														draft.exercises[props.exerciseIdx].images.push(
+															uploadedKey,
+														);
+													}),
+												);
+											}
+										}}
+									>
+										<IconCamera size={32} />
+									</ActionIcon>
+								</Stack>
+							</Group>
+							<Button fullWidth variant="outline" onClick={assetsModalClose}>
+								Done
+							</Button>
+						</>
+					) : (
+						<Text c="red" size="sm">
+							Please set the S3 variables required to enable file uploading
+						</Text>
+					)}
+				</Stack>
+			</Modal>
+			<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
 						<Stack>
@@ -823,6 +849,17 @@ const ExerciseDisplay = (props: {
 						</Stack>
 						<Menu.Dropdown>
 							<Menu.Item
+								leftSection={<IconZzz size={14} />}
+								onClick={restTimerModalToggle}
+								rightSection={
+									props.exercise.restTimer?.enabled
+										? `${props.exercise.restTimer.duration}s`
+										: "Off"
+								}
+							>
+								Rest timer
+							</Menu.Item>
+							<Menu.Item
 								leftSection={<IconClipboard size={14} />}
 								rightSection={
 									props.exercise.notes.length > 0
@@ -840,6 +877,12 @@ const ExerciseDisplay = (props: {
 								Add note
 							</Menu.Item>
 							<Menu.Item
+								leftSection={<IconLayersIntersect size={14} />}
+								onClick={supersetModalToggle}
+							>
+								Superset
+							</Menu.Item>
+							<Menu.Item
 								leftSection={<IconPhoto size={14} />}
 								rightSection={
 									props.exercise.images.length > 0
@@ -849,17 +892,6 @@ const ExerciseDisplay = (props: {
 								onClick={assetsModalToggle}
 							>
 								Add image
-							</Menu.Item>
-							<Menu.Item
-								leftSection={<IconZzz size={14} />}
-								onClick={restTimerModalToggle}
-								rightSection={
-									props.exercise.restTimer?.enabled
-										? `${props.exercise.restTimer.duration}s`
-										: "Off"
-								}
-							>
-								Rest timer
 							</Menu.Item>
 							<Menu.Item
 								color="red"
