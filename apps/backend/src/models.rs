@@ -1500,17 +1500,14 @@ pub mod fitness {
         Schematic,
     )]
     pub struct ProcessedExercise {
-        #[serde(rename = "name")]
         pub id: String,
         pub lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
         pub total: WorkoutOrExerciseTotals,
-        #[serde(default)] // FIXME: Remove this
         pub assets: EntityAssets,
         /// The indices of the exercises with which this has been superset with.
-        #[serde(default)] // FIXME: Remove this
         pub superset_with: Vec<u16>,
     }
 
@@ -1547,7 +1544,6 @@ pub mod fitness {
     )]
     pub struct WorkoutInformation {
         pub exercises: Vec<ProcessedExercise>,
-        #[serde(default)] // FIXME: Remove this
         pub assets: EntityAssets,
     }
 
@@ -1621,7 +1617,6 @@ pub mod fitness {
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
         pub assets: EntityAssets,
-        #[serde(default)] // FIXME: Remove this
         pub superset_with: Vec<u16>,
     }
 
