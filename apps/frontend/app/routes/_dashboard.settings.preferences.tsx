@@ -44,19 +44,27 @@ import {
 	IconRotate360,
 } from "@tabler/icons-react";
 import clsx from "clsx";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { flushSync } from "react-dom";
 import { match } from "ts-pattern";
+import { z } from "zod";
+import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import classes from "~/styles/preferences.module.css";
 
+const searchSchema = z.object({
+	defaultTab: z.string().default("dashboard").optional(),
+});
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const query = zx.parseQuery(request, searchSchema);
 	const [coreDetails, userPreferences] = await Promise.all([
 		getCoreDetails(),
 		getUserPreferences(request),
 	]);
 	return json({
+		query,
 		coreDetails: {
 			preferencesChangeAllowed: coreDetails.preferencesChangeAllowed,
 		},
@@ -105,6 +113,9 @@ export default function Page() {
 	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
 		[string, string]
 	>([]);
+	const [defaultTab, setDefaultTab] = useState(
+		loaderData.query.defaultTab || "dashboard",
+	);
 
 	const appendPref = (property: string, value: string) => {
 		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
@@ -116,7 +127,11 @@ export default function Page() {
 		<Container size="xs">
 			{toUpdatePreferences.length > 0 ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<Form method="post" reloadDocument>
+					<Form
+						method="post"
+						reloadDocument
+						action={`?defaultTab=${defaultTab}`}
+					>
 						{toUpdatePreferences.map((pref) => (
 							<input
 								key={pref[0]}
@@ -172,7 +187,12 @@ export default function Page() {
 						{notificationContent.message}
 					</Alert>
 				) : undefined}
-				<Tabs defaultValue="dashboard">
+				<Tabs
+					value={defaultTab}
+					onChange={(value) => {
+						if (value) setDefaultTab(value);
+					}}
+				>
 					<Tabs.List>
 						<Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
 						<Tabs.Tab value="general">General</Tabs.Tab>
