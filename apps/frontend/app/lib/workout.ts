@@ -37,7 +37,7 @@ export type Exercise = {
 	restTimer?: { enabled: boolean; duration: number } | null;
 	videos: string[];
 	images: string[];
-	supersetWith: Array<number>;
+	supersetWith: Array<string>;
 };
 
 type InProgressWorkout = {
@@ -110,11 +110,17 @@ export const duplicateOldWorkout = (
 			exerciseId: ex.name,
 			lot: ex.lot,
 			notes: ex.notes,
-			supersetWith: ex.supersetWith,
+			supersetWith: [],
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			sets: sets as any,
 		});
+	}
+	for (const [idx, exercise] of workout.information.exercises.entries()) {
+		const supersetWith = exercise.supersetWith.map(
+			(index) => inProgress.exercises[index].identifier,
+		);
+		inProgress.exercises[idx].supersetWith = supersetWith;
 	}
 	return inProgress;
 };
@@ -156,11 +162,14 @@ export const currentWorkoutToCreateWorkoutInput = (
 		if (sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
+		const supersetWith = exercise.supersetWith.map((id) =>
+			currentWorkout.exercises.findIndex((e) => e.identifier === id),
+		);
 		input.input.exercises.push({
 			exerciseId: exercise.exerciseId,
 			notes,
 			sets,
-			supersetWith: exercise.supersetWith,
+			supersetWith,
 			assets: { images: [...exercise.images], videos: [...exercise.videos] },
 			restTime: exercise.restTimer
 				? exercise.restTimer.enabled

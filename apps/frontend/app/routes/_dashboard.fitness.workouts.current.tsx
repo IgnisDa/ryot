@@ -545,7 +545,8 @@ const SupersetExerciseModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
-	const [currentWorkout, _] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+
 	return currentWorkout ? (
 		<Modal
 			opened={props.opened}
@@ -563,9 +564,23 @@ const SupersetExerciseModal = (props: {
 						<Switch
 							key={`${idx}`}
 							onChange={(event) => {
-								console.log(event);
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const supersetWith =
+											draft.exercises[props.exerciseIdx].supersetWith;
+										if (event.currentTarget.checked) {
+											supersetWith.push(e.identifier);
+										} else {
+											draft.exercises[props.exerciseIdx].supersetWith =
+												supersetWith.filter((s) => s !== e.identifier);
+										}
+									}),
+								);
 							}}
 							label={e.exerciseId}
+							defaultChecked={currentWorkout.exercises[
+								props.exerciseIdx
+							].supersetWith.includes(e.identifier)}
 						/>
 					))}
 			</Stack>
