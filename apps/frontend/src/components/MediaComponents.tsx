@@ -415,6 +415,10 @@ export const MediaItemWithoutUpdateModal = (props: {
 									EntityLot.Exercise,
 									() => APP_ROUTES.fitness.exercises.details,
 								)
+								.with(
+									EntityLot.Collection,
+									() => APP_ROUTES.collections.details,
+								)
 								.exhaustive(),
 							{ id: props.item.identifier },
 					  )

@@ -46,8 +46,6 @@ type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	videos: Array<string>;
 	images: Array<string>;
-	// TODO: Superset support pending
-	// supersets: Array<Array<number>>;
 };
 
 export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
@@ -58,9 +56,9 @@ export const currentWorkoutAtom = atomWithStorage<InProgressWorkout | null>(
 function getTimeOfDay(date: Date) {
 	const hours = date.getHours();
 	if (hours >= 5 && hours < 12) return "Morning";
-	else if (hours >= 12 && hours < 17) return "Afternoon";
-	else if (hours >= 17 && hours < 21) return "Evening";
-	else return "Night";
+	if (hours >= 12 && hours < 17) return "Afternoon";
+	if (hours >= 17 && hours < 21) return "Evening";
+	return "Night";
 }
 
 export const getDefaultWorkout = (): InProgressWorkout => {
@@ -122,7 +120,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 			startTime: new Date(currentWorkout.startTime),
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
-			supersets: [],
 			exercises: [],
 			assets: {
 				images: [...currentWorkout.images],
@@ -159,6 +156,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 					? exercise.restTimer.duration
 					: undefined
 				: undefined,
+			supersetWith: [],
 		});
 	}
 	return input;
