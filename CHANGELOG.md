@@ -1,5 +1,17 @@
 
 
+# Version 3.5.3 (2023-12-14)
+
+## Bug Fixes
+
+- **frontend:** basic errors
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 3.5.2 (2023-12-13)
 
 
