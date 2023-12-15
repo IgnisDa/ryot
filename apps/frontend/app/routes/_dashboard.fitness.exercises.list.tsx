@@ -437,7 +437,6 @@ export default function Page() {
 					>
 						<IconCheck size={32} />
 					</ActionIcon>
-					{/* TODO: Add btn to add superset exercises */}
 				</Affix>
 			) : undefined}
 		</Container>
