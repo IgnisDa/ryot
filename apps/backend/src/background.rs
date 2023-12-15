@@ -40,10 +40,6 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
         .await
         .unwrap();
     let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    service
-        .cleanup_data_without_associated_user_activities()
-        .await
-        .unwrap();
     tracing::trace!("Checking for updates for media in Watchlist");
     service
         .update_watchlist_media_and_send_notifications()
