@@ -114,6 +114,7 @@ export default function Page() {
 			for (const file of files) {
 				const key = await uploadFileAndGetKey(
 					file.name,
+					"metadata",
 					file.type,
 					await file.arrayBuffer(),
 				);

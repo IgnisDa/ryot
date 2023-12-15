@@ -214,14 +214,13 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 
 export const uploadFileAndGetKey = async (
 	fileName: string,
+	prefix: string,
 	contentType: string,
 	body: ArrayBuffer | Buffer,
 ) => {
 	const { presignedPutS3Url } = await gqlClientSide.request(
 		PresignedPutS3UrlDocument,
-		{
-			fileName,
-		},
+		{ input: { fileName, prefix } },
 	);
 	await fetch(presignedPutS3Url.uploadUrl, {
 		method: "PUT",

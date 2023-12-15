@@ -695,6 +695,12 @@ enum UserUpcomingCalendarEventInput {
     NextDays(u64),
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct PresignedPutUrlInput {
+    file_name: String,
+    prefix: String,
+}
+
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
 }
@@ -1274,12 +1280,12 @@ impl MiscellaneousMutation {
     async fn presigned_put_s3_url(
         &self,
         gql_ctx: &Context<'_>,
-        file_name: String,
+        input: PresignedPutUrlInput,
     ) -> Result<PresignedPutUrlResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let (key, upload_url) = service
             .file_storage_service
-            .get_presigned_put_url(file_name)
+            .get_presigned_put_url(input.file_name, input.prefix)
             .await;
         Ok(PresignedPutUrlResponse { upload_url, key })
     }

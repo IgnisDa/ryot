@@ -772,6 +772,7 @@ const ExerciseDisplay = (props: {
 												);
 												const uploadedKey = await uploadFileAndGetKey(
 													"image.jpeg",
+													"workouts",
 													fileType,
 													buffer,
 												);

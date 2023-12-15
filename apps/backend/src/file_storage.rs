@@ -49,8 +49,12 @@ impl FileStorageService {
             .is_ok()
     }
 
-    pub async fn get_presigned_put_url(&self, filename: String) -> (String, String) {
-        let key = format!("uploads/{}-{}", Uuid::new_v4(), filename);
+    pub async fn get_presigned_put_url(
+        &self,
+        filename: String,
+        prefix: String,
+    ) -> (String, String) {
+        let key = format!("uploads/{}/{}-{}", prefix, Uuid::new_v4(), filename);
         let url = self
             .s3_client
             .put_object()

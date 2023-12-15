@@ -112,6 +112,7 @@ export default function Page() {
 			for (const file of files) {
 				const key = await uploadFileAndGetKey(
 					file.name,
+					"exercises",
 					file.type,
 					await file.arrayBuffer(),
 				);
