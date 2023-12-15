@@ -392,7 +392,7 @@ async fn before_startup_jobs(
             images.push(dest.clone());
             s3_client
                 .copy_object()
-                .copy_source(url)
+                .copy_source(format!("{}/{}", bkt, url))
                 .bucket(bkt)
                 .key(dest)
                 .send()
@@ -422,7 +422,7 @@ async fn before_startup_jobs(
             images.push(dest.clone());
             s3_client
                 .copy_object()
-                .copy_source(image)
+                .copy_source(format!("{}/{}", bkt, image))
                 .bucket(bkt)
                 .key(dest)
                 .send()
@@ -441,7 +441,7 @@ async fn before_startup_jobs(
             videos.push(dest.clone());
             s3_client
                 .copy_object()
-                .copy_source(video)
+                .copy_source(format!("{}/{}", bkt, video))
                 .bucket(bkt)
                 .key(dest)
                 .send()
@@ -463,7 +463,7 @@ async fn before_startup_jobs(
                 images.push(dest.clone());
                 s3_client
                     .copy_object()
-                    .copy_source(image)
+                    .copy_source(format!("{}/{}", bkt, image))
                     .bucket(bkt)
                     .key(dest)
                     .send()
@@ -482,7 +482,7 @@ async fn before_startup_jobs(
                 videos.push(dest.clone());
                 s3_client
                     .copy_object()
-                    .copy_source(video)
+                    .copy_source(format!("{}/{}", bkt, video))
                     .bucket(bkt)
                     .key(dest)
                     .send()
@@ -522,7 +522,7 @@ async fn before_startup_jobs(
             images.push(image.clone());
             s3_client
                 .copy_object()
-                .copy_source(url.clone())
+                .copy_source(format!("{}/{}", bkt, url))
                 .bucket(bkt)
                 .key(dest)
                 .send()
