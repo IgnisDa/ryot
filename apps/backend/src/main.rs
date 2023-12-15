@@ -26,7 +26,7 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
-use database::{ExerciseSource, Migrator};
+use database::{ExerciseSource, MetadataSource, Migrator};
 use itertools::Itertools;
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
@@ -47,8 +47,9 @@ use utils::{AppServices, TEMP_DIR};
 use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
     entities::{
-        exercise,
+        exercise, metadata,
         prelude::{Exercise, Metadata, Workout},
+        workout,
     },
     graphql::get_schema,
     models::ExportAllResponse,
@@ -381,7 +382,7 @@ async fn before_startup_jobs(
         for image in &ex.attributes.internal_images {
             let url = match image {
                 models::StoredUrl::S3(u) => u,
-                _ => unreachable!(),
+                _ => continue,
             };
             let dest = if url.contains("uploads/exercises/") {
                 url.clone()
@@ -395,12 +396,147 @@ async fn before_startup_jobs(
                 .bucket(bkt)
                 .key(dest)
                 .send()
-                .await
-                .ok();
+                .await?;
+            app_services
+                .file_storage_service
+                .delete_object(url.clone())
+                .await;
         }
         attributes.internal_images = images.into_iter().map(models::StoredUrl::S3).collect();
         let mut to_update: exercise::ActiveModel = ex.into();
         to_update.attributes = ActiveValue::Set(attributes);
+        to_update.update(&app_services.media_service.db).await?;
+    }
+
+    let all_workouts = Workout::find().all(&app_services.media_service.db).await?;
+    for wkt in all_workouts {
+        let mut information = wkt.information.clone();
+        let mut images = vec![];
+        let mut videos = vec![];
+        for image in &wkt.information.assets.images {
+            let dest = if image.contains("uploads/workouts/") {
+                image.clone()
+            } else {
+                image.replace("uploads/", "uploads/workouts/")
+            };
+            images.push(dest.clone());
+            s3_client
+                .copy_object()
+                .copy_source(image)
+                .bucket(bkt)
+                .key(dest)
+                .send()
+                .await?;
+            app_services
+                .file_storage_service
+                .delete_object(image.clone())
+                .await;
+        }
+        for video in &wkt.information.assets.videos {
+            let dest = if video.contains("uploads/workouts/") {
+                video.clone()
+            } else {
+                video.replace("uploads/", "uploads/workouts/")
+            };
+            videos.push(dest.clone());
+            s3_client
+                .copy_object()
+                .copy_source(video)
+                .bucket(bkt)
+                .key(dest)
+                .send()
+                .await?;
+            app_services
+                .file_storage_service
+                .delete_object(video.clone())
+                .await;
+        }
+        for (idx, exercise) in wkt.information.exercises.iter().enumerate() {
+            let mut images = vec![];
+            let mut videos = vec![];
+            for image in &exercise.assets.images {
+                let dest = if image.contains("uploads/exercises/") {
+                    image.clone()
+                } else {
+                    image.replace("uploads/", "uploads/exercises/")
+                };
+                images.push(dest.clone());
+                s3_client
+                    .copy_object()
+                    .copy_source(image)
+                    .bucket(bkt)
+                    .key(dest)
+                    .send()
+                    .await?;
+                app_services
+                    .file_storage_service
+                    .delete_object(image.clone())
+                    .await;
+            }
+            for video in &exercise.assets.videos {
+                let dest = if video.contains("uploads/exercises/") {
+                    video.clone()
+                } else {
+                    video.replace("uploads/", "uploads/exercises/")
+                };
+                videos.push(dest.clone());
+                s3_client
+                    .copy_object()
+                    .copy_source(video)
+                    .bucket(bkt)
+                    .key(dest)
+                    .send()
+                    .await?;
+                app_services
+                    .file_storage_service
+                    .delete_object(video.clone())
+                    .await;
+            }
+            information.exercises[idx].assets.images = images;
+            information.exercises[idx].assets.videos = videos;
+        }
+        information.assets.images = images;
+        information.assets.videos = videos;
+        let mut to_update: workout::ActiveModel = wkt.into();
+        to_update.information = ActiveValue::Set(information);
+        to_update.update(&app_services.media_service.db).await?;
+    }
+
+    let all_meta = Metadata::find()
+        .filter(metadata::Column::Source.eq(MetadataSource::Custom))
+        .all(&app_services.media_service.db)
+        .await?;
+    for meta in all_meta {
+        let mut images = vec![];
+        for image in meta.images.clone().unwrap_or_default().iter_mut() {
+            let url = match &image.url {
+                models::StoredUrl::S3(u) => u.clone(),
+                _ => continue,
+            };
+            let dest = if url.contains("uploads/metadata/") {
+                url.clone()
+            } else {
+                url.replace("uploads/", "uploads/metadata/")
+            };
+            image.url = models::StoredUrl::S3(dest.clone());
+            images.push(image.clone());
+            s3_client
+                .copy_object()
+                .copy_source(url.clone())
+                .bucket(bkt)
+                .key(dest)
+                .send()
+                .await?;
+            app_services
+                .file_storage_service
+                .delete_object(url.clone())
+                .await;
+        }
+        if images.is_empty() {
+            continue;
+        }
+        let mut to_update: metadata::ActiveModel = meta.into();
+        to_update.images = ActiveValue::Set(Some(images));
         to_update.update(&app_services.media_service.db).await?;
     }
 
