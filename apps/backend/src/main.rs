@@ -372,6 +372,8 @@ async fn before_startup_jobs(
             .unwrap();
     }
 
+    tracing::info!("Migrating custom data to S3...");
+
     let all_ex = Exercise::find()
         .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
         .all(&app_services.media_service.db)
@@ -539,6 +541,8 @@ async fn before_startup_jobs(
         to_update.images = ActiveValue::Set(Some(images));
         to_update.update(&app_services.media_service.db).await?;
     }
+
+    tracing::info!("Migrating custom data to S3... Done");
 
     Ok(())
 }
