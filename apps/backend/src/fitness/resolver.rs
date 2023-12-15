@@ -104,6 +104,7 @@ struct UserExerciseHistoryInformation {
     workout_id: String,
     workout_name: String,
     workout_time: DateTimeUtc,
+    index: usize,
     sets: Vec<WorkoutSetRecord>,
 }
 
@@ -410,6 +411,7 @@ impl ExerciseService {
                         workout_id: w.id,
                         workout_name: w.name,
                         workout_time: w.start_time,
+                        index: element.idx,
                         sets: w.information.exercises[element.idx].sets.clone(),
                     }
                 })
