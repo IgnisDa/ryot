@@ -9,8 +9,8 @@ If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/
 prefix. Please take a look at the [integration](integrations.md#sink-plugins) docs for the
 new format.
 
-1. Upgrade the server to `v3.5.3` to make sure all pending migrations are applied. For example,
-   you can make this change: `image: "ghcr.io/ignisda/ryot:v3.5.3"` in your docker-compose file.
+1. Upgrade the server to `v3.5.4` to make sure all pending migrations are applied. For example,
+   you can make this change: `image: "ghcr.io/ignisda/ryot:v3.5.4"` in your docker-compose file.
 
 2. Go to the "Preferences" settings, then the "General" tab, and click on "Disable yank
    integrations" twice. This will ensure that latest preferences have been applied.
