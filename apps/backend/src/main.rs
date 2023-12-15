@@ -128,7 +128,10 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    Migrator::up(&db, None).await?;
+    if let Err(err) = Migrator::up(&db, None).await {
+        tracing::error!("Database migration failed: {}", err);
+        bail!("If this is a major version upgrade, please follow the instructions in the migration docs.");
+    };
 
     match env::args().nth(1) {
         None => {}
