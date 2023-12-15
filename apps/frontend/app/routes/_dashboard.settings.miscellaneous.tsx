@@ -20,6 +20,7 @@ import {
 	DeployBackgroundJobDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
+import { ReactNode } from "react";
 import { z } from "zod";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserDetails } from "~/lib/graphql.server";
@@ -205,7 +206,7 @@ export default function Page() {
 const buttonProps = { variant: "light", type: "submit" as const };
 
 const DisabledNotice = (props: {
-	children: JSX.Element;
+	children: ReactNode;
 	enabled: boolean;
 }) => (
 	<Tooltip

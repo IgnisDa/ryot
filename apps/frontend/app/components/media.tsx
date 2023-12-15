@@ -48,7 +48,7 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
@@ -113,7 +113,7 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 };
 
 export const MediaScrollArea = (props: {
-	children: JSX.Element;
+	children: ReactNode;
 	itemDetailsHeight: number;
 }) => {
 	return (
@@ -172,10 +172,10 @@ export const ReviewItemDisplay = (props: {
 									entityType: props.metadataId
 										? "metadata"
 										: props.metadataGroupId
-										? "metadataGroup"
-										: props.collectionId
-										? "collection"
-										: "person",
+										  ? "metadataGroup"
+										  : props.collectionId
+											  ? "collection"
+											  : "person",
 									existingReviewId: props.review.id,
 									title: props.title,
 								},
@@ -380,13 +380,13 @@ export const BaseDisplayItem = (props: {
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	imageLink?: string | null;
 	imagePlaceholder: string;
-	topRight?: JSX.Element;
-	topLeft?: JSX.Element;
+	topRight?: ReactNode;
+	topLeft?: ReactNode;
 	bottomLeft?: string | number | null;
 	bottomRight?: string | number | null;
 	href: string;
 	highlightRightText?: string;
-	children?: JSX.Element;
+	children?: ReactNode;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -467,7 +467,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	entityLot?: EntityLot | null;
 	href?: string;
 	lot?: MetadataLot | null;
-	children?: JSX.Element;
+	children?: ReactNode;
 	imageOverlayForLoadingIndicator?: boolean;
 	hasInteracted?: boolean;
 	averageRating?: string;

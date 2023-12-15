@@ -39,6 +39,7 @@ import {
 import { parse } from "cookie";
 import humanFormat from "human-format";
 import { useAtom } from "jotai";
+import { ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
@@ -504,7 +505,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 };
 
 const ActualDisplayStat = (props: {
-	icon: JSX.Element;
+	icon: ReactNode;
 	lot: string;
 	data: {
 		type: "duration" | "number";
@@ -589,6 +590,6 @@ const DisplayStatForMediaType = (props: {
 	) : undefined;
 };
 
-const Section = (props: { children: JSX.Element[] }) => {
+const Section = (props: { children: ReactNode[] }) => {
 	return <Stack gap="sm">{props.children}</Stack>;
 };

@@ -19,13 +19,13 @@ import type {
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
-import { forwardRef } from "react";
+import { ReactNode, forwardRef } from "react";
 import { useState } from "react";
 import { getFallbackImageUrl } from "~/lib/generals";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
-	children: JSX.Element[];
+	children: ReactNode[];
 }) => {
 	return (
 		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
@@ -50,7 +50,7 @@ function getSurroundingElements<T>(array: T[], element: number): number[] {
 }
 
 export const MediaDetailsLayout = (props: {
-	children: JSX.Element | (JSX.Element | undefined)[];
+	children: ReactNode | (ReactNode | undefined)[];
 	images: (string | null | undefined)[];
 	externalLink?: {
 		source: MetadataSource;

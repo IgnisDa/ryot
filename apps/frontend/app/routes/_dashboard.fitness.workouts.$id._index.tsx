@@ -498,7 +498,7 @@ const DisplaySet = (props: {
 	);
 };
 
-const DisplayStat = (props: { icon: JSX.Element; data: string }) => {
+const DisplayStat = (props: { icon: ReactNode; data: string }) => {
 	return (
 		<Flex gap={4} align="center">
 			{props.icon}

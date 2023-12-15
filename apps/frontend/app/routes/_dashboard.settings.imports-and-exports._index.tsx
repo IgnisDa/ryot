@@ -34,7 +34,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -560,7 +560,7 @@ export default function Page() {
 }
 
 export const ImportSourceElement = (props: {
-	children: JSX.Element | JSX.Element[];
+	children: ReactNode | ReactNode[];
 }) => {
 	return (
 		<>

@@ -76,7 +76,7 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -1664,7 +1664,7 @@ const AccordionLabel = (props: {
 	numEpisodes?: number | null;
 	posterImages: string[];
 	overview?: string | null;
-	children: JSX.Element;
+	children: ReactNode;
 	displayIndicator: number;
 	runtime?: number | null;
 	publishDate?: string | null;
