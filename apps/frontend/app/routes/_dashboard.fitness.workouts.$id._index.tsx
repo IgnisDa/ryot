@@ -55,6 +55,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
+import { ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -309,11 +310,32 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [opened, { close, open }] = useDisclosure(false);
 
+	const supersetLinks =
+		props.exercise.supersetWith.length > 0
+			? props.exercise.supersetWith
+					.map<ReactNode>((otherExerciseIdx) => (
+						<Anchor
+							key={otherExerciseIdx}
+							fz="xs"
+							// TODO: Use `withFragment` from ufo
+							href={`#${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`}
+						>
+							{
+								loaderData.workoutDetails.information.exercises[
+									otherExerciseIdx
+								].name
+							}
+						</Anchor>
+					))
+					.reduce((prev, curr) => [prev, ", ", curr])
+			: undefined;
+
 	return (
 		<Paper withBorder p="xs">
 			<Box mb="xs">
 				<Group justify="space-between">
 					<Anchor
+						id={`${props.exercise.name}__${props.idx}`}
 						component={Link}
 						to={$path("/fitness/exercises/:id", {
 							id: props.exercise.name,
@@ -383,6 +405,9 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						</Popover.Dropdown>
 					</Popover>
 				</Group>
+				{supersetLinks ? (
+					<Text fz="xs">Superset with {supersetLinks}</Text>
+				) : undefined}
 				{props.exercise.notes.map((n, idxN) => (
 					<Text c="dimmed" key={n} size="xs">
 						{props.exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
