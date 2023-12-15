@@ -391,6 +391,9 @@ async fn before_startup_jobs(
             } else {
                 url.replace("uploads/", "uploads/exercises/")
             };
+            if url == &dest {
+                break;
+            }
             images.push(dest.clone());
             s3_client
                 .copy_object()
@@ -421,6 +424,9 @@ async fn before_startup_jobs(
             } else {
                 image.replace("uploads/", "uploads/workouts/")
             };
+            if image == &dest {
+                continue;
+            }
             images.push(dest.clone());
             s3_client
                 .copy_object()
@@ -440,6 +446,9 @@ async fn before_startup_jobs(
             } else {
                 video.replace("uploads/", "uploads/workouts/")
             };
+            if video == &dest {
+                break;
+            }
             videos.push(dest.clone());
             s3_client
                 .copy_object()
@@ -462,6 +471,9 @@ async fn before_startup_jobs(
                 } else {
                     image.replace("uploads/", "uploads/exercises/")
                 };
+                if image == &dest {
+                    break;
+                }
                 images.push(dest.clone());
                 s3_client
                     .copy_object()
@@ -481,6 +493,9 @@ async fn before_startup_jobs(
                 } else {
                     video.replace("uploads/", "uploads/exercises/")
                 };
+                if video == &dest {
+                    break;
+                }
                 videos.push(dest.clone());
                 s3_client
                     .copy_object()
@@ -520,6 +535,9 @@ async fn before_startup_jobs(
             } else {
                 url.replace("uploads/", "uploads/metadata/")
             };
+            if url == dest {
+                break;
+            }
             image.url = models::StoredUrl::S3(dest.clone());
             images.push(image.clone());
             s3_client
