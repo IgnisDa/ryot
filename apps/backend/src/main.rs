@@ -26,11 +26,13 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
-use database::Migrator;
-use futures::future::join_all;
+use database::{ExerciseSource, Migrator};
 use itertools::Itertools;
 use rs_utils::PROJECT_NAME;
-use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectOptions, Database, EntityTrait,
+    PaginatorTrait, QueryFilter,
+};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::try_join;
@@ -44,7 +46,10 @@ use utils::{AppServices, TEMP_DIR};
 
 use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
-    entities::prelude::Exercise,
+    entities::{
+        exercise,
+        prelude::{Exercise, Metadata, Workout},
+    },
     graphql::get_schema,
     models::ExportAllResponse,
     routes::{
@@ -157,14 +162,19 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
-        s3_client,
-        config,
+        s3_client.clone(),
+        config.clone(),
         &perform_application_job_storage,
         tz,
     )
     .await;
 
-    before_startup_jobs(&app_services).await?;
+    before_startup_jobs(
+        &app_services,
+        &s3_client,
+        &config.file_storage.s3_bucket_name,
+    )
+    .await?;
 
     if cfg!(debug_assertions) {
         use schematic::schema::{typescript::TypeScriptRenderer, SchemaGenerator};
@@ -342,9 +352,11 @@ fn init_tracing() -> Result<WorkerGuard> {
     Ok(guard)
 }
 
-async fn before_startup_jobs(app_services: &AppServices) -> Result<()> {
-    let mut jobs = vec![];
-
+async fn before_startup_jobs(
+    app_services: &AppServices,
+    s3_client: &aws_sdk_s3::Client,
+    bkt: &String,
+) -> Result<()> {
     if !cfg!(debug_assertions)
         && Exercise::find()
             .count(&app_services.media_service.db)
@@ -352,15 +364,45 @@ async fn before_startup_jobs(app_services: &AppServices) -> Result<()> {
             == 0
     {
         tracing::info!("Instance does not have exercises data. Deploying job to download them...");
-        jobs.push(
-            app_services
-                .exercise_service
-                .deploy_update_exercise_library_job(),
-        );
+        app_services
+            .exercise_service
+            .deploy_update_exercise_library_job()
+            .await
+            .unwrap();
     }
-    // TODO: Add job to migrate all s3 data to correct keys
 
-    join_all(jobs).await;
+    let all_ex = Exercise::find()
+        .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
+        .all(&app_services.media_service.db)
+        .await?;
+    for ex in all_ex {
+        let mut attributes = ex.attributes.clone();
+        let mut images = vec![];
+        for image in &ex.attributes.internal_images {
+            let url = match image {
+                models::StoredUrl::S3(u) => u,
+                _ => unreachable!(),
+            };
+            let dest = if url.contains("uploads/exercises/") {
+                url.clone()
+            } else {
+                url.replace("uploads/", "uploads/exercises/")
+            };
+            images.push(dest.clone());
+            s3_client
+                .copy_object()
+                .copy_source(url)
+                .bucket(bkt)
+                .key(dest)
+                .send()
+                .await
+                .ok();
+        }
+        attributes.internal_images = images.into_iter().map(models::StoredUrl::S3).collect();
+        let mut to_update: exercise::ActiveModel = ex.into();
+        to_update.attributes = ActiveValue::Set(attributes);
+        to_update.update(&app_services.media_service.db).await?;
+    }
 
     Ok(())
 }
