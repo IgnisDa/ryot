@@ -27,6 +27,7 @@ use axum::{
     Extension, Server,
 };
 use database::Migrator;
+use futures::future::join_all;
 use itertools::Itertools;
 use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
@@ -39,7 +40,7 @@ use tower_http::{
 };
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::TEMP_DIR;
+use utils::{AppServices, TEMP_DIR};
 
 use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
@@ -163,14 +164,7 @@ async fn main() -> Result<()> {
     )
     .await;
 
-    if !cfg!(debug_assertions) && Exercise::find().count(&db).await? == 0 {
-        tracing::info!("Instance does not have exercises data. Deploying job to download them...");
-        app_services
-            .exercise_service
-            .deploy_update_exercise_library_job()
-            .await
-            .unwrap();
-    }
+    before_startup_jobs(&app_services).await?;
 
     if cfg!(debug_assertions) {
         use schematic::schema::{typescript::TypeScriptRenderer, SchemaGenerator};
@@ -346,4 +340,27 @@ fn init_tracing() -> Result<WorkerGuard> {
     )
     .expect("Unable to set global tracing subscriber");
     Ok(guard)
+}
+
+async fn before_startup_jobs(app_services: &AppServices) -> Result<()> {
+    let mut jobs = vec![];
+
+    if !cfg!(debug_assertions)
+        && Exercise::find()
+            .count(&app_services.media_service.db)
+            .await?
+            == 0
+    {
+        tracing::info!("Instance does not have exercises data. Deploying job to download them...");
+        jobs.push(
+            app_services
+                .exercise_service
+                .deploy_update_exercise_library_job(),
+        );
+    }
+    // TODO: Add job to migrate all s3 data to correct keys
+
+    join_all(jobs).await;
+
+    Ok(())
 }
