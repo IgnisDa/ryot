@@ -216,13 +216,16 @@ export default function Page() {
 					{loaderData.userExerciseDetails.history ? (
 						<Tabs.Panel value="history">
 							<Stack>
-								{loaderData.userExerciseDetails.history.map((h) => (
+								{loaderData.userExerciseDetails.history.map((h, ) => (
 									<Paper key={h.workoutId} withBorder p="xs">
 										<Anchor
 											component={Link}
-											to={$path("/fitness/workouts/:id", {
-												id: h.workoutId,
-											})}
+											to={
+												$path("/fitness/workouts/:id", {
+													id: h.workoutId,
+													// FIXME: Use the `withFragment` helper from ufo
+												}) + `#${loaderData.exerciseDetails.id}__${h.index}`
+											}
 											fw="bold"
 										>
 											{h.workoutName}

@@ -317,7 +317,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						<Anchor
 							key={otherExerciseIdx}
 							fz="xs"
-							// TODO: Use `withFragment` from ufo
+							// FIXME: Use `withFragment` from ufo
 							href={`#${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`}
 						>
 							{
