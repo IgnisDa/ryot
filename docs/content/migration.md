@@ -5,8 +5,9 @@ order.
 
 ## From `v3.*` to `v4.*`
 
-All webhooks urls will now have the `/backend` prefix. Please take a look at the
-[integration](./integrations#sink-plugins) docs for the new format.
+If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
+prefix. Please take a look at the [integration](integrations.md#sink-plugins) docs for the
+new format.
 
 1. Upgrade the server to `v3.5.3` to make sure all pending migrations are applied. For example,
    you can make this change: `image: "ghcr.io/ignisda/ryot:v3.5.3"` in your docker-compose file.
@@ -20,11 +21,11 @@ All webhooks urls will now have the `/backend` prefix. Please take a look at the
    you have a lot of media. Go to the dashboard and check the time under the "Summary"
    section. It should say "Calculated just now".
 
-5. Logout and then clear the local storage and cookies for this server.
+5. Logout and then clear the local storage and cookies for your domain.
    [Here](https://intercom.help/scoutpad/en/articles/3478364-how-to-clear-local-storage-of-web-browser)
    is a guide on how to do this. You need to do this on the PWA too if you use it.
 
-6. Stop the running server and [**create a backup of your database**](https://simplebackups.com/blog/docker-postgres-backup-restore-guide-with-examples/).
+6. Stop the running server and [create a backup of your database](https://simplebackups.com/blog/docker-postgres-backup-restore-guide-with-examples/).
 
 7. Connect to the database and run these SQL queries:
    ```sql
