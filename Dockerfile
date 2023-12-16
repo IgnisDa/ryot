@@ -3,7 +3,7 @@ FROM --platform=$BUILDPLATFORM node:20.5.1-bookworm-slim AS node-base
 FROM node-base AS base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
-RUN apt update && apt install -y --no-install-recommends git
+RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
 RUN npm install -g @moonrepo/cli && moon --version
 
 FROM base AS frontend-workspace
@@ -54,7 +54,6 @@ COPY --from=reverse-proxy /usr/bin/caddy /usr/local/bin/caddy
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules ./node_modules
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
-COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/public ./public
 COPY --from=app-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
 HEALTHCHECK --interval=5m --timeout=3s \
   CMD curl -f http://localhost:5000/config || exit 1

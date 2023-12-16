@@ -32,7 +32,6 @@ tasks:
       - '@group(remix)'
     outputs:
       - build
-      - public/build
     options:
       runDepsInParallel: false
 
