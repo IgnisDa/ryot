@@ -171,10 +171,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 			sets,
 			supersetWith,
 			assets: { images: [...exercise.images], videos: [...exercise.videos] },
-			restTime: exercise.restTimer
-				? exercise.restTimer.enabled
-					? exercise.restTimer.duration
-					: undefined
+			restTime: exercise.restTimer?.enabled
+				? exercise.restTimer.duration
 				: undefined,
 		});
 	}
