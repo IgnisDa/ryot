@@ -162,20 +162,32 @@ export const currentWorkoutToCreateWorkoutInput = (
 		if (sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
-		const supersetWith = exercise.supersetWith.map((id) =>
-			currentWorkout.exercises.findIndex((e) => e.identifier === id),
-		);
 		input.input.exercises.push({
+			identifier: exercise.identifier,
 			exerciseId: exercise.exerciseId,
 			notes,
 			sets,
-			supersetWith,
+			// biome-ignore lint/suspicious/noExplicitAny: required here
+			supersetWith: exercise.supersetWith as any,
 			assets: { images: [...exercise.images], videos: [...exercise.videos] },
 			restTime: exercise.restTimer?.enabled
 				? exercise.restTimer.duration
 				: undefined,
-		});
+			// biome-ignore lint/suspicious/noExplicitAny: required here
+		} as any);
 	}
+	for (const ex of input.input.exercises) {
+		let supersetWith = ex.supersetWith.map((identifier) =>
+			// biome-ignore lint/suspicious/noExplicitAny: required here
+			input.input.exercises.findIndex((e: any) => e.identifier === identifier),
+		);
+		supersetWith = supersetWith.filter((idx) => idx !== -1);
+		// biome-ignore lint/suspicious/noExplicitAny: required here
+		ex.supersetWith = supersetWith as any;
+		// biome-ignore lint/suspicious/noExplicitAny: required here
+		(ex as any).identifier = undefined;
+	}
+	console.log(input);
 	return input;
 };
 
