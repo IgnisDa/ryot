@@ -834,6 +834,8 @@ const ExerciseDisplay = (props: {
 										size="xs"
 										radius="md"
 										w="100%"
+										onClick={props.openTimerDrawer}
+										style={{ cursor: "pointer" }}
 									/>
 								) : undefined}
 							</Flex>
