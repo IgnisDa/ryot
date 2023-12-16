@@ -343,7 +343,7 @@ interface LinksGroupProps {
 	links?: { label: string; link: string }[];
 }
 
-export function LinksGroup({
+function LinksGroup({
 	icon: Icon,
 	label,
 	href,

@@ -559,7 +559,7 @@ export default function Page() {
 	);
 }
 
-export const ImportSourceElement = (props: {
+const ImportSourceElement = (props: {
 	children: ReactNode | ReactNode[];
 }) => {
 	return (

@@ -22,7 +22,7 @@ import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
-export const redirectToQueryParam = "redirectTo";
+const redirectToQueryParam = "redirectTo";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
