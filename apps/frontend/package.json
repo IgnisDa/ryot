@@ -35,7 +35,6 @@
 		"graphql": "16.8.1",
 		"graphql-request": "6.1.0",
 		"howler": "2.2.4",
-		"human-format": "1.2.0",
 		"humanize-duration-ts": "2.1.1",
 		"immer": "10.0.3",
 		"isbot": "3.7.1",

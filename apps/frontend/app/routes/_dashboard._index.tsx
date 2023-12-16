@@ -37,7 +37,6 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
-import humanFormat from "human-format";
 import { useAtom } from "jotai";
 import { ReactNode } from "react";
 import invariant from "tiny-invariant";
@@ -541,7 +540,9 @@ const ActualDisplayStat = (props: {
 											round: true,
 											largest: 3,
 									  })
-									: humanFormat(d.value)}
+									: new Intl.NumberFormat("en-US", {
+											notation: "compact",
+									  }).format(d.value)}
 							</Text>
 							<Text
 								display="inline"

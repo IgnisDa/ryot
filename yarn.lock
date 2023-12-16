@@ -3073,7 +3073,6 @@ __metadata:
     graphql: "npm:16.8.1"
     graphql-request: "npm:6.1.0"
     howler: "npm:2.2.4"
-    human-format: "npm:1.2.0"
     humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.0.3"
     isbot: "npm:3.7.1"
@@ -6384,13 +6383,6 @@ __metadata:
     agent-base: "npm:^7.0.2"
     debug: "npm:4"
   checksum: 68e5a570fdeac623a619c3c83c820d9501f376b4477fe144e9e3e1e1f455f8d49bd89e21b9484c2392b52df50b23b905a07eca9c5dc276688ea572d493a4fab8
-  languageName: node
-  linkType: hard
-
-"human-format@npm:1.2.0":
-  version: 1.2.0
-  resolution: "human-format@npm:1.2.0"
-  checksum: 3a68caa488acf2f1915280582aafc1651aa17814f72a07a084d111a96d29b9dbe781fb9c9bf0e6b5668893192a5bbfb2fd29aaf0f8551d4475d4339c05737434
   languageName: node
   linkType: hard
 
