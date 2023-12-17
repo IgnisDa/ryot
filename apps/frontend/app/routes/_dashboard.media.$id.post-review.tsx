@@ -162,7 +162,7 @@ export default function Page() {
 						name="reviewId"
 						value={loaderData.query.existingReviewId}
 					/>
-				) : undefined}
+				) : null}
 				<Stack>
 					<Title order={3}>Reviewing "{loaderData.query.title}"</Title>
 					<Flex align="center" gap="xl">
@@ -224,7 +224,7 @@ export default function Page() {
 								}
 							/>
 						</Flex>
-					) : undefined}
+					) : null}
 					{loaderData.query.isPodcast ? (
 						<Flex gap="md">
 							<NumberInput
@@ -238,7 +238,7 @@ export default function Page() {
 								}
 							/>
 						</Flex>
-					) : undefined}
+					) : null}
 					<Textarea
 						label="Review"
 						name="text"
@@ -290,7 +290,7 @@ export default function Page() {
 						>
 							Delete
 						</Button>
-					) : undefined}
+					) : null}
 				</Stack>
 			</Box>
 		</Container>

@@ -131,7 +131,7 @@ export default function App() {
 									size="sm"
 									color="yellow"
 								/>
-							) : undefined}
+							) : null}
 							<Toaster toast={loaderData.toast} />
 							<Flex style={{ flexGrow: 1 }} mih="100vh">
 								<Outlet />

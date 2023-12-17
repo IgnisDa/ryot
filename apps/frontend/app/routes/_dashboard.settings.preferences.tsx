@@ -150,7 +150,7 @@ export default function Page() {
 						</Button>
 					</Form>
 				</Affix>
-			) : undefined}
+			) : null}
 			<Stack>
 				<Group justify="space-between">
 					<Title>Preferences</Title>
@@ -186,7 +186,7 @@ export default function Page() {
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						{notificationContent.message}
 					</Alert>
-				) : undefined}
+				) : null}
 				<Tabs
 					value={defaultTab}
 					onChange={(value) => {
@@ -568,7 +568,7 @@ const EditDashboardElement = (props: {
 								}}
 							/>
 						</Flex>
-					) : undefined}
+					) : null}
 				</Paper>
 			)}
 		</Draggable>

@@ -38,7 +38,7 @@ export const ApplicationPagination = forwardRef<
 	HTMLDivElement,
 	PaginationProps
 >((props, ref) => {
-	if (props.total === 1) return undefined;
+	if (props.total === 1) return null;
 	return <Pagination {...props} ref={ref} boundaries={1} siblings={0} />;
 });
 
@@ -81,7 +81,7 @@ export const MediaDetailsLayout = (props: {
 									idx,
 								) ? (
 									<Image src={url} radius="lg" />
-								) : undefined}
+								) : null}
 							</Carousel.Slide>
 						))}
 					</Carousel>
@@ -110,16 +110,16 @@ export const MediaDetailsLayout = (props: {
 								{snakeCase(props.externalLink.source)}
 								{props.externalLink.lot
 									? `:${snakeCase(props.externalLink.lot)}`
-									: undefined}
+									: null}
 							</Text>
 							{props.externalLink.href ? (
 								<Anchor href={props.externalLink.href} target="_blank" mt={2}>
 									<IconExternalLink size={12.8} />
 								</Anchor>
-							) : undefined}
+							) : null}
 						</Flex>
 					</Badge>
-				) : undefined}
+				) : null}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				{props.children}

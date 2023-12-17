@@ -117,7 +117,7 @@ export default function Page() {
 							/>
 						))}
 					</Group>
-				) : undefined}
+				) : null}
 				<Tabs variant="outline" defaultValue="overview">
 					<Tabs.List mb="xs">
 						<Tabs.Tab
@@ -133,12 +133,12 @@ export default function Page() {
 							>
 								History
 							</Tabs.Tab>
-						) : undefined}
+						) : null}
 						{loaderData.userExerciseDetails.details ? (
 							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
 								Records
 							</Tabs.Tab>
-						) : undefined}
+						) : null}
 						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 							Actions
 						</Tabs.Tab>
@@ -162,7 +162,7 @@ export default function Page() {
 												// biome-ignore lint/suspicious/noExplicitAny: required here
 												data={(loaderData.exerciseDetails as any)[f]}
 											/>
-										) : undefined}
+										) : null}
 									</Fragment>
 								))}
 								{loaderData.exerciseDetails.lot ? (
@@ -170,7 +170,7 @@ export default function Page() {
 										name="Type"
 										data={changeCase(loaderData.exerciseDetails.lot)}
 									/>
-								) : undefined}
+								) : null}
 								{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
 									<DisplayData
 										name="Last done on"
@@ -179,7 +179,7 @@ export default function Page() {
 										).format("ll")}
 										noCasing
 									/>
-								) : undefined}
+								) : null}
 							</SimpleGrid>
 							{loaderData.exerciseDetails.muscles.length > 0 ? (
 								<>
@@ -195,7 +195,7 @@ export default function Page() {
 										</Text>
 									</Group>
 								</>
-							) : undefined}
+							) : null}
 							{loaderData.exerciseDetails.attributes.instructions.length > 0 ? (
 								<>
 									<Divider />
@@ -210,7 +210,7 @@ export default function Page() {
 										)}
 									</List>
 								</>
-							) : undefined}
+							) : null}
 						</Stack>
 					</Tabs.Panel>
 					{loaderData.userExerciseDetails.history ? (
@@ -257,7 +257,7 @@ export default function Page() {
 								))}
 							</Stack>
 						</Tabs.Panel>
-					) : undefined}
+					) : null}
 					{loaderData.userExerciseDetails.details?.exerciseExtraInformation ? (
 						<Tabs.Panel value="records">
 							<Stack>
@@ -318,7 +318,7 @@ export default function Page() {
 								</Text>
 							</Stack>
 						</Tabs.Panel>
-					) : undefined}
+					) : null}
 					<Tabs.Panel value="actions">
 						<MediaScrollArea
 							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
@@ -373,5 +373,5 @@ const DisplayLifetimeStatistic = (props: {
 				{Number(props.val).toFixed(2)} {props.unit}
 			</Text>
 		</Flex>
-	) : undefined;
+	) : null;
 };

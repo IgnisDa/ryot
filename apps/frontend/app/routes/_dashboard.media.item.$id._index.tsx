@@ -397,7 +397,7 @@ export default function Page() {
 									{loaderData.mediaMainDetails.group.part}
 								</Text>
 							</Link>
-						) : undefined}
+						) : null}
 						<Group>
 							<Title id="media-title">
 								{loaderData.mediaMainDetails.title}
@@ -415,7 +415,7 @@ export default function Page() {
 								/>
 							))}
 						</Group>
-					) : undefined}
+					) : null}
 					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 						{[
 							loaderData.mediaMainDetails.publishDate
@@ -527,7 +527,7 @@ export default function Page() {
 											.exhaustive()}
 									</Text>
 								</Paper>
-							) : undefined}
+							) : null}
 							{loaderData.userMediaDetails.averageRating ? (
 								<Paper
 									p={4}
@@ -549,9 +549,9 @@ export default function Page() {
 											: "%"}
 									</Text>
 								</Paper>
-							) : undefined}
+							) : null}
 						</Group>
-					) : undefined}
+					) : null}
 					{loaderData.userMediaDetails?.reminder ? (
 						<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 							Reminder for {loaderData.userMediaDetails.reminder.remindOn}
@@ -559,14 +559,14 @@ export default function Page() {
 								{loaderData.userMediaDetails.reminder.message}
 							</Text>
 						</Alert>
-					) : undefined}
+					) : null}
 					{loaderData.userMediaDetails?.inProgress ? (
 						<Alert icon={<IconAlertCircle />} variant="outline">
 							You are currently{" "}
 							{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
 							ing this ({loaderData.userMediaDetails.inProgress.progress}%)
 						</Alert>
-					) : undefined}
+					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="overview" leftSection={<IconInfoCircle />}>
@@ -584,7 +584,7 @@ export default function Page() {
 								>
 									History
 								</Tabs.Tab>
-							) : undefined}
+							) : null}
 							{loaderData.mediaAdditionalDetails.showSpecifics ? (
 								<Tabs.Tab
 									value="seasons"
@@ -592,7 +592,7 @@ export default function Page() {
 								>
 									Seasons
 								</Tabs.Tab>
-							) : undefined}
+							) : null}
 							{loaderData.mediaAdditionalDetails.podcastSpecifics ? (
 								<Tabs.Tab
 									value="episodes"
@@ -600,7 +600,7 @@ export default function Page() {
 								>
 									Episodes
 								</Tabs.Tab>
-							) : undefined}
+							) : null}
 							{!loaderData.coreDetails.reviewsDisabled &&
 							loaderData.userMediaDetails &&
 							loaderData.userMediaDetails.reviews.length > 0 ? (
@@ -610,7 +610,7 @@ export default function Page() {
 								>
 									Reviews
 								</Tabs.Tab>
-							) : undefined}
+							) : null}
 							{(loaderData.mediaAdditionalDetails.suggestions.length || 0) >
 							0 ? (
 								<Tabs.Tab
@@ -619,14 +619,14 @@ export default function Page() {
 								>
 									Suggestions
 								</Tabs.Tab>
-							) : undefined}
+							) : null}
 							{!loaderData.coreDetails.videosDisabled &&
 							(loaderData.mediaAdditionalDetails.assets.videos.length || 0) >
 								0 ? (
 								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
 								</Tabs.Tab>
-							) : undefined}
+							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="overview">
 							<MediaScrollArea
@@ -667,7 +667,7 @@ export default function Page() {
 												__html: loaderData.mediaMainDetails.description,
 											}}
 										/>
-									) : undefined}
+									) : null}
 									<Stack>
 										{loaderData.mediaAdditionalDetails.creators.map((c) => (
 											<Box key={c.name}>
@@ -741,7 +741,7 @@ export default function Page() {
 													?.length
 											}
 										/>
-									) : undefined}
+									) : null}
 									<Menu shadow="md">
 										<Menu.Target>
 											<Button variant="outline">Update progress</Button>
@@ -801,7 +801,7 @@ export default function Page() {
 															</Menu.Item>
 															<PutOnHoldBtn />
 														</>
-													) : undefined}
+													) : null}
 													{loaderData.userMediaDetails &&
 													loaderData.userMediaDetails.history.length !== 0 ? (
 														<DropBtn />
@@ -811,7 +811,7 @@ export default function Page() {
 														</Menu.Item>
 													)}
 												</>
-											) : undefined}
+											) : null}
 											{loaderData.userMediaDetails?.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
@@ -843,7 +843,7 @@ export default function Page() {
 													loaderData.mediaMainDetails.lot !==
 														MetadataLot.Podcast ? (
 														<StateChangeButtons />
-													) : undefined}
+													) : null}
 												</>
 											) : loaderData.mediaMainDetails.lot !==
 													MetadataLot.Show &&
@@ -886,7 +886,7 @@ export default function Page() {
 														history
 													</Menu.Item>
 												</>
-											) : undefined}
+											) : null}
 										</Menu.Dropdown>
 									</Menu>
 									{!loaderData.coreDetails.reviewsDisabled ? (
@@ -913,19 +913,19 @@ export default function Page() {
 														loaderData.mediaMainDetails.lot === MetadataLot.Show
 															? loaderData.userMediaDetails?.nextEpisode
 																	?.episodeNumber ?? undefined
-															: undefined,
+															: null,
 													podcastEpisodeNumber:
 														loaderData.mediaMainDetails.lot ===
 														MetadataLot.Podcast
 															? loaderData.userMediaDetails?.nextEpisode
 																	?.episodeNumber ?? undefined
-															: undefined,
+															: null,
 												},
 											)}
 										>
 											Post a review
 										</Button>
-									) : undefined}
+									) : null}
 									<>
 										<Button variant="outline" onClick={collectionModalOpen}>
 											Add to collection
@@ -1070,10 +1070,10 @@ export default function Page() {
 												You owned this media
 												{loaderData.userMediaDetails.ownership.ownedOn
 													? ` on ${loaderData.userMediaDetails.ownership.ownedOn}`
-													: undefined}
+													: null}
 												.
 											</Text>
-										) : undefined}
+										) : null}
 									</Box>
 									{loaderData.userMediaDetails.history.map((h) => (
 										<Flex
@@ -1086,19 +1086,19 @@ export default function Page() {
 											<Flex gap="xl">
 												<Text fw="bold">
 													{changeCase(h.state)}{" "}
-													{h.progress !== 100 ? `(${h.progress}%)` : undefined}
+													{h.progress !== 100 ? `(${h.progress}%)` : null}
 												</Text>
 												{h.showInformation ? (
 													<Text c="dimmed">
 														S{h.showInformation.season}-E
 														{h.showInformation.episode}
 													</Text>
-												) : undefined}
+												) : null}
 												{h.podcastInformation ? (
 													<Text c="dimmed">
 														EP-{h.podcastInformation.episode}
 													</Text>
-												) : undefined}
+												) : null}
 											</Flex>
 											<Flex ml="sm" direction="column" gap={4}>
 												<Flex gap="xl">
@@ -1221,7 +1221,7 @@ export default function Page() {
 																	>
 																		Mark as seen
 																	</Button>
-																) : undefined}
+																) : null}
 															</>
 														</AccordionLabel>
 													</Accordion.Control>
@@ -1281,7 +1281,7 @@ export default function Page() {
 									</Accordion>
 								</MediaScrollArea>
 							</Tabs.Panel>
-						) : undefined}
+						) : null}
 						{loaderData.mediaAdditionalDetails.podcastSpecifics ? (
 							<Tabs.Panel value="episodes">
 								<MediaScrollArea
@@ -1328,7 +1328,7 @@ export default function Page() {
 									</Stack>
 								</MediaScrollArea>
 							</Tabs.Panel>
-						) : undefined}
+						) : null}
 						{!loaderData.coreDetails.reviewsDisabled ? (
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea
@@ -1348,7 +1348,7 @@ export default function Page() {
 									</Stack>
 								</MediaScrollArea>
 							</Tabs.Panel>
-						) : undefined}
+						) : null}
 						<Tabs.Panel value="suggestions">
 							<MediaScrollArea
 								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
@@ -1395,7 +1395,7 @@ export default function Page() {
 									</Stack>
 								</MediaScrollArea>
 							</Tabs.Panel>
-						) : undefined}
+						) : null}
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>
@@ -1478,7 +1478,7 @@ const ProgressModal = (props: {
 								<Text>{text}</Text>
 							</Flex>
 						</>
-					) : undefined}
+					) : null}
 					<Button variant="outline" type="submit" onClick={props.onClose}>
 						Update
 					</Button>
@@ -1670,9 +1670,9 @@ const AccordionLabel = (props: {
 	publishDate?: string | null;
 }) => {
 	const display = [
-		props.runtime ? humanizeDuration(props.runtime * 1000 * 60) : undefined,
-		props.publishDate ? dayjsLib(props.publishDate).format("ll") : undefined,
-		props.numEpisodes ? `${props.numEpisodes} episodes` : undefined,
+		props.runtime ? humanizeDuration(props.runtime * 1000 * 60) : null,
+		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
+		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
 	]
 		.filter(Boolean)
 		.join(", ");
@@ -1707,7 +1707,7 @@ const AccordionLabel = (props: {
 					<Text size="xs" c="dimmed">
 						({display})
 					</Text>
-				) : undefined}
+				) : null}
 			</Group>
 			{props.overview ? (
 				<Text
@@ -1716,7 +1716,7 @@ const AccordionLabel = (props: {
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
 					dangerouslySetInnerHTML={{ __html: props.overview }}
 				/>
-			) : undefined}
+			) : null}
 		</Stack>
 	);
 };

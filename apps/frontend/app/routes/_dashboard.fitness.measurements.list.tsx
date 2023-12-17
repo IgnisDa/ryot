@@ -283,7 +283,7 @@ export default function Page() {
 										))}
 									</LineChart>
 								</ResponsiveContainer>
-							) : undefined}
+							) : null}
 						</Box>
 					</Tabs.Panel>
 					<Tabs.Panel value="table">
@@ -304,7 +304,7 @@ export default function Page() {
 										loaderData.userPreferences.fitness.measurements.inbuilt,
 									)
 										.map(([name, enabled]) =>
-											enabled ? `stats.${name}` : undefined,
+											enabled ? `stats.${name}` : null,
 										)
 										.filter(Boolean),
 									...loaderData.userPreferences.fitness.measurements.custom.map(

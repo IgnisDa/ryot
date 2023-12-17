@@ -330,7 +330,7 @@ export default function Page() {
 												Reorder
 											</Button>
 										</>
-									) : undefined}
+									) : null}
 									{currentWorkout.exercises.length > 0 ? (
 										<>
 											<Button
@@ -364,7 +364,7 @@ export default function Page() {
 												Finish
 											</Button>
 										</>
-									) : undefined}
+									) : null}
 									<Button
 										color="red"
 										variant="subtle"
@@ -412,7 +412,7 @@ export default function Page() {
 						</>
 					)}
 				</ClientOnly>
-			) : undefined}
+			) : null}
 		</Container>
 	);
 }
@@ -499,7 +499,7 @@ const StatInput = (props: {
 				required
 			/>
 		</Flex>
-	) : undefined;
+	) : null;
 };
 
 const fileType = "image/jpeg";
@@ -539,7 +539,7 @@ const ImageDisplay = (props: {
 				<IconTrash />
 			</ActionIcon>
 		</Box>
-	) : undefined;
+	) : null;
 };
 
 const SupersetExerciseModal = (props: {
@@ -601,7 +601,7 @@ const SupersetExerciseModal = (props: {
 				))}
 			</Stack>
 		</Modal>
-	) : undefined;
+	) : null;
 };
 
 const ExerciseDisplay = (props: {
@@ -697,7 +697,7 @@ const ExerciseDisplay = (props: {
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
-									const value = typeof v === "number" ? v : undefined;
+									const value = typeof v === "number" ? v : null;
 									const restTimer =
 										draft.exercises[props.exerciseIdx].restTimer;
 									if (restTimer && value) {
@@ -756,7 +756,7 @@ const ExerciseDisplay = (props: {
 										/>
 									))}
 								</Avatar.Group>
-							) : undefined}
+							) : null}
 							<Group justify="center" gap={4}>
 								<Paper radius="md" style={{ overflow: "hidden" }}>
 									<Webcam
@@ -831,7 +831,7 @@ const ExerciseDisplay = (props: {
 									fw="bold"
 								>
 									{props.exercise.exerciseId.slice(0, 40)}
-									{props.exercise.exerciseId.length > 40 ? "..." : undefined}
+									{props.exercise.exerciseId.length > 40 ? "..." : null}
 								</Anchor>
 								<Menu.Target>
 									<ActionIcon color="blue" mr={-10}>
@@ -854,7 +854,7 @@ const ExerciseDisplay = (props: {
 										onClick={props.openTimerDrawer}
 										style={{ cursor: "pointer" }}
 									/>
-								) : undefined}
+								) : null}
 							</Flex>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
 								(n, idx) => (
@@ -926,7 +926,7 @@ const ExerciseDisplay = (props: {
 								rightSection={
 									props.exercise.notes.length > 0
 										? props.exercise.notes.length
-										: undefined
+										: null
 								}
 								onClick={() => {
 									setCurrentWorkout(
@@ -956,7 +956,7 @@ const ExerciseDisplay = (props: {
 								rightSection={
 									props.exercise.images.length > 0
 										? props.exercise.images.length
-										: undefined
+										: null
 								}
 								onClick={assetsModalToggle}
 							>
@@ -993,7 +993,7 @@ const ExerciseDisplay = (props: {
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									DURATION (MIN)
 								</Text>
-							) : undefined}
+							) : null}
 							{distanceCol ? (
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									DISTANCE (
@@ -1003,7 +1003,7 @@ const ExerciseDisplay = (props: {
 										.exhaustive()}
 									)
 								</Text>
-							) : undefined}
+							) : null}
 							{weightCol ? (
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									WEIGHT (
@@ -1013,12 +1013,12 @@ const ExerciseDisplay = (props: {
 										.exhaustive()}
 									)
 								</Text>
-							) : undefined}
+							) : null}
 							{repsCol ? (
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									REPS
 								</Text>
-							) : undefined}
+							) : null}
 							<Box w="10%" />
 						</Flex>
 						{props.exercise.sets.map((s, idx) => (
@@ -1112,7 +1112,7 @@ const ExerciseDisplay = (props: {
 										stat="duration"
 										inputStep={0.1}
 									/>
-								) : undefined}
+								) : null}
 								{distanceCol ? (
 									<StatInput
 										exerciseIdx={props.exerciseIdx}
@@ -1120,21 +1120,21 @@ const ExerciseDisplay = (props: {
 										stat="distance"
 										inputStep={0.01}
 									/>
-								) : undefined}
+								) : null}
 								{weightCol ? (
 									<StatInput
 										exerciseIdx={props.exerciseIdx}
 										setIdx={idx}
 										stat="weight"
 									/>
-								) : undefined}
+								) : null}
 								{repsCol ? (
 									<StatInput
 										exerciseIdx={props.exerciseIdx}
 										setIdx={idx}
 										stat="reps"
 									/>
-								) : undefined}
+								) : null}
 								<Group w="10%" justify="center">
 									<Transition
 										mounted
@@ -1464,7 +1464,7 @@ const ReorderDrawer = (props: {
 													<ThemeIcon color="green" variant="transparent">
 														<IconCheck />
 													</ThemeIcon>
-												) : undefined}
+												) : null}
 											</Group>
 										</Paper>
 									)}
@@ -1476,5 +1476,5 @@ const ReorderDrawer = (props: {
 				</Droppable>
 			</DragDropContext>
 		</Drawer>
-	) : undefined;
+	) : null;
 };

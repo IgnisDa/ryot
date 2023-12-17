@@ -32,7 +32,7 @@ export const getSetStatisticsTextToDisplay = (
 			statistic.weight && statistic.weight !== "0"
 				? `${displayWeightWithUnit(unit, statistic.weight)} × ${statistic.reps}`
 				: `${statistic.reps} reps`,
-			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : undefined,
+			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : null,
 		])
 		.exhaustive();
 };
@@ -68,7 +68,7 @@ export const DisplayExerciseStats = (props: {
 				>
 					{second}
 				</Text>
-			) : undefined}
+			) : null}
 		</>
 	);
 };

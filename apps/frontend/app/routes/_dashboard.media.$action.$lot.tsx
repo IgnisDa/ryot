@@ -57,7 +57,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineCollectionFilter: undefined,
+	mineCollectionFilter: null,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
@@ -338,7 +338,7 @@ export default function Page() {
 											onChange={(v) => setP("collectionFilter", v)}
 											clearable
 										/>
-									) : undefined}
+									) : null}
 								</Stack>
 							</Modal>
 						</Group>
@@ -383,9 +383,9 @@ export default function Page() {
 									)}
 								/>
 							</Center>
-						) : undefined}
+						) : null}
 					</>
-				) : undefined}
+				) : null}
 				{loaderData.mediaSearch ? (
 					<>
 						<Flex gap="xs">
@@ -406,7 +406,7 @@ export default function Page() {
 										if (v) setP("source", v);
 									}}
 								/>
-							) : undefined}
+							) : null}
 						</Flex>
 						{loaderData.mediaSearch.search.details.total > 0 ? (
 							<>
@@ -454,9 +454,9 @@ export default function Page() {
 									)}
 								/>
 							</Center>
-						) : undefined}
+						) : null}
 					</>
-				) : undefined}
+				) : null}
 			</Stack>
 		</Container>
 	);

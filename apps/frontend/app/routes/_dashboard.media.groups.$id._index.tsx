@@ -41,7 +41,7 @@ import {
 } from "~/lib/graphql.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const metadataGroupId = params.id ? Number(params.id) : undefined;
+	const metadataGroupId = params.id ? Number(params.id) : null;
 	invariant(metadataGroupId, "No ID provided");
 	const [
 		coreDetails,
@@ -124,7 +124,7 @@ export default function Page() {
 							/>
 						))}
 					</Group>
-				) : undefined}
+				) : null}
 				<Tabs variant="outline" defaultValue="media">
 					<Tabs.List mb="xs">
 						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
@@ -140,7 +140,7 @@ export default function Page() {
 							>
 								Reviews
 							</Tabs.Tab>
-						) : undefined}
+						) : null}
 					</Tabs.List>
 					<Tabs.Panel value="media">
 						<MediaScrollArea

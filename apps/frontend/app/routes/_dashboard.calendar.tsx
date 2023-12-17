@@ -150,12 +150,12 @@ const CalendarEvent = (props: {
 								(S{evt.showSeasonNumber}-E
 								{evt.showEpisodeNumber})
 							</Text>
-						) : undefined}
+						) : null}
 						{typeof evt.podcastEpisodeNumber === "number" ? (
 							<Text span c="dimmed" size="sm">
 								(EP-{evt.podcastEpisodeNumber})
 							</Text>
-						) : undefined}
+						) : null}
 					</Text>
 					<Text size="sm" c="dimmed">
 						{startCase(snakeCase(evt.metadataLot))}

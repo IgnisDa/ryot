@@ -21,7 +21,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const genreId = params.id ? Number(params.id) : undefined;
+	const genreId = params.id ? Number(params.id) : null;
 	invariant(genreId, "No ID provided");
 	const [coreDetails, { genreDetails }] = await Promise.all([
 		getCoreDetails(),

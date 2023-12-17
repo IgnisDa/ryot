@@ -183,7 +183,7 @@ export default function Page() {
 										Trigger test notifications
 									</Button>
 								</Form>
-							) : undefined}
+							) : null}
 							<Button
 								size="xs"
 								variant="light"
@@ -300,7 +300,7 @@ export default function Page() {
 												</>
 											))
 											.exhaustive()
-									: undefined}
+									: null}
 								<Button type="submit">Submit</Button>
 							</Stack>
 						</Box>

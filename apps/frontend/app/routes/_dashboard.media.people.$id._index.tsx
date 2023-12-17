@@ -45,7 +45,7 @@ import {
 } from "~/lib/graphql.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const personId = params.id ? Number(params.id) : undefined;
+	const personId = params.id ? Number(params.id) : null;
 	invariant(personId, "No ID provided");
 	const [
 		coreDetails,
@@ -137,7 +137,7 @@ export default function Page() {
 								Website
 							</Anchor>
 						</>
-					) : undefined}
+					) : null}
 				</Text>
 				{loaderData.userPersonDetails.collections.length > 0 ? (
 					<Group id="entity-collections">
@@ -150,7 +150,7 @@ export default function Page() {
 							/>
 						))}
 					</Group>
-				) : undefined}
+				) : null}
 				<Tabs defaultValue="media" variant="outline">
 					<Tabs.List mb="xs">
 						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
@@ -163,7 +163,7 @@ export default function Page() {
 							>
 								Overview
 							</Tabs.Tab>
-						) : undefined}
+						) : null}
 						{loaderData.personDetails.workedOn.length > 0 ? (
 							<Tabs.Tab
 								value="workedOn"
@@ -171,7 +171,7 @@ export default function Page() {
 							>
 								Worked on
 							</Tabs.Tab>
-						) : undefined}
+						) : null}
 						{loaderData.userPersonDetails.reviews.length > 0 ? (
 							<Tabs.Tab
 								value="reviews"
@@ -179,7 +179,7 @@ export default function Page() {
 							>
 								Reviews
 							</Tabs.Tab>
-						) : undefined}
+						) : null}
 						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 							Actions
 						</Tabs.Tab>
@@ -244,7 +244,7 @@ export default function Page() {
 								/>
 							</MediaScrollArea>
 						</Tabs.Panel>
-					) : undefined}
+					) : null}
 					<Tabs.Panel value="workedOn">
 						<MediaScrollArea
 							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}

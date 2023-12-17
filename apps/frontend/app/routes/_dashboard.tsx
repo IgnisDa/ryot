@@ -367,13 +367,7 @@ function LinksGroup({
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
 				to={!hasLinks ? href : (undefined as any)}
-				onClick={
-					hasLinks
-						? () => {
-								setOpened(!opened);
-						  }
-						: undefined
-				}
+				onClick={hasLinks ? () => setOpened(!opened) : undefined}
 				className={classes.control}
 			>
 				<Group justify="space-between" gap={0}>

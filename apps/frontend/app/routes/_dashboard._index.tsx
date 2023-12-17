@@ -125,7 +125,7 @@ export default function Page() {
 							to continue.
 						</Text>
 					</Alert>
-				) : undefined}
+				) : null}
 				{loaderData.userPreferences.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
@@ -138,7 +138,7 @@ export default function Page() {
 										))}
 									</ApplicationGrid>
 								</Section>
-							) : undefined,
+							) : null,
 						)
 						.with([DashboardElementLot.InProgress, false], () =>
 							loaderData.collectionContents.results.items.length > 0 ? (
@@ -160,7 +160,7 @@ export default function Page() {
 										))}
 									</ApplicationGrid>
 								</Section>
-							) : undefined,
+							) : null,
 						)
 						.with([DashboardElementLot.Summary, false], () => (
 							<Section key="summary">
@@ -378,7 +378,7 @@ export default function Page() {
 												},
 											]}
 										/>
-									) : undefined}
+									) : null}
 									{loaderData.userPreferences.fitness.enabled ? (
 										<ActualDisplayStat
 											icon={<IconScaleOutline stroke={1.3} />}
@@ -410,7 +410,7 @@ export default function Page() {
 												},
 											]}
 										/>
-									) : undefined}
+									) : null}
 								</SimpleGrid>
 							</Section>
 						))
@@ -450,7 +450,7 @@ export default function Page() {
 										>
 											Create a media item
 										</Button>
-									) : undefined}
+									) : null}
 									{loaderData.userPreferences.fitness.enabled ? (
 										<Button
 											variant="outline"
@@ -460,7 +460,7 @@ export default function Page() {
 										>
 											Create an exercise
 										</Button>
-									) : undefined}
+									) : null}
 								</SimpleGrid>
 							</Section>
 						))
@@ -587,8 +587,8 @@ const DisplayStatForMediaType = (props: {
 					color={getMantineColor(props.lot)}
 				/>
 			</Link>
-		) : undefined
-	) : undefined;
+		) : null
+	) : null;
 };
 
 const Section = (props: { children: ReactNode[] }) => {

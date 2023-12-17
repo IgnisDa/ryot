@@ -178,7 +178,7 @@ export default function Page() {
 												</ActionIcon>
 											)}
 										</CopyButton>
-									) : undefined}
+									) : null}
 									<Form action="?intent=delete" method="post">
 										<input
 											type="hidden"
@@ -241,14 +241,14 @@ export default function Page() {
 									name="yankLot"
 									value={createUserYankIntegrationLot}
 								/>
-							) : undefined}
+							) : null}
 							{createUserSinkIntegrationLot ? (
 								<input
 									type="hidden"
 									name="sinkLot"
 									value={createUserSinkIntegrationLot}
 								/>
-							) : undefined}
+							) : null}
 							<Stack>
 								<Select
 									label="Select a source"
@@ -284,13 +284,13 @@ export default function Page() {
 										<TextInput label="Base Url" required name="baseUrl" />
 										<TextInput label="Token" required name="token" />
 									</>
-								) : undefined}
+								) : null}
 								{createUserSinkIntegrationLot ===
 								UserSinkIntegrationSettingKind.Plex ? (
 									<>
 										<TextInput label="Username" name="username" />
 									</>
-								) : undefined}
+								) : null}
 								<Button type="submit">Submit</Button>
 							</Stack>
 						</Box>

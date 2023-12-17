@@ -227,7 +227,7 @@ export default function Page() {
 										</Flex>
 									</Alert>
 								</Box>
-							) : undefined}
+							) : null}
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="import">
@@ -285,7 +285,7 @@ export default function Page() {
 										size="sm"
 										color="orange"
 									/>
-								) : undefined}
+								) : null}
 								<Select
 									id="import-source"
 									label="Select a source"
@@ -549,7 +549,7 @@ export default function Page() {
 											))
 											.exhaustive()}
 									</ImportSourceElement>
-								) : undefined}
+								) : null}
 							</Stack>
 						</Box>
 					</Tabs.Panel>

@@ -65,12 +65,12 @@ import { currentWorkoutAtom } from "~/lib/workout";
 import { loader as resourcesLoader } from "./api.fitness.exercises.$id";
 
 const defaultFiltersValue = {
-	muscle: undefined,
-	type: undefined,
-	equipment: undefined,
-	force: undefined,
-	level: undefined,
-	mechanic: undefined,
+	muscle: null,
+	type: null,
+	equipment: null,
+	force: null,
+	level: null,
+	mechanic: null,
 	sort: ExerciseSortBy.NumTimesPerformed,
 };
 
@@ -205,7 +205,7 @@ export default function Page() {
 										<ActionIcon onClick={() => setQuery("")}>
 											<IconX size={16} />
 										</ActionIcon>
-									) : undefined
+									) : null
 								}
 								style={{ flexGrow: 1 }}
 								autoCapitalize="none"
@@ -293,7 +293,7 @@ export default function Page() {
 											</Text>{" "}
 											selected
 										</>
-									) : undefined}
+									) : null}
 								</Box>
 								<SimpleGrid cols={{ md: 2, lg: 3 }}>
 									{loaderData.exercisesList.items.map((exercise) => (
@@ -317,7 +317,7 @@ export default function Page() {
 															);
 													}}
 												/>
-											) : undefined}
+											) : null}
 											<Indicator
 												disabled={!exercise.numTimesInteracted}
 												label={exercise.numTimesInteracted ?? ""}
@@ -346,15 +346,15 @@ export default function Page() {
 															<Text size="xs">
 																{startCase(snakeCase(exercise.muscle))}
 															</Text>
-														) : undefined}
+														) : null}
 														{exercise.lastUpdatedOn ? (
 															<Text size="xs" c="dimmed">
-																{exercise.muscle ? "," : undefined}{" "}
+																{exercise.muscle ? "," : null}{" "}
 																{dayjsLib(exercise.lastUpdatedOn).format(
 																	"D MMM",
 																)}
 															</Text>
-														) : undefined}
+														) : null}
 													</Flex>
 												</Flex>
 											</Link>
@@ -377,7 +377,7 @@ export default function Page() {
 									)}
 								/>
 							</Center>
-						) : undefined}
+						) : null}
 					</>
 				)}
 			</Stack>
@@ -424,7 +424,7 @@ export default function Page() {
 														.defaultTimer,
 												enabled: true,
 										  }
-										: undefined,
+										: null,
 									notes: [],
 									images: [],
 									videos: [],
@@ -438,7 +438,7 @@ export default function Page() {
 						<IconCheck size={32} />
 					</ActionIcon>
 				</Affix>
-			) : undefined}
+			) : null}
 		</Container>
 	);
 }

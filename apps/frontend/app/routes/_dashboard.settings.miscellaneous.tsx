@@ -144,7 +144,7 @@ export default function Page() {
 									</DisabledNotice>
 								</Stack>
 							</>
-						) : undefined}
+						) : null}
 						<Stack>
 							<Box>
 								<Title order={4}>Regenerate Summaries</Title>

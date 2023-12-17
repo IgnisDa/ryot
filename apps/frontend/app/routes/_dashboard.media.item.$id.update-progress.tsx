@@ -58,7 +58,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const id = params.id ? Number(params.id) : undefined;
+	const id = params.id ? Number(params.id) : null;
 	invariant(id, "No ID provided");
 	let extraDetails = null;
 	if (query.isShow || query.isPodcast) {
@@ -204,21 +204,21 @@ export default function Page() {
 						name="showEpisodeNumber"
 						defaultValue={loaderData.query.showEpisodeNumber.toString()}
 					/>
-				) : undefined}
+				) : null}
 				{loaderData.query.showSeasonNumber ? (
 					<input
 						hidden
 						name="showSeasonNumber"
 						defaultValue={loaderData.query.showSeasonNumber.toString()}
 					/>
-				) : undefined}
+				) : null}
 				{loaderData.query.podcastEpisodeNumber ? (
 					<input
 						hidden
 						name="podcastEpisodeNumber"
 						defaultValue={loaderData.query.podcastEpisodeNumber?.toString()}
 					/>
-				) : undefined}
+				) : null}
 				{loaderData.extraDetails?.showSpecifics ? (
 					<input
 						hidden
@@ -230,7 +230,7 @@ export default function Page() {
 							})),
 						)}
 					/>
-				) : undefined}
+				) : null}
 				{loaderData.extraDetails?.podcastSpecifics ? (
 					<input
 						hidden
@@ -241,7 +241,7 @@ export default function Page() {
 							})),
 						)}
 					/>
-				) : undefined}
+				) : null}
 				<Stack p="sm">
 					<Title>{loaderData.query.title}</Title>
 					{loaderData.extraDetails?.showSpecifics ? (
@@ -252,9 +252,9 @@ export default function Page() {
 										? `This will mark all episodes of season ${loaderData.query.showSeasonNumber} as seen`
 										: loaderData.query.completeShow
 										  ? "This will mark all episodes for this show as seen"
-										  : undefined}
+										  : null}
 								</Alert>
-							) : undefined}
+							) : null}
 							{!loaderData.query.completeShow ? (
 								<>
 									<Title order={6}>
@@ -272,13 +272,13 @@ export default function Page() {
 										defaultValue={loaderData.query.showSeasonNumber?.toString()}
 									/>
 								</>
-							) : undefined}
+							) : null}
 							{loaderData.query.onlySeason ? (
 								<Checkbox
 									label="Mark all seasons before this as seen"
 									name="allSeasonsBefore"
 								/>
-							) : undefined}
+							) : null}
 							{!loaderData.query.onlySeason &&
 							loaderData.query.showSeasonNumber ? (
 								<Select
@@ -297,9 +297,9 @@ export default function Page() {
 									}
 									defaultValue={loaderData.query.showEpisodeNumber?.toString()}
 								/>
-							) : undefined}
+							) : null}
 						</>
-					) : undefined}
+					) : null}
 					{loaderData.extraDetails?.podcastSpecifics ? (
 						loaderData.query.completePodcast ? (
 							<Alert color="yellow" icon={<IconAlertCircle />}>
@@ -320,12 +320,12 @@ export default function Page() {
 								/>
 							</>
 						)
-					) : undefined}
+					) : null}
 					{loaderData.extraDetails?.lot ? (
 						<Title order={6}>
 							When did you {getVerb(Verb.Read, loaderData.extraDetails.lot)} it?
 						</Title>
-					) : undefined}
+					) : null}
 					<Button
 						variant="outline"
 						type="submit"

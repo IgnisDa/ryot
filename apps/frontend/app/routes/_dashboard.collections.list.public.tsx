@@ -71,7 +71,7 @@ export default function Page() {
 								<ActionIcon onClick={() => setQuery("")}>
 									<IconX size={16} />
 								</ActionIcon>
-							) : undefined
+							) : null
 						}
 						style={{ flexGrow: 1 }}
 						autoCapitalize="none"
@@ -124,7 +124,7 @@ export default function Page() {
 								)}
 							/>
 						</Center>
-					) : undefined}
+					) : null}
 				</Stack>
 			</Container>
 		</>

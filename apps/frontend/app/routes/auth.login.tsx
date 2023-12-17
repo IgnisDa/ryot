@@ -147,7 +147,7 @@ export default function Page() {
 						</Anchor>
 						.
 					</Box>
-				) : undefined}
+				) : null}
 			</Box>
 		</>
 	);

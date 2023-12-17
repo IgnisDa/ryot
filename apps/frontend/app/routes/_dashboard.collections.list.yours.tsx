@@ -175,7 +175,7 @@ export default function Page() {
 									</Flex>
 									{c.description ? (
 										<Text lineClamp={3}>{c.description}</Text>
-									) : undefined}
+									) : null}
 								</Box>
 								<Flex gap="sm" style={{ flex: 0 }}>
 									<ActionIcon

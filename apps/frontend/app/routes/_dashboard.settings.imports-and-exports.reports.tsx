@@ -90,7 +90,7 @@ export default function Page() {
 													disabled
 													autosize
 												/>
-											) : undefined}
+											) : null}
 										</>
 									) : (
 										<Text>This import never finished</Text>

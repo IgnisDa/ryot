@@ -271,7 +271,7 @@ export default function Page() {
 										{ round: true, units: ["m", "s"] },
 									)}
 								/>
-							) : undefined}
+							) : null}
 						</Group>
 					</Box>
 					{loaderData.workoutDetails.comment ? (
@@ -281,7 +281,7 @@ export default function Page() {
 							</Text>
 							<Text span>{loaderData.workoutDetails.comment}</Text>
 						</Box>
-					) : undefined}
+					) : null}
 					{loaderData.workoutDetails.information.exercises.length > 0 ? (
 						loaderData.workoutDetails.information.exercises.map(
 							(exercise, idx) => (
@@ -328,7 +328,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						</Anchor>
 					))
 					.reduce((prev, curr) => [prev, ", ", curr])
-			: undefined;
+			: null;
 
 	return (
 		<Paper withBorder p="xs">
@@ -343,7 +343,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						fw="bold"
 					>
 						{props.exercise.name.slice(0, 40)}
-						{props.exercise.name.length > 40 ? "..." : undefined}
+						{props.exercise.name.length > 40 ? "..." : null}
 					</Anchor>
 					<Popover position="top" opened={opened}>
 						<Popover.Target>
@@ -362,13 +362,13 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 										<IconZzz size={14} />
 										<Text fz="xs">Rest time: {props.exercise.restTime}s</Text>
 									</Flex>
-								) : undefined}
+								) : null}
 								{Number(props.exercise.total.reps) > 0 ? (
 									<Flex align="center" gap="xs">
 										<IconRotateClockwise size={14} />
 										<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
 									</Flex>
-								) : undefined}
+								) : null}
 								{Number(props.exercise.total.duration) > 0 ? (
 									<Flex align="center" gap="xs">
 										<IconClock size={14} />
@@ -376,7 +376,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 											Duration: {props.exercise.total.duration} min
 										</Text>
 									</Flex>
-								) : undefined}
+								) : null}
 								{Number(props.exercise.total.weight) > 0 ? (
 									<Flex align="center" gap="xs">
 										<IconWeight size={14} />
@@ -388,7 +388,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 											)}
 										</Text>
 									</Flex>
-								) : undefined}{" "}
+								) : null}{" "}
 								{Number(props.exercise.total.distance) > 0 ? (
 									<Flex align="center" gap="xs">
 										<IconRun size={14} />
@@ -400,14 +400,14 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 											)}
 										</Text>
 									</Flex>
-								) : undefined}
+								) : null}
 							</Stack>
 						</Popover.Dropdown>
 					</Popover>
 				</Group>
 				{supersetLinks ? (
 					<Text fz="xs">Superset with {supersetLinks}</Text>
-				) : undefined}
+				) : null}
 				{props.exercise.notes.map((n, idxN) => (
 					<Text c="dimmed" key={n} size="xs">
 						{props.exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
@@ -421,7 +421,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 							</Anchor>
 						))}
 					</Avatar.Group>
-				) : undefined}
+				) : null}
 			</Box>
 			{props.exercise.sets.map((s, idx) => (
 				<DisplaySet
@@ -487,7 +487,7 @@ const DisplaySet = (props: {
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>
-				) : undefined}
+				) : null}
 				<DisplayExerciseStats
 					lot={props.exerciseLot}
 					statistic={props.set.statistic}

@@ -7,7 +7,7 @@ export function Toaster({ toast }: { toast?: Toast | null }) {
 	return (
 		<>
 			<Notifications />
-			{toast ? <ShowToast toast={toast} /> : undefined}
+			{toast ? <ShowToast toast={toast} /> : null}
 		</>
 	);
 }

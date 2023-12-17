@@ -75,7 +75,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const id = params.id ? Number(params.id) : undefined;
+	const id = params.id ? Number(params.id) : null;
 	invariant(id, "No ID provided");
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const { collectionContents: info } = await gqlClient.request(
@@ -173,7 +173,7 @@ export default function Page() {
 							>
 								Reviews
 							</Tabs.Tab>
-						) : undefined}
+						) : null}
 					</Tabs.List>
 					<Tabs.Panel value="contents">
 						<Stack>
@@ -189,7 +189,7 @@ export default function Page() {
 											<ActionIcon onClick={() => setQuery("")}>
 												<IconX size={16} />
 											</ActionIcon>
-										) : undefined
+										) : null
 									}
 									style={{ flexGrow: 1 }}
 									autoCapitalize="none"
@@ -279,7 +279,7 @@ export default function Page() {
 												onChange={(v) => setP("metadataLot", v)}
 												clearable
 											/>
-										) : undefined}
+										) : null}
 									</Stack>
 								</Modal>
 							</Group>
@@ -314,7 +314,7 @@ export default function Page() {
 										)}
 									/>
 								</Center>
-							) : undefined}
+							) : null}
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="actions">

@@ -185,7 +185,7 @@ export const ReviewItemDisplay = (props: {
 								<IconEdit size={16} />
 							</ActionIcon>
 						</Anchor>
-					) : undefined}
+					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
 					{typeof props.review.showSeason === "number" ? (
@@ -193,10 +193,10 @@ export const ReviewItemDisplay = (props: {
 							S{props.review.showSeason}-E
 							{props.review.showEpisode}
 						</Text>
-					) : undefined}
+					) : null}
 					{typeof props.review.podcastEpisode === "number" ? (
 						<Text c="dimmed">EP-{props.review.podcastEpisode}</Text>
-					) : undefined}
+					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
@@ -207,7 +207,7 @@ export const ReviewItemDisplay = (props: {
 									: "%"}
 							</Text>
 						</Flex>
-					) : undefined}
+					) : null}
 					{props.review.text ? (
 						!props.review.spoiler ? (
 							<>
@@ -220,7 +220,7 @@ export const ReviewItemDisplay = (props: {
 									<Button onClick={toggle} variant="subtle" size="compact-md">
 										Show spoiler
 									</Button>
-								) : undefined}
+								) : null}
 								<Collapse in={opened}>
 									<Text
 										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
@@ -229,7 +229,7 @@ export const ReviewItemDisplay = (props: {
 								</Collapse>
 							</>
 						)
-					) : undefined}
+					) : null}
 					{openedLeaveComment ? (
 						<Form
 							action="/actions?intent=createReviewComment"
@@ -256,7 +256,7 @@ export const ReviewItemDisplay = (props: {
 								</ActionIcon>
 							</Group>
 						</Form>
-					) : undefined}
+					) : null}
 					{!openedLeaveComment ? (
 						<Button
 							variant="subtle"
@@ -266,7 +266,7 @@ export const ReviewItemDisplay = (props: {
 						>
 							Leave comment
 						</Button>
-					) : undefined}
+					) : null}
 					{(props.review.comments?.length || 0) > 0 ? (
 						<Paper withBorder ml="xl" mt="sm" p="xs">
 							<Stack>
@@ -281,7 +281,7 @@ export const ReviewItemDisplay = (props: {
 														<Text>{c?.user?.name}</Text>
 														{c?.createdOn ? (
 															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
-														) : undefined}
+														) : null}
 													</Box>
 													{props.user.id === c?.user?.id ? (
 														<Form
@@ -319,7 +319,7 @@ export const ReviewItemDisplay = (props: {
 																<IconTrash size={16} />
 															</ActionIcon>
 														</Form>
-													) : undefined}
+													) : null}
 													<Form
 														action="/actions?intent=createReviewComment"
 														method="post"
@@ -364,10 +364,10 @@ export const ReviewItemDisplay = (props: {
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
 									  ))
-									: undefined}
+									: null}
 							</Stack>
 						</Paper>
-					) : undefined}
+					) : null}
 				</Box>
 			</Box>
 			<Divider />
@@ -513,7 +513,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						variant="bars"
 						size="sm"
 					/>
-				) : undefined
+				) : null
 			}
 			topRight={
 				props.averageRating ? (
