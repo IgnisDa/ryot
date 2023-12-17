@@ -1,14 +1,17 @@
+import { $path } from "@ignisda/remix-routes";
 import {
+	SetLot,
 	type CreateUserWorkoutMutationVariables,
 	type ExerciseLot,
-	type SetLot,
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { Dayjs } from "dayjs";
+import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/generals";
+import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
 
 export type ExerciseSetStats = {
 	duration?: number | null;
@@ -127,6 +130,49 @@ export const duplicateOldWorkout = (
 		inProgress.exercises[idx].supersetWith = supersetWith;
 	}
 	return inProgress;
+};
+
+export const addExerciseToWorkout = async (
+	currentWorkout: InProgressWorkout,
+	setCurrentWorkout: (v: InProgressWorkout) => void,
+	selectedExercises: { name: string; lot: ExerciseLot }[],
+	navigate: (path: string) => void,
+) => {
+	const draft = createDraft(currentWorkout);
+	for (const ex of selectedExercises) {
+		const userExerciseDetailsResp = await fetch(
+			$path("/api/fitness/exercises/:id", {
+				id: ex.name,
+			}),
+		);
+		const userExerciseDetails: Awaited<ReturnType<typeof resourcesLoader>> =
+			await userExerciseDetailsResp.json();
+		draft.exercises.push({
+			identifier: crypto.randomUUID(),
+			exerciseId: ex.name,
+			lot: ex.lot,
+			sets: [
+				{
+					confirmed: false,
+					statistic: {},
+					lot: SetLot.Normal,
+				},
+			],
+			supersetWith: [],
+			alreadyDoneSets:
+				userExerciseDetails?.at(0)?.sets.map((s) => ({
+					// biome-ignore lint/suspicious/noExplicitAny: required here
+					statistic: s.statistic as any,
+				})) || [],
+			restTimer: null,
+			notes: [],
+			images: [],
+			videos: [],
+		});
+	}
+	const finishedDraft = finishDraft(draft);
+	setCurrentWorkout(finishedDraft);
+	navigate($path("/fitness/workouts/current"));
 };
 
 export const currentWorkoutToCreateWorkoutInput = (

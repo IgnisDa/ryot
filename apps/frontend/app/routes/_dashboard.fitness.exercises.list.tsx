@@ -35,7 +35,6 @@ import {
 	ExerciseParametersDocument,
 	ExerciseSortBy,
 	ExercisesListDocument,
-	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -47,7 +46,6 @@ import {
 	IconSearch,
 	IconX,
 } from "@tabler/icons-react";
-import { createDraft, finishDraft } from "immer";
 import { useAtom } from "jotai";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -61,8 +59,7 @@ import {
 	getUserPreferences,
 } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
-import { currentWorkoutAtom } from "~/lib/workout";
-import { loader as resourcesLoader } from "./api.fitness.exercises.$id";
+import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const defaultFiltersValue = {
 	muscle: null,
@@ -389,50 +386,12 @@ export default function Page() {
 						radius="xl"
 						size="xl"
 						onClick={async () => {
-							const draft = createDraft(currentWorkout);
-							for (const exercise of selectedExercises) {
-								const userExerciseDetailsResp = await fetch(
-									$path("/api/fitness/exercises/:id", {
-										id: exercise.name,
-									}),
-								);
-								const userExerciseDetails: Awaited<
-									ReturnType<typeof resourcesLoader>
-								> = await userExerciseDetailsResp.json();
-								draft.exercises.push({
-									identifier: crypto.randomUUID(),
-									exerciseId: exercise.name,
-									lot: exercise.lot,
-									sets: [
-										{
-											confirmed: false,
-											statistic: {},
-											lot: SetLot.Normal,
-										},
-									],
-									supersetWith: [],
-									alreadyDoneSets:
-										userExerciseDetails?.at(0)?.sets.map((s) => ({
-											// biome-ignore lint/suspicious/noExplicitAny: required here
-											statistic: s.statistic as any,
-										})) || [],
-									restTimer: loaderData.userPreferences.fitness.exercises
-										.defaultTimer
-										? {
-												duration:
-													loaderData.userPreferences.fitness.exercises
-														.defaultTimer,
-												enabled: true,
-										  }
-										: null,
-									notes: [],
-									images: [],
-									videos: [],
-								});
-							}
-							const finishedDraft = finishDraft(draft);
-							setCurrentWorkout(finishedDraft);
-							navigate($path("/fitness/workouts/current"));
+							await addExerciseToWorkout(
+								currentWorkout,
+								setCurrentWorkout,
+								selectedExercises,
+								navigate,
+							);
 						}}
 					>
 						<IconCheck size={32} />
