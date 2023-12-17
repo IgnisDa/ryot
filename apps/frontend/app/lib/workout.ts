@@ -177,8 +177,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			restTime: exercise.restTimer?.enabled
 				? exercise.restTimer.duration
 				: undefined,
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-		} as any;
+		};
 		input.input.exercises.push(toAdd);
 	}
 	for (const ex of input.input.exercises) {
@@ -189,6 +188,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 		supersetWith = supersetWith.filter((idx) => idx !== -1);
 		// biome-ignore lint/suspicious/noExplicitAny: required here
 		ex.supersetWith = supersetWith as any;
+	}
+	for (const ex of input.input.exercises) {
 		// biome-ignore lint/suspicious/noExplicitAny: required here
 		(ex as any).identifier = undefined;
 	}
