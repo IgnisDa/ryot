@@ -68,7 +68,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { parse, serialize } from "cookie";
 import { Howl } from "howler";
-import { enableMapSet, produce } from "immer";
+import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
@@ -101,8 +101,6 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/workout";
-
-enableMapSet();
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookies = request.headers.get("Cookie");
@@ -563,41 +561,45 @@ const SupersetExerciseModal = (props: {
 					Superset {currentWorkout.exercises[props.exerciseIdx].exerciseId}{" "}
 					with:
 				</Text>
-				{currentWorkout.exercises.map((e) => (
-					<Switch
-						key={e.identifier}
-						disabled={e.identifier === props.exerciseIdentifier}
-						onChange={(event) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									const otherExercise = draft.exercises.find(
-										(ex) => ex.identifier === e.identifier,
-									);
-									if (!otherExercise) return;
-									if (event.currentTarget.checked) {
-										draft.exercises[props.exerciseIdx].supersetWith.add(
-											e.identifier,
+				{currentWorkout.exercises
+					.map((e) => (
+						<Switch
+							key={e.identifier}
+							disabled={e.identifier === props.exerciseIdentifier}
+							onChange={(event) => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const otherExercise = draft.exercises.find(
+											(ex) => ex.identifier === e.identifier,
 										);
-										otherExercise.supersetWith.add(
-											currentWorkout.exercises[props.exerciseIdx].identifier,
-										);
-									} else {
-										draft.exercises[props.exerciseIdx].supersetWith.delete(
-											e.identifier,
-										);
-										otherExercise.supersetWith.delete(
-											currentWorkout.exercises[props.exerciseIdx].identifier,
-										);
-									}
-								}),
-							);
-						}}
-						label={e.exerciseId}
-						defaultChecked={currentWorkout.exercises[
-							props.exerciseIdx
-						].supersetWith.has(e.identifier)}
-					/>
-				))}
+										if (!otherExercise) return;
+										const supersetWith =
+											draft.exercises[props.exerciseIdx].supersetWith;
+										if (event.currentTarget.checked) {
+											supersetWith.push(e.identifier);
+											otherExercise.supersetWith.push(
+												currentWorkout.exercises[props.exerciseIdx].identifier,
+											);
+										} else {
+											draft.exercises[props.exerciseIdx].supersetWith =
+												supersetWith.filter((s) => s !== e.identifier);
+											otherExercise.supersetWith =
+												otherExercise.supersetWith.filter(
+													(s) =>
+														s !==
+														currentWorkout.exercises[props.exerciseIdx]
+															.identifier,
+												);
+										}
+									}),
+								);
+							}}
+							label={e.exerciseId}
+							defaultChecked={currentWorkout.exercises[
+								props.exerciseIdx
+							].supersetWith.includes(e.identifier)}
+						/>
+					))}
 			</Stack>
 		</Modal>
 	) : undefined;
@@ -884,28 +886,22 @@ const ExerciseDisplay = (props: {
 										<ActionIcon
 											color="red"
 											onClick={() => {
-												const yes = match(
-													Boolean(
-														currentWorkout.exercises[props.exerciseIdx].notes[
-															idx
-														],
-													),
-												)
-													.with(true, () =>
-														confirm(
-															"This note will be deleted. Are you sure you want to continue?",
-														),
-													)
-													.with(false, () => true);
-												if (yes)
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															draft.exercises[props.exerciseIdx].notes.splice(
-																idx,
-																1,
-															);
-														}),
+												if (
+													currentWorkout.exercises[props.exerciseIdx].notes[idx]
+												) {
+													const yes = confirm(
+														"This note will be deleted. Are you sure you want to continue?",
 													);
+													if (yes)
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																draft.exercises[props.exerciseIdx].notes.splice(
+																	idx,
+																	1,
+																);
+															}),
+														);
+												}
 											}}
 										>
 											<IconTrash size={20} />
@@ -948,9 +944,9 @@ const ExerciseDisplay = (props: {
 								onClick={supersetModalToggle}
 								rightSection={
 									currentWorkout.exercises[props.exerciseIdx].supersetWith
-										.size > 0
+										.length > 0
 										? currentWorkout.exercises[props.exerciseIdx].supersetWith
-												.size
+												.length
 										: "Off"
 								}
 							>
