@@ -37,7 +37,7 @@ export type Exercise = {
 	restTimer?: { enabled: boolean; duration: number } | null;
 	videos: string[];
 	images: string[];
-	supersetWith: Array<string>;
+	supersetWith: Set<string>;
 };
 
 type InProgressWorkout = {
@@ -114,7 +114,7 @@ export const duplicateOldWorkout = (
 			exerciseId: ex.name,
 			lot: ex.lot,
 			notes: ex.notes,
-			supersetWith: [],
+			supersetWith: new Set(),
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			sets: sets as any,
@@ -124,7 +124,7 @@ export const duplicateOldWorkout = (
 		const supersetWith = exercise.supersetWith.map(
 			(index) => inProgress.exercises[index].identifier,
 		);
-		inProgress.exercises[idx].supersetWith = supersetWith;
+		inProgress.exercises[idx].supersetWith = new Set(supersetWith);
 	}
 	return inProgress;
 };
