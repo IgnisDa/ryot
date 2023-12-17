@@ -66,7 +66,11 @@ function getTimeOfDay(date: Date) {
 }
 
 export const startWorkout = () => {
-	Cookies.set(COOKIES_KEYS.isWorkoutInProgress, "true", { expires: 2 });
+	Cookies.set(COOKIES_KEYS.isWorkoutInProgress, "true", {
+		expires: 2,
+		sameSite: "Strict",
+		secure: true,
+	});
 };
 
 export const getDefaultWorkout = (): InProgressWorkout => {
@@ -162,7 +166,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 		if (sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
-		input.input.exercises.push({
+		const toAdd = {
 			identifier: exercise.identifier,
 			exerciseId: exercise.exerciseId,
 			notes,
@@ -174,7 +178,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 				? exercise.restTimer.duration
 				: undefined,
 			// biome-ignore lint/suspicious/noExplicitAny: required here
-		} as any);
+		} as any;
+		input.input.exercises.push(toAdd);
 	}
 	for (const ex of input.input.exercises) {
 		let supersetWith = ex.supersetWith.map((identifier) =>
@@ -187,7 +192,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 		// biome-ignore lint/suspicious/noExplicitAny: required here
 		(ex as any).identifier = undefined;
 	}
-	console.log(input);
 	return input;
 };
 
