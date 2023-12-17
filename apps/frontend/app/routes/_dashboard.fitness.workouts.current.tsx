@@ -66,7 +66,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { parse } from "cookie";
+import { parse, serialize } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -137,9 +137,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
 		headers: combineHeaders(
 			{
-				"Set-Cookie": `${COOKIES_KEYS.isWorkoutInProgress}=; Expires=${new Date(
-					0,
-				)}; Path=/`,
+				"Set-Cookie": serialize(COOKIES_KEYS.isWorkoutInProgress, "", {
+					expires: new Date(0),
+					sameSite: "strict",
+					secure: true,
+				}),
 			},
 			await createToastHeaders({ message: "Workout created" }),
 		),
