@@ -37,9 +37,10 @@ export const ApplicationGrid = (props: {
 export const ApplicationPagination = forwardRef<
 	HTMLDivElement,
 	PaginationProps
->((props, ref) => (
-	<Pagination {...props} ref={ref} boundaries={1} siblings={0} />
-));
+>((props, ref) => {
+	if (props.total === 1) return undefined;
+	return <Pagination {...props} ref={ref} boundaries={1} siblings={0} />;
+});
 
 function getSurroundingElements<T>(array: T[], element: number): number[] {
 	if (array.length === 1) return [0];
