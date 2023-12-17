@@ -105,7 +105,7 @@ struct AudibleRatings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleAuthor {
-    asin: String,
+    asin: Option<String>,
     name: String,
 }
 
@@ -384,10 +384,12 @@ impl AudibleService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| PartialMetadataPerson {
-                identifier: a.asin,
-                source: MetadataSource::Audible,
-                role: "Author".to_owned(),
+            .filter_map(|a| {
+                a.asin.map(|au| PartialMetadataPerson {
+                    identifier: au,
+                    source: MetadataSource::Audible,
+                    role: "Author".to_owned(),
+                })
             })
             .collect_vec();
         let creators = item
