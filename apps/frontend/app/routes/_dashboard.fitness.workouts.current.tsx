@@ -561,45 +561,44 @@ const SupersetExerciseModal = (props: {
 					Superset {currentWorkout.exercises[props.exerciseIdx].exerciseId}{" "}
 					with:
 				</Text>
-				{currentWorkout.exercises
-					.map((e) => (
-						<Switch
-							key={e.identifier}
-							disabled={e.identifier === props.exerciseIdentifier}
-							onChange={(event) => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const otherExercise = draft.exercises.find(
-											(ex) => ex.identifier === e.identifier,
+				{currentWorkout.exercises.map((e) => (
+					<Switch
+						key={e.identifier}
+						disabled={e.identifier === props.exerciseIdentifier}
+						onChange={(event) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									const otherExercise = draft.exercises.find(
+										(ex) => ex.identifier === e.identifier,
+									);
+									if (!otherExercise) return;
+									const supersetWith =
+										draft.exercises[props.exerciseIdx].supersetWith;
+									if (event.currentTarget.checked) {
+										supersetWith.push(e.identifier);
+										otherExercise.supersetWith.push(
+											currentWorkout.exercises[props.exerciseIdx].identifier,
 										);
-										if (!otherExercise) return;
-										const supersetWith =
-											draft.exercises[props.exerciseIdx].supersetWith;
-										if (event.currentTarget.checked) {
-											supersetWith.push(e.identifier);
-											otherExercise.supersetWith.push(
-												currentWorkout.exercises[props.exerciseIdx].identifier,
+									} else {
+										draft.exercises[props.exerciseIdx].supersetWith =
+											supersetWith.filter((s) => s !== e.identifier);
+										otherExercise.supersetWith =
+											otherExercise.supersetWith.filter(
+												(s) =>
+													s !==
+													currentWorkout.exercises[props.exerciseIdx]
+														.identifier,
 											);
-										} else {
-											draft.exercises[props.exerciseIdx].supersetWith =
-												supersetWith.filter((s) => s !== e.identifier);
-											otherExercise.supersetWith =
-												otherExercise.supersetWith.filter(
-													(s) =>
-														s !==
-														currentWorkout.exercises[props.exerciseIdx]
-															.identifier,
-												);
-										}
-									}),
-								);
-							}}
-							label={e.exerciseId}
-							defaultChecked={currentWorkout.exercises[
-								props.exerciseIdx
-							].supersetWith.includes(e.identifier)}
-						/>
-					))}
+									}
+								}),
+							);
+						}}
+						label={e.exerciseId}
+						defaultChecked={currentWorkout.exercises[
+							props.exerciseIdx
+						].supersetWith.includes(e.identifier)}
+					/>
+				))}
 			</Stack>
 		</Modal>
 	) : undefined;
