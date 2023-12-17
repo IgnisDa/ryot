@@ -560,10 +560,10 @@ const SupersetExerciseModal = (props: {
 					with:
 				</Text>
 				{currentWorkout.exercises
-					.filter((ex) => ex.identifier !== props.exerciseIdentifier)
 					.map((e) => (
 						<Switch
 							key={e.identifier}
+							disabled={e.identifier === props.exerciseIdentifier}
 							onChange={(event) => {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
