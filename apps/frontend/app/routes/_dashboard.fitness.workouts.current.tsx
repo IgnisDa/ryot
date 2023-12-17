@@ -385,7 +385,7 @@ export default function Page() {
 								<Divider />
 								{currentWorkout.exercises.map((ex, idx) => (
 									<ExerciseDisplay
-										key={`${ex.exerciseId}-${idx}`}
+										key={ex.identifier}
 										exercise={ex}
 										exerciseIdx={idx}
 										startTimer={startTimer}
@@ -542,6 +542,7 @@ const ImageDisplay = (props: {
 
 const SupersetExerciseModal = (props: {
 	exerciseIdx: number;
+	exerciseIdentifier: string;
 	opened: boolean;
 	onClose: () => void;
 }) => {
@@ -559,20 +560,34 @@ const SupersetExerciseModal = (props: {
 					with:
 				</Text>
 				{currentWorkout.exercises
-					.filter((_, idx) => idx !== props.exerciseIdx)
-					.map((e, idx) => (
+					.filter((ex) => ex.identifier !== props.exerciseIdentifier)
+					.map((e) => (
 						<Switch
-							key={`${idx}`}
+							key={e.identifier}
 							onChange={(event) => {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
+										const otherExercise = draft.exercises.find(
+											(ex) => ex.identifier === e.identifier,
+										);
+										if (!otherExercise) return;
 										const supersetWith =
 											draft.exercises[props.exerciseIdx].supersetWith;
 										if (event.currentTarget.checked) {
 											supersetWith.push(e.identifier);
+											otherExercise.supersetWith.push(
+												currentWorkout.exercises[props.exerciseIdx].identifier,
+											);
 										} else {
 											draft.exercises[props.exerciseIdx].supersetWith =
 												supersetWith.filter((s) => s !== e.identifier);
+											otherExercise.supersetWith =
+												otherExercise.supersetWith.filter(
+													(s) =>
+														s !==
+														currentWorkout.exercises[props.exerciseIdx]
+															.identifier,
+												);
 										}
 									}),
 								);
@@ -641,6 +656,7 @@ const ExerciseDisplay = (props: {
 		<>
 			<SupersetExerciseModal
 				exerciseIdx={props.exerciseIdx}
+				exerciseIdentifier={props.exercise.identifier}
 				opened={supersetModalOpened}
 				onClose={supersetModalClose}
 			/>
@@ -841,7 +857,13 @@ const ExerciseDisplay = (props: {
 							</Flex>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
 								(n, idx) => (
-									<Flex key={`${idx}`} align="center" gap="xs">
+									<Flex
+										key={`${
+											currentWorkout.exercises[props.exerciseIdx].identifier
+										}-${idx}`}
+										align="center"
+										gap="xs"
+									>
 										<Textarea
 											style={{ flexGrow: 1 }}
 											placeholder="Add a note"
@@ -1000,7 +1022,7 @@ const ExerciseDisplay = (props: {
 						</Flex>
 						{props.exercise.sets.map((s, idx) => (
 							<Flex
-								key={`${idx}`}
+								key={`${props.exercise.identifier}-${idx}`}
 								justify="space-between"
 								align="center"
 								py={4}
