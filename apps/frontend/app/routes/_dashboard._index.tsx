@@ -117,7 +117,7 @@ export default function Page() {
 			<Stack gap={32}>
 				{loaderData.workoutInProgress ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="yellow">
-						<Text size="lg">
+						<Text>
 							You have a workout in progress. Click{" "}
 							<Anchor component={Link} to={$path("/fitness/workouts/current")}>
 								here
