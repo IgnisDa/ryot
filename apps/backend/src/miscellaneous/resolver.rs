@@ -452,7 +452,7 @@ struct GraphqlMediaDetails {
     id: i32,
     title: String,
     identifier: String,
-    is_nsfw: bool,
+    is_nsfw: Option<bool>,
     description: Option<String>,
     original_language: Option<String>,
     provider_rating: Option<Decimal>,
@@ -2922,10 +2922,7 @@ impl MiscellaneousService {
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
-        meta.is_nsfw = match is_nsfw {
-            None => ActiveValue::NotSet,
-            Some(n) => ActiveValue::Set(n),
-        };
+        meta.is_nsfw = ActiveValue::Set(is_nsfw);
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(Some(images));
@@ -3123,10 +3120,7 @@ impl MiscellaneousService {
             provider_rating: ActiveValue::Set(details.provider_rating),
             production_status: ActiveValue::Set(details.production_status),
             original_language: ActiveValue::Set(details.original_language),
-            is_nsfw: match details.is_nsfw {
-                None => ActiveValue::NotSet,
-                Some(n) => ActiveValue::Set(n),
-            },
+            is_nsfw: ActiveValue::Set(details.is_nsfw),
             free_creators: ActiveValue::Set(if details.creators.is_empty() {
                 None
             } else {

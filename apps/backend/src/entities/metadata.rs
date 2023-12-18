@@ -21,7 +21,7 @@ pub struct Model {
     pub lot: MetadataLot,
     pub last_updated_on: DateTimeUtc,
     pub title: String,
-    pub is_nsfw: bool,
+    pub is_nsfw: Option<bool>,
     pub identifier: String,
     pub description: Option<String>,
     pub original_language: Option<String>,
