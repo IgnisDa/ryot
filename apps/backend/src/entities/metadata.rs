@@ -23,7 +23,7 @@ pub struct Model {
     pub title: String,
     pub identifier: String,
     pub source: MetadataSource,
-    pub specifics: MediaSpecifics,
+    pub specifics: Option<MediaSpecifics>,
     pub is_nsfw: Option<bool>,
     pub is_partial: Option<bool>,
     pub description: Option<String>,

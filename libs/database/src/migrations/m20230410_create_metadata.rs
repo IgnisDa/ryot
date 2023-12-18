@@ -181,7 +181,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
-                    .col(ColumnDef::new(Metadata::Specifics).json_binary().not_null())
+                    .col(ColumnDef::new(Metadata::Specifics).json_binary())
                     .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
                     .to_owned(),
             )

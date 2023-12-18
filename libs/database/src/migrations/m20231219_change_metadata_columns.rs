@@ -10,7 +10,7 @@ impl MigrationTrait for Migration {
         conn.execute_unprepared(
             "
 alter table metadata alter column is_nsfw drop default;
-alter table metadata alter column specifics set not null;
+alter table metadata alter column specifics drop not null;
 alter table metadata alter column source set not null;
 ",
         )
