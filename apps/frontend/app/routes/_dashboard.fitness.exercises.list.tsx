@@ -331,9 +331,13 @@ export default function Page() {
 												/>
 											</Indicator>
 											<Link
-												to={$path("/fitness/exercises/:id", {
-													id: exercise.id,
-												})}
+												to={$path(
+													"/fitness/exercises/:id",
+													{ id: exercise.id },
+													{
+														selectionEnabled: loaderData.query.selectionEnabled,
+													},
+												)}
 												style={{ all: "unset", cursor: "pointer" }}
 											>
 												<Flex direction="column" justify="space-around">

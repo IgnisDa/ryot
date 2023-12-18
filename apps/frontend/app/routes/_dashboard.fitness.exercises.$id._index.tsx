@@ -1,5 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
+	ActionIcon,
+	Affix,
 	Anchor,
 	Box,
 	Button,
@@ -16,10 +18,11 @@ import {
 	Tabs,
 	Text,
 	Title,
+	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
@@ -29,15 +32,19 @@ import {
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
+import { IconCheck } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
+import { useAtom } from "jotai";
 import { Fragment } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { z } from "zod";
+import { zx } from "zodix";
 import { DisplayExerciseStats } from "~/components/fitness";
 import {
 	AddEntityToCollectionModal,
@@ -47,10 +54,18 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
+
+const searchParamsSchema = z.object({
+	selectionEnabled: zx.BoolAsString.optional(),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const exerciseId = params.id;
 	invariant(typeof exerciseId === "string", "id must be a string");
+	const query = zx.parseQuery(request, searchParamsSchema);
 	const [
 		coreDetails,
 		userPreferences,
@@ -73,6 +88,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		),
 	]);
 	return json({
+		query,
 		exerciseDetails,
 		userExerciseDetails,
 		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
@@ -101,6 +117,8 @@ export default function Page() {
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const navigate = useNavigate();
 
 	return (
 		<Container size="xs" px="lg">
@@ -339,6 +357,31 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 			</Stack>
+			{currentWorkout && loaderData.query.selectionEnabled ? (
+				<Affix position={{ bottom: rem(40), right: rem(30) }}>
+					<ActionIcon
+						color="blue"
+						variant="light"
+						radius="xl"
+						size="xl"
+						onClick={async () => {
+							await addExerciseToWorkout(
+								currentWorkout,
+								setCurrentWorkout,
+								[
+									{
+										name: loaderData.exerciseDetails.id,
+										lot: loaderData.exerciseDetails.lot
+									}
+								],
+								navigate,
+							);
+						}}
+					>
+						<IconCheck size={32} />
+					</ActionIcon>
+				</Affix>
+			) : null}
 		</Container>
 	);
 }
