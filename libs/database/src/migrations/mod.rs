@@ -18,7 +18,8 @@ mod m20230912_create_calendar_event;
 mod m20231003_create_partial_metadata_to_person;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
-mod m20231219_drop_default_for_is_nsfw;
+mod m20231219_change_metadata_columns;
+mod m20231219_store_partial_metadata_in_metadata;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -61,7 +62,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20231003_create_partial_metadata_to_person::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
-            Box::new(m20231219_drop_default_for_is_nsfw::Migration),
+            Box::new(m20231219_change_metadata_columns::Migration),
+            Box::new(m20231219_store_partial_metadata_in_metadata::Migration),
         ]
     }
 }
