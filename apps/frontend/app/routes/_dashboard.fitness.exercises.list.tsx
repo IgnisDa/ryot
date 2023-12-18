@@ -382,13 +382,14 @@ export default function Page() {
 					</>
 				)}
 			</Stack>
-			{currentWorkout && selectedExercises.length >= 1 ? (
+			{currentWorkout && loaderData.query.selectionEnabled ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"
 						variant="light"
 						radius="xl"
 						size="xl"
+						disabled={selectedExercises.length === 0}
 						onClick={async () => {
 							await addExerciseToWorkout(
 								currentWorkout,
