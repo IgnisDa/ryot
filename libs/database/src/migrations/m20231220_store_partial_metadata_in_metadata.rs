@@ -25,6 +25,15 @@ SELECT
 FROM
   partial_metadata
 ON CONFLICT DO NOTHING;
+
+SELECT
+  mtpm.metadata_id AS from_metadata_id,
+  (select id from metadata where identifier = pm.identifier and source = pm.source and lot = pm.lot) AS to_metadata_id,
+  'SU' AS relation
+FROM
+  metadata_to_partial_metadata mtpm
+JOIN
+  partial_metadata pm ON mtpm.partial_metadata_id = pm.id;
 "#,
         )
         .await?;
