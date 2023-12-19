@@ -75,6 +75,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .unique()
                     .table(MetadataToMetadata::Table)
                     .col(MetadataToMetadata::FromMetadataId)
                     .col(MetadataToMetadata::Relation)

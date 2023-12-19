@@ -33,7 +33,8 @@ SELECT
 FROM
   metadata_to_partial_metadata mtpm
 JOIN
-  partial_metadata pm ON mtpm.partial_metadata_id = pm.id;
+  partial_metadata pm ON mtpm.partial_metadata_id = pm.id
+ON CONFLICT DO NOTHING;
 "#,
         )
         .await?;
