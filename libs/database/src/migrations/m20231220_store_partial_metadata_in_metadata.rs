@@ -26,10 +26,11 @@ FROM
   partial_metadata
 ON CONFLICT DO NOTHING;
 
+INSERT INTO metadata_to_metadata (to_metadata_id, from_metadata_id, relation)
 SELECT
   mtpm.metadata_id AS from_metadata_id,
   (select id from metadata where identifier = pm.identifier and source = pm.source and lot = pm.lot) AS to_metadata_id,
-  'SU' AS relation
+  mtpm.relation AS relation
 FROM
   metadata_to_partial_metadata mtpm
 JOIN
