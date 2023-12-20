@@ -21,6 +21,7 @@ mod m20231017_create_user_to_entity;
 mod m20231219_change_column_types;
 mod m20231219_create_metadata_relations;
 mod m20231220_store_partial_metadata_in_metadata;
+mod m20231221_drop_useless_tables;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -66,6 +67,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231219_change_column_types::Migration),
             Box::new(m20231219_create_metadata_relations::Migration),
             Box::new(m20231220_store_partial_metadata_in_metadata::Migration),
+            Box::new(m20231221_drop_useless_tables::Migration),
         ]
     }
 }
