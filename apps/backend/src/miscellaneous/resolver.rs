@@ -6699,7 +6699,7 @@ impl MiscellaneousService {
             metadata_id: ActiveValue::Set(metadata_id),
             person_id: ActiveValue::Set(db_person.id),
             role: ActiveValue::Set(role),
-            index: ActiveValue::Set(index.try_into().unwrap()),
+            index: ActiveValue::Set(Some(index.try_into().unwrap())),
         };
         intermediate.insert(&self.db).await.ok();
         for (role, media) in related_media {

@@ -4,12 +4,8 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use boilermates::boilermates;
 use database::{MetadataLot, MetadataSource};
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-
-use crate::entities::prelude::Metadata;
-
-use super::metadata;
 
 #[boilermates("PartialMetadataWithoutId")]
 #[boilermates(attr_for(
@@ -80,23 +76,4 @@ impl Related<super::metadata_group::Entity> for Entity {
 }
 
 #[async_trait]
-impl ActiveModelBehavior for ActiveModel {
-    async fn before_save<C>(mut self, db: &C, insert: bool) -> Result<Self, DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        if insert {
-            let copied = self.clone();
-            if let Some(m) = Metadata::find()
-                .filter(metadata::Column::Identifier.eq(copied.identifier.unwrap()))
-                .filter(metadata::Column::Lot.eq(copied.lot.unwrap()))
-                .filter(metadata::Column::Source.eq(copied.source.unwrap()))
-                .one(db)
-                .await?
-            {
-                self.metadata_id = ActiveValue::Set(Some(m.id));
-            }
-        }
-        Ok(self)
-    }
-}
+impl ActiveModelBehavior for ActiveModel {}
