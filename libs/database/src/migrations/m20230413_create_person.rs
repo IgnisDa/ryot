@@ -101,7 +101,7 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(MetadataToPerson::Index).integer().not_null())
+                    .col(ColumnDef::new(MetadataToPerson::Index).integer())
                     .primary_key(
                         Index::create()
                             .name(METADATA_TO_PERSON_PRIMARY_KEY)

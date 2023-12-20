@@ -18,8 +18,8 @@ mod m20230912_create_calendar_event;
 mod m20231003_create_partial_metadata_to_person;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
-mod m20231219_change_metadata_columns;
-mod m20231219_create_metadata_to_metadata;
+mod m20231219_change_column_types;
+mod m20231219_create_metadata_relations;
 mod m20231220_store_partial_metadata_in_metadata;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
@@ -63,8 +63,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20231003_create_partial_metadata_to_person::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
-            Box::new(m20231219_change_metadata_columns::Migration),
-            Box::new(m20231219_create_metadata_to_metadata::Migration),
+            Box::new(m20231219_change_column_types::Migration),
+            Box::new(m20231219_create_metadata_relations::Migration),
             Box::new(m20231220_store_partial_metadata_in_metadata::Migration),
         ]
     }

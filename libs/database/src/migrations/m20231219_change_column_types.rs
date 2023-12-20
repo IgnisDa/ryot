@@ -12,6 +12,8 @@ impl MigrationTrait for Migration {
 alter table metadata alter column is_nsfw drop default;
 alter table metadata alter column specifics drop not null;
 alter table metadata alter column source set not null;
+
+alter table metadata_to_person alter column index drop not null;
 ",
         )
         .await?;
