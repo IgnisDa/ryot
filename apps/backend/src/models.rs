@@ -144,22 +144,6 @@ pub struct IdAndNamedObject {
 pub mod media {
     use super::*;
 
-    #[boilermates("PartialMetadataWithoutId")]
-    #[boilermates(attr_for(
-        "PartialMetadataWithoutId",
-        "#[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, Hash)]"
-    ))]
-    #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, Hash)]
-    pub struct PartialMetadata {
-        #[boilermates(not_in("PartialMetadataWithoutId"))]
-        pub id: i32,
-        pub identifier: String,
-        pub title: String,
-        pub image: Option<String>,
-        pub lot: MetadataLot,
-        pub source: MetadataSource,
-    }
-
     #[derive(Clone, Debug, PartialEq, Eq, FromQueryResult, SimpleObject)]
     pub struct PublicCollectionItem {
         pub id: i32,
@@ -1138,6 +1122,22 @@ pub mod media {
         pub username: String,
         pub review_id: i32,
         pub entity_lot: EntityLot,
+    }
+
+    #[boilermates("PartialMetadataWithoutId")]
+    #[boilermates(attr_for(
+        "PartialMetadataWithoutId",
+        "#[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, Hash)]"
+    ))]
+    #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, Hash)]
+    pub struct PartialMetadata {
+        #[boilermates(not_in("PartialMetadataWithoutId"))]
+        pub id: i32,
+        pub identifier: String,
+        pub title: String,
+        pub image: Option<String>,
+        pub lot: MetadataLot,
+        pub source: MetadataSource,
     }
 }
 

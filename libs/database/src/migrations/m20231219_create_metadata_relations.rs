@@ -9,7 +9,7 @@ pub struct Migration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum MetadataToPartialMetadataRelation {
+pub enum MetadataToMetadataRelation {
     #[sea_orm(string_value = "SU")]
     Suggestion,
 }

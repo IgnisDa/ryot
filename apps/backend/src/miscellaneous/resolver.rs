@@ -17,8 +17,7 @@ use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
     AliasedReview, AliasedSeen, AliasedUserToEntity, MetadataLot, MetadataSource,
-    MetadataToPartialMetadataRelation, PersonToPartialMetadataRelation, SeenState, UserLot,
-    Visibility,
+    MetadataToMetadataRelation, SeenState, UserLot, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -1547,21 +1546,31 @@ impl MiscellaneousService {
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
 
-        let partial_metadata_ids = MetadataToPartialMetadata::find()
+        let partial_metadata_ids = MetadataToMetadata::find()
             .select_only()
-            .column(metadata_to_partial_metadata::Column::PartialMetadataId)
-            .filter(metadata_to_partial_metadata::Column::MetadataId.eq(meta.id))
+            .filter(metadata_to_metadata::Column::FromMetadataId.eq(meta.id))
             .filter(
-                metadata_to_partial_metadata::Column::Relation
-                    .eq(MetadataToPartialMetadataRelation::Suggestion),
+                metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
             )
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        let suggestions = PartialMetadataModel::find()
-            .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
+        let suggestions_temp = Metadata::find()
+            .filter(metadata::Column::Id.is_in(partial_metadata_ids))
+            .order_by_asc(metadata::Column::Id)
             .all(&self.db)
             .await?;
+        let mut suggestions = vec![];
+        for s in suggestions_temp {
+            suggestions.push(PartialMetadata {
+                id: s.id,
+                title: s.title,
+                identifier: s.identifier,
+                lot: s.lot,
+                source: s.source,
+                image: s.images.first_as_url(&self.file_storage_service).await,
+            })
+        }
         let assets = self.metadata_assets(&meta).await.unwrap();
         Ok(MediaBaseData {
             model: meta,
@@ -1632,33 +1641,19 @@ impl MiscellaneousService {
         };
 
         let group = {
-            let existing_partial_metadata = PartialMetadataModel::find()
-                .filter(partial_metadata::Column::Identifier.eq(&model.identifier))
-                .filter(partial_metadata::Column::Lot.eq(model.lot))
-                .filter(partial_metadata::Column::Source.eq(model.source))
+            let association = MetadataToMetadataGroup::find()
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
                 .one(&self.db)
                 .await?;
-            match existing_partial_metadata {
+            match association {
                 None => None,
-                Some(epm) => {
-                    let association = PartialMetadataToMetadataGroup::find()
-                        .filter(
-                            partial_metadata_to_metadata_group::Column::PartialMetadataId
-                                .eq(epm.id),
-                        )
-                        .one(&self.db)
-                        .await?;
-                    match association {
-                        None => None,
-                        Some(a) => {
-                            let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
-                            Some(GraphqlMediaGroup {
-                                id: grp.id,
-                                name: grp.title,
-                                part: a.part,
-                            })
-                        }
-                    }
+                Some(a) => {
+                    let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
+                    Some(GraphqlMediaGroup {
+                        id: grp.id,
+                        name: grp.title,
+                        part: a.part,
+                    })
                 }
             }
         };
@@ -3013,18 +3008,15 @@ impl MiscellaneousService {
         };
         for (idx, media) in associated_items.into_iter().enumerate() {
             let db_partial_metadata = self.create_partial_metadata(media).await?;
-            PartialMetadataToMetadataGroup::delete_many()
-                .filter(partial_metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
-                .filter(
-                    partial_metadata_to_metadata_group::Column::PartialMetadataId
-                        .eq(db_partial_metadata.id),
-                )
+            MetadataToMetadataGroup::delete_many()
+                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(db_partial_metadata.id))
                 .exec(&self.db)
                 .await
                 .ok();
-            let intermediate = partial_metadata_to_metadata_group::ActiveModel {
+            let intermediate = metadata_to_metadata_group::ActiveModel {
                 metadata_group_id: ActiveValue::Set(group_id),
-                partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+                metadata_id: ActiveValue::Set(db_partial_metadata.id),
                 part: ActiveValue::Set((idx + 1).try_into().unwrap()),
             };
             intermediate.insert(&self.db).await.ok();
@@ -3038,10 +3030,11 @@ impl MiscellaneousService {
         metadata_id: i32,
     ) -> Result<()> {
         let db_partial_metadata = self.create_partial_metadata(data).await?;
-        let intermediate = metadata_to_partial_metadata::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            partial_metadata_id: ActiveValue::Set(db_partial_metadata.id),
-            relation: ActiveValue::Set(MetadataToPartialMetadataRelation::Suggestion),
+        let intermediate = metadata_to_metadata::ActiveModel {
+            from_metadata_id: ActiveValue::Set(metadata_id),
+            to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+            relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+            ..Default::default()
         };
         intermediate.insert(&self.db).await.ok();
         Ok(())
@@ -3051,25 +3044,40 @@ impl MiscellaneousService {
         &self,
         data: PartialMetadataWithoutId,
     ) -> Result<PartialMetadata> {
-        let model = if let Some(c) = PartialMetadataModel::find()
-            .filter(partial_metadata::Column::Identifier.eq(&data.identifier))
-            .filter(partial_metadata::Column::Lot.eq(data.lot))
-            .filter(partial_metadata::Column::Source.eq(data.source))
+        let mode = if let Some(c) = Metadata::find()
+            .filter(metadata::Column::Identifier.eq(&data.identifier))
+            .filter(metadata::Column::Lot.eq(data.lot))
+            .filter(metadata::Column::Source.eq(data.source))
             .one(&self.db)
             .await
             .unwrap()
         {
             c
         } else {
-            let c = partial_metadata::ActiveModel {
+            let image = data.image.clone().map(|i| {
+                vec![MetadataImage {
+                    url: StoredUrl::Url(i),
+                    lot: MetadataImageLot::Poster,
+                }]
+            });
+            let c = metadata::ActiveModel {
                 title: ActiveValue::Set(data.title),
                 identifier: ActiveValue::Set(data.identifier),
                 lot: ActiveValue::Set(data.lot),
                 source: ActiveValue::Set(data.source),
-                image: ActiveValue::Set(data.image),
+                images: ActiveValue::Set(image),
+                is_partial: ActiveValue::Set(Some(true)),
                 ..Default::default()
             };
             c.insert(&self.db).await?
+        };
+        let model = PartialMetadata {
+            id: mode.id,
+            title: mode.title,
+            identifier: mode.identifier,
+            lot: mode.lot,
+            source: mode.source,
+            image: data.image,
         };
         Ok(model)
     }

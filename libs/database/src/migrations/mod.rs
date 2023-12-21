@@ -37,9 +37,8 @@ pub use m20230622_create_exercise::{
     Exercise as AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
     ExerciseMechanic, ExerciseMuscle, ExerciseSource,
 };
-pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
-pub use m20231003_create_partial_metadata_to_person::PersonToPartialMetadataRelation;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
+pub use m20231219_create_metadata_relations::MetadataToMetadataRelation;
 
 pub struct Migrator;
 
