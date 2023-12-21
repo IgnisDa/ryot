@@ -392,7 +392,6 @@ struct MetadataCreatorGroupedByRole {
 struct CreatorDetails {
     details: person::Model,
     contents: Vec<CreatorDetailsGroupedByRole>,
-    worked_on: Vec<PartialMetadata>,
     source_url: Option<String>,
 }
 
@@ -3172,8 +3171,8 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         // suggestions
-        MetadataToPartialMetadata::delete_many()
-            .filter(metadata_to_partial_metadata::Column::MetadataId.eq(metadata_id))
+        MetadataToMetadata::delete_many()
+            .filter(metadata_to_metadata::Column::FromMetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
         for (index, creator) in people.into_iter().enumerate() {
@@ -6110,7 +6109,6 @@ impl MiscellaneousService {
                 image,
                 lot: m.lot,
                 source: m.source,
-                metadata_id: Some(m.id),
                 id: m.id,
             };
             contents
@@ -6124,21 +6122,6 @@ impl MiscellaneousService {
             .into_iter()
             .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
             .collect_vec();
-        let partial_metadata_ids = PersonToPartialMetadata::find()
-            .select_only()
-            .column(person_to_partial_metadata::Column::PartialMetadataId)
-            .filter(person_to_partial_metadata::Column::PersonId.eq(details.id))
-            .filter(
-                person_to_partial_metadata::Column::Relation
-                    .eq(PersonToPartialMetadataRelation::WorkedOn),
-            )
-            .into_tuple::<i32>()
-            .all(&self.db)
-            .await?;
-        let worked_on = PartialMetadataModel::find()
-            .filter(partial_metadata::Column::Id.is_in(partial_metadata_ids))
-            .all(&self.db)
-            .await?;
         let slug = slug::slugify(&details.name);
         let identifier = &details.identifier;
         let source_url = match details.source {
@@ -6164,7 +6147,6 @@ impl MiscellaneousService {
         Ok(CreatorDetails {
             details,
             contents,
-            worked_on,
             source_url,
         })
     }
@@ -6250,20 +6232,33 @@ impl MiscellaneousService {
             MetadataSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
         };
 
-        let associations = PartialMetadataToMetadataGroup::find()
+        let associations = MetadataToMetadataGroup::find()
             .select_only()
-            .column(partial_metadata_to_metadata_group::Column::PartialMetadataId)
-            .filter(partial_metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
-            .order_by_asc(partial_metadata_to_metadata_group::Column::Part)
+            .column(metadata_to_metadata_group::Column::MetadataId)
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
+            .order_by_asc(metadata_to_metadata_group::Column::Part)
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        let contents = PartialMetadataModel::find()
-            .filter(partial_metadata::Column::Id.is_in(associations))
-            .left_join(PartialMetadataToMetadataGroup)
-            .order_by_asc(partial_metadata_to_metadata_group::Column::Part)
+        let contents_temp = Metadata::find()
+            .filter(metadata::Column::Id.is_in(associations))
+            .left_join(MetadataToMetadataGroup)
+            .order_by_asc(metadata_to_metadata_group::Column::Part)
             .all(&self.db)
             .await?;
+        let mut contents = vec![];
+        for m in contents_temp {
+            let image = m.images.first_as_url(&self.file_storage_service).await;
+            let metadata = PartialMetadata {
+                identifier: m.identifier,
+                title: m.title,
+                image,
+                lot: m.lot,
+                source: m.source,
+                id: m.id,
+            };
+            contents.push(metadata);
+        }
         Ok(MetadataGroupDetails {
             details: group,
             source_url,
@@ -6711,11 +6706,11 @@ impl MiscellaneousService {
         intermediate.insert(&self.db).await.ok();
         for (role, media) in related_media {
             let pm = self.create_partial_metadata(media).await?;
-            let intermediate = person_to_partial_metadata::ActiveModel {
+            let intermediate = metadata_to_person::ActiveModel {
                 person_id: ActiveValue::Set(db_person.id),
-                partial_metadata_id: ActiveValue::Set(pm.id),
-                relation: ActiveValue::Set(PersonToPartialMetadataRelation::WorkedOn),
+                metadata_id: ActiveValue::Set(pm.id),
                 role: ActiveValue::Set(role),
+                ..Default::default()
             };
             intermediate.insert(&self.db).await.ok();
         }
