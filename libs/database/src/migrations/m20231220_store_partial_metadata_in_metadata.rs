@@ -57,7 +57,7 @@ alter table metadata add column if not exists is_partial bool;
     SELECT
     mtpm.person_id,
     (select id from metadata where identifier = pm.identifier and source = pm.source and lot = pm.lot) AS metadata_id,
-    mtpm.role
+    'Other' as role
     FROM
       person_to_partial_metadata mtpm
     JOIN
