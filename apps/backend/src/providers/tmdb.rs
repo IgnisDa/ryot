@@ -223,7 +223,7 @@ impl MediaProvider for NonMediaTmdbService {
             for media in details.crew.into_iter().chain(details.cast.into_iter()) {
                 if let Some(title) = media.title.or(media.name) {
                     related.push((
-                        media.character.or(media.job).unwrap(),
+                        media.job.unwrap_or_else(|| "Other".to_string()),
                         PartialMetadataWithoutId {
                             identifier: media.id.unwrap().to_string(),
                             title,
@@ -239,7 +239,7 @@ impl MediaProvider for NonMediaTmdbService {
                 }
             }
         }
-        Ok(MetadataPerson {
+        let resp = MetadataPerson {
             name: details.name,
             images: Some(images),
             identifier: details.id.to_string(),
@@ -256,7 +256,8 @@ impl MediaProvider for NonMediaTmdbService {
                 _ => None,
             }),
             related,
-        })
+        };
+        Ok(resp)
     }
 }
 
