@@ -4300,6 +4300,11 @@ impl MiscellaneousService {
         metadata_id: i32,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         tracing::trace!("Updating metadata for {:?}", metadata_id);
+        Metadata::update_many()
+            .filter(metadata::Column::Id.eq(metadata_id))
+            .col_expr(metadata::Column::IsPartial, Expr::value(false))
+            .exec(&self.db)
+            .await?;
         let maybe_details = self
             .details_from_provider_for_existing_media(metadata_id)
             .await;
