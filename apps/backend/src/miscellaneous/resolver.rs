@@ -1588,6 +1588,9 @@ impl MiscellaneousService {
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
+        if model.is_partial.unwrap_or_default() {
+            self.deploy_update_metadata_job(metadata_id).await?;
+        }
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
         let source_url = match model.source {
@@ -2913,11 +2916,17 @@ impl MiscellaneousService {
             url: StoredUrl::S3(i.image),
             lot: i.lot,
         }));
+        let free_creators = if creators.is_empty() {
+            None
+        } else {
+            Some(creators)
+        };
 
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
         meta.title = ActiveValue::Set(title);
         meta.is_nsfw = ActiveValue::Set(is_nsfw);
+        meta.is_partial = ActiveValue::Set(Some(false));
         meta.provider_rating = ActiveValue::Set(provider_rating);
         meta.description = ActiveValue::Set(description);
         meta.images = ActiveValue::Set(Some(images));
@@ -2926,11 +2935,7 @@ impl MiscellaneousService {
         meta.original_language = ActiveValue::Set(original_language);
         meta.publish_year = ActiveValue::Set(publish_year);
         meta.publish_date = ActiveValue::Set(publish_date);
-        meta.free_creators = ActiveValue::Set(if creators.is_empty() {
-            None
-        } else {
-            Some(creators)
-        });
+        meta.free_creators = ActiveValue::Set(free_creators);
         meta.specifics = ActiveValue::Set(specifics);
         meta.last_processed_on_for_calendar = ActiveValue::Set(None);
         let metadata = meta.update(&self.db).await.unwrap();
