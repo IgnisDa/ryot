@@ -9,12 +9,11 @@ use rust_decimal::Decimal;
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    entities::partial_metadata::PartialMetadataWithoutId,
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
-            MetadataVideoSource, PartialMetadataPerson,
+            MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults, StoredUrl,
     },

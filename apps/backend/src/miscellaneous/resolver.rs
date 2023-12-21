@@ -53,14 +53,12 @@ use crate::{
     background::ApplicationJob,
     entities::{
         calendar_event, collection, collection_to_entity, exercise, genre, metadata,
-        metadata_group, metadata_to_genre, metadata_to_partial_metadata, metadata_to_person,
-        partial_metadata::{self, PartialMetadataWithoutId},
-        partial_metadata_to_metadata_group, person, person_to_partial_metadata,
+        metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
+        metadata_to_person, person,
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, Metadata,
-            MetadataGroup, MetadataToGenre, MetadataToPartialMetadata, MetadataToPerson,
-            PartialMetadata as PartialMetadataModel, PartialMetadataToMetadataGroup, Person,
-            PersonToPartialMetadata, Review, Seen, User, UserMeasurement, UserToEntity, Workout,
+            MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
+            MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToEntity, Workout,
         },
         review, seen,
         user::{
@@ -84,12 +82,13 @@ use crate::{
             MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
             MediaSpecifics, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
-            MovieSpecifics, PartialMetadataPerson, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, PublicCollectionItem, ReviewCommentUser, ReviewPostedEvent,
-            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
-            UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
+            MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
+            ReviewCommentUser, ReviewPostedEvent, SeenOrReviewOrCalendarEventExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
+            VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -394,7 +393,7 @@ struct MetadataCreatorGroupedByRole {
 struct CreatorDetails {
     details: person::Model,
     contents: Vec<CreatorDetailsGroupedByRole>,
-    worked_on: Vec<partial_metadata::Model>,
+    worked_on: Vec<PartialMetadata>,
     source_url: Option<String>,
 }
 
@@ -402,7 +401,7 @@ struct CreatorDetails {
 struct MetadataGroupDetails {
     details: metadata_group::Model,
     source_url: Option<String>,
-    contents: Vec<partial_metadata::Model>,
+    contents: Vec<PartialMetadata>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -416,7 +415,7 @@ struct CreatorDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<partial_metadata::Model>,
+    items: Vec<PartialMetadata>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -425,7 +424,7 @@ struct MediaBaseData {
     creators: Vec<MetadataCreatorGroupedByRole>,
     assets: GraphqlMediaAssets,
     genres: Vec<GenreListItem>,
-    suggestions: Vec<partial_metadata::Model>,
+    suggestions: Vec<PartialMetadata>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -474,7 +473,7 @@ struct GraphqlMediaDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
-    suggestions: Vec<partial_metadata::Model>,
+    suggestions: Vec<PartialMetadata>,
     group: Option<GraphqlMediaGroup>,
 }
 
@@ -3051,7 +3050,7 @@ impl MiscellaneousService {
     async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
-    ) -> Result<partial_metadata::Model> {
+    ) -> Result<PartialMetadata> {
         let model = if let Some(c) = PartialMetadataModel::find()
             .filter(partial_metadata::Column::Identifier.eq(&data.identifier))
             .filter(partial_metadata::Column::Lot.eq(data.lot))
@@ -6097,7 +6096,7 @@ impl MiscellaneousService {
         for (assoc, metadata) in associations {
             let m = metadata.unwrap();
             let image = m.images.first_as_url(&self.file_storage_service).await;
-            let metadata = partial_metadata::Model {
+            let metadata = PartialMetadata {
                 identifier: m.identifier,
                 title: m.title,
                 image,

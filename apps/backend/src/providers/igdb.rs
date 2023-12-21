@@ -14,14 +14,12 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
-    entities::{
-        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
-    },
+    entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, MetadataVideo, MetadataVideoSource,
-            PartialMetadataPerson, VideoGameSpecifics,
+            PartialMetadataPerson, PartialMetadataWithoutId, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },

@@ -6,6 +6,7 @@ use std::{
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
+use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -25,10 +26,7 @@ use serde_with::skip_serializing_none;
 use strum::Display;
 
 use crate::{
-    entities::{
-        exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, prelude::Workout,
-        user_measurement, workout,
-    },
+    entities::{exercise::ExerciseListItem, prelude::Workout, user_measurement, workout},
     file_storage::FileStorageService,
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
@@ -145,6 +143,22 @@ pub struct IdAndNamedObject {
 
 pub mod media {
     use super::*;
+
+    #[boilermates("PartialMetadataWithoutId")]
+    #[boilermates(attr_for(
+        "PartialMetadataWithoutId",
+        "#[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, Hash)]"
+    ))]
+    #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, Hash)]
+    pub struct PartialMetadata {
+        #[boilermates(not_in("PartialMetadataWithoutId"))]
+        pub id: i32,
+        pub identifier: String,
+        pub title: String,
+        pub image: Option<String>,
+        pub lot: MetadataLot,
+        pub source: MetadataSource,
+    }
 
     #[derive(Clone, Debug, PartialEq, Eq, FromQueryResult, SimpleObject)]
     pub struct PublicCollectionItem {
@@ -795,7 +809,7 @@ pub mod media {
         pub role: String,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
     pub struct MetadataPerson {
         pub identifier: String,
         pub source: MetadataSource,

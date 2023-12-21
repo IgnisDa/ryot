@@ -14,15 +14,13 @@ use serde_json::json;
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
-    entities::{
-        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
-    },
+    entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, ShowEpisode, ShowSeason,
-            ShowSpecifics,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+            ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },

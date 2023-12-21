@@ -12,13 +12,12 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    entities::{
-        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
-    },
+    entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
+            PartialMetadataWithoutId,
         },
         NamedObject, SearchDetails, SearchResults,
     },

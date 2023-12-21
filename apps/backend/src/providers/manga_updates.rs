@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    entities::partial_metadata::PartialMetadataWithoutId,
     models::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
+            PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults,
     },

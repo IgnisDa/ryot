@@ -14,11 +14,11 @@ use surf_retry::{ExponentialBackoff, RetryMiddleware};
 use tracing::instrument;
 
 use crate::{
-    entities::partial_metadata::PartialMetadataWithoutId,
     models::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
+            PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults,
     },
