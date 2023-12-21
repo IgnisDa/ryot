@@ -25,7 +25,6 @@ import {
 	IconDeviceTv,
 	IconInfoCircle,
 	IconMessageCircle2,
-	IconPlayerPlay,
 	IconUser,
 } from "@tabler/icons-react";
 import invariant from "tiny-invariant";
@@ -34,7 +33,6 @@ import {
 	AddEntityToCollectionModal,
 	DisplayCollection,
 	MediaScrollArea,
-	PartialMetadataDisplay,
 	ReviewItemDisplay,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -164,14 +162,6 @@ export default function Page() {
 								Overview
 							</Tabs.Tab>
 						) : null}
-						{loaderData.personDetails.workedOn.length > 0 ? (
-							<Tabs.Tab
-								value="workedOn"
-								leftSection={<IconPlayerPlay size={16} />}
-							>
-								Worked on
-							</Tabs.Tab>
-						) : null}
 						{loaderData.userPersonDetails.reviews.length > 0 ? (
 							<Tabs.Tab
 								value="reviews"
@@ -197,11 +187,11 @@ export default function Page() {
 										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 											{role.items.map((item) => (
 												<Anchor
-													key={item.metadataId}
-													data-media-id={item.metadataId}
+													key={item.id}
+													data-media-id={item.id}
 													component={Link}
 													to={$path("/media/item/:id", {
-														id: item.metadataId || "",
+														id: item.id || "",
 													})}
 												>
 													<Avatar
@@ -245,20 +235,6 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 					) : null}
-					<Tabs.Panel value="workedOn">
-						<MediaScrollArea
-							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-						>
-							<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-								{loaderData.personDetails.workedOn.map((media) => (
-									<PartialMetadataDisplay
-										key={media.identifier}
-										media={media}
-									/>
-								))}
-							</SimpleGrid>
-						</MediaScrollArea>
-					</Tabs.Panel>
 					<Tabs.Panel value="actions">
 						<MediaScrollArea
 							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}

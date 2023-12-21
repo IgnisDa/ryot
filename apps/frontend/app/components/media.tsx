@@ -81,8 +81,8 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 			component={Link}
 			data-media-id={props.media.identifier}
 			to={
-				props.media.metadataId
-					? $path("/media/item/:id", { id: props.media.metadataId })
+				props.media.id
+					? $path("/media/item/:id", { id: props.media.id })
 					: $path("/")
 			}
 			onClick={async (e) => {
