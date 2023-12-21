@@ -1544,9 +1544,9 @@ impl MiscellaneousService {
             .into_iter()
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
-
         let partial_metadata_ids = MetadataToMetadata::find()
             .select_only()
+            .column(metadata_to_metadata::Column::ToMetadataId)
             .filter(metadata_to_metadata::Column::FromMetadataId.eq(meta.id))
             .filter(
                 metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
