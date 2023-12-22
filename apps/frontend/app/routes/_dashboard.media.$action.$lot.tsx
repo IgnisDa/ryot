@@ -57,7 +57,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineCollectionFilter: null,
+	mineCollectionFilter: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
