@@ -52,17 +52,6 @@ alter table metadata add column if not exists is_partial bool;
     JOIN
       partial_metadata pm ON mtpm.partial_metadata_id = pm.id
     ON CONFLICT DO NOTHING;
-
-    INSERT INTO metadata_to_person (person_id, metadata_id, role)
-    SELECT
-    mtpm.person_id,
-    (select id from metadata where identifier = pm.identifier and source = pm.source and lot = pm.lot) AS metadata_id,
-    'Other' as role
-    FROM
-      person_to_partial_metadata mtpm
-    JOIN
-      partial_metadata pm ON mtpm.partial_metadata_id = pm.id
-    ON CONFLICT DO NOTHING;
 "#,
   )
   .await?;
