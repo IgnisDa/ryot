@@ -6130,6 +6130,7 @@ impl MiscellaneousService {
         }
         let contents = contents
             .into_iter()
+            .sorted_by_key(|(role, _)| role.clone())
             .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
             .collect_vec();
         let slug = slug::slugify(&details.name);
