@@ -30,6 +30,7 @@ use crate::{
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";
+static POSSIBLE_ROLES: [&str; 4] = ["Acting", "Production", "Directing", "Director"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -222,20 +223,26 @@ impl MediaProvider for NonMediaTmdbService {
                 .map_err(|e| anyhow!(e))?;
             for media in details.crew.into_iter().chain(details.cast.into_iter()) {
                 if let Some(title) = media.title.or(media.name) {
-                    related.push((
-                        media.job.unwrap_or_else(|| "Other".to_string()),
-                        PartialMetadataWithoutId {
-                            identifier: media.id.unwrap().to_string(),
-                            title,
-                            image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
-                            lot: match media.media_type.unwrap().as_ref() {
-                                "movie" => MetadataLot::Movie,
-                                "tv" => MetadataLot::Show,
-                                _ => continue,
-                            },
-                            source: MetadataSource::Tmdb,
-                        },
-                    ));
+                    if let Some(job) = media.job {
+                        if POSSIBLE_ROLES.contains(&job.as_str()) {
+                            related.push((
+                                job,
+                                PartialMetadataWithoutId {
+                                    identifier: media.id.unwrap().to_string(),
+                                    title,
+                                    image: media
+                                        .poster_path
+                                        .map(|p| self.base.get_cover_image_url(p)),
+                                    lot: match media.media_type.unwrap().as_ref() {
+                                        "movie" => MetadataLot::Movie,
+                                        "tv" => MetadataLot::Show,
+                                        _ => continue,
+                                    },
+                                    source: MetadataSource::Tmdb,
+                                },
+                            ));
+                        }
+                    }
                 }
             }
         }
@@ -386,7 +393,7 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let Some(id) = g.id {
                         if let Some(r) = g.known_for_department {
-                            if r == *"Acting" {
+                            if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
                                     role: r,
@@ -413,7 +420,7 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let Some(id) = g.id {
                         if let Some(r) = g.job {
-                            if r == *"Director" {
+                            if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
                                     role: r,
@@ -709,7 +716,7 @@ impl MediaProvider for TmdbShowService {
             .sorted_by_key(|c| c.1)
             .rev()
             .map(|c| c.0)
-            .filter(|c| ["Acting", "Production", "Directing"].contains(&c.role.as_str()))
+            .filter(|c| POSSIBLE_ROLES.contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
         Ok(MediaDetails {
