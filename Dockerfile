@@ -17,6 +17,7 @@ COPY --from=frontend-workspace /app/.moon/docker/workspace .
 RUN moon docker setup
 COPY --from=frontend-workspace /app/.moon/docker/sources .
 RUN moon run frontend:build
+RUN ls -lahR apps/frontend/build && exit 1
 
 FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef AS chef
 RUN apt-get update && apt-get install -y --no-install-recommends musl-tools musl-dev clang llvm ca-certificates
