@@ -1,5 +1,4 @@
 import {
-	Box,
 	Button,
 	Container,
 	PasswordInput,
@@ -13,9 +12,11 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
+import { useRef } from "react";
 import { z } from "zod";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails, getUserDetails } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -62,12 +63,14 @@ const updateProfileFormSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const fetcher = useFetcher();
+	const formRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
 			<Stack>
 				<Title>Profile settings</Title>
-				<Box component={Form} method="post">
+				<fetcher.Form ref={formRef} method="post">
 					<Stack>
 						<TextInput
 							label="Username"
@@ -95,17 +98,18 @@ export default function Page() {
 							}
 						/>
 						<Button
-							type="submit"
-							fullWidth
-							onClick={(e) => {
-								if (!confirm("Are you sure you want to update your profile?"))
-									e.preventDefault();
+							onClick={async () => {
+								const conf = await confirmWrapper({
+									confirmation: "Are you sure you want to update your profile?",
+								});
+								if (conf) fetcher.submit(formRef.current);
 							}}
+							fullWidth
 						>
 							Update
 						</Button>
 					</Stack>
-				</Box>
+				</fetcher.Form>
 			</Stack>
 		</Container>
 	);

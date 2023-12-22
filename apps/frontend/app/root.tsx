@@ -33,6 +33,7 @@ import { honeypot } from "~/lib/honeypot.server";
 import { getToast } from "~/lib/toast.server";
 import { combineHeaders } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "./lib/cookies.server";
+import { MountPoint } from "./components/confirmation";
 
 const theme = createTheme({
 	fontFamily: "Poppins",
@@ -122,6 +123,7 @@ export default function App() {
 							theme={theme}
 							forceColorScheme={loaderData.defaultColorScheme}
 						>
+							<MountPoint />
 							{navigation.state === "loading" ||
 							navigation.state === "submitting" ? (
 								<Loader
