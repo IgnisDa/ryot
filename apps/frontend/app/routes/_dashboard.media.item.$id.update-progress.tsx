@@ -31,7 +31,7 @@ import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { Verb, dayjsLib, getVerb } from "~/lib/generals";
+import { Verb, getVerb } from "~/lib/generals";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	ShowAndPodcastSchema,
@@ -330,7 +330,7 @@ export default function Page() {
 						variant="outline"
 						type="submit"
 						name="date"
-						value={dayjsLib().toISOString()}
+						value={formatDateToNaiveDate(new Date())}
 					>
 						Now
 					</Button>
