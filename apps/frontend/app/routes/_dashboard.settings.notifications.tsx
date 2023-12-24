@@ -23,7 +23,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserNotificationPlatformDocument,
 	DeleteUserNotificationPlatformDocument,
@@ -33,11 +33,12 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -130,6 +131,8 @@ export default function Page() {
 		createUserNotificationPlatformLot,
 		setCreateUserNotificationPlatformLot,
 	] = useState<UserNotificationSettingKind>();
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
@@ -147,25 +150,30 @@ export default function Page() {
 								</Box>
 								<Group>
 									<Tooltip label="Delete">
-										<Form action="?intent=delete" method="post">
+										<fetcher.Form
+											action="?intent=delete"
+											method="post"
+											ref={deleteFormRef}
+										>
+											<input
+												hidden
+												name="notificationId"
+												defaultValue={not.id}
+											/>
 											<ActionIcon
 												color="red"
 												variant="outline"
-												type="submit"
-												name="notificationId"
-												value={not.id}
-												onClick={(e) => {
-													if (
-														!confirm(
+												onClick={async () => {
+													const conf = await confirmWrapper({
+														confirmation:
 															"Are you sure you want to delete this notification platform?",
-														)
-													)
-														e.preventDefault();
+													});
+													if (conf) fetcher.submit(deleteFormRef.current);
 												}}
 											>
 												<IconTrash size={16} />
 											</ActionIcon>
-										</Form>
+										</fetcher.Form>
 									</Tooltip>
 								</Group>
 							</Flex>

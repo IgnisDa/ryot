@@ -76,6 +76,7 @@ import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
+import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
@@ -143,7 +144,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					secure: true,
 				}),
 			},
-			await createToastHeaders({ message: "Workout created" }),
+			await createToastHeaders({
+				message: "Workout completed successfully",
+				type: "success",
+			}),
 		),
 	});
 };
@@ -346,9 +350,11 @@ export default function Page() {
 														});
 														return;
 													}
-													const yes = confirm(
-														"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-													);
+													const yes = await confirmWrapper({
+														title: "Finish workout",
+														confirmation:
+															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+													});
 													if (yes) {
 														const input =
 															currentWorkoutToCreateWorkoutInput(

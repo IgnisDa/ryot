@@ -54,6 +54,7 @@ import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
+import { confirmWrapper } from "./confirmation";
 
 const commitMedia = async (
 	identifier: string,
@@ -305,11 +306,12 @@ export const ReviewItemDisplay = (props: {
 															/>
 															<ActionIcon
 																color="red"
-																onClick={() => {
-																	const yes = confirm(
-																		"Are you sure you want to delete this comment?",
-																	);
-																	if (yes)
+																onClick={async () => {
+																	const conf = await confirmWrapper({
+																		confirmation:
+																			"Are you sure you want to delete this comment?",
+																	});
+																	if (conf)
 																		deleteReviewCommentFetcher.submit(
 																			deleteReviewCommentFormRef.current,
 																		);
@@ -779,11 +781,12 @@ export const DisplayCollection = (props: {
 					<input hidden name="collectionName" defaultValue={props.col.name} />
 					<ActionIcon
 						size={16}
-						onClick={() => {
-							const yes = confirm(
-								"Are you sure you want to remove this media from this collection?",
-							);
-							if (yes)
+						onClick={async () => {
+							const conf = await confirmWrapper({
+								confirmation:
+									"Are you sure you want to remove this media from this collection?",
+							});
+							if (conf)
 								removeEntityFromCollection.submit(
 									removeEntityFromCollectionFormRef.current,
 								);

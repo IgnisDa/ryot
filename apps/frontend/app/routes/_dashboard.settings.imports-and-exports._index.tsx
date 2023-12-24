@@ -26,7 +26,13 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useActionData } from "@remix-run/react";
+import {
+	FetcherWithComponents,
+	Form,
+	Link,
+	useActionData,
+	useFetcher,
+} from "@remix-run/react";
 import {
 	DeployImportJobDocument,
 	GenerateAuthTokenDocument,
@@ -34,10 +40,11 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
-import { ReactNode, useState } from "react";
+import { ReactNode, RefObject, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { uploadFileToServiceAndGetPath } from "~/lib/generals";
 import { processSubmission } from "~/lib/utilities.server";
@@ -158,6 +165,8 @@ export default function Page() {
 	const onProgress = (event: ProgressEvent<XMLHttpRequestEventTarget>) =>
 		setProgress((event.loaded / event.total) * 100);
 	const onLoad = () => setProgress(null);
+	const fetcher = useFetcher();
+	const formRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
@@ -231,18 +240,10 @@ export default function Page() {
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="import">
-						<Box
-							component={Form}
-							onSubmit={async (e) => {
-								if (
-									!confirm(
-										"Are you sure you want to deploy an import job? This action is irreversible.",
-									)
-								)
-									e.preventDefault();
-							}}
+						<fetcher.Form
 							method="post"
 							action="?intent=deployImport"
+							ref={formRef}
 						>
 							<input hidden name="source" defaultValue={deployImportSource} />
 							<Stack>
@@ -299,7 +300,7 @@ export default function Page() {
 									}}
 								/>
 								{deployImportSource ? (
-									<ImportSourceElement>
+									<ImportSourceElement fetcher={fetcher} formRef={formRef}>
 										{match(deployImportSource)
 											.with(ImportSource.MediaTracker, () => (
 												<>
@@ -551,7 +552,7 @@ export default function Page() {
 									</ImportSourceElement>
 								) : null}
 							</Stack>
-						</Box>
+						</fetcher.Form>
 					</Tabs.Panel>
 				</Box>
 			</Tabs>
@@ -561,6 +562,8 @@ export default function Page() {
 
 const ImportSourceElement = (props: {
 	children: ReactNode | ReactNode[];
+	fetcher: FetcherWithComponents<unknown>;
+	formRef: RefObject<HTMLFormElement>;
 }) => {
 	return (
 		<>
@@ -570,8 +573,14 @@ const ImportSourceElement = (props: {
 				color="blue"
 				fullWidth
 				mt="md"
-				type="submit"
 				radius="md"
+				onClick={async () => {
+					const conf = await confirmWrapper({
+						confirmation:
+							"Are you sure you want to deploy an import job? This action is irreversible.",
+					});
+					if (conf) props.fetcher.submit(props.formRef.current);
+				}}
 			>
 				Import
 			</Button>

@@ -33,7 +33,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	CreateMediaReminderDocument,
 	DeleteMediaReminderDocument,
@@ -76,13 +76,14 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactNode, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { MediaDetailsLayout } from "~/components/common";
+import { confirmWrapper } from "~/components/confirmation";
 import {
 	AddEntityToCollectionModal,
 	DisplayCollection,
@@ -302,9 +303,14 @@ const mergeMetadataSchema = z.object({
 	mergeInto: zx.IntAsString,
 });
 
+// DEV: I wanted to use fetcher in some place but since this is being rendered
+// conditionally (or inside a menu), the form ref is null.
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
+	const seenFetcher = useFetcher();
+	const deleteSeenFormRef = useRef<HTMLFormElement>(null);
 
 	const [
 		progressModalOpened,
@@ -1126,7 +1132,12 @@ export default function Page() {
 															{dayjsLib(h.lastUpdatedOn).format("L")}
 														</Text>
 													</Flex>
-													<Form action="?intent=deleteSeenItem" method="post">
+													<seenFetcher.Form
+														action="?intent=deleteSeenItem"
+														method="post"
+														ref={deleteSeenFormRef}
+													>
+														<input hidden name="seenId" defaultValue={h.id} />
 														<Button
 															variant="outline"
 															color="red"
@@ -1134,21 +1145,18 @@ export default function Page() {
 																<IconX size={16} style={{ marginTop: 2 }} />
 															}
 															size="compact-xs"
-															type="submit"
-															name="seenId"
-															value={h.id}
-															onClick={(e) => {
-																if (
-																	!confirm(
-																		"Are you sure you want to delete this record?",
-																	)
-																)
-																	e.preventDefault();
+															onClick={async () => {
+																const conf = await confirmWrapper({
+																	confirmation:
+																		"Are you sure you want to delete this record from history?",
+																});
+																if (conf)
+																	seenFetcher.submit(deleteSeenFormRef.current);
 															}}
 														>
 															Delete
 														</Button>
-													</Form>
+													</seenFetcher.Form>
 												</Flex>
 											</Flex>
 										</Flex>

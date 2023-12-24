@@ -1,8 +1,8 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	SetLot,
 	type CreateUserWorkoutMutationVariables,
 	type ExerciseLot,
+	SetLot,
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";

@@ -23,7 +23,13 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useLoaderData, useNavigation } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useLoaderData,
+	useNavigation,
+} from "@remix-run/react";
 import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
@@ -36,6 +42,7 @@ import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
@@ -80,9 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		delete: async () => {
 			const submission = processSubmission(
 				formData,
-				z.object({
-					collectionName: z.string(),
-				}),
+				z.object({ collectionName: z.string() }),
 			);
 			let wasSuccessful = true;
 			try {
@@ -126,7 +131,8 @@ export default function Page() {
 		visibility: Visibility;
 	}>();
 	const [opened, { open, close }] = useDisclosure(false);
-	const formRef = useRef<HTMLFormElement>(null);
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	useEffect(() => {
 		if (transition.state !== "submitting") {
@@ -193,26 +199,26 @@ export default function Page() {
 									>
 										<IconEdit size={18} />
 									</ActionIcon>
-									<Form action="?intent=delete" method="post" ref={formRef}>
+									<fetcher.Form
+										action="?intent=delete"
+										method="post"
+										ref={deleteFormRef}
+									>
+										<input hidden name="collectionName" defaultValue={c.name} />
 										<ActionIcon
 											color="red"
 											variant="outline"
-											type="submit"
-											name="collectionName"
-											value={c.name}
-											onClick={(e) => {
-												if (
-													!confirm(
+											onClick={async () => {
+												const conf = await confirmWrapper({
+													confirmation:
 														"Are you sure you want to delete this collection?",
-													)
-												) {
-													e.preventDefault();
-												}
+												});
+												if (conf) fetcher.submit(deleteFormRef.current);
 											}}
 										>
 											<IconTrashFilled size={18} />
 										</ActionIcon>
-									</Form>
+									</fetcher.Form>
 								</Flex>
 							</Flex>
 						))}

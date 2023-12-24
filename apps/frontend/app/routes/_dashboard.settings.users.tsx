@@ -18,7 +18,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserDocument,
 	RegisterErrorVariant,
@@ -27,11 +27,12 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, randomString } from "@ryot/ts-utils";
 import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -115,6 +116,8 @@ export default function Page() {
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
 	] = useDisclosure(false);
 	const [password, setPassword] = useState("");
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
@@ -175,21 +178,26 @@ export default function Page() {
 								<Text>{user.name}</Text>
 								<Text size="xs">Role: {changeCase(user.lot)}</Text>
 							</Box>
-							<Form action="?intent=delete" method="post">
+							<fetcher.Form
+								action="?intent=delete"
+								method="post"
+								ref={deleteFormRef}
+							>
+								<input hidden name="toDeleteUserId" defaultValue={user.id} />
 								<ActionIcon
 									color="red"
 									variant="outline"
-									type="submit"
-									name="toDeleteUserId"
-									value={user.id}
-									onClick={(e) => {
-										if (!confirm("Are you sure you want to delete this user?"))
-											e.preventDefault();
+									onClick={async () => {
+										const conf = await confirmWrapper({
+											confirmation:
+												"Are you sure you want to delete this user?",
+										});
+										if (conf) fetcher.submit(deleteFormRef.current);
 									}}
 								>
 									<IconTrash size={16} />
 								</ActionIcon>
-							</Form>
+							</fetcher.Form>
 						</Flex>
 					</Paper>
 				))}

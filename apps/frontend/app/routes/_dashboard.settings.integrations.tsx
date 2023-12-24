@@ -22,7 +22,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserSinkIntegrationDocument,
 	CreateUserYankIntegrationDocument,
@@ -33,10 +33,11 @@ import {
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCopy, IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -134,6 +135,8 @@ export default function Page() {
 		useState<UserYankIntegrationSettingKind>();
 	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
 		useState<UserSinkIntegrationSettingKind>();
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
@@ -179,31 +182,36 @@ export default function Page() {
 											)}
 										</CopyButton>
 									) : null}
-									<Form action="?intent=delete" method="post">
+									<fetcher.Form
+										action="?intent=delete"
+										method="post"
+										ref={deleteFormRef}
+									>
 										<input
 											type="hidden"
 											name="integrationLot"
 											defaultValue={i.lot}
 										/>
+										<input
+											type="hidden"
+											name="integrationId"
+											defaultValue={i.id}
+										/>
 										<ActionIcon
 											color="red"
 											variant="subtle"
-											size="sm"
-											type="submit"
-											name="integrationId"
-											value={i.id}
-											onClick={(e) => {
-												if (
-													!confirm(
+											mt={4}
+											onClick={async () => {
+												const conf = await confirmWrapper({
+													confirmation:
 														"Are you sure you want to delete this integration?",
-													)
-												)
-													e.preventDefault();
+												});
+												if (conf) fetcher.submit(deleteFormRef.current);
 											}}
 										>
 											<IconTrash />
 										</ActionIcon>
-									</Form>
+									</fetcher.Form>
 								</Group>
 							</Flex>
 						</Paper>

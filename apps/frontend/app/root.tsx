@@ -32,8 +32,8 @@ import { Toaster } from "~/components/toaster";
 import { honeypot } from "~/lib/honeypot.server";
 import { getToast } from "~/lib/toast.server";
 import { combineHeaders } from "~/lib/utilities.server";
-import { colorSchemeCookie } from "./lib/cookies.server";
 import { MountPoint } from "./components/confirmation";
+import { colorSchemeCookie } from "./lib/cookies.server";
 
 const theme = createTheme({
 	fontFamily: "Poppins",

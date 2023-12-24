@@ -1,7 +1,7 @@
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
 import {
-	confirmable,
 	ConfirmDialogProps,
+	confirmable,
 	createConfirmationCreater,
 	createMountPoint,
 	createReactTreeMounter,
@@ -23,9 +23,10 @@ const Confirmation: React.FC<
 		<Modal
 			opened={props.show}
 			onClose={() => props.proceed(false)}
-			size="auto"
+			size="sm"
 			centered
 			withCloseButton={false}
+			title={props.title}
 		>
 			<Stack>
 				<Text>{props.confirmation}</Text>
