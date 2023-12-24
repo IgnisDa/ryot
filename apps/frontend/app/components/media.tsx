@@ -25,7 +25,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	Form,
 	Link,
 	useFetcher,
 	useNavigate,
@@ -231,7 +230,7 @@ export const ReviewItemDisplay = (props: {
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<Form
+						<createReviewCommentFetcher.Form
 							action="/actions?intent=createReviewComment"
 							method="post"
 							ref={createReviewCommentFormRef}
@@ -255,7 +254,7 @@ export const ReviewItemDisplay = (props: {
 									<IconCheck />
 								</ActionIcon>
 							</Group>
-						</Form>
+						</createReviewCommentFetcher.Form>
 					) : null}
 					{!openedLeaveComment ? (
 						<Button
@@ -284,7 +283,7 @@ export const ReviewItemDisplay = (props: {
 														) : null}
 													</Box>
 													{props.user.id === c?.user?.id ? (
-														<Form
+														<deleteReviewCommentFetcher.Form
 															action="/actions?intent=createReviewComment"
 															method="post"
 															ref={deleteReviewCommentFormRef}
@@ -318,9 +317,9 @@ export const ReviewItemDisplay = (props: {
 															>
 																<IconTrash size={16} />
 															</ActionIcon>
-														</Form>
+														</deleteReviewCommentFetcher.Form>
 													) : null}
-													<Form
+													<changeScoreFetcher.Form
 														action="/actions?intent=createReviewComment"
 														method="post"
 														ref={changeScoreFormRef}
@@ -359,7 +358,7 @@ export const ReviewItemDisplay = (props: {
 															<IconArrowBigUp size={16} />
 															<Text>{c?.likedBy?.length}</Text>
 														</ActionIcon>
-													</Form>
+													</changeScoreFetcher.Form>
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
@@ -717,7 +716,7 @@ export const AddEntityToCollectionModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form
+			<addEntityToCollectionFetcher.Form
 				action="/actions?intent=addEntityToCollection"
 				method="post"
 				ref={addEntityToCollectionFormRef}
@@ -743,7 +742,7 @@ export const AddEntityToCollectionModal = (props: {
 						Cancel
 					</Button>
 				</Stack>
-			</Form>
+			</addEntityToCollectionFetcher.Form>
 		</Modal>
 	);
 };
@@ -759,7 +758,7 @@ export const DisplayCollection = (props: {
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<Form
+			<removeEntityFromCollection.Form
 				action="/actions?intent=removeEntityFromCollection"
 				method="post"
 				ref={removeEntityFromCollectionFormRef}
@@ -793,7 +792,7 @@ export const DisplayCollection = (props: {
 						<IconX />
 					</ActionIcon>
 				</Flex>
-			</Form>
+			</removeEntityFromCollection.Form>
 		</Badge>
 	);
 };
