@@ -629,7 +629,7 @@ struct UserMediaDetails {
     pub ownership: Option<UserMediaOwnership>,
 }
 
-#[derive(SimpleObject, Debug)]
+#[derive(SimpleObject, Debug, Clone)]
 struct UserMediaNextEpisode {
     season_number: Option<i32>,
     episode_number: Option<i32>,
@@ -1742,25 +1742,41 @@ impl MiscellaneousService {
             .cloned();
         let next_episode = history.first().and_then(|h| {
             if let Some(s) = &media_details.show_specifics {
-                let current = s.get_episode(
-                    h.show_information.as_ref().unwrap().season,
-                    h.show_information.as_ref().unwrap().episode,
-                );
-                current.map(|(s, e)| UserMediaNextEpisode {
-                    season_number: Some(s.season_number),
-                    episode_number: Some(e.episode_number + 1),
-                })
+                let all_episodes = s
+                    .seasons
+                    .iter()
+                    .map(|s| (s.season_number, &s.episodes))
+                    .collect_vec()
+                    .into_iter()
+                    .flat_map(|(s, e)| {
+                        e.iter().map(move |e| UserMediaNextEpisode {
+                            season_number: Some(s),
+                            episode_number: Some(e.episode_number),
+                        })
+                    })
+                    .collect_vec();
+                let next = all_episodes.iter().position(|e| {
+                    e.season_number == Some(h.show_information.as_ref().unwrap().season)
+                        && e.episode_number == Some(h.show_information.as_ref().unwrap().episode)
+                });
+                Some(all_episodes.get(next? + 1)?.clone())
             } else if let Some(p) = &media_details.podcast_specifics {
-                let current = p.get_episode(h.podcast_information.as_ref().unwrap().episode);
-                current.map(|i| UserMediaNextEpisode {
-                    season_number: None,
-                    episode_number: Some(i.number + 1),
-                })
+                let all_episodes = p
+                    .episodes
+                    .iter()
+                    .map(|e| UserMediaNextEpisode {
+                        season_number: None,
+                        episode_number: Some(e.number),
+                    })
+                    .collect_vec();
+                let next = all_episodes.iter().position(|e| {
+                    e.episode_number == Some(h.podcast_information.as_ref().unwrap().episode)
+                });
+                Some(all_episodes.get(next? + 1)?.clone())
             } else {
                 None
             }
         });
-        let next_episode = next_episode.filter(|ne| ne.episode_number.is_some());
         let is_monitored = self.get_monitored_status(user_id, metadata_id).await?;
         let metadata_alias = Alias::new("m");
         let seen_alias = Alias::new("s");
@@ -1808,13 +1824,12 @@ impl MiscellaneousService {
                 Some(sum / Decimal::from(total_rating.iter().len()))
             }
         };
-
         Ok(UserMediaDetails {
             collections,
             reviews,
             history,
             in_progress,
-            next_episode,
+            next_episode: next_episode.clone(),
             is_monitored,
             seen_by,
             reminder,
