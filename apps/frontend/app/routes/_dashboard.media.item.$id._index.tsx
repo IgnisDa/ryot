@@ -1,6 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	Accordion,
+	ActionIcon,
 	Alert,
 	Anchor,
 	Avatar,
@@ -33,7 +34,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	CreateMediaReminderDocument,
 	DeleteMediaReminderDocument,
@@ -66,6 +67,7 @@ import {
 	IconBulb,
 	IconClock,
 	IconDeviceTv,
+	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPercentage,
@@ -76,14 +78,13 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactNode, useRef, useState } from "react";
+import { ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { MediaDetailsLayout } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	AddEntityToCollectionModal,
 	DisplayCollection,
@@ -309,8 +310,6 @@ const mergeMetadataSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
-	const seenFetcher = useFetcher();
-	const deleteSeenFormRef = useRef<HTMLFormElement>(null);
 
 	const [
 		progressModalOpened,
@@ -1084,80 +1083,81 @@ export default function Page() {
 									{loaderData.userMediaDetails.history.map((h) => (
 										<Flex
 											key={h.id}
-											direction="column"
 											ml="md"
+											gap="xl"
 											data-seen-id={h.id}
 											data-seen-num-times-updated={h.numTimesUpdated}
 										>
-											<Flex gap="xl">
-												<Text fw="bold">
-													{changeCase(h.state)}{" "}
-													{h.progress !== 100 ? `(${h.progress}%)` : null}
-												</Text>
-												{h.showInformation ? (
-													<Text c="dimmed">
-														S{h.showInformation.season}-E
-														{h.showInformation.episode}
-													</Text>
-												) : null}
-												{h.podcastInformation ? (
-													<Text c="dimmed">
-														EP-{h.podcastInformation.episode}
-													</Text>
-												) : null}
-											</Flex>
-											<Flex ml="sm" direction="column" gap={4}>
+											<Flex direction="column">
 												<Flex gap="xl">
-													<Flex gap="xs">
-														<Text size="sm">Started:</Text>
-														<Text size="sm" fw="bold">
-															{h.startedOn
-																? dayjsLib(h.startedOn).format("L")
-																: "N/A"}
+													<Text fw="bold">
+														{changeCase(h.state)}{" "}
+														{h.progress !== 100 ? `(${h.progress}%)` : null}
+													</Text>
+													{h.showInformation ? (
+														<Text c="dimmed">
+															S{h.showInformation.season}-E
+															{h.showInformation.episode}
 														</Text>
+													) : null}
+													{h.podcastInformation ? (
+														<Text c="dimmed">
+															EP-{h.podcastInformation.episode}
+														</Text>
+													) : null}
+												</Flex>
+												<Flex ml="sm" direction="column" gap={4}>
+													<Flex gap="xl">
+														<Flex gap="xs">
+															<Text size="sm">Started:</Text>
+															<Text size="sm" fw="bold">
+																{h.startedOn
+																	? dayjsLib(h.startedOn).format("L")
+																	: "N/A"}
+															</Text>
+														</Flex>
+														<Flex gap="xs">
+															<Text size="sm">Ended:</Text>
+															<Text size="sm" fw="bold">
+																{h.finishedOn
+																	? dayjsLib(h.finishedOn).format("L")
+																	: "N/A"}
+															</Text>
+														</Flex>
 													</Flex>
-													<Flex gap="xs">
-														<Text size="sm">Ended:</Text>
-														<Text size="sm" fw="bold">
-															{h.finishedOn
-																? dayjsLib(h.finishedOn).format("L")
-																: "N/A"}
-														</Text>
+													<Flex gap="md">
+														<Flex gap="xs">
+															<Text size="sm">Updated:</Text>
+															<Text size="sm" fw="bold">
+																{dayjsLib(h.lastUpdatedOn).format("L")}
+															</Text>
+														</Flex>
 													</Flex>
 												</Flex>
-												<Flex gap="md">
-													<Flex gap="xs">
-														<Text size="sm">Updated:</Text>
-														<Text size="sm" fw="bold">
-															{dayjsLib(h.lastUpdatedOn).format("L")}
-														</Text>
-													</Flex>
-													<seenFetcher.Form
-														action="?intent=deleteSeenItem"
-														method="post"
-														ref={deleteSeenFormRef}
+											</Flex>
+											<Flex direction="column" justify="center" mr="auto">
+												<Form action="?intent=deleteSeenItem" method="post">
+													<input hidden name="seenId" defaultValue={h.id} />
+													<ActionIcon
+														color="red"
+														type="submit"
+														onClick={(e) => {
+															if (
+																!confirm(
+																	"Are you sure you want to delete this record from history?",
+																)
+															)
+																e.preventDefault();
+														}}
 													>
-														<input hidden name="seenId" defaultValue={h.id} />
-														<Button
-															variant="outline"
-															color="red"
-															leftSection={
-																<IconX size={16} style={{ marginTop: 2 }} />
-															}
-															size="compact-xs"
-															onClick={async () => {
-																const conf = await confirmWrapper({
-																	confirmation:
-																		"Are you sure you want to delete this record from history?",
-																});
-																if (conf)
-																	seenFetcher.submit(deleteSeenFormRef.current);
-															}}
-														>
-															Delete
-														</Button>
-													</seenFetcher.Form>
-												</Flex>
+														<IconX size={20} />
+													</ActionIcon>
+												</Form>
+												<>
+													<ActionIcon color="blue" onClick={async () => {}}>
+														<IconEdit size={20} />
+													</ActionIcon>
+												</>
 											</Flex>
 										</Flex>
 									))}
