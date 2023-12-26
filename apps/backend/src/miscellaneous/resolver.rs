@@ -642,6 +642,13 @@ struct CreateMediaReminderInput {
     message: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct EditSeenItemInput {
+    seen_id: i32,
+    started_on: Option<NaiveDate>,
+    finished_on: Option<NaiveDate>,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct PresignedPutUrlResponse {
     upload_url: String,
@@ -1310,6 +1317,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_review_comment(user_id, input).await
+    }
+
+    /// Edit the start/end date of a seen item.
+    async fn edit_seen_item(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: EditSeenItemInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.edit_seen_item(input, user_id).await
     }
 
     /// Start a background job.
@@ -3122,6 +3140,27 @@ impl MiscellaneousService {
         };
         intermediate.insert(&self.db).await.ok();
         Ok(())
+    }
+
+    async fn edit_seen_item(&self, input: EditSeenItemInput, user_id: i32) -> Result<bool> {
+        let seen = match Seen::find_by_id(input.seen_id).one(&self.db).await.unwrap() {
+            Some(s) => s,
+            None => return Err(Error::new("No seen found for this user and metadata")),
+        };
+        if seen.user_id != user_id {
+            return Err(Error::new("No seen found for this user and metadata"));
+        }
+        let mut seen: seen::ActiveModel = seen.into();
+        if let Some(started_on) = input.started_on {
+            seen.started_on = ActiveValue::Set(Some(started_on));
+        }
+        if let Some(finished_on) = input.finished_on {
+            seen.finished_on = ActiveValue::Set(Some(finished_on));
+        }
+        seen.last_updated_on = ActiveValue::Set(Utc::now());
+        let seen = seen.update(&self.db).await.unwrap();
+        self.after_media_seen_tasks(seen).await?;
+        Ok(true)
     }
 
     pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
