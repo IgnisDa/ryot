@@ -424,6 +424,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
                 identifier: node.id.to_string(),
                 source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
+                character: None,
             }
         })
         .collect_vec();
@@ -438,6 +439,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
                     identifier: node.id.to_string(),
                     source: MetadataSource::Anilist,
                     role: "Production".to_owned(),
+                    character: None,
                 }
             }),
     );

@@ -419,6 +419,7 @@ impl IgdbService {
                     identifier: ic.id.to_string(),
                     source: MetadataSource::Igdb,
                     role: role.to_owned(),
+                    character: None,
                 }
             })
             .unique()

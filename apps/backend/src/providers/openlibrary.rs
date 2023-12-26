@@ -268,6 +268,7 @@ impl MediaProvider for OpenlibraryService {
                 identifier: get_key(&key),
                 role,
                 source: MetadataSource::Openlibrary,
+                character: None,
             });
         }
         let description = data.description.map(|d| match d {

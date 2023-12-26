@@ -259,6 +259,7 @@ impl MediaProvider for MangaUpdatesService {
                 identifier: a.author_id.unwrap().to_string(),
                 role: a.lot.unwrap(),
                 source: MetadataSource::MangaUpdates,
+                character: None,
             })
             .collect_vec();
         people.extend(data.publishers.unwrap_or_default().into_iter().map(|a| {
@@ -266,6 +267,7 @@ impl MediaProvider for MangaUpdatesService {
                 identifier: a.publisher_id.unwrap().to_string(),
                 role: "Publisher".to_owned(),
                 source: MetadataSource::MangaUpdates,
+                character: None,
             }
         }));
         let mut suggestions = vec![];

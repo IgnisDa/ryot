@@ -13,6 +13,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub role: String,
     pub index: Option<i32>,
+    pub character: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

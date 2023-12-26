@@ -398,6 +398,7 @@ impl MediaProvider for TmdbMovieService {
                                     identifier: id.to_string(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
+                                    character: g.job,
                                 })
                             } else {
                                 None
@@ -425,6 +426,7 @@ impl MediaProvider for TmdbMovieService {
                                     identifier: id.to_string(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
+                                    character: Some(r),
                                 })
                             } else {
                                 None
@@ -447,6 +449,7 @@ impl MediaProvider for TmdbMovieService {
                     identifier: p.id.to_string(),
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
+                    character: None,
                 })
                 .collect_vec(),
         );
@@ -688,6 +691,7 @@ impl MediaProvider for TmdbShowService {
                                         identifier: id.to_string(),
                                         role: r,
                                         source: MetadataSource::Tmdb,
+                                        character: g.job,
                                     })
                                 } else {
                                     None
@@ -707,6 +711,7 @@ impl MediaProvider for TmdbShowService {
                     identifier: p.id.to_string(),
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
+                    character: None,
                 })
                 .collect_vec(),
         );

@@ -388,6 +388,7 @@ impl AudibleService {
                     identifier: au,
                     source: MetadataSource::Audible,
                     role: "Author".to_owned(),
+                    character: None,
                 })
             })
             .collect_vec();

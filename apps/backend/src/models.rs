@@ -791,6 +791,7 @@ pub mod media {
         pub identifier: String,
         pub source: MetadataSource,
         pub role: String,
+        pub character: Option<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
