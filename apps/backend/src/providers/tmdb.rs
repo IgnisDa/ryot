@@ -223,7 +223,7 @@ impl MediaProvider for NonMediaTmdbService {
                 .map_err(|e| anyhow!(e))?;
             for media in details.crew.into_iter().chain(details.cast.into_iter()) {
                 if let Some(title) = media.title.or(media.name) {
-                    if let Some(job) = media.job {
+                    if let Some(job) = media.character {
                         if POSSIBLE_ROLES.contains(&job.as_str()) {
                             related.push((
                                 job,
@@ -398,7 +398,7 @@ impl MediaProvider for TmdbMovieService {
                                     identifier: id.to_string(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
-                                    character: g.job,
+                                    character: g.character,
                                 })
                             } else {
                                 None
@@ -426,7 +426,7 @@ impl MediaProvider for TmdbMovieService {
                                     identifier: id.to_string(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
-                                    character: g.job,
+                                    character: g.character,
                                 })
                             } else {
                                 None
@@ -691,7 +691,7 @@ impl MediaProvider for TmdbShowService {
                                         identifier: id.to_string(),
                                         role: r,
                                         source: MetadataSource::Tmdb,
-                                        character: g.job,
+                                        character: g.character,
                                     })
                                 } else {
                                     None
