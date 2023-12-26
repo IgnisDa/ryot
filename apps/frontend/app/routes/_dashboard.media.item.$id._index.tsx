@@ -574,7 +574,10 @@ export default function Page() {
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
-							<Tabs.Tab value="overview" leftSection={<IconInfoCircle />}>
+							<Tabs.Tab
+								value="overview"
+								leftSection={<IconInfoCircle size={16} />}
+							>
 								Overview
 							</Tabs.Tab>
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
@@ -701,12 +704,14 @@ export default function Page() {
 																		<MetadataCreator
 																			name={creator.name}
 																			image={creator.image}
+																			character={creator.character}
 																		/>
 																	</Anchor>
 																) : (
 																	<MetadataCreator
 																		name={creator.name}
 																		image={creator.image}
+																		character={creator.character}
 																	/>
 																)}
 															</Box>
@@ -1500,7 +1505,11 @@ const ProgressModal = (props: {
 	);
 };
 
-const MetadataCreator = (props: { name: string; image?: string | null }) => {
+const MetadataCreator = (props: {
+	name: string;
+	image?: string | null;
+	character?: string | null;
+}) => {
 	return (
 		<>
 			<Avatar
@@ -1513,8 +1522,9 @@ const MetadataCreator = (props: { name: string; image?: string | null }) => {
 				alt={`${props.name} profile picture`}
 				styles={{ image: { objectPosition: "top" } }}
 			/>
-			<Text size="xs" c="dimmed" ta="center" lineClamp={1} mt={4}>
+			<Text size="xs" c="dimmed" ta="center" lineClamp={3} mt={4}>
 				{props.name}
+				{props.character ? ` as ${props.character}` : null}
 			</Text>
 		</>
 	);
