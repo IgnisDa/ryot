@@ -35,6 +35,7 @@ pub enum MetadataToPerson {
     Role,
     // The order in which the person will be displayed
     Index,
+    Character,
 }
 
 #[async_trait::async_trait]
@@ -110,6 +111,7 @@ impl MigrationTrait for Migration {
                             .col(MetadataToPerson::Role),
                     )
                     .col(ColumnDef::new(MetadataToPerson::Role).string().not_null())
+                    .col(ColumnDef::new(MetadataToPerson::Character).string())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-media-item_media-person_id")
