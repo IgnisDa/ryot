@@ -33,6 +33,7 @@ type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 export type Exercise = {
 	identifier: string;
 	exerciseId: string;
+	exerciseDetails: { images: Array<string> };
 	lot: ExerciseLot;
 	notes: Array<string>;
 	sets: Array<ExerciseSet>;
@@ -87,7 +88,17 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 	};
 };
 
-export const duplicateOldWorkout = (
+const getExerciseDetails = async (exerciseId: string) => {
+	const resp = await fetch(
+		$path("/api/fitness/exercises/:id", {
+			id: exerciseId,
+		}),
+	);
+	const json: Awaited<ReturnType<typeof resourcesLoader>> = await resp.json();
+	return json;
+};
+
+export const duplicateOldWorkout = async (
 	workout: WorkoutDetailsQuery["workoutDetails"],
 ) => {
 	const inProgress = getDefaultWorkout();
@@ -108,8 +119,10 @@ export const duplicateOldWorkout = (
 			},
 			endedAt: s.confirmedAt,
 		}));
+		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
 			identifier: crypto.randomUUID(),
+			exerciseDetails: { images: exerciseDetails.details.images },
 			images: [],
 			videos: [],
 			// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -140,16 +153,11 @@ export const addExerciseToWorkout = async (
 ) => {
 	const draft = createDraft(currentWorkout);
 	for (const ex of selectedExercises) {
-		const userExerciseDetailsResp = await fetch(
-			$path("/api/fitness/exercises/:id", {
-				id: ex.name,
-			}),
-		);
-		const userExerciseDetails: Awaited<ReturnType<typeof resourcesLoader>> =
-			await userExerciseDetailsResp.json();
+		const userExerciseDetails = await getExerciseDetails(ex.name);
 		draft.exercises.push({
 			identifier: crypto.randomUUID(),
 			exerciseId: ex.name,
+			exerciseDetails: { images: userExerciseDetails.details.images },
 			lot: ex.lot,
 			sets: [
 				{
@@ -160,7 +168,7 @@ export const addExerciseToWorkout = async (
 			],
 			supersetWith: [],
 			alreadyDoneSets:
-				userExerciseDetails?.at(0)?.sets.map((s) => ({
+				userExerciseDetails.history?.at(0)?.sets.map((s) => ({
 					// biome-ignore lint/suspicious/noExplicitAny: required here
 					statistic: s.statistic as any,
 				})) || [],

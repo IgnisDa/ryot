@@ -197,10 +197,11 @@ export default function Page() {
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
-									onClick={() => {
-										setCurrentWorkout(
-											duplicateOldWorkout(loaderData.workoutDetails),
+									onClick={async () => {
+										const workout = await duplicateOldWorkout(
+											loaderData.workoutDetails,
 										);
+										setCurrentWorkout(workout);
 										startWorkout();
 										navigate($path("/fitness/workouts/current"));
 									}}
