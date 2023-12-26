@@ -420,13 +420,13 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     if let Some(id) = g.id {
-                        if let Some(r) = g.job {
+                        if let Some(r) = g.known_for_department {
                             if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
-                                    character: Some(r),
+                                    character: g.job,
                                 })
                             } else {
                                 None
