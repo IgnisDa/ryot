@@ -1154,6 +1154,7 @@ export default function Page() {
 													</ActionIcon>
 												</Form>
 												<>
+													{/* TODO: A modal to adjust times should open here */}
 													<ActionIcon color="blue" onClick={async () => {}}>
 														<IconEdit size={20} />
 													</ActionIcon>
