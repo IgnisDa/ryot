@@ -380,6 +380,7 @@ struct MetadataCreator {
     id: Option<i32>,
     name: String,
     image: Option<String>,
+    character: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -742,7 +743,7 @@ impl MiscellaneousQuery {
         service.user_collections_list(user_id, name).await
     }
 
-    /// Get a list of publically visible collections.
+    /// Get a list of publicly visible collections.
     async fn public_collections_list(
         &self,
         gql_ctx: &Context<'_>,
@@ -1495,6 +1496,7 @@ impl MiscellaneousService {
             name: String,
             images: Option<Vec<MetadataImage>>,
             role: String,
+            character: Option<String>,
         }
         let crts = MetadataToPerson::find()
             .expr(Expr::col(Asterisk))
@@ -1518,9 +1520,10 @@ impl MiscellaneousService {
         for cr in crts {
             let image = cr.images.first_as_url(&self.file_storage_service).await;
             let creator = MetadataCreator {
-                id: Some(cr.id),
-                name: cr.name,
                 image,
+                name: cr.name,
+                id: Some(cr.id),
+                character: cr.character,
             };
             creators
                 .entry(cr.role)
@@ -1535,6 +1538,7 @@ impl MiscellaneousService {
                     id: None,
                     name: cr.name,
                     image: cr.image,
+                    character: None,
                 };
                 creators
                     .entry(cr.role)
@@ -2665,7 +2669,7 @@ impl MiscellaneousService {
                     return Ok(false);
                 }
                 self.admin_account_guard(user_id).await?;
-                let metadatas = Metadata::find()
+                let many_metadata = Metadata::find()
                     .select_only()
                     .column(metadata::Column::Id)
                     .order_by_asc(metadata::Column::LastUpdatedOn)
@@ -2673,7 +2677,7 @@ impl MiscellaneousService {
                     .all(&self.db)
                     .await
                     .unwrap();
-                for metadata_id in metadatas {
+                for metadata_id in many_metadata {
                     self.deploy_update_metadata_job(metadata_id).await?;
                 }
             }
@@ -2703,12 +2707,12 @@ impl MiscellaneousService {
     }
 
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let user_to_metadatas = UserToEntity::find()
+        let all_user_to_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::MetadataId.is_not_null())
             .all(&self.db)
             .await
             .unwrap();
-        for u in user_to_metadatas {
+        for u in all_user_to_metadata {
             // check if there is any seen item
             let seen_count = Seen::find()
                 .filter(seen::Column::UserId.eq(u.user_id))
@@ -3417,7 +3421,7 @@ impl MiscellaneousService {
             let results = provider
                 .search(&q, input.page, preferences.general.display_nsfw)
                 .await?;
-            let all_idens = results
+            let all_identifiers = results
                 .items
                 .iter()
                 .map(|i| i.identifier.to_owned())
@@ -3445,7 +3449,7 @@ impl MiscellaneousService {
                 )
                 .filter(metadata::Column::Lot.eq(lot))
                 .filter(metadata::Column::Source.eq(source))
-                .filter(metadata::Column::Identifier.is_in(&all_idens))
+                .filter(metadata::Column::Identifier.is_in(&all_identifiers))
                 .into_tuple::<(String, i32, bool)>()
                 .all(&self.db)
                 .await?
@@ -3682,7 +3686,7 @@ impl MiscellaneousService {
         &self,
         review_id: i32,
         user_id: i32,
-        respect_prefs: bool,
+        respect_preferences: bool,
     ) -> Result<ReviewItem> {
         let review = Review::find_by_id(review_id).one(&self.db).await?;
         match review {
@@ -3700,7 +3704,7 @@ impl MiscellaneousService {
                     },
                     None => (None, None, None),
                 };
-                let rating = match respect_prefs {
+                let rating = match respect_preferences {
                     true => {
                         let prefs =
                             partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
@@ -6230,8 +6234,12 @@ impl MiscellaneousService {
             number_of_items,
             number_of_pages,
         } = paginator.num_items_and_pages().await?;
-        for assc in paginator.fetch_page(page - 1).await? {
-            let m = assc.find_related(Metadata).one(&self.db).await?.unwrap();
+        for association_items in paginator.fetch_page(page - 1).await? {
+            let m = association_items
+                .find_related(Metadata)
+                .one(&self.db)
+                .await?
+                .unwrap();
             let image = m.images.first_as_url(&self.file_storage_service).await;
             let metadata = MediaSearchItemWithLot {
                 details: MediaSearchItem {
@@ -6410,7 +6418,7 @@ impl MiscellaneousService {
             .into_iter()
             .map(|m| m.metadata_id)
             .collect_vec();
-        let metas = Metadata::find()
+        let all_meta = Metadata::find()
             .filter(metadata::Column::Id.is_in(distinct_meta_ids))
             .order_by(metadata::Column::Id, Order::Asc)
             .all(&self.db)
@@ -6418,7 +6426,7 @@ impl MiscellaneousService {
 
         let mut resp = vec![];
 
-        for m in metas {
+        for m in all_meta {
             let mut seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
@@ -6534,11 +6542,11 @@ impl MiscellaneousService {
             .unwrap();
         let mut comments = review.comments.clone();
         if input.should_delete.unwrap_or_default() {
-            let posn = comments
+            let position = comments
                 .iter()
                 .position(|r| &r.id == input.comment_id.as_ref().unwrap())
                 .unwrap();
-            comments.remove(posn);
+            comments.remove(position);
         } else if input.increment_likes.unwrap_or_default() {
             let comment = comments
                 .iter_mut()

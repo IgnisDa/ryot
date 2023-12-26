@@ -7,6 +7,7 @@ query MediaAdditionalDetails($metadataId: Int!) {
         id
         name
         image
+        character
       }
     }
     assets {
