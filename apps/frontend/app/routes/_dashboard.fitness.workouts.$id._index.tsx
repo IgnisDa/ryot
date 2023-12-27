@@ -9,10 +9,13 @@ import {
 	Container,
 	Flex,
 	Group,
+	Image,
 	Menu,
 	Modal,
 	Paper,
 	Popover,
+	ScrollArea,
+	SimpleGrid,
 	Stack,
 	Text,
 	Title,
@@ -54,6 +57,7 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
@@ -70,6 +74,7 @@ import { processSubmission } from "~/lib/utilities.server";
 import {
 	currentWorkoutAtom,
 	duplicateOldWorkout,
+	getExerciseDetails,
 	startWorkout,
 } from "~/lib/workout";
 
@@ -309,7 +314,15 @@ type Exercise =
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [opened, { close, open }] = useDisclosure(false);
+	const [opened, { toggle }] = useDisclosure(false);
+	const exerciseDetails = useQuery({
+		queryKey: ["exerciseDetails", props.exercise.name],
+		queryFn: async () => {
+			const exerciseDetails = await getExerciseDetails(props.exercise.name);
+			return exerciseDetails;
+		},
+		staleTime: Infinity,
+	});
 
 	const supersetLinks =
 		props.exercise.supersetWith.length > 0
@@ -333,7 +346,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 
 	return (
 		<Paper withBorder p="xs">
-			<Box mb="xs">
+			<Stack mb="xs" gap="xs">
 				<Group justify="space-between">
 					<Anchor
 						id={`${props.exercise.name}__${props.idx}`}
@@ -346,66 +359,69 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						{props.exercise.name.slice(0, 40)}
 						{props.exercise.name.length > 40 ? "..." : null}
 					</Anchor>
-					<Popover position="top" opened={opened}>
-						<Popover.Target>
-							<ActionIcon
-								onMouseEnter={open}
-								onMouseLeave={close}
-								variant="transparent"
-							>
-								<IconInfoCircle size={18} />
-							</ActionIcon>
-						</Popover.Target>
-						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
-							<Stack gap={4}>
-								{props.exercise.restTime ? (
-									<Flex align="center" gap="xs">
-										<IconZzz size={14} />
-										<Text fz="xs">Rest time: {props.exercise.restTime}s</Text>
-									</Flex>
-								) : null}
-								{Number(props.exercise.total.reps) > 0 ? (
-									<Flex align="center" gap="xs">
-										<IconRotateClockwise size={14} />
-										<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
-									</Flex>
-								) : null}
-								{Number(props.exercise.total.duration) > 0 ? (
-									<Flex align="center" gap="xs">
-										<IconClock size={14} />
-										<Text fz="xs">
-											Duration: {props.exercise.total.duration} min
-										</Text>
-									</Flex>
-								) : null}
-								{Number(props.exercise.total.weight) > 0 ? (
-									<Flex align="center" gap="xs">
-										<IconWeight size={14} />
-										<Text fz="xs">
-											Weight:{" "}
-											{displayWeightWithUnit(
-												loaderData.userPreferences.unitSystem,
-												props.exercise.total.weight,
-											)}
-										</Text>
-									</Flex>
-								) : null}{" "}
-								{Number(props.exercise.total.distance) > 0 ? (
-									<Flex align="center" gap="xs">
-										<IconRun size={14} />
-										<Text fz="xs">
-											Distance:{" "}
-											{displayDistanceWithUnit(
-												loaderData.userPreferences.unitSystem,
-												props.exercise.total.distance,
-											)}
-										</Text>
-									</Flex>
-								) : null}
-							</Stack>
-						</Popover.Dropdown>
-					</Popover>
+					<ActionIcon onClick={toggle} variant="transparent">
+						<IconInfoCircle size={18} />
+					</ActionIcon>
 				</Group>
+				{opened ? (
+					<>
+						<SimpleGrid cols={3}>
+							{props.exercise.restTime ? (
+								<Flex align="center" gap="xs">
+									<IconZzz size={14} />
+									<Text fz="xs">Rest time: {props.exercise.restTime}s</Text>
+								</Flex>
+							) : null}
+							{Number(props.exercise.total.reps) > 0 ? (
+								<Flex align="center" gap="xs">
+									<IconRotateClockwise size={14} />
+									<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
+								</Flex>
+							) : null}
+							{Number(props.exercise.total.duration) > 0 ? (
+								<Flex align="center" gap="xs">
+									<IconClock size={14} />
+									<Text fz="xs">
+										Duration: {props.exercise.total.duration} min
+									</Text>
+								</Flex>
+							) : null}
+							{Number(props.exercise.total.weight) > 0 ? (
+								<Flex align="center" gap="xs">
+									<IconWeight size={14} />
+									<Text fz="xs">
+										Weight:{" "}
+										{displayWeightWithUnit(
+											loaderData.userPreferences.unitSystem,
+											props.exercise.total.weight,
+										)}
+									</Text>
+								</Flex>
+							) : null}{" "}
+							{Number(props.exercise.total.distance) > 0 ? (
+								<Flex align="center" gap="xs">
+									<IconRun size={14} />
+									<Text fz="xs">
+										Distance:{" "}
+										{displayDistanceWithUnit(
+											loaderData.userPreferences.unitSystem,
+											props.exercise.total.distance,
+										)}
+									</Text>
+								</Flex>
+							) : null}
+						</SimpleGrid>
+						{exerciseDetails.data ? (
+							<ScrollArea type="scroll">
+								<Flex gap="lg">
+									{exerciseDetails.data.details.images.map((i) => (
+										<Image key={i} radius="md" src={i} h={200} w={350} />
+									))}
+								</Flex>
+							</ScrollArea>
+						) : null}
+					</>
+				) : null}
 				{supersetLinks ? (
 					<Text fz="xs">Superset with {supersetLinks}</Text>
 				) : null}
@@ -423,7 +439,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						))}
 					</Avatar.Group>
 				) : null}
-			</Box>
+			</Stack>
 			{props.exercise.sets.map((s, idx) => (
 				<DisplaySet
 					key={`${idx}`}

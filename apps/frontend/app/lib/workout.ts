@@ -88,7 +88,7 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 	};
 };
 
-const getExerciseDetails = async (exerciseId: string) => {
+export const getExerciseDetails = async (exerciseId: string) => {
 	const resp = await fetch(
 		$path("/api/fitness/exercises/:id", {
 			id: exerciseId,
