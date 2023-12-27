@@ -1003,11 +1003,11 @@ const ExerciseDisplay = (props: {
 					<Box ref={parent}>
 						{exerciseDetailsOpened ? (
 							<ScrollArea mb="md" type="scroll">
-								<Flex gap="sm">
+								<Group>
 									{props.exercise.exerciseDetails.images.map((i) => (
 										<Image key={i} radius="md" src={i} h={200} w={350} />
 									))}
-								</Flex>
+								</Group>
 							</ScrollArea>
 						) : null}
 						<Flex justify="space-between" align="center" mb="xs">
