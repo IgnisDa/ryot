@@ -25,7 +25,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -53,6 +53,7 @@ import {
 	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
+	UserMediaDetailsQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -1086,86 +1087,7 @@ export default function Page() {
 										) : null}
 									</Box>
 									{loaderData.userMediaDetails.history.map((h) => (
-										<Flex
-											key={h.id}
-											ml="md"
-											gap="xl"
-											data-seen-id={h.id}
-											data-seen-num-times-updated={h.numTimesUpdated}
-										>
-											<Flex direction="column">
-												<Flex gap="xl">
-													<Text fw="bold">
-														{changeCase(h.state)}{" "}
-														{h.progress !== 100 ? `(${h.progress}%)` : null}
-													</Text>
-													{h.showInformation ? (
-														<Text c="dimmed">
-															S{h.showInformation.season}-E
-															{h.showInformation.episode}
-														</Text>
-													) : null}
-													{h.podcastInformation ? (
-														<Text c="dimmed">
-															EP-{h.podcastInformation.episode}
-														</Text>
-													) : null}
-												</Flex>
-												<Flex ml="sm" direction="column" gap={4}>
-													<Flex gap="xl">
-														<Flex gap="xs">
-															<Text size="sm">Started:</Text>
-															<Text size="sm" fw="bold">
-																{h.startedOn
-																	? dayjsLib(h.startedOn).format("L")
-																	: "N/A"}
-															</Text>
-														</Flex>
-														<Flex gap="xs">
-															<Text size="sm">Ended:</Text>
-															<Text size="sm" fw="bold">
-																{h.finishedOn
-																	? dayjsLib(h.finishedOn).format("L")
-																	: "N/A"}
-															</Text>
-														</Flex>
-													</Flex>
-													<Flex gap="md">
-														<Flex gap="xs">
-															<Text size="sm">Updated:</Text>
-															<Text size="sm" fw="bold">
-																{dayjsLib(h.lastUpdatedOn).format("L")}
-															</Text>
-														</Flex>
-													</Flex>
-												</Flex>
-											</Flex>
-											<Flex direction="column" justify="center" mr="auto">
-												<Form action="?intent=deleteSeenItem" method="post">
-													<input hidden name="seenId" defaultValue={h.id} />
-													<ActionIcon
-														color="red"
-														type="submit"
-														onClick={(e) => {
-															if (
-																!confirm(
-																	"Are you sure you want to delete this record from history?",
-																)
-															)
-																e.preventDefault();
-														}}
-													>
-														<IconX size={20} />
-													</ActionIcon>
-												</Form>
-												<>
-													{/* TODO: A modal to adjust times should open here */}
-													<ActionIcon color="blue" onClick={async () => {}}>
-														<IconEdit size={20} />
-													</ActionIcon>
-												</>
-											</Flex>
-										</Flex>
+										<SeenItem history={h} key={h.id} />
 									))}
 								</Stack>
 							</MediaScrollArea>
@@ -1530,6 +1452,51 @@ const MetadataCreator = (props: {
 	);
 };
 
+const AdjustSeenTimesModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	seenId: number;
+	startedAt?: string | null;
+	endedAt?: string | null;
+}) => {
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Box component={Form} action="?intent=edit" method="post">
+				<Stack>
+					<Title order={3}>Adjust seen times</Title>
+					<DateTimePicker
+						label="Start time"
+						required
+						name="startTime"
+						defaultValue={
+							props.startedAt ? new Date(props.startedAt) : undefined
+						}
+					/>
+					<DateTimePicker
+						label="End time"
+						required
+						name="endTime"
+						defaultValue={props.endedAt ? new Date(props.endedAt) : undefined}
+					/>
+					<Button
+						variant="outline"
+						type="submit"
+						name="seenId"
+						value={props.seenId}
+					>
+						Submit
+					</Button>
+				</Stack>
+			</Box>
+		</Modal>
+	);
+};
+
 const CreateReminderModal = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -1737,5 +1704,104 @@ const AccordionLabel = (props: {
 				/>
 			) : null}
 		</Stack>
+	);
+};
+
+type History = UserMediaDetailsQuery["userMediaDetails"]["history"][number];
+
+const SeenItem = (props: {
+	history: History;
+}) => {
+	const [opened, { open, close }] = useDisclosure(false);
+
+	return (
+		<>
+			<Flex
+				key={props.history.id}
+				ml="md"
+				gap="xl"
+				data-seen-id={props.history.id}
+				data-seen-num-times-updated={props.history.numTimesUpdated}
+			>
+				<Flex direction="column" justify="center">
+					<Form action="?intent=deleteSeenItem" method="post">
+						<input hidden name="seenId" defaultValue={props.history.id} />
+						<ActionIcon
+							color="red"
+							type="submit"
+							onClick={(e) => {
+								if (
+									!confirm(
+										"Are you sure you want to delete this record from history?",
+									)
+								)
+									e.preventDefault();
+							}}
+						>
+							<IconX size={20} />
+						</ActionIcon>
+					</Form>
+					<ActionIcon color="blue" onClick={open}>
+						<IconEdit size={20} />
+					</ActionIcon>
+				</Flex>
+				<Flex direction="column">
+					<Flex gap="xl">
+						<Text fw="bold">
+							{changeCase(props.history.state)}{" "}
+							{props.history.progress !== 100
+								? `(${props.history.progress}%)`
+								: null}
+						</Text>
+						{props.history.showInformation ? (
+							<Text c="dimmed">
+								S{props.history.showInformation.season}-E
+								{props.history.showInformation.episode}
+							</Text>
+						) : null}
+						{props.history.podcastInformation ? (
+							<Text c="dimmed">
+								EP-{props.history.podcastInformation.episode}
+							</Text>
+						) : null}
+					</Flex>
+					<Flex ml="sm" direction="column" gap={4}>
+						<Flex gap="xl">
+							<Flex gap="xs">
+								<Text size="sm">Started:</Text>
+								<Text size="sm" fw="bold">
+									{props.history.startedOn
+										? dayjsLib(props.history.startedOn).format("L")
+										: "N/A"}
+								</Text>
+							</Flex>
+							<Flex gap="xs">
+								<Text size="sm">Ended:</Text>
+								<Text size="sm" fw="bold">
+									{props.history.finishedOn
+										? dayjsLib(props.history.finishedOn).format("L")
+										: "N/A"}
+								</Text>
+							</Flex>
+						</Flex>
+						<Flex gap="md">
+							<Flex gap="xs">
+								<Text size="sm">Updated:</Text>
+								<Text size="sm" fw="bold">
+									{dayjsLib(props.history.lastUpdatedOn).format("L")}
+								</Text>
+							</Flex>
+						</Flex>
+					</Flex>
+				</Flex>
+			</Flex>
+			<AdjustSeenTimesModal
+				opened={opened}
+				onClose={close}
+				seenId={props.history.id}
+				startedAt={props.history.startedOn}
+				endedAt={props.history.finishedOn}
+			/>
+		</>
 	);
 };
