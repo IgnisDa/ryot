@@ -12,12 +12,14 @@ import {
 	Drawer,
 	Flex,
 	Group,
+	Image,
 	Menu,
 	Modal,
 	NumberInput,
 	Paper,
 	Progress,
 	RingProgress,
+	ScrollArea,
 	SimpleGrid,
 	Skeleton,
 	Stack,
@@ -60,6 +62,7 @@ import {
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
+	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
 	IconTrash,
@@ -642,6 +645,8 @@ const ExerciseDisplay = (props: {
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
+	const [exerciseDetailsOpened, { toggle: exerciseDetailsToggle }] =
+		useDisclosure(false);
 	const [
 		supersetModalOpened,
 		{ close: supersetModalClose, toggle: supersetModalToggle },
@@ -968,6 +973,14 @@ const ExerciseDisplay = (props: {
 							>
 								Images
 							</Menu.Item>
+							{props.exercise.exerciseDetails.images.length > 0 ? (
+								<Menu.Item
+									leftSection={<IconInfoCircle size={14} />}
+									onClick={exerciseDetailsToggle}
+								>
+									{exerciseDetailsOpened ? "Hide" : "Show"} details
+								</Menu.Item>
+							) : null}
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
@@ -988,6 +1001,15 @@ const ExerciseDisplay = (props: {
 						</Menu.Dropdown>
 					</Menu>
 					<Box ref={parent}>
+						{exerciseDetailsOpened ? (
+							<ScrollArea mb="md" type="scroll">
+								<Flex gap="sm">
+									{props.exercise.exerciseDetails.images.map((i) => (
+										<Image key={i} radius="md" src={i} h={200} w={350} />
+									))}
+								</Flex>
+							</ScrollArea>
+						) : null}
 						<Flex justify="space-between" align="center" mb="xs">
 							<Text size="xs" w="5%" ta="center">
 								SET
