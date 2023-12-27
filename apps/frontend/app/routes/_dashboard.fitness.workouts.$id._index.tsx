@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
@@ -315,6 +316,7 @@ type Exercise =
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [opened, { toggle }] = useDisclosure(false);
+	const [parent] = useAutoAnimate();
 	const exerciseDetails = useQuery({
 		queryKey: ["exerciseDetails", props.exercise.name],
 		queryFn: async () => {
@@ -346,7 +348,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 
 	return (
 		<Paper withBorder p="xs">
-			<Stack mb="xs" gap="xs">
+			<Stack mb="xs" gap="xs" ref={parent}>
 				<Group justify="space-between">
 					<Anchor
 						id={`${props.exercise.name}__${props.idx}`}
