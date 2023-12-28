@@ -97,7 +97,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 	const settingsLinks = [
 		{ label: "Preferences", link: $path("/settings/preferences") },
-		{ label: "Data", link: $path("/settings/data") },
+		{ label: "Your data", link: $path("/settings/your-data") },
 		{ label: "Profile", link: $path("/settings/profile") },
 		{ label: "Integrations", link: $path("/settings/integrations") },
 		{ label: "Notifications", link: $path("/settings/notifications") },

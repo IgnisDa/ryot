@@ -54,22 +54,24 @@ import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, uploadFileToServiceAndGetPath } from "~/lib/generals";
+import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [{ importReports }] = await Promise.all([
+	const [coreEnabledFeatures, { importReports }] = await Promise.all([
+		getCoreEnabledFeatures(),
 		gqlClient.request(
 			ImportReportsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({ importReports });
+	return json({ coreEnabledFeatures, importReports });
 };
 
 export const meta: MetaFunction = () => {
-	return [{ title: "Imports and Exports | Ryot" }];
+	return [{ title: "Your Data | Ryot" }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -604,16 +606,22 @@ export default function Page() {
 										value: is,
 									}))}
 								/>
-								<Button
-									type="submit"
-									variant="light"
-									color="blue"
-									fullWidth
-									radius="md"
-									mt="xs"
+								<Tooltip
+									label="Please enable file storage to use this feature"
+									disabled={loaderData.coreEnabledFeatures.fileStorage}
 								>
-									Start job
-								</Button>
+									<Button
+										type="submit"
+										variant="light"
+										color="blue"
+										fullWidth
+										radius="md"
+										mt="xs"
+										disabled={!loaderData.coreEnabledFeatures.fileStorage}
+									>
+										Start job
+									</Button>
+								</Tooltip>
 							</Form>
 						</Stack>
 					</Tabs.Panel>

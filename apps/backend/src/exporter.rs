@@ -1,14 +1,18 @@
 use apalis::prelude::Storage;
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, Error, Object, Result};
+use nanoid::nanoid;
+use rs_utils::IsFeatureEnabled;
 use std::{
     fs::File,
     io::{BufWriter, Write},
+    path::PathBuf,
     sync::Arc,
 };
 
 use crate::{
     background::ApplicationJob, fitness::resolver::ExerciseService,
     miscellaneous::resolver::MiscellaneousService, models::ExportItem, traits::AuthProvider,
+    utils::TEMP_DIR,
 };
 
 #[derive(Default)]
@@ -29,6 +33,7 @@ impl ExporterMutation {
 }
 
 pub struct ExporterService {
+    config: Arc<config::AppConfig>,
     media_service: Arc<MiscellaneousService>,
     exercise_service: Arc<ExerciseService>,
 }
@@ -37,10 +42,12 @@ impl AuthProvider for ExporterService {}
 
 impl ExporterService {
     pub fn new(
+        config: Arc<config::AppConfig>,
         media_service: Arc<MiscellaneousService>,
         exercise_service: Arc<ExerciseService>,
     ) -> Self {
         Self {
+            config,
             media_service,
             exercise_service,
         }
@@ -56,7 +63,13 @@ impl ExporterService {
     }
 
     pub async fn perform_export(&self, user_id: i32, to_export: Vec<ExportItem>) -> Result<bool> {
-        let file = File::create("tmp/output.json").unwrap();
+        if !self.config.file_storage.is_enabled() {
+            return Err(Error::new(
+                "File storage needs to be enabled to perform an export.",
+            ));
+        }
+        let file = File::create(PathBuf::from(TEMP_DIR).join(format!("{}-export.json", nanoid!())))
+            .unwrap();
         let mut writer = BufWriter::new(file);
         writer.write_all(b"{").unwrap();
         for (idx, export) in to_export.iter().enumerate() {

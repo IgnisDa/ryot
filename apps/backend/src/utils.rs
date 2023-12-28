@@ -101,6 +101,7 @@ pub async fn create_app_services(
         exercise_service.clone(),
     ));
     let exporter_service = Arc::new(ExporterService::new(
+        config.clone(),
         media_service.clone(),
         exercise_service.clone(),
     ));
