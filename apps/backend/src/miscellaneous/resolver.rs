@@ -1291,7 +1291,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let (key, upload_url) = service
             .file_storage_service
-            .get_presigned_put_url(input.file_name, input.prefix)
+            .get_presigned_put_url(input.file_name, input.prefix, true)
             .await;
         Ok(PresignedPutUrlResponse { upload_url, key })
     }

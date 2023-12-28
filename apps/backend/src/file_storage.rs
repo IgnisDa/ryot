@@ -53,8 +53,10 @@ impl FileStorageService {
         &self,
         filename: String,
         prefix: String,
+        with_uploads: bool,
     ) -> (String, String) {
-        let key = format!("uploads/{}/{}-{}", prefix, Uuid::new_v4(), filename);
+        let first = if with_uploads { "uploads/" } else { "" };
+        let key = format!("{}{}/{}-{}", first, prefix, Uuid::new_v4(), filename);
         let url = self
             .s3_client
             .put_object()

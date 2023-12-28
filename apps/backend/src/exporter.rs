@@ -72,7 +72,7 @@ impl ExporterService {
             ));
         }
         let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
-        let file = File::create(export_path).unwrap();
+        let file = File::create(&export_path).unwrap();
         let mut writer = BufWriter::new(file);
         writer.write_all(b"{").unwrap();
         for (idx, export) in to_export.iter().enumerate() {
@@ -107,6 +107,25 @@ impl ExporterService {
             }
         }
         writer.write_all(b"}").unwrap();
+        let (_, url) = self
+            .file_storage_service
+            .get_presigned_put_url(
+                export_path
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                format!("exports/user__{}", user_id),
+                false
+            )
+            .await;
+        surf::put(url)
+            .body_file(&export_path)
+            .await
+            .unwrap()
+            .await
+            .unwrap();
         Ok(true)
     }
 }
