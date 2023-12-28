@@ -75,8 +75,6 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::collection::Entity")]
     Collection,
-    #[sea_orm(has_many = "super::export_report::Entity")]
-    ExportReport,
     #[sea_orm(has_many = "super::import_report::Entity")]
     ImportReport,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -94,12 +92,6 @@ pub enum Relation {
 impl Related<super::collection::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Collection.def()
-    }
-}
-
-impl Related<super::export_report::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::ExportReport.def()
     }
 }
 

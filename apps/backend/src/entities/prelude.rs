@@ -4,7 +4,6 @@ pub use super::calendar_event::Entity as CalendarEvent;
 pub use super::collection::Entity as Collection;
 pub use super::collection_to_entity::Entity as CollectionToEntity;
 pub use super::exercise::Entity as Exercise;
-pub use super::export_report::Entity as ExportReport;
 pub use super::genre::Entity as Genre;
 pub use super::import_report::Entity as ImportReport;
 pub use super::metadata::Entity as Metadata;
