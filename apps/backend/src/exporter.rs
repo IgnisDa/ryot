@@ -68,8 +68,8 @@ impl ExporterService {
                 "File storage needs to be enabled to perform an export.",
             ));
         }
-        let file = File::create(PathBuf::from(TEMP_DIR).join(format!("{}-export.json", nanoid!())))
-            .unwrap();
+        let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
+        let file = File::create(export_path).unwrap();
         let mut writer = BufWriter::new(file);
         writer.write_all(b"{").unwrap();
         for (idx, export) in to_export.iter().enumerate() {
