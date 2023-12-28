@@ -90,8 +90,8 @@ use crate::{
             UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
             VisualNovelSpecifics,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, ExportItem, IdAndNamedObject,
-        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
+        SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
@@ -1341,17 +1341,6 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.deploy_background_job(job_name, user_id).await
-    }
-
-    /// Deploy a job to export data for a user.
-    async fn deploy_export_job(
-        &self,
-        gql_ctx: &Context<'_>,
-        to_export: Vec<ExportItem>,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_export_job(user_id, to_export).await
     }
 }
 
@@ -6536,41 +6525,6 @@ impl MiscellaneousService {
         to_write.remove(0);
         to_write.pop();
         writer.write_all(to_write.as_bytes()).unwrap();
-        Ok(true)
-    }
-
-    pub async fn deploy_export_job(
-        &self,
-        user_id: i32,
-        to_export: Vec<ExportItem>,
-    ) -> Result<bool> {
-        self.perform_application_job
-            .clone()
-            .push(ApplicationJob::PerformExport(user_id, to_export))
-            .await?;
-        Ok(true)
-    }
-
-    pub async fn perform_export(&self, user_id: i32, to_export: Vec<ExportItem>) -> Result<bool> {
-        dbg!(user_id, &to_export);
-        let file = File::create("tmp/output.json").unwrap();
-        let mut writer = BufWriter::new(file);
-        writer.write_all(b"{").unwrap();
-        for (idx, export) in to_export.iter().enumerate() {
-            writer
-                .write_all(format!(r#""{}":["#, export).as_bytes())
-                .unwrap();
-            match export {
-                ExportItem::Media => self.export_media(user_id, &mut writer).await?,
-                ExportItem::People => self.export_people(user_id, &mut writer).await?,
-                _ => todo!(),
-            };
-            writer.write_all(b"]").unwrap();
-            if idx != to_export.len() - 1 {
-                writer.write_all(b",").unwrap();
-            }
-        }
-        writer.write_all(b"}").unwrap();
         Ok(true)
     }
 

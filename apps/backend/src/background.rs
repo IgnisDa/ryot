@@ -9,6 +9,7 @@ use strum::Display;
 
 use crate::{
     entities::metadata,
+    exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
@@ -112,6 +113,7 @@ pub async fn perform_application_job(
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
+    let exporter_service = ctx.data::<Arc<ExporterService>>().unwrap();
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
     let start = Instant::now();
@@ -171,7 +173,7 @@ pub async fn perform_application_job(
         ApplicationJob::ReviewPosted(event) => {
             misc_service.handle_review_posted_event(event).await.is_ok()
         }
-        ApplicationJob::PerformExport(user_id, to_export) => misc_service
+        ApplicationJob::PerformExport(user_id, to_export) => exporter_service
             .perform_export(user_id, to_export)
             .await
             .is_ok(),

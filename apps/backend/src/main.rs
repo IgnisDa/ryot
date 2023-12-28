@@ -54,6 +54,7 @@ use crate::{
 
 mod background;
 mod entities;
+mod exporter;
 mod file_storage;
 mod fitness;
 mod graphql;
@@ -245,6 +246,7 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
+    let exporter_service_1 = app_services.exporter_service.clone();
     let media_service_1 = app_services.media_service.clone();
     let media_service_2 = app_services.media_service.clone();
     let media_service_3 = app_services.media_service.clone();
@@ -303,6 +305,7 @@ async fn main() -> Result<()> {
                         Duration::new(5, 0),
                     ))
                     .layer(ApalisExtension(importer_service_1.clone()))
+                    .layer(ApalisExtension(exporter_service_1.clone()))
                     .layer(ApalisExtension(media_service_4.clone()))
                     .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(perform_application_job_storage.clone())
