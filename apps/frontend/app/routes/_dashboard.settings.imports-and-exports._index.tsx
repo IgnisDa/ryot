@@ -7,10 +7,12 @@ import {
 	Button,
 	Container,
 	CopyButton,
+	Divider,
 	FileInput,
 	Flex,
 	Group,
 	JsonInput,
+	MultiSelect,
 	PasswordInput,
 	Progress,
 	Select,
@@ -34,7 +36,9 @@ import {
 	useFetcher,
 } from "@remix-run/react";
 import {
+	DeployExportJobDocument,
 	DeployImportJobDocument,
+	ExportItem,
 	GenerateAuthTokenDocument,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -47,6 +51,7 @@ import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { uploadFileToServiceAndGetPath } from "~/lib/generals";
+import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
@@ -110,7 +115,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: { source, ...values } },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", generateAuthToken: false } as const);
+			return json({ status: "success", generateAuthToken: false } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Import job started in the background",
+				}),
+			});
+		},
+		deployExport: async () => {
+			const toExport = processSubmission(formData, deployExportForm);
+			console.log(toExport);
+			await gqlClient.request(
+				DeployExportJobDocument,
+				toExport,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", generateAuthToken: false } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Export job started in the background",
+				}),
+			});
 		},
 	});
 };
@@ -142,6 +167,10 @@ const mediaJsonImportFormSchema = z.object({ export: z.string() });
 const malImportFormSchema = z.object({
 	animePath: z.string(),
 	mangaPath: z.string(),
+});
+
+const deployExportForm = z.object({
+	toExport: z.string().transform((v) => v.split(",") as ExportItem[]),
 });
 
 export default function Page() {
@@ -176,69 +205,6 @@ export default function Page() {
 					<Tabs.Tab value="export">Export</Tabs.Tab>
 				</Tabs.List>
 				<Box mt="xl">
-					<Tabs.Panel value="export">
-						<Stack>
-							<Flex justify="space-between" align="center">
-								<Title order={2}>Export data</Title>
-								<Group>
-									<Anchor
-										size="xs"
-										href="https://ignisda.github.io/ryot/guides/exporting.html"
-										target="_blank"
-									>
-										Docs
-									</Anchor>
-								</Group>
-							</Flex>
-							<Form method="post" action="?intent=generateAuthToken">
-								<Button
-									variant="light"
-									color="indigo"
-									radius="md"
-									type="submit"
-									fullWidth
-								>
-									Create auth token
-								</Button>
-							</Form>
-							{actionData?.generateAuthToken ? (
-								<Box>
-									<Alert
-										title="This token will be shown only once"
-										color="yellow"
-									>
-										<Flex align="center">
-											<CopyButton value={actionData.generateAuthToken}>
-												{({ copied, copy }) => (
-													<Tooltip
-														label={copied ? "Copied" : "Copy"}
-														withArrow
-														position="right"
-													>
-														<ActionIcon
-															color={copied ? "teal" : "gray"}
-															onClick={copy}
-														>
-															{copied ? (
-																<IconCheck size={16} />
-															) : (
-																<IconCopy size={16} />
-															)}
-														</ActionIcon>
-													</Tooltip>
-												)}
-											</CopyButton>
-											<TextInput
-												defaultValue={actionData.generateAuthToken}
-												readOnly
-												style={{ flex: 1 }}
-											/>
-										</Flex>
-									</Alert>
-								</Box>
-							) : null}
-						</Stack>
-					</Tabs.Panel>
 					<Tabs.Panel value="import">
 						<fetcher.Form
 							method="post"
@@ -278,14 +244,7 @@ export default function Page() {
 									</Group>
 								</Flex>
 								{progress ? (
-									<Progress
-										value={progress}
-										striped
-										// TODO: Bring this back when mantine supports it
-										// animate
-										size="sm"
-										color="orange"
-									/>
+									<Progress value={progress} striped size="sm" color="orange" />
 								) : null}
 								<Select
 									id="import-source"
@@ -553,6 +512,93 @@ export default function Page() {
 								) : null}
 							</Stack>
 						</fetcher.Form>
+					</Tabs.Panel>
+					<Tabs.Panel value="export">
+						<Stack>
+							<Flex justify="space-between" align="center">
+								<Title order={2}>Export data</Title>
+								<Group>
+									<Anchor
+										size="xs"
+										href="https://ignisda.github.io/ryot/guides/exporting.html"
+										target="_blank"
+									>
+										Docs
+									</Anchor>
+								</Group>
+							</Flex>
+							<Form action="?intent=deployExport" method="post">
+								<MultiSelect
+									name="toExport"
+									label="Export to JSON"
+									description="Multiple items can be selected"
+									required
+									data={Object.values(ExportItem).map((is) => ({
+										label: changeCase(is),
+										value: is,
+									}))}
+								/>
+								<Button
+									type="submit"
+									variant="light"
+									color="blue"
+									fullWidth
+									radius="md"
+									mt="xs"
+								>
+									Start job
+								</Button>
+							</Form>
+							<Divider />
+							<Title order={3}>API Integration</Title>
+							<Form method="post" action="?intent=generateAuthToken">
+								<Button
+									variant="light"
+									color="indigo"
+									radius="md"
+									type="submit"
+									fullWidth
+								>
+									Create auth token
+								</Button>
+							</Form>
+							{actionData?.generateAuthToken ? (
+								<Box>
+									<Alert
+										title="This token will be shown only once"
+										color="yellow"
+									>
+										<Flex align="center">
+											<CopyButton value={actionData.generateAuthToken}>
+												{({ copied, copy }) => (
+													<Tooltip
+														label={copied ? "Copied" : "Copy"}
+														withArrow
+														position="right"
+													>
+														<ActionIcon
+															color={copied ? "teal" : "gray"}
+															onClick={copy}
+														>
+															{copied ? (
+																<IconCheck size={16} />
+															) : (
+																<IconCopy size={16} />
+															)}
+														</ActionIcon>
+													</Tooltip>
+												)}
+											</CopyButton>
+											<TextInput
+												defaultValue={actionData.generateAuthToken}
+												readOnly
+												style={{ flex: 1 }}
+											/>
+										</Flex>
+									</Alert>
+								</Box>
+							) : null}
+						</Stack>
 					</Tabs.Panel>
 				</Box>
 			</Tabs>
