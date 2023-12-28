@@ -202,6 +202,11 @@ export interface ServerConfig {
 	 */
 	deploy_admin_jobs_allowed: boolean;
 	/**
+	 * Whether the graphql playground will be enabled.
+	 * @default true
+	 */
+	graphql_playground_enabled: boolean;
+	/**
 	 * The maximum file size in MB for user uploads.
 	 * @default 70
 	 */

@@ -218,10 +218,15 @@ async fn main() -> Result<()> {
         post(integration_webhook),
     );
 
+    let mut gql = post(graphql_handler);
+    if app_services.config.server.graphql_playground_enabled {
+        gql = gql.get(graphql_playground);
+    }
+
     let app_routes = Router::new()
         .nest("/webhooks", webhook_routes)
         .route("/config", get(config_handler))
-        .route("/graphql", get(graphql_playground).post(graphql_handler))
+        .route("/graphql", gql)
         .route("/upload", post(upload_file))
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))

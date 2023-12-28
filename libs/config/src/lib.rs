@@ -336,6 +336,9 @@ pub struct ServerConfig {
     /// Whether monitored media will be updated.
     #[setting(default = true)]
     pub update_monitored_media: bool,
+    /// Whether the graphql playground will be enabled.
+    #[setting(default = true)]
+    pub graphql_playground_enabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
