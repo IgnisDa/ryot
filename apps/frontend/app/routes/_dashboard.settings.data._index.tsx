@@ -518,7 +518,10 @@ export default function Page() {
 								{loaderData.importReports.length > 0 ? (
 									<Accordion>
 										{loaderData.importReports.map((report) => (
-											<Accordion.Item value={report.id.toString()}>
+											<Accordion.Item
+												value={report.id.toString()}
+												key={report.id}
+											>
 												<Accordion.Control
 													disabled={typeof report.success !== "boolean"}
 												>
