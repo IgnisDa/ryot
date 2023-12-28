@@ -141,7 +141,8 @@ pub struct IdAndNamedObject {
     pub name: String,
 }
 
-#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum ExportItem {
     Media,
     People,

@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs,
+    fs::{self, File},
+    io::{BufWriter, Write},
     iter::zip,
     path::PathBuf,
     str::FromStr,
@@ -1356,10 +1357,9 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-
+    pub perform_application_job: SqliteStorage<ApplicationJob>,
     timezone: String,
     file_storage_service: Arc<FileStorageService>,
-    pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
 }
@@ -6546,7 +6546,146 @@ impl MiscellaneousService {
     }
 
     pub async fn perform_export(&self, user_id: i32, to_export: Vec<ExportItem>) -> Result<bool> {
-        dbg!(user_id, to_export);
+        dbg!(user_id, &to_export);
+        let file = File::create("tmp/output.json").unwrap();
+        let mut writer = BufWriter::new(file);
+        writer.write_all(b"{").unwrap();
+        for (idx, export) in to_export.iter().enumerate() {
+            writer
+                .write_all(format!(r#""{}":["#, export).as_bytes())
+                .unwrap();
+            match export {
+                ExportItem::Media => {
+                    let related_metadata = UserToEntity::find()
+                        .filter(user_to_entity::Column::UserId.eq(user_id))
+                        .all(&self.db)
+                        .await
+                        .unwrap();
+                    let distinct_meta_ids = related_metadata
+                        .into_iter()
+                        .map(|m| m.metadata_id)
+                        .collect_vec();
+                    let all_meta = Metadata::find()
+                        .filter(metadata::Column::Id.is_in(distinct_meta_ids))
+                        .order_by(metadata::Column::Id, Order::Asc)
+                        .all(&self.db)
+                        .await?;
+                    for (m_idx, m) in all_meta.iter().enumerate() {
+                        if m_idx != 0 && m_idx != all_meta.len() {
+                            writer.write_all(b",").unwrap();
+                        }
+                        let mut seen_history = m
+                            .find_related(Seen)
+                            .filter(seen::Column::UserId.eq(user_id))
+                            .all(&self.db)
+                            .await
+                            .unwrap();
+                        modify_seen_elements(&mut seen_history);
+                        let seen_history = seen_history
+                            .into_iter()
+                            .map(|s| {
+                                let (show_season_number, show_episode_number) =
+                                    match s.show_information {
+                                        Some(d) => (Some(d.season), Some(d.episode)),
+                                        None => (None, None),
+                                    };
+                                let podcast_episode_number =
+                                    s.podcast_information.map(|d| d.episode);
+                                ImportOrExportMediaItemSeen {
+                                    progress: Some(s.progress),
+                                    started_on: s.started_on.map(convert_naive_to_utc),
+                                    ended_on: s.finished_on.map(convert_naive_to_utc),
+                                    show_season_number,
+                                    show_episode_number,
+                                    podcast_episode_number,
+                                }
+                            })
+                            .collect();
+                        let db_reviews = m
+                            .find_related(Review)
+                            .filter(review::Column::UserId.eq(user_id))
+                            .all(&self.db)
+                            .await
+                            .unwrap();
+                        let mut reviews = vec![];
+                        for review in db_reviews {
+                            let review_item = get_review_export_item(
+                                self.review_by_id(review.id, user_id, false).await.unwrap(),
+                            );
+                            reviews.push(review_item);
+                        }
+                        let collections = entity_in_collections(
+                            &self.db,
+                            user_id,
+                            m.id.to_string(),
+                            EntityLot::Media,
+                        )
+                        .await?
+                        .into_iter()
+                        .map(|c| c.name)
+                        .collect();
+                        let exp = ImportOrExportMediaItem {
+                            source_id: m.id.to_string(),
+                            lot: m.lot,
+                            source: m.source,
+                            identifier: m.identifier.clone(),
+                            internal_identifier: None,
+                            seen_history,
+                            reviews,
+                            collections,
+                        };
+                        let to_write = serde_json::to_string(&exp).unwrap();
+                        writer.write_all(to_write.as_bytes()).unwrap();
+                    }
+                }
+                ExportItem::People => {
+                    let mut resp: Vec<ImportOrExportPersonItem> = vec![];
+                    let all_reviews = Review::find()
+                        .filter(review::Column::PersonId.is_not_null())
+                        .filter(review::Column::UserId.eq(user_id))
+                        .find_also_related(Person)
+                        .all(&self.db)
+                        .await?;
+                    for (review, creator) in all_reviews {
+                        let creator = creator.unwrap();
+                        let review_item = get_review_export_item(
+                            self.review_by_id(review.id, user_id, false).await.unwrap(),
+                        );
+                        if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
+                            entry.reviews.push(review_item);
+                        } else {
+                            let collections = entity_in_collections(
+                                &self.db,
+                                user_id,
+                                creator.id.to_string(),
+                                EntityLot::Person,
+                            )
+                            .await?
+                            .into_iter()
+                            .map(|c| c.name)
+                            .collect();
+                            let exp = ImportOrExportPersonItem {
+                                name: creator.name,
+                                reviews: vec![review_item],
+                                collections,
+                            };
+                            resp.push(exp);
+                        }
+                    }
+                    let mut to_write = serde_json::to_string(&resp).unwrap();
+                    // remove the outer array
+                    to_write.remove(0);
+                    to_write.pop();
+                    writer.write_all(to_write.as_bytes()).unwrap();
+                }
+                _ => todo!(),
+            }
+            writer.write_all(b"]").unwrap();
+            if idx != to_export.len() - 1 {
+                writer.write_all(b",").unwrap();
+            }
+        }
+        writer.write_all(b"}").unwrap();
         Ok(true)
     }
 
