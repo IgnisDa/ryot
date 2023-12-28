@@ -659,7 +659,7 @@ export default function Page() {
 												)}
 											</CopyButton>
 											<TextInput
-												defaultValue={actionData.generateAuthToken}
+												value={actionData.generateAuthToken}
 												readOnly
 												style={{ flex: 1 }}
 											/>
