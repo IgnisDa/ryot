@@ -89,8 +89,8 @@ use crate::{
             UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
             VisualNovelSpecifics,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
-        SearchDetails, SearchInput, SearchResults, StoredUrl,
+        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, ExportItem, IdAndNamedObject,
+        IdObject, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
@@ -1340,6 +1340,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.deploy_background_job(job_name, user_id).await
+    }
+
+    /// Deploy a job to export data for a user.
+    async fn deploy_export_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        to_export: Vec<ExportItem>,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.deploy_export_job(user_id, to_export).await
     }
 }
 
@@ -6520,6 +6531,23 @@ impl MiscellaneousService {
             }
         }
         Ok(resp)
+    }
+
+    pub async fn deploy_export_job(
+        &self,
+        user_id: i32,
+        to_export: Vec<ExportItem>,
+    ) -> Result<bool> {
+        self.perform_application_job
+            .clone()
+            .push(ApplicationJob::PerformExport(user_id, to_export))
+            .await?;
+        Ok(true)
+    }
+
+    pub async fn perform_export(&self, user_id: i32, to_export: Vec<ExportItem>) -> Result<bool> {
+        dbg!(user_id, to_export);
+        Ok(true)
     }
 
     async fn generate_auth_token(&self, user_id: i32) -> Result<String> {

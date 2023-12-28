@@ -141,6 +141,14 @@ pub struct IdAndNamedObject {
     pub name: String,
 }
 
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum ExportItem {
+    Media,
+    People,
+    Workouts,
+    Measurements,
+}
+
 pub mod media {
     use super::*;
 

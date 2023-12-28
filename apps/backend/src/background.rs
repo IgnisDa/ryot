@@ -15,6 +15,7 @@ use crate::{
     models::{
         fitness::Exercise,
         media::{PartialMetadataPerson, ProgressUpdateInput, ReviewPostedEvent},
+        ExportItem,
     },
 };
 
@@ -97,6 +98,7 @@ pub enum ApplicationJob {
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
     YankIntegrationsData(i32),
     ReviewPosted(ReviewPostedEvent),
+    PerformExport(i32, Vec<ExportItem>),
 }
 
 impl Job for ApplicationJob {
@@ -169,6 +171,10 @@ pub async fn perform_application_job(
         ApplicationJob::ReviewPosted(event) => {
             misc_service.handle_review_posted_event(event).await.is_ok()
         }
+        ApplicationJob::PerformExport(user_id, to_export) => misc_service
+            .perform_export(user_id, to_export)
+            .await
+            .is_ok(),
     };
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
