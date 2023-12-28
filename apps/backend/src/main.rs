@@ -47,8 +47,7 @@ use crate::{
     graphql::get_schema,
     models::ExportAllResponse,
     routes::{
-        config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
-        upload_file,
+        config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
     utils::{create_app_services, BASE_DIR, VERSION},
 };
@@ -224,10 +223,8 @@ async fn main() -> Result<()> {
         .route("/config", get(config_handler))
         .route("/graphql", get(graphql_playground).post(graphql_handler))
         .route("/upload", post(upload_file))
-        .route("/export/:export_type", get(json_export))
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
-        .layer(Extension(app_services.exercise_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
