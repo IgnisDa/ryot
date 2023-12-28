@@ -197,9 +197,7 @@ export default function Page() {
 		interval.start();
 	};
 
-	const stopTimer = () => {
-		setCurrentTimer(RESET);
-	};
+	const stopTimer = () => setCurrentTimer(RESET);
 
 	const createUserWorkoutFetcher = useFetcher();
 
@@ -363,6 +361,8 @@ export default function Page() {
 															currentWorkoutToCreateWorkoutInput(
 																currentWorkout,
 															);
+														stopTimer();
+														interval.stop();
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
 															{ method: "post" },
