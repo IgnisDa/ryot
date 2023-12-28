@@ -29,7 +29,11 @@ pub async fn graphql_handler(
 }
 
 pub async fn graphql_playground() -> impl IntoResponse {
-    Html(GraphiQLSource::build().endpoint("/graphql").finish())
+    Html(
+        GraphiQLSource::build()
+            .endpoint("/backend/graphql")
+            .finish(),
+    )
 }
 
 pub async fn config_handler(
