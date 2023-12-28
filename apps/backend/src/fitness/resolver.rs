@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    sync::Arc,
+};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -625,15 +629,25 @@ impl ExerciseService {
         Ok(())
     }
 
-    pub async fn export_measurements(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
-        self.user_measurements_list(
-            user_id,
-            UserMeasurementsListInput {
-                start_time: None,
-                end_time: None,
-            },
-        )
-        .await
+    pub async fn export_measurements(
+        &self,
+        user_id: i32,
+        writer: &mut BufWriter<File>,
+    ) -> Result<bool> {
+        let resp = self
+            .user_measurements_list(
+                user_id,
+                UserMeasurementsListInput {
+                    start_time: None,
+                    end_time: None,
+                },
+            )
+            .await?;
+        let mut to_write = serde_json::to_string(&resp).unwrap();
+        to_write.remove(0);
+        to_write.pop();
+        writer.write_all(to_write.as_bytes()).unwrap();
+        Ok(true)
     }
 
     async fn user_measurements_list(
@@ -748,7 +762,11 @@ impl ExerciseService {
         Ok(exercise.id)
     }
 
-    pub async fn export_workouts(&self, user_id: i32) -> Result<Vec<workout::Model>> {
+    pub async fn export_workouts(
+        &self,
+        user_id: i32,
+        writer: &mut BufWriter<File>,
+    ) -> Result<bool> {
         let workout_ids = Workout::find()
             .select_only()
             .column(workout::Column::Id)
@@ -761,7 +779,11 @@ impl ExerciseService {
         for workout_id in workout_ids {
             workouts.push(self.workout_details(workout_id, user_id).await?);
         }
-        Ok(workouts)
+        let mut to_write = serde_json::to_string(&workouts).unwrap();
+        to_write.remove(0);
+        to_write.pop();
+        writer.write_all(to_write.as_bytes()).unwrap();
+        Ok(true)
     }
 
     pub async fn delete_user_workout(&self, user_id: i32, workout_id: String) -> Result<bool> {

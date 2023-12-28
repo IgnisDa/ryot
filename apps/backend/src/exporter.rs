@@ -74,7 +74,16 @@ impl ExporterService {
                         .export_people(user_id, &mut writer)
                         .await?
                 }
-                _ => todo!(),
+                ExportItem::Measurements => {
+                    self.exercise_service
+                        .export_measurements(user_id, &mut writer)
+                        .await?
+                }
+                ExportItem::Workouts => {
+                    self.exercise_service
+                        .export_workouts(user_id, &mut writer)
+                        .await?
+                }
             };
             writer.write_all(b"]").unwrap();
             if idx != to_export.len() - 1 {
