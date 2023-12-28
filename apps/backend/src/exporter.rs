@@ -1,13 +1,16 @@
-use apalis::prelude::Storage;
-use async_graphql::{Context, Error, Object, Result};
-use nanoid::nanoid;
-use rs_utils::IsFeatureEnabled;
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufWriter, Write},
     path::PathBuf,
     sync::Arc,
 };
+
+use apalis::prelude::Storage;
+use async_graphql::{Context, Error, Object, Result};
+use chrono::Utc;
+use nanoid::nanoid;
+use rs_utils::IsFeatureEnabled;
 
 use crate::{
     background::ApplicationJob, file_storage::FileStorageService,
@@ -71,6 +74,7 @@ impl ExporterService {
                 "File storage needs to be enabled to perform an export.",
             ));
         }
+        let started_at = Utc::now();
         let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
         let file = File::create(&export_path).unwrap();
         let mut writer = BufWriter::new(file);
@@ -107,6 +111,7 @@ impl ExporterService {
             }
         }
         writer.write_all(b"}").unwrap();
+        let ended_at = Utc::now();
         let (_, url) = self
             .file_storage_service
             .get_presigned_put_url(
@@ -117,10 +122,16 @@ impl ExporterService {
                     .unwrap()
                     .to_string(),
                 format!("exports/user__{}", user_id),
-                false
+                false,
+                Some(HashMap::from([
+                    ("STARTED_AT".to_string(), started_at.to_string()),
+                    ("ENDED_AT".to_string(), ended_at.to_string()),
+                ])),
             )
             .await;
         surf::put(url)
+            .header("X-AMZ-META-STARTED_AT", started_at.to_string())
+            .header("X-AMZ-META-ENDED_AT", ended_at.to_string())
             .body_file(&export_path)
             .await
             .unwrap()

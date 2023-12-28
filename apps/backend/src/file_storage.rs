@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
 use uuid::Uuid;
@@ -54,6 +56,7 @@ impl FileStorageService {
         filename: String,
         prefix: String,
         with_uploads: bool,
+        metadata: Option<HashMap<String, String>>,
     ) -> (String, String) {
         let first = if with_uploads { "uploads/" } else { "" };
         let key = format!("{}{}/{}-{}", first, prefix, Uuid::new_v4(), filename);
@@ -62,6 +65,7 @@ impl FileStorageService {
             .put_object()
             .bucket(&self.bucket_name)
             .key(&key)
+            .set_metadata(metadata)
             .presigned(
                 PresigningConfig::expires_in(Duration::minutes(10).to_std().unwrap()).unwrap(),
             )
