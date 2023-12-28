@@ -136,7 +136,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 		deployExport: async () => {
 			const toExport = processSubmission(formData, deployExportForm);
-			console.log(toExport);
 			await gqlClient.request(
 				DeployExportJobDocument,
 				toExport,
