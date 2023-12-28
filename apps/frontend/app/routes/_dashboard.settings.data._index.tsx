@@ -1,5 +1,5 @@
-import { $path } from "@ignisda/remix-routes";
 import {
+	Accordion,
 	ActionIcon,
 	Alert,
 	Anchor,
@@ -11,6 +11,7 @@ import {
 	FileInput,
 	Flex,
 	Group,
+	Indicator,
 	JsonInput,
 	MultiSelect,
 	PasswordInput,
@@ -18,6 +19,7 @@ import {
 	Select,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
 	Title,
 	Tooltip,
@@ -31,15 +33,16 @@ import {
 import {
 	FetcherWithComponents,
 	Form,
-	Link,
 	useActionData,
 	useFetcher,
+	useLoaderData,
 } from "@remix-run/react";
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
 	ExportItem,
 	GenerateAuthTokenDocument,
+	ImportReportsDocument,
 	ImportSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -50,12 +53,19 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { uploadFileToServiceAndGetPath } from "~/lib/generals";
+import { dayjsLib, uploadFileToServiceAndGetPath } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
-export const loader = async (_args: LoaderFunctionArgs) => {
-	return json({});
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const [{ importReports }] = await Promise.all([
+		gqlClient.request(
+			ImportReportsDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+	]);
+	return json({ importReports });
 };
 
 export const meta: MetaFunction = () => {
@@ -174,6 +184,7 @@ const deployExportForm = z.object({
 });
 
 export default function Page() {
+	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
@@ -203,6 +214,7 @@ export default function Page() {
 				<Tabs.List>
 					<Tabs.Tab value="import">Import</Tabs.Tab>
 					<Tabs.Tab value="export">Export</Tabs.Tab>
+					<Tabs.Tab value="api">API</Tabs.Tab>
 				</Tabs.List>
 				<Box mt="xl">
 					<Tabs.Panel value="import">
@@ -215,33 +227,24 @@ export default function Page() {
 							<Stack>
 								<Flex justify="space-between" align="center">
 									<Title order={2}>Import data</Title>
-									<Group>
-										<Anchor
-											to={$path("/settings/imports-and-exports/reports")}
-											component={Link}
-											size="xs"
-										>
-											Reports
-										</Anchor>
-										<Anchor
-											size="xs"
-											href={`https://ignisda.github.io/ryot/importing.html#${match(
-												deployImportSource,
-											)
-												.with(ImportSource.Goodreads, () => "goodreads")
-												.with(ImportSource.Mal, () => "myanimelist")
-												.with(ImportSource.MediaJson, () => "media-json")
-												.with(ImportSource.MediaTracker, () => "mediatracker")
-												.with(ImportSource.Movary, () => "movary")
-												.with(ImportSource.StoryGraph, () => "storygraph")
-												.with(ImportSource.StrongApp, () => "strong-app")
-												.with(ImportSource.Trakt, () => "trakt")
-												.otherwise(() => "")}`}
-											target="_blank"
-										>
-											Docs
-										</Anchor>
-									</Group>
+									<Anchor
+										size="xs"
+										href={`https://ignisda.github.io/ryot/importing.html#${match(
+											deployImportSource,
+										)
+											.with(ImportSource.Goodreads, () => "goodreads")
+											.with(ImportSource.Mal, () => "myanimelist")
+											.with(ImportSource.MediaJson, () => "media-json")
+											.with(ImportSource.MediaTracker, () => "mediatracker")
+											.with(ImportSource.Movary, () => "movary")
+											.with(ImportSource.StoryGraph, () => "storygraph")
+											.with(ImportSource.StrongApp, () => "strong-app")
+											.with(ImportSource.Trakt, () => "trakt")
+											.otherwise(() => "")}`}
+										target="_blank"
+									>
+										Docs
+									</Anchor>
 								</Flex>
 								{progress ? (
 									<Progress value={progress} striped size="sm" color="orange" />
@@ -510,6 +513,66 @@ export default function Page() {
 											.exhaustive()}
 									</ImportSourceElement>
 								) : null}
+								<Divider />
+								<Title order={3}>Import history</Title>
+								{loaderData.importReports.length > 0 ? (
+									<Accordion>
+										{loaderData.importReports.map((report) => (
+											<Accordion.Item value={report.id.toString()}>
+												<Accordion.Control
+													disabled={typeof report.success !== "boolean"}
+												>
+													<Indicator
+														inline
+														size={12}
+														offset={-3}
+														processing={typeof report.success !== "boolean"}
+														color={
+															typeof report.success === "boolean"
+																? report.success
+																	? "green"
+																	: "red"
+																: undefined
+														}
+													>
+														{changeCase(report.source)}{" "}
+														<Text size="xs" span c="dimmed">
+															({dayjsLib(report.startedOn).fromNow()})
+														</Text>
+													</Indicator>
+												</Accordion.Control>
+												<Accordion.Panel>
+													{report.details ? (
+														<>
+															<Text>
+																Total imported: {report.details.import.total}
+															</Text>
+															<Text>
+																Failed: {report.details.failedItems.length}
+															</Text>
+															{report.details.failedItems.length > 0 ? (
+																<JsonInput
+																	size="xs"
+																	defaultValue={JSON.stringify(
+																		report.details.failedItems,
+																		null,
+																		4,
+																	)}
+																	disabled
+																	autosize
+																/>
+															) : null}
+														</>
+													) : (
+														<Text>This import never finished</Text>
+													)}
+												</Accordion.Panel>
+											</Accordion.Item>
+										))}
+									</Accordion>
+								) : (
+									<Text>You have not performed any imports</Text>
+								)}
 							</Stack>
 						</fetcher.Form>
 					</Tabs.Panel>
@@ -549,12 +612,15 @@ export default function Page() {
 									Start job
 								</Button>
 							</Form>
-							<Divider />
-							<Title order={3}>API Integration</Title>
+						</Stack>
+					</Tabs.Panel>
+					<Tabs.Panel value="api">
+						<Stack>
+							<Title order={2}>API Integration</Title>
 							<Form method="post" action="?intent=generateAuthToken">
 								<Button
 									variant="light"
-									color="indigo"
+									color="blue"
 									radius="md"
 									type="submit"
 									fullWidth
