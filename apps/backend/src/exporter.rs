@@ -10,9 +10,9 @@ use std::{
 };
 
 use crate::{
-    background::ApplicationJob, fitness::resolver::ExerciseService,
-    miscellaneous::resolver::MiscellaneousService, models::ExportItem, traits::AuthProvider,
-    utils::TEMP_DIR,
+    background::ApplicationJob, file_storage::FileStorageService,
+    fitness::resolver::ExerciseService, miscellaneous::resolver::MiscellaneousService,
+    models::ExportItem, traits::AuthProvider, utils::TEMP_DIR,
 };
 
 #[derive(Default)]
@@ -34,6 +34,7 @@ impl ExporterMutation {
 
 pub struct ExporterService {
     config: Arc<config::AppConfig>,
+    file_storage_service: Arc<FileStorageService>,
     media_service: Arc<MiscellaneousService>,
     exercise_service: Arc<ExerciseService>,
 }
@@ -43,11 +44,13 @@ impl AuthProvider for ExporterService {}
 impl ExporterService {
     pub fn new(
         config: Arc<config::AppConfig>,
+        file_storage_service: Arc<FileStorageService>,
         media_service: Arc<MiscellaneousService>,
         exercise_service: Arc<ExerciseService>,
     ) -> Self {
         Self {
             config,
+            file_storage_service,
             media_service,
             exercise_service,
         }
