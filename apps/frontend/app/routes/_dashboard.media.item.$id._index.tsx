@@ -28,6 +28,7 @@ import {
 import { DateInput, DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -41,6 +42,7 @@ import {
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
 	DeployUpdateMetadataJobDocument,
+	EditSeenItemDocument,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
@@ -277,6 +279,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		editSeenItem: async () => {
+			const submission = processSubmission(formData, editSeenItem);
+			await gqlClient.request(
+				EditSeenItemDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Adjusted seen item successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -303,6 +318,16 @@ const createMediaReminderSchema = z
 const mergeMetadataSchema = z.object({
 	mergeFrom: zx.IntAsString,
 	mergeInto: zx.IntAsString,
+});
+
+const dateString = z
+	.string()
+	.transform((v) => formatDateToNaiveDate(new Date(v)));
+
+const editSeenItem = z.object({
+	seenId: zx.IntAsString,
+	startedOn: dateString.optional(),
+	finishedOn: dateString.optional(),
 });
 
 // DEV: I wanted to use fetcher in some place but since this is being rendered
@@ -1466,13 +1491,17 @@ const AdjustSeenTimesModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Box component={Form} action="?intent=edit" method="post">
+			<Form
+				action="?intent=editSeenItem"
+				method="post"
+				onSubmit={props.onClose}
+			>
 				<Stack>
 					<Title order={3}>Adjust seen times</Title>
 					<DateTimePicker
 						label="Start time"
 						required
-						name="startTime"
+						name="startedOn"
 						defaultValue={
 							props.startedAt ? new Date(props.startedAt) : undefined
 						}
@@ -1480,7 +1509,7 @@ const AdjustSeenTimesModal = (props: {
 					<DateTimePicker
 						label="End time"
 						required
-						name="endTime"
+						name="finishedOn"
 						defaultValue={props.endedAt ? new Date(props.endedAt) : undefined}
 					/>
 					<Button
@@ -1492,7 +1521,7 @@ const AdjustSeenTimesModal = (props: {
 						Submit
 					</Button>
 				</Stack>
-			</Box>
+			</Form>
 		</Modal>
 	);
 };
@@ -1741,7 +1770,17 @@ const SeenItem = (props: {
 							<IconX size={20} />
 						</ActionIcon>
 					</Form>
-					<ActionIcon color="blue" onClick={open}>
+					<ActionIcon
+						color="blue"
+						onClick={() => {
+							if (props.history.state === SeenState.Completed) open();
+							else
+								notifications.show({
+									color: "yellow",
+									message: "You can only edit completed items.",
+								});
+						}}
+					>
 						<IconEdit size={20} />
 					</ActionIcon>
 				</Flex>
