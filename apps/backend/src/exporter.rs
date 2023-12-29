@@ -7,16 +7,37 @@ use std::{
 };
 
 use apalis::prelude::Storage;
-use async_graphql::{Context, Error, Object, Result};
+use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::Utc;
 use nanoid::nanoid;
 use rs_utils::IsFeatureEnabled;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     background::ApplicationJob, file_storage::FileStorageService,
     fitness::resolver::ExerciseService, miscellaneous::resolver::MiscellaneousService,
     models::ExportItem, traits::AuthProvider, utils::TEMP_DIR,
 };
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct ExportJob {
+    started_at: String,
+    ended_at: String,
+    url: String,
+}
+
+#[derive(Default)]
+pub struct ExporterQuery;
+
+#[Object]
+impl ExporterQuery {
+    /// Get all the export jobs for the current user.
+    async fn user_exports(&self, gql_ctx: &Context<'_>) -> Result<Vec<ExportJob>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_exports(user_id).await
+    }
+}
 
 #[derive(Default)]
 pub struct ExporterMutation;
@@ -126,17 +147,29 @@ impl ExporterService {
                 Some(HashMap::from([
                     ("STARTED_AT".to_string(), started_at.to_string()),
                     ("ENDED_AT".to_string(), ended_at.to_string()),
+                    (
+                        "EXPORTED".to_string(),
+                        serde_json::to_string(&to_export).unwrap(),
+                    ),
                 ])),
             )
             .await;
         surf::put(url)
             .header("X-AMZ-META-STARTED_AT", started_at.to_string())
             .header("X-AMZ-META-ENDED_AT", ended_at.to_string())
+            .header(
+                "X-AMZ-META-EXPORTED",
+                serde_json::to_string(&to_export).unwrap(),
+            )
             .body_file(&export_path)
             .await
             .unwrap()
             .await
             .unwrap();
         Ok(true)
+    }
+
+    async fn user_exports(&self, user_id: i32) -> Result<Vec<ExportJob>> {
+        todo!()
     }
 }

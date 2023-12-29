@@ -1,7 +1,7 @@
 use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
 
 use crate::{
-    exporter::ExporterMutation,
+    exporter::{ExporterMutation, ExporterQuery},
     fitness::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
@@ -9,7 +9,12 @@ use crate::{
 };
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(MiscellaneousQuery, ImporterQuery, ExerciseQuery);
+pub struct QueryRoot(
+    MiscellaneousQuery,
+    ImporterQuery,
+    ExporterQuery,
+    ExerciseQuery,
+);
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
