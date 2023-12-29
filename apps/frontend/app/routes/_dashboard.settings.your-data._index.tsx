@@ -653,7 +653,7 @@ export default function Page() {
 									))}
 								</Stack>
 							) : (
-								<Text>You have not performed any imports</Text>
+								<Text>You have not performed any exports</Text>
 							)}
 						</Stack>
 					</Tabs.Panel>
