@@ -1468,6 +1468,8 @@ pub mod fitness {
     )]
     pub struct ExerciseBestSetRecord {
         pub workout_id: String,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub workout_done_on: DateTimeUtc,
         pub set_idx: usize,
         pub data: WorkoutSetRecord,
     }

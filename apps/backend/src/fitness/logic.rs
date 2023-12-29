@@ -225,6 +225,7 @@ impl UserWorkoutInput {
                 for best in set.personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
                         workout_id: id.clone(),
+                        workout_done_on: input.end_time,
                         set_idx,
                         data: set.clone(),
                     };
