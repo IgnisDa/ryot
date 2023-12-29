@@ -694,6 +694,21 @@ pub mod media {
         pub creators_interacted_with: usize,
         pub media_interacted_with: u64,
     }
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct UserFitnessWorkoutSummary {
+        pub recorded: u64,
+        pub duration: u64,
+    }
 
     #[derive(
         SimpleObject,
@@ -708,8 +723,9 @@ pub mod media {
     )]
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
-        pub workouts_recorded: u64,
         pub exercises_interacted_with: u64,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub workouts: UserFitnessWorkoutSummary,
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]

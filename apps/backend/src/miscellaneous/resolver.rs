@@ -31,7 +31,7 @@ use markdown::{
 use nanoid::nanoid;
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -4457,11 +4457,26 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        let total_workout_time = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .select_only()
+            .column_as(
+                Expr::cust("extract(epoch from sum(end_time - start_time)) / 3600"),
+                "hours",
+            )
+            .into_tuple::<Decimal>()
+            .one(&self.db)
+            .await?
+            .unwrap()
+            .to_u64()
+            .unwrap();
+
         ls.media.reviews_posted = num_reviews;
         ls.media.media_interacted_with = num_media_interacted_with;
         ls.fitness.measurements_recorded = num_measurements;
-        ls.fitness.workouts_recorded = num_workouts;
         ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
+        ls.fitness.workouts.recorded = num_workouts;
+        ls.fitness.workouts.duration = total_workout_time;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
