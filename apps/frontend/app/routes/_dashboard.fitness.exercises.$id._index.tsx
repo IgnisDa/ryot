@@ -193,6 +193,15 @@ export default function Page() {
 										data={changeCase(loaderData.exerciseDetails.lot)}
 									/>
 								) : null}
+								{loaderData.userExerciseDetails.details?.numTimesInteracted ? (
+									<DisplayData
+										name="Times done"
+										data={
+											`${loaderData.userExerciseDetails.details.numTimesInteracted} times`
+										}
+										noCasing
+									/>
+								) : null}
 								{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
 									<DisplayData
 										name="Last done on"
