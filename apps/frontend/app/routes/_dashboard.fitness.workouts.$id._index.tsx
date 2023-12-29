@@ -46,6 +46,7 @@ import {
 	startCase,
 } from "@ryot/ts-utils";
 import {
+	IconBarbell,
 	IconClock,
 	IconClockEdit,
 	IconDotsVertical,
@@ -265,6 +266,10 @@ export default function Page() {
 									loaderData.userPreferences.unitSystem,
 									loaderData.workoutDetails.summary.total.weight,
 								)}
+							/>
+							<DisplayStat
+								icon={<IconBarbell size={16} />}
+								data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
 							/>
 							<DisplayStat
 								icon={<IconTrophy size={16} />}
