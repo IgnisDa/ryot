@@ -21,6 +21,7 @@ import {
 	Tabs,
 	Text,
 	TextInput,
+	ThemeIcon,
 	Title,
 	Tooltip,
 } from "@mantine/core";
@@ -44,9 +45,10 @@ import {
 	GenerateAuthTokenDocument,
 	ImportReportsDocument,
 	ImportSource,
+	UserExportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconDownload } from "@tabler/icons-react";
 import { ReactNode, RefObject, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -59,15 +61,21 @@ import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [coreEnabledFeatures, { importReports }] = await Promise.all([
-		getCoreEnabledFeatures(),
-		gqlClient.request(
-			ImportReportsDocument,
-			undefined,
-			await getAuthorizationHeader(request),
-		),
-	]);
-	return json({ coreEnabledFeatures, importReports });
+	const [coreEnabledFeatures, { importReports }, { userExports }] =
+		await Promise.all([
+			getCoreEnabledFeatures(),
+			gqlClient.request(
+				ImportReportsDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			),
+			gqlClient.request(
+				UserExportsDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			),
+		]);
+	return json({ coreEnabledFeatures, importReports, userExports });
 };
 
 export const meta: MetaFunction = () => {
@@ -622,6 +630,31 @@ export default function Page() {
 									</Button>
 								</Tooltip>
 							</Form>
+							<Divider />
+							<Title order={3}>Export history</Title>
+							{loaderData.userExports.length > 0 ? (
+								<Stack mx="xs">
+									{loaderData.userExports.map((exp) => (
+										<Box key={exp.startedAt} w="100%">
+											<Group justify="space-between">
+												<Box>
+													<Text>{exp.exported.map(changeCase).join(", ")}</Text>
+													<Text size="xs" span c="dimmed">
+														({dayjsLib(exp.endedAt).fromNow()})
+													</Text>
+												</Box>
+												<Anchor href={exp.url} target="_blank" rel="noreferrer">
+													<ThemeIcon color="blue" variant="transparent">
+														<IconDownload />
+													</ThemeIcon>
+												</Anchor>
+											</Group>
+										</Box>
+									))}
+								</Stack>
+							) : (
+								<Text>You have not performed any imports</Text>
+							)}
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="api">
