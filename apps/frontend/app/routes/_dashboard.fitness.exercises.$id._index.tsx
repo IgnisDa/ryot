@@ -196,9 +196,7 @@ export default function Page() {
 								{loaderData.userExerciseDetails.details?.numTimesInteracted ? (
 									<DisplayData
 										name="Times done"
-										data={
-											`${loaderData.userExerciseDetails.details.numTimesInteracted} times`
-										}
+										data={`${loaderData.userExerciseDetails.details.numTimesInteracted} times`}
 										noCasing
 									/>
 								) : null}
@@ -247,7 +245,7 @@ export default function Page() {
 					{loaderData.userExerciseDetails.history ? (
 						<Tabs.Panel value="history">
 							<Stack>
-								{loaderData.userExerciseDetails.history.map((h, ) => (
+								{loaderData.userExerciseDetails.history.map((h) => (
 									<Paper key={h.workoutId} withBorder p="xs">
 										<Anchor
 											component={Link}
@@ -298,28 +296,23 @@ export default function Page() {
 									</Text>
 									<DisplayLifetimeStatistic
 										stat="weight"
-										val={
-										displayWeightWithUnit	(
+										val={displayWeightWithUnit(
 											loaderData.userPreferences.unitSystem,
 											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.weight
+												.exerciseExtraInformation.lifetimeStats.weight,
 										)}
 									/>
 									<DisplayLifetimeStatistic
 										stat="distance"
-										val={
-											displayDistanceWithUnit(
-												loaderData.userPreferences.unitSystem,
-												loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.distance)
-										}
+										val={displayDistanceWithUnit(
+											loaderData.userPreferences.unitSystem,
+											loaderData.userExerciseDetails.details
+												.exerciseExtraInformation.lifetimeStats.distance,
+										)}
 									/>
 									<DisplayLifetimeStatistic
 										stat="duration"
-										val={
-											`${loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.duration} MIN`
-										}
+										val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
 									/>
 									<DisplayLifetimeStatistic
 										stat="reps"
@@ -335,22 +328,21 @@ export default function Page() {
 										}
 									/>
 								</Box>
-								{
-									loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.length > 0? (<Stack>
-							{
-								loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
-									(pb) => (
-										<Box key={pb.lot}>
-											<Text size="xs" c="dimmed">
-												{changeCase(pb.lot).toUpperCase()}
-											</Text>
-											{JSON.stringify(pb.sets)}
-										</Box>
-									),
-								)
-							}
-									</Stack>): null
-								}
+								{loaderData.userExerciseDetails.details.exerciseExtraInformation
+									.personalBests.length > 0 ? (
+									<Stack>
+										{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
+											(pb) => (
+												<Box key={pb.lot}>
+													<Text size="xs" c="dimmed">
+														{changeCase(pb.lot).toUpperCase()}
+													</Text>
+													{JSON.stringify(pb.sets)}
+												</Box>
+											),
+										)}
+									</Stack>
+								) : null}
 							</Stack>
 						</Tabs.Panel>
 					) : null}
@@ -388,8 +380,8 @@ export default function Page() {
 								[
 									{
 										name: loaderData.exerciseDetails.id,
-										lot: loaderData.exerciseDetails.lot
-									}
+										lot: loaderData.exerciseDetails.lot,
+									},
 								],
 								navigate,
 							);
