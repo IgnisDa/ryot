@@ -29,9 +29,13 @@ import {
 	SetLot,
 	UserCollectionsListDocument,
 	UserExerciseDetailsDocument,
-	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
+import {
+	changeCase,
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+	startCase,
+} from "@ryot/ts-utils";
 import { IconCheck } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
@@ -285,36 +289,27 @@ export default function Page() {
 									</Text>
 									<DisplayLifetimeStatistic
 										stat="weight"
-										unit={
-											loaderData.userPreferences.unitSystem ===
-											UserUnitSystem.Metric
-												? "KG"
-												: "LB"
-										}
 										val={
+										displayWeightWithUnit	(
+											loaderData.userPreferences.unitSystem,
 											loaderData.userExerciseDetails.details
 												.exerciseExtraInformation.lifetimeStats.weight
-										}
+										)}
 									/>
 									<DisplayLifetimeStatistic
 										stat="distance"
-										unit={
-											loaderData.userPreferences.unitSystem ===
-											UserUnitSystem.Metric
-												? "KM"
-												: "MI"
-										}
 										val={
-											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.distance
+											displayDistanceWithUnit(
+												loaderData.userPreferences.unitSystem,
+												loaderData.userExerciseDetails.details
+												.exerciseExtraInformation.lifetimeStats.distance)
 										}
 									/>
 									<DisplayLifetimeStatistic
 										stat="duration"
-										unit="MIN"
 										val={
-											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.duration
+											`${loaderData.userExerciseDetails.details
+												.exerciseExtraInformation.lifetimeStats.duration} MIN`
 										}
 									/>
 									<DisplayLifetimeStatistic
@@ -404,17 +399,13 @@ const DisplayData = (props: {
 };
 
 const DisplayLifetimeStatistic = (props: {
-	// biome-ignore lint/suspicious/noExplicitAny: required here
-	val: any;
-	unit?: string;
+	val: string | number;
 	stat: string;
 }) => {
-	return parseFloat(props.val) !== 0 ? (
+	return parseFloat(props.val.toString()) !== 0 ? (
 		<Flex mt={6} align="center" justify="space-between">
 			<Text size="sm">Total {props.stat}</Text>
-			<Text size="sm">
-				{Number(props.val).toFixed(2)} {props.unit}
-			</Text>
+			<Text size="sm">{props.val}</Text>
 		</Flex>
 	) : null;
 };
