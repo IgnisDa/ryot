@@ -8,9 +8,10 @@ use std::{
 
 use apalis::prelude::Storage;
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use nanoid::nanoid;
 use rs_utils::IsFeatureEnabled;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -21,8 +22,9 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct ExportJob {
-    started_at: String,
-    ended_at: String,
+    started_at: DateTimeUtc,
+    ended_at: DateTimeUtc,
+    exported: Vec<ExportItem>,
     url: String,
 }
 
@@ -145,20 +147,20 @@ impl ExporterService {
                 format!("exports/user__{}", user_id),
                 false,
                 Some(HashMap::from([
-                    ("STARTED_AT".to_string(), started_at.to_string()),
-                    ("ENDED_AT".to_string(), ended_at.to_string()),
+                    ("started_at".to_string(), started_at.to_rfc2822()),
+                    ("ended_at".to_string(), ended_at.to_rfc2822()),
                     (
-                        "EXPORTED".to_string(),
+                        "exported".to_string(),
                         serde_json::to_string(&to_export).unwrap(),
                     ),
                 ])),
             )
             .await;
         surf::put(url)
-            .header("X-AMZ-META-STARTED_AT", started_at.to_string())
-            .header("X-AMZ-META-ENDED_AT", ended_at.to_string())
+            .header("x-amz-meta-started_at", started_at.to_rfc2822())
+            .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
             .header(
-                "X-AMZ-META-EXPORTED",
+                "x-amz-meta-exported",
                 serde_json::to_string(&to_export).unwrap(),
             )
             .body_file(&export_path)
@@ -170,6 +172,33 @@ impl ExporterService {
     }
 
     async fn user_exports(&self, user_id: i32) -> Result<Vec<ExportJob>> {
-        todo!()
+        let mut resp = vec![];
+        let objects = self
+            .file_storage_service
+            .list_objects_at_prefix(format!("exports/user__{}", user_id))
+            .await;
+        for object in objects {
+            let url = self
+                .file_storage_service
+                .get_presigned_url(object.clone())
+                .await;
+            let metadata = self.file_storage_service.get_object_metadata(object).await;
+            let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())
+                .unwrap()
+                .with_timezone(&Utc);
+            let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
+                .unwrap()
+                .with_timezone(&Utc);
+            let exported: Vec<ExportItem> =
+                serde_json::from_str(metadata.get("exported").unwrap()).unwrap();
+            let exp = ExportJob {
+                url,
+                started_at,
+                ended_at,
+                exported,
+            };
+            resp.push(exp);
+        }
+        Ok(resp)
     }
 }

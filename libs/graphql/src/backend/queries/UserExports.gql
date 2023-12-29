@@ -3,5 +3,6 @@ query UserExports {
     startedAt
     endedAt
     url
+    exported
   }
 }

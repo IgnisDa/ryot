@@ -75,4 +75,31 @@ impl FileStorageService {
             .to_string();
         (key, url)
     }
+
+    pub async fn list_objects_at_prefix(&self, prefix: String) -> Vec<String> {
+        self.s3_client
+            .list_objects_v2()
+            .bucket(&self.bucket_name)
+            .prefix(prefix)
+            .send()
+            .await
+            .unwrap()
+            .contents
+            .unwrap_or_default()
+            .into_iter()
+            .map(|o| o.key.unwrap())
+            .collect()
+    }
+
+    pub async fn get_object_metadata(&self, key: String) -> HashMap<String, String> {
+        self.s3_client
+            .head_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .send()
+            .await
+            .unwrap()
+            .metadata
+            .unwrap()
+    }
 }
