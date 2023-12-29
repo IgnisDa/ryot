@@ -775,14 +775,14 @@ impl ExerciseService {
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
-        let mut workouts = vec![];
-        for workout_id in workout_ids {
-            workouts.push(self.workout_details(workout_id, user_id).await?);
+        for (idx, workout_id) in workout_ids.iter().enumerate() {
+            if idx != 0 && idx != workout_ids.len() {
+                writer.write_all(b",").unwrap();
+            }
+            let exp = self.workout_details(workout_id.clone(), user_id).await?;
+            let to_write = serde_json::to_string(&exp).unwrap();
+            writer.write_all(to_write.as_bytes()).unwrap();
         }
-        let mut to_write = serde_json::to_string(&workouts).unwrap();
-        to_write.remove(0);
-        to_write.pop();
-        writer.write_all(to_write.as_bytes()).unwrap();
         Ok(true)
     }
 
