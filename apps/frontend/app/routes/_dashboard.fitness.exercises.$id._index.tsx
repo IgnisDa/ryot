@@ -335,9 +335,22 @@ export default function Page() {
 										}
 									/>
 								</Box>
-								<Text c="teal" ta="center" size="sm" mt="xl">
-									This section is still WIP
-								</Text>
+								{
+									loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.length > 0? (<Stack>
+							{
+								loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
+									(pb) => (
+										<Box key={pb.lot}>
+											<Text size="xs" c="dimmed">
+												{changeCase(pb.lot).toUpperCase()}
+											</Text>
+											{JSON.stringify(pb.sets)}
+										</Box>
+									),
+								)
+							}
+									</Stack>): null
+								}
 							</Stack>
 						</Tabs.Panel>
 					) : null}
