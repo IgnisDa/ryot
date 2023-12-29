@@ -379,7 +379,37 @@ export default function Page() {
 											]}
 										/>
 									) : null}
-									{loaderData.userPreferences.fitness.enabled ? (
+									{loaderData.userPreferences.fitness.enabled &&
+									loaderData.latestUserSummary.fitness.workouts.duration +
+										loaderData.latestUserSummary.fitness.workouts.recorded >
+										0 ? (
+										<ActualDisplayStat
+											icon={<IconBarbell stroke={1.3} />}
+											lot="Workouts"
+											color={theme.colors.teal[2]}
+											data={[
+												{
+													label: "Workouts",
+													value:
+														loaderData.latestUserSummary.fitness.workouts
+															.recorded,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value:
+														loaderData.latestUserSummary.fitness.workouts
+															.duration,
+													type: "duration",
+												},
+											]}
+										/>
+									) : null}
+									{loaderData.userPreferences.fitness.enabled &&
+									loaderData.latestUserSummary.fitness.measurementsRecorded +
+										loaderData.latestUserSummary.fitness
+											.exercisesInteractedWith >
+										0 ? (
 										<ActualDisplayStat
 											icon={<IconScaleOutline stroke={1.3} />}
 											lot="Fitness"
@@ -391,14 +421,6 @@ export default function Page() {
 														loaderData.latestUserSummary.fitness
 															.measurementsRecorded,
 													type: "number",
-												},
-												{
-													label: "Workouts",
-													value:
-														loaderData.latestUserSummary.fitness
-															.workoutsRecorded,
-													type: "number",
-													hideIfZero: true,
 												},
 												{
 													label: "Exercises",
