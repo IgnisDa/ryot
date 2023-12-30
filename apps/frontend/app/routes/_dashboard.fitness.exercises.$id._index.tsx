@@ -340,7 +340,7 @@ export default function Page() {
 											(pb) => (
 												<Box key={pb.lot}>
 													<Text size="sm" c="dimmed">
-														{changeCase(pb.lot).toUpperCase()}
+														{changeCase(pb.lot)}
 													</Text>
 													<Stack gap="xs" mt="xs">
 														{pb.sets.map((s) => (
