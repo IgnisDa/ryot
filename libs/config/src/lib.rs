@@ -243,6 +243,18 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
+/// The configuration related to Umami analytics. More information
+/// [here](https://umami.is/docs/tracker-configuration).
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
+pub struct FrontendUmamiConfig {
+    #[setting(default = "https://umami.is/a/script.js")]
+    pub script_url: String,
+    pub website_id: String,
+    pub host_url: String,
+    pub domains: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
@@ -254,6 +266,9 @@ pub struct FrontendConfig {
     /// The number of items to display in a list view.
     #[setting(default = 20)]
     pub page_size: i32,
+    /// Settings related to Umami analytics.
+    #[setting(nested)]
+    pub umami: FrontendUmamiConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

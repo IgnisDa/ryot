@@ -90,6 +90,18 @@ export interface FileStorageConfig {
 	s3_url: string;
 }
 
+/**
+ * The configuration related to Umami analytics. More information
+ * [here](https://umami.is/docs/tracker-configuration).
+ */
+export interface FrontendUmamiConfig {
+	domains: string;
+	host_url: string;
+	/** @default 'https://umami.is/a/script.js' */
+	script_url: string;
+	website_id: string;
+}
+
 export interface FrontendConfig {
 	/**
 	 * The height of the right section of an item's details page in pixels.
@@ -101,6 +113,8 @@ export interface FrontendConfig {
 	 * @default 20
 	 */
 	page_size: number;
+	/** Settings related to Umami analytics. */
+	umami: FrontendUmamiConfig;
 	/** @default 'https://ryot.fly.dev' */
 	url: string;
 }
