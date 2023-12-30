@@ -199,6 +199,7 @@ impl ExporterService {
             };
             resp.push(exp);
         }
+        resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
         Ok(resp)
     }
 }
