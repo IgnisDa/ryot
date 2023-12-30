@@ -32,9 +32,9 @@ use crate::{
     utils::partial_user_by_id,
 };
 
+mod generic_json;
 mod goodreads;
 mod mal;
-mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
@@ -293,7 +293,9 @@ impl ImporterService {
             ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
                 .await
                 .unwrap(),
-            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await.unwrap(),
+            ImportSource::MediaJson => generic_json::import(input.media_json.unwrap())
+                .await
+                .unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await.unwrap(),
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
