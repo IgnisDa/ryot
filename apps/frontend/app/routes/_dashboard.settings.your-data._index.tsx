@@ -114,8 +114,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.StoryGraph, async () => ({
 					storyGraph: processSubmission(formData, storyGraphImportFormSchema),
 				}))
-				.with(ImportSource.MediaJson, async () => ({
-					mediaJson: processSubmission(formData, mediaJsonImportFormSchema),
+				.with(ImportSource.GenericJson, async () => ({
+					genericJson: processSubmission(formData, genericJsonImportFormSchema),
 				}))
 				.with(ImportSource.Mal, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
@@ -181,7 +181,7 @@ const strongAppImportFormSchema = z.object({
 	mapping: z.string(),
 });
 
-const mediaJsonImportFormSchema = z.object({ export: z.string() });
+const genericJsonImportFormSchema = z.object({ export: z.string() });
 
 const malImportFormSchema = z.object({
 	animePath: z.string(),
@@ -204,7 +204,7 @@ export default function Page() {
 
 	const [storyGraphExportPath, setStoryGraphExportPath] = useState("");
 
-	const [mediaJsonExportPath, setMediaJsonExportPath] = useState("");
+	const [genericJsonExportPath, setGenericJsonExportPath] = useState("");
 
 	const [malAnimePath, setMalAnimePath] = useState("");
 	const [malMangaPath, setMalMangaPath] = useState("");
@@ -243,7 +243,7 @@ export default function Page() {
 										)
 											.with(ImportSource.Goodreads, () => "goodreads")
 											.with(ImportSource.Mal, () => "myanimelist")
-											.with(ImportSource.MediaJson, () => "media-json")
+											.with(ImportSource.GenericJson, () => "generic-json")
 											.with(ImportSource.MediaTracker, () => "mediatracker")
 											.with(ImportSource.Movary, () => "movary")
 											.with(ImportSource.StoryGraph, () => "storygraph")
@@ -398,12 +398,12 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.MediaJson, () => (
+											.with(ImportSource.GenericJson, () => (
 												<>
 													<input
 														hidden
 														name="export"
-														value={mediaJsonExportPath}
+														value={genericJsonExportPath}
 														readOnly
 													/>
 													<FileInput
@@ -418,7 +418,7 @@ export default function Page() {
 																		onProgress,
 																		onLoad,
 																	);
-																setMediaJsonExportPath(path);
+																setGenericJsonExportPath(path);
 															}
 														}}
 													/>
