@@ -133,17 +133,6 @@ async fn main() -> Result<()> {
         bail!("If this is a major version upgrade, please follow the instructions in the migration docs.");
     };
 
-    match env::args().nth(1) {
-        None => {}
-        Some(cmd) => {
-            if cmd == "migrate" {
-                return Ok(());
-            } else {
-                bail!("Command {:#?} is not supported.", cmd)
-            }
-        }
-    }
-
     let pool = PoolOptions::new()
         .max_lifetime(None)
         .idle_timeout(None)
@@ -166,7 +155,7 @@ async fn main() -> Result<()> {
     )
     .await;
 
-    if !cfg!(debug_assertions) && Exercise::find().count(&db).await? == 0 {
+    if env::var("SKIP_EXERCISES_DOWNLOAD").is_err() && Exercise::find().count(&db).await? == 0 {
         tracing::info!("Instance does not have exercises data. Deploying job to download them...");
         app_services
             .exercise_service
