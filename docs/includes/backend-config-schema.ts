@@ -96,8 +96,7 @@ export interface FileStorageConfig {
  */
 export interface FrontendUmamiConfig {
 	domains: string;
-	host_url: string;
-	/** For example: https://umami.is/a/script.js */
+	/** For example: https://umami.is/script.js */
 	script_url: string;
 	website_id: string;
 }
