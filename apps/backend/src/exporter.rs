@@ -134,6 +134,7 @@ impl ExporterService {
             }
         }
         writer.write_all(b"}").unwrap();
+        drop(writer);
         let ended_at = Utc::now();
         let (_, url) = self
             .file_storage_service

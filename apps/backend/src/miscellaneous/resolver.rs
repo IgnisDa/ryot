@@ -6499,7 +6499,6 @@ impl MiscellaneousService {
             let to_write = serde_json::to_string(&exp).unwrap();
             writer.write_all(to_write.as_bytes()).unwrap();
         }
-
         Ok(true)
     }
 
