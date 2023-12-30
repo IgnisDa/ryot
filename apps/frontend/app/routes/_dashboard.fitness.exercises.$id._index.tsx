@@ -37,7 +37,7 @@ import {
 	displayWeightWithUnit,
 	startCase,
 } from "@ryot/ts-utils";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck, IconExternalLink } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -376,9 +376,24 @@ export default function Page() {
 																		)
 																		.exhaustive()}
 																</Text>
-																<Text size="sm">
-																	{dayjsLib(s.workoutDoneOn).format("ll")}
-																</Text>
+																<Group>
+																	<Text size="sm">
+																		{dayjsLib(s.workoutDoneOn).format("ll")}
+																	</Text>
+																	<Anchor
+																		component={Link}
+																		to={
+																			$path("/fitness/workouts/:id", {
+																				id: s.workoutId,
+																				// FIXME: Use the `withFragment` helper from ufo
+																			}) +
+																			`#${loaderData.exerciseDetails.id}__${s.exerciseIdx}`
+																		}
+																		fw="bold"
+																	>
+																		<IconExternalLink size={16} />
+																	</Anchor>
+																</Group>
 															</Group>
 														))}
 													</Stack>
