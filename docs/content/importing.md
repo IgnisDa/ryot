@@ -38,14 +38,11 @@ the following caveats:
 - Copy the token that was just generated.
 - Enter the details in the inputs.
 
-## Media JSON
+## Generic JSON
 
 This can be used to import data from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#media-typemedia)
+required is described in the [exporting](guides/exporting.md#type-definition)
 documentation.
-
-You can see an example file by exporting from the demo instance as described
-in the [exporting](guides/exporting.md) documentation example.
 
 ## Movary
 
