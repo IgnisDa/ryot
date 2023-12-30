@@ -230,13 +230,13 @@ export interface Workout {
 }
 
 /** Complete export of the user. */
-export interface ExportAllResponse {
+export interface CompleteExport {
 	/** Data about user's measurements. */
-	measurements: UserMeasurement[];
+	measurements: UserMeasurement[] | null;
 	/** Data about user's media. */
-	media: ImportOrExportMediaItem[];
+	media: ImportOrExportMediaItem[] | null;
 	/** Data about user's people. */
-	people: ImportOrExportPersonItem[];
+	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workouts. */
-	workouts: Workout[];
+	workouts: Workout[] | null;
 }

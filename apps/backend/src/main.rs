@@ -45,7 +45,7 @@ use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
     entities::prelude::Exercise,
     graphql::get_schema,
-    models::ExportAllResponse,
+    models::CompleteExport,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
@@ -186,7 +186,7 @@ async fn main() -> Result<()> {
             .unwrap();
 
         let mut generator = SchemaGenerator::default();
-        generator.add::<ExportAllResponse>();
+        generator.add::<CompleteExport>();
         generator
             .generate(
                 base_dir.join("export-schema.ts"),

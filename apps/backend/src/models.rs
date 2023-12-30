@@ -117,15 +117,15 @@ pub struct IdObject {
 /// Complete export of the user.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-pub struct ExportAllResponse {
+pub struct CompleteExport {
     /// Data about user's media.
-    pub media: Vec<media::ImportOrExportMediaItem>,
+    pub media: Option<Vec<media::ImportOrExportMediaItem>>,
     /// Data about user's people.
-    pub people: Vec<media::ImportOrExportPersonItem>,
+    pub people: Option<Vec<media::ImportOrExportPersonItem>>,
     /// Data about user's measurements.
-    pub measurements: Vec<user_measurement::Model>,
+    pub measurements: Option<Vec<user_measurement::Model>>,
     /// Data about user's workouts.
-    pub workouts: Vec<workout::Model>,
+    pub workouts: Option<Vec<workout::Model>>,
 }
 
 #[derive(Debug, InputObject)]
