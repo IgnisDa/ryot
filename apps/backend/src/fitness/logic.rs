@@ -101,7 +101,7 @@ impl UserWorkoutInput {
         if input.exercises.is_empty() {
             bail!("This workout has no associated exercises")
         }
-        for (idx, ex) in input.exercises.iter_mut().enumerate() {
+        for (exercise_idx, ex) in input.exercises.iter_mut().enumerate() {
             if ex.sets.is_empty() {
                 bail!("This exercise has no associated sets")
             }
@@ -123,7 +123,7 @@ impl UserWorkoutInput {
                 .flatten();
             let history_item = UserToExerciseHistoryExtraInformation {
                 workout_id: id.clone(),
-                idx,
+                idx: exercise_idx,
             };
             let association = match association {
                 None => {
@@ -228,6 +228,7 @@ impl UserWorkoutInput {
                     let to_insert_record = ExerciseBestSetRecord {
                         workout_id: id.clone(),
                         workout_done_on: input.end_time,
+                        exercise_idx,
                         set_idx,
                         data: set.clone(),
                     };
