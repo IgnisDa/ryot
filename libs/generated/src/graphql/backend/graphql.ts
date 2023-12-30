@@ -247,14 +247,18 @@ export enum DashboardElementLot {
   Upcoming = 'UPCOMING'
 }
 
+export type DeployGenericJsonImportInput = {
+  export: Scalars['String']['input'];
+};
+
 export type DeployGoodreadsImportInput = {
   rssUrl: Scalars['String']['input'];
 };
 
 export type DeployImportJobInput = {
+  genericJson?: InputMaybe<DeployGenericJsonImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
-  mediaJson?: InputMaybe<DeployMediaJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
@@ -268,10 +272,6 @@ export type DeployMalImportInput = {
   animePath: Scalars['String']['input'];
   /** The manga export file path (uploaded via temporary upload). */
   mangaPath: Scalars['String']['input'];
-};
-
-export type DeployMediaJsonImportInput = {
-  export: Scalars['String']['input'];
 };
 
 export type DeployMediaTrackerImportInput = {
@@ -675,9 +675,9 @@ export type ImportResultResponse = {
 };
 
 export enum ImportSource {
+  GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
   Mal = 'MAL',
-  MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
   StoryGraph = 'STORY_GRAPH',
