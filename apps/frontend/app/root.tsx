@@ -31,7 +31,10 @@ import { HoneypotProvider } from "remix-utils/honeypot/react";
 import { Toaster } from "~/components/toaster";
 import { honeypot } from "~/lib/honeypot.server";
 import { getToast } from "~/lib/toast.server";
-import { combineHeaders } from "~/lib/utilities.server";
+import {
+	combineHeaders,
+	expectedEnvironmentVariables,
+} from "~/lib/utilities.server";
 import { MountPoint } from "./components/confirmation";
 import { colorSchemeCookie } from "./lib/cookies.server";
 
@@ -85,6 +88,7 @@ export const links: LinksFunction = () => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const envData = expectedEnvironmentVariables.parse(process.env);
 	const honeyProps = honeypot.getInputProps();
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
@@ -92,7 +96,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	);
 	const defaultColorScheme = colorScheme || "light";
 	return json(
-		{ honeyProps, toast, defaultColorScheme },
+		{ envData, honeyProps, toast, defaultColorScheme },
 		{ headers: combineHeaders(toastHeaders) },
 	);
 };
@@ -114,6 +118,16 @@ export default function App() {
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
+				{loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL &&
+				loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID ? (
+					<script
+						async
+						defer
+						src={loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL}
+						data-website-id={loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID}
+						data-domains={loaderData.envData.FRONTEND_UMAMI_DOMAINS}
+					/>
+				) : null}
 			</head>
 			<body>
 				<QueryClientProvider client={queryClient}>
