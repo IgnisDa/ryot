@@ -183,6 +183,8 @@ impl UserWorkoutInput {
                     personal_bests: vec![],
                 };
                 value.statistic.one_rm = value.calculate_one_rm();
+                value.statistic.pace = value.calculate_pace();
+                value.statistic.volume = value.calculate_volume();
                 sets.push(value);
             }
             let mut personal_bests = association

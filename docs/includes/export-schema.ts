@@ -155,7 +155,9 @@ export interface WorkoutSetStatistic {
 	distance: string | null;
 	duration: string | null;
 	oneRm: string | null;
+	pace: string | null;
 	reps: number | null;
+	volume: string | null;
 	weight: string | null;
 }
 

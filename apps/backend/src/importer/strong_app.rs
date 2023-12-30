@@ -78,7 +78,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 distance: entry.distance,
                 reps: entry.reps,
                 weight,
-                one_rm: None,
+                ..Default::default()
             },
             lot: SetLot::Normal,
             confirmed_at: None,

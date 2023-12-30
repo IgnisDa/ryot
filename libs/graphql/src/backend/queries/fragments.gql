@@ -63,6 +63,8 @@ fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
   reps
   weight
   oneRm
+  pace
+  volume
 }
 
 fragment WorkoutSummaryPart on WorkoutSummary {
