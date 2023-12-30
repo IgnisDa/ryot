@@ -286,8 +286,8 @@ export default function Page() {
 													.flatMap((e) => e.sets)
 													.flatMap((s) =>
 														s.confirmed
-															? (s.statistic.reps || 0) *
-															  (s.statistic.weight || 0)
+															? Number(s.statistic.reps || 0) *
+															  Number(s.statistic.weight || 0)
 															: 0,
 													),
 											).toFixed(),
@@ -485,7 +485,7 @@ const StatInput = (props: {
 							const value = v === "" ? undefined : Number(v);
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 								props.stat
-							] = value;
+							] = value as unknown as null;
 							if (value === undefined)
 								draft.exercises[props.exerciseIdx].sets[
 									props.setIdx

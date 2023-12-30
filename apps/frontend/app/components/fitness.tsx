@@ -6,11 +6,10 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayDistanceWithUnit, displayWeightWithUnit } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
-import type { ExerciseSetStats } from "~/lib/workout";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
-	statistic: WorkoutSetStatistic | ExerciseSetStats,
+	statistic: WorkoutSetStatistic,
 	unit: UserUnitSystem,
 ) => {
 	return match(lot)
@@ -39,7 +38,7 @@ export const getSetStatisticsTextToDisplay = (
  **/
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
-	statistic: ExerciseSetStats | WorkoutSetStatistic;
+	statistic: WorkoutSetStatistic;
 	unit: UserUnitSystem;
 	hideExtras?: boolean;
 	centerText?: boolean;
