@@ -250,23 +250,17 @@ export interface ServerConfig {
 
 export interface UsersConfig {
 	/**
-	 * Whether users will be allowed to change their password in their profile
-	 * settings.
+	 * Whether users will be allowed to change their username and password in their
+	 * profile settings.
 	 * @default true
 	 */
-	allow_changing_password: boolean;
+	allow_changing_credentials: boolean;
 	/**
 	 * Whether users will be allowed to change their preferences in their profile
 	 * settings.
 	 * @default true
 	 */
 	allow_changing_preferences: boolean;
-	/**
-	 * Whether users will be allowed to change their username in their profile
-	 * settings.
-	 * @default true
-	 */
-	allow_changing_username: boolean;
 	/**
 	 * Whether new users will be allowed to sign up to this instance.
 	 * @default true

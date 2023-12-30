@@ -574,9 +574,8 @@ struct CoreDetails {
     author_name: String,
     repository_link: String,
     default_credentials: bool,
-    password_change_allowed: bool,
     preferences_change_allowed: bool,
-    username_change_allowed: bool,
+    credentials_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
     videos_disabled: bool,
@@ -1449,8 +1448,7 @@ impl MiscellaneousService {
             reviews_disabled: self.config.users.reviews_disabled,
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
-            username_change_allowed: self.config.users.allow_changing_username,
-            password_change_allowed: self.config.users.allow_changing_password,
+            credentials_change_allowed: self.config.users.allow_changing_credentials,
             preferences_change_allowed: self.config.users.allow_changing_preferences,
             deploy_admin_jobs_allowed: self.config.server.deploy_admin_jobs_allowed,
         })
@@ -4716,7 +4714,7 @@ impl MiscellaneousService {
             .unwrap()
             .into();
         if let Some(n) = input.username {
-            if self.config.users.allow_changing_username {
+            if self.config.users.allow_changing_credentials {
                 user_obj.name = ActiveValue::Set(n);
             }
         }
@@ -4724,7 +4722,7 @@ impl MiscellaneousService {
             user_obj.email = ActiveValue::Set(Some(e));
         }
         if let Some(p) = input.password {
-            if self.config.users.allow_changing_password {
+            if self.config.users.allow_changing_credentials {
                 user_obj.password = ActiveValue::Set(p);
             }
         }

@@ -6,9 +6,8 @@ query CoreDetails {
     repositoryLink
     docsLink
     defaultCredentials
-    passwordChangeAllowed
+    credentialsChangeAllowed
     preferencesChangeAllowed
-    usernameChangeAllowed
     itemDetailsHeight
     reviewsDisabled
     videosDisabled
