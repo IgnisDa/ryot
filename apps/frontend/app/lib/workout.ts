@@ -19,6 +19,8 @@ export type ExerciseSetStats = {
 	reps?: number | null;
 	distance?: number | null;
 	oneRm?: number | null;
+	pace?: number | null;
+	volume?: number | null;
 };
 
 export type ExerciseSet = {

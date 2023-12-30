@@ -29,6 +29,7 @@ import {
 	SetLot,
 	UserCollectionsListDocument,
 	UserExerciseDetailsDocument,
+	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -331,13 +332,56 @@ export default function Page() {
 								{loaderData.userExerciseDetails.details.exerciseExtraInformation
 									.personalBests.length > 0 ? (
 									<Stack>
+										<Divider />
+										<Text size="xs" c="dimmed">
+											PERSONAL BESTS
+										</Text>
 										{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
 											(pb) => (
 												<Box key={pb.lot}>
-													<Text size="xs" c="dimmed">
+													<Text size="sm" c="dimmed">
 														{changeCase(pb.lot).toUpperCase()}
 													</Text>
-													{JSON.stringify(pb.sets)}
+													<Stack gap="xs" mt="xs">
+														{pb.sets.map((s) => (
+															<Group justify="space-between">
+																<Text size="sm">
+																	{match(pb.lot)
+																		.with(WorkoutSetPersonalBest.OneRm, () =>
+																			Number(s.data.statistic.oneRm).toFixed(2),
+																		)
+																		.with(
+																			WorkoutSetPersonalBest.Reps,
+																			() => s.data.statistic.reps,
+																		)
+																		.with(
+																			WorkoutSetPersonalBest.Time,
+																			() => `${s.data.statistic.duration} min`,
+																		)
+																		.with(WorkoutSetPersonalBest.Volume, () =>
+																			displayWeightWithUnit(
+																				loaderData.userPreferences.unitSystem,
+																				s.data.statistic.volume,
+																			),
+																		)
+																		.with(WorkoutSetPersonalBest.Weight, () =>
+																			displayWeightWithUnit(
+																				loaderData.userPreferences.unitSystem,
+																				s.data.statistic.weight,
+																			),
+																		)
+																		.with(
+																			WorkoutSetPersonalBest.Pace,
+																			() => `${s.data.statistic.pace}/min`,
+																		)
+																		.exhaustive()}
+																</Text>
+																<Text size="sm">
+																	{dayjsLib(s.workoutDoneOn).format("ll")}
+																</Text>
+															</Group>
+														))}
+													</Stack>
 												</Box>
 											),
 										)}

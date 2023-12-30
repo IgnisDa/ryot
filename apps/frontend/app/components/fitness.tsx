@@ -18,10 +18,7 @@ export const getSetStatisticsTextToDisplay = (
 			`${displayDistanceWithUnit(unit, statistic.distance)} for ${Number(
 				statistic.duration,
 			).toFixed(2)} min`,
-			`${displayDistanceWithUnit(
-				unit,
-				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1),
-			)}/min`,
+			`${displayDistanceWithUnit(unit, statistic.pace)}/min`,
 		])
 		.with(ExerciseLot.Duration, () => [
 			`${Number(statistic.duration).toFixed(2)} min`,
