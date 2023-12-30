@@ -4461,7 +4461,7 @@ impl MiscellaneousService {
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
             .select_only()
             .column_as(
-                Expr::cust("extract(epoch from sum(end_time - start_time)) / 3600"),
+                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 3600, 0)"),
                 "hours",
             )
             .into_tuple::<Decimal>()
