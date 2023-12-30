@@ -248,7 +248,7 @@ pub struct FileStorageConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
 pub struct FrontendUmamiConfig {
-    #[setting(default = "https://umami.is/a/script.js")]
+    /// For example: https://umami.is/a/script.js
     pub script_url: String,
     pub website_id: String,
     pub host_url: String,
