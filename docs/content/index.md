@@ -2,8 +2,6 @@
 
 The first user you register is automatically set as admin of the instance.
 
-## Using Docker
-
 The docker image is `ghcr.io/ignisda/ryot:latest`.
 
 ```yaml
@@ -35,18 +33,3 @@ volumes:
 
 In addition to the `latest` tag, we also publish an `unstable` tag from the latest
 pre-release or release, whichever is newer.
-
-## Quick-run a release
-
-Each release has an installation script that can be used to install the `ryot`
-binary. Follow the instructions in the release to use this script.
-
-**Alternatively** using [eget](https://github.com/zyedidia/eget):
-
-```bash
-eget ignisda/ryot
-```
-
-## Compile and run from source
-
-Please take a look at the development [docs](architecture.md#development).

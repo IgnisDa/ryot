@@ -5,9 +5,11 @@ order.
 
 ## From `v3.*` to `v4.*`
 
-If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
-prefix. Please take a look at the [integration](integrations.md#sink-plugins) docs for the
-new format.
+!!! warning "Webhook URL changes"
+
+    If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
+    prefix. Please take a look at the [integration](integrations.md#sink-plugins) docs for the
+    new format.
 
 1. Upgrade the server to `v3.5.4` to make sure all pending migrations are applied. For example,
    you can make this change: `image: "ghcr.io/ignisda/ryot:v3.5.4"` in your docker-compose file.
