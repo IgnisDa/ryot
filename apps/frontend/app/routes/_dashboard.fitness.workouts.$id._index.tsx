@@ -372,7 +372,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 				</Group>
 				{opened ? (
 					<>
-						<SimpleGrid cols={2} spacing={4}>
+						<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
 							{props.exercise.restTime ? (
 								<Flex align="center" gap="xs">
 									<IconZzz size={14} />
