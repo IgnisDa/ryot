@@ -27,9 +27,10 @@ order.
    [Here](https://intercom.help/scoutpad/en/articles/3478364-how-to-clear-local-storage-of-web-browser)
    is a guide on how to do this. You need to do this on the PWA too if you use it.
 
-6. Stop the running server and [create a backup of your database](https://simplebackups.com/blog/docker-postgres-backup-restore-guide-with-examples/#back-up-a-docker-postgresql-database).
+6. [Create a backup](https://simplebackups.com/blog/docker-postgres-backup-restore-guide-with-examples/#back-up-a-docker-postgresql-database) of the database.
 
-7. Connect to the database and run these SQL queries:
+7. Connect to the database (`docker exec -u postgres -it ryot-db psql`) and run these SQL
+   queries:
    ```sql
    DELETE FROM seaql_migrations;
 
