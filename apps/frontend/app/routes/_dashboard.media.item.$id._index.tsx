@@ -1397,7 +1397,11 @@ const ProgressModal = (props: {
 			<Form action="?intent=progressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="progress" defaultValue={value} />
-				<input hidden name="date" defaultValue={dayjsLib().toISOString()} />
+				<input
+					hidden
+					name="date"
+					defaultValue={formatDateToNaiveDate(new Date())}
+				/>
 				<Stack>
 					<Title order={3}>Set progress</Title>
 					<Group>
