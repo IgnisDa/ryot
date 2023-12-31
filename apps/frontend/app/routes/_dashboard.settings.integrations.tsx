@@ -305,7 +305,11 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 					</Group>
 				</Flex>
 				{integrationInputOpened ? (
-					<TextInput value={integrationUrl} readOnly />
+					<TextInput
+						value={integrationUrl}
+						readOnly
+						onClick={(e) => e.currentTarget.select()}
+					/>
 				) : null}
 			</Stack>
 		</Paper>

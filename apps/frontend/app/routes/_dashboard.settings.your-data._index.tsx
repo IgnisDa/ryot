@@ -702,6 +702,7 @@ export default function Page() {
 												value={actionData.generateAuthToken}
 												readOnly
 												style={{ flex: 1 }}
+												onClick={(e) => e.currentTarget.select()}
 											/>
 										</Flex>
 									</Alert>
