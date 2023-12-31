@@ -3,7 +3,6 @@ import {
 	Box,
 	Button,
 	Container,
-	CopyButton,
 	Flex,
 	Group,
 	Modal,
@@ -15,7 +14,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -32,7 +30,7 @@ import {
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconCopy, IconTrash } from "@tabler/icons-react";
+import { IconEye, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
@@ -131,6 +129,8 @@ export default function Page() {
 			close: closeCreateUserYankIntegrationModal,
 		},
 	] = useDisclosure(false);
+	const [integrationInputOpened, { toggle: integrationInputToggle }] =
+		useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
 		useState<UserYankIntegrationSettingKind>();
 	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
@@ -145,75 +145,66 @@ export default function Page() {
 				{loaderData.userIntegrations.length > 0 ? (
 					loaderData.userIntegrations.map((i, idx) => (
 						<Paper p="xs" withBorder key={`${i.id}-${idx}`}>
-							<Flex align="center" justify="space-between">
-								<Box>
-									<Text size="xs">{i.description}</Text>
-									<Text size="xs">{dayjsLib(i.timestamp).fromNow()}</Text>
-								</Box>
-								<Group>
-									{i.slug ? (
-										<CopyButton
-											value={
-												typeof window !== "undefined"
-													? `${
-															window.location.origin
-													  }/backend/webhooks/integrations/${i.description
-															.toLowerCase()
-															.split(" ")
-															.at(0)}/${i.slug}`
-													: ""
-											}
+							<Stack>
+								<Flex align="center" justify="space-between">
+									<Box>
+										<Text size="xs">{i.description}</Text>
+										<Text size="xs">{dayjsLib(i.timestamp).fromNow()}</Text>
+									</Box>
+									<Group>
+										{i.slug ? (
+											<ActionIcon color="blue" onClick={integrationInputToggle}>
+												<IconEye />
+											</ActionIcon>
+										) : null}
+										<fetcher.Form
+											action="?intent=delete"
+											method="post"
+											ref={deleteFormRef}
 										>
-											{({ copy }) => (
-												<ActionIcon
-													color="green"
-													onClick={() => {
-														copy();
-														notifications.show({
-															color: "green",
-															title: "Operation successful",
-															message:
-																"The integration url has been copied to your clipboard.",
-														});
-													}}
-												>
-													<IconCopy />
-												</ActionIcon>
-											)}
-										</CopyButton>
-									) : null}
-									<fetcher.Form
-										action="?intent=delete"
-										method="post"
-										ref={deleteFormRef}
-									>
-										<input
-											type="hidden"
-											name="integrationLot"
-											defaultValue={i.lot}
-										/>
-										<input
-											type="hidden"
-											name="integrationId"
-											defaultValue={i.id}
-										/>
-										<ActionIcon
-											color="red"
-											variant="subtle"
-											mt={4}
-											onClick={async () => {
-												const conf = await confirmWrapper({
-													confirmation:
-														"Are you sure you want to delete this integration?",
-												});
-												if (conf) fetcher.submit(deleteFormRef.current);
-											}}
-										>
-											<IconTrash />
-										</ActionIcon>
-									</fetcher.Form>
-								</Group>
-							</Flex>
+											<input
+												type="hidden"
+												name="integrationLot"
+												defaultValue={i.lot}
+											/>
+											<input
+												type="hidden"
+												name="integrationId"
+												defaultValue={i.id}
+											/>
+											<ActionIcon
+												color="red"
+												variant="subtle"
+												mt={4}
+												onClick={async () => {
+													const conf = await confirmWrapper({
+														confirmation:
+															"Are you sure you want to delete this integration?",
+													});
+													if (conf) fetcher.submit(deleteFormRef.current);
+												}}
+											>
+												<IconTrash />
+											</ActionIcon>
+										</fetcher.Form>
+									</Group>
+								</Flex>
+								{integrationInputOpened ? (
+									<TextInput
+										value={
+											typeof window !== "undefined"
+												? `${
+														window.location.origin
+												  }/backend/webhooks/integrations/${i.description
+														.toLowerCase()
+														.split(" ")
+														.at(0)}/${i.slug}`
+												: ""
+										}
+										readOnly
+									/>
+								) : null}
+							</Stack>
 						</Paper>
 					))
 				) : (
