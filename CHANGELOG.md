@@ -1,5 +1,13 @@
 
 
+# Version 4.0.2 (2023-12-31)
+
+## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 4.0.1 (2023-12-31)
 
 
