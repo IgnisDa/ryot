@@ -12,18 +12,22 @@ tasks:
       - '@group(remix)'
 
   dev:
-    command: 'remix vite:dev --port 3000 --host'
+    command: vite dev --port 3000 --host
     local: true
     deps:
       - routes
 
   build-basic:
-    command: 'remix vite:build'
+    command: vite build
+
+  build-ssr:
+    command: vite build --ssr
 
   build:
     deps:
       - routes
       - build-basic
+      - build-ssr
     inputs:
       - '@group(remix)'
     outputs:
