@@ -7,6 +7,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
+use tracing::instrument;
 
 use crate::{
     entities::{metadata, prelude::Metadata},
@@ -243,6 +244,7 @@ impl IntegrationService {
         Ok(payload)
     }
 
+    #[instrument(skip(self, access_token))]
     pub async fn audiobookshelf_progress(
         &self,
         base_url: &str,
@@ -286,6 +288,7 @@ impl IntegrationService {
             .body_json()
             .await
             .unwrap();
+        tracing::trace!("Got response for items in progress {:#?}", resp);
         let mut media_items = vec![];
         for item in resp.library_items.iter() {
             if let Some(asin) = item.media.metadata.asin.clone() {
@@ -296,6 +299,7 @@ impl IntegrationService {
                     .body_json()
                     .await
                     .unwrap();
+                tracing::trace!("Got response for individual item progress {:#?}", resp);
                 media_items.push(IntegrationMedia {
                     identifier: asin,
                     lot: MetadataLot::AudioBook,
