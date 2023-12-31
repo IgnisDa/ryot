@@ -2,10 +2,10 @@ import { $path } from "@ignisda/remix-routes";
 import { redirect } from "@remix-run/node";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
-import { authCookie } from "~/lib/cookies.server";
-import { createToastHeaders } from "./toast.server";
 import { withQuery } from "ufo";
+import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "./generals";
+import { createToastHeaders } from "./toast.server";
 
 export const API_URL = process.env.API_URL;
 
