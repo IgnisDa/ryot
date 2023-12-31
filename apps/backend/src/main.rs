@@ -45,16 +45,16 @@ use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
     entities::prelude::Exercise,
     graphql::get_schema,
-    models::ExportAllResponse,
+    models::CompleteExport,
     routes::{
-        config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
-        upload_file,
+        config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
     utils::{create_app_services, BASE_DIR, VERSION},
 };
 
 mod background;
 mod entities;
+mod exporter;
 mod file_storage;
 mod fitness;
 mod graphql;
@@ -133,17 +133,6 @@ async fn main() -> Result<()> {
         bail!("If this is a major version upgrade, please follow the instructions in the migration docs.");
     };
 
-    match env::args().nth(1) {
-        None => {}
-        Some(cmd) => {
-            if cmd == "migrate" {
-                return Ok(());
-            } else {
-                bail!("Command {:#?} is not supported.", cmd)
-            }
-        }
-    }
-
     let pool = PoolOptions::new()
         .max_lifetime(None)
         .idle_timeout(None)
@@ -166,7 +155,7 @@ async fn main() -> Result<()> {
     )
     .await;
 
-    if !cfg!(debug_assertions) && Exercise::find().count(&db).await? == 0 {
+    if env::var("SKIP_EXERCISES_DOWNLOAD").is_err() && Exercise::find().count(&db).await? == 0 {
         tracing::info!("Instance does not have exercises data. Deploying job to download them...");
         app_services
             .exercise_service
@@ -197,7 +186,7 @@ async fn main() -> Result<()> {
             .unwrap();
 
         let mut generator = SchemaGenerator::default();
-        generator.add::<ExportAllResponse>();
+        generator.add::<CompleteExport>();
         generator
             .generate(
                 base_dir.join("export-schema.ts"),
@@ -219,15 +208,18 @@ async fn main() -> Result<()> {
         post(integration_webhook),
     );
 
+    let mut gql = post(graphql_handler);
+    if app_services.config.server.graphql_playground_enabled {
+        gql = gql.get(graphql_playground);
+    }
+
     let app_routes = Router::new()
         .nest("/webhooks", webhook_routes)
         .route("/config", get(config_handler))
-        .route("/graphql", get(graphql_playground).post(graphql_handler))
+        .route("/graphql", gql)
         .route("/upload", post(upload_file))
-        .route("/export/:export_type", get(json_export))
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
-        .layer(Extension(app_services.exercise_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
@@ -243,6 +235,7 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
+    let exporter_service_1 = app_services.exporter_service.clone();
     let media_service_1 = app_services.media_service.clone();
     let media_service_2 = app_services.media_service.clone();
     let media_service_3 = app_services.media_service.clone();
@@ -301,6 +294,7 @@ async fn main() -> Result<()> {
                         Duration::new(5, 0),
                     ))
                     .layer(ApalisExtension(importer_service_1.clone()))
+                    .layer(ApalisExtension(exporter_service_1.clone()))
                     .layer(ApalisExtension(media_service_4.clone()))
                     .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(perform_application_job_storage.clone())

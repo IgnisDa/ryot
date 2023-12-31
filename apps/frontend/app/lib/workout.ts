@@ -5,6 +5,7 @@ import {
 	SetLot,
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
+	WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
@@ -13,16 +14,8 @@ import Cookies from "js-cookie";
 import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/generals";
 import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
 
-export type ExerciseSetStats = {
-	duration?: number | null;
-	weight?: number | null;
-	reps?: number | null;
-	distance?: number | null;
-	oneRm?: number | null;
-};
-
 export type ExerciseSet = {
-	statistic: ExerciseSetStats;
+	statistic: WorkoutSetStatistic;
 	lot: SetLot;
 	confirmed: boolean;
 	confirmedAt?: string | null;

@@ -1,9 +1,9 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Box,
 	Button,
 	Container,
-	CopyButton,
 	Flex,
 	Group,
 	Modal,
@@ -15,7 +15,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -29,10 +28,11 @@ import {
 	DeleteUserIntegrationDocument,
 	UserIntegrationLot,
 	UserIntegrationsDocument,
+	UserIntegrationsQuery,
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconCopy, IconTrash } from "@tabler/icons-react";
+import { IconEye, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
@@ -135,8 +135,6 @@ export default function Page() {
 		useState<UserYankIntegrationSettingKind>();
 	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
 		useState<UserSinkIntegrationSettingKind>();
-	const fetcher = useFetcher();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
@@ -144,77 +142,7 @@ export default function Page() {
 				<Title>Integration settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (
 					loaderData.userIntegrations.map((i, idx) => (
-						<Paper p="xs" withBorder key={`${i.id}-${idx}`}>
-							<Flex align="center" justify="space-between">
-								<Box>
-									<Text size="xs">{i.description}</Text>
-									<Text size="xs">{dayjsLib(i.timestamp).fromNow()}</Text>
-								</Box>
-								<Group>
-									{i.slug ? (
-										<CopyButton
-											value={
-												typeof window !== "undefined"
-													? `${
-															window.location.origin
-													  }/backend/webhooks/integrations/${i.description
-															.toLowerCase()
-															.split(" ")
-															.at(0)}/${i.slug}`
-													: ""
-											}
-										>
-											{({ copy }) => (
-												<ActionIcon
-													color="green"
-													onClick={() => {
-														copy();
-														notifications.show({
-															color: "green",
-															title: "Operation successful",
-															message:
-																"The integration url has been copied to your clipboard.",
-														});
-													}}
-												>
-													<IconCopy />
-												</ActionIcon>
-											)}
-										</CopyButton>
-									) : null}
-									<fetcher.Form
-										action="?intent=delete"
-										method="post"
-										ref={deleteFormRef}
-									>
-										<input
-											type="hidden"
-											name="integrationLot"
-											defaultValue={i.lot}
-										/>
-										<input
-											type="hidden"
-											name="integrationId"
-											defaultValue={i.id}
-										/>
-										<ActionIcon
-											color="red"
-											variant="subtle"
-											mt={4}
-											onClick={async () => {
-												const conf = await confirmWrapper({
-													confirmation:
-														"Are you sure you want to delete this integration?",
-												});
-												if (conf) fetcher.submit(deleteFormRef.current);
-											}}
-										>
-											<IconTrash />
-										</ActionIcon>
-									</fetcher.Form>
-								</Group>
-							</Flex>
-						</Paper>
+						<DisplayIntegration integration={i} key={`${i.id}-${idx}`} />
 					))
 				) : (
 					<Text>No integrations configured</Text>
@@ -308,3 +236,82 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type Integration = UserIntegrationsQuery["userIntegrations"][number];
+
+const DisplayIntegration = (props: { integration: Integration }) => {
+	const [parent] = useAutoAnimate();
+	const [integrationInputOpened, { toggle: integrationInputToggle }] =
+		useDisclosure(false);
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
+
+	const integrationUrl =
+		typeof window !== "undefined"
+			? `${
+					window.location.origin
+			  }/backend/webhooks/integrations/${props.integration.description
+					.toLowerCase()
+					.split(" ")
+					.at(0)}/${props.integration.slug}`
+			: "";
+
+	return (
+		<Paper p="xs" withBorder>
+			<Stack ref={parent}>
+				<Flex align="center" justify="space-between">
+					<Box>
+						<Text size="xs">{props.integration.description}</Text>
+						<Text size="xs">
+							{dayjsLib(props.integration.timestamp).fromNow()}
+						</Text>
+					</Box>
+					<Group>
+						{props.integration.slug ? (
+							<ActionIcon color="blue" onClick={integrationInputToggle}>
+								<IconEye />
+							</ActionIcon>
+						) : null}
+						<fetcher.Form
+							action="?intent=delete"
+							method="post"
+							ref={deleteFormRef}
+						>
+							<input
+								type="hidden"
+								name="integrationLot"
+								defaultValue={props.integration.lot}
+							/>
+							<input
+								type="hidden"
+								name="integrationId"
+								defaultValue={props.integration.id}
+							/>
+							<ActionIcon
+								color="red"
+								variant="subtle"
+								mt={4}
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this integration?",
+									});
+									if (conf) fetcher.submit(deleteFormRef.current);
+								}}
+							>
+								<IconTrash />
+							</ActionIcon>
+						</fetcher.Form>
+					</Group>
+				</Flex>
+				{integrationInputOpened ? (
+					<TextInput
+						value={integrationUrl}
+						readOnly
+						onClick={(e) => e.currentTarget.select()}
+					/>
+				) : null}
+			</Stack>
+		</Paper>
+	);
+};

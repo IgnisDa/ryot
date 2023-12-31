@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs,
+    fs::{self, File},
+    io::{BufWriter, Write},
     iter::zip,
     path::PathBuf,
     str::FromStr,
@@ -30,7 +31,7 @@ use markdown::{
 use nanoid::nanoid;
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -573,9 +574,8 @@ struct CoreDetails {
     author_name: String,
     repository_link: String,
     default_credentials: bool,
-    password_change_allowed: bool,
     preferences_change_allowed: bool,
-    username_change_allowed: bool,
+    credentials_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
     videos_disabled: bool,
@@ -1290,7 +1290,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let (key, upload_url) = service
             .file_storage_service
-            .get_presigned_put_url(input.file_name, input.prefix)
+            .get_presigned_put_url(input.file_name, input.prefix, true, None)
             .await;
         Ok(PresignedPutUrlResponse { upload_url, key })
     }
@@ -1345,10 +1345,9 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-
+    pub perform_application_job: SqliteStorage<ApplicationJob>,
     timezone: String,
     file_storage_service: Arc<FileStorageService>,
-    pub perform_application_job: SqliteStorage<ApplicationJob>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
 }
@@ -1449,8 +1448,7 @@ impl MiscellaneousService {
             reviews_disabled: self.config.users.reviews_disabled,
             default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
-            username_change_allowed: self.config.users.allow_changing_username,
-            password_change_allowed: self.config.users.allow_changing_password,
+            credentials_change_allowed: self.config.users.allow_changing_credentials,
             preferences_change_allowed: self.config.users.allow_changing_preferences,
             deploy_admin_jobs_allowed: self.config.server.deploy_admin_jobs_allowed,
         })
@@ -4457,11 +4455,26 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        let total_workout_time = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .select_only()
+            .column_as(
+                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 3600, 0)"),
+                "hours",
+            )
+            .into_tuple::<Decimal>()
+            .one(&self.db)
+            .await?
+            .unwrap()
+            .to_u64()
+            .unwrap();
+
         ls.media.reviews_posted = num_reviews;
         ls.media.media_interacted_with = num_media_interacted_with;
         ls.fitness.measurements_recorded = num_measurements;
-        ls.fitness.workouts_recorded = num_workouts;
         ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
+        ls.fitness.workouts.recorded = num_workouts;
+        ls.fitness.workouts.duration = total_workout_time;
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -4701,7 +4714,7 @@ impl MiscellaneousService {
             .unwrap()
             .into();
         if let Some(n) = input.username {
-            if self.config.users.allow_changing_username {
+            if self.config.users.allow_changing_credentials {
                 user_obj.name = ActiveValue::Set(n);
             }
         }
@@ -4709,7 +4722,7 @@ impl MiscellaneousService {
             user_obj.email = ActiveValue::Set(Some(e));
         }
         if let Some(p) = input.password {
-            if self.config.users.allow_changing_password {
+            if self.config.users.allow_changing_credentials {
                 user_obj.password = ActiveValue::Set(p);
             }
         }
@@ -6408,7 +6421,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn export_media(&self, user_id: i32) -> Result<Vec<ImportOrExportMediaItem>> {
+    pub async fn export_media(&self, user_id: i32, writer: &mut BufWriter<File>) -> Result<bool> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -6423,10 +6436,10 @@ impl MiscellaneousService {
             .order_by(metadata::Column::Id, Order::Asc)
             .all(&self.db)
             .await?;
-
-        let mut resp = vec![];
-
-        for m in all_meta {
+        for (m_idx, m) in all_meta.iter().enumerate() {
+            if m_idx != 0 && m_idx != all_meta.len() {
+                writer.write_all(b",").unwrap();
+            }
             let mut seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
@@ -6475,19 +6488,19 @@ impl MiscellaneousService {
                 source_id: m.id.to_string(),
                 lot: m.lot,
                 source: m.source,
-                identifier: m.identifier,
+                identifier: m.identifier.clone(),
                 internal_identifier: None,
                 seen_history,
                 reviews,
                 collections,
             };
-            resp.push(exp);
+            let to_write = serde_json::to_string(&exp).unwrap();
+            writer.write_all(to_write.as_bytes()).unwrap();
         }
-
-        Ok(resp)
+        Ok(true)
     }
 
-    pub async fn export_people(&self, user_id: i32) -> Result<Vec<ImportOrExportPersonItem>> {
+    pub async fn export_people(&self, user_id: i32, writer: &mut BufWriter<File>) -> Result<bool> {
         let mut resp: Vec<ImportOrExportPersonItem> = vec![];
         let all_reviews = Review::find()
             .filter(review::Column::PersonId.is_not_null())
@@ -6519,7 +6532,12 @@ impl MiscellaneousService {
                 });
             }
         }
-        Ok(resp)
+        let mut to_write = serde_json::to_string(&resp).unwrap();
+        // remove the outer array
+        to_write.remove(0);
+        to_write.pop();
+        writer.write_all(to_write.as_bytes()).unwrap();
+        Ok(true)
     }
 
     async fn generate_auth_token(&self, user_id: i32) -> Result<String> {

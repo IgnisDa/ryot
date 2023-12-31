@@ -29,8 +29,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	]);
 	return json({
 		coreDetails: {
-			usernameChangeAllowed: coreDetails.usernameChangeAllowed,
-			passwordChangeAllowed: coreDetails.passwordChangeAllowed,
+			usernameChangeAllowed: coreDetails.credentialsChangeAllowed,
+			passwordChangeAllowed: coreDetails.credentialsChangeAllowed,
 		},
 		userDetails,
 	});

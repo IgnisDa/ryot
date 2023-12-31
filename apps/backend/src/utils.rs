@@ -30,6 +30,7 @@ use crate::{
         prelude::{Collection, CollectionToEntity, User, UserToEntity},
         user, user_to_entity,
     },
+    exporter::ExporterService,
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
     importer::ImporterService,
@@ -61,6 +62,7 @@ pub struct AppServices {
     pub config: Arc<config::AppConfig>,
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
+    pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
 }
@@ -98,10 +100,17 @@ pub async fn create_app_services(
         media_service.clone(),
         exercise_service.clone(),
     ));
+    let exporter_service = Arc::new(ExporterService::new(
+        config.clone(),
+        file_storage_service.clone(),
+        media_service.clone(),
+        exercise_service.clone(),
+    ));
     AppServices {
         config,
         media_service,
         importer_service,
+        exporter_service,
         file_storage_service,
         exercise_service,
     }

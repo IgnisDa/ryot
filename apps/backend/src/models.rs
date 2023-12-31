@@ -117,15 +117,15 @@ pub struct IdObject {
 /// Complete export of the user.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-pub struct ExportAllResponse {
+pub struct CompleteExport {
     /// Data about user's media.
-    pub media: Vec<media::ImportOrExportMediaItem>,
+    pub media: Option<Vec<media::ImportOrExportMediaItem>>,
     /// Data about user's people.
-    pub people: Vec<media::ImportOrExportPersonItem>,
+    pub people: Option<Vec<media::ImportOrExportPersonItem>>,
     /// Data about user's measurements.
-    pub measurements: Vec<user_measurement::Model>,
+    pub measurements: Option<Vec<user_measurement::Model>>,
     /// Data about user's workouts.
-    pub workouts: Vec<workout::Model>,
+    pub workouts: Option<Vec<workout::Model>>,
 }
 
 #[derive(Debug, InputObject)]
@@ -139,6 +139,15 @@ pub struct ChangeCollectionToEntityInput {
 pub struct IdAndNamedObject {
     pub id: i32,
     pub name: String,
+}
+
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum ExportItem {
+    Media,
+    People,
+    Workouts,
+    Measurements,
 }
 
 pub mod media {
@@ -685,6 +694,21 @@ pub mod media {
         pub creators_interacted_with: usize,
         pub media_interacted_with: u64,
     }
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct UserFitnessWorkoutSummary {
+        pub recorded: u64,
+        pub duration: u64,
+    }
 
     #[derive(
         SimpleObject,
@@ -699,8 +723,9 @@ pub mod media {
     )]
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
-        pub workouts_recorded: u64,
         pub exercises_interacted_with: u64,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub workouts: UserFitnessWorkoutSummary,
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
@@ -1318,6 +1343,8 @@ pub mod fitness {
         pub reps: Option<usize>,
         pub weight: Option<Decimal>,
         pub one_rm: Option<Decimal>,
+        pub pace: Option<Decimal>,
+        pub volume: Option<Decimal>,
     }
 
     /// The types of set (mostly characterized by exertion level).
@@ -1443,6 +1470,10 @@ pub mod fitness {
     )]
     pub struct ExerciseBestSetRecord {
         pub workout_id: String,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub exercise_idx: usize,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub workout_done_on: DateTimeUtc,
         pub set_idx: usize,
         pub data: WorkoutSetRecord,
     }

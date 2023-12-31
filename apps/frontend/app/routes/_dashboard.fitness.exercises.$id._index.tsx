@@ -29,10 +29,15 @@ import {
 	SetLot,
 	UserCollectionsListDocument,
 	UserExerciseDetailsDocument,
-	UserUnitSystem,
+	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
-import { IconCheck } from "@tabler/icons-react";
+import {
+	changeCase,
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+	startCase,
+} from "@ryot/ts-utils";
+import { IconCheck, IconExternalLink } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -189,6 +194,13 @@ export default function Page() {
 										data={changeCase(loaderData.exerciseDetails.lot)}
 									/>
 								) : null}
+								{loaderData.userExerciseDetails.details?.numTimesInteracted ? (
+									<DisplayData
+										name="Times done"
+										data={`${loaderData.userExerciseDetails.details.numTimesInteracted} times`}
+										noCasing
+									/>
+								) : null}
 								{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
 									<DisplayData
 										name="Last done on"
@@ -234,7 +246,7 @@ export default function Page() {
 					{loaderData.userExerciseDetails.history ? (
 						<Tabs.Panel value="history">
 							<Stack>
-								{loaderData.userExerciseDetails.history.map((h, ) => (
+								{loaderData.userExerciseDetails.history.map((h) => (
 									<Paper key={h.workoutId} withBorder p="xs">
 										<Anchor
 											component={Link}
@@ -285,37 +297,23 @@ export default function Page() {
 									</Text>
 									<DisplayLifetimeStatistic
 										stat="weight"
-										unit={
-											loaderData.userPreferences.unitSystem ===
-											UserUnitSystem.Metric
-												? "KG"
-												: "LB"
-										}
-										val={
+										val={displayWeightWithUnit(
+											loaderData.userPreferences.unitSystem,
 											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.weight
-										}
+												.exerciseExtraInformation.lifetimeStats.weight,
+										)}
 									/>
 									<DisplayLifetimeStatistic
 										stat="distance"
-										unit={
-											loaderData.userPreferences.unitSystem ===
-											UserUnitSystem.Metric
-												? "KM"
-												: "MI"
-										}
-										val={
+										val={displayDistanceWithUnit(
+											loaderData.userPreferences.unitSystem,
 											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.distance
-										}
+												.exerciseExtraInformation.lifetimeStats.distance,
+										)}
 									/>
 									<DisplayLifetimeStatistic
 										stat="duration"
-										unit="MIN"
-										val={
-											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.duration
-										}
+										val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
 									/>
 									<DisplayLifetimeStatistic
 										stat="reps"
@@ -331,9 +329,79 @@ export default function Page() {
 										}
 									/>
 								</Box>
-								<Text c="teal" ta="center" size="sm" mt="xl">
-									This section is still WIP
-								</Text>
+								{loaderData.userExerciseDetails.details.exerciseExtraInformation
+									.personalBests.length > 0 ? (
+									<Stack>
+										<Divider />
+										<Text size="xs" c="dimmed">
+											PERSONAL BESTS
+										</Text>
+										{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
+											(pb) => (
+												<Box key={pb.lot}>
+													<Text size="sm" c="dimmed">
+														{changeCase(pb.lot)}
+													</Text>
+													<Stack gap="xs" mt="xs">
+														{pb.sets.map((s) => (
+															<Group justify="space-between">
+																<Text size="sm">
+																	{match(pb.lot)
+																		.with(WorkoutSetPersonalBest.OneRm, () =>
+																			Number(s.data.statistic.oneRm).toFixed(2),
+																		)
+																		.with(
+																			WorkoutSetPersonalBest.Reps,
+																			() => s.data.statistic.reps,
+																		)
+																		.with(
+																			WorkoutSetPersonalBest.Time,
+																			() => `${s.data.statistic.duration} min`,
+																		)
+																		.with(WorkoutSetPersonalBest.Volume, () =>
+																			displayWeightWithUnit(
+																				loaderData.userPreferences.unitSystem,
+																				s.data.statistic.volume,
+																			),
+																		)
+																		.with(WorkoutSetPersonalBest.Weight, () =>
+																			displayWeightWithUnit(
+																				loaderData.userPreferences.unitSystem,
+																				s.data.statistic.weight,
+																			),
+																		)
+																		.with(
+																			WorkoutSetPersonalBest.Pace,
+																			() => `${s.data.statistic.pace}/min`,
+																		)
+																		.exhaustive()}
+																</Text>
+																<Group>
+																	<Text size="sm">
+																		{dayjsLib(s.workoutDoneOn).format("ll")}
+																	</Text>
+																	<Anchor
+																		component={Link}
+																		to={
+																			$path("/fitness/workouts/:id", {
+																				id: s.workoutId,
+																				// FIXME: Use the `withFragment` helper from ufo
+																			}) +
+																			`#${loaderData.exerciseDetails.id}__${s.exerciseIdx}`
+																		}
+																		fw="bold"
+																	>
+																		<IconExternalLink size={16} />
+																	</Anchor>
+																</Group>
+															</Group>
+														))}
+													</Stack>
+												</Box>
+											),
+										)}
+									</Stack>
+								) : null}
 							</Stack>
 						</Tabs.Panel>
 					) : null}
@@ -371,8 +439,8 @@ export default function Page() {
 								[
 									{
 										name: loaderData.exerciseDetails.id,
-										lot: loaderData.exerciseDetails.lot
-									}
+										lot: loaderData.exerciseDetails.lot,
+									},
 								],
 								navigate,
 							);
@@ -404,17 +472,13 @@ const DisplayData = (props: {
 };
 
 const DisplayLifetimeStatistic = (props: {
-	// biome-ignore lint/suspicious/noExplicitAny: required here
-	val: any;
-	unit?: string;
+	val: string | number;
 	stat: string;
 }) => {
-	return parseFloat(props.val) !== 0 ? (
+	return parseFloat(props.val.toString()) !== 0 ? (
 		<Flex mt={6} align="center" justify="space-between">
 			<Text size="sm">Total {props.stat}</Text>
-			<Text size="sm">
-				{Number(props.val).toFixed(2)} {props.unit}
-			</Text>
+			<Text size="sm">{props.val}</Text>
 		</Flex>
 	) : null;
 };
