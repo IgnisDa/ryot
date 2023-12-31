@@ -1,6 +1,8 @@
 # Installation
 
-The first user you register is automatically set as admin of the instance.
+!!! info
+
+    The first user you register is automatically set as admin of the instance.
 
 The docker image is `ghcr.io/ignisda/ryot:latest`.
 
@@ -8,7 +10,7 @@ The docker image is `ghcr.io/ignisda/ryot:latest`.
 version: "3.9"
 
 services:
-  postgres:
+  ryot-db:
     image: postgres:16-alpine
     restart: unless-stopped
     volumes:
@@ -21,7 +23,7 @@ services:
   ryot:
     image: "ghcr.io/ignisda/ryot:latest"
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
+      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
     ports:
       - "8000:8000"
     pull_policy: always
