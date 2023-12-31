@@ -1,6 +1,7 @@
 import {
 	ActionIcon,
 	Alert,
+	Box,
 	ColorSchemeScript,
 	Flex,
 	Loader,
@@ -24,6 +25,7 @@ import {
 	ScrollRestoration,
 	useLoaderData,
 	useNavigation,
+	useRouteError,
 } from "@remix-run/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
@@ -35,6 +37,7 @@ import {
 } from "~/lib/utilities.server";
 import { MountPoint } from "./components/confirmation";
 import { colorSchemeCookie } from "./lib/cookies.server";
+import { ReactNode } from "react";
 
 const theme = createTheme({
 	fontFamily: "Poppins",
@@ -101,8 +104,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 const queryClient = new QueryClient();
 
 export default function App() {
-	const navigation = useNavigation();
+	return (
+		<CommonLayout>
+			<Outlet />
+		</CommonLayout>
+	);
+}
+
+const CommonLayout = (props: { children: ReactNode }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const navigation = useNavigation();
 
 	return (
 		<html lang="en">
@@ -147,7 +158,7 @@ export default function App() {
 						) : null}
 						<Toaster toast={loaderData.toast} />
 						<Flex style={{ flexGrow: 1 }} mih="100vh">
-							<Outlet />
+							{props.children}
 						</Flex>
 						<ScrollRestoration />
 						<LiveReload />
@@ -157,4 +168,16 @@ export default function App() {
 			</body>
 		</html>
 	);
-}
+};
+
+export const ErrorBoundary = () => {
+	const error = useRouteError();
+
+	return (
+		<CommonLayout>
+			<Box>
+				<div>{JSON.stringify(error)}</div>
+			</Box>
+		</CommonLayout>
+	);
+};
