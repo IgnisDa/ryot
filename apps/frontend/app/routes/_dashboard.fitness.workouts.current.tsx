@@ -1003,7 +1003,7 @@ const ExerciseDisplay = (props: {
 					<Box ref={parent}>
 						{exerciseDetailsOpened ? (
 							<ScrollArea mb="md" type="scroll">
-								<Group>
+								<Group wrap="nowrap">
 									{props.exercise.exerciseDetails.images.map((i) => (
 										<Image key={i} radius="md" src={i} h={200} w={350} />
 									))}
