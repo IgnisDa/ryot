@@ -7,7 +7,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useSearchParams } from "@remix-run/react";
+import { Form, Link } from "@remix-run/react";
 import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
@@ -21,8 +21,6 @@ import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
-
-const redirectToQueryParam = "redirectTo";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
@@ -83,12 +81,7 @@ const schema = z
 	});
 
 export default function Page() {
-	const [searchParams] = useSearchParams();
-	const [form, fields] = useForm({
-		defaultValue: {
-			redirectTo: searchParams.get(redirectToQueryParam) ?? "",
-		},
-	});
+	const [form, fields] = useForm();
 
 	return (
 		<>

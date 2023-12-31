@@ -272,3 +272,5 @@ export const serializeLocalStorage = (value: string | undefined) => {
 };
 
 export { dayjs as dayjsLib };
+
+export const redirectToQueryParam = "redirectTo";

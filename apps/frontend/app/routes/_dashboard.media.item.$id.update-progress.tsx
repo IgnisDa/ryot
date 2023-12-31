@@ -31,7 +31,7 @@ import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { Verb, dayjsLib, getVerb } from "~/lib/generals";
+import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	ShowAndPodcastSchema,
@@ -42,7 +42,7 @@ const commonSchema = z.object({
 	onlySeason: zx.BoolAsString.optional(),
 	completeShow: zx.BoolAsString.optional(),
 	completePodcast: zx.BoolAsString.optional(),
-	redirectTo: z.string().optional(),
+	[redirectToQueryParam]: z.string().optional(),
 });
 
 const searchParamsSchema = z
@@ -157,8 +157,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	);
 	if (deployBulkProgressUpdate) {
 		return redirectWithToast(
-			query.redirectTo
-				? safeRedirect(query.redirectTo)
+			query[redirectToQueryParam]
+				? safeRedirect(query[redirectToQueryParam])
 				: $path("/media/item/:id", { id: submission.metadataId }),
 			{ message: "Progress has been updated" },
 		);

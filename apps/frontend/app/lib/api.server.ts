@@ -5,6 +5,7 @@ import { GraphQLClient } from "graphql-request";
 import { authCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "./toast.server";
 import { withQuery } from "ufo";
+import { redirectToQueryParam } from "./generals";
 
 export const API_URL = process.env.API_URL;
 
@@ -39,7 +40,7 @@ export const redirectIfNotAuthenticated = async (request: Request) => {
 		const url = new URL(request.url);
 		throw redirect(
 			withQuery($path("/auth/login"), {
-				redirectTo: url.pathname + url.search,
+				[redirectToQueryParam]: url.pathname + url.search,
 			}),
 			{
 				status: 302,
