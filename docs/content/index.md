@@ -1,6 +1,8 @@
 # Installation
 
-The first user you register is automatically set as admin of the instance.
+!!! info
+
+    The first user you register is automatically set as admin of the instance.
 
 The docker image is `ghcr.io/ignisda/ryot:latest`.
 
