@@ -25,7 +25,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
+import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -1498,7 +1498,7 @@ const AdjustSeenTimesModal = (props: {
 			>
 				<Stack>
 					<Title order={3}>Adjust seen times</Title>
-					<DateTimePicker
+					<DateInput
 						label="Start time"
 						required
 						name="startedOn"
@@ -1506,7 +1506,7 @@ const AdjustSeenTimesModal = (props: {
 							props.startedAt ? new Date(props.startedAt) : undefined
 						}
 					/>
-					<DateTimePicker
+					<DateInput
 						label="End time"
 						required
 						name="finishedOn"
