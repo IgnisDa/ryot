@@ -18,8 +18,9 @@ following manner:
 ### Steps
 
 - Login to your Goodreads account and go to the "My Books" section.
-- Right click on the RSS Link on the bottom right of the screen and copy it.
-- Enter this URL in the input.
+- Click on "Import and export" on the left sidebar.
+- Click on "Export Library" and download the CSV file.
+- Upload this file in the input.
 
 ## MediaTracker
 
