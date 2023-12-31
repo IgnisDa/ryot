@@ -173,6 +173,9 @@ impl ExporterService {
     }
 
     async fn user_exports(&self, user_id: i32) -> Result<Vec<ExportJob>> {
+        if !self.config.file_storage.is_enabled() {
+            return Ok(vec![]);
+        }
         let mut resp = vec![];
         let objects = self
             .file_storage_service
