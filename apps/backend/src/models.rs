@@ -6,6 +6,7 @@ use std::{
 
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
+use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -25,10 +26,7 @@ use serde_with::skip_serializing_none;
 use strum::Display;
 
 use crate::{
-    entities::{
-        exercise::ExerciseListItem, partial_metadata::PartialMetadataWithoutId, prelude::Workout,
-        user_measurement, workout,
-    },
+    entities::{exercise::ExerciseListItem, prelude::Workout, user_measurement, workout},
     file_storage::FileStorageService,
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
@@ -41,6 +39,7 @@ pub enum BackgroundJob {
     UpdateAllMetadata,
     UpdateAllExercises,
     RecalculateCalendarEvents,
+    YankIntegrationsData,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
@@ -77,7 +76,7 @@ pub struct SearchInput {
     pub page: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
 pub struct SearchDetails {
     pub total: i32,
     pub next_page: Option<i32>,
@@ -90,6 +89,10 @@ pub struct SearchDetails {
     params(media::MediaSearchItemWithLot)
 ))]
 #[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItemResponse)))]
+#[graphql(concrete(
+    name = "PublicCollectionsListResults",
+    params(media::PublicCollectionItem)
+))]
 #[graphql(concrete(
     name = "MediaCreatorSearchResults",
     params(media::MediaCreatorSearchItem)
@@ -114,15 +117,15 @@ pub struct IdObject {
 /// Complete export of the user.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-pub struct ExportAllResponse {
+pub struct CompleteExport {
     /// Data about user's media.
-    pub media: Vec<media::ImportOrExportMediaItem>,
+    pub media: Option<Vec<media::ImportOrExportMediaItem>>,
     /// Data about user's people.
-    pub people: Vec<media::ImportOrExportPersonItem>,
+    pub people: Option<Vec<media::ImportOrExportPersonItem>>,
     /// Data about user's measurements.
-    pub measurements: Vec<user_measurement::Model>,
+    pub measurements: Option<Vec<user_measurement::Model>>,
     /// Data about user's workouts.
-    pub workouts: Vec<workout::Model>,
+    pub workouts: Option<Vec<workout::Model>>,
 }
 
 #[derive(Debug, InputObject)]
@@ -132,8 +135,30 @@ pub struct ChangeCollectionToEntityInput {
     pub entity_lot: EntityLot,
 }
 
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Default)]
+pub struct IdAndNamedObject {
+    pub id: i32,
+    pub name: String,
+}
+
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum ExportItem {
+    Media,
+    People,
+    Workouts,
+    Measurements,
+}
+
 pub mod media {
     use super::*;
+
+    #[derive(Clone, Debug, PartialEq, Eq, FromQueryResult, SimpleObject)]
+    pub struct PublicCollectionItem {
+        pub id: i32,
+        pub name: String,
+        pub username: String,
+    }
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MediaSearchItemWithLot {
@@ -145,6 +170,8 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaSearchItemResponse {
         pub item: MediaSearchItem,
+        /// Whether the user has interacted with this media item.
+        pub has_interacted: bool,
         pub database_id: Option<i32>,
     }
 
@@ -667,6 +694,21 @@ pub mod media {
         pub creators_interacted_with: usize,
         pub media_interacted_with: u64,
     }
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
+    pub struct UserFitnessWorkoutSummary {
+        pub recorded: u64,
+        pub duration: u64,
+    }
 
     #[derive(
         SimpleObject,
@@ -681,8 +723,9 @@ pub mod media {
     )]
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
-        pub workouts_recorded: u64,
         pub exercises_interacted_with: u64,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub workouts: UserFitnessWorkoutSummary,
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
@@ -773,9 +816,10 @@ pub mod media {
         pub identifier: String,
         pub source: MetadataSource,
         pub role: String,
+        pub character: Option<String>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
     pub struct MetadataPerson {
         pub identifier: String,
         pub source: MetadataSource,
@@ -851,6 +895,8 @@ pub mod media {
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
     pub struct ImportOrExportItemReview {
+        /// The visibility set by the user.
+        pub visibility: Option<Visibility>,
         /// The date the review was posted.
         pub date: Option<DateTimeUtc>,
         /// Whether to mark the review as a spoiler. Defaults to false.
@@ -1103,6 +1149,22 @@ pub mod media {
         pub review_id: i32,
         pub entity_lot: EntityLot,
     }
+
+    #[boilermates("PartialMetadataWithoutId")]
+    #[boilermates(attr_for(
+        "PartialMetadataWithoutId",
+        "#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]"
+    ))]
+    #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]
+    pub struct PartialMetadata {
+        #[boilermates(not_in("PartialMetadataWithoutId"))]
+        pub id: i32,
+        pub identifier: String,
+        pub title: String,
+        pub image: Option<String>,
+        pub lot: MetadataLot,
+        pub source: MetadataSource,
+    }
 }
 
 pub mod fitness {
@@ -1239,7 +1301,6 @@ pub mod fitness {
         pub distance: Decimal,
         pub duration: Decimal,
         /// The total seconds that were logged in the rest timer.
-        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
         #[serde(default)]
         pub rest_time: u16,
     }
@@ -1282,6 +1343,8 @@ pub mod fitness {
         pub reps: Option<usize>,
         pub weight: Option<Decimal>,
         pub one_rm: Option<Decimal>,
+        pub pace: Option<Decimal>,
+        pub volume: Option<Decimal>,
     }
 
     /// The types of set (mostly characterized by exertion level).
@@ -1363,7 +1426,6 @@ pub mod fitness {
         pub lot: SetLot,
         pub personal_bests: Vec<WorkoutSetPersonalBest>,
         pub confirmed_at: Option<DateTimeUtc>,
-        // FIXME: Ask users to re-evaluate workouts, remove in the next major release
         #[serde(default)]
         pub totals: WorkoutSetTotals,
     }
@@ -1408,6 +1470,10 @@ pub mod fitness {
     )]
     pub struct ExerciseBestSetRecord {
         pub workout_id: String,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub exercise_idx: usize,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub workout_done_on: DateTimeUtc,
         pub set_idx: usize,
         pub data: WorkoutSetRecord,
     }
@@ -1480,18 +1546,14 @@ pub mod fitness {
         Schematic,
     )]
     pub struct ProcessedExercise {
-        // FIXME: Ask users to recalculate user_to_entity and then remove this
-        #[serde(rename = "name")]
-        pub id: String,
+        pub name: String,
         pub lot: ExerciseLot,
         pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
         pub total: WorkoutOrExerciseTotals,
-        #[serde(default)] // FIXME: Remove this
         pub assets: EntityAssets,
         /// The indices of the exercises with which this has been superset with.
-        #[serde(default)] // FIXME: Remove this
         pub superset_with: Vec<u16>,
     }
 
@@ -1528,7 +1590,6 @@ pub mod fitness {
     )]
     pub struct WorkoutInformation {
         pub exercises: Vec<ProcessedExercise>,
-        #[serde(default)] // FIXME: Remove this
         pub assets: EntityAssets,
     }
 
@@ -1546,7 +1607,6 @@ pub mod fitness {
     )]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
-        // FIXME: Ask users to recalculate user_to_entity and then remove this
         #[serde(alias = "name")]
         pub id: String,
         pub lot: ExerciseLot,
@@ -1603,12 +1663,14 @@ pub mod fitness {
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
         pub assets: EntityAssets,
-        #[serde(default)] // FIXME: Remove this
         pub superset_with: Vec<u16>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct UserWorkoutInput {
+        #[graphql(skip_input)]
+        // If specified, the workout will be created with this ID.
+        pub id: Option<String>,
         pub name: String,
         pub comment: Option<String>,
         pub start_time: DateTimeUtc,

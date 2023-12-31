@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 use chrono::Utc;
 use database::ExerciseLot;
+use nanoid::nanoid;
 use rs_utils::LengthVec;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -91,18 +92,16 @@ impl UserWorkoutInput {
         self,
         user_id: i32,
         db: &DatabaseConnection,
-        // TODO: Make this optional and a part of the input itself. If set, the
-        // generated workout will have that as the ID.
-        id: String,
         save_history: usize,
     ) -> Result<String> {
         let mut input = self;
+        let id = input.id.unwrap_or_else(|| nanoid!(12));
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         if input.exercises.is_empty() {
             bail!("This workout has no associated exercises")
         }
-        for (idx, ex) in input.exercises.iter_mut().enumerate() {
+        for (exercise_idx, ex) in input.exercises.iter_mut().enumerate() {
             if ex.sets.is_empty() {
                 bail!("This exercise has no associated sets")
             }
@@ -124,7 +123,7 @@ impl UserWorkoutInput {
                 .flatten();
             let history_item = UserToExerciseHistoryExtraInformation {
                 workout_id: id.clone(),
-                idx,
+                idx: exercise_idx,
             };
             let association = match association {
                 None => {
@@ -184,6 +183,8 @@ impl UserWorkoutInput {
                     personal_bests: vec![],
                 };
                 value.statistic.one_rm = value.calculate_one_rm();
+                value.statistic.pace = value.calculate_pace();
+                value.statistic.volume = value.calculate_volume();
                 sets.push(value);
             }
             let mut personal_bests = association
@@ -226,6 +227,8 @@ impl UserWorkoutInput {
                 for best in set.personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
                         workout_id: id.clone(),
+                        workout_done_on: input.end_time,
+                        exercise_idx,
                         set_idx,
                         data: set.clone(),
                     };
@@ -253,7 +256,7 @@ impl UserWorkoutInput {
             exercises.push((
                 db_ex.lot,
                 ProcessedExercise {
-                    id: db_ex.id,
+                    name: db_ex.id,
                     lot: db_ex.lot,
                     sets,
                     notes: ex.notes.clone(),
@@ -278,7 +281,7 @@ impl UserWorkoutInput {
                     .iter()
                     .map(|(lot, e)| WorkoutSummaryExercise {
                         num_sets: e.sets.len(),
-                        id: e.id.clone(),
+                        id: e.name.clone(),
                         lot: *lot,
                         best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
                     })
@@ -302,7 +305,7 @@ impl workout::Model {
         for (idx, ex) in self.information.exercises.iter().enumerate() {
             let association = match UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(user_to_entity::Column::ExerciseId.eq(ex.id.clone()))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
                 .one(db)
                 .await?
             {

@@ -1,0 +1,8 @@
+query UserExports {
+  userExports {
+    startedAt
+    endedAt
+    url
+    exported
+  }
+}

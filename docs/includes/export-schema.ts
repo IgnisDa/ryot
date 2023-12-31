@@ -60,6 +60,8 @@ export interface ImportOrExportItemReviewComment {
 	user: ReviewCommentUser;
 }
 
+export type Visibility = 'public' | 'private';
+
 /** Review data associated to a rating. */
 export interface ImportOrExportItemReview {
 	/** The date the review was posted. */
@@ -68,6 +70,8 @@ export interface ImportOrExportItemReview {
 	spoiler: boolean | null;
 	/** Actual text for the review. */
 	text: string | null;
+	/** The visibility set by the user. */
+	visibility: Visibility | null;
 }
 
 /** A rating given to an entity. */
@@ -151,7 +155,9 @@ export interface WorkoutSetStatistic {
 	distance: string | null;
 	duration: string | null;
 	oneRm: string | null;
+	pace: string | null;
 	reps: number | null;
+	volume: string | null;
 	weight: string | null;
 }
 
@@ -224,13 +230,13 @@ export interface Workout {
 }
 
 /** Complete export of the user. */
-export interface ExportAllResponse {
+export interface CompleteExport {
 	/** Data about user's measurements. */
-	measurements: UserMeasurement[];
+	measurements: UserMeasurement[] | null;
 	/** Data about user's media. */
-	media: ImportOrExportMediaItem[];
+	media: ImportOrExportMediaItem[] | null;
 	/** Data about user's people. */
-	people: ImportOrExportPersonItem[];
+	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workouts. */
-	workouts: Workout[];
+	workouts: Workout[] | null;
 }

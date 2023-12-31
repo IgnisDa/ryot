@@ -90,6 +90,17 @@ export interface FileStorageConfig {
 	s3_url: string;
 }
 
+/**
+ * The configuration related to Umami analytics. More information
+ * [here](https://umami.is/docs/tracker-configuration).
+ */
+export interface FrontendUmamiConfig {
+	domains: string;
+	/** For example: https://umami.is/script.js */
+	script_url: string;
+	website_id: string;
+}
+
 export interface FrontendConfig {
 	/**
 	 * The height of the right section of an item's details page in pixels.
@@ -101,6 +112,10 @@ export interface FrontendConfig {
 	 * @default 20
 	 */
 	page_size: number;
+	/** Settings related to Umami analytics. */
+	umami: FrontendUmamiConfig;
+	/** @default 'https://ryot.fly.dev' */
+	url: string;
 }
 
 export interface IntegrationConfig {
@@ -200,11 +215,10 @@ export interface ServerConfig {
 	 */
 	deploy_admin_jobs_allowed: boolean;
 	/**
-	 * This will make auth cookies insecure and should be set to `true` if you
-	 * are running the server on `localhost`.
-	 * [More information](https://github.com/IgnisDa/ryot/issues/23)
+	 * Whether the graphql playground will be enabled.
+	 * @default true
 	 */
-	insecure_cookie: boolean;
+	graphql_playground_enabled: boolean;
 	/**
 	 * The maximum file size in MB for user uploads.
 	 * @default 70
@@ -222,8 +236,6 @@ export interface ServerConfig {
 	 * @default 2
 	 */
 	progress_update_threshold: number;
-	/** This will set SameSite=None on the auth cookies. */
-	samesite_none: boolean;
 	/**
 	 * Whether monitored media will be updated.
 	 * @default true
@@ -238,23 +250,17 @@ export interface ServerConfig {
 
 export interface UsersConfig {
 	/**
-	 * Whether users will be allowed to change their password in their profile
-	 * settings.
+	 * Whether users will be allowed to change their username and password in their
+	 * profile settings.
 	 * @default true
 	 */
-	allow_changing_password: boolean;
+	allow_changing_credentials: boolean;
 	/**
 	 * Whether users will be allowed to change their preferences in their profile
 	 * settings.
 	 * @default true
 	 */
 	allow_changing_preferences: boolean;
-	/**
-	 * Whether users will be allowed to change their username in their profile
-	 * settings.
-	 * @default true
-	 */
-	allow_changing_username: boolean;
 	/**
 	 * Whether new users will be allowed to sign up to this instance.
 	 * @default true

@@ -243,15 +243,31 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
+/// The configuration related to Umami analytics. More information
+/// [here](https://umami.is/docs/tracker-configuration).
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
+pub struct FrontendUmamiConfig {
+    /// For example: https://umami.is/script.js
+    pub script_url: String,
+    pub website_id: String,
+    pub domains: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
+    #[setting(default = "https://ryot.fly.dev")]
+    pub url: String,
     /// The height of the right section of an item's details page in pixels.
     #[setting(default = 300)]
     pub item_details_height: u32,
     /// The number of items to display in a list view.
     #[setting(default = 20)]
     pub page_size: i32,
+    /// Settings related to Umami analytics.
+    #[setting(nested)]
+    pub umami: FrontendUmamiConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -305,7 +321,7 @@ pub struct SchedulerConfig {
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
     /// The path where the config file will be written once the server boots up.
-    #[setting(default = format!("/data/{}-config.json", PROJECT_NAME))]
+    #[setting(default = format!("tmp/{}-config.json", PROJECT_NAME))]
     pub config_dump_path: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
@@ -313,12 +329,6 @@ pub struct ServerConfig {
     /// Whether default credentials will be populated on the login page of the
     /// instance.
     pub default_credentials: bool,
-    /// This will make auth cookies insecure and should be set to `true` if you
-    /// are running the server on `localhost`.
-    /// [More information](https://github.com/IgnisDa/ryot/issues/23)
-    pub insecure_cookie: bool,
-    /// This will set SameSite=None on the auth cookies.
-    pub samesite_none: bool,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
@@ -340,6 +350,9 @@ pub struct ServerConfig {
     /// Whether monitored media will be updated.
     #[setting(default = true)]
     pub update_monitored_media: bool,
+    /// Whether the graphql playground will be enabled.
+    #[setting(default = true)]
+    pub graphql_playground_enabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -348,18 +361,14 @@ pub struct UsersConfig {
     /// The secret used for generating JWT tokens.
     #[setting(default = format!("{}", PROJECT_NAME))]
     pub jwt_secret: String,
-    /// Whether users will be allowed to change their password in their profile
-    /// settings.
-    #[setting(default = true)]
-    pub allow_changing_password: bool,
     /// Whether users will be allowed to change their preferences in their profile
     /// settings.
     #[setting(default = true)]
     pub allow_changing_preferences: bool,
-    /// Whether users will be allowed to change their username in their profile
-    /// settings.
+    /// Whether users will be allowed to change their username and password in their
+    /// profile settings.
     #[setting(default = true)]
-    pub allow_changing_username: bool,
+    pub allow_changing_credentials: bool,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,

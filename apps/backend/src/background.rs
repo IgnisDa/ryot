@@ -9,12 +9,14 @@ use strum::Display;
 
 use crate::{
     entities::metadata,
+    exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
     models::{
         fitness::Exercise,
         media::{PartialMetadataPerson, ProgressUpdateInput, ReviewPostedEvent},
+        ExportItem,
     },
 };
 
@@ -87,7 +89,6 @@ pub async fn yank_integrations_data(
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
     ImportFromExternalSource(i32, DeployImportJobInput),
-    UserCreated(i32),
     RecalculateUserSummary(i32),
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(metadata::Model),
@@ -96,7 +97,9 @@ pub enum ApplicationJob {
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
+    YankIntegrationsData(i32),
     ReviewPosted(ReviewPostedEvent),
+    PerformExport(i32, Vec<ExportItem>),
 }
 
 impl Job for ApplicationJob {
@@ -110,6 +113,7 @@ pub async fn perform_application_job(
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
+    let exporter_service = ctx.data::<Arc<ExporterService>>().unwrap();
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
     let start = Instant::now();
@@ -118,16 +122,12 @@ pub async fn perform_application_job(
             .start_importing(user_id, input)
             .await
             .is_ok(),
-        ApplicationJob::UserCreated(user_id) => {
-            misc_service.user_created_job(user_id).await.ok();
-            misc_service.user_created_job(user_id).await.ok();
-            misc_service
-                .calculate_user_summary(user_id, true)
-                .await
-                .is_ok()
-        }
         ApplicationJob::RecalculateUserSummary(user_id) => misc_service
             .calculate_user_summary(user_id, true)
+            .await
+            .is_ok(),
+        ApplicationJob::YankIntegrationsData(user_id) => misc_service
+            .yank_integrations_data_for_user(user_id)
             .await
             .is_ok(),
         ApplicationJob::ReEvaluateUserWorkouts(user_id) => exercise_service
@@ -173,6 +173,10 @@ pub async fn perform_application_job(
         ApplicationJob::ReviewPosted(event) => {
             misc_service.handle_review_posted_event(event).await.is_ok()
         }
+        ApplicationJob::PerformExport(user_id, to_export) => exporter_service
+            .perform_export(user_id, to_export)
+            .await
+            .is_ok(),
     };
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",

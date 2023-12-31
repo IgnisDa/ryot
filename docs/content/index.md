@@ -16,15 +16,14 @@ services:
     volumes:
       - postgres_storage:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
 
   ryot:
     image: "ghcr.io/ignisda/ryot:latest"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
-      # - SERVER_INSECURE_COOKIE=true # only needed in localhost or non-https
     ports:
       - "8000:8000"
     pull_policy: always
@@ -50,12 +49,4 @@ eget ignisda/ryot
 
 ## Compile and run from source
 
-First install [moonrepo](https://moonrepo.dev/) and then build and run projects:
-
-```bash
-# 1) Build the frontend
-moon run frontend:build
-
-# 2) Run the backend (with frontend bundled)
-cargo run --bin ryot
-```
+Please take a look at the development [docs](architecture.md#development).

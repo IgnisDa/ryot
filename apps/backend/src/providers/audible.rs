@@ -12,13 +12,12 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    entities::{
-        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
-    },
+    entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
+            PartialMetadataWithoutId,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -105,7 +104,7 @@ struct AudibleRatings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AudibleAuthor {
-    asin: String,
+    asin: Option<String>,
     name: String,
 }
 
@@ -384,10 +383,13 @@ impl AudibleService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| PartialMetadataPerson {
-                identifier: a.asin,
-                source: MetadataSource::Audible,
-                role: "Author".to_owned(),
+            .filter_map(|a| {
+                a.asin.map(|au| PartialMetadataPerson {
+                    identifier: au,
+                    source: MetadataSource::Audible,
+                    role: "Author".to_owned(),
+                    character: None,
+                })
             })
             .collect_vec();
         let creators = item

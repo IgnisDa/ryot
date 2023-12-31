@@ -7,6 +7,7 @@ query UserExerciseDetails($input: UserExerciseDetailsInput!) {
       workoutId
       workoutName
       workoutTime
+      index
       sets {
         lot
         statistic {
@@ -30,6 +31,8 @@ query UserExerciseDetails($input: UserExerciseDetailsInput!) {
           lot
           sets {
             workoutId
+            workoutDoneOn
+            exerciseIdx
             setIdx
             data {
               statistic {

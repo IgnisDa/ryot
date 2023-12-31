@@ -1,11 +1,12 @@
 # Importing
 
 Importing is meant to be a one-time operation. They are irreversible. Ryot
-supports importing media from a number of sources. To start importing, click on
-"Imports and Exports" link under the "Settings" section in the sidebar.
+supports importing media from a number of sources. I recommend you make a database backup
+before starting an import. To start, click on "Imports and Exports" link under the
+"Settings" section in the sidebar.
 
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
-You can go to the reports page by click on "Reports" link on the imports page.
+You can go to the reports page by clicking on "Reports" link on the imports page.
 
 ## Goodreads
 
@@ -37,14 +38,11 @@ the following caveats:
 - Copy the token that was just generated.
 - Enter the details in the inputs.
 
-## Media JSON
+## Generic JSON
 
 This can be used to import data from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#media-typemedia)
+required is described in the [exporting](guides/exporting.md#type-definition)
 documentation.
-
-You can see an example file by exporting from the demo instance as described
-in the [exporting](guides/exporting.md) documentation example.
 
 ## Movary
 
@@ -104,11 +102,9 @@ guide.
 - Login to your Strong account on the app and go to the "Settings" page.
 - Scroll down to the "General" section and click on "Export data".
 - Send the file to your desktop/laptop and upload it in the input.
-- A new section will appear where you will have to map each exercise from your export. For
-  example: "Arnold Press (Dumbbell)" -> "Arnold Dumbbell Press". All exercises need to be
-  mapped.
-- If an exercise does not exist in your instance, you need to create it. Then
-  come back and change the input to the new exercise.
+- The mapping section is used to map exercises from Strong to Ryot. Each exercise must be
+  mapped, otherwise the import will fail.
+- If an exercise does not exist in your instance, you need to create it before mapping it.
 - Once you have mapped all the exercises, click on "Import".
 
 ## Trakt

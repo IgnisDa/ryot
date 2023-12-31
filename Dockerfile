@@ -1,6 +1,9 @@
-FROM --platform=$BUILDPLATFORM node:20.5.1 AS base
+FROM --platform=$BUILDPLATFORM node:20.5.1-bookworm-slim AS node-base
+
+FROM node-base AS base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
+RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
 RUN npm install -g @moonrepo/cli && moon --version
 
 FROM base AS frontend-workspace
@@ -24,7 +27,7 @@ FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef AS app-builder 
+FROM chef AS app-builder
 ARG TARGETARCH
 ENV RUST_TARGET_TRIPLE_arm64="aarch64-unknown-linux-musl"
 ENV RUST_TARGET_TRIPLE_amd64="x86_64-unknown-linux-musl"
@@ -32,24 +35,26 @@ ENV CC_aarch64_unknown_linux_musl="clang"
 ENV AR_aarch64_unknown_linux_musl="llvm-ar"
 ENV CFLAGS_aarch64_unknown_linux_musl="-nostdinc -nostdlib -isystem/usr/include/x86_64-linux-musl/"
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-Clink-self-contained=yes -Clinker=rust-lld -Clink-args=-L/usr/lib/x86_64-linux-musl/"
-COPY --from=planner /app/recipe.json recipe.json 
+COPY --from=planner /app/recipe.json recipe.json
 RUN rustup target add $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH")
 RUN cargo chef cook --profile dist --target $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH") --recipe-path recipe.json
 COPY . .
-COPY --from=frontend-builder /app/apps/frontend/out ./apps/frontend/out
 RUN ./apps/backend/ci/build-app.sh
 
-# taken from https://medium.com/@lizrice/non-privileged-containers-based-on-the-scratch-image-a80105d6d341
-FROM ubuntu:latest as user-creator
-RUN useradd -u 1001 ryot
+FROM caddy:2.7.5 as reverse-proxy
 
-FROM scratch
-COPY --from=chef /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=user-creator /etc/passwd /etc/passwd
+FROM node-base
+RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN useradd -m -u 1001 ryot
+WORKDIR /home/ryot
 USER ryot
-# This is actually a hack to ensure that the `/data` directory exists in the image
-# since we can not use `RUN` directly (there is no shell to execute it).
-WORKDIR /data
-COPY --from=app-builder --chown=ryot:ryot /app/ryot /app
-COPY apps/backend/ci/app.json ./app.json
-ENTRYPOINT ["/app"]
+COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY config/Caddyfile /etc/caddy/Caddyfile
+COPY --from=reverse-proxy /usr/bin/caddy /usr/local/bin/caddy
+COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules ./node_modules
+COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
+COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
+COPY --from=app-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
+HEALTHCHECK --interval=5m --timeout=3s \
+  CMD curl -f http://localhost:5000/config || exit 1
+CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf" ]

@@ -8,7 +8,6 @@ use axum::{
     http::{request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
-use axum_extra::extract::cookie::CookieJar;
 use chrono::Utc;
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
@@ -31,6 +30,7 @@ use crate::{
         prelude::{Collection, CollectionToEntity, User, UserToEntity},
         user, user_to_entity,
     },
+    exporter::ExporterService,
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
     importer::ImporterService,
@@ -41,7 +41,6 @@ use crate::{
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const COOKIE_NAME: &str = "auth";
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const USER_AGENT_STR: &str = const_str::concat!(
@@ -63,6 +62,7 @@ pub struct AppServices {
     pub config: Arc<config::AppConfig>,
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
+    pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
 }
@@ -100,10 +100,17 @@ pub async fn create_app_services(
         media_service.clone(),
         exercise_service.clone(),
     ));
+    let exporter_service = Arc::new(ExporterService::new(
+        config.clone(),
+        file_storage_service.clone(),
+        media_service.clone(),
+        exercise_service.clone(),
+    ));
     AppServices {
         config,
         media_service,
         importer_service,
+        exporter_service,
         file_storage_service,
         exercise_service,
     }
@@ -338,9 +345,7 @@ where
         let mut ctx = AuthContext {
             ..Default::default()
         };
-        if let Some(c) = parts.extract::<CookieJar>().await.unwrap().get(COOKIE_NAME) {
-            ctx.auth_token = Some(c.value().to_owned());
-        } else if let Some(h) = parts.headers.get(AUTHORIZATION) {
+        if let Some(h) = parts.headers.get(AUTHORIZATION) {
             ctx.auth_token = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
         } else if let Some(h) = parts.headers.get("X-Auth-Token") {
             ctx.auth_token = h.to_str().map(String::from).ok();

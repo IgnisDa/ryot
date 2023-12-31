@@ -32,9 +32,9 @@ use crate::{
     utils::partial_user_by_id,
 };
 
+mod generic_json;
 mod goodreads;
 mod mal;
-mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
@@ -63,11 +63,11 @@ pub struct DeployTraktImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMovaryImportInput {
-    // The CSV contents of the history file.
+    // The file path of the uploaded CSV history file.
     history: String,
-    // The CSV contents of the ratings file.
+    // The file path of the uploaded CSV ratings file.
     ratings: String,
-    // The CSV contents of the watchlist file.
+    // The file path of the uploaded CSV watchlist file.
     watchlist: String,
 }
 
@@ -81,7 +81,7 @@ pub struct DeployMalImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployStoryGraphImportInput {
-    // The CSV contents of the export file.
+    // The file path of the uploaded CSV export file.
     export: String,
 }
 
@@ -100,8 +100,8 @@ pub struct DeployStrongAppImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployMediaJsonImportInput {
-    // The contents of the JSON export.
+pub struct DeployGenericJsonImportInput {
+    // The file path of the uploaded JSON export.
     export: String,
 }
 
@@ -115,7 +115,7 @@ pub struct DeployImportJobInput {
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
-    pub media_json: Option<DeployMediaJsonImportInput>,
+    pub generic_json: Option<DeployGenericJsonImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -267,7 +267,7 @@ impl ImporterService {
     async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
-            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await?,
+            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap()).await.unwrap(),
             _ => unreachable!(),
         };
         let details = ImportResultResponse {
@@ -290,21 +290,22 @@ impl ImporterService {
     async fn import_media(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let mut import = match input.source {
-            ImportSource::MediaTracker => {
-                media_tracker::import(input.media_tracker.unwrap()).await?
-            }
-            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await?,
-            ImportSource::Mal => mal::import(input.mal.unwrap()).await?,
-            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await?,
-            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await?,
-            ImportSource::Movary => movary::import(input.movary.unwrap()).await?,
-            ImportSource::StoryGraph => {
-                story_graph::import(
-                    input.story_graph.unwrap(),
-                    &self.media_service.get_openlibrary_service().await?,
-                )
-                .await?
-            }
+            ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
+                .await
+                .unwrap(),
+            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap())
+                .await
+                .unwrap(),
+            ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
+            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await.unwrap(),
+            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
+            ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
+            ImportSource::StoryGraph => story_graph::import(
+                input.story_graph.unwrap(),
+                &self.media_service.get_openlibrary_service().await.unwrap(),
+            )
+            .await
+            .unwrap(),
             _ => unreachable!(),
         };
         let preferences =
@@ -404,6 +405,7 @@ impl ImporterService {
                             rating,
                             text,
                             spoiler,
+                            visibility: review.review.clone().and_then(|r| r.visibility),
                             date: date.flatten(),
                             metadata_id: Some(metadata.id),
                             show_season_number: review.show_season_number,

@@ -4,73 +4,19 @@ use anyhow::Result;
 use async_graphql::http::GraphiQLSource;
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
-    body::{boxed, Full},
     extract::{Multipart, Path},
-    http::{header, StatusCode, Uri},
-    response::{Html, IntoResponse, Response},
+    http::StatusCode,
+    response::{Html, IntoResponse},
     Extension, Json,
 };
-use rust_embed::RustEmbed;
+use nanoid::nanoid;
 use serde_json::json;
 
 use crate::{
-    fitness::resolver::ExerciseService,
     graphql::GraphqlSchema,
     miscellaneous::resolver::MiscellaneousService,
-    models::ExportAllResponse,
     utils::{AuthContext, TEMP_DIR},
 };
-
-static INDEX_HTML: &str = "index.html";
-
-#[derive(RustEmbed)]
-#[folder = "../frontend/out/"]
-struct Assets;
-
-pub async fn static_handler(uri: Uri) -> impl IntoResponse {
-    let mut path = uri.path().trim_start_matches('/').to_owned();
-
-    if path.is_empty() || path == INDEX_HTML {
-        return index_html().await;
-    }
-
-    if !path.contains('.') {
-        path.push_str(".html");
-    }
-
-    match Assets::get(&path) {
-        Some(content) => {
-            let body = boxed(Full::from(content.data));
-            let mime = mime_guess::from_path(path).first_or_octet_stream();
-
-            Response::builder()
-                .header(header::CONTENT_TYPE, mime.as_ref())
-                .body(body)
-                .unwrap()
-        }
-        None => not_found().await,
-    }
-}
-
-pub async fn index_html() -> Response {
-    match Assets::get(INDEX_HTML) {
-        Some(content) => {
-            let body = boxed(Full::from(content.data));
-            Response::builder()
-                .header(header::CONTENT_TYPE, "text/html")
-                .body(body)
-                .unwrap()
-        }
-        None => not_found().await,
-    }
-}
-
-pub async fn not_found() -> Response {
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(boxed(Full::from("404")))
-        .unwrap()
-}
 
 pub async fn graphql_handler(
     schema: Extension<GraphqlSchema>,
@@ -81,7 +27,11 @@ pub async fn graphql_handler(
 }
 
 pub async fn graphql_playground() -> impl IntoResponse {
-    Html(GraphiQLSource::build().endpoint("/graphql").finish())
+    Html(
+        GraphiQLSource::build()
+            .endpoint("/backend/graphql")
+            .finish(),
+    )
 }
 
 pub async fn config_handler(
@@ -102,57 +52,12 @@ pub async fn upload_file(
             .map(String::from)
             .unwrap_or_else(|| "file.png".to_string());
         let data = file.bytes().await.unwrap();
-        let tmp_dir = PathBuf::new().join(TEMP_DIR);
-        let path = tmp_dir.join(name);
+        let name = format!("{}-{}", nanoid!(), name);
+        let path = PathBuf::new().join(TEMP_DIR).join(name);
         write(&path, data).unwrap();
         res.push(path.canonicalize().unwrap());
     }
     Ok(Json(json!(res)))
-}
-
-pub async fn json_export(
-    Path(export_type): Path<String>,
-    Extension(media_service): Extension<Arc<MiscellaneousService>>,
-    Extension(exercise_service): Extension<Arc<ExerciseService>>,
-    ctx: AuthContext,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = ctx.user_id.ok_or_else(|| {
-        (
-            StatusCode::FORBIDDEN,
-            Json(json!({"err": "User is not authenticated"})),
-        )
-    })?;
-    let resp = match export_type.as_str() {
-        "all" => {
-            let media = media_service.export_media(user_id).await.unwrap();
-            let people = media_service.export_people(user_id).await.unwrap();
-            let measurements = exercise_service.export_measurements(user_id).await.unwrap();
-            let workouts = exercise_service.export_workouts(user_id).await.unwrap();
-            json!(ExportAllResponse {
-                media,
-                people,
-                measurements,
-                workouts
-            })
-        }
-        "media" => {
-            json!(media_service.export_media(user_id).await.unwrap())
-        }
-        "people" => {
-            json!(media_service.export_people(user_id).await.unwrap())
-        }
-        "measurements" => {
-            json!(exercise_service.export_measurements(user_id).await.unwrap())
-        }
-        "workouts" => {
-            json!(exercise_service.export_workouts(user_id).await.unwrap())
-        }
-        _ => Err((
-            StatusCode::BAD_REQUEST,
-            Json(json!({"err": "This type of export is not supported"})),
-        ))?,
-    };
-    Ok(Json(resp))
 }
 
 pub async fn integration_webhook(

@@ -67,7 +67,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
             .mapping
             .iter()
             .find(|m| m.source_name == entry.exercise_name.trim())
-            .unwrap();
+            .ok_or_else(|| format!("No mapping found for '{}'", entry.exercise_name))?;
         let mut weight = entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
         if let Some(mul) = target_exercise.multiplier {
             weight = weight.map(|w| w.saturating_mul(mul));
@@ -78,7 +78,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 distance: entry.distance,
                 reps: entry.reps,
                 weight,
-                one_rm: None,
+                ..Default::default()
             },
             lot: SetLot::Normal,
             confirmed_at: None,
@@ -115,6 +115,7 @@ pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
                 Duration::seconds(0)
             };
             workouts.push(UserWorkoutInput {
+                id: None,
                 name: entry.workout_name,
                 comment: entry.workout_notes,
                 start_time: ndt,

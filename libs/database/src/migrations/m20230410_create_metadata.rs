@@ -113,7 +113,7 @@ pub enum Metadata {
     PublishDate,
     // production status
     ProductionStatus,
-    // the original language of the media
+    // the original language
     OriginalLanguage,
     // all the images for this media item
     Images,
@@ -127,6 +127,8 @@ pub enum Metadata {
     ProviderRating,
     // details about the media
     Specifics,
+    // whether the entire data for this has been downloaded
+    IsPartial,
     // whether it is not safe for work
     IsNsfw,
     // time when this item has been processed by the calendar indexer
@@ -175,10 +177,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::Images).json_binary())
                     .col(ColumnDef::new(Metadata::Videos).json_binary())
-                    .col(ColumnDef::new(Metadata::IsNsfw).boolean().default(false))
+                    .col(ColumnDef::new(Metadata::IsPartial).boolean())
+                    .col(ColumnDef::new(Metadata::IsNsfw).boolean())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
-                    .col(ColumnDef::new(Metadata::Specifics).json_binary().not_null())
+                    .col(ColumnDef::new(Metadata::Specifics).json_binary())
                     .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
                     .to_owned(),
             )

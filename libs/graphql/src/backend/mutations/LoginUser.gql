@@ -6,6 +6,7 @@ mutation LoginUser($input: UserInput!) {
     }
     ... on LoginResponse {
       apiKey
+      validFor
     }
   }
 }

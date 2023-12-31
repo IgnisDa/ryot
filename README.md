@@ -19,15 +19,20 @@
 </div>
 
 <p align="center">
-    <a href="https://ignisda.github.io/ryot" target="_blank" rel="noopener noreferrer">Documentation</a> •
-    <a href="https://ignisda.github.io/ryot/configuration" target="_blank" rel="noopener noreferrer">Configuration</a> •
-    <a href="https://ryot.fly.dev" target="_blank" rel="noopener noreferrer">Demo</a>
+    <a href="https://ignisda.github.io/ryot" target="_blank">Documentation</a> •
+    <a href="https://ignisda.github.io/ryot/configuration" target="_blank">Configuration</a> •
+    <a href="https://ryot.fly.dev" target="_blank">Demo</a>
 </p>
 
 <br/>
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
+
+## IMPORTANT NOTE FOR `v3.*` USERS
+
+If you were using `v3.*` of Ryot, please read the
+[migration guide](https://ignisda.github.io/ryot/migration.html#from-v3-to-v4) for instructions.
 
 ## 💻 Demo
 
@@ -67,8 +72,9 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 ## 🙏 Acknowledgements
 
-It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker).
-Moreover thanks to all those people whose stuff I have used.
+It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
+similar projects. Also a massive thanks to all the
+[contributors](https://github.com/IgnisDa/ryot/graphs/contributors).
 
 The logo is taken from
 [Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).

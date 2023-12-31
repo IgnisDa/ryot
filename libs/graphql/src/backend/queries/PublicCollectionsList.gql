@@ -1,0 +1,13 @@
+query PublicCollectionsList($input: SearchInput!) {
+  publicCollectionsList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items {
+      id
+      name
+      username
+    }
+  }
+}

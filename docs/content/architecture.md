@@ -1,11 +1,11 @@
 # Architecture
 
-In production, the frontend is a pre-rendered Nextjs app served statically by the Axum
-backend server.
+The frontend is a Remix app, the backend is an Axum server. All these run behind a Caddy
+reverse proxy managed by `supervisord`.
 
 ## Logs
 
-Logs are written to both stdout and `ryot.log.*` in the working directory. If you
+Logs are written to both stdout and `ryot.log.*` in `/home/ryot/tmp/*`. If you
 are reporting a bug, please attach the latest log.
 
 ## Development
@@ -16,11 +16,9 @@ with all tools installed.
 
 ### Environment
 
-In development, both servers are started independently running on `:3000` and `:8000`
-respectively. To get them running, install [mprocs](https://github.com/pvolok/mprocs), and
-run `mprocs` in the project root. If you do not want to install `mprocs`, take a look at
-[`mproc.yaml`]({{ extra.file_path }}/mprocs.yaml) to see what all commands are
-needed to get it working.
+In development, both servers are started independently running on `:3000` and `:5000`
+respectively and reverse proxied at `:8000`. To get them running, install
+[mprocs](https://github.com/pvolok/mprocs), and run `mprocs` in the project root.
 
 Here is the minimal configuration required in development mode:
 
@@ -31,9 +29,7 @@ Here is the minimal configuration required in development mode:
   },
   "server": {
     "cors_origins": ["http://localhost:3000"],
-    "config_dump_path": "/tmp/ryot.json",
-    "insecure_cookie": true,
-    "samesite_none": true
+    "config_dump_path": "/tmp/ryot.json"
   }
 }
 ```
@@ -45,13 +41,10 @@ RUST_LOG="ryot=trace,sea_orm=debug"
 ```
 
 ```bash title="apps/frontend/.env"
-NEXT_PUBLIC_BASE_URL="http://localhost:8000"
+API_URL=http://localhost:5000
 ```
 
-!!! note
-
-    You will need to run `moon run frontend:build` before you can get the
-    backend running. This needs to be done only once.
+Your website would be available at `http://localhost:8000`.
 
 ### Testing webhooks
 

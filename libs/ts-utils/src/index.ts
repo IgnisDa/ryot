@@ -1,23 +1,51 @@
-import TimeAgo from "javascript-time-ago";
-import en from "javascript-time-ago/locale/en.json";
+import { UserUnitSystem } from "@ryot/generated/graphql/backend/graphql";
 import {
-	camelCase,
-	groupBy,
-	mapValues,
-	snakeCase,
-	startCase,
-	sum,
-	cloneDeep,
-} from "lodash";
+	HumanizeDuration,
+	HumanizeDurationLanguage,
+	HumanizeDurationOptions,
+} from "humanize-duration-ts";
+import camelCase from "lodash/camelCase";
+import snakeCase from "lodash/snakeCase";
+import startCase from "lodash/startCase";
+import sum from "lodash/sum";
 
-TimeAgo.addDefaultLocale(en);
+const service = new HumanizeDurationLanguage();
+const humanizer = new HumanizeDuration(service);
 
 /**
- * Format a `Date` into a human readable format.
+ * Humanize a duration.
  */
-export const formatTimeAgo = (time: Date) => {
-	const timeAgo = new TimeAgo("en-US");
-	return timeAgo.format(time);
+export const humanizeDuration = (
+	duration: number,
+	options?: HumanizeDurationOptions,
+) => {
+	return humanizer.humanize(duration, options);
+};
+
+/**
+ * Display the correct weight unit for a given unit.
+ */
+export const displayWeightWithUnit = (
+	unit: UserUnitSystem,
+	data: string | number | null | undefined,
+) => {
+	return new Intl.NumberFormat("en-us", {
+		style: "unit",
+		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
+	}).format(Number((data || 0).toString()));
+};
+
+/**
+ * Display the correct distance unit for a given unit.
+ */
+export const displayDistanceWithUnit = (
+	unit: UserUnitSystem,
+	data: string | number | null | undefined,
+) => {
+	return new Intl.NumberFormat("en-us", {
+		style: "unit",
+		unit: unit === UserUnitSystem.Metric ? "meter" : "mile",
+	}).format(Number((data || 0).toString()));
 };
 
 /**
@@ -61,4 +89,4 @@ export const randomString = (length: number) => {
 	return s;
 };
 
-export { sum, startCase, camelCase, snakeCase, groupBy, mapValues, cloneDeep };
+export { camelCase, snakeCase, startCase, sum };

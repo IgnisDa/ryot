@@ -5,7 +5,7 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     str::FromStr,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -26,13 +26,11 @@ use axum::{
     routing::{get, post, Router},
     Extension, Server,
 };
-use database::{ExerciseSource, MetadataSource, Migrator};
+use database::Migrator;
 use itertools::Itertools;
+use logs_wheel::LogFileInitializer;
 use rs_utils::PROJECT_NAME;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectOptions, Database, EntityTrait,
-    PaginatorTrait, QueryFilter,
-};
+use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::try_join;
@@ -40,28 +38,23 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::{AppServices, TEMP_DIR};
+use utils::TEMP_DIR;
 
 use crate::{
     background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
-    entities::{
-        exercise, metadata,
-        prelude::{Exercise, Metadata, Workout},
-        workout,
-    },
+    entities::prelude::Exercise,
     graphql::get_schema,
-    models::ExportAllResponse,
+    models::CompleteExport,
     routes::{
-        config_handler, graphql_handler, graphql_playground, integration_webhook, json_export,
-        static_handler, upload_file,
+        config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
     utils::{create_app_services, BASE_DIR, VERSION},
 };
 
 mod background;
 mod entities;
+mod exporter;
 mod file_storage;
 mod fitness;
 mod graphql;
@@ -85,7 +78,7 @@ async fn main() -> Result<()> {
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
     }
-    let _guard = init_tracing();
+    init_tracing()?;
 
     tracing::info!("Running version: {}", VERSION);
 
@@ -135,18 +128,10 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    Migrator::up(&db, None).await?;
-
-    match env::args().nth(1) {
-        None => {}
-        Some(cmd) => {
-            if cmd == "migrate" {
-                return Ok(());
-            } else {
-                bail!("Command {:#?} is not supported.", cmd)
-            }
-        }
-    }
+    if let Err(err) = Migrator::up(&db, None).await {
+        tracing::error!("Database migration failed: {}", err);
+        bail!("If this is a major version upgrade, please follow the instructions in the migration docs.");
+    };
 
     let pool = PoolOptions::new()
         .max_lifetime(None)
@@ -163,19 +148,21 @@ async fn main() -> Result<()> {
 
     let app_services = create_app_services(
         db.clone(),
-        s3_client.clone(),
-        config.clone(),
+        s3_client,
+        config,
         &perform_application_job_storage,
         tz,
     )
     .await;
 
-    before_startup_jobs(
-        &app_services,
-        &s3_client,
-        &config.file_storage.s3_bucket_name,
-    )
-    .await?;
+    if env::var("SKIP_EXERCISES_DOWNLOAD").is_err() && Exercise::find().count(&db).await? == 0 {
+        tracing::info!("Instance does not have exercises data. Deploying job to download them...");
+        app_services
+            .exercise_service
+            .deploy_update_exercise_library_job()
+            .await
+            .unwrap();
+    }
 
     if cfg!(debug_assertions) {
         use schematic::schema::{typescript::TypeScriptRenderer, SchemaGenerator};
@@ -199,7 +186,7 @@ async fn main() -> Result<()> {
             .unwrap();
 
         let mut generator = SchemaGenerator::default();
-        generator.add::<ExportAllResponse>();
+        generator.add::<CompleteExport>();
         generator
             .generate(
                 base_dir.join("export-schema.ts"),
@@ -221,16 +208,18 @@ async fn main() -> Result<()> {
         post(integration_webhook),
     );
 
+    let mut gql = post(graphql_handler);
+    if app_services.config.server.graphql_playground_enabled {
+        gql = gql.get(graphql_playground);
+    }
+
     let app_routes = Router::new()
-        .route("/config", get(config_handler))
-        .route("/graphql", get(graphql_playground).post(graphql_handler))
         .nest("/webhooks", webhook_routes)
-        .route("/export/:export_type", get(json_export))
+        .route("/config", get(config_handler))
+        .route("/graphql", gql)
         .route("/upload", post(upload_file))
-        .fallback(static_handler)
         .layer(Extension(app_services.config.clone()))
         .layer(Extension(app_services.media_service.clone()))
-        .layer(Extension(app_services.exercise_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
@@ -238,7 +227,7 @@ async fn main() -> Result<()> {
         .layer(cors);
 
     let port = env::var("PORT")
-        .unwrap_or_else(|_| "8000".to_owned())
+        .unwrap_or_else(|_| "5000".to_owned())
         .parse()
         .unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
@@ -246,6 +235,7 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
+    let exporter_service_1 = app_services.exporter_service.clone();
     let media_service_1 = app_services.media_service.clone();
     let media_service_2 = app_services.media_service.clone();
     let media_service_3 = app_services.media_service.clone();
@@ -304,6 +294,7 @@ async fn main() -> Result<()> {
                         Duration::new(5, 0),
                     ))
                     .layer(ApalisExtension(importer_service_1.clone()))
+                    .layer(ApalisExtension(exporter_service_1.clone()))
                     .layer(ApalisExtension(media_service_4.clone()))
                     .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(perform_application_job_storage.clone())
@@ -332,235 +323,23 @@ async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
     st
 }
 
-fn init_tracing() -> Result<WorkerGuard> {
+fn init_tracing() -> Result<()> {
     let tmp_dir = PathBuf::new().join(TEMP_DIR);
     create_dir_all(&tmp_dir)?;
-    let path = tmp_dir.join(format!("{}.log", PROJECT_NAME));
-    let file_appender = tracing_appender::rolling::daily(".", path);
-    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let log_file = LogFileInitializer {
+        directory: tmp_dir,
+        filename: PROJECT_NAME,
+        max_n_old_files: 2,
+        preferred_max_file_size_mib: 1,
+    }
+    .init()?;
+    let writer = Mutex::new(log_file);
     tracing::subscriber::set_global_default(
         fmt::Subscriber::builder()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .finish()
-            // add additional writers
-            .with(
-                fmt::Layer::default()
-                    .with_writer(non_blocking)
-                    .with_ansi(false),
-            ),
+            .with(fmt::Layer::default().with_writer(writer).with_ansi(false)),
     )
     .expect("Unable to set global tracing subscriber");
-    Ok(guard)
-}
-
-async fn before_startup_jobs(
-    app_services: &AppServices,
-    s3_client: &aws_sdk_s3::Client,
-    bkt: &String,
-) -> Result<()> {
-    if !cfg!(debug_assertions)
-        && Exercise::find()
-            .count(&app_services.media_service.db)
-            .await?
-            == 0
-    {
-        tracing::info!("Instance does not have exercises data. Deploying job to download them...");
-        app_services
-            .exercise_service
-            .deploy_update_exercise_library_job()
-            .await
-            .unwrap();
-    }
-
-    tracing::info!("Migrating custom data to S3...");
-
-    let all_ex = Exercise::find()
-        .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
-        .all(&app_services.media_service.db)
-        .await?;
-    for ex in all_ex {
-        let mut attributes = ex.attributes.clone();
-        let mut images = vec![];
-        for image in &ex.attributes.internal_images {
-            let url = match image {
-                models::StoredUrl::S3(u) => u,
-                _ => continue,
-            };
-            let dest = if url.contains("uploads/exercises/") {
-                url.clone()
-            } else {
-                url.replace("uploads/", "uploads/exercises/")
-            };
-            if url == &dest {
-                break;
-            }
-            images.push(dest.clone());
-            s3_client
-                .copy_object()
-                .copy_source(format!("{}/{}", bkt, url))
-                .bucket(bkt)
-                .key(dest)
-                .send()
-                .await?;
-            app_services
-                .file_storage_service
-                .delete_object(url.clone())
-                .await;
-        }
-        attributes.internal_images = images.into_iter().map(models::StoredUrl::S3).collect();
-        let mut to_update: exercise::ActiveModel = ex.into();
-        to_update.attributes = ActiveValue::Set(attributes);
-        to_update.update(&app_services.media_service.db).await?;
-    }
-
-    let all_workouts = Workout::find().all(&app_services.media_service.db).await?;
-    for wkt in all_workouts {
-        let mut information = wkt.information.clone();
-        let mut images = vec![];
-        let mut videos = vec![];
-        for image in &wkt.information.assets.images {
-            let dest = if image.contains("uploads/workouts/") {
-                image.clone()
-            } else {
-                image.replace("uploads/", "uploads/workouts/")
-            };
-            if image == &dest {
-                continue;
-            }
-            images.push(dest.clone());
-            s3_client
-                .copy_object()
-                .copy_source(format!("{}/{}", bkt, image))
-                .bucket(bkt)
-                .key(dest)
-                .send()
-                .await?;
-            app_services
-                .file_storage_service
-                .delete_object(image.clone())
-                .await;
-        }
-        for video in &wkt.information.assets.videos {
-            let dest = if video.contains("uploads/workouts/") {
-                video.clone()
-            } else {
-                video.replace("uploads/", "uploads/workouts/")
-            };
-            if video == &dest {
-                break;
-            }
-            videos.push(dest.clone());
-            s3_client
-                .copy_object()
-                .copy_source(format!("{}/{}", bkt, video))
-                .bucket(bkt)
-                .key(dest)
-                .send()
-                .await?;
-            app_services
-                .file_storage_service
-                .delete_object(video.clone())
-                .await;
-        }
-        for (idx, exercise) in wkt.information.exercises.iter().enumerate() {
-            let mut images = vec![];
-            let mut videos = vec![];
-            for image in &exercise.assets.images {
-                let dest = if image.contains("uploads/exercises/") {
-                    image.clone()
-                } else {
-                    image.replace("uploads/", "uploads/exercises/")
-                };
-                if image == &dest {
-                    break;
-                }
-                images.push(dest.clone());
-                s3_client
-                    .copy_object()
-                    .copy_source(format!("{}/{}", bkt, image))
-                    .bucket(bkt)
-                    .key(dest)
-                    .send()
-                    .await?;
-                app_services
-                    .file_storage_service
-                    .delete_object(image.clone())
-                    .await;
-            }
-            for video in &exercise.assets.videos {
-                let dest = if video.contains("uploads/exercises/") {
-                    video.clone()
-                } else {
-                    video.replace("uploads/", "uploads/exercises/")
-                };
-                if video == &dest {
-                    break;
-                }
-                videos.push(dest.clone());
-                s3_client
-                    .copy_object()
-                    .copy_source(format!("{}/{}", bkt, video))
-                    .bucket(bkt)
-                    .key(dest)
-                    .send()
-                    .await?;
-                app_services
-                    .file_storage_service
-                    .delete_object(video.clone())
-                    .await;
-            }
-            information.exercises[idx].assets.images = images;
-            information.exercises[idx].assets.videos = videos;
-        }
-        information.assets.images = images;
-        information.assets.videos = videos;
-        let mut to_update: workout::ActiveModel = wkt.into();
-        to_update.information = ActiveValue::Set(information);
-        to_update.update(&app_services.media_service.db).await?;
-    }
-
-    let all_meta = Metadata::find()
-        .filter(metadata::Column::Source.eq(MetadataSource::Custom))
-        .all(&app_services.media_service.db)
-        .await?;
-    for meta in all_meta {
-        let mut images = vec![];
-        for image in meta.images.clone().unwrap_or_default().iter_mut() {
-            let url = match &image.url {
-                models::StoredUrl::S3(u) => u.clone(),
-                _ => continue,
-            };
-            let dest = if url.contains("uploads/metadata/") {
-                url.clone()
-            } else {
-                url.replace("uploads/", "uploads/metadata/")
-            };
-            if url == dest {
-                break;
-            }
-            image.url = models::StoredUrl::S3(dest.clone());
-            images.push(image.clone());
-            s3_client
-                .copy_object()
-                .copy_source(format!("{}/{}", bkt, url))
-                .bucket(bkt)
-                .key(dest)
-                .send()
-                .await?;
-            app_services
-                .file_storage_service
-                .delete_object(url.clone())
-                .await;
-        }
-        if images.is_empty() {
-            continue;
-        }
-        let mut to_update: metadata::ActiveModel = meta.into();
-        to_update.images = ActiveValue::Set(Some(images));
-        to_update.update(&app_services.media_service.db).await?;
-    }
-
-    tracing::info!("Migrating custom data to S3... Done");
-
     Ok(())
 }

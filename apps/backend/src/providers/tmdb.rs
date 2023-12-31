@@ -14,15 +14,13 @@ use serde_json::json;
 use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
-    entities::{
-        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
-    },
+    entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, ShowEpisode, ShowSeason,
-            ShowSpecifics,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+            ShowEpisode, ShowSeason, ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -32,6 +30,7 @@ use crate::{
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";
+static POSSIBLE_ROLES: [&str; 4] = ["Acting", "Production", "Directing", "Director"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -224,24 +223,30 @@ impl MediaProvider for NonMediaTmdbService {
                 .map_err(|e| anyhow!(e))?;
             for media in details.crew.into_iter().chain(details.cast.into_iter()) {
                 if let Some(title) = media.title.or(media.name) {
-                    related.push((
-                        media.character.or(media.job).unwrap(),
-                        PartialMetadataWithoutId {
-                            identifier: media.id.unwrap().to_string(),
-                            title,
-                            image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
-                            lot: match media.media_type.unwrap().as_ref() {
-                                "movie" => MetadataLot::Movie,
-                                "tv" => MetadataLot::Show,
-                                _ => continue,
-                            },
-                            source: MetadataSource::Tmdb,
-                        },
-                    ));
+                    if let Some(job) = media.character {
+                        if POSSIBLE_ROLES.contains(&job.as_str()) {
+                            related.push((
+                                job,
+                                PartialMetadataWithoutId {
+                                    identifier: media.id.unwrap().to_string(),
+                                    title,
+                                    image: media
+                                        .poster_path
+                                        .map(|p| self.base.get_cover_image_url(p)),
+                                    lot: match media.media_type.unwrap().as_ref() {
+                                        "movie" => MetadataLot::Movie,
+                                        "tv" => MetadataLot::Show,
+                                        _ => continue,
+                                    },
+                                    source: MetadataSource::Tmdb,
+                                },
+                            ));
+                        }
+                    }
                 }
             }
         }
-        Ok(MetadataPerson {
+        let resp = MetadataPerson {
             name: details.name,
             images: Some(images),
             identifier: details.id.to_string(),
@@ -258,7 +263,8 @@ impl MediaProvider for NonMediaTmdbService {
                 _ => None,
             }),
             related,
-        })
+        };
+        Ok(resp)
     }
 }
 
@@ -387,11 +393,12 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let Some(id) = g.id {
                         if let Some(r) = g.known_for_department {
-                            if r == *"Acting" {
+                            if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
+                                    character: g.character,
                                 })
                             } else {
                                 None
@@ -413,12 +420,13 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     if let Some(id) = g.id {
-                        if let Some(r) = g.job {
-                            if r == *"Director" {
+                        if let Some(r) = g.known_for_department {
+                            if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
+                                    character: g.character,
                                 })
                             } else {
                                 None
@@ -441,6 +449,7 @@ impl MediaProvider for TmdbMovieService {
                     identifier: p.id.to_string(),
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
+                    character: None,
                 })
                 .collect_vec(),
         );
@@ -682,6 +691,7 @@ impl MediaProvider for TmdbShowService {
                                         identifier: id.to_string(),
                                         role: r,
                                         source: MetadataSource::Tmdb,
+                                        character: g.character,
                                     })
                                 } else {
                                     None
@@ -701,6 +711,7 @@ impl MediaProvider for TmdbShowService {
                     identifier: p.id.to_string(),
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
+                    character: None,
                 })
                 .collect_vec(),
         );
@@ -710,7 +721,7 @@ impl MediaProvider for TmdbShowService {
             .sorted_by_key(|c| c.1)
             .rev()
             .map(|c| c.0)
-            .filter(|c| ["Acting", "Production", "Directing"].contains(&c.role.as_str()))
+            .filter(|c| POSSIBLE_ROLES.contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
         Ok(MediaDetails {

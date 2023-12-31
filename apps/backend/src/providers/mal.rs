@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use database::{MetadataLot, MetadataSource};
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::{seq::SliceRandom, thread_rng};
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -10,11 +9,10 @@ use serde_json::json;
 use surf::Client;
 
 use crate::{
-    entities::partial_metadata::PartialMetadataWithoutId,
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadataWithoutId,
         },
         NamedObject, SearchDetails, SearchResults,
     },

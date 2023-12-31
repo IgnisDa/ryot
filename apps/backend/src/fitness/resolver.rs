@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    sync::Arc,
+};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -104,6 +108,7 @@ struct UserExerciseHistoryInformation {
     workout_id: String,
     workout_name: String,
     workout_time: DateTimeUtc,
+    index: usize,
     sets: Vec<WorkoutSetRecord>,
 }
 
@@ -118,7 +123,7 @@ struct UserExerciseDetails {
 struct UserExerciseDetailsInput {
     exercise_id: String,
     /// The number of elements to return in the history.
-    take_history: Option<usize>,
+    take_history: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
@@ -394,9 +399,11 @@ impl ExerciseService {
                             .map(|h| h.workout_id.clone()),
                     ),
                 )
+                .limit(input.take_history)
+                .order_by_desc(workout::Column::EndTime)
                 .all(&self.db)
                 .await?;
-            let mut history = workouts
+            let history = workouts
                 .into_iter()
                 .map(|w| {
                     let element = user_to_exercise_extra_information
@@ -408,14 +415,11 @@ impl ExerciseService {
                         workout_id: w.id,
                         workout_name: w.name,
                         workout_time: w.start_time,
+                        index: element.idx,
                         sets: w.information.exercises[element.idx].sets.clone(),
                     }
                 })
                 .collect_vec();
-            if let Some(take) = input.take_history {
-                history = history.into_iter().take(take).collect_vec();
-            }
-            history.reverse();
             resp.history = Some(history);
             resp.details = Some(association);
         }
@@ -625,15 +629,25 @@ impl ExerciseService {
         Ok(())
     }
 
-    pub async fn export_measurements(&self, user_id: i32) -> Result<Vec<user_measurement::Model>> {
-        self.user_measurements_list(
-            user_id,
-            UserMeasurementsListInput {
-                start_time: None,
-                end_time: None,
-            },
-        )
-        .await
+    pub async fn export_measurements(
+        &self,
+        user_id: i32,
+        writer: &mut BufWriter<File>,
+    ) -> Result<bool> {
+        let resp = self
+            .user_measurements_list(
+                user_id,
+                UserMeasurementsListInput {
+                    start_time: None,
+                    end_time: None,
+                },
+            )
+            .await?;
+        let mut to_write = serde_json::to_string(&resp).unwrap();
+        to_write.remove(0);
+        to_write.pop();
+        writer.write_all(to_write.as_bytes()).unwrap();
+        Ok(true)
     }
 
     async fn user_measurements_list(
@@ -691,7 +705,6 @@ impl ExerciseService {
             .calculate_and_commit(
                 user_id,
                 &self.db,
-                id,
                 user.preferences.fitness.exercises.save_history,
             )
             .await?;
@@ -749,7 +762,11 @@ impl ExerciseService {
         Ok(exercise.id)
     }
 
-    pub async fn export_workouts(&self, user_id: i32) -> Result<Vec<workout::Model>> {
+    pub async fn export_workouts(
+        &self,
+        user_id: i32,
+        writer: &mut BufWriter<File>,
+    ) -> Result<bool> {
         let workout_ids = Workout::find()
             .select_only()
             .column(workout::Column::Id)
@@ -762,7 +779,11 @@ impl ExerciseService {
         for workout_id in workout_ids {
             workouts.push(self.workout_details(workout_id, user_id).await?);
         }
-        Ok(workouts)
+        let mut to_write = serde_json::to_string(&workouts).unwrap();
+        to_write.remove(0);
+        to_write.pop();
+        writer.write_all(to_write.as_bytes()).unwrap();
+        Ok(true)
     }
 
     pub async fn delete_user_workout(&self, user_id: i32, workout_id: String) -> Result<bool> {
@@ -794,6 +815,7 @@ impl ExerciseService {
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
             let workout_input = UserWorkoutInput {
+                id: Some(workout.id),
                 name: workout.name,
                 comment: workout.comment,
                 start_time: workout.start_time,
@@ -803,7 +825,7 @@ impl ExerciseService {
                     .exercises
                     .into_iter()
                     .map(|e| UserExerciseInput {
-                        exercise_id: e.id,
+                        exercise_id: e.name,
                         sets: e
                             .sets
                             .into_iter()

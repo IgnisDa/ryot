@@ -207,6 +207,7 @@ impl VndbService {
                 identifier: a.id,
                 role: "Developer".to_owned(),
                 source: MetadataSource::Vndb,
+                character: None,
             })
             .collect_vec();
         let genres = item
