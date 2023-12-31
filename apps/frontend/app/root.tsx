@@ -27,9 +27,7 @@ import {
 } from "@remix-run/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
-import { HoneypotProvider } from "remix-utils/honeypot/react";
 import { Toaster } from "~/components/toaster";
-import { honeypot } from "~/lib/honeypot.server";
 import { getToast } from "~/lib/toast.server";
 import {
 	combineHeaders,
@@ -89,14 +87,13 @@ export const links: LinksFunction = () => {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const envData = expectedEnvironmentVariables.parse(process.env);
-	const honeyProps = honeypot.getInputProps();
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
 		request.headers.get("Cookie") || "",
 	);
 	const defaultColorScheme = colorScheme || "light";
 	return json(
-		{ envData, honeyProps, toast, defaultColorScheme },
+		{ envData, toast, defaultColorScheme },
 		{ headers: combineHeaders(toastHeaders) },
 	);
 };
@@ -132,32 +129,30 @@ export default function App() {
 			</head>
 			<body>
 				<QueryClientProvider client={queryClient}>
-					<HoneypotProvider {...loaderData.honeyProps}>
-						<MantineProvider
-							classNamesPrefix="mnt"
-							theme={theme}
-							forceColorScheme={loaderData.defaultColorScheme}
-						>
-							<MountPoint />
-							{navigation.state === "loading" ||
-							navigation.state === "submitting" ? (
-								<Loader
-									pos="fixed"
-									right={10}
-									top={10}
-									size="sm"
-									color="yellow"
-								/>
-							) : null}
-							<Toaster toast={loaderData.toast} />
-							<Flex style={{ flexGrow: 1 }} mih="100vh">
-								<Outlet />
-							</Flex>
-							<ScrollRestoration />
-							<LiveReload />
-							<Scripts />
-						</MantineProvider>
-					</HoneypotProvider>
+					<MantineProvider
+						classNamesPrefix="mnt"
+						theme={theme}
+						forceColorScheme={loaderData.defaultColorScheme}
+					>
+						<MountPoint />
+						{navigation.state === "loading" ||
+						navigation.state === "submitting" ? (
+							<Loader
+								pos="fixed"
+								right={10}
+								top={10}
+								size="sm"
+								color="yellow"
+							/>
+						) : null}
+						<Toaster toast={loaderData.toast} />
+						<Flex style={{ flexGrow: 1 }} mih="100vh">
+							<Outlet />
+						</Flex>
+						<ScrollRestoration />
+						<LiveReload />
+						<Scripts />
+					</MantineProvider>
 				</QueryClientProvider>
 			</body>
 		</html>

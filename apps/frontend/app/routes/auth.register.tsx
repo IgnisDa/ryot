@@ -12,12 +12,10 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
-import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
@@ -41,7 +39,6 @@ export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	checkHoneypot(formData);
 	const submission = processSubmission(formData, schema);
 	const { registerUser } = await gqlClient.request(RegisterUserDocument, {
 		input: {
@@ -92,7 +89,6 @@ export default function Page() {
 				method="post"
 				{...form.props}
 			>
-				<HoneypotInputs />
 				<TextInput
 					{...conform.input(fields.username)}
 					label="Username"

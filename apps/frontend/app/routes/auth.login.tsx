@@ -13,7 +13,6 @@ import {
 	LoginErrorVariant,
 	LoginUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -21,7 +20,6 @@ import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
-import { checkHoneypot } from "~/lib/honeypot.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
@@ -44,7 +42,6 @@ export const meta: MetaFunction = () => [{ title: "Login | Ryot" }];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	checkHoneypot(formData);
 	const submission = processSubmission(formData, schema);
 	const { loginUser } = await gqlClient.request(LoginUserDocument, {
 		input: {
@@ -106,7 +103,6 @@ export default function Page() {
 				method="post"
 				{...form.props}
 			>
-				<HoneypotInputs />
 				<TextInput
 					id="username-input"
 					{...conform.input(fields.username)}
