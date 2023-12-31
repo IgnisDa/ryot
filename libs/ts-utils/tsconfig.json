@@ -4,6 +4,7 @@
     "module": "esnext",
     "moduleResolution": "node",
     "verbatimModuleSyntax": false,
+    "allowSyntheticDefaultImports": true,
     "lib": [
       "ESNext",
       "DOM"

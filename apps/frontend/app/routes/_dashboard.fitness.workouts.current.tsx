@@ -112,6 +112,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		parse(cookies || "")[COOKIES_KEYS.isWorkoutInProgress] === "true";
 	if (!inProgress)
 		return redirectWithToast($path("/"), {
+			type: "error",
 			message: "No workout in progress",
 		});
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
@@ -1003,7 +1004,7 @@ const ExerciseDisplay = (props: {
 					<Box ref={parent}>
 						{exerciseDetailsOpened ? (
 							<ScrollArea mb="md" type="scroll">
-								<Group>
+								<Group wrap="nowrap">
 									{props.exercise.exerciseDetails.images.map((i) => (
 										<Image key={i} radius="md" src={i} h={200} w={350} />
 									))}

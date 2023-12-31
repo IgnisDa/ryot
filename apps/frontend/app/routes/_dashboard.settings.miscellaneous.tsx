@@ -52,6 +52,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	);
 	return json({ status: "success" } as const, {
 		headers: await createToastHeaders({
+			type: "success",
 			message: "Job has been deployed",
 		}),
 	});

@@ -25,7 +25,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
+import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -1498,7 +1498,7 @@ const AdjustSeenTimesModal = (props: {
 			>
 				<Stack>
 					<Title order={3}>Adjust seen times</Title>
-					<DateTimePicker
+					<DateInput
 						label="Start time"
 						required
 						name="startedOn"
@@ -1506,7 +1506,7 @@ const AdjustSeenTimesModal = (props: {
 							props.startedAt ? new Date(props.startedAt) : undefined
 						}
 					/>
-					<DateTimePicker
+					<DateInput
 						label="End time"
 						required
 						name="finishedOn"
@@ -1747,7 +1747,6 @@ const SeenItem = (props: {
 		<>
 			<Flex
 				key={props.history.id}
-				ml="md"
 				gap="xl"
 				data-seen-id={props.history.id}
 				data-seen-num-times-updated={props.history.numTimesUpdated}
@@ -1804,8 +1803,8 @@ const SeenItem = (props: {
 							</Text>
 						) : null}
 					</Flex>
-					<Flex ml="sm" direction="column" gap={4}>
-						<Flex gap="xl">
+					<Flex ml="sm" direction="column" gap={{ md: 4 }}>
+						<Flex gap={{ md: "xl" }} wrap="wrap">
 							<Flex gap="xs">
 								<Text size="sm">Started:</Text>
 								<Text size="sm" fw="bold">

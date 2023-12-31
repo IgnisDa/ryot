@@ -122,7 +122,7 @@ export default function Page() {
 													{dayjsLib(workout.startTime).format("LL")}
 												</Text>
 											</Group>
-											<Group mt="xs" gap="lg">
+											<Stack mt="xs" gap={1}>
 												<DisplayStat
 													icon={<IconClock size={16} />}
 													data={humanizeDuration(
@@ -131,18 +131,20 @@ export default function Page() {
 														{ round: true, units: ["h", "m"] },
 													)}
 												/>
-												<DisplayStat
-													icon={<IconWeight size={16} />}
-													data={displayWeightWithUnit(
-														loaderData.userPreferences.unitSystem,
-														workout.summary.total.weight,
-													)}
-												/>
-												<DisplayStat
-													icon={<IconTrophy size={16} />}
-													data={`${workout.summary.total.personalBestsAchieved.toString()} PRs`}
-												/>
-											</Group>
+												<Group>
+													<DisplayStat
+														icon={<IconWeight size={16} />}
+														data={displayWeightWithUnit(
+															loaderData.userPreferences.unitSystem,
+															workout.summary.total.weight,
+														)}
+													/>
+													<DisplayStat
+														icon={<IconTrophy size={16} />}
+														data={`${workout.summary.total.personalBestsAchieved.toString()} PRs`}
+													/>
+												</Group>
+											</Stack>
 										</Accordion.Control>
 										<Anchor
 											component={Link}

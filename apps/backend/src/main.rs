@@ -226,7 +226,7 @@ async fn main() -> Result<()> {
         .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
         .layer(cors);
 
-    let port = env::var("PORT")
+    let port = env::var("BACKEND_PORT")
         .unwrap_or_else(|_| "5000".to_owned())
         .parse()
         .unwrap();

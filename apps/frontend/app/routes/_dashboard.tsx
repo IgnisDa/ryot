@@ -182,6 +182,7 @@ export default function Layout() {
 						icon={IconHome2}
 						href={$path("/")}
 						opened={false}
+						toggle={toggle}
 						setOpened={() => {}}
 					/>
 					{loaderData.userPreferences.media.enabled ? (
@@ -190,6 +191,7 @@ export default function Layout() {
 							icon={IconDeviceSpeaker}
 							links={loaderData.mediaLinks}
 							opened={openedLinkGroups?.media || false}
+							toggle={toggle}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
@@ -204,6 +206,7 @@ export default function Layout() {
 							label="Fitness"
 							icon={IconStretching}
 							opened={openedLinkGroups?.fitness || false}
+							toggle={toggle}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
@@ -219,12 +222,14 @@ export default function Layout() {
 						icon={IconCalendar}
 						href={$path("/calendar")}
 						opened={false}
+						toggle={toggle}
 						setOpened={() => {}}
 					/>
 					<LinksGroup
 						label="Collections"
 						icon={IconArchive}
 						opened={openedLinkGroups?.collection || false}
+						toggle={toggle}
 						setOpened={(k) => {
 							setOpenedLinkGroups(
 								produce(openedLinkGroups, (draft) => {
@@ -238,6 +243,7 @@ export default function Layout() {
 						label="Settings"
 						icon={IconSettings}
 						opened={openedLinkGroups?.settings || false}
+						toggle={toggle}
 						setOpened={(k) =>
 							setOpenedLinkGroups(
 								produce(openedLinkGroups, (draft) => {
@@ -337,6 +343,7 @@ interface LinksGroupProps {
 	href?: string;
 	opened: boolean;
 	setOpened: (v: boolean) => void;
+	toggle: () => void;
 	links?: { label: string; link: string }[];
 }
 
@@ -345,6 +352,7 @@ function LinksGroup({
 	label,
 	href,
 	setOpened,
+	toggle,
 	opened,
 	links,
 }: LinksGroupProps) {
@@ -353,7 +361,12 @@ function LinksGroup({
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const allLinks = (hasLinks ? links || [] : []).filter(Boolean);
 	const items = allLinks.map((link) => (
-		<Link className={classes.link} to={link.link} key={link.label}>
+		<Link
+			className={classes.link}
+			to={link.link}
+			key={link.label}
+			onClick={toggle}
+		>
 			{link.label}
 		</Link>
 	));
