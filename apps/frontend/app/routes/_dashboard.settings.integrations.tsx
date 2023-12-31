@@ -27,6 +27,7 @@ import {
 	DeleteUserIntegrationDocument,
 	UserIntegrationLot,
 	UserIntegrationsDocument,
+	UserIntegrationsQuery,
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -129,14 +130,10 @@ export default function Page() {
 			close: closeCreateUserYankIntegrationModal,
 		},
 	] = useDisclosure(false);
-	const [integrationInputOpened, { toggle: integrationInputToggle }] =
-		useDisclosure(false);
 	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
 		useState<UserYankIntegrationSettingKind>();
 	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
 		useState<UserSinkIntegrationSettingKind>();
-	const fetcher = useFetcher();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
@@ -144,68 +141,7 @@ export default function Page() {
 				<Title>Integration settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (
 					loaderData.userIntegrations.map((i, idx) => (
-						<Paper p="xs" withBorder key={`${i.id}-${idx}`}>
-							<Stack>
-								<Flex align="center" justify="space-between">
-									<Box>
-										<Text size="xs">{i.description}</Text>
-										<Text size="xs">{dayjsLib(i.timestamp).fromNow()}</Text>
-									</Box>
-									<Group>
-										{i.slug ? (
-											<ActionIcon color="blue" onClick={integrationInputToggle}>
-												<IconEye />
-											</ActionIcon>
-										) : null}
-										<fetcher.Form
-											action="?intent=delete"
-											method="post"
-											ref={deleteFormRef}
-										>
-											<input
-												type="hidden"
-												name="integrationLot"
-												defaultValue={i.lot}
-											/>
-											<input
-												type="hidden"
-												name="integrationId"
-												defaultValue={i.id}
-											/>
-											<ActionIcon
-												color="red"
-												variant="subtle"
-												mt={4}
-												onClick={async () => {
-													const conf = await confirmWrapper({
-														confirmation:
-															"Are you sure you want to delete this integration?",
-													});
-													if (conf) fetcher.submit(deleteFormRef.current);
-												}}
-											>
-												<IconTrash />
-											</ActionIcon>
-										</fetcher.Form>
-									</Group>
-								</Flex>
-								{integrationInputOpened ? (
-									<TextInput
-										value={
-											typeof window !== "undefined"
-												? `${
-														window.location.origin
-												  }/backend/webhooks/integrations/${i.description
-														.toLowerCase()
-														.split(" ")
-														.at(0)}/${i.slug}`
-												: ""
-										}
-										readOnly
-									/>
-								) : null}
-							</Stack>
-						</Paper>
+						<DisplayIntegration integration={i} key={`${i.id}-${idx}`} />
 					))
 				) : (
 					<Text>No integrations configured</Text>
@@ -299,3 +235,81 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type Integration = UserIntegrationsQuery["userIntegrations"][number];
+
+const DisplayIntegration = (props: {
+	integration: Integration;
+}) => {
+	const [integrationInputOpened, { toggle: integrationInputToggle }] =
+		useDisclosure(false);
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
+
+	return (
+		<Paper p="xs" withBorder>
+			<Stack>
+				<Flex align="center" justify="space-between">
+					<Box>
+						<Text size="xs">{props.integration.description}</Text>
+						<Text size="xs">
+							{dayjsLib(props.integration.timestamp).fromNow()}
+						</Text>
+					</Box>
+					<Group>
+						{props.integration.slug ? (
+							<ActionIcon color="blue" onClick={integrationInputToggle}>
+								<IconEye />
+							</ActionIcon>
+						) : null}
+						<fetcher.Form
+							action="?intent=delete"
+							method="post"
+							ref={deleteFormRef}
+						>
+							<input
+								type="hidden"
+								name="integrationLot"
+								defaultValue={props.integration.lot}
+							/>
+							<input
+								type="hidden"
+								name="integrationId"
+								defaultValue={props.integration.id}
+							/>
+							<ActionIcon
+								color="red"
+								variant="subtle"
+								mt={4}
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this integration?",
+									});
+									if (conf) fetcher.submit(deleteFormRef.current);
+								}}
+							>
+								<IconTrash />
+							</ActionIcon>
+						</fetcher.Form>
+					</Group>
+				</Flex>
+				{integrationInputOpened ? (
+					<TextInput
+						value={
+							typeof window !== "undefined"
+								? `${
+										window.location.origin
+								  }/backend/webhooks/integrations/${props.integration.description
+										.toLowerCase()
+										.split(" ")
+										.at(0)}/${props.integration.slug}`
+								: ""
+						}
+						readOnly
+					/>
+				) : null}
+			</Stack>
+		</Paper>
+	);
+};
