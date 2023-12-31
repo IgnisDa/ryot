@@ -290,51 +290,53 @@ export default function Page() {
 					) : null}
 					{loaderData.userExerciseDetails.details?.exerciseExtraInformation ? (
 						<Tabs.Panel value="records">
-							<Stack>
-								<Box>
-									<Text size="xs" c="dimmed">
-										LIFETIME STATS
+							<Stack gap="xl">
+								<Stack gap="xs">
+									<Text size="lg" td="underline">
+										Lifetime Stats
 									</Text>
-									<DisplayLifetimeStatistic
-										stat="weight"
-										val={displayWeightWithUnit(
-											loaderData.userPreferences.unitSystem,
-											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.weight,
-										)}
-									/>
-									<DisplayLifetimeStatistic
-										stat="distance"
-										val={displayDistanceWithUnit(
-											loaderData.userPreferences.unitSystem,
-											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.distance,
-										)}
-									/>
-									<DisplayLifetimeStatistic
-										stat="duration"
-										val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
-									/>
-									<DisplayLifetimeStatistic
-										stat="reps"
-										val={
-											loaderData.userExerciseDetails.details
-												.exerciseExtraInformation.lifetimeStats.reps
-										}
-									/>
-									<DisplayLifetimeStatistic
-										stat="times done"
-										val={
-											loaderData.userExerciseDetails.details.numTimesInteracted
-										}
-									/>
-								</Box>
+									<Box>
+										<DisplayLifetimeStatistic
+											stat="weight"
+											val={displayWeightWithUnit(
+												loaderData.userPreferences.unitSystem,
+												loaderData.userExerciseDetails.details
+													.exerciseExtraInformation.lifetimeStats.weight,
+											)}
+										/>
+										<DisplayLifetimeStatistic
+											stat="distance"
+											val={displayDistanceWithUnit(
+												loaderData.userPreferences.unitSystem,
+												loaderData.userExerciseDetails.details
+													.exerciseExtraInformation.lifetimeStats.distance,
+											)}
+										/>
+										<DisplayLifetimeStatistic
+											stat="duration"
+											val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
+										/>
+										<DisplayLifetimeStatistic
+											stat="reps"
+											val={
+												loaderData.userExerciseDetails.details
+													.exerciseExtraInformation.lifetimeStats.reps
+											}
+										/>
+										<DisplayLifetimeStatistic
+											stat="times done"
+											val={
+												loaderData.userExerciseDetails.details
+													.numTimesInteracted
+											}
+										/>
+									</Box>
+								</Stack>
 								{loaderData.userExerciseDetails.details.exerciseExtraInformation
 									.personalBests.length > 0 ? (
-									<Stack>
-										<Divider />
-										<Text size="xs" c="dimmed">
-											PERSONAL BESTS
+									<Stack gap="sm">
+										<Text size="lg" td="underline">
+											Personal Bests
 										</Text>
 										{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
 											(pb) => (
@@ -342,7 +344,7 @@ export default function Page() {
 													<Text size="sm" c="dimmed">
 														{changeCase(pb.lot)}
 													</Text>
-													<Stack gap="xs" mt="xs">
+													<Stack gap={0}>
 														{pb.sets.map((s) => (
 															<Group justify="space-between">
 																<Text size="sm">

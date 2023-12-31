@@ -112,6 +112,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		parse(cookies || "")[COOKIES_KEYS.isWorkoutInProgress] === "true";
 	if (!inProgress)
 		return redirectWithToast($path("/"), {
+			type: "error",
 			message: "No workout in progress",
 		});
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
