@@ -4,6 +4,8 @@ import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
 import { authCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "./toast.server";
+import { withQuery } from "ufo";
+import { redirectToQueryParam } from "./generals";
 
 export const API_URL = process.env.API_URL;
 
@@ -34,12 +36,19 @@ export const getIsAuthenticated = async (request: Request) => {
 
 export const redirectIfNotAuthenticated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
-	if (!isAuthenticated)
-		throw redirect($path("/auth/login"), {
-			status: 302,
-			headers: await createToastHeaders({
-				message: "You must be logged in to view this page",
+	if (!isAuthenticated) {
+		const url = new URL(request.url);
+		throw redirect(
+			withQuery($path("/auth/login"), {
+				[redirectToQueryParam]: url.pathname + url.search,
 			}),
-		});
+			{
+				status: 302,
+				headers: await createToastHeaders({
+					message: "You must be logged in to view this page",
+				}),
+			},
+		);
+	}
 	return userDetails;
 };

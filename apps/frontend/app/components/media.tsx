@@ -50,7 +50,13 @@ import {
 import { ReactNode, useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
+import {
+	Verb,
+	dayjsLib,
+	getFallbackImageUrl,
+	getVerb,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
@@ -638,7 +644,7 @@ export const MediaSearchItem = (props: {
 									{ id },
 									{
 										title: props.item.title,
-										redirectTo: $path(
+										[redirectToQueryParam]: $path(
 											"/media/:action/:lot",
 											{
 												action: props.action,
