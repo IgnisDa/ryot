@@ -354,7 +354,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	return (
 		<Paper withBorder p="xs">
 			<Stack mb="xs" gap="xs" ref={parent}>
-				<Group justify="space-between">
+				<Group justify="space-between" wrap="nowrap">
 					<Anchor
 						id={`${props.exercise.name}__${props.idx}`}
 						component={Link}
@@ -362,9 +362,9 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 							id: props.exercise.name,
 						})}
 						fw="bold"
+						lineClamp={1}
 					>
-						{props.exercise.name.slice(0, 40)}
-						{props.exercise.name.length > 40 ? "..." : null}
+						{props.exercise.name}
 					</Anchor>
 					<ActionIcon onClick={toggle} variant="transparent">
 						<IconInfoCircle size={18} />
