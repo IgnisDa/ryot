@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Box,
@@ -238,17 +239,26 @@ export default function Page() {
 
 type Integration = UserIntegrationsQuery["userIntegrations"][number];
 
-const DisplayIntegration = (props: {
-	integration: Integration;
-}) => {
+const DisplayIntegration = (props: { integration: Integration }) => {
+	const [parent] = useAutoAnimate();
 	const [integrationInputOpened, { toggle: integrationInputToggle }] =
 		useDisclosure(false);
 	const fetcher = useFetcher();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 
+	const integrationUrl =
+		typeof window !== "undefined"
+			? `${
+					window.location.origin
+			  }/backend/webhooks/integrations/${props.integration.description
+					.toLowerCase()
+					.split(" ")
+					.at(0)}/${props.integration.slug}`
+			: "";
+
 	return (
 		<Paper p="xs" withBorder>
-			<Stack>
+			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
 						<Text size="xs">{props.integration.description}</Text>
@@ -295,19 +305,7 @@ const DisplayIntegration = (props: {
 					</Group>
 				</Flex>
 				{integrationInputOpened ? (
-					<TextInput
-						value={
-							typeof window !== "undefined"
-								? `${
-										window.location.origin
-								  }/backend/webhooks/integrations/${props.integration.description
-										.toLowerCase()
-										.split(" ")
-										.at(0)}/${props.integration.slug}`
-								: ""
-						}
-						readOnly
-					/>
+					<TextInput value={integrationUrl} readOnly />
 				) : null}
 			</Stack>
 		</Paper>
