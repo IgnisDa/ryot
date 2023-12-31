@@ -1,0 +1,3 @@
+mutation DeployExportJob($toExport: [ExportItem!]!) {
+  deployExportJob(toExport: $toExport)
+}

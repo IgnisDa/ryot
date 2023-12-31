@@ -6,11 +6,10 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayDistanceWithUnit, displayWeightWithUnit } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
-import type { ExerciseSetStats } from "~/lib/workout";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
-	statistic: WorkoutSetStatistic | ExerciseSetStats,
+	statistic: WorkoutSetStatistic,
 	unit: UserUnitSystem,
 ) => {
 	return match(lot)
@@ -18,10 +17,7 @@ export const getSetStatisticsTextToDisplay = (
 			`${displayDistanceWithUnit(unit, statistic.distance)} for ${Number(
 				statistic.duration,
 			).toFixed(2)} min`,
-			`${displayDistanceWithUnit(
-				unit,
-				(Number(statistic.distance) || 1) / (Number(statistic.duration) || 1),
-			)}/min`,
+			`${displayDistanceWithUnit(unit, statistic.pace)}/min`,
 		])
 		.with(ExerciseLot.Duration, () => [
 			`${Number(statistic.duration).toFixed(2)} min`,
@@ -42,7 +38,7 @@ export const getSetStatisticsTextToDisplay = (
  **/
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
-	statistic: ExerciseSetStats | WorkoutSetStatistic;
+	statistic: WorkoutSetStatistic;
 	unit: UserUnitSystem;
 	hideExtras?: boolean;
 	centerText?: boolean;

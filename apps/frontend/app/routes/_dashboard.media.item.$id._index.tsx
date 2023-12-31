@@ -1,6 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	Accordion,
+	ActionIcon,
 	Alert,
 	Anchor,
 	Avatar,
@@ -24,9 +25,10 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -40,6 +42,7 @@ import {
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
 	DeployUpdateMetadataJobDocument,
+	EditSeenItemDocument,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
 	MediaMainDetailsDocument,
@@ -52,6 +55,7 @@ import {
 	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
+	UserMediaDetailsQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -66,6 +70,7 @@ import {
 	IconBulb,
 	IconClock,
 	IconDeviceTv,
+	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPercentage,
@@ -274,6 +279,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		editSeenItem: async () => {
+			const submission = processSubmission(formData, editSeenItem);
+			await gqlClient.request(
+				EditSeenItemDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Adjusted seen item successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -301,6 +319,19 @@ const mergeMetadataSchema = z.object({
 	mergeFrom: zx.IntAsString,
 	mergeInto: zx.IntAsString,
 });
+
+const dateString = z
+	.string()
+	.transform((v) => formatDateToNaiveDate(new Date(v)));
+
+const editSeenItem = z.object({
+	seenId: zx.IntAsString,
+	startedOn: dateString.optional(),
+	finishedOn: dateString.optional(),
+});
+
+// DEV: I wanted to use fetcher in some place but since this is being rendered
+// conditionally (or inside a menu), the form ref is null.
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -569,7 +600,10 @@ export default function Page() {
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
-							<Tabs.Tab value="overview" leftSection={<IconInfoCircle />}>
+							<Tabs.Tab
+								value="overview"
+								leftSection={<IconInfoCircle size={16} />}
+							>
 								Overview
 							</Tabs.Tab>
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
@@ -696,12 +730,14 @@ export default function Page() {
 																		<MetadataCreator
 																			name={creator.name}
 																			image={creator.image}
+																			character={creator.character}
 																		/>
 																	</Anchor>
 																) : (
 																	<MetadataCreator
 																		name={creator.name}
 																		image={creator.image}
+																		character={creator.character}
 																	/>
 																)}
 															</Box>
@@ -1076,82 +1112,7 @@ export default function Page() {
 										) : null}
 									</Box>
 									{loaderData.userMediaDetails.history.map((h) => (
-										<Flex
-											key={h.id}
-											direction="column"
-											ml="md"
-											data-seen-id={h.id}
-											data-seen-num-times-updated={h.numTimesUpdated}
-										>
-											<Flex gap="xl">
-												<Text fw="bold">
-													{changeCase(h.state)}{" "}
-													{h.progress !== 100 ? `(${h.progress}%)` : null}
-												</Text>
-												{h.showInformation ? (
-													<Text c="dimmed">
-														S{h.showInformation.season}-E
-														{h.showInformation.episode}
-													</Text>
-												) : null}
-												{h.podcastInformation ? (
-													<Text c="dimmed">
-														EP-{h.podcastInformation.episode}
-													</Text>
-												) : null}
-											</Flex>
-											<Flex ml="sm" direction="column" gap={4}>
-												<Flex gap="xl">
-													<Flex gap="xs">
-														<Text size="sm">Started:</Text>
-														<Text size="sm" fw="bold">
-															{h.startedOn
-																? dayjsLib(h.startedOn).format("L")
-																: "N/A"}
-														</Text>
-													</Flex>
-													<Flex gap="xs">
-														<Text size="sm">Ended:</Text>
-														<Text size="sm" fw="bold">
-															{h.finishedOn
-																? dayjsLib(h.finishedOn).format("L")
-																: "N/A"}
-														</Text>
-													</Flex>
-												</Flex>
-												<Flex gap="md">
-													<Flex gap="xs">
-														<Text size="sm">Updated:</Text>
-														<Text size="sm" fw="bold">
-															{dayjsLib(h.lastUpdatedOn).format("L")}
-														</Text>
-													</Flex>
-													<Form action="?intent=deleteSeenItem" method="post">
-														<Button
-															variant="outline"
-															color="red"
-															leftSection={
-																<IconX size={16} style={{ marginTop: 2 }} />
-															}
-															size="compact-xs"
-															type="submit"
-															name="seenId"
-															value={h.id}
-															onClick={(e) => {
-																if (
-																	!confirm(
-																		"Are you sure you want to delete this record?",
-																	)
-																)
-																	e.preventDefault();
-															}}
-														>
-															Delete
-														</Button>
-													</Form>
-												</Flex>
-											</Flex>
-										</Flex>
+										<SeenItem history={h} key={h.id} />
 									))}
 								</Stack>
 							</MediaScrollArea>
@@ -1491,7 +1452,11 @@ const ProgressModal = (props: {
 	);
 };
 
-const MetadataCreator = (props: { name: string; image?: string | null }) => {
+const MetadataCreator = (props: {
+	name: string;
+	image?: string | null;
+	character?: string | null;
+}) => {
 	return (
 		<>
 			<Avatar
@@ -1504,10 +1469,60 @@ const MetadataCreator = (props: { name: string; image?: string | null }) => {
 				alt={`${props.name} profile picture`}
 				styles={{ image: { objectPosition: "top" } }}
 			/>
-			<Text size="xs" c="dimmed" ta="center" lineClamp={1} mt={4}>
+			<Text size="xs" c="dimmed" ta="center" lineClamp={3} mt={4}>
 				{props.name}
+				{props.character ? ` as ${props.character}` : null}
 			</Text>
 		</>
+	);
+};
+
+const AdjustSeenTimesModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	seenId: number;
+	startedAt?: string | null;
+	endedAt?: string | null;
+}) => {
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form
+				action="?intent=editSeenItem"
+				method="post"
+				onSubmit={props.onClose}
+			>
+				<Stack>
+					<Title order={3}>Adjust seen times</Title>
+					<DateTimePicker
+						label="Start time"
+						required
+						name="startedOn"
+						defaultValue={
+							props.startedAt ? new Date(props.startedAt) : undefined
+						}
+					/>
+					<DateTimePicker
+						label="End time"
+						required
+						name="finishedOn"
+						defaultValue={props.endedAt ? new Date(props.endedAt) : undefined}
+					/>
+					<Button
+						variant="outline"
+						type="submit"
+						name="seenId"
+						value={props.seenId}
+					>
+						Submit
+					</Button>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };
 
@@ -1718,5 +1733,114 @@ const AccordionLabel = (props: {
 				/>
 			) : null}
 		</Stack>
+	);
+};
+
+type History = UserMediaDetailsQuery["userMediaDetails"]["history"][number];
+
+const SeenItem = (props: {
+	history: History;
+}) => {
+	const [opened, { open, close }] = useDisclosure(false);
+
+	return (
+		<>
+			<Flex
+				key={props.history.id}
+				ml="md"
+				gap="xl"
+				data-seen-id={props.history.id}
+				data-seen-num-times-updated={props.history.numTimesUpdated}
+			>
+				<Flex direction="column" justify="center">
+					<Form action="?intent=deleteSeenItem" method="post">
+						<input hidden name="seenId" defaultValue={props.history.id} />
+						<ActionIcon
+							color="red"
+							type="submit"
+							onClick={(e) => {
+								if (
+									!confirm(
+										"Are you sure you want to delete this record from history?",
+									)
+								)
+									e.preventDefault();
+							}}
+						>
+							<IconX size={20} />
+						</ActionIcon>
+					</Form>
+					<ActionIcon
+						color="blue"
+						onClick={() => {
+							if (props.history.state === SeenState.Completed) open();
+							else
+								notifications.show({
+									color: "yellow",
+									message: "You can only edit completed items.",
+								});
+						}}
+					>
+						<IconEdit size={20} />
+					</ActionIcon>
+				</Flex>
+				<Flex direction="column">
+					<Flex gap="xl">
+						<Text fw="bold">
+							{changeCase(props.history.state)}{" "}
+							{props.history.progress !== 100
+								? `(${props.history.progress}%)`
+								: null}
+						</Text>
+						{props.history.showInformation ? (
+							<Text c="dimmed">
+								S{props.history.showInformation.season}-E
+								{props.history.showInformation.episode}
+							</Text>
+						) : null}
+						{props.history.podcastInformation ? (
+							<Text c="dimmed">
+								EP-{props.history.podcastInformation.episode}
+							</Text>
+						) : null}
+					</Flex>
+					<Flex ml="sm" direction="column" gap={4}>
+						<Flex gap="xl">
+							<Flex gap="xs">
+								<Text size="sm">Started:</Text>
+								<Text size="sm" fw="bold">
+									{props.history.startedOn
+										? dayjsLib(props.history.startedOn).format("L")
+										: "N/A"}
+								</Text>
+							</Flex>
+							<Flex gap="xs">
+								<Text size="sm">Ended:</Text>
+								<Text size="sm" fw="bold">
+									{props.history.finishedOn
+										? dayjsLib(props.history.finishedOn).format("L")
+										: "N/A"}
+								</Text>
+							</Flex>
+						</Flex>
+						<Flex gap="md">
+							<Flex gap="xs">
+								<Text size="sm">Updated:</Text>
+								<Text size="sm" fw="bold">
+									{dayjsLib(props.history.lastUpdatedOn).format("L")}
+								</Text>
+							</Flex>
+						</Flex>
+					</Flex>
+				</Flex>
+			</Flex>
+			<AdjustSeenTimesModal
+				opened={opened}
+				onClose={close}
+				seenId={props.history.id}
+				startedAt={props.history.startedOn}
+				endedAt={props.history.finishedOn}
+			/>
+		</>
 	);
 };

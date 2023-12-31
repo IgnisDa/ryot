@@ -19,7 +19,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	DeleteReviewDocument,
 	PostReviewDocument,
@@ -28,11 +28,13 @@ import {
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconPercentage } from "@tabler/icons-react";
+import { useRef } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { redirectWithToast } from "~/lib/toast.server";
@@ -107,7 +109,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return redirectWithToast(redirectTo, { message: "Review submitted" });
+			return redirectWithToast(redirectTo, {
+				message: "Review submitted successfully",
+				type: "success",
+			});
 		},
 		delete: async () => {
 			invariant(submission.reviewId, "No reviewId provided");
@@ -116,7 +121,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ reviewId: submission.reviewId },
 				await getAuthorizationHeader(request),
 			);
-			return redirectWithToast(redirectTo, { message: "Review deleted" });
+			return redirectWithToast(redirectTo, {
+				message: "Review deleted successfully",
+				type: "success",
+			});
 		},
 	});
 };
@@ -137,10 +145,12 @@ const reviewSchema = z
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const fetcher = useFetcher();
+	const formRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
-			<Box component={Form} method="post">
+			<Form method="post" ref={formRef}>
 				<input
 					hidden
 					name={
@@ -273,26 +283,25 @@ export default function Page() {
 						{loaderData.query.existingReviewId ? "Update" : "Submit"}
 					</Button>
 					{loaderData.query.existingReviewId ? (
-						<Button
-							w="100%"
-							color="red"
-							name="intent"
-							value="delete"
-							type="submit"
-							onClick={(e) => {
-								if (
-									!confirm(
-										"Are you sure you want to delete this review? This action cannot be undone.",
-									)
-								)
-									e.preventDefault();
-							}}
-						>
-							Delete
-						</Button>
+						<>
+							<input hidden name="intent" defaultValue="delete" />
+							<Button
+								w="100%"
+								color="red"
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this review? This action cannot be undone.",
+									});
+									if (conf) fetcher.submit(formRef.current);
+								}}
+							>
+								Delete
+							</Button>
+						</>
 					) : null}
 				</Stack>
-			</Box>
+			</Form>
 		</Container>
 	);
 }

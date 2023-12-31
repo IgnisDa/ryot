@@ -10,9 +10,10 @@ pub struct Model {
     pub metadata_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub person_id: i32,
-    pub index: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub role: String,
+    pub index: Option<i32>,
+    pub character: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

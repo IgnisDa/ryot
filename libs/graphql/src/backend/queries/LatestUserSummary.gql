@@ -3,8 +3,11 @@ query LatestUserSummary {
     calculatedOn
     fitness {
       measurementsRecorded
-      workoutsRecorded
       exercisesInteractedWith
+      workouts {
+        recorded
+        duration
+      }
      }
     media {
       reviewsPosted

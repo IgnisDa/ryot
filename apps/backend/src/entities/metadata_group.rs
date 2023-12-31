@@ -33,8 +33,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::collection_to_entity::Entity")]
     CollectionToEntity,
-    #[sea_orm(has_many = "super::partial_metadata_to_metadata_group::Entity")]
-    PartialMetadataToMetadataGroup,
+    #[sea_orm(has_many = "super::metadata_to_metadata_group::Entity")]
+    MetadataToMetadataGroup,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
 }
@@ -45,9 +45,9 @@ impl Related<super::collection_to_entity::Entity> for Entity {
     }
 }
 
-impl Related<super::partial_metadata_to_metadata_group::Entity> for Entity {
+impl Related<super::metadata_to_metadata_group::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::PartialMetadataToMetadataGroup.def()
+        Relation::MetadataToMetadataGroup.def()
     }
 }
 
@@ -57,13 +57,13 @@ impl Related<super::review::Entity> for Entity {
     }
 }
 
-impl Related<super::partial_metadata::Entity> for Entity {
+impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
-        super::partial_metadata_to_metadata_group::Relation::PartialMetadata.def()
+        super::metadata_to_metadata_group::Relation::Metadata.def()
     }
     fn via() -> Option<RelationDef> {
         Some(
-            super::partial_metadata_to_metadata_group::Relation::MetadataGroup
+            super::metadata_to_metadata_group::Relation::MetadataGroup
                 .def()
                 .rev(),
         )

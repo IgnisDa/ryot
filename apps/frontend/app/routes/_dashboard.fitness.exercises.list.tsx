@@ -62,12 +62,12 @@ import { useSearchParam } from "~/lib/hooks";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const defaultFiltersValue = {
-	muscle: null,
-	type: null,
-	equipment: null,
-	force: null,
-	level: null,
-	mechanic: null,
+	muscle: undefined,
+	type: undefined,
+	equipment: undefined,
+	force: undefined,
+	level: undefined,
+	mechanic: undefined,
 	sort: ExerciseSortBy.NumTimesPerformed,
 };
 

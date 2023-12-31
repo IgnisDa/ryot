@@ -1,5 +1,5 @@
-import { $path } from "@ignisda/remix-routes";
 import {
+	Accordion,
 	ActionIcon,
 	Alert,
 	Anchor,
@@ -7,16 +7,21 @@ import {
 	Button,
 	Container,
 	CopyButton,
+	Divider,
 	FileInput,
 	Flex,
 	Group,
+	Indicator,
 	JsonInput,
+	MultiSelect,
 	PasswordInput,
 	Progress,
 	Select,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
+	ThemeIcon,
 	Title,
 	Tooltip,
 } from "@mantine/core";
@@ -26,28 +31,55 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useActionData } from "@remix-run/react";
 import {
+	FetcherWithComponents,
+	Form,
+	useActionData,
+	useFetcher,
+	useLoaderData,
+} from "@remix-run/react";
+import {
+	DeployExportJobDocument,
 	DeployImportJobDocument,
+	ExportItem,
 	GenerateAuthTokenDocument,
+	ImportReportsDocument,
 	ImportSource,
+	UserExportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
-import { IconCheck, IconCopy } from "@tabler/icons-react";
-import { ReactNode, useState } from "react";
+import { IconCheck, IconCopy, IconDownload } from "@tabler/icons-react";
+import { ReactNode, RefObject, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { uploadFileToServiceAndGetPath } from "~/lib/generals";
+import { dayjsLib, uploadFileToServiceAndGetPath } from "~/lib/generals";
+import { getCoreEnabledFeatures } from "~/lib/graphql.server";
+import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
-export const loader = async (_args: LoaderFunctionArgs) => {
-	return json({});
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const [coreEnabledFeatures, { importReports }, { userExports }] =
+		await Promise.all([
+			getCoreEnabledFeatures(),
+			gqlClient.request(
+				ImportReportsDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			),
+			gqlClient.request(
+				UserExportsDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			),
+		]);
+	return json({ coreEnabledFeatures, importReports, userExports });
 };
 
 export const meta: MetaFunction = () => {
-	return [{ title: "Imports and Exports | Ryot" }];
+	return [{ title: "Your Data | Ryot" }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -82,8 +114,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.StoryGraph, async () => ({
 					storyGraph: processSubmission(formData, storyGraphImportFormSchema),
 				}))
-				.with(ImportSource.MediaJson, async () => ({
-					mediaJson: processSubmission(formData, mediaJsonImportFormSchema),
+				.with(ImportSource.GenericJson, async () => ({
+					genericJson: processSubmission(formData, genericJsonImportFormSchema),
 				}))
 				.with(ImportSource.Mal, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
@@ -103,7 +135,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: { source, ...values } },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", generateAuthToken: false } as const);
+			return json({ status: "success", generateAuthToken: false } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Import job started in the background",
+				}),
+			});
+		},
+		deployExport: async () => {
+			const toExport = processSubmission(formData, deployExportForm);
+			await gqlClient.request(
+				DeployExportJobDocument,
+				toExport,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", generateAuthToken: false } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Export job started in the background",
+				}),
+			});
 		},
 	});
 };
@@ -130,14 +181,19 @@ const strongAppImportFormSchema = z.object({
 	mapping: z.string(),
 });
 
-const mediaJsonImportFormSchema = z.object({ export: z.string() });
+const genericJsonImportFormSchema = z.object({ export: z.string() });
 
 const malImportFormSchema = z.object({
 	animePath: z.string(),
 	mangaPath: z.string(),
 });
 
+const deployExportForm = z.object({
+	toExport: z.string().transform((v) => v.split(",") as ExportItem[]),
+});
+
 export default function Page() {
+	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 	const [progress, setProgress] = useState<number | null>(null);
@@ -148,7 +204,7 @@ export default function Page() {
 
 	const [storyGraphExportPath, setStoryGraphExportPath] = useState("");
 
-	const [mediaJsonExportPath, setMediaJsonExportPath] = useState("");
+	const [genericJsonExportPath, setGenericJsonExportPath] = useState("");
 
 	const [malAnimePath, setMalAnimePath] = useState("");
 	const [malMangaPath, setMalMangaPath] = useState("");
@@ -158,6 +214,8 @@ export default function Page() {
 	const onProgress = (event: ProgressEvent<XMLHttpRequestEventTarget>) =>
 		setProgress((event.loaded / event.total) * 100);
 	const onLoad = () => setProgress(null);
+	const fetcher = useFetcher();
+	const formRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
@@ -165,126 +223,40 @@ export default function Page() {
 				<Tabs.List>
 					<Tabs.Tab value="import">Import</Tabs.Tab>
 					<Tabs.Tab value="export">Export</Tabs.Tab>
+					<Tabs.Tab value="api">API</Tabs.Tab>
 				</Tabs.List>
 				<Box mt="xl">
-					<Tabs.Panel value="export">
-						<Stack>
-							<Flex justify="space-between" align="center">
-								<Title order={2}>Export data</Title>
-								<Group>
-									<Anchor
-										size="xs"
-										href="https://ignisda.github.io/ryot/guides/exporting.html"
-										target="_blank"
-									>
-										Docs
-									</Anchor>
-								</Group>
-							</Flex>
-							<Form method="post" action="?intent=generateAuthToken">
-								<Button
-									variant="light"
-									color="indigo"
-									radius="md"
-									type="submit"
-									fullWidth
-								>
-									Create auth token
-								</Button>
-							</Form>
-							{actionData?.generateAuthToken ? (
-								<Box>
-									<Alert
-										title="This token will be shown only once"
-										color="yellow"
-									>
-										<Flex align="center">
-											<CopyButton value={actionData.generateAuthToken}>
-												{({ copied, copy }) => (
-													<Tooltip
-														label={copied ? "Copied" : "Copy"}
-														withArrow
-														position="right"
-													>
-														<ActionIcon
-															color={copied ? "teal" : "gray"}
-															onClick={copy}
-														>
-															{copied ? (
-																<IconCheck size={16} />
-															) : (
-																<IconCopy size={16} />
-															)}
-														</ActionIcon>
-													</Tooltip>
-												)}
-											</CopyButton>
-											<TextInput
-												defaultValue={actionData.generateAuthToken}
-												readOnly
-												style={{ flex: 1 }}
-											/>
-										</Flex>
-									</Alert>
-								</Box>
-							) : null}
-						</Stack>
-					</Tabs.Panel>
 					<Tabs.Panel value="import">
-						<Box
-							component={Form}
-							onSubmit={async (e) => {
-								if (
-									!confirm(
-										"Are you sure you want to deploy an import job? This action is irreversible.",
-									)
-								)
-									e.preventDefault();
-							}}
+						<fetcher.Form
 							method="post"
 							action="?intent=deployImport"
+							ref={formRef}
 						>
 							<input hidden name="source" defaultValue={deployImportSource} />
 							<Stack>
 								<Flex justify="space-between" align="center">
 									<Title order={2}>Import data</Title>
-									<Group>
-										<Anchor
-											to={$path("/settings/imports-and-exports/reports")}
-											component={Link}
-											size="xs"
-										>
-											Reports
-										</Anchor>
-										<Anchor
-											size="xs"
-											href={`https://ignisda.github.io/ryot/importing.html#${match(
-												deployImportSource,
-											)
-												.with(ImportSource.Goodreads, () => "goodreads")
-												.with(ImportSource.Mal, () => "myanimelist")
-												.with(ImportSource.MediaJson, () => "media-json")
-												.with(ImportSource.MediaTracker, () => "mediatracker")
-												.with(ImportSource.Movary, () => "movary")
-												.with(ImportSource.StoryGraph, () => "storygraph")
-												.with(ImportSource.StrongApp, () => "strong-app")
-												.with(ImportSource.Trakt, () => "trakt")
-												.otherwise(() => "")}`}
-											target="_blank"
-										>
-											Docs
-										</Anchor>
-									</Group>
+									<Anchor
+										size="xs"
+										href={`https://ignisda.github.io/ryot/importing.html#${match(
+											deployImportSource,
+										)
+											.with(ImportSource.Goodreads, () => "goodreads")
+											.with(ImportSource.Mal, () => "myanimelist")
+											.with(ImportSource.GenericJson, () => "generic-json")
+											.with(ImportSource.MediaTracker, () => "mediatracker")
+											.with(ImportSource.Movary, () => "movary")
+											.with(ImportSource.StoryGraph, () => "storygraph")
+											.with(ImportSource.StrongApp, () => "strong-app")
+											.with(ImportSource.Trakt, () => "trakt")
+											.otherwise(() => "")}`}
+										target="_blank"
+									>
+										Docs
+									</Anchor>
 								</Flex>
 								{progress ? (
-									<Progress
-										value={progress}
-										striped
-										// TODO: Bring this back when mantine supports it
-										// animate
-										size="sm"
-										color="orange"
-									/>
+									<Progress value={progress} striped size="sm" color="orange" />
 								) : null}
 								<Select
 									id="import-source"
@@ -299,7 +271,7 @@ export default function Page() {
 									}}
 								/>
 								{deployImportSource ? (
-									<ImportSourceElement>
+									<ImportSourceElement fetcher={fetcher} formRef={formRef}>
 										{match(deployImportSource)
 											.with(ImportSource.MediaTracker, () => (
 												<>
@@ -426,12 +398,12 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.MediaJson, () => (
+											.with(ImportSource.GenericJson, () => (
 												<>
 													<input
 														hidden
 														name="export"
-														value={mediaJsonExportPath}
+														value={genericJsonExportPath}
 														readOnly
 													/>
 													<FileInput
@@ -446,7 +418,7 @@ export default function Page() {
 																		onProgress,
 																		onLoad,
 																	);
-																setMediaJsonExportPath(path);
+																setGenericJsonExportPath(path);
 															}
 														}}
 													/>
@@ -550,8 +522,193 @@ export default function Page() {
 											.exhaustive()}
 									</ImportSourceElement>
 								) : null}
+								<Divider />
+								<Title order={3}>Import history</Title>
+								{loaderData.importReports.length > 0 ? (
+									<Accordion>
+										{loaderData.importReports.map((report) => (
+											<Accordion.Item
+												value={report.id.toString()}
+												key={report.id}
+											>
+												<Accordion.Control
+													disabled={typeof report.success !== "boolean"}
+												>
+													<Indicator
+														inline
+														size={12}
+														offset={-3}
+														processing={typeof report.success !== "boolean"}
+														color={
+															typeof report.success === "boolean"
+																? report.success
+																	? "green"
+																	: "red"
+																: undefined
+														}
+													>
+														{changeCase(report.source)}{" "}
+														<Text size="xs" span c="dimmed">
+															({dayjsLib(report.startedOn).fromNow()})
+														</Text>
+													</Indicator>
+												</Accordion.Control>
+												<Accordion.Panel>
+													{report.details ? (
+														<>
+															<Text>
+																Total imported: {report.details.import.total}
+															</Text>
+															<Text>
+																Failed: {report.details.failedItems.length}
+															</Text>
+															{report.details.failedItems.length > 0 ? (
+																<JsonInput
+																	size="xs"
+																	defaultValue={JSON.stringify(
+																		report.details.failedItems,
+																		null,
+																		4,
+																	)}
+																	disabled
+																	autosize
+																/>
+															) : null}
+														</>
+													) : (
+														<Text>This import never finished</Text>
+													)}
+												</Accordion.Panel>
+											</Accordion.Item>
+										))}
+									</Accordion>
+								) : (
+									<Text>You have not performed any imports</Text>
+								)}
 							</Stack>
-						</Box>
+						</fetcher.Form>
+					</Tabs.Panel>
+					<Tabs.Panel value="export">
+						<Stack>
+							<Flex justify="space-between" align="center">
+								<Title order={2}>Export data</Title>
+								<Group>
+									<Anchor
+										size="xs"
+										href="https://ignisda.github.io/ryot/guides/exporting.html"
+										target="_blank"
+									>
+										Docs
+									</Anchor>
+								</Group>
+							</Flex>
+							<Form action="?intent=deployExport" method="post">
+								<MultiSelect
+									name="toExport"
+									label="Export to JSON"
+									description="Multiple items can be selected"
+									required
+									data={Object.values(ExportItem).map((is) => ({
+										label: changeCase(is),
+										value: is,
+									}))}
+								/>
+								<Tooltip
+									label="Please enable file storage to use this feature"
+									disabled={loaderData.coreEnabledFeatures.fileStorage}
+								>
+									<Button
+										type="submit"
+										variant="light"
+										color="blue"
+										fullWidth
+										radius="md"
+										mt="xs"
+										disabled={!loaderData.coreEnabledFeatures.fileStorage}
+									>
+										Start job
+									</Button>
+								</Tooltip>
+							</Form>
+							<Divider />
+							<Title order={3}>Export history</Title>
+							{loaderData.userExports.length > 0 ? (
+								<Stack mx="xs">
+									{loaderData.userExports.map((exp) => (
+										<Box key={exp.startedAt} w="100%">
+											<Group justify="space-between">
+												<Box>
+													<Text>{exp.exported.map(changeCase).join(", ")}</Text>
+													<Text size="xs" span c="dimmed">
+														({dayjsLib(exp.endedAt).fromNow()})
+													</Text>
+												</Box>
+												<Anchor href={exp.url} target="_blank" rel="noreferrer">
+													<ThemeIcon color="blue" variant="transparent">
+														<IconDownload />
+													</ThemeIcon>
+												</Anchor>
+											</Group>
+										</Box>
+									))}
+								</Stack>
+							) : (
+								<Text>You have not performed any exports</Text>
+							)}
+						</Stack>
+					</Tabs.Panel>
+					<Tabs.Panel value="api">
+						<Stack>
+							<Title order={2}>API Integration</Title>
+							<Form method="post" action="?intent=generateAuthToken">
+								<Button
+									variant="light"
+									color="blue"
+									radius="md"
+									type="submit"
+									fullWidth
+								>
+									Create auth token
+								</Button>
+							</Form>
+							{actionData?.generateAuthToken ? (
+								<Box>
+									<Alert
+										title="This token will be shown only once"
+										color="yellow"
+									>
+										<Flex align="center">
+											<CopyButton value={actionData.generateAuthToken}>
+												{({ copied, copy }) => (
+													<Tooltip
+														label={copied ? "Copied" : "Copy"}
+														withArrow
+														position="right"
+													>
+														<ActionIcon
+															color={copied ? "teal" : "gray"}
+															onClick={copy}
+														>
+															{copied ? (
+																<IconCheck size={16} />
+															) : (
+																<IconCopy size={16} />
+															)}
+														</ActionIcon>
+													</Tooltip>
+												)}
+											</CopyButton>
+											<TextInput
+												value={actionData.generateAuthToken}
+												readOnly
+												style={{ flex: 1 }}
+												onClick={(e) => e.currentTarget.select()}
+											/>
+										</Flex>
+									</Alert>
+								</Box>
+							) : null}
+						</Stack>
 					</Tabs.Panel>
 				</Box>
 			</Tabs>
@@ -561,6 +718,8 @@ export default function Page() {
 
 const ImportSourceElement = (props: {
 	children: ReactNode | ReactNode[];
+	fetcher: FetcherWithComponents<unknown>;
+	formRef: RefObject<HTMLFormElement>;
 }) => {
 	return (
 		<>
@@ -570,8 +729,14 @@ const ImportSourceElement = (props: {
 				color="blue"
 				fullWidth
 				mt="md"
-				type="submit"
 				radius="md"
+				onClick={async () => {
+					const conf = await confirmWrapper({
+						confirmation:
+							"Are you sure you want to deploy an import job? This action is irreversible.",
+					});
+					if (conf) props.fetcher.submit(props.formRef.current);
+				}}
 			>
 				Import
 			</Button>

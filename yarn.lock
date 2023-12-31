@@ -2748,18 +2748,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mantine/modals@npm:7.3.2":
-  version: 7.3.2
-  resolution: "@mantine/modals@npm:7.3.2"
-  peerDependencies:
-    "@mantine/core": 7.3.2
-    "@mantine/hooks": 7.3.2
-    react: ^18.2.0
-    react-dom: ^18.2.0
-  checksum: 351f1fd3a418caecd16745a69529cdc9080123f238d0489e405f007c5d989603923079d8641b68c184fa0402d7fa2b0cfe4254aa3becf0849a2c2aac9c46dfb4
-  languageName: node
-  linkType: hard
-
 "@mantine/notifications@npm:7.3.2":
   version: 7.3.2
   resolution: "@mantine/notifications@npm:7.3.2"
@@ -3283,7 +3271,6 @@ __metadata:
     "@mantine/dates": "npm:7.3.2"
     "@mantine/form": "npm:7.3.2"
     "@mantine/hooks": "npm:7.3.2"
-    "@mantine/modals": "npm:7.3.2"
     "@mantine/notifications": "npm:7.3.2"
     "@remix-run/dev": "npm:2.4.1"
     "@remix-run/node": "npm:2.4.1"
@@ -3319,6 +3306,7 @@ __metadata:
     postcss-preset-mantine: "npm:1.12.0"
     postcss-simple-vars: "npm:7.0.1"
     react: "npm:18.2.0"
+    react-confirm: "npm:0.3.0-7"
     react-dom: "npm:18.2.0"
     react-webcam: "npm:7.2.0"
     recharts: "npm:2.10.3"
@@ -9607,6 +9595,16 @@ __metadata:
     iconv-lite: "npm:0.4.24"
     unpipe: "npm:1.0.0"
   checksum: 280bedc12db3490ecd06f740bdcf66093a07535374b51331242382c0e130bb273ebb611b7bc4cba1b4b4e016cc7b1f4b05a6df885a6af39c2bc3b94c02291c84
+  languageName: node
+  linkType: hard
+
+"react-confirm@npm:0.3.0-7":
+  version: 0.3.0-7
+  resolution: "react-confirm@npm:0.3.0-7"
+  peerDependencies:
+    react: 18.x
+    react-dom: 18.x
+  checksum: 3da55aaf282758263fd02b619a7b62a3718d17c2ff8b773d054a764d936c568793c0ca5862c48ccc27948119264220f5b2c314e5537653f85a8b6440eec4822d
   languageName: node
   linkType: hard
 

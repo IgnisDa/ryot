@@ -5,12 +5,13 @@ use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 
 use crate::{
-    entities::{
-        metadata_group::MetadataGroupWithoutId, partial_metadata::PartialMetadataWithoutId,
-    },
+    entities::metadata_group::MetadataGroupWithoutId,
     file_storage::FileStorageService,
     models::{
-        media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson},
+        media::{
+            MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson,
+            PartialMetadataWithoutId,
+        },
         SearchResults,
     },
     utils::AuthContext,

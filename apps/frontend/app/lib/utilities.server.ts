@@ -4,6 +4,12 @@ import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
 import { zx } from "zodix";
 
+export const expectedEnvironmentVariables = z.object({
+	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
+	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
+	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
+});
+
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
  */

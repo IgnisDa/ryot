@@ -147,7 +147,7 @@ impl MediaProvider for ITunesService {
             .last()
             .and_then(|e| e.release_date.to_owned())
             .map(|d| d.date_naive());
-        let episodes = episodes
+        let mut episodes = episodes
             .into_iter()
             .enumerate()
             .rev()
@@ -161,6 +161,7 @@ impl MediaProvider for ITunesService {
                 thumbnail: e.artwork_url_60,
             })
             .collect_vec();
+        episodes.reverse();
         Ok(MediaDetails {
             identifier: details.identifier,
             title: details.title,

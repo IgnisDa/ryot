@@ -31,6 +31,8 @@ query UserExerciseDetails($input: UserExerciseDetailsInput!) {
           lot
           sets {
             workoutId
+            workoutDoneOn
+            exerciseIdx
             setIdx
             data {
               statistic {

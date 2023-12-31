@@ -330,7 +330,7 @@ export default function Page() {
 						variant="outline"
 						type="submit"
 						name="date"
-						value={dayjsLib().toISOString()}
+						value={formatDateToNaiveDate(new Date())}
 					>
 						Now
 					</Button>

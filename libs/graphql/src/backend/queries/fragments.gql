@@ -35,12 +35,12 @@ fragment MediaSearchItemPart on MediaSearchItem {
 }
 
 fragment PartialMetadataPart on PartialMetadata {
+  id
   lot
   source
   identifier
   title
   image
-  metadataId
 }
 
 fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
@@ -63,6 +63,8 @@ fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
   reps
   weight
   oneRm
+  pace
+  volume
 }
 
 fragment WorkoutSummaryPart on WorkoutSummary {

@@ -25,7 +25,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	Form,
 	Link,
 	useFetcher,
 	useNavigate,
@@ -61,6 +60,7 @@ import {
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
+import { confirmWrapper } from "./confirmation";
 
 const commitMedia = async (
 	identifier: string,
@@ -87,8 +87,8 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 			component={Link}
 			data-media-id={props.media.identifier}
 			to={
-				props.media.metadataId
-					? $path("/media/item/:id", { id: props.media.metadataId })
+				props.media.id
+					? $path("/media/item/:id", { id: props.media.id })
 					: $path("/")
 			}
 			onClick={async (e) => {
@@ -237,7 +237,7 @@ export const ReviewItemDisplay = (props: {
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<Form
+						<createReviewCommentFetcher.Form
 							action="/actions?intent=createReviewComment"
 							method="post"
 							ref={createReviewCommentFormRef}
@@ -261,7 +261,7 @@ export const ReviewItemDisplay = (props: {
 									<IconCheck />
 								</ActionIcon>
 							</Group>
-						</Form>
+						</createReviewCommentFetcher.Form>
 					) : null}
 					{!openedLeaveComment ? (
 						<Button
@@ -290,7 +290,7 @@ export const ReviewItemDisplay = (props: {
 														) : null}
 													</Box>
 													{props.user.id === c?.user?.id ? (
-														<Form
+														<deleteReviewCommentFetcher.Form
 															action="/actions?intent=createReviewComment"
 															method="post"
 															ref={deleteReviewCommentFormRef}
@@ -312,11 +312,12 @@ export const ReviewItemDisplay = (props: {
 															/>
 															<ActionIcon
 																color="red"
-																onClick={() => {
-																	const yes = confirm(
-																		"Are you sure you want to delete this comment?",
-																	);
-																	if (yes)
+																onClick={async () => {
+																	const conf = await confirmWrapper({
+																		confirmation:
+																			"Are you sure you want to delete this comment?",
+																	});
+																	if (conf)
 																		deleteReviewCommentFetcher.submit(
 																			deleteReviewCommentFormRef.current,
 																		);
@@ -324,9 +325,9 @@ export const ReviewItemDisplay = (props: {
 															>
 																<IconTrash size={16} />
 															</ActionIcon>
-														</Form>
+														</deleteReviewCommentFetcher.Form>
 													) : null}
-													<Form
+													<changeScoreFetcher.Form
 														action="/actions?intent=createReviewComment"
 														method="post"
 														ref={changeScoreFormRef}
@@ -365,7 +366,7 @@ export const ReviewItemDisplay = (props: {
 															<IconArrowBigUp size={16} />
 															<Text>{c?.likedBy?.length}</Text>
 														</ActionIcon>
-													</Form>
+													</changeScoreFetcher.Form>
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
@@ -723,7 +724,7 @@ export const AddEntityToCollectionModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form
+			<addEntityToCollectionFetcher.Form
 				action="/actions?intent=addEntityToCollection"
 				method="post"
 				ref={addEntityToCollectionFormRef}
@@ -749,7 +750,7 @@ export const AddEntityToCollectionModal = (props: {
 						Cancel
 					</Button>
 				</Stack>
-			</Form>
+			</addEntityToCollectionFetcher.Form>
 		</Modal>
 	);
 };
@@ -765,7 +766,7 @@ export const DisplayCollection = (props: {
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<Form
+			<removeEntityFromCollection.Form
 				action="/actions?intent=removeEntityFromCollection"
 				method="post"
 				ref={removeEntityFromCollectionFormRef}
@@ -786,11 +787,12 @@ export const DisplayCollection = (props: {
 					<input hidden name="collectionName" defaultValue={props.col.name} />
 					<ActionIcon
 						size={16}
-						onClick={() => {
-							const yes = confirm(
-								"Are you sure you want to remove this media from this collection?",
-							);
-							if (yes)
+						onClick={async () => {
+							const conf = await confirmWrapper({
+								confirmation:
+									"Are you sure you want to remove this media from this collection?",
+							});
+							if (conf)
 								removeEntityFromCollection.submit(
 									removeEntityFromCollectionFormRef.current,
 								);
@@ -799,7 +801,7 @@ export const DisplayCollection = (props: {
 						<IconX />
 					</ActionIcon>
 				</Flex>
-			</Form>
+			</removeEntityFromCollection.Form>
 		</Badge>
 	);
 };

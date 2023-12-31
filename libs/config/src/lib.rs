@@ -243,6 +243,17 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
+/// The configuration related to Umami analytics. More information
+/// [here](https://umami.is/docs/tracker-configuration).
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
+pub struct FrontendUmamiConfig {
+    /// For example: https://umami.is/script.js
+    pub script_url: String,
+    pub website_id: String,
+    pub domains: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
@@ -254,6 +265,9 @@ pub struct FrontendConfig {
     /// The number of items to display in a list view.
     #[setting(default = 20)]
     pub page_size: i32,
+    /// Settings related to Umami analytics.
+    #[setting(nested)]
+    pub umami: FrontendUmamiConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -336,6 +350,9 @@ pub struct ServerConfig {
     /// Whether monitored media will be updated.
     #[setting(default = true)]
     pub update_monitored_media: bool,
+    /// Whether the graphql playground will be enabled.
+    #[setting(default = true)]
+    pub graphql_playground_enabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -344,18 +361,14 @@ pub struct UsersConfig {
     /// The secret used for generating JWT tokens.
     #[setting(default = format!("{}", PROJECT_NAME))]
     pub jwt_secret: String,
-    /// Whether users will be allowed to change their password in their profile
-    /// settings.
-    #[setting(default = true)]
-    pub allow_changing_password: bool,
     /// Whether users will be allowed to change their preferences in their profile
     /// settings.
     #[setting(default = true)]
     pub allow_changing_preferences: bool,
-    /// Whether users will be allowed to change their username in their profile
-    /// settings.
+    /// Whether users will be allowed to change their username and password in their
+    /// profile settings.
     #[setting(default = true)]
-    pub allow_changing_username: bool,
+    pub allow_changing_credentials: bool,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,

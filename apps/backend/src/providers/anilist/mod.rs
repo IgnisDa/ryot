@@ -9,12 +9,11 @@ use rust_decimal::Decimal;
 use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
-    entities::partial_metadata::PartialMetadataWithoutId,
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
-            MetadataVideoSource, PartialMetadataPerson,
+            MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -425,6 +424,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
                 identifier: node.id.to_string(),
                 source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
+                character: None,
             }
         })
         .collect_vec();
@@ -439,6 +439,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
                     identifier: node.id.to_string(),
                     source: MetadataSource::Anilist,
                     role: "Production".to_owned(),
+                    character: None,
                 }
             }),
     );

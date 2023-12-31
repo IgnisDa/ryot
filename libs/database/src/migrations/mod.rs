@@ -18,6 +18,11 @@ mod m20230912_create_calendar_event;
 mod m20231003_create_partial_metadata_to_person;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
+mod m20231219_change_column_types;
+mod m20231219_create_metadata_relations;
+mod m20231220_store_partial_metadata_in_metadata;
+mod m20231221_drop_useless_tables;
+mod m20231226_add_character_column;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -33,9 +38,8 @@ pub use m20230622_create_exercise::{
     Exercise as AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
     ExerciseMechanic, ExerciseMuscle, ExerciseSource,
 };
-pub use m20230901_create_partial_metadata::MetadataToPartialMetadataRelation;
-pub use m20231003_create_partial_metadata_to_person::PersonToPartialMetadataRelation;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
+pub use m20231219_create_metadata_relations::MetadataToMetadataRelation;
 
 pub struct Migrator;
 
@@ -60,6 +64,11 @@ impl MigratorTrait for Migrator {
             Box::new(m20231003_create_partial_metadata_to_person::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
+            Box::new(m20231219_change_column_types::Migration),
+            Box::new(m20231219_create_metadata_relations::Migration),
+            Box::new(m20231220_store_partial_metadata_in_metadata::Migration),
+            Box::new(m20231221_drop_useless_tables::Migration),
+            Box::new(m20231226_add_character_column::Migration),
         ]
     }
 }

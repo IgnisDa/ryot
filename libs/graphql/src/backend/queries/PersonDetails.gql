@@ -16,18 +16,10 @@ query PersonDetails($personId: Int!) {
     contents {
       name
       items {
-        metadataId
+        id
         title
         image
       }
-    }
-    workedOn {
-      lot
-      source
-      identifier
-      title
-      image
-      metadataId
     }
   }
 }

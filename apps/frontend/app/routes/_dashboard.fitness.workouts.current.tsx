@@ -12,12 +12,14 @@ import {
 	Drawer,
 	Flex,
 	Group,
+	Image,
 	Menu,
 	Modal,
 	NumberInput,
 	Paper,
 	Progress,
 	RingProgress,
+	ScrollArea,
 	SimpleGrid,
 	Skeleton,
 	Stack,
@@ -60,6 +62,7 @@ import {
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
+	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
 	IconTrash,
@@ -76,6 +79,7 @@ import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
+import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
@@ -143,7 +147,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					secure: true,
 				}),
 			},
-			await createToastHeaders({ message: "Workout created" }),
+			await createToastHeaders({
+				message: "Workout completed successfully",
+				type: "success",
+			}),
 		),
 	});
 };
@@ -190,9 +197,7 @@ export default function Page() {
 		interval.start();
 	};
 
-	const stopTimer = () => {
-		setCurrentTimer(RESET);
-	};
+	const stopTimer = () => setCurrentTimer(RESET);
 
 	const createUserWorkoutFetcher = useFetcher();
 
@@ -281,8 +286,8 @@ export default function Page() {
 													.flatMap((e) => e.sets)
 													.flatMap((s) =>
 														s.confirmed
-															? (s.statistic.reps || 0) *
-															  (s.statistic.weight || 0)
+															? Number(s.statistic.reps || 0) *
+															  Number(s.statistic.weight || 0)
 															: 0,
 													),
 											).toFixed(),
@@ -346,14 +351,18 @@ export default function Page() {
 														});
 														return;
 													}
-													const yes = confirm(
-														"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-													);
+													const yes = await confirmWrapper({
+														title: "Finish workout",
+														confirmation:
+															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+													});
 													if (yes) {
 														const input =
 															currentWorkoutToCreateWorkoutInput(
 																currentWorkout,
 															);
+														stopTimer();
+														interval.stop();
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
 															{ method: "post" },
@@ -476,7 +485,7 @@ const StatInput = (props: {
 							const value = v === "" ? undefined : Number(v);
 							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 								props.stat
-							] = value;
+							] = value as unknown as null;
 							if (value === undefined)
 								draft.exercises[props.exerciseIdx].sets[
 									props.setIdx
@@ -636,6 +645,8 @@ const ExerciseDisplay = (props: {
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
+	const [exerciseDetailsOpened, { toggle: exerciseDetailsToggle }] =
+		useDisclosure(false);
 	const [
 		supersetModalOpened,
 		{ close: supersetModalClose, toggle: supersetModalToggle },
@@ -962,6 +973,14 @@ const ExerciseDisplay = (props: {
 							>
 								Images
 							</Menu.Item>
+							{props.exercise.exerciseDetails.images.length > 0 ? (
+								<Menu.Item
+									leftSection={<IconInfoCircle size={14} />}
+									onClick={exerciseDetailsToggle}
+								>
+									{exerciseDetailsOpened ? "Hide" : "Show"} details
+								</Menu.Item>
+							) : null}
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
@@ -982,6 +1001,15 @@ const ExerciseDisplay = (props: {
 						</Menu.Dropdown>
 					</Menu>
 					<Box ref={parent}>
+						{exerciseDetailsOpened ? (
+							<ScrollArea mb="md" type="scroll">
+								<Group>
+									{props.exercise.exerciseDetails.images.map((i) => (
+										<Image key={i} radius="md" src={i} h={200} w={350} />
+									))}
+								</Group>
+							</ScrollArea>
+						) : null}
 						<Flex justify="space-between" align="center" mb="xs">
 							<Text size="xs" w="5%" ta="center">
 								SET

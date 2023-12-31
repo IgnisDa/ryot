@@ -14,11 +14,11 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::Client;
 
 use crate::{
-    entities::partial_metadata::PartialMetadataWithoutId,
     models::{
         media::{
             MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
+            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadataWithoutId,
+            PodcastEpisode, PodcastSpecifics,
         },
         IdAndNamedObject, SearchDetails, SearchResults,
     },
