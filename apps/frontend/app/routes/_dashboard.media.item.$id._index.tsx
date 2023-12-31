@@ -469,7 +469,7 @@ export default function Page() {
 										alt="Logo"
 										h={24}
 										w={24}
-										src={`/images/provider-logos/${match(
+										src={`/provider-logos/${match(
 											loaderData.mediaMainDetails.source,
 										)
 											.with(MetadataSource.Anilist, () => "anilist.svg")
