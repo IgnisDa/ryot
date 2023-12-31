@@ -30,6 +30,7 @@ import {
 import { humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
+	IconArrowsRight,
 	IconBarbell,
 	IconFriends,
 	IconPhotoPlus,
@@ -123,6 +124,18 @@ export default function Page() {
 								here
 							</Anchor>{" "}
 							to continue.
+						</Text>
+					</Alert>
+				) : null}
+				{loaderData.latestUserSummary.media.mediaInteractedWith === 0 ? (
+					<Alert icon={<IconArrowsRight />} variant="outline" color="teal">
+						<Text>
+							To get started, select a media type from the sidebar, enter a
+							query in the search tab, and add a media to your seen history or
+							watchlist.
+						</Text>
+						<Text mt="xs">
+							This notice will disappear once your summary is re-calculated.
 						</Text>
 					</Alert>
 				) : null}
