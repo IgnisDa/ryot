@@ -453,29 +453,30 @@ export default function Page() {
 							<Section key="actions">
 								<Title>Actions</Title>
 								<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-									{loaderData.userPreferences.fitness.enabled &&
-									loaderData.workoutInProgress ? (
-										<Button
-											variant="outline"
-											to={$path("/fitness/workouts/current")}
-											component={Link}
-											leftSection={<IconBarbell />}
-										>
-											Go to current workout
-										</Button>
-									) : (
-										<Button
-											variant="outline"
-											leftSection={<IconBarbell />}
-											onClick={() => {
-												setCurrentWorkout(getDefaultWorkout());
-												startWorkout();
-												navigate($path("/fitness/workouts/current"));
-											}}
-										>
-											Start a workout
-										</Button>
-									)}
+									{loaderData.userPreferences.fitness.enabled ? (
+										loaderData.workoutInProgress ? (
+											<Button
+												variant="outline"
+												to={$path("/fitness/workouts/current")}
+												component={Link}
+												leftSection={<IconBarbell />}
+											>
+												Go to current workout
+											</Button>
+										) : (
+											<Button
+												variant="outline"
+												leftSection={<IconBarbell />}
+												onClick={() => {
+													setCurrentWorkout(getDefaultWorkout());
+													startWorkout();
+													navigate($path("/fitness/workouts/current"));
+												}}
+											>
+												Start a workout
+											</Button>
+										)
+									) : null}
 									{loaderData.userPreferences.media.enabled ? (
 										<Button
 											variant="outline"
