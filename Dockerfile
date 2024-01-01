@@ -20,7 +20,7 @@ COPY --from=frontend-workspace /app/.moon/docker/sources .
 RUN moon run frontend:build
 
 FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef AS chef
-RUN apt-get update && apt-get install -y --no-install-recommends musl-tools musl-dev clang llvm ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross clang llvm ca-certificates
 RUN update-ca-certificates
 WORKDIR app
 
@@ -30,12 +30,12 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS app-builder
 ARG TARGETARCH
-ENV RUST_TARGET_TRIPLE_arm64="aarch64-unknown-linux-musl"
-ENV RUST_TARGET_TRIPLE_amd64="x86_64-unknown-linux-musl"
-ENV CC_aarch64_unknown_linux_musl="clang"
-ENV AR_aarch64_unknown_linux_musl="llvm-ar"
-ENV CFLAGS_aarch64_unknown_linux_musl="-nostdinc -nostdlib -isystem/usr/include/x86_64-linux-musl/"
-ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-Clink-self-contained=yes -Clinker=rust-lld -Clink-args=-L/usr/lib/x86_64-linux-musl/"
+ENV RUST_TARGET_TRIPLE_arm64="aarch64-unknown-linux-gnu"
+ENV RUST_TARGET_TRIPLE_amd64="x86_64-unknown-linux-gnu"
+ENV TARGET_CC="clang"
+ENV TARGET_AR="llvm-ar"
+ENV CFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu"
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 COPY --from=planner /app/recipe.json recipe.json
 RUN rustup target add $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH")
 RUN cargo chef cook --profile dist --target $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH") --recipe-path recipe.json
