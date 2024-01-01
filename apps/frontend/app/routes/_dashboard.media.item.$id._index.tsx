@@ -1751,7 +1751,7 @@ const SeenItem = (props: {
 		<>
 			<Flex
 				key={props.history.id}
-				gap="xl"
+				gap="xs"
 				data-seen-id={props.history.id}
 				data-seen-num-times-updated={props.history.numTimesUpdated}
 			>
@@ -1808,7 +1808,7 @@ const SeenItem = (props: {
 						) : null}
 					</Flex>
 					<Flex ml="sm" direction="column" gap={{ md: 4 }}>
-						<Flex gap={{ md: "xl" }} wrap="wrap">
+						<Flex gap={{ base: "md", md: "xl" }} wrap="wrap">
 							<Flex gap="xs">
 								<Text size="sm">Started:</Text>
 								<Text size="sm" fw="bold">
