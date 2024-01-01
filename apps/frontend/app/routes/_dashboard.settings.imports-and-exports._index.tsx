@@ -79,7 +79,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-	return [{ title: "Your Data | Ryot" }];
+	return [{ title: "Imports and Exports | Ryot" }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
