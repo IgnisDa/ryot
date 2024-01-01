@@ -856,7 +856,7 @@ export default function Page() {
 														<input
 															hidden
 															name="date"
-															defaultValue={dayjsLib().toISOString()}
+															defaultValue={formatDateToNaiveDate(new Date())}
 														/>
 														<Menu.Item
 															type="submit"
