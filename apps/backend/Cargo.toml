@@ -70,8 +70,6 @@ strum = { workspace = true }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
-surf-governor = "0.2.0"
-surf-retry = "0.3.2"
 tokio = { version = "1.33.0", features = ["full"] }
 tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "0.1.40", features = ["attributes"] }
