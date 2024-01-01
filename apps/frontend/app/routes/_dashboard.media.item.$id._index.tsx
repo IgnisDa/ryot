@@ -1751,7 +1751,7 @@ const SeenItem = (props: {
 		<>
 			<Flex
 				key={props.history.id}
-				gap="xs"
+				gap={{ base: "xs", md: "lg", xl: "xl" }}
 				data-seen-id={props.history.id}
 				data-seen-num-times-updated={props.history.numTimesUpdated}
 			>
