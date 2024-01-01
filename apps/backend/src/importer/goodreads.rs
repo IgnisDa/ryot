@@ -62,6 +62,15 @@ pub async fn import(
             title = record.title
         );
         let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
+        if isbn.is_empty() {
+            failed_items.push(ImportFailedItem {
+                lot,
+                step: ImportFailStep::InputTransformation,
+                identifier: record.title,
+                error: Some("ISBN is empty".to_owned()),
+            });
+            continue;
+        }
         if let Some(identifier) = isbn_service.id_from_isbn(&isbn).await {
             dbg!(&identifier);
         } else {
