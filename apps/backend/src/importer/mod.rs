@@ -299,7 +299,7 @@ impl ImporterService {
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.goodreads.unwrap(),
-                &self.media_service.get_openlibrary_service().await.unwrap(),
+                &self.media_service.get_isbn_service().await.unwrap(),
             )
             .await
             .unwrap(),
@@ -307,7 +307,7 @@ impl ImporterService {
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
                 input.story_graph.unwrap(),
-                &self.media_service.get_openlibrary_service().await.unwrap(),
+                &self.media_service.get_isbn_service().await.unwrap(),
             )
             .await
             .unwrap(),

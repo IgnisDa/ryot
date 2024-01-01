@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::{
     importer::{DeployGoodreadsImportInput, ImportFailStep, ImportFailedItem, ImportResult},
-    providers::openlibrary::OpenlibraryService,
+    providers::google_books::GoogleBooksService,
 };
 
 #[derive(Debug, Deserialize)]
@@ -33,10 +33,10 @@ struct Book {
 
 pub async fn import(
     input: DeployGoodreadsImportInput,
-    openlibrary_service: &OpenlibraryService,
+    isbn_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MetadataLot::Book;
-    let source = MetadataSource::Openlibrary;
+    let source = MetadataSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
     let export = fs::read_to_string(&input.csv_path)?;
@@ -62,7 +62,7 @@ pub async fn import(
             title = record.title
         );
         let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
-        if let Some(identifier) = openlibrary_service.id_from_isbn(&isbn).await {
+        if let Some(identifier) = isbn_service.id_from_isbn(&isbn).await {
             dbg!(&identifier);
         } else {
             failed_items.push(ImportFailedItem {
@@ -70,7 +70,7 @@ pub async fn import(
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
                 error: Some(format!(
-                    "Could not convert ISBN: {} to Openlibrary ID",
+                    "Could not convert ISBN: {} to Google Books ID",
                     isbn,
                 )),
             })

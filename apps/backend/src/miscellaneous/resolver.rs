@@ -3499,6 +3499,14 @@ impl MiscellaneousService {
         .await)
     }
 
+    pub async fn get_isbn_service(&self) -> Result<GoogleBooksService> {
+        Ok(GoogleBooksService::new(
+            &self.config.books.google_books,
+            self.config.frontend.page_size,
+        )
+        .await)
+    }
+
     async fn get_media_provider(
         &self,
         lot: MetadataLot,
@@ -3514,13 +3522,7 @@ impl MiscellaneousService {
                 ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
                     .await,
             ),
-            MetadataSource::GoogleBooks => Box::new(
-                GoogleBooksService::new(
-                    &self.config.books.google_books,
-                    self.config.frontend.page_size,
-                )
-                .await,
-            ),
+            MetadataSource::GoogleBooks => Box::new(self.get_isbn_service().await?),
             MetadataSource::Audible => Box::new(
                 AudibleService::new(
                     &self.config.audio_books.audible,

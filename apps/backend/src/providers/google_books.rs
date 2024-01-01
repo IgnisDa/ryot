@@ -235,4 +235,19 @@ impl GoogleBooksService {
             original_language: None,
         }
     }
+
+    /// Get a book's ID from its ISBN
+    pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
+        let mut resp = self
+            .client
+            .get("")
+            .query(&serde_json::json!({
+                "q": format!("isbn:{}", isbn)
+            }))
+            .unwrap()
+            .await
+            .ok()?;
+        let search: SearchResponse = resp.body_json().await.ok()?;
+        Some(search.items?.get(0)?.id.clone())
+    }
 }
