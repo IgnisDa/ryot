@@ -1,17 +1,18 @@
-FROM --platform=$BUILDPLATFORM node:20.5.1-bookworm-slim AS node-base
+ARG NODE_BASE_IMAGE=node:20.5.1-bookworm-slim
+FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS node-build-base
 
-FROM node-base AS base
+FROM node-build-base AS build-base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
 WORKDIR /app
 RUN apt update && apt install -y --no-install-recommends git curl ca-certificates xz-utils
 RUN npm install -g @moonrepo/cli && moon --version
 
-FROM base AS frontend-workspace
+FROM build-base AS frontend-workspace
 WORKDIR /app
 COPY . .
 RUN moon docker scaffold frontend
 
-FROM base AS frontend-builder
+FROM build-base AS frontend-builder
 WORKDIR /app
 COPY --from=frontend-workspace /app/.moon/docker/workspace .
 RUN moon docker setup
@@ -43,7 +44,7 @@ RUN ./apps/backend/ci/build-app.sh
 
 FROM caddy:2.7.5 as reverse-proxy
 
-FROM node-base
+FROM $NODE_BASE_IMAGE
 RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
