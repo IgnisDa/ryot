@@ -834,16 +834,16 @@ const ExerciseDisplay = (props: {
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
 						<Stack>
-							<Flex justify="space-between" pos="relative">
+							<Group justify="space-between" pos="relative" wrap="nowrap">
 								<Anchor
 									component={Link}
 									to={$path("/fitness/exercises/:id", {
 										id: props.exercise.exerciseId,
 									})}
 									fw="bold"
+									lineClamp={1}
 								>
-									{props.exercise.exerciseId.slice(0, 40)}
-									{props.exercise.exerciseId.length > 40 ? "..." : null}
+									{props.exercise.exerciseId}
 								</Anchor>
 								<Menu.Target>
 									<ActionIcon color="blue" mr={-10}>
@@ -867,7 +867,7 @@ const ExerciseDisplay = (props: {
 										style={{ cursor: "pointer" }}
 									/>
 								) : null}
-							</Flex>
+							</Group>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
 								(n, idx) => (
 									<Flex
