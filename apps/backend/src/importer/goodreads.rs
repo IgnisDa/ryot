@@ -13,8 +13,6 @@ use crate::{
 
 #[derive(Debug, Deserialize)]
 struct Book {
-    #[serde(rename = "Book Id")]
-    id: String,
     #[serde(rename = "Title")]
     title: String,
     #[serde(rename = "ISBN13")]
