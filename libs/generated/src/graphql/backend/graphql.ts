@@ -252,7 +252,7 @@ export type DeployGenericJsonImportInput = {
 };
 
 export type DeployGoodreadsImportInput = {
-  rssUrl: Scalars['String']['input'];
+  csvPath: Scalars['String']['input'];
 };
 
 export type DeployImportJobInput = {

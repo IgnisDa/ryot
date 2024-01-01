@@ -52,7 +52,7 @@ struct RssDetail {
 }
 
 pub async fn import(input: DeployGoodreadsImportInput) -> Result<ImportResult> {
-    let content = surf::get(input.rss_url)
+    let content = surf::get(input.csv_path)
         .await
         .unwrap()
         .body_string()

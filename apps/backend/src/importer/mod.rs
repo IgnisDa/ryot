@@ -51,8 +51,8 @@ pub struct DeployMediaTrackerImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGoodreadsImportInput {
-    // The RSS url that can be found from the user's profile
-    rss_url: String,
+    // The file path of the uploaded CSV export file.
+    csv_path: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
