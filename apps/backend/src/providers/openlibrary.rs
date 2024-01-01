@@ -8,9 +8,7 @@ use itertools::Itertools;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::ACCEPT, Client};
-use surf_governor::GovernorMiddleware;
-use surf_retry::{ExponentialBackoff, RetryMiddleware};
+use surf::{http::headers::ACCEPT, middleware::Redirect, Client};
 use tracing::instrument;
 
 use crate::{
@@ -516,12 +514,7 @@ impl OpenlibraryService {
         let mut resp = self
             .client
             .clone()
-            .with(GovernorMiddleware::per_second(1).ok()?)
-            .with(RetryMiddleware::new(
-                3,
-                ExponentialBackoff::builder().build_with_max_retries(3),
-                1,
-            ))
+            .with(Redirect::new(2))
             .get(format!("isbn/{}.json", isbn))
             .await
             .ok()?;
