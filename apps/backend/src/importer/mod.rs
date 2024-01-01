@@ -297,7 +297,12 @@ impl ImporterService {
                 .await
                 .unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
-            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await.unwrap(),
+            ImportSource::Goodreads => goodreads::import(
+                input.goodreads.unwrap(),
+                &self.media_service.get_openlibrary_service().await.unwrap(),
+            )
+            .await
+            .unwrap(),
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
