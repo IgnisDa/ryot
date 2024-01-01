@@ -14,7 +14,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	UserUnitSystem,
 	UserWorkoutListDocument,
@@ -24,11 +24,13 @@ import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
+	IconPlus,
 	IconSearch,
 	IconTrophy,
 	IconWeight,
 	IconX,
 } from "@tabler/icons-react";
+import { useAtom } from "jotai";
 import { ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -38,6 +40,11 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import {
+	currentWorkoutAtom,
+	getDefaultWorkout,
+	startWorkout,
+} from "~/lib/workout";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -79,13 +86,28 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [searchParams, { setP }] = useSearchParam();
 	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const navigate = useNavigate();
+	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
 	useEffect(() => setP("query", query), [query]);
 
 	return (
 		<Container size="xs">
 			<Stack>
-				<Title>Workouts</Title>
+				<Flex align="center" gap="md">
+					<Title>Workouts</Title>
+					<ActionIcon
+						color="green"
+						variant="outline"
+						onClick={() => {
+							setCurrentWorkout(getDefaultWorkout());
+							startWorkout();
+							navigate($path("/fitness/workouts/current"));
+						}}
+					>
+						<IconPlus size={16} />
+					</ActionIcon>
+				</Flex>
 				<TextInput
 					name="query"
 					placeholder="Search for workouts"
