@@ -47,7 +47,6 @@ jsonwebtoken = { version = "9.1.0", default-features = false }
 kinded = "0.3.0"
 markdown = "1.0.0-alpha.14"
 nanoid = "0.4.0"
-quick-xml = { version = "0.31.0", features = ["serde", "serialize"] }
 rand = "0.8.5"
 regex = "1.10.2"
 retainer = "0.3.0"
