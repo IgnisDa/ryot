@@ -397,37 +397,42 @@ export default function Page() {
 									loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
 										0 ? (
-										<ActualDisplayStat
-											icon={<IconBarbell stroke={1.3} />}
-											lot="Workouts"
-											color={theme.colors.teal[2]}
-											data={[
-												{
-													label: "Workouts",
-													value:
-														loaderData.latestUserSummary.fitness.workouts
-															.recorded,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value:
-														loaderData.latestUserSummary.fitness.workouts
-															.duration,
-													type: "duration",
-												},
-												{
-													label: "Runtime",
-													value: displayWeightWithUnit(
-														loaderData.userPreferences.unitSystem,
-														loaderData.latestUserSummary.fitness.workouts
-															.weight,
-														true,
-													),
-													type: "string",
-												},
-											]}
-										/>
+										<Link
+											to={$path("/fitness/workouts/list")}
+											style={{ all: "unset", cursor: "pointer" }}
+										>
+											<ActualDisplayStat
+												icon={<IconBarbell stroke={1.3} />}
+												lot="Workouts"
+												color={theme.colors.teal[2]}
+												data={[
+													{
+														label: "Workouts",
+														value:
+															loaderData.latestUserSummary.fitness.workouts
+																.recorded,
+														type: "number",
+													},
+													{
+														label: "Runtime",
+														value:
+															loaderData.latestUserSummary.fitness.workouts
+																.duration,
+														type: "duration",
+													},
+													{
+														label: "Runtime",
+														value: displayWeightWithUnit(
+															loaderData.userPreferences.unitSystem,
+															loaderData.latestUserSummary.fitness.workouts
+																.weight,
+															true,
+														),
+														type: "string",
+													},
+												]}
+											/>
+										</Link>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.measurementsRecorded +
