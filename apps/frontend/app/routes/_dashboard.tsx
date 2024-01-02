@@ -259,8 +259,7 @@ export default function Layout() {
 				</Box>
 				<Stack gap="xs">
 					<Flex direction="column" justify="center" gap="md">
-						<Form method="POST" action="/actions">
-							<input type="hidden" name="intent" value="toggleColorScheme" />
+						<Form method="POST" action="/actions?intent=toggleColorScheme">
 							<Group justify="center">
 								<UnstyledButton
 									aria-label="Toggle theme"
@@ -281,8 +280,11 @@ export default function Layout() {
 								</UnstyledButton>
 							</Group>
 						</Form>
-						<Form method="POST" action="/actions" style={{ display: "flex" }}>
-							<input type="hidden" name="intent" value="logout" />
+						<Form
+							method="POST"
+							action="/actions?intent=logout"
+							style={{ display: "flex" }}
+						>
 							<UnstyledButton
 								mx="auto"
 								className={classes.oldLink}
