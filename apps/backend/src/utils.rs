@@ -266,7 +266,7 @@ pub async fn add_entity_to_collection(
     let mut updated: collection::ActiveModel = collection.into();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(db).await.unwrap();
-    if let Some(etc) = CollectionToEntity::find()
+    let resp = if let Some(etc) = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
         .filter(
             target_column.eq(match input.entity_id.clone().parse::<i32>() {
@@ -279,7 +279,7 @@ pub async fn add_entity_to_collection(
     {
         let mut to_update: collection_to_entity::ActiveModel = etc.into();
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        Ok(to_update.update(db).await.is_ok())
+        to_update.update(db).await.is_ok()
     } else {
         let mut created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
@@ -303,8 +303,9 @@ pub async fn add_entity_to_collection(
             }
             EntityLot::Collection => unreachable!(),
         };
-        Ok(created_collection.insert(db).await.is_ok())
-    }
+        created_collection.insert(db).await.is_ok()
+    };
+    Ok(resp)
 }
 
 pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
