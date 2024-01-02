@@ -4457,18 +4457,20 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        let total_workout_time = Workout::find()
+        let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
             .select_only()
             .column_as(
                 Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 3600, 0)"),
                 "hours",
             )
-            .into_tuple::<Decimal>()
+            .column_as(
+                Expr::cust("coalesce(sum((summary -> 'total' ->> 'weight')::numeric), 0)"),
+                "weight",
+            )
+            .into_tuple::<(Decimal, Decimal)>()
             .one(&self.db)
             .await?
-            .unwrap()
-            .to_u64()
             .unwrap();
 
         ls.media.reviews_posted = num_reviews;
@@ -4476,7 +4478,8 @@ impl MiscellaneousService {
         ls.fitness.measurements_recorded = num_measurements;
         ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
         ls.fitness.workouts.recorded = num_workouts;
-        ls.fitness.workouts.duration = total_workout_time;
+        ls.fitness.workouts.weight = total_workout_weight;
+        ls.fitness.workouts.duration = total_workout_time.to_u64().unwrap();
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))

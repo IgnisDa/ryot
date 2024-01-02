@@ -708,6 +708,7 @@ pub mod media {
     pub struct UserFitnessWorkoutSummary {
         pub recorded: u64,
         pub duration: u64,
+        pub weight: Decimal,
     }
 
     #[derive(
