@@ -6,6 +6,7 @@ import { withQuery } from "ufo";
 import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "./generals";
 import { createToastHeaders } from "./toast.server";
+import { combineHeaders } from "./utilities.server";
 
 export const API_URL = process.env.API_URL;
 
@@ -26,12 +27,16 @@ export const getAuthorizationHeader = async (request: Request) => {
 export const getIsAuthenticated = async (request: Request) => {
 	const cookie = await getAuthorizationCookie(request);
 	if (!cookie) return [false, null] as const;
-	const { userDetails } = await gqlClient.request(
-		UserDetailsDocument,
-		undefined,
-		await getAuthorizationHeader(request),
-	);
-	return [userDetails.__typename === "User", userDetails] as const;
+	try {
+		const { userDetails } = await gqlClient.request(
+			UserDetailsDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		);
+		return [userDetails.__typename === "User", userDetails] as const;
+	} catch {
+		return [false, null] as const;
+	}
 };
 
 export const redirectIfNotAuthenticated = async (request: Request) => {
@@ -44,9 +49,16 @@ export const redirectIfNotAuthenticated = async (request: Request) => {
 			}),
 			{
 				status: 302,
-				headers: await createToastHeaders({
-					message: "You must be logged in to view this page",
-				}),
+				headers: combineHeaders(
+					await createToastHeaders({
+						message: "You must be logged in to view this page",
+					}),
+					{
+						"Set-Cookie": await authCookie.serialize("", {
+							expires: new Date(0),
+						}),
+					},
+				),
 			},
 		);
 	}
