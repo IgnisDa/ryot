@@ -1,6 +1,9 @@
+import { $path } from "@ignisda/remix-routes";
 import { useMantineTheme } from "@mantine/core";
-import { useSearchParams } from "@remix-run/react";
+import { useNavigate, useSearchParams } from "@remix-run/react";
+import { useAtom } from "jotai";
 import { getStringAsciiValue } from "./generals";
+import { InProgressWorkout, currentWorkoutAtom, setWorkoutStartingCookie } from "./workout";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();
@@ -32,4 +35,16 @@ export function useSearchParam() {
 	};
 
 	return [searchParams, { setP, delP }] as const;
+}
+
+export function getWorkoutStarter() {
+	const navigate = useNavigate();
+	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+
+	const fn = (wkt: InProgressWorkout) => {
+		setCurrentWorkout(wkt);
+		setWorkoutStartingCookie();
+		navigate($path("/fitness/workouts/current"));
+	};
+	return fn;
 }

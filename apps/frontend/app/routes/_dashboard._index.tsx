@@ -15,7 +15,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import {
 	CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -38,7 +38,6 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
-import { useAtom } from "jotai";
 import { ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -52,12 +51,8 @@ import {
 	getMetadataIcon,
 } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
-import { useGetMantineColor } from "~/lib/hooks";
-import {
-	currentWorkoutAtom,
-	getDefaultWorkout,
-	startWorkout,
-} from "~/lib/workout";
+import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
+import { getDefaultWorkout } from "~/lib/workout";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userPreferences = await getUserPreferences(request);
@@ -111,8 +106,7 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
-	const navigate = useNavigate();
-	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const startWorkout = getWorkoutStarter();
 
 	return (
 		<Container>
@@ -481,9 +475,7 @@ export default function Page() {
 												variant="outline"
 												leftSection={<IconBarbell />}
 												onClick={() => {
-													setCurrentWorkout(getDefaultWorkout());
-													startWorkout();
-													navigate($path("/fitness/workouts/current"));
+													startWorkout(getDefaultWorkout());
 												}}
 											>
 												Start a workout
