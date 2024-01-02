@@ -242,7 +242,7 @@ export default function Page() {
 						<Text span>
 							{dayjsLib(loaderData.workoutDetails.startTime).format("LLL")}
 						</Text>
-						<Group mt="xs" gap="lg">
+						<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
 							<DisplayStat
 								icon={<IconClock size={16} />}
 								data={humanizeDuration(
@@ -275,7 +275,7 @@ export default function Page() {
 									)}
 								/>
 							) : null}
-						</Group>
+						</SimpleGrid>
 					</Box>
 					{loaderData.workoutDetails.comment ? (
 						<Box>
@@ -515,11 +515,11 @@ const DisplaySet = (props: {
 
 const DisplayStat = (props: { icon: ReactNode; data: string }) => {
 	return (
-		<Flex gap={4} align="center">
+		<Stack gap={4} align="center" justify="center">
 			{props.icon}
-			<Text span size="sm">
+			<Text span size="sm" ta="center">
 				{props.data}
 			</Text>
-		</Flex>
+		</Stack>
 	);
 };
