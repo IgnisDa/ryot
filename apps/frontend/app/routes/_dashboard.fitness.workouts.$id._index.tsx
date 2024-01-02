@@ -30,7 +30,7 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
 	EditUserWorkoutDocument,
@@ -60,7 +60,6 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useAtom } from "jotai";
 import { ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -70,15 +69,10 @@ import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
-import { useGetMantineColor } from "~/lib/hooks";
+import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
-import {
-	currentWorkoutAtom,
-	duplicateOldWorkout,
-	getExerciseDetails,
-	startWorkout,
-} from "~/lib/workout";
+import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const workoutId = params.id;
@@ -151,12 +145,11 @@ const editWorkoutSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
-	const navigate = useNavigate();
+	const startWorkout = getWorkoutStarter();
 
 	return (
 		<>
@@ -208,9 +201,7 @@ export default function Page() {
 										const workout = await duplicateOldWorkout(
 											loaderData.workoutDetails,
 										);
-										setCurrentWorkout(workout);
-										startWorkout();
-										navigate($path("/fitness/workouts/current"));
+										startWorkout(workout);
 									}}
 									leftSection={<IconRepeat size={14} />}
 								>
@@ -251,7 +242,7 @@ export default function Page() {
 						<Text span>
 							{dayjsLib(loaderData.workoutDetails.startTime).format("LLL")}
 						</Text>
-						<Group mt="xs" gap="lg">
+						<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
 							<DisplayStat
 								icon={<IconClock size={16} />}
 								data={humanizeDuration(
@@ -284,7 +275,7 @@ export default function Page() {
 									)}
 								/>
 							) : null}
-						</Group>
+						</SimpleGrid>
 					</Box>
 					{loaderData.workoutDetails.comment ? (
 						<Box>
@@ -524,11 +515,11 @@ const DisplaySet = (props: {
 
 const DisplayStat = (props: { icon: ReactNode; data: string }) => {
 	return (
-		<Flex gap={4} align="center">
+		<Stack gap={4} align="center" justify="center">
 			{props.icon}
-			<Text span size="sm">
+			<Text span size="sm" ta="center">
 				{props.data}
 			</Text>
-		</Flex>
+		</Stack>
 	);
 };

@@ -79,7 +79,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-	return [{ title: "Your Data | Ryot" }];
+	return [{ title: "Imports and Exports | Ryot" }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -166,7 +166,7 @@ const mediaTrackerImportFormSchema = z.object({
 
 const traktImportFormSchema = z.object({ username: z.string() });
 
-const goodreadsImportFormSchema = z.object({ rssUrl: z.string().url() });
+const goodreadsImportFormSchema = z.object({ csvPath: z.string() });
 
 const movaryImportFormSchema = z.object({
 	ratings: z.string(),
@@ -201,6 +201,8 @@ export default function Page() {
 	const [movaryRatingPath, setMovaryRatingPath] = useState("");
 	const [movaryHistoryPath, setMovaryHistoryPath] = useState("");
 	const [movaryWatchlistPath, setMovaryWatchlistPath] = useState("");
+
+	const [goodreadsCsvPath, setGoodreadsCsvPath] = useState("");
 
 	const [storyGraphExportPath, setStoryGraphExportPath] = useState("");
 
@@ -290,7 +292,28 @@ export default function Page() {
 											))
 											.with(ImportSource.Goodreads, () => (
 												<>
-													<TextInput label="RSS URL" required name="rssUrl" />
+													<input
+														hidden
+														name="csvPath"
+														value={goodreadsCsvPath}
+														readOnly
+													/>
+													<FileInput
+														label="CSV file"
+														accept=".csv"
+														required
+														onChange={async (file) => {
+															if (file) {
+																const path =
+																	await uploadFileToServiceAndGetPath(
+																		file,
+																		onProgress,
+																		onLoad,
+																	);
+																setGoodreadsCsvPath(path);
+															}
+														}}
+													/>
 												</>
 											))
 											.with(ImportSource.Trakt, () => (

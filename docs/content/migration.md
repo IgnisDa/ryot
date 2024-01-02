@@ -25,7 +25,7 @@ order.
 
 5. Logout and then clear the local storage and cookies for your domain.
    [Here](https://intercom.help/scoutpad/en/articles/3478364-how-to-clear-local-storage-of-web-browser)
-   is a guide on how to do this. You need to do this on the PWA too if you use it.
+   is a guide on how to do this. Uninstall the PWA if you have it installed.
 
 6. [Create a backup](https://simplebackups.com/blog/docker-postgres-backup-restore-guide-with-examples/#back-up-a-docker-postgresql-database) of the database.
 

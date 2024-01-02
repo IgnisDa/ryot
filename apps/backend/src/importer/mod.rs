@@ -51,8 +51,8 @@ pub struct DeployMediaTrackerImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGoodreadsImportInput {
-    // The RSS url that can be found from the user's profile
-    rss_url: String,
+    // The file path of the uploaded CSV export file.
+    csv_path: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -297,12 +297,17 @@ impl ImporterService {
                 .await
                 .unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
-            ImportSource::Goodreads => goodreads::import(input.goodreads.unwrap()).await.unwrap(),
+            ImportSource::Goodreads => goodreads::import(
+                input.goodreads.unwrap(),
+                &self.media_service.get_isbn_service().await.unwrap(),
+            )
+            .await
+            .unwrap(),
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
                 input.story_graph.unwrap(),
-                &self.media_service.get_openlibrary_service().await.unwrap(),
+                &self.media_service.get_isbn_service().await.unwrap(),
             )
             .await
             .unwrap(),

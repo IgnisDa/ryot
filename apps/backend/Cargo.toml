@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "4.0.8-beta.2"
+version = "4.0.8"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-V3"
@@ -47,7 +47,6 @@ jsonwebtoken = { version = "9.1.0", default-features = false }
 kinded = "0.3.0"
 markdown = "1.0.0-alpha.14"
 nanoid = "0.4.0"
-quick-xml = { version = "0.31.0", features = ["serde", "serialize"] }
 rand = "0.8.5"
 regex = "1.10.2"
 retainer = "0.3.0"
@@ -71,8 +70,6 @@ strum = { workspace = true }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
-surf-governor = "0.2.0"
-surf-retry = "0.3.2"
 tokio = { version = "1.33.0", features = ["full"] }
 tower-http = { version = "0.4.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "0.1.40", features = ["attributes"] }

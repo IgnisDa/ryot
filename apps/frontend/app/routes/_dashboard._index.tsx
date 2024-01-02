@@ -15,7 +15,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import {
 	CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -27,7 +27,7 @@ import {
 	UserMediaFeaturesEnabledPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils";
+import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconArrowsRight,
@@ -38,7 +38,6 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
-import { useAtom } from "jotai";
 import { ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -52,12 +51,8 @@ import {
 	getMetadataIcon,
 } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
-import { useGetMantineColor } from "~/lib/hooks";
-import {
-	currentWorkoutAtom,
-	getDefaultWorkout,
-	startWorkout,
-} from "~/lib/workout";
+import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
+import { getDefaultWorkout } from "~/lib/workout";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userPreferences = await getUserPreferences(request);
@@ -96,6 +91,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			dashboard: userPreferences.general.dashboard,
 			media: userPreferences.featuresEnabled.media,
 			fitness: userPreferences.featuresEnabled.fitness,
+			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
@@ -110,8 +106,7 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
-	const navigate = useNavigate();
-	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const startWorkout = getWorkoutStarter();
 
 	return (
 		<Container>
@@ -396,27 +391,39 @@ export default function Page() {
 									loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
 										0 ? (
-										<ActualDisplayStat
-											icon={<IconBarbell stroke={1.3} />}
-											lot="Workouts"
-											color={theme.colors.teal[2]}
-											data={[
-												{
-													label: "Workouts",
-													value:
-														loaderData.latestUserSummary.fitness.workouts
-															.recorded,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value:
-														loaderData.latestUserSummary.fitness.workouts
-															.duration,
-													type: "duration",
-												},
-											]}
-										/>
+										<UnstyledLink to={$path("/fitness/workouts/list")}>
+											<ActualDisplayStat
+												icon={<IconBarbell stroke={1.3} />}
+												lot="Workouts"
+												color={theme.colors.teal[2]}
+												data={[
+													{
+														label: "Workouts",
+														value:
+															loaderData.latestUserSummary.fitness.workouts
+																.recorded,
+														type: "number",
+													},
+													{
+														label: "Runtime",
+														value:
+															loaderData.latestUserSummary.fitness.workouts
+																.duration,
+														type: "duration",
+													},
+													{
+														label: "Runtime",
+														value: displayWeightWithUnit(
+															loaderData.userPreferences.unitSystem,
+															loaderData.latestUserSummary.fitness.workouts
+																.weight,
+															true,
+														),
+														type: "string",
+													},
+												]}
+											/>
+										</UnstyledLink>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.measurementsRecorded +
@@ -453,29 +460,28 @@ export default function Page() {
 							<Section key="actions">
 								<Title>Actions</Title>
 								<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-									{loaderData.userPreferences.fitness.enabled &&
-									loaderData.workoutInProgress ? (
-										<Button
-											variant="outline"
-											to={$path("/fitness/workouts/current")}
-											component={Link}
-											leftSection={<IconBarbell />}
-										>
-											Go to current workout
-										</Button>
-									) : (
-										<Button
-											variant="outline"
-											leftSection={<IconBarbell />}
-											onClick={() => {
-												setCurrentWorkout(getDefaultWorkout());
-												startWorkout();
-												navigate($path("/fitness/workouts/current"));
-											}}
-										>
-											Start a workout
-										</Button>
-									)}
+									{loaderData.userPreferences.fitness.enabled ? (
+										loaderData.workoutInProgress ? (
+											<Button
+												variant="outline"
+												to={$path("/fitness/workouts/current")}
+												component={Link}
+												leftSection={<IconBarbell />}
+											>
+												Go to current workout
+											</Button>
+										) : (
+											<Button
+												variant="outline"
+												leftSection={<IconBarbell />}
+												onClick={() => {
+													startWorkout(getDefaultWorkout());
+												}}
+											>
+												Start a workout
+											</Button>
+										)
+									) : null}
 									{loaderData.userPreferences.media.enabled ? (
 										<Button
 											variant="outline"
@@ -542,9 +548,9 @@ const ActualDisplayStat = (props: {
 	icon: ReactNode;
 	lot: string;
 	data: {
-		type: "duration" | "number";
+		type: "duration" | "number" | "string";
 		label: string;
-		value: number;
+		value: number | string;
 		hideIfZero?: true;
 	}[];
 	color?: string;
@@ -570,14 +576,20 @@ const ActualDisplayStat = (props: {
 								display="inline"
 								fz={{ base: "md", md: "sm", xl: "md" }}
 							>
-								{d.type === "duration"
-									? humanizeDuration(d.value * 1000 * 60, {
+								{match(d.type)
+									.with("string", () => d.value)
+									.with("duration", () =>
+										humanizeDuration(Number(d.value) * 1000 * 60, {
 											round: true,
 											largest: 3,
-									  })
-									: new Intl.NumberFormat("en-US", {
+										}),
+									)
+									.with("number", () =>
+										new Intl.NumberFormat("en-US", {
 											notation: "compact",
-									  }).format(d.value)}
+										}).format(Number(d.value)),
+									)
+									.exhaustive()}
 							</Text>
 							<Text
 								display="inline"
@@ -608,12 +620,11 @@ const DisplayStatForMediaType = (props: {
 
 	return isEnabled ? (
 		isEnabled[1] && props.media.enabled ? (
-			<Link
+			<UnstyledLink
 				to={$path("/media/:action/:lot", {
 					action: "list",
 					lot: props.lot.toLowerCase(),
 				})}
-				style={{ all: "unset", cursor: "pointer" }}
 			>
 				<ActualDisplayStat
 					data={props.data}
@@ -621,11 +632,19 @@ const DisplayStatForMediaType = (props: {
 					lot={props.lot.toString()}
 					color={getMantineColor(props.lot)}
 				/>
-			</Link>
+			</UnstyledLink>
 		) : null
 	) : null;
 };
 
 const Section = (props: { children: ReactNode[] }) => {
 	return <Stack gap="sm">{props.children}</Stack>;
+};
+
+const UnstyledLink = (props: { children: ReactNode; to: string }) => {
+	return (
+		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
+			{props.children}
+		</Link>
+	);
 };
