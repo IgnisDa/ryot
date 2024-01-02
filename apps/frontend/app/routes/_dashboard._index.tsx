@@ -397,10 +397,7 @@ export default function Page() {
 									loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
 										0 ? (
-										<Link
-											to={$path("/fitness/workouts/list")}
-											style={{ all: "unset", cursor: "pointer" }}
-										>
+										<UnstyledLink to={$path("/fitness/workouts/list")}>
 											<ActualDisplayStat
 												icon={<IconBarbell stroke={1.3} />}
 												lot="Workouts"
@@ -432,7 +429,7 @@ export default function Page() {
 													},
 												]}
 											/>
-										</Link>
+										</UnstyledLink>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.measurementsRecorded +
@@ -631,12 +628,11 @@ const DisplayStatForMediaType = (props: {
 
 	return isEnabled ? (
 		isEnabled[1] && props.media.enabled ? (
-			<Link
+			<UnstyledLink
 				to={$path("/media/:action/:lot", {
 					action: "list",
 					lot: props.lot.toLowerCase(),
 				})}
-				style={{ all: "unset", cursor: "pointer" }}
 			>
 				<ActualDisplayStat
 					data={props.data}
@@ -644,11 +640,19 @@ const DisplayStatForMediaType = (props: {
 					lot={props.lot.toString()}
 					color={getMantineColor(props.lot)}
 				/>
-			</Link>
+			</UnstyledLink>
 		) : null
 	) : null;
 };
 
 const Section = (props: { children: ReactNode[] }) => {
 	return <Stack gap="sm">{props.children}</Stack>;
+};
+
+const UnstyledLink = (props: { children: ReactNode; to: string }) => {
+	return (
+		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
+			{props.children}
+		</Link>
+	);
 };
