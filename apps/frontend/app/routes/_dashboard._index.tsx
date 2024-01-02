@@ -27,7 +27,7 @@ import {
 	UserMediaFeaturesEnabledPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils";
+import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconArrowsRight,
@@ -96,6 +96,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			dashboard: userPreferences.general.dashboard,
 			media: userPreferences.featuresEnabled.media,
 			fitness: userPreferences.featuresEnabled.fitness,
+			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
@@ -415,6 +416,16 @@ export default function Page() {
 															.duration,
 													type: "duration",
 												},
+												{
+													label: "Runtime",
+													value: displayWeightWithUnit(
+														loaderData.userPreferences.unitSystem,
+														loaderData.latestUserSummary.fitness.workouts
+															.weight,
+														true,
+													),
+													type: "string",
+												},
 											]}
 										/>
 									) : null}
@@ -543,9 +554,9 @@ const ActualDisplayStat = (props: {
 	icon: ReactNode;
 	lot: string;
 	data: {
-		type: "duration" | "number";
+		type: "duration" | "number" | "string";
 		label: string;
-		value: number;
+		value: number | string;
 		hideIfZero?: true;
 	}[];
 	color?: string;
@@ -571,14 +582,20 @@ const ActualDisplayStat = (props: {
 								display="inline"
 								fz={{ base: "md", md: "sm", xl: "md" }}
 							>
-								{d.type === "duration"
-									? humanizeDuration(d.value * 1000 * 60, {
+								{match(d.type)
+									.with("string", () => d.value)
+									.with("duration", () =>
+										humanizeDuration(Number(d.value) * 1000 * 60, {
 											round: true,
 											largest: 3,
-									  })
-									: new Intl.NumberFormat("en-US", {
+										}),
+									)
+									.with("number", () =>
+										new Intl.NumberFormat("en-US", {
 											notation: "compact",
-									  }).format(d.value)}
+										}).format(Number(d.value)),
+									)
+									.exhaustive()}
 							</Text>
 							<Text
 								display="inline"
