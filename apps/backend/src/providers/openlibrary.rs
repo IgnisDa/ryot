@@ -9,8 +9,6 @@ use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{http::headers::ACCEPT, Client};
-use surf_governor::GovernorMiddleware;
-use surf_retry::{ExponentialBackoff, RetryMiddleware};
 use tracing::instrument;
 
 use crate::{
@@ -509,28 +507,6 @@ impl OpenlibraryService {
             }
         }
         None
-    }
-
-    /// Get a book's ID from its ISBN
-    pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
-        let mut resp = self
-            .client
-            .clone()
-            .with(GovernorMiddleware::per_second(1).ok()?)
-            .with(RetryMiddleware::new(
-                3,
-                ExponentialBackoff::builder().build_with_max_retries(3),
-                1,
-            ))
-            .get(format!("isbn/{}.json", isbn))
-            .await
-            .ok()?;
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct Response {
-            works: Vec<OpenlibraryKey>,
-        }
-        let details: Response = resp.body_json().await.ok()?;
-        details.works.first().map(|k| get_key(&k.key))
     }
 }
 

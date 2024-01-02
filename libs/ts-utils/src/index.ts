@@ -28,10 +28,12 @@ export const humanizeDuration = (
 export const displayWeightWithUnit = (
 	unit: UserUnitSystem,
 	data: string | number | null | undefined,
+	compactNotation?: boolean,
 ) => {
 	return new Intl.NumberFormat("en-us", {
 		style: "unit",
 		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
+		notation: compactNotation ? "compact" : undefined,
 	}).format(Number((data || 0).toString()));
 };
 
@@ -44,7 +46,7 @@ export const displayDistanceWithUnit = (
 ) => {
 	return new Intl.NumberFormat("en-us", {
 		style: "unit",
-		unit: unit === UserUnitSystem.Metric ? "meter" : "mile",
+		unit: unit === UserUnitSystem.Metric ? "kilometer" : "mile",
 	}).format(Number((data || 0).toString()));
 };
 

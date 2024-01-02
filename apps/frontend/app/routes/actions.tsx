@@ -36,11 +36,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				request.headers.get("Cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
-			return redirect($path("/"), {
-				headers: {
-					"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
+			return json(
+				{},
+				{
+					headers: {
+						"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
+					},
 				},
-			});
+			);
 		},
 		logout: async () => {
 			return redirect($path("/auth/login"), {

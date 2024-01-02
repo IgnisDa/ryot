@@ -37,7 +37,7 @@ export type Exercise = {
 	supersetWith: Array<string>;
 };
 
-type InProgressWorkout = {
+export type InProgressWorkout = {
 	startTime: string;
 	endTime?: string;
 	name: string;
@@ -62,7 +62,7 @@ function getTimeOfDay(date: Date) {
 	return "Night";
 }
 
-export const startWorkout = () => {
+export const setWorkoutStartingCookie = () => {
 	Cookies.set(COOKIES_KEYS.isWorkoutInProgress, "true", {
 		expires: 2,
 		sameSite: "Strict",

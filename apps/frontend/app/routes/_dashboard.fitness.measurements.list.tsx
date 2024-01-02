@@ -348,11 +348,11 @@ export default function Page() {
 								},
 							]}
 						/>
-						<Text ta="right" mt="xl" fw="bold">
-							{loaderData.userMeasurementsList.length} measurements
-						</Text>
 					</Tabs.Panel>
 				</Tabs>
+				<Text ta="right" mt="xl" fw="bold">
+					{loaderData.userMeasurementsList.length} data points
+				</Text>
 			</Stack>
 		</Container>
 	);

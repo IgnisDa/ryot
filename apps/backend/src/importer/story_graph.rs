@@ -18,7 +18,7 @@ use crate::{
     models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
     },
-    providers::openlibrary::OpenlibraryService,
+    providers::google_books::GoogleBooksService,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,10 +53,10 @@ struct History {
 
 pub async fn import(
     input: DeployStoryGraphImportInput,
-    openlibrary_service: &OpenlibraryService,
+    isbn_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MetadataLot::Book;
-    let source = MetadataSource::Openlibrary;
+    let source = MetadataSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
     let export = fs::read_to_string(&input.export)?;
@@ -82,7 +82,7 @@ pub async fn import(
             title = record.title
         );
         if let Some(isbn) = record.isbn {
-            if let Some(identifier) = openlibrary_service.id_from_isbn(&isbn).await {
+            if let Some(identifier) = isbn_service.id_from_isbn(&isbn).await {
                 let mut seen_history = vec![
                     ImportOrExportMediaItemSeen {
                         started_on: None,
