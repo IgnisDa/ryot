@@ -3288,15 +3288,15 @@ __metadata:
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
-    "@tabler/icons-react": "npm:2.44.0"
-    "@tanstack/react-query": "npm:5.14.1"
+    "@tabler/icons-react": "npm:2.45.0"
+    "@tanstack/react-query": "npm:5.17.0"
     "@types/cookie": "npm:0.6.0"
     "@types/crypto-js": "npm:4.2.1"
     "@types/howler": "npm:2.2.11"
     "@types/js-cookie": "npm:3.0.6"
-    "@types/react": "npm:18.2.45"
+    "@types/react": "npm:18.2.46"
     "@types/react-dom": "npm:18.2.18"
-    clsx: "npm:2.0.0"
+    clsx: "npm:2.1.0"
     cookie: "npm:0.6.0"
     crypto-js: "npm:4.2.0"
     dayjs: "npm:1.11.10"
@@ -3307,19 +3307,19 @@ __metadata:
     howler: "npm:2.2.4"
     humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.0.3"
-    isbot: "npm:3.7.1"
-    jotai: "npm:2.6.0"
+    isbot: "npm:4.1.1"
+    jotai: "npm:2.6.1"
     js-cookie: "npm:3.0.5"
-    mantine-datatable: "npm:7.3.0"
+    mantine-datatable: "npm:7.3.5"
     postcss: "npm:8.4.32"
-    postcss-preset-mantine: "npm:1.12.0"
+    postcss-preset-mantine: "npm:1.12.3"
     postcss-simple-vars: "npm:7.0.1"
     react: "npm:18.2.0"
     react-confirm: "npm:0.3.0-7"
     react-dom: "npm:18.2.0"
     react-webcam: "npm:7.2.0"
     recharts: "npm:2.10.3"
-    remix-utils: "npm:7.3.0"
+    remix-utils: "npm:7.5.0"
     tiny-invariant: "npm:1.3.1"
     ts-essentials: "npm:9.4.1"
     ts-pattern: "npm:5.0.6"
@@ -3327,7 +3327,7 @@ __metadata:
     typescript-plugin-css-modules: "npm:5.0.2"
     ufo: "npm:1.3.2"
     vite: "npm:5.0.10"
-    vite-tsconfig-paths: "npm:4.2.2"
+    vite-tsconfig-paths: "npm:4.2.3"
     zod: "npm:3.22.4"
     zodix: "npm:0.4.4"
   languageName: unknown
@@ -3374,40 +3374,40 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@tabler/icons-react@npm:2.44.0":
-  version: 2.44.0
-  resolution: "@tabler/icons-react@npm:2.44.0"
+"@tabler/icons-react@npm:2.45.0":
+  version: 2.45.0
+  resolution: "@tabler/icons-react@npm:2.45.0"
   dependencies:
-    "@tabler/icons": "npm:2.44.0"
+    "@tabler/icons": "npm:2.45.0"
     prop-types: "npm:^15.7.2"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0
-  checksum: 22de53bc0c790c9ebce6c45faf8bfc288f6d4d5efbc3244ad7432d3ab1cd2745bf0604c658372dadc4f5eea9abf3cf09615fa69d13dd86506c72fed1ea4b0678
+  checksum: 2c6477f38026988885f5ae21fb90c261598a9dcc7af243e83c408a911a8b606136a96c9e03cde459384cae4e2f309e5c7bc68f59963575f5fbaf76169ac0fe10
   languageName: node
   linkType: hard
 
-"@tabler/icons@npm:2.44.0":
-  version: 2.44.0
-  resolution: "@tabler/icons@npm:2.44.0"
-  checksum: 20b13a96628ecf0566a8f431b9a0f3653f08f1bab535cb905a14dd8465b18b0b9ca58e53f4b90584007d0bf9837d40f93548842ba98dac63446d630d804b0586
+"@tabler/icons@npm:2.45.0":
+  version: 2.45.0
+  resolution: "@tabler/icons@npm:2.45.0"
+  checksum: 31ec3a26c6cfc73f8d34b87aba9720620b09a9a9b362f9ae322f80d5e9d0e142b445599cdfa11d3c54a092711e4f18bd27127f265b71a199e0d6a7499be4ef21
   languageName: node
   linkType: hard
 
-"@tanstack/query-core@npm:5.14.1":
-  version: 5.14.1
-  resolution: "@tanstack/query-core@npm:5.14.1"
-  checksum: adc723ac6c8730a091b612fe913b5b319526c2a9c83358baee4f37b769a514cc052dbdd3752ea7ad98d969a736fc1e1337052da4f215bfd68f154eb190d501a5
+"@tanstack/query-core@npm:5.17.0":
+  version: 5.17.0
+  resolution: "@tanstack/query-core@npm:5.17.0"
+  checksum: bc1fb9c5e78e2c844131e980dbbb9d70f0d8629446af929425a6a4dee25b86186a93deb4653c0246bac750a6214e65572aa1825cb256022ce1d010c748edd735
   languageName: node
   linkType: hard
 
-"@tanstack/react-query@npm:5.14.1":
-  version: 5.14.1
-  resolution: "@tanstack/react-query@npm:5.14.1"
+"@tanstack/react-query@npm:5.17.0":
+  version: 5.17.0
+  resolution: "@tanstack/react-query@npm:5.17.0"
   dependencies:
-    "@tanstack/query-core": "npm:5.14.1"
+    "@tanstack/query-core": "npm:5.17.0"
   peerDependencies:
     react: ^18.0.0
-  checksum: a3c202a8fa65e72b8a8ade1b75afca3ba9c8cb80cc2bb0628bac2d52fd1ecaf42d9e29540bf3eb0e114f4a2fc15a7320e86e71fa1bbc625a2d9b7bca1f4757d0
+  checksum: 76bf8e8466da4c9cb566e6e83400b8283fb924d9197dcf56154f8f444a365d6d01282a358642ac488964c4de49505886cbc29b53c716dcf5eb6d658a64372d1a
   languageName: node
   linkType: hard
 
@@ -3685,14 +3685,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:18.2.45":
-  version: 18.2.45
-  resolution: "@types/react@npm:18.2.45"
+"@types/react@npm:18.2.46":
+  version: 18.2.46
+  resolution: "@types/react@npm:18.2.46"
   dependencies:
     "@types/prop-types": "npm:*"
     "@types/scheduler": "npm:*"
     csstype: "npm:^3.0.2"
-  checksum: bd27fd8a959fa776965997af89cb04e43e7868416850fdff421b5539f389efa35acae3d55915c9f32d7b00fb388550302bf8a7f06010abf9ad431e5bf58cb774
+  checksum: 10fb28a5b8504106512ce3b154c45d1ac045c31633786773a29f003b3079b434060368bb56f95ef6c39510835ceec4fb8fdc271d6ca2b9cdd979379cf53f126b
   languageName: node
   linkType: hard
 
@@ -4715,6 +4715,13 @@ __metadata:
   version: 2.0.0
   resolution: "clsx@npm:2.0.0"
   checksum: 943766d1b02fee3538c871e56638d87f973fbc2d6291ce221215ea436fdecb9be97ad323f411839c2d52c45640c449b1a53fbfe7e8b3d529b4e263308b630c9a
+  languageName: node
+  linkType: hard
+
+"clsx@npm:2.1.0":
+  version: 2.1.0
+  resolution: "clsx@npm:2.1.0"
+  checksum: 2e0ce7c3b6803d74fc8147c408f88e79245583202ac14abd9691e2aebb9f312de44270b79154320d10bb7804a9197869635d1291741084826cff20820f31542b
   languageName: node
   linkType: hard
 
@@ -7191,10 +7198,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isbot@npm:3.7.1":
-  version: 3.7.1
-  resolution: "isbot@npm:3.7.1"
-  checksum: c2409c043f211e2caddc78f0448ebb68c15c448f004569fa5866071c14d2bd60794c639a2a274f40714a94a0b41248e0c7599f68bb258183f2804fc4494ab505
+"isbot@npm:4.1.1":
+  version: 4.1.1
+  resolution: "isbot@npm:4.1.1"
+  checksum: 54a46102498ac6774dcbd1464511a4e4ce0b8b8f30ee9ee580cd120855d062d3a5e0d090702b2ec42557104b5b02dc483c9a059b4068596fa3e22c2196b85c77
   languageName: node
   linkType: hard
 
@@ -7273,9 +7280,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jotai@npm:2.6.0":
-  version: 2.6.0
-  resolution: "jotai@npm:2.6.0"
+"jotai@npm:2.6.1":
+  version: 2.6.1
+  resolution: "jotai@npm:2.6.1"
   peerDependencies:
     "@types/react": ">=17.0.0"
     react: ">=17.0.0"
@@ -7284,7 +7291,7 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 7e635f4f5052582095ed3949aa46f26213b10237bc4876db242c936f0f4d4272129727d7419e4fd5b1b83fa55b7ad737575453116a955dcc6b3a26cba14591f2
+  checksum: 0e15fb1ed315cad3c024af443023cdb8a968ade9c975c867c7c2f45c582aafbeef8c812e70112a1783b3b1d762b3bc8aa3bae72073b37eb7027e8ebd416c8801
   languageName: node
   linkType: hard
 
@@ -7675,15 +7682,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mantine-datatable@npm:7.3.0":
-  version: 7.3.0
-  resolution: "mantine-datatable@npm:7.3.0"
+"mantine-datatable@npm:7.3.5":
+  version: 7.3.5
+  resolution: "mantine-datatable@npm:7.3.5"
   peerDependencies:
     "@mantine/core": ">=7"
     "@mantine/hooks": ">=7"
     clsx: ">=2"
     react: ">=18.2"
-  checksum: ba81cb8a83e8148f96f1eda9407681b363b31cbfe863330c7c987852b7e0c788a6b83a33ac41f274e5fd60ab2c9f4945c1002901e045180d34769b11b1af1bc9
+  checksum: 7ecf1821449ecc2a93f673ad276c81b9df006e15a738af2d1544b0e88d25886c4134d856098ca04e9926153af25ff7162750e08b533e674286ce66ad88c30ea6
   languageName: node
   linkType: hard
 
@@ -9372,15 +9379,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"postcss-preset-mantine@npm:1.12.0":
-  version: 1.12.0
-  resolution: "postcss-preset-mantine@npm:1.12.0"
+"postcss-preset-mantine@npm:1.12.3":
+  version: 1.12.3
+  resolution: "postcss-preset-mantine@npm:1.12.3"
   dependencies:
     postcss-mixins: "npm:^9.0.4"
     postcss-nested: "npm:^6.0.1"
   peerDependencies:
     postcss: ">=8.0.0"
-  checksum: 751af16919c2ab127957bb827e70b6ab0ffed267047e47b82ed07600dcd06f4defedc7e4d62a7259f2965922889fe7b96f270c55df5c4c2118b4abdf51034ace
+  checksum: 0dd18d7bb6e48a03a7f60d6613172e0cc845752c524f186bac52c275cbac6c619d84ba9a326bdf2d8032ed613d07c9bddd115a84c35069ca7f9f001abea457e7
   languageName: node
   linkType: hard
 
@@ -10069,9 +10076,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"remix-utils@npm:7.3.0":
-  version: 7.3.0
-  resolution: "remix-utils@npm:7.3.0"
+"remix-utils@npm:7.5.0":
+  version: 7.5.0
+  resolution: "remix-utils@npm:7.5.0"
   dependencies:
     type-fest: "npm:^4.3.3"
   peerDependencies:
@@ -10106,7 +10113,7 @@ __metadata:
       optional: true
     zod:
       optional: true
-  checksum: 4b9cf70b3d082e45dea91b2d9970a237b45d1de731b1ec4628c2d797840decf812b5378c5e2613192811b24d7ba7e9754df0a92b7cf888da89b4a1608b314459
+  checksum: 144cd89cedab3b109ff5c66b9c225c588d46ec54cff1ce65cb95e452459275853eb01e6ed5bda698d16e3259c758be6ebe714bcee0b87e49f349e65d23c3b365
   languageName: node
   linkType: hard
 
@@ -11736,9 +11743,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite-tsconfig-paths@npm:4.2.2":
-  version: 4.2.2
-  resolution: "vite-tsconfig-paths@npm:4.2.2"
+"vite-tsconfig-paths@npm:4.2.3":
+  version: 4.2.3
+  resolution: "vite-tsconfig-paths@npm:4.2.3"
   dependencies:
     debug: "npm:^4.1.1"
     globrex: "npm:^0.1.2"
@@ -11748,7 +11755,7 @@ __metadata:
   peerDependenciesMeta:
     vite:
       optional: true
-  checksum: 790b9a48dd69b6e93bc41455ef0cc63fc8149b40a6d344784067fc2487b0a02f2d6a6d71396214dab7537a52c5e1ddfc88c363232fa707377db161d05e8f68cd
+  checksum: ba6abe5d18fc1c1e494e1f1d8a7db56445c2a40e15aadb5d47a9c66cc5372d6f69b94ff0b1e47b67659d6ecaeddebab0a9d11e40b1c3c36c0115800736a6c760
   languageName: node
   linkType: hard
 
