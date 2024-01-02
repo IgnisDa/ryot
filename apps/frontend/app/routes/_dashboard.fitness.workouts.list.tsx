@@ -163,7 +163,7 @@ export default function Page() {
 													/>
 													<DisplayStat
 														icon={<IconTrophy size={16} />}
-														data={`${workout.summary.total.personalBestsAchieved.toString()} PR(s)`}
+														data={`${workout.summary.total.personalBestsAchieved.toString()} PRs`}
 													/>
 												</Group>
 											</Stack>
