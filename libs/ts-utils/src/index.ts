@@ -46,7 +46,7 @@ export const displayDistanceWithUnit = (
 ) => {
 	return new Intl.NumberFormat("en-us", {
 		style: "unit",
-		unit: unit === UserUnitSystem.Metric ? "meter" : "mile",
+		unit: unit === UserUnitSystem.Metric ? "kilometer" : "mile",
 	}).format(Number((data || 0).toString()));
 };
 
