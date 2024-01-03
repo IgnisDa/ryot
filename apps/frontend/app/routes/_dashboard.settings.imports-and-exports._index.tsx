@@ -593,7 +593,7 @@ export default function Page() {
 																		null,
 																		4,
 																	)}
-																	disabled
+																	readOnly
 																	autosize
 																/>
 															) : null}
