@@ -16,6 +16,7 @@
 		"@formkit/auto-animate": "0.8.1",
 		"@hello-pangea/dnd": "16.5.0",
 		"@mantine/carousel": "7.4.0",
+		"@mantine/charts": "7.4.0",
 		"@mantine/core": "7.4.0",
 		"@mantine/dates": "7.4.0",
 		"@mantine/form": "7.4.0",

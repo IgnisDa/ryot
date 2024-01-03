@@ -2694,6 +2694,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mantine/charts@npm:7.4.0":
+  version: 7.4.0
+  resolution: "@mantine/charts@npm:7.4.0"
+  peerDependencies:
+    "@mantine/core": 7.4.0
+    "@mantine/hooks": 7.4.0
+    react: ^18.2.0
+    react-dom: ^18.2.0
+    recharts: ^2.10.3
+  checksum: 710fb3d63ff5795ce7ebc45e1d1ec09094b38df69ffd0ff3f12399612476cc23176c013622c8fbe014f873f9a07bdf378b02ae8696df56a20bfb506eb46560ae
+  languageName: node
+  linkType: hard
+
 "@mantine/core@npm:7.4.0":
   version: 7.4.0
   resolution: "@mantine/core@npm:7.4.0"
@@ -3267,6 +3280,7 @@ __metadata:
     "@hello-pangea/dnd": "npm:16.5.0"
     "@ignisda/remix-routes": "npm:3.3.0"
     "@mantine/carousel": "npm:7.4.0"
+    "@mantine/charts": "npm:7.4.0"
     "@mantine/core": "npm:7.4.0"
     "@mantine/dates": "npm:7.4.0"
     "@mantine/form": "npm:7.4.0"
