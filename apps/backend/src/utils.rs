@@ -75,6 +75,7 @@ pub async fn create_app_services(
     perform_application_job: &SqliteStorage<ApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
+    let timezone = Arc::new(timezone);
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
@@ -92,13 +93,14 @@ pub async fn create_app_services(
             config.clone(),
             file_storage_service.clone(),
             perform_application_job,
-            timezone.to_string(),
+            timezone.clone(),
         )
         .await,
     );
     let importer_service = Arc::new(ImporterService::new(
         media_service.clone(),
         exercise_service.clone(),
+        timezone.clone(),
     ));
     let exporter_service = Arc::new(ExporterService::new(
         config.clone(),

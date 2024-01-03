@@ -1346,7 +1346,7 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
-    timezone: String,
+    timezone: Arc<chrono_tz::Tz>,
     file_storage_service: Arc<FileStorageService>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
@@ -1360,7 +1360,7 @@ impl MiscellaneousService {
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
-        timezone: String,
+        timezone: Arc<chrono_tz::Tz>,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
@@ -1438,7 +1438,7 @@ impl MiscellaneousService {
         };
         Ok(CoreDetails {
             upgrade,
-            timezone: self.timezone.clone(),
+            timezone: self.timezone.to_string(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
