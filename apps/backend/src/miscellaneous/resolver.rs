@@ -120,8 +120,9 @@ use crate::{
     },
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
-        get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, TEMP_DIR, USER_AGENT_STR, VERSION,
+        get_current_date, get_ilike_query, get_stored_asset, get_user_and_metadata_association,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR, USER_AGENT_STR,
+        VERSION,
     },
 };
 
@@ -6415,7 +6416,7 @@ impl MiscellaneousService {
             .await?
         {
             if let Some(reminder) = utm.metadata_reminder {
-                if Utc::now().date_naive() == reminder.remind_on {
+                if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
                     self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
                         .await?;
                     self.delete_media_reminder(utm.user_id, utm.metadata_id.unwrap())

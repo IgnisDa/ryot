@@ -8,7 +8,7 @@ use axum::{
     http::{request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
-use chrono::Utc;
+use chrono::{NaiveDate, Utc};
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use itertools::Itertools;
@@ -308,6 +308,10 @@ pub async fn add_entity_to_collection(
         created_collection.insert(db).await.is_ok()
     };
     Ok(resp)
+}
+
+pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
+    Utc::now().with_timezone(timezone).date_naive()
 }
 
 pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
