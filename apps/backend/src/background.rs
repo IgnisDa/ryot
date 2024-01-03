@@ -51,7 +51,6 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     service.send_pending_media_reminders().await.unwrap();
     tracing::trace!("Recalculating calendar events");
     service.recalculate_calendar_events().await.unwrap();
-    // TODO: Add job that deletes all invalid files uploaded to s3
     Ok(())
 }
 

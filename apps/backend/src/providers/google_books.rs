@@ -128,7 +128,7 @@ impl MediaProvider for GoogleBooksService {
                     publish_year,
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
-                let image = url_images.get(0).map(|i| i.image.clone());
+                let image = url_images.first().map(|i| i.image.clone());
                 MediaSearchItem {
                     identifier,
                     title,
@@ -248,6 +248,6 @@ impl GoogleBooksService {
             .await
             .ok()?;
         let search: SearchResponse = resp.body_json().await.ok()?;
-        Some(search.items?.get(0)?.id.clone())
+        Some(search.items?.first()?.id.clone())
     }
 }

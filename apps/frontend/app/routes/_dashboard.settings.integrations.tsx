@@ -1,9 +1,11 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
+	Alert,
 	Box,
 	Button,
 	Container,
+	CopyButton,
 	Flex,
 	Group,
 	Modal,
@@ -13,6 +15,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -21,18 +24,24 @@ import {
 	MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useFetcher, useLoaderData } from "@remix-run/react";
+import {
+	Form,
+	useActionData,
+	useFetcher,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	CreateUserSinkIntegrationDocument,
 	CreateUserYankIntegrationDocument,
 	DeleteUserIntegrationDocument,
+	GenerateAuthTokenDocument,
 	UserIntegrationLot,
 	UserIntegrationsDocument,
 	UserIntegrationsQuery,
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconEye, IconTrash } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconEye, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
@@ -68,7 +77,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return json({ status: "success", generateAuthToken: false } as const, {
 				headers: await createToastHeaders({
 					message: "Integration deleted successfully",
 				}),
@@ -100,11 +109,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					await getAuthorizationHeader(request),
 				);
 			}
-			return json({ status: "success", submission } as const, {
+			return json({ status: "success", generateAuthToken: false } as const, {
 				headers: await createToastHeaders({
 					message: "Integration created successfully",
 				}),
 			});
+		},
+		generateAuthToken: async () => {
+			const { generateAuthToken } = await gqlClient.request(
+				GenerateAuthTokenDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", generateAuthToken } as const);
 		},
 	});
 };
@@ -124,6 +141,7 @@ const deleteSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const actionData = useActionData<typeof action>();
 	const [
 		createUserYankIntegrationModalOpened,
 		{
@@ -147,14 +165,29 @@ export default function Page() {
 				) : (
 					<Text>No integrations configured</Text>
 				)}
-				<Box ml="auto">
-					<Button
-						size="xs"
-						variant="light"
-						onClick={openCreateUserYankIntegrationModal}
-					>
-						Add new integration
-					</Button>
+				<Box w="100%">
+					<Group justify="space-between">
+						<Form method="post" action="?intent=generateAuthToken">
+							<Button
+								variant="light"
+								color="orange"
+								radius="md"
+								type="submit"
+								size="xs"
+								fullWidth
+							>
+								Create API token
+							</Button>
+						</Form>
+						<Button
+							size="xs"
+							variant="light"
+							radius="md"
+							onClick={openCreateUserYankIntegrationModal}
+						>
+							Add new integration
+						</Button>
+					</Group>
 					<Modal
 						opened={createUserYankIntegrationModalOpened}
 						onClose={closeCreateUserYankIntegrationModal}
@@ -232,6 +265,35 @@ export default function Page() {
 						</Box>
 					</Modal>
 				</Box>
+				{actionData?.generateAuthToken ? (
+					<Alert title="This token will be shown only once" color="yellow">
+						<Flex align="center">
+							<CopyButton value={actionData.generateAuthToken}>
+								{({ copied, copy }) => (
+									<Tooltip
+										label={copied ? "Copied" : "Copy"}
+										withArrow
+										position="right"
+									>
+										<ActionIcon color={copied ? "teal" : "gray"} onClick={copy}>
+											{copied ? (
+												<IconCheck size={16} />
+											) : (
+												<IconCopy size={16} />
+											)}
+										</ActionIcon>
+									</Tooltip>
+								)}
+							</CopyButton>
+							<TextInput
+								value={actionData.generateAuthToken}
+								readOnly
+								style={{ flex: 1 }}
+								onClick={(e) => e.currentTarget.select()}
+							/>
+						</Flex>
+					</Alert>
+				) : null}
 			</Stack>
 		</Container>
 	);

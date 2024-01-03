@@ -350,7 +350,7 @@ impl MediaProvider for AudibleService {
                 MediaSearchItem {
                     identifier: a.identifier,
                     title: a.title,
-                    image: a.url_images.get(0).map(|i| i.image.clone()),
+                    image: a.url_images.first().map(|i| i.image.clone()),
                     publish_year: a.publish_year,
                 }
             })

@@ -1,6 +1,7 @@
-import { createCookieSessionStorage, redirect } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { z } from "zod";
 import { combineHeaders } from "~/lib/utilities.server";
+import { toastSessionStorage } from "./cookies.server";
 
 export const toastKey = "toast";
 
@@ -17,17 +18,6 @@ export type OptionalToast = Omit<Toast, "id" | "type"> & {
 	id?: string;
 	type?: z.infer<typeof TypeSchema>;
 };
-
-export const toastSessionStorage = createCookieSessionStorage({
-	cookie: {
-		name: "en_toast",
-		sameSite: "lax",
-		path: "/",
-		httpOnly: true,
-		secrets: (process.env.SESSION_SECRET || "").split(","),
-		secure: process.env.NODE_ENV === "production",
-	},
-});
 
 export async function redirectWithToast(
 	url: string,

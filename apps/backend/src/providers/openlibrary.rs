@@ -475,7 +475,7 @@ impl MediaProvider for OpenlibraryService {
                 .map(|b| MediaSearchItem {
                     identifier: b.identifier,
                     title: b.title,
-                    image: b.images.get(0).cloned(),
+                    image: b.images.first().cloned(),
                     publish_year: b.publish_year,
                 })
                 .collect(),

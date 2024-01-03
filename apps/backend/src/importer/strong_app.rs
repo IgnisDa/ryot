@@ -1,4 +1,4 @@
-use std::{env, fs};
+use std::{fs, sync::Arc};
 
 use async_graphql::Result;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
@@ -37,9 +37,10 @@ struct Entry {
     exercise_name: String,
 }
 
-pub async fn import(input: DeployStrongAppImportInput) -> Result<ImportResult> {
-    let timezone_str = env::var("TZ").unwrap_or_else(|_| "UTC".to_string());
-    let timezone: chrono_tz::Tz = timezone_str.parse().expect("Invalid timezone");
+pub async fn import(
+    input: DeployStrongAppImportInput,
+    timezone: Arc<chrono_tz::Tz>,
+) -> Result<ImportResult> {
     let offset = timezone
         .offset_from_utc_datetime(&Utc::now().naive_utc())
         .fix()

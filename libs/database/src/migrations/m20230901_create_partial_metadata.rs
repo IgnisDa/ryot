@@ -1,4 +1,4 @@
-// TODO: Delete this migration in the next major release
+// FIXME: Delete this migration in the next major release
 
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;

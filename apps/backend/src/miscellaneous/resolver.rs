@@ -120,8 +120,9 @@ use crate::{
     },
     utils::{
         add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
-        get_ilike_query, get_stored_asset, get_user_and_metadata_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, TEMP_DIR, USER_AGENT_STR, VERSION,
+        get_current_date, get_ilike_query, get_stored_asset, get_user_and_metadata_association,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR, USER_AGENT_STR,
+        VERSION,
     },
 };
 
@@ -1346,7 +1347,7 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
-    timezone: String,
+    timezone: Arc<chrono_tz::Tz>,
     file_storage_service: Arc<FileStorageService>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
@@ -1360,7 +1361,7 @@ impl MiscellaneousService {
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
-        timezone: String,
+        timezone: Arc<chrono_tz::Tz>,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
@@ -1438,7 +1439,7 @@ impl MiscellaneousService {
         };
         Ok(CoreDetails {
             upgrade,
-            timezone: self.timezone.clone(),
+            timezone: self.timezone.to_string(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
@@ -2401,7 +2402,7 @@ impl MiscellaneousService {
                 data: MediaSearchItem {
                     identifier: met.id.to_string(),
                     title: met.title,
-                    image: assets.images.get(0).cloned(),
+                    image: assets.images.first().cloned(),
                     publish_year: met.publish_year,
                 },
                 average_rating: avg,
@@ -4461,8 +4462,8 @@ impl MiscellaneousService {
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
             .select_only()
             .column_as(
-                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 3600, 0)"),
-                "hours",
+                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
+                "minutes",
             )
             .column_as(
                 Expr::cust("coalesce(sum((summary -> 'total' ->> 'weight')::numeric), 0)"),
@@ -6415,7 +6416,7 @@ impl MiscellaneousService {
             .await?
         {
             if let Some(reminder) = utm.metadata_reminder {
-                if Utc::now().date_naive() == reminder.remind_on {
+                if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
                     self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
                         .await?;
                     self.delete_media_reminder(utm.user_id, utm.metadata_id.unwrap())
