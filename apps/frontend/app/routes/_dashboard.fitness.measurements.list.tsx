@@ -1,3 +1,5 @@
+import { LineChart } from "@mantine/charts";
+import "@mantine/charts/styles.css";
 import {
 	ActionIcon,
 	Box,
@@ -38,18 +40,8 @@ import {
 	IconTable,
 	IconTrash,
 } from "@tabler/icons-react";
-import get from "lodash/get";
 import set from "lodash/set";
 import { DataTable } from "mantine-datatable";
-import {
-	CartesianGrid,
-	Line,
-	LineChart,
-	ResponsiveContainer,
-	Tooltip,
-	XAxis,
-	YAxis,
-} from "recharts";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -148,6 +140,21 @@ const deleteSchema = z.object({ timestamp: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const formattedData = loaderData.userMeasurementsList.map((m) => {
+		const customStats = Object.fromEntries(
+			Object.entries(m.stats.custom || {})
+				.filter(([, v]) => v)
+				.map(([k, v]) => [`custom.${k}`, v]),
+		);
+		const inbuiltStats = Object.fromEntries(
+			Object.entries(m.stats).filter(([k, v]) => k !== "custom" && v),
+		);
+		return {
+			...inbuiltStats,
+			...customStats,
+			timestamp: tickFormatter(m.timestamp),
+		};
+	});
 	const [opened, { open, close }] = useDisclosure(false);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
@@ -258,31 +265,17 @@ export default function Page() {
 						</SimpleGrid>
 						<Box w="100%" ml={-15} mt="md">
 							{selectedStats ? (
-								<ResponsiveContainer width="100%" height={300}>
-									<LineChart
-										data={loaderData.userMeasurementsList}
-										margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-									>
-										<CartesianGrid strokeDasharray="3 3" />
-										<XAxis dataKey="timestamp" tickFormatter={tickFormatter} />
-										<YAxis domain={["dataMin - 1", "dataMax + 1"]} />
-										<Tooltip />
-										{selectedStats.map((s) => (
-											<Line
-												key={s}
-												type="monotone"
-												dot={false}
-												dataKey={(v) => {
-													const data = get(v.stats, s);
-													if (data) return Number(data);
-													return null;
-												}}
-												name={s}
-												connectNulls
-											/>
-										))}
-									</LineChart>
-								</ResponsiveContainer>
+								<LineChart
+									h={300}
+									series={selectedStats.map((s) => ({
+										name: s,
+										color: "blue",
+									}))}
+									data={formattedData}
+									dataKey="timestamp"
+									curveType="monotone"
+									connectNulls
+								/>
 							) : null}
 						</Box>
 					</Tabs.Panel>
@@ -358,4 +351,4 @@ export default function Page() {
 	);
 }
 
-const tickFormatter = (date: Date) => dayjsLib(date).format("L");
+const tickFormatter = (date: string) => dayjsLib(date).format("L");
