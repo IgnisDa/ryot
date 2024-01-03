@@ -4462,8 +4462,8 @@ impl MiscellaneousService {
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
             .select_only()
             .column_as(
-                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 3600, 0)"),
-                "hours",
+                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
+                "minutes",
             )
             .column_as(
                 Expr::cust("coalesce(sum((summary -> 'total' ->> 'weight')::numeric), 0)"),
