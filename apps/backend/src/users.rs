@@ -276,7 +276,7 @@ impl Default for UserGeneralPreferences {
     fn default() -> Self {
         Self {
             review_scale: UserReviewScale::default(),
-            display_nsfw: false,
+            display_nsfw: true,
             disable_yank_integrations: false,
             dashboard: vec![
                 UserGeneralDashboardElement {

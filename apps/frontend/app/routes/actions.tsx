@@ -13,9 +13,9 @@ import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { authCookie, colorSchemeCookie } from "~/lib/cookies.server";
+import { colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import { getLogoutCookies, processSubmission } from "~/lib/utilities.server";
 
 export const loader = async () => redirect($path("/"));
 
@@ -48,9 +48,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		logout: async () => {
 			return redirect($path("/auth/login"), {
 				headers: {
-					"Set-Cookie": await authCookie.serialize("", {
-						expires: new Date(0),
-					}),
+					"Set-Cookie": await getLogoutCookies(),
 				},
 			});
 		},

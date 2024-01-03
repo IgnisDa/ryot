@@ -1395,6 +1395,7 @@ pub mod fitness {
         Reps,
     }
 
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,

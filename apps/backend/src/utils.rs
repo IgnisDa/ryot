@@ -8,7 +8,7 @@ use axum::{
     http::{request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
-use chrono::Utc;
+use chrono::{NaiveDate, Utc};
 use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use itertools::Itertools;
@@ -75,6 +75,7 @@ pub async fn create_app_services(
     perform_application_job: &SqliteStorage<ApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
+    let timezone = Arc::new(timezone);
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
@@ -92,13 +93,14 @@ pub async fn create_app_services(
             config.clone(),
             file_storage_service.clone(),
             perform_application_job,
-            timezone.to_string(),
+            timezone.clone(),
         )
         .await,
     );
     let importer_service = Arc::new(ImporterService::new(
         media_service.clone(),
         exercise_service.clone(),
+        timezone.clone(),
     ));
     let exporter_service = Arc::new(ExporterService::new(
         config.clone(),
@@ -266,7 +268,7 @@ pub async fn add_entity_to_collection(
     let mut updated: collection::ActiveModel = collection.into();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(db).await.unwrap();
-    if let Some(etc) = CollectionToEntity::find()
+    let resp = if let Some(etc) = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
         .filter(
             target_column.eq(match input.entity_id.clone().parse::<i32>() {
@@ -279,7 +281,7 @@ pub async fn add_entity_to_collection(
     {
         let mut to_update: collection_to_entity::ActiveModel = etc.into();
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        Ok(to_update.update(db).await.is_ok())
+        to_update.update(db).await.is_ok()
     } else {
         let mut created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
@@ -303,8 +305,13 @@ pub async fn add_entity_to_collection(
             }
             EntityLot::Collection => unreachable!(),
         };
-        Ok(created_collection.insert(db).await.is_ok())
-    }
+        created_collection.insert(db).await.is_ok()
+    };
+    Ok(resp)
+}
+
+pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
+    Utc::now().with_timezone(timezone).date_naive()
 }
 
 pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
