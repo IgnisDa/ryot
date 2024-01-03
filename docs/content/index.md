@@ -19,6 +19,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_DB=postgres
+    container_name: ryot-db
 
   ryot:
     image: "ghcr.io/ignisda/ryot:latest"
