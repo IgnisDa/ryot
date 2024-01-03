@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=node:20.5.1-bookworm-slim
+ARG NODE_BASE_IMAGE=node:20.10.0-bookworm-slim
 FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS node-build-base
 
 FROM node-build-base AS build-base
