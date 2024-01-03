@@ -4,7 +4,7 @@
 
 ## Build
 
-- bump versions
+- change versions
   
   
 
