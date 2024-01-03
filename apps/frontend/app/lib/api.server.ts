@@ -6,7 +6,7 @@ import { withQuery } from "ufo";
 import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "./generals";
 import { createToastHeaders } from "./toast.server";
-import { combineHeaders } from "./utilities.server";
+import { combineHeaders, getLogoutCookies } from "./utilities.server";
 
 export const API_URL = process.env.API_URL;
 
@@ -53,11 +53,7 @@ export const redirectIfNotAuthenticated = async (request: Request) => {
 					await createToastHeaders({
 						message: "You must be logged in to view this page",
 					}),
-					{
-						"Set-Cookie": await authCookie.serialize("", {
-							expires: new Date(0),
-						}),
-					},
+					{ "Set-Cookie": await getLogoutCookies() },
 				),
 			},
 		);

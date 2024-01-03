@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
 import { zx } from "zodix";
+import { authCookie } from "./cookies.server";
 
 export const expectedEnvironmentVariables = z.object({
 	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
@@ -50,4 +51,10 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 	if (!submission.value)
 		throw json({ status: "error", submission } as const, { status: 400 });
 	return submission.value;
+};
+
+export const getLogoutCookies = async () => {
+	return await authCookie.serialize("", {
+		expires: new Date(0),
+	});
 };
