@@ -166,7 +166,7 @@ impl MediaProvider for VndbService {
                     publish_year,
                     ..
                 } = self.vndb_response_to_search_response(b);
-                let image = url_images.get(0).map(|i| i.image.clone());
+                let image = url_images.first().map(|i| i.image.clone());
                 MediaSearchItem {
                     identifier,
                     title,

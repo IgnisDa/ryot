@@ -2401,7 +2401,7 @@ impl MiscellaneousService {
                 data: MediaSearchItem {
                     identifier: met.id.to_string(),
                     title: met.title,
-                    image: assets.images.get(0).cloned(),
+                    image: assets.images.first().cloned(),
                     publish_year: met.publish_year,
                 },
                 average_rating: avg,

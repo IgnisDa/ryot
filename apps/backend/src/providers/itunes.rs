@@ -259,7 +259,7 @@ fn get_search_response(item: ITunesItem) -> MediaSearchItem {
     MediaSearchItem {
         identifier: item.collection_id.to_string(),
         title: item.collection_name,
-        image: images.get(0).cloned(),
+        image: images.first().cloned(),
         publish_year,
     }
 }
