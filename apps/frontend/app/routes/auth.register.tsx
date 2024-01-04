@@ -113,12 +113,12 @@ export default function Page() {
 				<Button id="submit-button" mt="md" type="submit" w="100%">
 					Register
 				</Button>
-				<Box mt="lg" style={{ textAlign: "right" }}>
-					Already a member? Login{" "}
+				<Box mt="lg" ta="right">
+					Already{" "}
 					<Anchor to={$path("/auth/login")} component={Link}>
-						here
+						have an account
 					</Anchor>
-					.
+					?
 				</Box>
 			</Box>
 		</>
