@@ -28,6 +28,7 @@ export interface AnimeAndMangaConfig {
 export interface AudibleConfig {
 	/**
 	 * Settings related to locale for making requests Audible.
+	 *
 	 * @default 'us'
 	 */
 	locale: string;
@@ -45,7 +46,11 @@ export interface GoogleBooksConfig {
 export type OpenlibraryCoverImageSize = 'S' | 'M' | 'L';
 
 export interface OpenlibraryConfig {
-	/** The image sizes to fetch from Openlibrary. */
+	/**
+	 * The image sizes to fetch from Openlibrary.
+	 *
+	 * @default 'M'
+	 */
 	cover_image_size: OpenlibraryCoverImageSize;
 }
 
@@ -78,6 +83,7 @@ export interface FileStorageConfig {
 	s3_bucket_name: string;
 	/**
 	 * The region for the S3 compatible file storage.
+	 *
 	 * @default 'us-east-1'
 	 */
 	s3_region: string;
@@ -104,11 +110,13 @@ export interface FrontendUmamiConfig {
 export interface FrontendConfig {
 	/**
 	 * The height of the right section of an item's details page in pixels.
+	 *
 	 * @default 300
 	 */
 	item_details_height: number;
 	/**
 	 * The number of items to display in a list view.
+	 *
 	 * @default 20
 	 */
 	page_size: number;
@@ -123,17 +131,20 @@ export interface IntegrationConfig {
 	hasher_salt: string;
 	/**
 	 * The maximum progress limit after which a media is considered to be completed.
+	 *
 	 * @default 95
 	 */
 	maximum_progress_limit: number;
 	/**
 	 * The minimum progress limit before which a media is considered to be started.
+	 *
 	 * @default 2
 	 */
 	minimum_progress_limit: number;
 	/**
 	 * Sync data from [yank](/docs/guides/integrations.md) based integrations
 	 * every `n` hours.
+	 *
 	 * @default 2
 	 */
 	pull_every: number;
@@ -148,6 +159,7 @@ export interface TmdbConfig {
 	access_token: string;
 	/**
 	 * The locale to use for making requests to TMDB API.
+	 *
 	 * @default 'en'
 	 */
 	locale: string;
@@ -161,6 +173,7 @@ export interface MovieAndShowConfig {
 export interface ITunesConfig {
 	/**
 	 * The locale to use for making requests to iTunes API.
+	 *
 	 * @default 'en_us'
 	 */
 	locale: string;
@@ -181,18 +194,21 @@ export interface PodcastConfig {
 export interface SchedulerConfig {
 	/**
 	 * The url to the SQLite database where job related data needs to be stored.
+	 *
 	 * @default 'sqlite::memory:'
 	 */
 	database_url: string;
 	/**
 	 * The number of jobs to process every 5 seconds when updating metadata in
 	 * the background.
+	 *
 	 * @default 5
 	 */
 	rate_limit_num: number;
 	/**
 	 * Deploy a job every x hours that performs user cleanup and summary
 	 * calculation.
+	 *
 	 * @default 12
 	 */
 	user_cleanup_every: number;
@@ -211,21 +227,25 @@ export interface ServerConfig {
 	/**
 	 * Admin jobs take a lot of resources, so they can be disabled completely from being
 	 * triggered manually. They still run as background jobs.
+	 *
 	 * @default true
 	 */
 	deploy_admin_jobs_allowed: boolean;
 	/**
 	 * Whether the graphql playground will be enabled.
+	 *
 	 * @default true
 	 */
 	graphql_playground_enabled: boolean;
 	/**
 	 * The maximum file size in MB for user uploads.
+	 *
 	 * @default 70
 	 */
 	max_file_size: number;
 	/**
 	 * The number of days after which details about a person are considered outdated.
+	 *
 	 * @default 30
 	 */
 	person_outdated_threshold: number;
@@ -233,16 +253,19 @@ export interface ServerConfig {
 	 * The hours in which a media can be marked as seen again for a user. This
 	 * is used so that the same media can not be used marked as started when
 	 * it has been already marked as seen in the last `n` hours.
+	 *
 	 * @default 2
 	 */
 	progress_update_threshold: number;
 	/**
 	 * Whether monitored media will be updated.
+	 *
 	 * @default true
 	 */
 	update_monitored_media: boolean;
 	/**
 	 * Whether videos will be displayed in the media details.
+	 *
 	 * @default false
 	 */
 	videos_disabled: boolean;
@@ -252,17 +275,20 @@ export interface UsersConfig {
 	/**
 	 * Whether users will be allowed to change their username and password in their
 	 * profile settings.
+	 *
 	 * @default true
 	 */
 	allow_changing_credentials: boolean;
 	/**
 	 * Whether users will be allowed to change their preferences in their profile
 	 * settings.
+	 *
 	 * @default true
 	 */
 	allow_changing_preferences: boolean;
 	/**
 	 * Whether new users will be allowed to sign up to this instance.
+	 *
 	 * @default true
 	 */
 	allow_registration: boolean;
@@ -270,11 +296,13 @@ export interface UsersConfig {
 	jwt_secret: string;
 	/**
 	 * Whether users will be allowed to post reviews on this instance.
+	 *
 	 * @default false
 	 */
 	reviews_disabled: boolean;
 	/**
 	 * The number of days till login auth token is valid.
+	 *
 	 * @default 90
 	 */
 	token_valid_for_days: number;
@@ -283,7 +311,11 @@ export interface UsersConfig {
 export type IgdbImageSize = 't_original';
 
 export interface IgdbConfig {
-	/** The image sizes to fetch from IGDB. */
+	/**
+	 * The image sizes to fetch from IGDB.
+	 *
+	 * @default 't_original'
+	 */
 	image_size: IgdbImageSize;
 }
 
