@@ -3,12 +3,20 @@
 /* eslint-disable */
 
 export interface AnilistConfig {
-	/** Whether to prefer the english name for media from this source. */
+	/**
+	 * Whether to prefer the english name for media from this source.
+	 *
+	 * @envvar ANIME_AND_MANGA_ANILIST_PREFER_ENGLISH
+	 */
 	prefer_english: boolean;
 }
 
 export interface MalConfig {
-	/** The client ID to be used for the MAL API. */
+	/**
+	 * The client ID to be used for the MAL API.
+	 *
+	 * @envvar ANIME_AND_MANGA_MAL_CLIENT_ID
+	 */
 	client_id: string;
 }
 
@@ -30,6 +38,7 @@ export interface AudibleConfig {
 	 * Settings related to locale for making requests Audible.
 	 *
 	 * @default 'us'
+	 * @envvar AUDIO_BOOKS_AUDIBLE_LOCALE
 	 */
 	locale: string;
 }
@@ -50,6 +59,7 @@ export interface OpenlibraryConfig {
 	 * The image sizes to fetch from Openlibrary.
 	 *
 	 * @default 'M'
+	 * @envvar BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE
 	 */
 	cover_image_size: OpenlibraryCoverImageSize;
 }
@@ -65,6 +75,8 @@ export interface DatabaseConfig {
 	/**
 	 * The Postgres database connection string.
 	 * Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres
+	 *
+	 * @envvar DATABASE_URL
 	 */
 	url: string;
 }
@@ -77,22 +89,35 @@ export interface FileStorageConfig {
 	/**
 	 * The access key ID for the S3 compatible file storage. **Required*to
 	 * enable file storage.
+	 *
+	 * @envvar FILE_STORAGE_S3_ACCESS_KEY_ID
 	 */
 	s3_access_key_id: string;
-	/** The name of the S3 compatible bucket. **Required*to enable file storage. */
+	/**
+	 * The name of the S3 compatible bucket. **Required*to enable file storage.
+	 *
+	 * @envvar FILE_STORAGE_S3_BUCKET_NAME
+	 */
 	s3_bucket_name: string;
 	/**
 	 * The region for the S3 compatible file storage.
 	 *
 	 * @default 'us-east-1'
+	 * @envvar FILE_STORAGE_S3_REGION
 	 */
 	s3_region: string;
 	/**
 	 * The secret access key for the S3 compatible file storage. **Required**
 	 * to enable file storage.
+	 *
+	 * @envvar FILE_STORAGE_S3_SECRET_ACCESS_KEY
 	 */
 	s3_secret_access_key: string;
-	/** The URL for the S3 compatible file storage. */
+	/**
+	 * The URL for the S3 compatible file storage.
+	 *
+	 * @envvar FILE_STORAGE_S3_URL
+	 */
 	s3_url: string;
 }
 
@@ -101,9 +126,15 @@ export interface FileStorageConfig {
  * [here](https://umami.is/docs/tracker-configuration).
  */
 export interface FrontendUmamiConfig {
+	/** @envvar FRONTEND_UMAMI_DOMAINS */
 	domains: string;
-	/** For example: https://umami.is/script.js */
+	/**
+	 * For example: https://umami.is/script.js
+	 *
+	 * @envvar FRONTEND_UMAMI_SCRIPT_URL
+	 */
 	script_url: string;
+	/** @envvar FRONTEND_UMAMI_WEBSITE_ID */
 	website_id: string;
 }
 
@@ -112,33 +143,48 @@ export interface FrontendConfig {
 	 * The height of the right section of an item's details page in pixels.
 	 *
 	 * @default 300
+	 * @envvar FRONTEND_ITEM_DETAILS_HEIGHT
 	 */
 	item_details_height: number;
 	/**
 	 * The number of items to display in a list view.
 	 *
 	 * @default 20
+	 * @envvar FRONTEND_PAGE_SIZE
 	 */
 	page_size: number;
-	/** Settings related to Umami analytics. */
+	/**
+	 * Settings related to Umami analytics.
+	 *
+	 * @envvar FRONTEND_UMAMI
+	 */
 	umami: FrontendUmamiConfig;
-	/** @default 'https://ryot.fly.dev' */
+	/**
+	 * @default 'https://ryot.fly.dev'
+	 * @envvar FRONTEND_URL
+	 */
 	url: string;
 }
 
 export interface IntegrationConfig {
-	/** The salt used to hash user IDs. */
+	/**
+	 * The salt used to hash user IDs.
+	 *
+	 * @envvar INTEGRATION_HASHER_SALT
+	 */
 	hasher_salt: string;
 	/**
 	 * The maximum progress limit after which a media is considered to be completed.
 	 *
 	 * @default 95
+	 * @envvar INTEGRATION_MAXIMUM_PROGRESS_LIMIT
 	 */
 	maximum_progress_limit: number;
 	/**
 	 * The minimum progress limit before which a media is considered to be started.
 	 *
 	 * @default 2
+	 * @envvar INTEGRATION_MINIMUM_PROGRESS_LIMIT
 	 */
 	minimum_progress_limit: number;
 	/**
@@ -146,6 +192,7 @@ export interface IntegrationConfig {
 	 * every `n` hours.
 	 *
 	 * @default 2
+	 * @envvar INTEGRATION_PULL_EVERY
 	 */
 	pull_every: number;
 }
@@ -155,12 +202,17 @@ export interface MediaConfig {
 }
 
 export interface TmdbConfig {
-	/** The access token for the TMDB API. */
+	/**
+	 * The access token for the TMDB API.
+	 *
+	 * @envvar MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN
+	 */
 	access_token: string;
 	/**
 	 * The locale to use for making requests to TMDB API.
 	 *
 	 * @default 'en'
+	 * @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
 	 */
 	locale: string;
 }
@@ -175,12 +227,17 @@ export interface ITunesConfig {
 	 * The locale to use for making requests to iTunes API.
 	 *
 	 * @default 'en_us'
+	 * @envvar PODCASTS_ITUNES_LOCALE
 	 */
 	locale: string;
 }
 
 export interface ListenNotesConfig {
-	/** The access token for the Listennotes API. */
+	/**
+	 * The access token for the Listennotes API.
+	 *
+	 * @envvar PODCASTS_LISTENNOTES_API_TOKEN
+	 */
 	api_token: string;
 }
 
@@ -196,6 +253,7 @@ export interface SchedulerConfig {
 	 * The url to the SQLite database where job related data needs to be stored.
 	 *
 	 * @default 'sqlite::memory:'
+	 * @envvar SCHEDULER_DATABASE_URL
 	 */
 	database_url: string;
 	/**
@@ -203,6 +261,7 @@ export interface SchedulerConfig {
 	 * the background.
 	 *
 	 * @default 5
+	 * @envvar SCHEDULER_RATE_LIMIT_NUM
 	 */
 	rate_limit_num: number;
 	/**
@@ -210,18 +269,29 @@ export interface SchedulerConfig {
 	 * calculation.
 	 *
 	 * @default 12
+	 * @envvar SCHEDULER_USER_CLEANUP_EVERY
 	 */
 	user_cleanup_every: number;
 }
 
 export interface ServerConfig {
-	/** The path where the config file will be written once the server boots up. */
+	/**
+	 * The path where the config file will be written once the server boots up.
+	 *
+	 * @envvar SERVER_CONFIG_DUMP_PATH
+	 */
 	config_dump_path: string;
-	/** An array of URLs for CORS. */
+	/**
+	 * An array of URLs for CORS.
+	 *
+	 * @envvar SERVER_CORS_ORIGINS
+	 */
 	cors_origins: string[];
 	/**
 	 * Whether default credentials will be populated on the login page of the
 	 * instance.
+	 *
+	 * @envvar SERVER_DEFAULT_CREDENTIALS
 	 */
 	default_credentials: boolean;
 	/**
@@ -229,24 +299,28 @@ export interface ServerConfig {
 	 * triggered manually. They still run as background jobs.
 	 *
 	 * @default true
+	 * @envvar SERVER_DEPLOY_ADMIN_JOBS_ALLOWED
 	 */
 	deploy_admin_jobs_allowed: boolean;
 	/**
 	 * Whether the graphql playground will be enabled.
 	 *
 	 * @default true
+	 * @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
 	 */
 	graphql_playground_enabled: boolean;
 	/**
 	 * The maximum file size in MB for user uploads.
 	 *
 	 * @default 70
+	 * @envvar SERVER_MAX_FILE_SIZE
 	 */
 	max_file_size: number;
 	/**
 	 * The number of days after which details about a person are considered outdated.
 	 *
 	 * @default 30
+	 * @envvar SERVER_PERSON_OUTDATED_THRESHOLD
 	 */
 	person_outdated_threshold: number;
 	/**
@@ -255,18 +329,21 @@ export interface ServerConfig {
 	 * it has been already marked as seen in the last `n` hours.
 	 *
 	 * @default 2
+	 * @envvar SERVER_PROGRESS_UPDATE_THRESHOLD
 	 */
 	progress_update_threshold: number;
 	/**
 	 * Whether monitored media will be updated.
 	 *
 	 * @default true
+	 * @envvar SERVER_UPDATE_MONITORED_MEDIA
 	 */
 	update_monitored_media: boolean;
 	/**
 	 * Whether videos will be displayed in the media details.
 	 *
 	 * @default false
+	 * @envvar SERVER_VIDEOS_DISABLED
 	 */
 	videos_disabled: boolean;
 }
@@ -277,6 +354,7 @@ export interface UsersConfig {
 	 * profile settings.
 	 *
 	 * @default true
+	 * @envvar USERS_ALLOW_CHANGING_CREDENTIALS
 	 */
 	allow_changing_credentials: boolean;
 	/**
@@ -284,26 +362,34 @@ export interface UsersConfig {
 	 * settings.
 	 *
 	 * @default true
+	 * @envvar USERS_ALLOW_CHANGING_PREFERENCES
 	 */
 	allow_changing_preferences: boolean;
 	/**
 	 * Whether new users will be allowed to sign up to this instance.
 	 *
 	 * @default true
+	 * @envvar USERS_ALLOW_REGISTRATION
 	 */
 	allow_registration: boolean;
-	/** The secret used for generating JWT tokens. */
+	/**
+	 * The secret used for generating JWT tokens.
+	 *
+	 * @envvar USERS_JWT_SECRET
+	 */
 	jwt_secret: string;
 	/**
 	 * Whether users will be allowed to post reviews on this instance.
 	 *
 	 * @default false
+	 * @envvar USERS_REVIEWS_DISABLED
 	 */
 	reviews_disabled: boolean;
 	/**
 	 * The number of days till login auth token is valid.
 	 *
 	 * @default 90
+	 * @envvar USERS_TOKEN_VALID_FOR_DAYS
 	 */
 	token_valid_for_days: number;
 }
@@ -315,6 +401,7 @@ export interface IgdbConfig {
 	 * The image sizes to fetch from IGDB.
 	 *
 	 * @default 't_original'
+	 * @envvar VIDEO_GAMES_IGDB_IMAGE_SIZE
 	 */
 	image_size: IgdbImageSize;
 }
@@ -323,11 +410,15 @@ export interface TwitchConfig {
 	/**
 	 * The client ID issues by Twitch. **Required*to enable video games
 	 * tracking. [More information](/docs/guides/video-games.md)
+	 *
+	 * @envvar VIDEO_GAMES_TWITCH_CLIENT_ID
 	 */
 	client_id: string;
 	/**
 	 * The client secret issued by Twitch. **Required*to enable video games
 	 * tracking.
+	 *
+	 * @envvar VIDEO_GAMES_TWITCH_CLIENT_SECRET
 	 */
 	client_secret: string;
 }

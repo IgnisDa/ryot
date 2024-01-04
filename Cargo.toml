@@ -12,7 +12,7 @@ async-graphql = { version = "6.0.11", features = [
     "uuid",
 ] }
 chrono = "0.4.31"
-schematic = { version = "0.13.0", features = [
+schematic = { version = "0.13.1", features = [
     "config",
     "json",
     "schema",
