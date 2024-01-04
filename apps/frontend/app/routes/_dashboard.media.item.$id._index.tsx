@@ -600,12 +600,16 @@ export default function Page() {
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
-							<Tabs.Tab
-								value="overview"
-								leftSection={<IconInfoCircle size={16} />}
-							>
-								Overview
-							</Tabs.Tab>
+							{loaderData.mediaMainDetails.description ||
+							loaderData.mediaAdditionalDetails.creators.length > 0 ||
+							loaderData.mediaMainDetails.genres.length > 0 ? (
+								<Tabs.Tab
+									value="overview"
+									leftSection={<IconInfoCircle size={16} />}
+								>
+									Overview
+								</Tabs.Tab>
+							) : null}
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
