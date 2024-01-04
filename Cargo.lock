@@ -192,9 +192,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.75"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
 
 [[package]]
 name = "apalis"
@@ -3969,9 +3969,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.22"
+version = "0.11.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "046cd98826c46c2ac8ddecae268eb5c2e58628688a5fc7a2643704a73faba95b"
+checksum = "37b1ae8d9ac08420c66222fb9096fc5de435c3c48542bc5336c51892cffafb41"
 dependencies = [
  "base64 0.21.2",
  "bytes",
@@ -4344,9 +4344,9 @@ dependencies = [
 
 [[package]]
 name = "schematic"
-version = "0.12.12"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ed74b468686fb5551b8f29c8339dcf0b7ac4e0f475490f6f49f6a2aadcd392"
+checksum = "dd8ad48870198d30a129ab8aedc823cc8320a81486e41cd7d445ce5b320181dc"
 dependencies = [
  "garde",
  "indexmap 2.1.0",
@@ -4366,9 +4366,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_macros"
-version = "0.12.8"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10e8b482f96eaca0fdc4fe3441c2eda44f5aeeb1a93b653d214ee2ecf4975be4"
+checksum = "a179036b19dd2528a1fad39f1d97f1fd8d9c550386649187be36f7cd0d50124c"
 dependencies = [
  "convert_case",
  "darling",
@@ -4379,9 +4379,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_types"
-version = "0.4.10"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c38cdd0968bde35f7e093600c90e0306da6af5ffd1b3cb175dbfde1146debcf2"
+checksum = "7c6125ac98c145b753c4c479d1d8409add4b14da34810b5804b057c9700f22fe"
 dependencies = [
  "chrono",
  "rust_decimal",
@@ -4711,9 +4711,9 @@ dependencies = [
 
 [[package]]
 name = "serde_path_to_error"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4beec8bce849d58d06238cb50db2e1c417cfeafa4c63f692b15c82b7c80f8335"
+checksum = "ebd154a240de39fdebcf5775d2675c204d7c13cf39a4c697be6493c8e734337c"
 dependencies = [
  "itoa",
  "serde",
