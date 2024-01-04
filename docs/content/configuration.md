@@ -3,12 +3,8 @@
 You can specify configuration options via environment variables or via files (loaded from
 `config/ryot.json`, `config/ryot.toml`, `config/ryot.yaml`) .
 
-To set the equivalent environment variables, join keys by `_` (underscore) and
-_UPPER_SNAKE_CASE_ the characters. For example, `video_games.twitch.client_id`
-becomes `VIDEO_GAMES_TWITCH_CLIENT_ID`.
-
 Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
-([example](https://ryot.fly.dev/config)). This can also be treated as a [health
+([example](https://ryot.fly.dev/backend/config)). This can also be treated as a [health
 endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
 
 !!! info
