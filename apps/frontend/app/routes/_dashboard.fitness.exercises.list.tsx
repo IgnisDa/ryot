@@ -22,7 +22,7 @@ import {
 	Title,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useListState } from "@mantine/hooks";
+import { useDidUpdate, useDisclosure, useListState } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -47,7 +47,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
@@ -141,12 +141,12 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
-	const [searchParams, { setP }] = useSearchParam();
+	const [_, { setP }] = useSearchParam();
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
 	}>([]);
-	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -154,7 +154,7 @@ export default function Page() {
 
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
-	useEffect(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", query), [query]);
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
