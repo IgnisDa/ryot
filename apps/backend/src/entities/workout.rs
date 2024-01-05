@@ -69,6 +69,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(
+        belongs_to = "Entity",
+        from = "Column::RepeatedFrom",
+        to = "Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    RepeatedFrom,
 }
 
 impl Related<super::user::Entity> for Entity {
