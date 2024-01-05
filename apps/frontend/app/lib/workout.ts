@@ -10,8 +10,7 @@ import {
 import { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
-import Cookies from "js-cookie";
-import { COOKIES_KEYS, LOCAL_STORAGE_KEYS } from "~/lib/generals";
+import { LOCAL_STORAGE_KEYS } from "~/lib/generals";
 import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
 
 export type ExerciseSet = {
@@ -62,14 +61,6 @@ function getTimeOfDay(date: Date) {
 	if (hours >= 17 && hours < 21) return "Evening";
 	return "Night";
 }
-
-export const setWorkoutStartingCookie = () => {
-	Cookies.set(COOKIES_KEYS.isWorkoutInProgress, "true", {
-		expires: 2,
-		sameSite: "Strict",
-		secure: true,
-	});
-};
 
 export const getDefaultWorkout = (): InProgressWorkout => {
 	const date = new Date();
