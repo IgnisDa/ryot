@@ -74,7 +74,7 @@ const defaultFiltersValue = {
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.optional().default("1"),
 	query: z.string().optional(),
-	sort: z
+	sortBy: z
 		.nativeEnum(ExerciseSortBy)
 		.optional()
 		.default(defaultFiltersValue.sort),
@@ -118,7 +118,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 						muscle: query.muscle,
 						type: query.type,
 					},
-					sortBy: query.sort,
+					sortBy: query.sortBy,
 				},
 			},
 			await getAuthorizationHeader(request),
@@ -245,7 +245,7 @@ export default function Page() {
 												value: v,
 											}))}
 											label="Sort by"
-											defaultValue={loaderData.query.sort}
+											defaultValue={loaderData.query.sortBy}
 											onChange={(v) => setP("sortBy", v)}
 										/>
 										{Object.keys(defaultFiltersValue)

@@ -413,7 +413,7 @@ export default function Page() {
 										to={$path("/fitness/exercises/list", {
 											selectionEnabled: true,
 											page: 1,
-											sort: ExerciseSortBy.NumTimesPerformed,
+											sortBy: ExerciseSortBy.NumTimesPerformed,
 										})}
 									>
 										Add exercise
