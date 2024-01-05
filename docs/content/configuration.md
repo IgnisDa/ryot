@@ -24,8 +24,6 @@ endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-e
 
 ## All parameters
 
-The root is at the `AppConfig` interface.
-
-```ts
-{% include 'backend-config-schema.ts' %}
+```yaml
+{% include 'backend-config-schema.yaml' %}
 ```
