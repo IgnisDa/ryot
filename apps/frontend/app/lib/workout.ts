@@ -187,6 +187,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
+			repeatedFrom: currentWorkout.repeatedFrom,
 			exercises: [],
 			assets: {
 				images: [...currentWorkout.images],
