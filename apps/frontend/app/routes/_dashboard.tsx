@@ -19,7 +19,7 @@ import {
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
+import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetails,
 	UpgradeType,
@@ -366,14 +366,18 @@ function LinksGroup({
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const allLinks = (hasLinks ? links || [] : []).filter(Boolean);
 	const items = allLinks.map((link) => (
-		<Link
+		<NavLink
 			className={classes.link}
 			to={link.link}
 			key={link.label}
 			onClick={toggle}
 		>
-			{link.label}
-		</Link>
+			{({ isActive }) => (
+				<span style={isActive ? { textDecoration: "underline" } : undefined}>
+					{link.label}
+				</span>
+			)}
+		</NavLink>
 	));
 
 	return (
