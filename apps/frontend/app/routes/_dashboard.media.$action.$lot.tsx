@@ -37,7 +37,7 @@ import {
 	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -173,15 +173,13 @@ export const meta: MetaFunction = ({ params }) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParams, { setP }] = useSearchParam();
+	const [_, { setP }] = useSearchParam();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
-	const [query, setQuery] = useState(searchParams.get("query") || "");
-
-	useEffect(() => setP("query", query), [query]);
+	const [query, setQuery] = useState(loaderData.query || "");
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -203,7 +201,7 @@ export default function Page() {
 				name="query"
 				placeholder={props.placeholder}
 				leftSection={<IconSearch />}
-				onChange={(e) => setQuery(e.currentTarget.value)}
+				onChange={(e) => setP("query", e.currentTarget.value)}
 				value={query}
 				rightSection={<ClearButton />}
 				style={{ flexGrow: 1 }}
