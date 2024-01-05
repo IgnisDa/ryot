@@ -68,7 +68,7 @@ const defaultFiltersValue = {
 	force: undefined,
 	level: undefined,
 	mechanic: undefined,
-	sort: ExerciseSortBy.NumTimesPerformed,
+	sortBy: ExerciseSortBy.NumTimesPerformed,
 };
 
 const searchParamsSchema = z.object({
@@ -77,7 +77,7 @@ const searchParamsSchema = z.object({
 	sortBy: z
 		.nativeEnum(ExerciseSortBy)
 		.optional()
-		.default(defaultFiltersValue.sort),
+		.default(defaultFiltersValue.sortBy),
 	type: z.nativeEnum(ExerciseLot).optional(),
 	level: z.nativeEnum(ExerciseLevel).optional(),
 	force: z.nativeEnum(ExerciseForce).optional(),
@@ -249,7 +249,7 @@ export default function Page() {
 											onChange={(v) => setP("sortBy", v)}
 										/>
 										{Object.keys(defaultFiltersValue)
-											.filter((f) => f !== "sort" && f !== "order")
+											.filter((f) => f !== "sortBy" && f !== "order")
 											.map((f) => (
 												<Select
 													key={f}
