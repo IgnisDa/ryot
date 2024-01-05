@@ -819,6 +819,7 @@ impl ExerciseService {
                 name: workout.name,
                 comment: workout.comment,
                 start_time: workout.start_time,
+                repeated_from: workout.repeated_from,
                 end_time: workout.end_time,
                 exercises: workout
                     .information

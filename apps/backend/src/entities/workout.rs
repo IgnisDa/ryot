@@ -24,6 +24,7 @@ use crate::{
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub repeated_from: Option<String>,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
     #[schema(exclude)]
