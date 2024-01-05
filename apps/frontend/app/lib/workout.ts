@@ -38,6 +38,7 @@ export type Exercise = {
 };
 
 export type InProgressWorkout = {
+	repeatedFrom?: string;
 	startTime: string;
 	endTime?: string;
 	name: string;
@@ -96,6 +97,7 @@ export const duplicateOldWorkout = async (
 ) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = workout.name;
+	inProgress.repeatedFrom = workout.id;
 	for (const ex of workout.information.exercises) {
 		const sets = ex.sets.map((s) => ({
 			confirmed: false,

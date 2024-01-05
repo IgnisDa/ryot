@@ -237,6 +237,7 @@ export interface Workout {
 	id: string;
 	information: WorkoutInformation;
 	name: string;
+	repeatedFrom: string | null;
 	startTime: string;
 	summary: WorkoutSummary;
 }
