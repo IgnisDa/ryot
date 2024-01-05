@@ -19,7 +19,7 @@
 </div>
 
 <p align="center">
-    <a href="https://ignisda.github.io/ryot" target="_blank">Documentation</a> •
+    <a href="https://ignisda.github.io/ryot" target="_blank">Installation</a> •
     <a href="https://ignisda.github.io/ryot/configuration" target="_blank">Configuration</a> •
     <a href="https://ryot.fly.dev" target="_blank">Demo</a>
 </p>
@@ -54,7 +54,6 @@ special tool on your computer or phone that lets you keep track of all these dig
 - Existing solutions do not have very good UI.
 - Pretty graphs and summaries make everyone happy. Ryot aims to have a lot of them.
 - There is a lack of a good self-hosted fitness and health tracking solution.
-- Ryot consumes very little memory (around 10MB idle eyeballing `docker stats`).
 
 ## 🚀 Features
 
@@ -72,7 +71,7 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 ## 🙏 Acknowledgements
 
-It is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
+Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
 similar projects. Also a massive thanks to all the
 [contributors](https://github.com/IgnisDa/ryot/graphs/contributors).
 
