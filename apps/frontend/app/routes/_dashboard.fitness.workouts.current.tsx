@@ -381,9 +381,10 @@ export default function Page() {
 										radius="md"
 										size="compact-md"
 										onClick={async () => {
-											const yes = confirm(
-												"Are you sure you want to cancel this workout?",
-											);
+											const yes = await confirmWrapper({
+												confirmation:
+													"Are you sure you want to cancel this workout?",
+											});
 											if (yes) {
 												navigate($path("/"));
 												Cookies.remove(COOKIES_KEYS.isWorkoutInProgress);
