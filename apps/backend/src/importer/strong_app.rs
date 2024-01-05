@@ -117,6 +117,7 @@ pub async fn import(
             };
             workouts.push(UserWorkoutInput {
                 id: None,
+                repeated_from: None,
                 name: entry.workout_name,
                 comment: entry.workout_notes,
                 start_time: ndt,

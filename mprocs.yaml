@@ -2,7 +2,7 @@ procs:
   Reverse Proxy:
     shell: "caddy run --config config/Caddyfile"
   Backend:
-    shell: "cargo watch -qx 'run --package ryot'"
+    shell: "cargo watch --ignore 'docs/includes' --ignore 'libs/generated' -qx 'run --package ryot'"
   Frontend:
     shell: "moon run frontend:dev"
   Minio:

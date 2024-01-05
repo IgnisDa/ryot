@@ -1674,6 +1674,7 @@ pub mod fitness {
         #[graphql(skip_input)]
         // If specified, the workout will be created with this ID.
         pub id: Option<String>,
+        pub repeated_from: Option<String>,
         pub name: String,
         pub comment: Option<String>,
         pub start_time: DateTimeUtc,

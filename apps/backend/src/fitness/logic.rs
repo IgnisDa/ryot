@@ -270,8 +270,9 @@ impl UserWorkoutInput {
         let summary_total = workout_totals.into_iter().sum();
         let model = workout::Model {
             id,
-            start_time: input.start_time,
             end_time: input.end_time,
+            start_time: input.start_time,
+            repeated_from: input.repeated_from,
             user_id,
             name: input.name,
             comment: input.comment,

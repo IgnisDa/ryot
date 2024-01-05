@@ -381,9 +381,10 @@ export default function Page() {
 										radius="md"
 										size="compact-md"
 										onClick={async () => {
-											const yes = confirm(
-												"Are you sure you want to cancel this workout?",
-											);
+											const yes = await confirmWrapper({
+												confirmation:
+													"Are you sure you want to cancel this workout?",
+											});
 											if (yes) {
 												navigate($path("/"));
 												Cookies.remove(COOKIES_KEYS.isWorkoutInProgress);
@@ -496,9 +497,8 @@ const StatInput = (props: {
 				}}
 				onFocus={(e) => e.target.select()}
 				size="xs"
-				styles={{
-					input: { fontSize: 15, width: rem(72), textAlign: "center" },
-				}}
+				styles={{ input: { fontSize: 15, width: rem(72) } }}
+				ta="center"
 				decimalScale={
 					typeof props.inputStep === "number"
 						? Math.log10(1 / props.inputStep)
@@ -735,8 +735,9 @@ const ExerciseDisplay = (props: {
 								justifyContent: "space-between",
 							},
 							label: { flex: "none" },
-							input: { width: "90px", textAlign: "right" },
+							input: { width: "90px" },
 						}}
+						ta="right"
 					/>
 				</Stack>
 			</Modal>

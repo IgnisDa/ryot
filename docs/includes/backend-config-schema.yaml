@@ -1,0 +1,259 @@
+# Settings related to anime and manga.
+anime_and_manga:
+  # Settings related to Anilist.
+  anilist:
+    # Whether to prefer the english name for media from this source.
+    # @envvar ANIME_AND_MANGA_ANILIST_PREFER_ENGLISH
+    prefer_english: false
+
+  # Settings related to MAL.
+  mal:
+    # The client ID to be used for the MAL API.
+    # @envvar ANIME_AND_MANGA_MAL_CLIENT_ID
+    client_id: ""
+
+  # Settings related to MangaUpdates.
+  manga_updates:
+
+
+# Settings related to audio books.
+audio_books:
+  # Settings related to Audible.
+  audible:
+    # Settings related to locale for making requests Audible.
+    # @envvar AUDIO_BOOKS_AUDIBLE_LOCALE
+    locale: "us"
+
+# Settings related to books.
+books:
+  # Settings related to Openlibrary.
+  openlibrary:
+    # The image sizes to fetch from Openlibrary.
+    # @envvar BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE
+    cover_image_size: "M"
+
+  # Settings related to Google Books.
+  google_books:
+
+
+# The database related settings.
+database:
+  # The Postgres database connection string.
+  # Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres.
+  # @envvar DATABASE_URL
+  url: ""
+
+# Settings related to exercises.
+exercise:
+
+
+# Settings related to file storage.
+file_storage:
+  # The access key ID for the S3 compatible file storage. **Required*to
+  # enable file storage.
+  # @envvar FILE_STORAGE_S3_ACCESS_KEY_ID
+  s3_access_key_id: ""
+
+  # The name of the S3 compatible bucket. **Required*to enable file storage.
+  # @envvar FILE_STORAGE_S3_BUCKET_NAME
+  s3_bucket_name: ""
+
+  # The region for the S3 compatible file storage.
+  # @envvar FILE_STORAGE_S3_REGION
+  s3_region: "us-east-1"
+
+  # The secret access key for the S3 compatible file storage. **Required**
+  # to enable file storage.
+  # @envvar FILE_STORAGE_S3_SECRET_ACCESS_KEY
+  s3_secret_access_key: ""
+
+  # The URL for the S3 compatible file storage.
+  # @envvar FILE_STORAGE_S3_URL
+  s3_url: ""
+
+# Settings related to frontend storage.
+frontend:
+  url: "https://ryot.fly.dev"
+
+  # The height of the right section of an item's details page in pixels.
+  # @envvar FRONTEND_ITEM_DETAILS_HEIGHT
+  item_details_height: 300
+
+  # The number of items to display in a list view.
+  # @envvar FRONTEND_PAGE_SIZE
+  page_size: 20
+
+  # Settings related to Umami analytics.
+  # @envvar FRONTEND_UMAMI
+  umami:
+    # For example: https://umami.is/script.js.
+    # @envvar FRONTEND_UMAMI_SCRIPT_URL
+    script_url: ""
+
+    website_id: ""
+
+    domains: ""
+
+# Settings related to external integrations.
+integration:
+  # Sync data from [yank](/docs/guides/integrations.md) based integrations
+  # every `n` hours.
+  # @envvar INTEGRATION_PULL_EVERY
+  pull_every: 2
+
+  # The salt used to hash user IDs.
+  # @envvar INTEGRATION_HASHER_SALT
+  hasher_salt: ""
+
+  # The minimum progress limit before which a media is considered to be started.
+  # @envvar INTEGRATION_MINIMUM_PROGRESS_LIMIT
+  minimum_progress_limit: 2
+
+  # The maximum progress limit after which a media is considered to be completed.
+  # @envvar INTEGRATION_MAXIMUM_PROGRESS_LIMIT
+  maximum_progress_limit: 95
+
+# Settings related to media.
+media:
+
+
+# Settings related to movies and shows.
+movies_and_shows:
+  # Settings related to TMDB.
+  tmdb:
+    # The access token for the TMDB API.
+    # @envvar MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN
+    access_token: ""
+
+    # The locale to use for making requests to TMDB API.
+    # @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
+    locale: "en"
+
+# Settings related to podcasts.
+podcasts:
+  # Settings related to Listennotes.
+  listennotes:
+    # The access token for the Listennotes API.
+    # @envvar PODCASTS_LISTENNOTES_API_TOKEN
+    api_token: ""
+
+  # Settings related to iTunes.
+  itunes:
+    # The locale to use for making requests to iTunes API.
+    # @envvar PODCASTS_ITUNES_LOCALE
+    locale: "en_us"
+
+# Settings related to scheduler.
+scheduler:
+  # The url to the SQLite database where job related data needs to be stored.
+  # @envvar SCHEDULER_DATABASE_URL
+  database_url: "sqlite::memory:"
+
+  # The number of jobs to process every 5 seconds when updating metadata in
+  # the background.
+  # @envvar SCHEDULER_RATE_LIMIT_NUM
+  rate_limit_num: 5
+
+  # Deploy a job every x hours that performs user cleanup and summary
+  # calculation.
+  # @envvar SCHEDULER_USER_CLEANUP_EVERY
+  user_cleanup_every: 12
+
+# Settings related to server.
+server:
+  # The path where the config file will be written once the server boots up.
+  # @envvar SERVER_CONFIG_DUMP_PATH
+  config_dump_path: ""
+
+  # An array of URLs for CORS.
+  # @envvar SERVER_CORS_ORIGINS
+  cors_origins: []
+
+  # Whether default credentials will be populated on the login page of the
+  # instance.
+  # @envvar SERVER_DEFAULT_CREDENTIALS
+  default_credentials: false
+
+  # The hours in which a media can be marked as seen again for a user. This
+  # is used so that the same media can not be used marked as started when
+  # it has been already marked as seen in the last `n` hours.
+  # @envvar SERVER_PROGRESS_UPDATE_THRESHOLD
+  progress_update_threshold: 2
+
+  # The number of days after which details about a person are considered outdated.
+  # @envvar SERVER_PERSON_OUTDATED_THRESHOLD
+  person_outdated_threshold: 30
+
+  # Admin jobs take a lot of resources, so they can be disabled completely from being
+  # triggered manually. They still run as background jobs.
+  # @envvar SERVER_DEPLOY_ADMIN_JOBS_ALLOWED
+  deploy_admin_jobs_allowed: true
+
+  # The maximum file size in MB for user uploads.
+  # @envvar SERVER_MAX_FILE_SIZE
+  max_file_size: 70
+
+  # Whether videos will be displayed in the media details.
+  # @envvar SERVER_VIDEOS_DISABLED
+  videos_disabled: false
+
+  # Whether monitored media will be updated.
+  # @envvar SERVER_UPDATE_MONITORED_MEDIA
+  update_monitored_media: true
+
+  # Whether the graphql playground will be enabled.
+  # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
+  graphql_playground_enabled: true
+
+# Settings related to users.
+users:
+  # The secret used for generating JWT tokens.
+  # @envvar USERS_JWT_SECRET
+  jwt_secret: ""
+
+  # Whether users will be allowed to change their preferences in their profile
+  # settings.
+  # @envvar USERS_ALLOW_CHANGING_PREFERENCES
+  allow_changing_preferences: true
+
+  # Whether users will be allowed to change their username and password in their
+  # profile settings.
+  # @envvar USERS_ALLOW_CHANGING_CREDENTIALS
+  allow_changing_credentials: true
+
+  # Whether new users will be allowed to sign up to this instance.
+  # @envvar USERS_ALLOW_REGISTRATION
+  allow_registration: true
+
+  # Whether users will be allowed to post reviews on this instance.
+  # @envvar USERS_REVIEWS_DISABLED
+  reviews_disabled: false
+
+  # The number of days till login auth token is valid.
+  # @envvar USERS_TOKEN_VALID_FOR_DAYS
+  token_valid_for_days: 90
+
+# Settings related to video games.
+video_games:
+  # Settings related to IGDB.
+  igdb:
+    # The image sizes to fetch from IGDB.
+    # @envvar VIDEO_GAMES_IGDB_IMAGE_SIZE
+    image_size: "t_original"
+
+  # Settings related to Twitch.
+  twitch:
+    # The client ID issues by Twitch. **Required*to enable video games
+    # tracking. [More information](/docs/guides/video-games.md).
+    # @envvar VIDEO_GAMES_TWITCH_CLIENT_ID
+    client_id: ""
+
+    # The client secret issued by Twitch. **Required*to enable video games
+    # tracking.
+    # @envvar VIDEO_GAMES_TWITCH_CLIENT_SECRET
+    client_secret: ""
+
+# Settings related to visual novels.
+visual_novels:
+
+
