@@ -38,7 +38,7 @@ import {
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -131,12 +131,14 @@ export const meta: MetaFunction = ({ data }) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
+	const [searchParams, { setP }] = useSearchParam();
+	const [query, setQuery] = useState(searchParams.get("query") || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+
+	useEffect(() => setP("query", query), [query]);
 
 	return (
 		<Container>
@@ -180,7 +182,7 @@ export default function Page() {
 									name="query"
 									placeholder="Search in the collection"
 									leftSection={<IconSearch />}
-									onChange={(e) => setP("query", e.currentTarget.value)}
+									onChange={(e) => setQuery(e.currentTarget.value)}
 									value={query}
 									rightSection={
 										query ? (

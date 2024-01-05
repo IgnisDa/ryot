@@ -47,7 +47,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
@@ -141,18 +141,20 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
+	const [searchParams, { setP }] = useSearchParam();
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
 	}>([]);
-	const [query, setQuery] = useState(loaderData.query.query || "");
+	const [query, setQuery] = useState(searchParams.get("query") || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+
+	useEffect(() => setP("query", query), [query]);
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
@@ -193,7 +195,7 @@ export default function Page() {
 								name="query"
 								placeholder="Search for exercises by name or instructions"
 								leftSection={<IconSearch />}
-								onChange={(e) => setP("query", e.currentTarget.value)}
+								onChange={(e) => setQuery(e.currentTarget.value)}
 								value={query}
 								rightSection={
 									query ? (

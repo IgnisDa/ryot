@@ -15,7 +15,7 @@ import { useLoaderData } from "@remix-run/react";
 import { MetadataGroupsListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import { IconSearch, IconX } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
@@ -52,8 +52,10 @@ export const meta: MetaFunction = () => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
+	const [searchParams, { setP }] = useSearchParam();
+	const [query, setQuery] = useState(searchParams.get("query") || "");
+
+	useEffect(() => setP("query", query), [query]);
 
 	return (
 		<Container>
@@ -65,7 +67,7 @@ export default function Page() {
 					name="query"
 					placeholder="Search for groups"
 					leftSection={<IconSearch />}
-					onChange={(e) => setP("query", e.currentTarget.value)}
+					onChange={(e) => setQuery(e.currentTarget.value)}
 					value={query}
 					rightSection={
 						query ? (
