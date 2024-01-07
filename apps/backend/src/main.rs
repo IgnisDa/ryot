@@ -2,7 +2,6 @@ use std::{
     env,
     fs::{self, create_dir_all},
     io::{Error as IoError, ErrorKind as IoErrorKind},
-    net::SocketAddr,
     path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -24,7 +23,7 @@ use axum::{
     extract::DefaultBodyLimit,
     http::{header, Method},
     routing::{get, post, Router},
-    Extension, Server,
+    Extension,
 };
 use database::Migrator;
 use itertools::Itertools;
@@ -33,7 +32,7 @@ use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
-use tokio::try_join;
+use tokio::{net::TcpListener, try_join};
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -231,10 +230,10 @@ async fn main() -> Result<()> {
 
     let port = env::var("BACKEND_PORT")
         .unwrap_or_else(|_| "5000".to_owned())
-        .parse()
+        .parse::<usize>()
         .unwrap();
-    let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
-    tracing::info!("Listening on: {}", addr);
+    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
+    tracing::info!("Listening on: {}", listener.local_addr()?);
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
@@ -309,8 +308,7 @@ async fn main() -> Result<()> {
     };
 
     let http = async {
-        Server::bind(&addr)
-            .serve(app_routes.into_make_service())
+        axum::serve(listener, app_routes.into_make_service())
             .await
             .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
     };
