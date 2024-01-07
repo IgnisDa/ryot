@@ -164,10 +164,7 @@ async fn main() -> Result<()> {
     }
 
     if cfg!(debug_assertions) {
-        use schematic::{
-            schema::{template::*, typescript::TypeScriptRenderer, SchemaGenerator},
-            Format,
-        };
+        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 
         // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
@@ -183,7 +180,7 @@ async fn main() -> Result<()> {
         generator
             .generate(
                 base_dir.join("backend-config-schema.yaml"),
-                TemplateRenderer::new_format(Format::Yaml),
+                YamlTemplateRenderer::default(),
             )
             .unwrap();
 
