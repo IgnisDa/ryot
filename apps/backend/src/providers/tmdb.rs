@@ -206,7 +206,7 @@ impl MediaProvider for NonMediaTmdbService {
             .collect();
         let description = details.description.or(details.biography);
         let mut related = vec![];
-        let details: TmdbCreditsResponse = self
+        let cred_det: TmdbCreditsResponse = self
             .client
             .get(format!("{}/{}/combined_credits", typ, identity.identifier))
             .query(&json!({ "language": self.base.language }))
@@ -216,7 +216,7 @@ impl MediaProvider for NonMediaTmdbService {
             .body_json()
             .await
             .map_err(|e| anyhow!(e))?;
-        for media in details.crew.into_iter().chain(details.cast.into_iter()) {
+        for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
             if let Some(title) = media.title.or(media.name) {
                 if let Some(job) = media.character {
                     if POSSIBLE_ROLES.contains(&job.as_str()) {
