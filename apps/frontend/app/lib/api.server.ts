@@ -8,7 +8,7 @@ import { redirectToQueryParam } from "./generals";
 import { createToastHeaders } from "./toast.server";
 import { combineHeaders, getLogoutCookies } from "./utilities.server";
 
-export const API_URL = process.env.API_URL;
+export const API_URL = process.env.API_URL || 'http://localhost:5000';
 
 export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
 	headers: { Connection: "keep-alive" },
