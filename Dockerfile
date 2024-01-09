@@ -43,6 +43,7 @@ COPY . .
 RUN ./apps/backend/ci/build-app.sh
 
 FROM $NODE_BASE_IMAGE
+COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
 RUN npm install -g concurrently && concurrently --version
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
