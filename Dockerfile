@@ -43,12 +43,10 @@ COPY . .
 RUN ./apps/backend/ci/build-app.sh
 
 FROM $NODE_BASE_IMAGE
-COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
-RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN npm install -g concurrently && concurrently --version
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 USER ryot
-COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY config/Caddyfile /etc/caddy/Caddyfile
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules ./node_modules
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
@@ -57,4 +55,5 @@ COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/public ./publi
 COPY --from=app-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
 HEALTHCHECK --interval=5m --timeout=3s \
   CMD curl -f http://localhost:5000/config || exit 1
-CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf" ]
+ENV API_URL=http://localhost:5000
+CMD [ "concurrently", "--names", "frontend,backend,proxy", "-k", "npx remix-serve ./build/index.js", "ryot", "caddy run --config /etc/caddy/Caddyfile" ]
