@@ -71,7 +71,8 @@ persons with these IDs: {:?}. Then upgrade to this version again.
                 persons_to_not_delete
             )));
         }
-        db.execute_unprepared(r#"truncate table "person""#).await?;
+        db.execute_unprepared(r#"truncate table "person" cascade;"#)
+            .await?;
         Ok(())
     }
 
