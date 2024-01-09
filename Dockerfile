@@ -44,6 +44,7 @@ RUN ./apps/backend/ci/build-app.sh
 
 FROM $NODE_BASE_IMAGE
 COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install --global concurrently && concurrently --version
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
