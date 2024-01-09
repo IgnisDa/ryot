@@ -112,6 +112,7 @@ impl MediaProvider for VndbService {
             birth_date: None,
             place: None,
             website: None,
+            source_specifics: None,
         })
     }
 
@@ -208,6 +209,7 @@ impl VndbService {
                 role: "Developer".to_owned(),
                 source: MetadataSource::Vndb,
                 character: None,
+                source_specifics: None,
             })
             .collect_vec();
         let genres = item

@@ -186,14 +186,9 @@ impl NonMediaTmdbService {
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
     async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
-        let typ = if identity.role == "Production" {
-            "company".to_owned()
-        } else {
-            "person".to_owned()
-        };
         let details: TmdbNonMediaEntity = self
             .client
-            .get(format!("{}/{}", typ, identity.identifier))
+            .get(format!("{}/{}", "person", identity.identifier))
             .await
             .map_err(|e| anyhow!(e))?
             .body_json()
@@ -252,6 +247,7 @@ impl MediaProvider for NonMediaTmdbService {
             identifier: details.id.to_string(),
             description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source: MetadataSource::Tmdb,
+            source_specifics: identity.source_specifics.clone(),
             place: details.origin_country.or(details.place_of_birth),
             website: details.homepage,
             birth_date: details.birthday,
@@ -399,6 +395,7 @@ impl MediaProvider for TmdbMovieService {
                                     role: r,
                                     source: MetadataSource::Tmdb,
                                     character: g.character,
+                                    source_specifics: None,
                                 })
                             } else {
                                 None
@@ -427,6 +424,7 @@ impl MediaProvider for TmdbMovieService {
                                     role: r,
                                     source: MetadataSource::Tmdb,
                                     character: g.character,
+                                    source_specifics: None,
                                 })
                             } else {
                                 None
@@ -450,6 +448,7 @@ impl MediaProvider for TmdbMovieService {
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,
+                    source_specifics: None,
                 })
                 .collect_vec(),
         );
@@ -692,6 +691,7 @@ impl MediaProvider for TmdbShowService {
                                         role: r,
                                         source: MetadataSource::Tmdb,
                                         character: g.character,
+                                        source_specifics: None,
                                     })
                                 } else {
                                     None
@@ -712,6 +712,7 @@ impl MediaProvider for TmdbShowService {
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,
+                    source_specifics: None,
                 })
                 .collect_vec(),
         );

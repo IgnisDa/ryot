@@ -260,6 +260,7 @@ async fn person_details(
             images: None,
             death_date: None,
             birth_date: None,
+            source_specifics: None,
         }
     } else {
         let variables = staff_query::Variables {
@@ -364,6 +365,7 @@ async fn person_details(
             birth_date,
             related,
             website: None,
+            source_specifics: None,
         }
     };
     Ok(data)
@@ -425,6 +427,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
                 source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
                 character: None,
+                source_specifics: None,
             }
         })
         .collect_vec();
@@ -440,6 +443,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
                     source: MetadataSource::Anilist,
                     role: "Production".to_owned(),
                     character: None,
+                    source_specifics: None,
                 }
             }),
     );

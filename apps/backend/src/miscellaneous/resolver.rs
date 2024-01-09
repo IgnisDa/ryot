@@ -6789,6 +6789,7 @@ impl MiscellaneousService {
                 place: ActiveValue::Set(provider_person.place),
                 website: ActiveValue::Set(provider_person.website),
                 images: ActiveValue::Set(images),
+                source_specifics: ActiveValue::Set(provider_person.source_specifics),
                 ..Default::default()
             };
             related_media.extend(provider_person.related);

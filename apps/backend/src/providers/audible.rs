@@ -214,6 +214,7 @@ impl MediaProvider for AudibleService {
             place: None,
             website: None,
             related: vec![],
+            source_specifics: None,
         })
     }
 
@@ -389,6 +390,7 @@ impl AudibleService {
                     source: MetadataSource::Audible,
                     role: "Author".to_owned(),
                     character: None,
+                    source_specifics: None,
                 })
             })
             .collect_vec();
