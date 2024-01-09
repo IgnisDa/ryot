@@ -190,7 +190,6 @@ impl MediaProvider for OpenlibraryService {
             related,
             gender: None,
             place: None,
-            source_specifics: None,
         })
     }
 
@@ -268,7 +267,6 @@ impl MediaProvider for OpenlibraryService {
                 role,
                 source: MetadataSource::Openlibrary,
                 character: None,
-                source_specifics: None,
             });
         }
         let description = data.description.map(|d| match d {

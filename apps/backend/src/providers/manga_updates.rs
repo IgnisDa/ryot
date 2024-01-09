@@ -183,7 +183,6 @@ impl MediaProvider for MangaUpdatesService {
                 images: None,
                 death_date: None,
                 birth_date: None,
-                source_specifics: None,
                 related,
             }
         } else {
@@ -239,7 +238,6 @@ impl MediaProvider for MangaUpdatesService {
                 death_date: None,
                 description: None,
                 website: None,
-                source_specifics: None,
             }
         })
     }
@@ -262,7 +260,6 @@ impl MediaProvider for MangaUpdatesService {
                 role: a.lot.unwrap(),
                 source: MetadataSource::MangaUpdates,
                 character: None,
-                source_specifics: None,
             })
             .collect_vec();
         people.extend(data.publishers.unwrap_or_default().into_iter().map(|a| {
@@ -271,7 +268,6 @@ impl MediaProvider for MangaUpdatesService {
                 role: "Publisher".to_owned(),
                 source: MetadataSource::MangaUpdates,
                 character: None,
-                source_specifics: None,
             }
         }));
         let mut suggestions = vec![];

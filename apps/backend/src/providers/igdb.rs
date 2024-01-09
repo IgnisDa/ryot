@@ -294,7 +294,6 @@ where id = {id};
             related,
             birth_date: None,
             death_date: None,
-            source_specifics: None,
             gender: None,
         })
     }
@@ -421,7 +420,6 @@ impl IgdbService {
                     source: MetadataSource::Igdb,
                     role: role.to_owned(),
                     character: None,
-                    source_specifics: None,
                 }
             })
             .unique()

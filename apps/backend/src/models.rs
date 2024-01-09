@@ -153,11 +153,6 @@ pub enum ExportItem {
 pub mod media {
     use super::*;
 
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Hash)]
-    pub enum SourceSpecifics {
-        Tmdb { person_type: String },
-    }
-
     #[derive(Clone, Debug, PartialEq, Eq, FromQueryResult, SimpleObject)]
     pub struct PublicCollectionItem {
         pub id: i32,
@@ -824,8 +819,6 @@ pub mod media {
         pub source: MetadataSource,
         pub role: String,
         pub character: Option<String>,
-        #[graphql(skip)]
-        pub source_specifics: Option<SourceSpecifics>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
@@ -840,7 +833,6 @@ pub mod media {
         pub birth_date: Option<NaiveDate>,
         pub place: Option<String>,
         pub website: Option<String>,
-        pub source_specifics: Option<SourceSpecifics>,
         pub related: Vec<(String, PartialMetadataWithoutId)>,
     }
 
