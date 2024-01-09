@@ -25,7 +25,6 @@ pub enum Person {
     Place,
     Website,
     Images,
-    SourceSpecifics,
 }
 
 #[derive(Iden)]
@@ -75,7 +74,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::DeathDate).date())
                     .col(ColumnDef::new(Person::Place).string())
                     .col(ColumnDef::new(Person::Website).string())
-                    .col(ColumnDef::new(Person::SourceSpecifics).json_binary())
                     .to_owned(),
             )
             .await?;
