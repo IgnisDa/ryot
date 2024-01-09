@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
 
     if let Err(err) = Migrator::up(&db, None).await {
         tracing::error!("Database migration failed: {}", err);
-        bail!("If this is a major version upgrade, please follow the instructions in the migration docs.");
+        bail!("There was an error running the database migrations.");
     };
 
     let pool = PoolOptions::new()

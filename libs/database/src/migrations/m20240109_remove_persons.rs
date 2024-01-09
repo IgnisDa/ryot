@@ -38,20 +38,6 @@ mod ce {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-mod pe {
-    use super::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-    #[sea_orm(table_name = "person")]
-    pub struct Model {
-        #[sea_orm(primary_key)]
-        pub id: i32,
-    }
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-    impl ActiveModelBehavior for ActiveModel {}
-}
-
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -74,10 +60,18 @@ impl MigrationTrait for Migration {
             .into_iter()
             .chain(collections_persons)
             .collect::<Vec<_>>();
-        pe::Entity::delete_many()
-            .filter(pe::Column::Id.is_not_in(persons_to_not_delete))
-            .exec(db)
-            .await?;
+        if !persons_to_not_delete.is_empty() {
+            return Err(DbErr::Custom(format!(
+                "
+Due to a major bug in the previous versions, all the persons in this database need to be
+deleted. However, there are still persons that have been reviewed or are in a collection.
+Please revert to an older version, and delete the reviews/disassociate collections for
+persons with these IDs: {:?}. Then upgrade to this version again.
+",
+                persons_to_not_delete
+            )));
+        }
+        db.execute_unprepared(r#"truncate table "person""#).await?;
         Ok(())
     }
 
