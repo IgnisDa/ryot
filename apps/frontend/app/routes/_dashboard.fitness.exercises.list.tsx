@@ -179,14 +179,15 @@ export default function Page() {
 				</Flex>
 				{loaderData.exerciseParameters.downloadRequired ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-						Please follow the{" "}
+						Please deploy a job to download the exercise dataset from the{" "}
 						<Anchor
-							href="https://ignisda.github.io/ryot/guides/fitness.html"
-							target="_blank"
+							component={Link}
+							to={$path("/settings/miscellaneous")}
+							size="sm"
 						>
-							fitness guide
-						</Anchor>{" "}
-						to download the exercise dataset.
+							miscellaneous settings
+						</Anchor>
+						.
 					</Alert>
 				) : (
 					<>
