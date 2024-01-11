@@ -4,9 +4,11 @@ import {
 	ActionIcon,
 	Alert,
 	Anchor,
+	Autocomplete,
 	Avatar,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Flex,
 	Group,
@@ -17,6 +19,7 @@ import {
 	NumberInput,
 	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Slider,
 	Stack,
@@ -25,7 +28,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { DateInput, DatePickerInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -169,6 +172,9 @@ export const meta: MetaFunction = ({ data }) => {
 	return [{ title: `${(data as any).mediaMainDetails.title} | Ryot` }];
 };
 
+const sleepForASecond = () =>
+	new Promise((resolve) => setTimeout(resolve, 1000));
+
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
@@ -179,7 +185,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			await sleepForASecond();
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					message: "Progress updated successfully",
@@ -364,6 +370,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: updates },
 				await getAuthorizationHeader(request),
 			);
+			await sleepForASecond();
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: !deployBulkProgressUpdate ? "error" : undefined,
@@ -1452,6 +1459,9 @@ const ProgressUpdateModal = (props: {
 	onClose: () => void;
 	data?: UpdateProgress;
 }) => {
+	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+	const loaderData = useLoaderData<typeof loader>();
+
 	if (!props.data) return <></>;
 	return (
 		<Modal
@@ -1459,9 +1469,176 @@ const ProgressUpdateModal = (props: {
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
-			size="sm"
 		>
-			<div>Hello world!</div>
+			<Form
+				method="post"
+				action="?intent=progressUpdate"
+				onSubmit={() => props.onClose()}
+			>
+				<input hidden name="metadataId" defaultValue={props.data.metadataId} />
+				{props.data.showEpisodeNumber ? (
+					<input
+						hidden
+						name="showEpisodeNumber"
+						defaultValue={props.data.showEpisodeNumber.toString()}
+					/>
+				) : null}
+				{props.data.showSeasonNumber ? (
+					<input
+						hidden
+						name="showSeasonNumber"
+						defaultValue={props.data.showSeasonNumber.toString()}
+					/>
+				) : null}
+				{props.data.podcastEpisodeNumber ? (
+					<input
+						hidden
+						name="podcastEpisodeNumber"
+						defaultValue={props.data.podcastEpisodeNumber?.toString()}
+					/>
+				) : null}
+				{loaderData.mediaAdditionalDetails?.showSpecifics ? (
+					<input
+						hidden
+						name="showSpecifics"
+						defaultValue={JSON.stringify(
+							loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
+								(s) => ({
+									seasonNumber: s.seasonNumber,
+									episodes: s.episodes.map((e) => e.episodeNumber),
+								}),
+							),
+						)}
+					/>
+				) : null}
+				{loaderData.mediaAdditionalDetails?.podcastSpecifics ? (
+					<input
+						hidden
+						name="podcastSpecifics"
+						defaultValue={JSON.stringify(
+							loaderData.mediaAdditionalDetails.podcastSpecifics.episodes.map(
+								(e) => ({
+									episodeNumber: e.number,
+								}),
+							),
+						)}
+					/>
+				) : null}
+				<Stack>
+					{loaderData.mediaAdditionalDetails?.showSpecifics ? (
+						<>
+							{props.data.onlySeason || props.data.completeShow ? (
+								<Alert color="yellow" icon={<IconAlertCircle />}>
+									{props.data.onlySeason
+										? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
+										: props.data.completeShow
+										  ? "This will mark all episodes for this show as seen"
+										  : null}
+								</Alert>
+							) : null}
+							{!props.data.completeShow ? (
+								<>
+									<Title order={6}>
+										Select season
+										{props.data.onlySeason ? "" : " and episode"}
+									</Title>
+									<Select
+										label="Season"
+										data={loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
+											(s) => ({
+												label: `${s.seasonNumber}. ${s.name.toString()}`,
+												value: s.seasonNumber.toString(),
+											}),
+										)}
+										defaultValue={props.data.showSeasonNumber?.toString()}
+									/>
+								</>
+							) : null}
+							{props.data.onlySeason ? (
+								<Checkbox
+									label="Mark all seasons before this as seen"
+									name="allSeasonsBefore"
+								/>
+							) : null}
+							{!props.data.onlySeason && props.data.showSeasonNumber ? (
+								<Select
+									label="Episode"
+									data={
+										loaderData.mediaAdditionalDetails.showSpecifics.seasons
+											.find(
+												(s) =>
+													s.seasonNumber ===
+													Number(props.data?.showSeasonNumber),
+											)
+											?.episodes.map((e) => ({
+												label: `${e.episodeNumber}. ${e.name.toString()}`,
+												value: e.episodeNumber.toString(),
+											})) || []
+									}
+									defaultValue={props.data.showEpisodeNumber?.toString()}
+								/>
+							) : null}
+						</>
+					) : null}
+					{loaderData.mediaAdditionalDetails?.podcastSpecifics ? (
+						props.data.completePodcast ? (
+							<Alert color="yellow" icon={<IconAlertCircle />}>
+								This will mark all episodes for this podcast as seen
+							</Alert>
+						) : (
+							<>
+								<Title order={6}>Select episode</Title>
+								<Autocomplete
+									label="Episode"
+									data={loaderData.mediaAdditionalDetails.podcastSpecifics.episodes.map(
+										(se) => ({
+											label: se.title.toString(),
+											value: se.number.toString(),
+										}),
+									)}
+									defaultValue={props.data.podcastEpisodeNumber?.toString()}
+								/>
+							</>
+						)
+					) : null}
+					{loaderData.mediaAdditionalDetails?.lot ? (
+						<Title order={6}>
+							When did you {getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}{" "}
+							it?
+						</Title>
+					) : null}
+					<Button
+						variant="outline"
+						type="submit"
+						name="date"
+						value={formatDateToNaiveDate(new Date())}
+					>
+						Now
+					</Button>
+					<Button variant="outline" type="submit">
+						I do not remember
+					</Button>
+					<Group grow>
+						<DatePickerInput
+							dropdownType="modal"
+							maxDate={new Date()}
+							onChange={setSelectedDate}
+							clearable
+						/>
+						<Button
+							variant="outline"
+							disabled={selectedDate === null}
+							type="submit"
+							name="date"
+							value={
+								selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
+							}
+						>
+							Custom date
+						</Button>
+					</Group>
+				</Stack>
+			</Form>
 		</Modal>
 	);
 };
