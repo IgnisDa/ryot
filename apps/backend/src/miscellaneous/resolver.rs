@@ -4495,13 +4495,6 @@ impl MiscellaneousService {
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
-            meta.find_related(MetadataToPerson)
-                .all(&self.db)
-                .await?
-                .into_iter()
-                .for_each(|c| {
-                    ls.unique_items.creators.insert(c.person_id);
-                });
             if let Some(specs) = meta.specifics {
                 match specs {
                     MediaSpecifics::AudioBook(item) => {
@@ -4597,8 +4590,6 @@ impl MiscellaneousService {
                 }
             }
         }
-
-        ls.media.creators_interacted_with = ls.unique_items.creators.len();
 
         ls.media.podcasts.played_episodes = ls.unique_items.podcast_episodes.len();
         ls.media.podcasts.played = ls.unique_items.podcasts.len();
