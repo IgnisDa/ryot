@@ -292,6 +292,87 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		progressUpdate: async () => {
+			const query = zx.parseQuery(request, progressUpdateQuerySchema);
+			const submission = processSubmission(formData, progressUpdateSchema);
+			const variables = {
+				metadataId: submission.metadataId,
+				progress: 100,
+				date: submission.date,
+				showEpisodeNumber: submission.showEpisodeNumber,
+				showSeasonNumber: submission.showSeasonNumber,
+				podcastEpisodeNumber: submission.podcastEpisodeNumber,
+			};
+			let needsFinalUpdate = true;
+			const updates = [];
+			const showSpecifics = showSpecificsSchema.parse(
+				JSON.parse(submission.showSpecifics || "[]"),
+			);
+			const podcastSpecifics = podcastSpecificsSchema.parse(
+				JSON.parse(submission.podcastSpecifics || "[]"),
+			);
+			if (query.completeShow) {
+				for (const season of showSpecifics) {
+					for (const episode of season.episodes) {
+						updates.push({
+							...variables,
+							showSeasonNumber: season.seasonNumber,
+							showEpisodeNumber: episode,
+						});
+					}
+				}
+				needsFinalUpdate = true;
+			}
+			if (query.completePodcast) {
+				for (const episode of podcastSpecifics) {
+					updates.push({
+						...variables,
+						podcastEpisodeNumber: episode.episodeNumber,
+					});
+				}
+				needsFinalUpdate = true;
+			}
+			if (query.onlySeason) {
+				const selectedSeason = showSpecifics.find(
+					(s) => s.seasonNumber === submission.showSeasonNumber,
+				);
+				invariant(selectedSeason, "No season selected");
+				needsFinalUpdate = true;
+				if (submission.allSeasonsBefore) {
+					for (const season of showSpecifics) {
+						if (season.seasonNumber > selectedSeason.seasonNumber) break;
+						for (const episode of season.episodes || []) {
+							updates.push({
+								...variables,
+								showSeasonNumber: season.seasonNumber,
+								showEpisodeNumber: episode,
+							});
+						}
+					}
+				} else {
+					for (const episode of selectedSeason.episodes || []) {
+						updates.push({
+							...variables,
+							showEpisodeNumber: episode,
+						});
+					}
+				}
+			}
+			if (needsFinalUpdate) updates.push(variables);
+			const { deployBulkProgressUpdate } = await gqlClient.request(
+				DeployBulkProgressUpdateDocument,
+				{ input: updates },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: !deployBulkProgressUpdate ? "error" : undefined,
+					message: !deployBulkProgressUpdate
+						? "Progress was not updated"
+						: "Progress updated successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -329,6 +410,28 @@ const editSeenItem = z.object({
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 });
+
+const progressUpdateQuerySchema = z.object({
+	onlySeason: zx.BoolAsString.optional(),
+	completeShow: zx.BoolAsString.optional(),
+	completePodcast: zx.BoolAsString.optional(),
+});
+
+const progressUpdateSchema = z
+	.object({
+		metadataId: zx.IntAsString,
+		date: z.string().optional(),
+		showSpecifics: z.string().optional(),
+		allSeasonsBefore: zx.CheckboxAsString.optional(),
+		podcastSpecifics: z.string().optional(),
+	})
+	.merge(ShowAndPodcastSchema);
+
+const showSpecificsSchema = z.array(
+	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),
+);
+
+const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
 // DEV: I wanted to use fetcher in some place but since this is being rendered
 // conditionally (or inside a menu), the form ref is null.
