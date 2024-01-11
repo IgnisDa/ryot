@@ -58,7 +58,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             Ok(r) => r,
             Err(e) => {
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
                     error: Some(format!("Ratings file: {:#?}", e)),
@@ -89,7 +89,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             Ok(r) => r,
             Err(e) => {
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
                     error: Some(format!("Watchlist file: {:#?}", e)),
@@ -116,7 +116,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             Ok(r) => r,
             Err(e) => {
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
                     error: Some(format!("History file: {:#?}", e)),

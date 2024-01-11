@@ -69,7 +69,7 @@ pub async fn import(
             Ok(r) => r,
             Err(e) => {
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
                     error: Some(e.to_string()),
@@ -134,7 +134,7 @@ pub async fn import(
                 })
             } else {
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: record.title,
                     error: Some(format!(
@@ -145,7 +145,7 @@ pub async fn import(
             }
         } else {
             failed_items.push(ImportFailedItem {
-                lot,
+                lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
                 error: Some("No ISBN found".to_owned()),

@@ -645,7 +645,7 @@ export enum ImportFailStep {
 export type ImportFailedItem = {
   error?: Maybe<Scalars['String']['output']>;
   identifier: Scalars['String']['output'];
-  lot: MetadataLot;
+  lot?: Maybe<MetadataLot>;
   step: ImportFailStep;
 };
 
@@ -2603,7 +2603,7 @@ export type GetPresignedS3UrlQuery = { getPresignedS3Url: string };
 export type ImportReportsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ImportReportsQuery = { importReports: Array<{ id: number, source: ImportSource, startedOn: string, finishedOn?: string | null, success?: boolean | null, details?: { import: { total: number }, failedItems: Array<{ lot: MetadataLot, step: ImportFailStep, identifier: string, error?: string | null }> } | null }> };
+export type ImportReportsQuery = { importReports: Array<{ id: number, source: ImportSource, startedOn: string, finishedOn?: string | null, success?: boolean | null, details?: { import: { total: number }, failedItems: Array<{ lot?: MetadataLot | null, step: ImportFailStep, identifier: string, error?: string | null }> } | null }> };
 
 export type LatestUserSummaryQueryVariables = Exact<{ [key: string]: never; }>;
 

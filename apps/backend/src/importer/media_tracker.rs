@@ -212,7 +212,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             Some(m) => m.clone(),
             None => {
                 failed_items.push(ImportFailedItem {
-                    lot: MetadataLot::Movie,
+                    lot: None,
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
                     error: Some("No media type".to_string()),
@@ -227,7 +227,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             Err(e) => {
                 tracing::error!("Encountered error for id = {id:?}: {e:?}", id = d.id);
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
                     error: Some(e.to_string()),
