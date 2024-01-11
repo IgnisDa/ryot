@@ -2,9 +2,9 @@ import { $path } from "@ignisda/remix-routes";
 import { useMantineTheme } from "@mantine/core";
 import { useNavigate, useSearchParams } from "@remix-run/react";
 import { useAtom } from "jotai";
+import Cookies from "js-cookie";
 import { COOKIES_KEYS, getStringAsciiValue } from "./generals";
 import { InProgressWorkout, currentWorkoutAtom } from "./workout";
-import Cookies from "js-cookie";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();
