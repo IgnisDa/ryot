@@ -172,7 +172,7 @@ export const meta: MetaFunction = ({ data }) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
-		progressUpdate: async () => {
+		individualProgressUpdate: async () => {
 			const submission = processSubmission(formData, bulkUpdateSchema);
 			await gqlClient.request(
 				DeployBulkProgressUpdateDocument,
@@ -365,7 +365,7 @@ export default function Page() {
 
 	const PutOnHoldBtn = () => {
 		return (
-			<Form action="?intent=progressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
@@ -374,7 +374,7 @@ export default function Page() {
 	};
 	const DropBtn = () => {
 		return (
-			<Form action="?intent=progressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
@@ -849,7 +849,10 @@ export default function Page() {
 											{loaderData.userMediaDetails?.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
-													<Form action="?intent=progressUpdate" method="post">
+													<Form
+														action="?intent=individualProgressUpdate"
+														method="post"
+													>
 														<input hidden name="progress" defaultValue={100} />
 														<input
 															hidden
@@ -885,7 +888,10 @@ export default function Page() {
 													MetadataLot.Podcast ? (
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
-													<Form action="?intent=progressUpdate" method="post">
+													<Form
+														action="?intent=individualProgressUpdate"
+														method="post"
+													>
 														<input hidden name="progress" defaultValue={0} />
 														<Menu.Item
 															type="submit"
@@ -1387,7 +1393,7 @@ const IndividualProgressModal = (props: {
 			centered
 			size="sm"
 		>
-			<Form action="?intent=progressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="progress" defaultValue={value} />
 				<input
