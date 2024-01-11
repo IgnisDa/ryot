@@ -198,9 +198,9 @@ checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
 
 [[package]]
 name = "apalis"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d33000e16c1550b094430d31bc578dab574a5bd8407e9019683a261bbb42500"
+checksum = "78bbaeebf00817d5aa561515b313ef0d280bf4b92592e4709b21925c1233f613"
 dependencies = [
  "apalis-core",
  "apalis-cron",
@@ -210,9 +210,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-core"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7fa186e5ce1c3b1e528ce2c52982c9edde5bbb1a392830ebfc316cde2bebd95"
+checksum = "1deb48475efcdece1f23a0553209ee842f264c2a5e9bcc4928bfa6a15a044cde"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -234,9 +234,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-cron"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea1bf9492e79e9f4ab7a594e51c9ced97182c6af75e3841c6ae85b222febbd82"
+checksum = "43310b7e0132f9520b09224fb6faafb32eec82a672aa79c09e46b5b488ed505b"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -249,9 +249,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-redis"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cd7e9fe2b8831642b871f19995076dc4a3b8ef6e1bfaefa3e0dcab42e33c7a9"
+checksum = "2abee8225fd875e57b530abbcf2d9c3122c1a2cce905367b67c6410b6f9654d7"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -267,9 +267,9 @@ dependencies = [
 
 [[package]]
 name = "apalis-sql"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7b5dfc5a5d83844d0c5d921ecbff277a96c4ebd5500b51289694583da28834"
+checksum = "5899bfd124e460f1449ffab643f6bac0dc417e7ca234f34c732c923c6a3addbf"
 dependencies = [
  "apalis-core",
  "async-stream",
@@ -277,7 +277,7 @@ dependencies = [
  "chrono",
  "debounced",
  "futures",
- "futures-lite 2.1.0",
+ "futures-lite 2.2.0",
  "serde",
  "serde_json",
  "sqlx",
@@ -2160,9 +2160,9 @@ dependencies = [
 
 [[package]]
 name = "futures-lite"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aeee267a1883f7ebef3700f262d2d54de95dfaf38189015a74fdc4e0c7ad8143"
+checksum = "445ba825b27408685aaecefd65178908c36c6e96aaf6d8599419d46e624192ba"
 dependencies = [
  "fastrand 2.0.0",
  "futures-core",
