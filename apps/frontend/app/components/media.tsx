@@ -636,8 +636,8 @@ export const MediaSearchItem = (props: {
 								"/media/item/:id",
 								{ id },
 								props.lot !== MetadataLot.Show
-									? { defaultTab: "actions" }
-									: undefined,
+									? { defaultTab: "actions", openProgressModal: true }
+									: { defaultTab: "seasons" },
 							),
 						);
 					}}

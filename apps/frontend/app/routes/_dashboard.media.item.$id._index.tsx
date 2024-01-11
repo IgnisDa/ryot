@@ -115,6 +115,7 @@ import {
 const searchParamsSchema = z
 	.object({
 		defaultTab: z.string().optional().default("overview"),
+		openProgressModal: zx.BoolAsString.optional(),
 	})
 	.merge(ShowAndPodcastSchema);
 
@@ -470,8 +471,13 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
-	const [updateProgressModalData, setUpdateProgressModalData] =
-		useState<UpdateProgress>();
+	const [updateProgressModalData, setUpdateProgressModalData] = useState<
+		UpdateProgress | undefined
+	>(
+		loaderData.query.openProgressModal
+			? { metadataId: loaderData.metadataId }
+			: undefined,
+	);
 
 	const PutOnHoldBtn = () => {
 		return (
