@@ -300,7 +300,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		progressUpdate: async () => {
-			const query = zx.parseQuery(request, progressUpdateQuerySchema);
 			const submission = processSubmission(formData, progressUpdateSchema);
 			const variables = {
 				metadataId: submission.metadataId,
@@ -318,7 +317,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const podcastSpecifics = podcastSpecificsSchema.parse(
 				JSON.parse(submission.podcastSpecifics || "[]"),
 			);
-			if (query.completeShow) {
+			if (submission.completeShow) {
 				for (const season of showSpecifics) {
 					for (const episode of season.episodes) {
 						updates.push({
@@ -330,7 +329,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}
 				needsFinalUpdate = true;
 			}
-			if (query.completePodcast) {
+			if (submission.completePodcast) {
 				for (const episode of podcastSpecifics) {
 					updates.push({
 						...variables,
@@ -339,7 +338,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}
 				needsFinalUpdate = true;
 			}
-			if (query.onlySeason) {
+			if (submission.onlySeason) {
 				const selectedSeason = showSpecifics.find(
 					(s) => s.seasonNumber === submission.showSeasonNumber,
 				);
@@ -366,6 +365,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
+			console.log(updates);
 			const { deployBulkProgressUpdate } = await gqlClient.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: updates },
@@ -419,20 +419,17 @@ const editSeenItem = z.object({
 	finishedOn: dateString.optional(),
 });
 
-const progressUpdateQuerySchema = z.object({
-	onlySeason: zx.BoolAsString.optional(),
-	completeShow: zx.BoolAsString.optional(),
-	completePodcast: zx.BoolAsString.optional(),
-});
-
 const progressUpdateSchema = z
 	.object({
-		metadataId: zx.IntAsString,
 		date: z.string().optional(),
 		showSpecifics: z.string().optional(),
 		allSeasonsBefore: zx.CheckboxAsString.optional(),
 		podcastSpecifics: z.string().optional(),
+		onlySeason: zx.BoolAsString.optional(),
+		completeShow: zx.BoolAsString.optional(),
+		completePodcast: zx.BoolAsString.optional(),
 	})
+	.merge(metadataIdSchema)
 	.merge(ShowAndPodcastSchema);
 
 const showSpecificsSchema = z.array(
@@ -1481,28 +1478,13 @@ const ProgressUpdateModal = (props: {
 				action="?intent=progressUpdate"
 				onSubmit={() => props.onClose()}
 			>
-				<input hidden name="metadataId" defaultValue={props.data.metadataId} />
-				{props.data.showEpisodeNumber ? (
-					<input
-						hidden
-						name="showEpisodeNumber"
-						defaultValue={props.data.showEpisodeNumber.toString()}
-					/>
-				) : null}
-				{props.data.showSeasonNumber ? (
-					<input
-						hidden
-						name="showSeasonNumber"
-						defaultValue={props.data.showSeasonNumber.toString()}
-					/>
-				) : null}
-				{props.data.podcastEpisodeNumber ? (
-					<input
-						hidden
-						name="podcastEpisodeNumber"
-						defaultValue={props.data.podcastEpisodeNumber?.toString()}
-					/>
-				) : null}
+				{Object.entries(props.data).map(([k, v]) =>
+					typeof v !== "undefined" ? (
+						<input hidden name={k} defaultValue={v?.toString()} key={k} />
+					) : (
+						<></>
+					),
+				)}
 				{loaderData.mediaAdditionalDetails?.showSpecifics ? (
 					<input
 						hidden
@@ -1543,22 +1525,16 @@ const ProgressUpdateModal = (props: {
 								</Alert>
 							) : null}
 							{!props.data.completeShow ? (
-								<>
-									<Title order={6}>
-										Select season
-										{props.data.onlySeason ? "" : " and episode"}
-									</Title>
-									<Select
-										label="Season"
-										data={loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
-											(s) => ({
-												label: `${s.seasonNumber}. ${s.name.toString()}`,
-												value: s.seasonNumber.toString(),
-											}),
-										)}
-										defaultValue={props.data.showSeasonNumber?.toString()}
-									/>
-								</>
+								<Select
+									label="Season"
+									data={loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
+										(s) => ({
+											label: `${s.seasonNumber}. ${s.name.toString()}`,
+											value: s.seasonNumber.toString(),
+										}),
+									)}
+									defaultValue={props.data.showSeasonNumber?.toString()}
+								/>
 							) : null}
 							{props.data.onlySeason ? (
 								<Checkbox
