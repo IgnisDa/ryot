@@ -470,11 +470,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [updateProgressModalData, setUpdateProgressModalData] = useState<
 		UpdateProgress | undefined
-	>(
-		loaderData.query.openProgressModal
-			? { metadataId: loaderData.metadataId }
-			: undefined,
-	);
+	>(loaderData.query.openProgressModal ? {} : undefined);
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -917,7 +913,6 @@ export default function Page() {
 															<Menu.Item
 																onClick={() => {
 																	setUpdateProgressModalData({
-																		metadataId: loaderData.metadataId,
 																		podcastEpisodeNumber:
 																			loaderData.mediaMainDetails.lot ===
 																			MetadataLot.Podcast
@@ -1021,9 +1016,7 @@ export default function Page() {
 													</Form>
 													<Menu.Item
 														onClick={() => {
-															setUpdateProgressModalData({
-																metadataId: loaderData.metadataId,
-															});
+															setUpdateProgressModalData({});
 														}}
 													>
 														Add to{" "}
@@ -1276,7 +1269,6 @@ export default function Page() {
 																		variant="outline"
 																		onClick={() => {
 																			setUpdateProgressModalData({
-																				metadataId: loaderData.metadataId,
 																				showSeasonNumber: s.seasonNumber,
 																				onlySeason: true,
 																			});
@@ -1313,7 +1305,6 @@ export default function Page() {
 																			variant="outline"
 																			onClick={() => {
 																				setUpdateProgressModalData({
-																					metadataId: loaderData.metadataId,
 																					showSeasonNumber: s.seasonNumber,
 																					showEpisodeNumber: e.episodeNumber,
 																				});
@@ -1359,7 +1350,6 @@ export default function Page() {
 														variant="outline"
 														onClick={() => {
 															setUpdateProgressModalData({
-																metadataId: loaderData.metadataId,
 																podcastEpisodeNumber: e.number,
 															});
 														}}
@@ -1448,7 +1438,6 @@ export default function Page() {
 }
 
 type UpdateProgress = {
-	metadataId: number;
 	onlySeason?: boolean;
 	completeShow?: boolean;
 	completePodcast?: boolean;
@@ -1476,9 +1465,12 @@ const ProgressUpdateModal = (props: {
 			<Form
 				method="post"
 				action="?intent=progressUpdate"
-				onSubmit={() => props.onClose()}
+				onSubmit={props.onClose}
 			>
-				{Object.entries(props.data).map(([k, v]) =>
+				{[
+					...Object.entries(props.data),
+					["metadataId", loaderData.metadataId.toString()],
+				].map(([k, v]) =>
 					typeof v !== "undefined" ? (
 						<input hidden name={k} defaultValue={v?.toString()} key={k} />
 					) : (
