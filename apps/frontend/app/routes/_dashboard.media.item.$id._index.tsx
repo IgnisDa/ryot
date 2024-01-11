@@ -360,6 +360,8 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
+	const [updateProgressModalData, setUpdateProgressModalData] =
+		useState<UpdateProgress>();
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -405,6 +407,11 @@ export default function Page() {
 				onClose={mergeMetadataModalClose}
 				opened={mergeMetadataModalOpened}
 				metadataId={loaderData.metadataId}
+			/>
+			<ProgressUpdateModal
+				onClose={() => setUpdateProgressModalData(undefined)}
+				opened={updateProgressModalData !== undefined}
+				data={updateProgressModalData}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -760,7 +767,7 @@ export default function Page() {
 							>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{loaderData.userMediaDetails.inProgress ? (
-										<ProgressModal
+										<IndividualProgressModal
 											progress={loaderData.userMediaDetails.inProgress.progress}
 											metadataId={loaderData.metadataId}
 											onClose={progressModalClose}
@@ -795,42 +802,29 @@ export default function Page() {
 													{loaderData.userMediaDetails.nextEpisode ? (
 														<>
 															<Menu.Item
-																component={Link}
-																to={
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast
-																		? $path(
-																				"/media/item/:id/update-progress",
-																				{ id: loaderData.metadataId },
-																				{
-																					title:
-																						loaderData.mediaMainDetails.title,
-																					podcastEpisodeNumber:
-																						loaderData.userMediaDetails
-																							.nextEpisode.episodeNumber,
-																					isShow: false,
-																					isPodcast: true,
-																				},
-																		  )
-																		: $path(
-																				"/media/item/:id/update-progress",
-																				{
-																					id: loaderData.metadataId,
-																				},
-																				{
-																					title:
-																						loaderData.mediaMainDetails.title,
-																					showSeasonNumber:
-																						loaderData.userMediaDetails
-																							.nextEpisode.seasonNumber,
-																					showEpisodeNumber:
-																						loaderData.userMediaDetails
-																							.nextEpisode.episodeNumber,
-																					isShow: true,
-																					isPodcast: false,
-																				},
-																		  )
-																}
+																onClick={() => {
+																	setUpdateProgressModalData({
+																		metadataId: loaderData.metadataId,
+																		podcastEpisodeNumber:
+																			loaderData.mediaMainDetails.lot ===
+																			MetadataLot.Podcast
+																				? loaderData.userMediaDetails
+																						.nextEpisode?.episodeNumber
+																				: undefined,
+																		showSeasonNumber:
+																			loaderData.mediaMainDetails.lot ===
+																			MetadataLot.Show
+																				? loaderData.userMediaDetails
+																						.nextEpisode?.seasonNumber
+																				: undefined,
+																		showEpisodeNumber:
+																			loaderData.mediaMainDetails.lot ===
+																			MetadataLot.Show
+																				? loaderData.userMediaDetails
+																						.nextEpisode?.episodeNumber
+																				: undefined,
+																	});
+																}}
 															>
 																Mark{" "}
 																{loaderData.mediaMainDetails.lot ===
@@ -907,16 +901,11 @@ export default function Page() {
 														</Menu.Item>
 													</Form>
 													<Menu.Item
-														component={Link}
-														to={$path(
-															"/media/item/:id/update-progress",
-															{ id: loaderData.metadataId },
-															{
-																title: loaderData.mediaMainDetails.title,
-																isShow: false,
-																isPodcast: false,
-															},
-														)}
+														onClick={() => {
+															setUpdateProgressModalData({
+																metadataId: loaderData.metadataId,
+															});
+														}}
 													>
 														Add to{" "}
 														{getVerb(
@@ -1166,23 +1155,13 @@ export default function Page() {
 																{s.episodes.length > 0 ? (
 																	<Button
 																		variant="outline"
-																		component={Link}
-																		to={$path(
-																			"/media/item/:id/update-progress",
-																			{ id: loaderData.metadataId },
-																			{
-																				title:
-																					loaderData.mediaMainDetails.title,
+																		onClick={() => {
+																			setUpdateProgressModalData({
+																				metadataId: loaderData.metadataId,
 																				showSeasonNumber: s.seasonNumber,
 																				onlySeason: true,
-																				isShow:
-																					loaderData.mediaMainDetails.lot ===
-																					MetadataLot.Show,
-																				isPodcast:
-																					loaderData.mediaMainDetails.lot ===
-																					MetadataLot.Podcast,
-																			},
-																		)}
+																			});
+																		}}
 																	>
 																		Mark as seen
 																	</Button>
@@ -1213,23 +1192,13 @@ export default function Page() {
 																	>
 																		<Button
 																			variant="outline"
-																			component={Link}
-																			to={$path(
-																				"/media/item/:id/update-progress",
-																				{ id: loaderData.metadataId },
-																				{
-																					title:
-																						loaderData.mediaMainDetails.title,
+																			onClick={() => {
+																				setUpdateProgressModalData({
+																					metadataId: loaderData.metadataId,
 																					showSeasonNumber: s.seasonNumber,
 																					showEpisodeNumber: e.episodeNumber,
-																					isShow:
-																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show,
-																					isPodcast:
-																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Podcast,
-																				},
-																			)}
+																				});
+																			}}
 																		>
 																			Mark as seen
 																		</Button>
@@ -1269,21 +1238,12 @@ export default function Page() {
 												>
 													<Button
 														variant="outline"
-														component={Link}
-														to={$path(
-															"/media/item/:id/update-progress",
-															{ id: loaderData.metadataId },
-															{
-																title: loaderData.mediaMainDetails.title,
+														onClick={() => {
+															setUpdateProgressModalData({
+																metadataId: loaderData.metadataId,
 																podcastEpisodeNumber: e.number,
-																isShow:
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Show,
-																isPodcast:
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast,
-															},
-														)}
+															});
+														}}
 													>
 														Mark as seen
 													</Button>
@@ -1368,7 +1328,36 @@ export default function Page() {
 	);
 }
 
-const ProgressModal = (props: {
+type UpdateProgress = {
+	metadataId: number;
+	onlySeason?: boolean;
+	completeShow?: boolean;
+	completePodcast?: boolean;
+	showSeasonNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	podcastEpisodeNumber?: number | null;
+};
+
+const ProgressUpdateModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	data?: UpdateProgress;
+}) => {
+	if (!props.data) return <></>;
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+			size="sm"
+		>
+			<div>Hello world!</div>
+		</Modal>
+	);
+};
+
+const IndividualProgressModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
