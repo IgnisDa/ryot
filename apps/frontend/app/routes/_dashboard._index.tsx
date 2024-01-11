@@ -377,13 +377,6 @@ export default function Page() {
 													type: "number",
 													hideIfZero: true,
 												},
-												{
-													label: "People",
-													value:
-														loaderData.latestUserSummary.media
-															.creatorsInteractedWith,
-													type: "number",
-												},
 											]}
 										/>
 									) : null}
