@@ -10,12 +10,13 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { MetadataGroupsListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import { IconSearch, IconX } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
@@ -52,10 +53,10 @@ export const meta: MetaFunction = () => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParams, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const [_, { setP }] = useSearchParam();
+	const [query, setQuery] = useState(loaderData.query.query || "");
 
-	useEffect(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container>

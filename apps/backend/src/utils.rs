@@ -5,11 +5,10 @@ use async_graphql::{Error, Result};
 use axum::{
     async_trait,
     extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
+    http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
 use chrono::{NaiveDate, Utc};
-use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use itertools::Itertools;
 use rs_utils::PROJECT_NAME;

@@ -57,7 +57,7 @@ pub async fn import(
             Ok(r) => r,
             Err(e) => {
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
                     error: Some(e.to_string()),
@@ -72,7 +72,7 @@ pub async fn import(
         let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
         if isbn.is_empty() {
             failed_items.push(ImportFailedItem {
-                lot,
+                lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
                 error: Some("ISBN is empty".to_owned()),
@@ -142,7 +142,7 @@ pub async fn import(
             });
         } else {
             failed_items.push(ImportFailedItem {
-                lot,
+                lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
                 error: Some(format!(

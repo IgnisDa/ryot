@@ -50,13 +50,7 @@ import {
 import { ReactNode, useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import {
-	Verb,
-	dayjsLib,
-	getFallbackImageUrl,
-	getVerb,
-	redirectToQueryParam,
-} from "~/lib/generals";
+import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/media-components.module.css";
@@ -631,49 +625,27 @@ export const MediaSearchItem = (props: {
 			}}
 		>
 			<>
-				{props.lot !== MetadataLot.Show ? (
-					<Button
-						variant="outline"
-						w="100%"
-						size="compact-md"
-						onClick={async (e) => {
-							const id = await basicCommit(e);
-							return navigate(
-								$path(
-									"/media/item/:id/update-progress",
-									{ id },
-									{
-										title: props.item.title,
-										[redirectToQueryParam]: $path(
-											"/media/:action/:lot",
-											{
-												action: props.action,
-												lot: props.lot.toLowerCase(),
-											},
-											{ query: props.query },
-										),
-									},
-								),
-							);
-						}}
-					>
-						Mark as {getVerb(Verb.Read, props.lot)}
-					</Button>
-				) : (
-					<>
-						<Button
-							variant="outline"
-							w="100%"
-							size="compact-md"
-							onClick={async (e) => {
-								const id = await basicCommit(e);
-								return navigate($path("/media/item/:id", { id }));
-							}}
-						>
-							Show details
-						</Button>
-					</>
-				)}
+				<Button
+					variant="outline"
+					w="100%"
+					size="compact-md"
+					onClick={async (e) => {
+						const id = await basicCommit(e);
+						return navigate(
+							$path(
+								"/media/item/:id",
+								{ id },
+								props.lot !== MetadataLot.Show
+									? { defaultTab: "actions", openProgressModal: true }
+									: { defaultTab: "seasons" },
+							),
+						);
+					}}
+				>
+					{props.lot !== MetadataLot.Show
+						? `Mark as ${getVerb(Verb.Read, props.lot)}`
+						: "Show details"}
+				</Button>
 				<Button
 					mt="xs"
 					variant="outline"

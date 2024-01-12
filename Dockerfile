@@ -45,7 +45,7 @@ RUN ./apps/backend/ci/build-app.sh
 FROM $NODE_BASE_IMAGE
 COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN npm install --global concurrently && concurrently --version
+RUN npm install --global concurrently@8.2.2 && concurrently --version
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 USER ryot
@@ -53,8 +53,7 @@ COPY config/Caddyfile /etc/caddy/Caddyfile
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules ./node_modules
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
-COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/public ./public
 COPY --from=app-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
 HEALTHCHECK --interval=5m --timeout=3s \
   CMD curl -f http://localhost:5000/config || exit 1
-CMD [ "concurrently", "--names", "frontend,backend,proxy", "-k", "npx remix-serve ./build/index.js", "ryot", "caddy run --config /etc/caddy/Caddyfile" ]
+CMD [ "concurrently", "--names", "frontend,backend,proxy", "--kill-others", "npx remix-serve ./build/server/index.js", "ryot", "caddy run --config /etc/caddy/Caddyfile" ]

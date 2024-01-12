@@ -2,7 +2,6 @@ use std::{
     env,
     fs::{self, create_dir_all},
     io::{Error as IoError, ErrorKind as IoErrorKind},
-    net::SocketAddr,
     path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -24,7 +23,7 @@ use axum::{
     extract::DefaultBodyLimit,
     http::{header, Method},
     routing::{get, post, Router},
-    Extension, Server,
+    Extension,
 };
 use database::Migrator;
 use itertools::Itertools;
@@ -33,7 +32,7 @@ use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
-use tokio::try_join;
+use tokio::{net::TcpListener, try_join};
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -130,7 +129,7 @@ async fn main() -> Result<()> {
 
     if let Err(err) = Migrator::up(&db, None).await {
         tracing::error!("Database migration failed: {}", err);
-        bail!("If this is a major version upgrade, please follow the instructions in the migration docs.");
+        bail!("There was an error running the database migrations.");
     };
 
     let pool = PoolOptions::new()
@@ -165,10 +164,7 @@ async fn main() -> Result<()> {
     }
 
     if cfg!(debug_assertions) {
-        use schematic::{
-            schema::{template::*, typescript::TypeScriptRenderer, SchemaGenerator},
-            Format,
-        };
+        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 
         // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
@@ -184,7 +180,7 @@ async fn main() -> Result<()> {
         generator
             .generate(
                 base_dir.join("backend-config-schema.yaml"),
-                TemplateRenderer::new_format(Format::Yaml),
+                YamlTemplateRenderer::default(),
             )
             .unwrap();
 
@@ -231,10 +227,10 @@ async fn main() -> Result<()> {
 
     let port = env::var("BACKEND_PORT")
         .unwrap_or_else(|_| "5000".to_owned())
-        .parse()
+        .parse::<usize>()
         .unwrap();
-    let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
-    tracing::info!("Listening on: {}", addr);
+    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
+    tracing::info!("Listening on: {}", listener.local_addr()?);
 
     let importer_service_1 = app_services.importer_service.clone();
     let importer_service_2 = app_services.importer_service.clone();
@@ -309,8 +305,7 @@ async fn main() -> Result<()> {
     };
 
     let http = async {
-        Server::bind(&addr)
-            .serve(app_routes.into_make_service())
+        axum::serve(listener, app_routes.into_make_service())
             .await
             .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
     };

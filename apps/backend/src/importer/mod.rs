@@ -137,7 +137,7 @@ pub enum ImportFailStep {
     Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
 )]
 pub struct ImportFailedItem {
-    lot: MetadataLot,
+    lot: Option<MetadataLot>,
     step: ImportFailStep,
     identifier: String,
     error: Option<String>,
@@ -358,7 +358,7 @@ impl ImporterService {
                 Err(e) => {
                     tracing::error!("{e:?}");
                     import.failed_items.push(ImportFailedItem {
-                        lot: item.lot,
+                        lot: Some(item.lot),
                         step: ImportFailStep::MediaDetailsFromProvider,
                         identifier: item.source_id.to_owned(),
                         error: Some(e.message),
@@ -390,7 +390,7 @@ impl ImporterService {
                 {
                     Ok(_) => {}
                     Err(e) => import.failed_items.push(ImportFailedItem {
-                        lot: item.lot,
+                        lot: Some(item.lot),
                         step: ImportFailStep::SeenHistoryConversion,
                         identifier: item.source_id.to_owned(),
                         error: Some(e.message),
@@ -430,7 +430,7 @@ impl ImporterService {
                 {
                     Ok(_) => {}
                     Err(e) => import.failed_items.push(ImportFailedItem {
-                        lot: item.lot,
+                        lot: Some(item.lot),
                         step: ImportFailStep::ReviewConversion,
                         identifier: item.source_id.to_owned(),
                         error: Some(e.message),

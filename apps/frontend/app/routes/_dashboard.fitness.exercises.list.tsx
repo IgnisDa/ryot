@@ -22,7 +22,7 @@ import {
 	Title,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useListState } from "@mantine/hooks";
+import { useDidUpdate, useDisclosure, useListState } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -47,7 +47,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
@@ -68,16 +68,16 @@ const defaultFiltersValue = {
 	force: undefined,
 	level: undefined,
 	mechanic: undefined,
-	sort: ExerciseSortBy.NumTimesPerformed,
+	sortBy: ExerciseSortBy.NumTimesPerformed,
 };
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.optional().default("1"),
 	query: z.string().optional(),
-	sort: z
+	sortBy: z
 		.nativeEnum(ExerciseSortBy)
 		.optional()
-		.default(defaultFiltersValue.sort),
+		.default(defaultFiltersValue.sortBy),
 	type: z.nativeEnum(ExerciseLot).optional(),
 	level: z.nativeEnum(ExerciseLevel).optional(),
 	force: z.nativeEnum(ExerciseForce).optional(),
@@ -118,7 +118,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 						muscle: query.muscle,
 						type: query.type,
 					},
-					sortBy: query.sort,
+					sortBy: query.sortBy,
 				},
 			},
 			await getAuthorizationHeader(request),
@@ -141,12 +141,12 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
-	const [searchParams, { setP }] = useSearchParam();
+	const [_, { setP }] = useSearchParam();
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
 	}>([]);
-	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -154,7 +154,7 @@ export default function Page() {
 
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
-	useEffect(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", query), [query]);
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
@@ -179,14 +179,15 @@ export default function Page() {
 				</Flex>
 				{loaderData.exerciseParameters.downloadRequired ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-						Please follow the{" "}
+						Please deploy a job to download the exercise dataset from the{" "}
 						<Anchor
-							href="https://ignisda.github.io/ryot/guides/fitness.html"
-							target="_blank"
+							component={Link}
+							to={$path("/settings/miscellaneous")}
+							size="sm"
 						>
-							fitness guide
-						</Anchor>{" "}
-						to download the exercise dataset.
+							miscellaneous settings
+						</Anchor>
+						.
 					</Alert>
 				) : (
 					<>
@@ -245,11 +246,11 @@ export default function Page() {
 												value: v,
 											}))}
 											label="Sort by"
-											defaultValue={loaderData.query.sort}
+											defaultValue={loaderData.query.sortBy}
 											onChange={(v) => setP("sortBy", v)}
 										/>
 										{Object.keys(defaultFiltersValue)
-											.filter((f) => f !== "sort" && f !== "order")
+											.filter((f) => f !== "sortBy" && f !== "order")
 											.map((f) => (
 												<Select
 													key={f}

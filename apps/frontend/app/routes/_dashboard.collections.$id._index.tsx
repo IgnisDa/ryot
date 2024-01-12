@@ -16,7 +16,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -38,7 +38,7 @@ import {
 	IconUser,
 	IconX,
 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -131,14 +131,14 @@ export const meta: MetaFunction = ({ data }) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
-	const [searchParams, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const [_, { setP }] = useSearchParam();
+	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
-	useEffect(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container>

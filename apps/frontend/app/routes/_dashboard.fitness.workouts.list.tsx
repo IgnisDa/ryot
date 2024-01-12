@@ -13,6 +13,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
@@ -30,7 +31,7 @@ import {
 	IconWeight,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
@@ -79,11 +80,11 @@ export const meta: MetaFunction = () => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParams, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const [_, { setP }] = useSearchParam();
+	const [query, setQuery] = useState(loaderData.query.query || "");
 	const startWorkout = getWorkoutStarter();
 
-	useEffect(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container size="xs">

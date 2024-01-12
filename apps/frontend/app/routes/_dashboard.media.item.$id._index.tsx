@@ -4,9 +4,11 @@ import {
 	ActionIcon,
 	Alert,
 	Anchor,
+	Autocomplete,
 	Avatar,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Flex,
 	Group,
@@ -17,6 +19,7 @@ import {
 	NumberInput,
 	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Slider,
 	Stack,
@@ -25,7 +28,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { DateInput, DatePickerInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -112,6 +115,7 @@ import {
 const searchParamsSchema = z
 	.object({
 		defaultTab: z.string().optional().default("overview"),
+		openProgressModal: zx.BoolAsString.optional(),
 	})
 	.merge(ShowAndPodcastSchema);
 
@@ -169,17 +173,20 @@ export const meta: MetaFunction = ({ data }) => {
 	return [{ title: `${(data as any).mediaMainDetails.title} | Ryot` }];
 };
 
+const sleepForASecond = () =>
+	new Promise((resolve) => setTimeout(resolve, 1000));
+
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
-		progressUpdate: async () => {
+		individualProgressUpdate: async () => {
 			const submission = processSubmission(formData, bulkUpdateSchema);
 			await gqlClient.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			await sleepForASecond();
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					message: "Progress updated successfully",
@@ -292,6 +299,88 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		progressUpdate: async () => {
+			const submission = processSubmission(formData, progressUpdateSchema);
+			const variables = {
+				metadataId: submission.metadataId,
+				progress: 100,
+				date: submission.date,
+				showEpisodeNumber: submission.showEpisodeNumber,
+				showSeasonNumber: submission.showSeasonNumber,
+				podcastEpisodeNumber: submission.podcastEpisodeNumber,
+			};
+			let needsFinalUpdate = true;
+			const updates = [];
+			const showSpecifics = showSpecificsSchema.parse(
+				JSON.parse(submission.showSpecifics || "[]"),
+			);
+			const podcastSpecifics = podcastSpecificsSchema.parse(
+				JSON.parse(submission.podcastSpecifics || "[]"),
+			);
+			if (submission.completeShow) {
+				for (const season of showSpecifics) {
+					for (const episode of season.episodes) {
+						updates.push({
+							...variables,
+							showSeasonNumber: season.seasonNumber,
+							showEpisodeNumber: episode,
+						});
+					}
+				}
+				needsFinalUpdate = true;
+			}
+			if (submission.completePodcast) {
+				for (const episode of podcastSpecifics) {
+					updates.push({
+						...variables,
+						podcastEpisodeNumber: episode.episodeNumber,
+					});
+				}
+				needsFinalUpdate = true;
+			}
+			if (submission.onlySeason) {
+				const selectedSeason = showSpecifics.find(
+					(s) => s.seasonNumber === submission.showSeasonNumber,
+				);
+				invariant(selectedSeason, "No season selected");
+				needsFinalUpdate = true;
+				if (submission.allSeasonsBefore) {
+					for (const season of showSpecifics) {
+						if (season.seasonNumber > selectedSeason.seasonNumber) break;
+						for (const episode of season.episodes || []) {
+							updates.push({
+								...variables,
+								showSeasonNumber: season.seasonNumber,
+								showEpisodeNumber: episode,
+							});
+						}
+					}
+				} else {
+					for (const episode of selectedSeason.episodes || []) {
+						updates.push({
+							...variables,
+							showEpisodeNumber: episode,
+						});
+					}
+				}
+			}
+			if (needsFinalUpdate) updates.push(variables);
+			console.log(updates);
+			const { deployBulkProgressUpdate } = await gqlClient.request(
+				DeployBulkProgressUpdateDocument,
+				{ input: updates },
+				await getAuthorizationHeader(request),
+			);
+			await sleepForASecond();
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: !deployBulkProgressUpdate ? "error" : undefined,
+					message: !deployBulkProgressUpdate
+						? "Progress was not updated"
+						: "Progress updated successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -330,6 +419,25 @@ const editSeenItem = z.object({
 	finishedOn: dateString.optional(),
 });
 
+const progressUpdateSchema = z
+	.object({
+		date: z.string().optional(),
+		showSpecifics: z.string().optional(),
+		allSeasonsBefore: zx.CheckboxAsString.optional(),
+		podcastSpecifics: z.string().optional(),
+		onlySeason: zx.BoolAsString.optional(),
+		completeShow: zx.BoolAsString.optional(),
+		completePodcast: zx.BoolAsString.optional(),
+	})
+	.merge(metadataIdSchema)
+	.merge(ShowAndPodcastSchema);
+
+const showSpecificsSchema = z.array(
+	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),
+);
+
+const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
+
 // DEV: I wanted to use fetcher in some place but since this is being rendered
 // conditionally (or inside a menu), the form ref is null.
 
@@ -360,10 +468,13 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
+	const [updateProgressModalData, setUpdateProgressModalData] = useState<
+		UpdateProgress | undefined
+	>(loaderData.query.openProgressModal ? {} : undefined);
 
 	const PutOnHoldBtn = () => {
 		return (
-			<Form action="?intent=progressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
@@ -372,7 +483,7 @@ export default function Page() {
 	};
 	const DropBtn = () => {
 		return (
-			<Form action="?intent=progressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
@@ -405,6 +516,11 @@ export default function Page() {
 				onClose={mergeMetadataModalClose}
 				opened={mergeMetadataModalOpened}
 				metadataId={loaderData.metadataId}
+			/>
+			<ProgressUpdateModal
+				onClose={() => setUpdateProgressModalData(undefined)}
+				opened={updateProgressModalData !== undefined}
+				data={updateProgressModalData}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -760,7 +876,7 @@ export default function Page() {
 							>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{loaderData.userMediaDetails.inProgress ? (
-										<ProgressModal
+										<IndividualProgressModal
 											progress={loaderData.userMediaDetails.inProgress.progress}
 											metadataId={loaderData.metadataId}
 											onClose={progressModalClose}
@@ -795,42 +911,28 @@ export default function Page() {
 													{loaderData.userMediaDetails.nextEpisode ? (
 														<>
 															<Menu.Item
-																component={Link}
-																to={
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast
-																		? $path(
-																				"/media/item/:id/update-progress",
-																				{ id: loaderData.metadataId },
-																				{
-																					title:
-																						loaderData.mediaMainDetails.title,
-																					podcastEpisodeNumber:
-																						loaderData.userMediaDetails
-																							.nextEpisode.episodeNumber,
-																					isShow: false,
-																					isPodcast: true,
-																				},
-																		  )
-																		: $path(
-																				"/media/item/:id/update-progress",
-																				{
-																					id: loaderData.metadataId,
-																				},
-																				{
-																					title:
-																						loaderData.mediaMainDetails.title,
-																					showSeasonNumber:
-																						loaderData.userMediaDetails
-																							.nextEpisode.seasonNumber,
-																					showEpisodeNumber:
-																						loaderData.userMediaDetails
-																							.nextEpisode.episodeNumber,
-																					isShow: true,
-																					isPodcast: false,
-																				},
-																		  )
-																}
+																onClick={() => {
+																	setUpdateProgressModalData({
+																		podcastEpisodeNumber:
+																			loaderData.mediaMainDetails.lot ===
+																			MetadataLot.Podcast
+																				? loaderData.userMediaDetails
+																						.nextEpisode?.episodeNumber
+																				: undefined,
+																		showSeasonNumber:
+																			loaderData.mediaMainDetails.lot ===
+																			MetadataLot.Show
+																				? loaderData.userMediaDetails
+																						.nextEpisode?.seasonNumber
+																				: undefined,
+																		showEpisodeNumber:
+																			loaderData.mediaMainDetails.lot ===
+																			MetadataLot.Show
+																				? loaderData.userMediaDetails
+																						.nextEpisode?.episodeNumber
+																				: undefined,
+																	});
+																}}
 															>
 																Mark{" "}
 																{loaderData.mediaMainDetails.lot ===
@@ -855,7 +957,10 @@ export default function Page() {
 											{loaderData.userMediaDetails?.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
-													<Form action="?intent=progressUpdate" method="post">
+													<Form
+														action="?intent=individualProgressUpdate"
+														method="post"
+													>
 														<input hidden name="progress" defaultValue={100} />
 														<input
 															hidden
@@ -891,7 +996,10 @@ export default function Page() {
 													MetadataLot.Podcast ? (
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
-													<Form action="?intent=progressUpdate" method="post">
+													<Form
+														action="?intent=individualProgressUpdate"
+														method="post"
+													>
 														<input hidden name="progress" defaultValue={0} />
 														<Menu.Item
 															type="submit"
@@ -907,16 +1015,9 @@ export default function Page() {
 														</Menu.Item>
 													</Form>
 													<Menu.Item
-														component={Link}
-														to={$path(
-															"/media/item/:id/update-progress",
-															{ id: loaderData.metadataId },
-															{
-																title: loaderData.mediaMainDetails.title,
-																isShow: false,
-																isPodcast: false,
-															},
-														)}
+														onClick={() => {
+															setUpdateProgressModalData({});
+														}}
 													>
 														Add to{" "}
 														{getVerb(
@@ -1166,23 +1267,12 @@ export default function Page() {
 																{s.episodes.length > 0 ? (
 																	<Button
 																		variant="outline"
-																		component={Link}
-																		to={$path(
-																			"/media/item/:id/update-progress",
-																			{ id: loaderData.metadataId },
-																			{
-																				title:
-																					loaderData.mediaMainDetails.title,
+																		onClick={() => {
+																			setUpdateProgressModalData({
 																				showSeasonNumber: s.seasonNumber,
 																				onlySeason: true,
-																				isShow:
-																					loaderData.mediaMainDetails.lot ===
-																					MetadataLot.Show,
-																				isPodcast:
-																					loaderData.mediaMainDetails.lot ===
-																					MetadataLot.Podcast,
-																			},
-																		)}
+																			});
+																		}}
 																	>
 																		Mark as seen
 																	</Button>
@@ -1213,23 +1303,12 @@ export default function Page() {
 																	>
 																		<Button
 																			variant="outline"
-																			component={Link}
-																			to={$path(
-																				"/media/item/:id/update-progress",
-																				{ id: loaderData.metadataId },
-																				{
-																					title:
-																						loaderData.mediaMainDetails.title,
+																			onClick={() => {
+																				setUpdateProgressModalData({
 																					showSeasonNumber: s.seasonNumber,
 																					showEpisodeNumber: e.episodeNumber,
-																					isShow:
-																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show,
-																					isPodcast:
-																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Podcast,
-																				},
-																			)}
+																				});
+																			}}
 																		>
 																			Mark as seen
 																		</Button>
@@ -1269,21 +1348,11 @@ export default function Page() {
 												>
 													<Button
 														variant="outline"
-														component={Link}
-														to={$path(
-															"/media/item/:id/update-progress",
-															{ id: loaderData.metadataId },
-															{
-																title: loaderData.mediaMainDetails.title,
+														onClick={() => {
+															setUpdateProgressModalData({
 																podcastEpisodeNumber: e.number,
-																isShow:
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Show,
-																isPodcast:
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast,
-															},
-														)}
+															});
+														}}
 													>
 														Mark as seen
 													</Button>
@@ -1368,7 +1437,187 @@ export default function Page() {
 	);
 }
 
-const ProgressModal = (props: {
+type UpdateProgress = {
+	onlySeason?: boolean;
+	completeShow?: boolean;
+	completePodcast?: boolean;
+	showSeasonNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	podcastEpisodeNumber?: number | null;
+};
+
+const ProgressUpdateModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	data?: UpdateProgress;
+}) => {
+	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+	const loaderData = useLoaderData<typeof loader>();
+
+	if (!props.data) return <></>;
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form
+				method="post"
+				action="?intent=progressUpdate"
+				onSubmit={props.onClose}
+			>
+				{[
+					...Object.entries(props.data),
+					["metadataId", loaderData.metadataId.toString()],
+				].map(([k, v]) =>
+					typeof v !== "undefined" ? (
+						<input hidden name={k} defaultValue={v?.toString()} key={k} />
+					) : (
+						<></>
+					),
+				)}
+				{loaderData.mediaAdditionalDetails?.showSpecifics ? (
+					<input
+						hidden
+						name="showSpecifics"
+						defaultValue={JSON.stringify(
+							loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
+								(s) => ({
+									seasonNumber: s.seasonNumber,
+									episodes: s.episodes.map((e) => e.episodeNumber),
+								}),
+							),
+						)}
+					/>
+				) : null}
+				{loaderData.mediaAdditionalDetails?.podcastSpecifics ? (
+					<input
+						hidden
+						name="podcastSpecifics"
+						defaultValue={JSON.stringify(
+							loaderData.mediaAdditionalDetails.podcastSpecifics.episodes.map(
+								(e) => ({
+									episodeNumber: e.number,
+								}),
+							),
+						)}
+					/>
+				) : null}
+				<Stack>
+					{loaderData.mediaAdditionalDetails?.showSpecifics ? (
+						<>
+							{props.data.onlySeason || props.data.completeShow ? (
+								<Alert color="yellow" icon={<IconAlertCircle />}>
+									{props.data.onlySeason
+										? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
+										: props.data.completeShow
+										  ? "This will mark all episodes for this show as seen"
+										  : null}
+								</Alert>
+							) : null}
+							{!props.data.completeShow ? (
+								<Select
+									label="Season"
+									data={loaderData.mediaAdditionalDetails.showSpecifics.seasons.map(
+										(s) => ({
+											label: `${s.seasonNumber}. ${s.name.toString()}`,
+											value: s.seasonNumber.toString(),
+										}),
+									)}
+									defaultValue={props.data.showSeasonNumber?.toString()}
+								/>
+							) : null}
+							{props.data.onlySeason ? (
+								<Checkbox
+									label="Mark all seasons before this as seen"
+									name="allSeasonsBefore"
+								/>
+							) : null}
+							{!props.data.onlySeason && props.data.showSeasonNumber ? (
+								<Select
+									label="Episode"
+									data={
+										loaderData.mediaAdditionalDetails.showSpecifics.seasons
+											.find(
+												(s) =>
+													s.seasonNumber ===
+													Number(props.data?.showSeasonNumber),
+											)
+											?.episodes.map((e) => ({
+												label: `${e.episodeNumber}. ${e.name.toString()}`,
+												value: e.episodeNumber.toString(),
+											})) || []
+									}
+									defaultValue={props.data.showEpisodeNumber?.toString()}
+								/>
+							) : null}
+						</>
+					) : null}
+					{loaderData.mediaAdditionalDetails?.podcastSpecifics ? (
+						props.data.completePodcast ? (
+							<Alert color="yellow" icon={<IconAlertCircle />}>
+								This will mark all episodes for this podcast as seen
+							</Alert>
+						) : (
+							<>
+								<Title order={6}>Select episode</Title>
+								<Autocomplete
+									label="Episode"
+									data={loaderData.mediaAdditionalDetails.podcastSpecifics.episodes.map(
+										(se) => ({
+											label: se.title.toString(),
+											value: se.number.toString(),
+										}),
+									)}
+									defaultValue={props.data.podcastEpisodeNumber?.toString()}
+								/>
+							</>
+						)
+					) : null}
+					{loaderData.mediaAdditionalDetails?.lot ? (
+						<Title order={6}>
+							When did you {getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}{" "}
+							it?
+						</Title>
+					) : null}
+					<Button
+						variant="outline"
+						type="submit"
+						name="date"
+						value={formatDateToNaiveDate(new Date())}
+					>
+						Now
+					</Button>
+					<Button variant="outline" type="submit">
+						I do not remember
+					</Button>
+					<Group grow>
+						<DatePickerInput
+							dropdownType="modal"
+							maxDate={new Date()}
+							onChange={setSelectedDate}
+							clearable
+						/>
+						<Button
+							variant="outline"
+							disabled={selectedDate === null}
+							type="submit"
+							name="date"
+							value={
+								selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
+							}
+						>
+							Custom date
+						</Button>
+					</Group>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+const IndividualProgressModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
@@ -1398,7 +1647,7 @@ const ProgressModal = (props: {
 			centered
 			size="sm"
 		>
-			<Form action="?intent=progressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post">
 				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="progress" defaultValue={value} />
 				<input

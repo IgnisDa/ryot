@@ -77,7 +77,7 @@ struct ListItemResponse {
 #[serde(rename_all = "camelCase")]
 struct Item {
     id: i32,
-    media_type: MediaType,
+    media_type: Option<MediaType>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -187,7 +187,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
 
     let mut failed_items = vec![];
 
-    // all items returned here are seen atleast once
+    // all items returned here are seen at least once
     let mut rsp = client.get("items").await.unwrap();
     let mut data: Vec<Item> = rsp.body_json().await.unwrap();
 
@@ -207,17 +207,27 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     let data_len = data.len();
 
     let mut final_data = vec![];
-    // DEV: Technically this can be done in parallel, by executing requests in
-    // batches. Example: https://users.rust-lang.org/t/can-tokio-semaphore-be-used-to-limit-spawned-tasks/59899.
     for (idx, d) in data.into_iter().enumerate() {
-        let lot = MetadataLot::from(d.media_type.clone());
+        let media_type = match d.media_type {
+            Some(m) => m.clone(),
+            None => {
+                failed_items.push(ImportFailedItem {
+                    lot: None,
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: d.id.to_string(),
+                    error: Some("No media type".to_string()),
+                });
+                continue;
+            }
+        };
+        let lot = MetadataLot::from(media_type.clone());
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
         let details: ItemDetails = match rsp.body_json().await {
             Ok(s) => s,
             Err(e) => {
                 tracing::error!("Encountered error for id = {id:?}: {e:?}", id = d.id);
                 failed_items.push(ImportFailedItem {
-                    lot,
+                    lot: Some(lot),
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
                     error: Some(e.to_string()),
@@ -225,7 +235,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 continue;
             }
         };
-        let (identifier, source) = match d.media_type.clone() {
+        let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
                     (Uuid::new_v4().to_string(), MetadataSource::Custom)
@@ -243,7 +253,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         };
         tracing::trace!(
             "Got details for {type:?}: {id} ({idx}/{total})",
-            type = d.media_type,
+            type = media_type,
             id = d.id,
             idx = idx,
             total = data_len

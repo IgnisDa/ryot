@@ -12,7 +12,6 @@ query LatestUserSummary {
      }
     media {
       reviewsPosted
-      creatorsInteractedWith
       mediaInteractedWith
       manga {
         chapters

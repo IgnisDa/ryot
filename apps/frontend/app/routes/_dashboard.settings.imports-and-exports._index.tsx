@@ -225,6 +225,7 @@ export default function Page() {
 									<Title order={2}>Import data</Title>
 									<Anchor
 										size="xs"
+										// FIXME: Use `useFragment` here
 										href={`https://ignisda.github.io/ryot/importing.html#${match(
 											deployImportSource,
 										)

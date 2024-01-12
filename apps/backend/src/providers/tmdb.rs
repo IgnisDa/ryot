@@ -186,11 +186,7 @@ impl NonMediaTmdbService {
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
     async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
-        let typ = if identity.role == "Production" {
-            "company".to_owned()
-        } else {
-            "person".to_owned()
-        };
+        let typ = "person".to_owned();
         let details: TmdbNonMediaEntity = self
             .client
             .get(format!("{}/{}", typ, identity.identifier))
@@ -210,38 +206,34 @@ impl MediaProvider for NonMediaTmdbService {
             .collect();
         let description = details.description.or(details.biography);
         let mut related = vec![];
-        if typ.as_str() == "person" {
-            let details: TmdbCreditsResponse = self
-                .client
-                .get(format!("{}/{}/combined_credits", typ, identity.identifier))
-                .query(&json!({ "language": self.base.language }))
-                .unwrap()
-                .await
-                .map_err(|e| anyhow!(e))?
-                .body_json()
-                .await
-                .map_err(|e| anyhow!(e))?;
-            for media in details.crew.into_iter().chain(details.cast.into_iter()) {
-                if let Some(title) = media.title.or(media.name) {
-                    if let Some(job) = media.character {
-                        if POSSIBLE_ROLES.contains(&job.as_str()) {
-                            related.push((
-                                job,
-                                PartialMetadataWithoutId {
-                                    identifier: media.id.unwrap().to_string(),
-                                    title,
-                                    image: media
-                                        .poster_path
-                                        .map(|p| self.base.get_cover_image_url(p)),
-                                    lot: match media.media_type.unwrap().as_ref() {
-                                        "movie" => MetadataLot::Movie,
-                                        "tv" => MetadataLot::Show,
-                                        _ => continue,
-                                    },
-                                    source: MetadataSource::Tmdb,
+        let cred_det: TmdbCreditsResponse = self
+            .client
+            .get(format!("{}/{}/combined_credits", typ, identity.identifier))
+            .query(&json!({ "language": self.base.language }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
+            if let Some(title) = media.title.or(media.name) {
+                if let Some(job) = media.character {
+                    if POSSIBLE_ROLES.contains(&job.as_str()) {
+                        related.push((
+                            job,
+                            PartialMetadataWithoutId {
+                                identifier: media.id.unwrap().to_string(),
+                                title,
+                                image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                                lot: match media.media_type.unwrap().as_ref() {
+                                    "movie" => MetadataLot::Movie,
+                                    "tv" => MetadataLot::Show,
+                                    _ => continue,
                                 },
-                            ));
-                        }
+                                source: MetadataSource::Tmdb,
+                            },
+                        ));
                     }
                 }
             }

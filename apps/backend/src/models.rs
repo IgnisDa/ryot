@@ -691,7 +691,6 @@ pub mod media {
         pub anime: AnimeSummary,
         pub manga: MangaSummary,
         pub reviews_posted: u64,
-        pub creators_interacted_with: usize,
         pub media_interacted_with: u64,
     }
     #[derive(
@@ -744,7 +743,6 @@ pub mod media {
         pub shows: HashSet<i32>,
         pub podcast_episodes: HashSet<(i32, i32)>,
         pub podcasts: HashSet<i32>,
-        pub creators: HashSet<i32>,
     }
 
     #[derive(
