@@ -56,10 +56,14 @@ import { getDefaultWorkout } from "~/lib/workout";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userPreferences = await getUserPreferences(request);
-	const take = userPreferences.general.dashboard.find(
+	const takeUpcoming = userPreferences.general.dashboard.find(
+		(de) => de.section === DashboardElementLot.Upcoming,
+	)?.numElements;
+	invariant(takeUpcoming, "No take found for upcoming");
+	const takeInProgress = userPreferences.general.dashboard.find(
 		(de) => de.section === DashboardElementLot.InProgress,
 	)?.numElements;
-	invariant(take, "No take found for in progress");
+	invariant(takeInProgress, "No take found for in progress");
 	const { userCollectionsList } = await gqlClient.request(
 		UserCollectionsListDocument,
 		{ name: "In Progress" },
@@ -68,12 +72,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const collectionId = userCollectionsList[0].id;
 	const { collectionContents } = await gqlClient.request(
 		CollectionContentsDocument,
-		{ input: { collectionId, take, sort: { order: GraphqlSortOrder.Desc } } },
+		{
+			input: {
+				collectionId,
+				take: takeUpcoming,
+				sort: { order: GraphqlSortOrder.Desc },
+			},
+		},
 		await getAuthorizationHeader(request),
 	);
 	const { userUpcomingCalendarEvents } = await gqlClient.request(
 		UserUpcomingCalendarEventsDocument,
-		{ input: { nextMedia: take } },
+		{ input: { nextMedia: takeInProgress } },
 		await getAuthorizationHeader(request),
 	);
 	const { latestUserSummary } = await gqlClient.request(
