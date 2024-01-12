@@ -38,6 +38,22 @@ mod ce {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
+static CHUNK_SIZE: usize = 40;
+
+mod pe {
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+    #[sea_orm(table_name = "person")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: i32,
+    }
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -71,8 +87,24 @@ persons with these IDs: {:?}. Then upgrade to this version again.
                 persons_to_not_delete
             )));
         }
-        db.execute_unprepared(r#"truncate table "person" cascade;"#)
+        let all_persons = pe::Entity::find()
+            .select_only()
+            .column(pe::Column::Id)
+            .into_tuple::<i32>()
+            .all(db)
             .await?;
+        tracing::warn!("Total people to delete: {}", all_persons.len());
+        tracing::warn!(
+            "Total chunks to delete: {}",
+            (all_persons.len() / CHUNK_SIZE)
+        );
+        for (idx, persons) in all_persons.chunks(CHUNK_SIZE).enumerate() {
+            tracing::warn!("Deleting chunk: {}", idx);
+            pe::Entity::delete_many()
+                .filter(pe::Column::Id.is_in(persons.to_vec()))
+                .exec(db)
+                .await?;
+        }
         Ok(())
     }
 
