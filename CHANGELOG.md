@@ -1,5 +1,9 @@
 
 
+# Version 4.1.0 (2024-01-12)
+
+
+
 # Version 4.0.15 (2024-01-11)
 
 
@@ -21,18 +25,6 @@
   
 
 # Version 4.0.10 (2024-01-03)
-
-## Bug Fixes
-
-- **backend:** set default value for summary
-  
-  ## Build
-
-- **backend:** bump version
-  
-  
-
-# Version 4.1.0 (2024-01-02)
 
 
 
