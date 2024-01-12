@@ -38,8 +38,6 @@ mod ce {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-static CHUNK_SIZE: usize = 40;
-
 mod pe {
     use super::*;
 
@@ -94,17 +92,21 @@ persons with these IDs: {:?}. Then upgrade to this version again.
             .all(db)
             .await?;
         tracing::warn!("Total people to delete: {}", all_persons.len());
-        tracing::warn!(
-            "Total chunks to delete: {}",
-            (all_persons.len() / CHUNK_SIZE)
-        );
-        for (idx, persons) in all_persons.chunks(CHUNK_SIZE).enumerate() {
-            tracing::warn!("Deleting chunk: {}", idx);
-            pe::Entity::delete_many()
-                .filter(pe::Column::Id.is_in(persons.to_vec()))
-                .exec(db)
-                .await?;
-        }
+        db.execute_unprepared(
+            r#"
+alter table metadata_to_person drop constraint "fk-person-item_media-person_id";
+alter table collection_to_entity drop constraint "collection_to_entity-fk3";
+alter table review drop constraint "review_to_person_foreign_key";
+
+delete from metadata_to_person;
+truncate table person restart identity;
+
+alter table metadata_to_person add constraint "fk-person-item_media-person_id" foreign key ("person_id") references "person" ("id") on update cascade on delete cascade;
+alter table collection_to_entity add constraint "collection_to_entity-fk3" foreign key ("person_id") references "person" ("id") on update cascade on delete cascade;
+alter table review add constraint "review_to_person_foreign_key" foreign key ("person_id") references "person" ("id") on update cascade on delete cascade;
+        "#,
+        )
+        .await?;
         Ok(())
     }
 
