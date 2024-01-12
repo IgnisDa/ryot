@@ -365,7 +365,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
-			console.log(updates);
 			const { deployBulkProgressUpdate } = await gqlClient.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: updates },
