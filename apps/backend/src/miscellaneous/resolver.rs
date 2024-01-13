@@ -3713,12 +3713,12 @@ impl MiscellaneousService {
                 };
                 let rating = match respect_preferences {
                     true => {
-                        let prefs =
+                        let preferences =
                             partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
                                 .await?
                                 .preferences;
                         r.rating.map(|s| {
-                            s.checked_div(match prefs.general.review_scale {
+                            s.checked_div(match preferences.general.review_scale {
                                 UserReviewScale::OutOfFive => dec!(20),
                                 UserReviewScale::OutOfHundred => dec!(1),
                             })
