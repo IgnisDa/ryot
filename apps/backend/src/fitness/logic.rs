@@ -142,11 +142,11 @@ impl UserWorkoutInput {
                     user_to_ex.insert(db).await.unwrap()
                 }
                 Some(e) => {
-                    let performed = e.exercise_num_times_interacted;
+                    let performed = e.exercise_num_times_interacted.unwrap_or_default();
                     let mut extra_info = e.exercise_extra_information.clone().unwrap();
                     extra_info.history.insert(0, history_item);
                     let mut up: user_to_entity::ActiveModel = e.into();
-                    up.exercise_num_times_interacted = ActiveValue::Set(performed + 1);
+                    up.exercise_num_times_interacted = ActiveValue::Set(Some(performed + 1));
                     up.exercise_extra_information = ActiveValue::Set(Some(extra_info));
                     up.last_updated_on = ActiveValue::Set(Utc::now());
                     up.update(db).await?
@@ -313,7 +313,6 @@ impl workout::Model {
                 None => continue,
                 Some(assoc) => assoc,
             };
-            let performed = association.exercise_num_times_interacted;
             let mut ei = association.exercise_extra_information.clone().unwrap();
             if let Some(ex_idx) = ei
                 .history
@@ -323,7 +322,6 @@ impl workout::Model {
                 ei.history.remove(ex_idx);
             }
             let mut association: user_to_entity::ActiveModel = association.into();
-            association.exercise_num_times_interacted = ActiveValue::Set(performed - 1);
             association.exercise_extra_information = ActiveValue::Set(Some(ei));
             association.update(db).await?;
         }

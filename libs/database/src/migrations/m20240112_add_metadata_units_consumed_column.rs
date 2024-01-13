@@ -9,20 +9,6 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let table_name = "user_to_entity";
-        let old_col_name = "num_times_interacted";
-        if manager.has_column(table_name, old_col_name).await? {
-            manager
-                .alter_table(
-                    TableAlterStatement::new()
-                        .table(UserToEntity::Table)
-                        .rename_column(
-                            Alias::new(old_col_name),
-                            UserToEntity::ExerciseNumTimesInteracted,
-                        )
-                        .to_owned(),
-                )
-                .await?;
-        }
         if !manager
             .has_column(table_name, "metadata_units_consumed")
             .await?

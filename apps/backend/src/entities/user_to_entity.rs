@@ -23,7 +23,7 @@ pub struct Model {
     pub metadata_reminder: Option<UserMediaReminder>,
     pub metadata_ownership: Option<UserMediaOwnership>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
-    pub exercise_num_times_interacted: i32,
+    pub exercise_num_times_interacted: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

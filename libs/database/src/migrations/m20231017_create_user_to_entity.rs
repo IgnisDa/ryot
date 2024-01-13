@@ -60,7 +60,6 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted)
                             .integer()
-                            .not_null()
                             .default(1),
                     )
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
