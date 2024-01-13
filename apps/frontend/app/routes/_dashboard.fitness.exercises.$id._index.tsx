@@ -194,10 +194,11 @@ export default function Page() {
 										data={changeCase(loaderData.exerciseDetails.lot)}
 									/>
 								) : null}
-								{loaderData.userExerciseDetails.details?.numTimesInteracted ? (
+								{loaderData.userExerciseDetails.details
+									?.exerciseNumTimesInteracted ? (
 									<DisplayData
 										name="Times done"
-										data={`${loaderData.userExerciseDetails.details.numTimesInteracted} times`}
+										data={`${loaderData.userExerciseDetails.details.exerciseNumTimesInteracted} times`}
 										noCasing
 									/>
 								) : null}
@@ -325,7 +326,7 @@ export default function Page() {
 											stat="times done"
 											val={
 												loaderData.userExerciseDetails.details
-													.numTimesInteracted
+													.exerciseNumTimesInteracted || 0
 											}
 										/>
 									</Box>
