@@ -740,6 +740,7 @@ export default function Page() {
 							</Tabs.Tab>
 							{loaderData.userMediaDetails.seenBy > 0 ||
 							loaderData.userMediaDetails.history.length > 0 ||
+							loaderData.userMediaDetails.unitsConsumed ||
 							loaderData.userMediaDetails.ownership ? (
 								<Tabs.Tab
 									value="history"
@@ -1241,6 +1242,38 @@ export default function Page() {
 												{loaderData.userMediaDetails.ownership.ownedOn
 													? ` on ${loaderData.userMediaDetails.ownership.ownedOn}`
 													: null}
+												.
+											</Text>
+										) : null}
+										{loaderData.userMediaDetails.unitsConsumed ? (
+											<Text>
+												Consumed{" "}
+												{match(loaderData.mediaMainDetails.lot)
+													.with(
+														MetadataLot.AudioBook,
+														MetadataLot.Movie,
+														MetadataLot.Show,
+														MetadataLot.Podcast,
+														MetadataLot.VisualNovel,
+														() =>
+															humanizeDuration(
+																(loaderData.userMediaDetails.unitsConsumed ||
+																	0) *
+																	1000 *
+																	60,
+															),
+													)
+													.otherwise(
+														(v) =>
+															`${
+																loaderData.userMediaDetails.unitsConsumed
+															} ${match(v)
+																.with(MetadataLot.VideoGame, () => "")
+																.with(MetadataLot.Book, () => "pages")
+																.with(MetadataLot.Anime, () => "episodes")
+																.with(MetadataLot.Manga, () => "chapters")
+																.exhaustive()}`,
+													)}
 												.
 											</Text>
 										) : null}
