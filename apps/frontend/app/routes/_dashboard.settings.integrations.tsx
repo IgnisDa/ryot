@@ -167,7 +167,7 @@ export default function Page() {
 				)}
 				<Box w="100%">
 					<Group justify="space-between">
-						<Form method="post" action="?intent=generateAuthToken">
+						<Form method="post" action="?intent=generateAuthToken" replace>
 							<Button
 								variant="light"
 								color="orange"
@@ -194,8 +194,7 @@ export default function Page() {
 						centered
 						withCloseButton={false}
 					>
-						<Box
-							component={Form}
+						<Form
 							action="?intent=create"
 							method="post"
 							onSubmit={() => {
@@ -203,6 +202,7 @@ export default function Page() {
 								setCreateUserYankIntegrationLot(undefined);
 								setCreateUserSinkIntegrationLot(undefined);
 							}}
+							replace
 						>
 							{createUserYankIntegrationLot ? (
 								<input
@@ -262,7 +262,7 @@ export default function Page() {
 								) : null}
 								<Button type="submit">Submit</Button>
 							</Stack>
-						</Box>
+						</Form>
 					</Modal>
 				</Box>
 				{actionData?.generateAuthToken ? (

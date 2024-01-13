@@ -159,7 +159,7 @@ export default function Page() {
 				withCloseButton={false}
 				centered
 			>
-				<Box component={Form} action="?intent=edit" method="post">
+				<Form replace action="?intent=edit" method="post">
 					<Stack>
 						<Title order={3}>Adjust times</Title>
 						<DateTimePicker
@@ -183,7 +183,7 @@ export default function Page() {
 							Submit
 						</Button>
 					</Stack>
-				</Box>
+				</Form>
 			</Modal>
 			<Container size="xs">
 				<Stack>

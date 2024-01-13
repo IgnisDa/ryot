@@ -67,7 +67,7 @@ export default function Page() {
 
 	return (
 		<Container size="lg">
-			<Form method="post">
+			<Form replace method="post">
 				<Stack>
 					<Title>Miscellaneous settings</Title>
 					<SimpleGrid

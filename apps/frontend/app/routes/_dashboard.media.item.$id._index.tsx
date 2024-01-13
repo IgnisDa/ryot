@@ -477,7 +477,7 @@ export default function Page() {
 
 	const PutOnHoldBtn = () => {
 		return (
-			<Form action="?intent=individualProgressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post" replace>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
@@ -486,7 +486,7 @@ export default function Page() {
 	};
 	const DropBtn = () => {
 		return (
-			<Form action="?intent=individualProgressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post" replace>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
@@ -980,6 +980,7 @@ export default function Page() {
 													<Form
 														action="?intent=individualProgressUpdate"
 														method="post"
+														replace
 													>
 														<input hidden name="progress" defaultValue={100} />
 														<input
@@ -1019,6 +1020,7 @@ export default function Page() {
 													<Form
 														action="?intent=individualProgressUpdate"
 														method="post"
+														replace
 													>
 														<input hidden name="progress" defaultValue={0} />
 														<Menu.Item
@@ -1104,7 +1106,11 @@ export default function Page() {
 											<Button variant="outline">More actions</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
-											<Form action="?intent=toggleMediaMonitor" method="post">
+											<Form
+												action="?intent=toggleMediaMonitor"
+												method="post"
+												replace
+											>
 												<Menu.Item
 													type="submit"
 													color={
@@ -1133,6 +1139,7 @@ export default function Page() {
 											<Form
 												action="?intent=deployUpdateMetadataJob"
 												method="post"
+												replace
 											>
 												<Menu.Item
 													type="submit"
@@ -1146,6 +1153,7 @@ export default function Page() {
 												<Form
 													action="?intent=deleteMediaReminder"
 													method="post"
+													replace
 												>
 													<Menu.Item
 														type="submit"
@@ -1177,6 +1185,7 @@ export default function Page() {
 												<Form
 													action="?intent=toggleMediaOwnership"
 													method="post"
+													replace
 												>
 													<Menu.Item
 														type="submit"
@@ -1523,6 +1532,7 @@ const ProgressUpdateModal = (props: {
 			<Form
 				method="post"
 				action="?intent=progressUpdate"
+				replace
 				onSubmit={props.onClose}
 			>
 				{[
@@ -1738,7 +1748,7 @@ const IndividualProgressModal = (props: {
 			centered
 			size="sm"
 		>
-			<Form action="?intent=individualProgressUpdate" method="post">
+			<Form action="?intent=individualProgressUpdate" method="post" replace>
 				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="progress" defaultValue={value} />
 				<input
@@ -1842,6 +1852,7 @@ const AdjustSeenTimesModal = (props: {
 			<Form
 				action="?intent=editSeenItem"
 				method="post"
+				replace
 				onSubmit={props.onClose}
 			>
 				<Stack>
@@ -1889,7 +1900,7 @@ const CreateReminderModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form method="post" action="?intent=createMediaReminder">
+			<Form method="post" action="?intent=createMediaReminder" replace>
 				<input
 					hidden
 					name="remindOn"
@@ -1950,7 +1961,7 @@ const CreateOwnershipModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form method="post" action="?intent=toggleMediaOwnership">
+			<Form method="post" action="?intent=toggleMediaOwnership" replace>
 				<Stack>
 					<Title order={3}>Mark media as owned</Title>
 					<DateInput
@@ -2003,7 +2014,7 @@ const MergeMetadataModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form method="post" action="?intent=mergeMetadata">
+			<Form method="post" action="?intent=mergeMetadata" replace>
 				<input hidden name="mergeFrom" defaultValue={props.metadataId} />
 				<Stack>
 					<Title order={3}>Merge media</Title>
@@ -2100,7 +2111,7 @@ const SeenItem = (props: {
 				data-seen-num-times-updated={props.history.numTimesUpdated}
 			>
 				<Flex direction="column" justify="center">
-					<Form action="?intent=deleteSeenItem" method="post">
+					<Form action="?intent=deleteSeenItem" method="post" replace>
 						<input hidden name="seenId" defaultValue={props.history.id} />
 						<ActionIcon
 							color="red"

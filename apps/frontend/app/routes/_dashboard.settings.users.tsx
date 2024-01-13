@@ -140,8 +140,8 @@ export default function Page() {
 					withCloseButton={false}
 					centered
 				>
-					<Box
-						component={Form}
+					<Form
+						replace
 						onSubmit={closeRegisterUserModal}
 						method="post"
 						action="?intent=register"
@@ -169,7 +169,7 @@ export default function Page() {
 								Create
 							</Button>
 						</Stack>
-					</Box>
+					</Form>
 				</Modal>
 				{loaderData.usersList.map((user) => (
 					<Paper p="xs" withBorder key={user.id}>
