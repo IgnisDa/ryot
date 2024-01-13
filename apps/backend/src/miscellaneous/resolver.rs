@@ -392,9 +392,9 @@ struct MetadataCreatorGroupedByRole {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct CreatorDetails {
+struct PersonDetails {
     details: person::Model,
-    contents: Vec<CreatorDetailsGroupedByRole>,
+    contents: Vec<PersonDetailsGroupedByRole>,
     source_url: Option<String>,
 }
 
@@ -412,11 +412,17 @@ struct GenreDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct CreatorDetailsGroupedByRole {
+struct PersonDetailsItemWithCharacter {
+    media: PartialMetadata,
+    character: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct PersonDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<PartialMetadata>,
+    items: Vec<PersonDetailsItemWithCharacter>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -596,7 +602,7 @@ struct ProgressUpdateCache {
 }
 
 #[derive(SimpleObject)]
-struct UserCreatorDetails {
+struct UserPersonDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
 }
@@ -778,11 +784,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about a creator present in the database.
-    async fn person_details(
-        &self,
-        gql_ctx: &Context<'_>,
-        person_id: i32,
-    ) -> Result<CreatorDetails> {
+    async fn person_details(&self, gql_ctx: &Context<'_>, person_id: i32) -> Result<PersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.person_details(person_id).await
     }
@@ -960,7 +962,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         person_id: i32,
-    ) -> Result<UserCreatorDetails> {
+    ) -> Result<UserPersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_person_details(user_id, person_id).await
@@ -1868,14 +1870,14 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         creator_id: i32,
-    ) -> Result<UserCreatorDetails> {
+    ) -> Result<UserPersonDetails> {
         let reviews = self
             .item_reviews(user_id, None, Some(creator_id), None, None)
             .await?;
         let collections =
             entity_in_collections(&self.db, user_id, creator_id.to_string(), EntityLot::Person)
                 .await?;
-        Ok(UserCreatorDetails {
+        Ok(UserPersonDetails {
             reviews,
             collections,
         })
@@ -6208,7 +6210,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn person_details(&self, person_id: i32) -> Result<CreatorDetails> {
+    async fn person_details(&self, person_id: i32) -> Result<PersonDetails> {
         let mut details = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
         details.display_images = details.images.as_urls(&self.file_storage_service).await;
         let associations = MetadataToPerson::find()
@@ -6229,17 +6231,21 @@ impl MiscellaneousService {
                 source: m.source,
                 id: m.id,
             };
+            let to_push = PersonDetailsItemWithCharacter {
+                character: assoc.character,
+                media: metadata
+            };
             contents
                 .entry(assoc.role)
                 .and_modify(|e| {
-                    e.push(metadata.clone());
+                    e.push(to_push.clone());
                 })
-                .or_insert(vec![metadata]);
+                .or_insert(vec![to_push]);
         }
         let contents = contents
             .into_iter()
             .sorted_by_key(|(role, _)| role.clone())
-            .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
+            .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
             .collect_vec();
         let slug = slug::slugify(&details.name);
         let identifier = &details.identifier;
@@ -6263,7 +6269,7 @@ impl MiscellaneousService {
             )),
             MetadataSource::Igdb => Some(format!("https://www.igdb.com/company/{slug}")),
         };
-        Ok(CreatorDetails {
+        Ok(PersonDetails {
             details,
             contents,
             source_url,
