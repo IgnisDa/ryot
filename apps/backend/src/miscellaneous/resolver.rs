@@ -4429,7 +4429,17 @@ impl MiscellaneousService {
         calculate_from_beginning: bool,
     ) -> Result<IdObject> {
         let (mut ls, start_from) = match calculate_from_beginning {
-            true => (UserSummary::default(), None),
+            true => {
+                UserToEntity::update_many()
+                    .filter(user_to_entity::Column::UserId.eq(user_id))
+                    .col_expr(
+                        user_to_entity::Column::MetadataUnitsConsumed,
+                        Expr::value(Some(0)),
+                    )
+                    .exec(&self.db)
+                    .await?;
+                (UserSummary::default(), None)
+            }
             false => {
                 let here = self.latest_user_summary(user_id).await?;
                 let time = here.calculated_on;
