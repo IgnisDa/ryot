@@ -23,6 +23,19 @@ impl MigrationTrait for Migration {
                 )
                 .await?;
         }
+        if !manager
+            .has_column(table_name, "metadata_units_consumed")
+            .await?
+        {
+            manager
+                .alter_table(
+                    TableAlterStatement::new()
+                        .table(UserToEntity::Table)
+                        .add_column(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
+                        .to_owned(),
+                )
+                .await?;
+        }
         Ok(())
     }
 

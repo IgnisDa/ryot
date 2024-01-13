@@ -20,7 +20,6 @@ pub enum UserToEntity {
     Id,
     UserId,
     LastUpdatedOn,
-    NumTimesInteracted,
     // the entities that can be associated
     MetadataId,
     ExerciseId,
@@ -30,6 +29,7 @@ pub enum UserToEntity {
     MetadataUnitsConsumed,
     MetadataOwnership,
     ExerciseExtraInformation,
+    ExerciseNumTimesInteracted,
 }
 
 #[async_trait::async_trait]
@@ -58,7 +58,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataOwnership).json_binary())
                     .col(
-                        ColumnDef::new(UserToEntity::NumTimesInteracted)
+                        ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted)
                             .integer()
                             .not_null()
                             .default(1),

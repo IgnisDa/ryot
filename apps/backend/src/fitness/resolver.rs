@@ -469,7 +469,11 @@ impl ExerciseService {
                 // are ordering by name for the other `sort_by` anyway.
                 ExerciseSortBy::Name => Expr::val("1"),
                 ExerciseSortBy::NumTimesPerformed => Expr::expr(Func::coalesce([
-                    Expr::col((etu.clone(), user_to_entity::Column::NumTimesInteracted)).into(),
+                    Expr::col((
+                        etu.clone(),
+                        user_to_entity::Column::ExerciseNumTimesInteracted,
+                    ))
+                    .into(),
                     Expr::val(0).into(),
                 ])),
                 ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
@@ -481,7 +485,10 @@ impl ExerciseService {
         };
         let query = Exercise::find()
             .column_as(
-                Expr::col((etu.clone(), user_to_entity::Column::NumTimesInteracted)),
+                Expr::col((
+                    etu.clone(),
+                    user_to_entity::Column::ExerciseNumTimesInteracted,
+                )),
                 "num_times_interacted",
             )
             .column_as(
