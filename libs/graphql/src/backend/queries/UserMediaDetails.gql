@@ -10,6 +10,7 @@ query UserMediaDetails($metadataId: Int!) {
       ...SeenPart
     }
     averageRating
+    unitsConsumed
     reviews {
       ...ReviewItemPart
     }

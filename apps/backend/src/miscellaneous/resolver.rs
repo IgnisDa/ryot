@@ -628,7 +628,9 @@ struct UserMediaDetails {
     /// The average rating of this media in this service.
     average_rating: Option<Decimal>,
     /// The ownership status of the media.
-    pub ownership: Option<UserMediaOwnership>,
+    ownership: Option<UserMediaOwnership>,
+    /// The number of units of this media that were consumed.
+    units_consumed: Option<i32>,
 }
 
 #[derive(SimpleObject, Debug, Clone)]
@@ -1833,6 +1835,7 @@ impl MiscellaneousService {
         let user_to_meta =
             get_user_and_metadata_association(&user_id, &metadata_id, &self.db).await;
         let reminder = user_to_meta.clone().and_then(|n| n.metadata_reminder);
+        let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
         let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
 
         let average_rating = if reviews.is_empty() {
@@ -1851,12 +1854,13 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
-            next_episode: next_episode.clone(),
+            next_episode,
             is_monitored,
             seen_by,
             reminder,
             average_rating,
             ownership,
+            units_consumed,
         })
     }
 
