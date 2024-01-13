@@ -4497,30 +4497,35 @@ impl MiscellaneousService {
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
+            let mut units_consumed = None;
             if let Some(specs) = meta.specifics {
                 match specs {
                     MediaSpecifics::AudioBook(item) => {
                         ls.unique_items.audio_books.insert(meta.id);
                         if let Some(r) = item.runtime {
                             ls.media.audio_books.runtime += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Anime(item) => {
                         ls.unique_items.anime.insert(meta.id);
                         if let Some(r) = item.episodes {
                             ls.media.anime.episodes += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Manga(item) => {
                         ls.unique_items.manga.insert(meta.id);
                         if let Some(r) = item.chapters {
                             ls.media.manga.chapters += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Book(item) => {
                         ls.unique_items.books.insert(meta.id);
                         if let Some(pg) = item.pages {
                             ls.media.books.pages += pg;
+                            units_consumed = Some(pg);
                         }
                     }
 
@@ -4528,6 +4533,7 @@ impl MiscellaneousService {
                         ls.unique_items.movies.insert(meta.id);
                         if let Some(r) = item.runtime {
                             ls.media.movies.runtime += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Show(item) => {
@@ -4545,6 +4551,7 @@ impl MiscellaneousService {
                                 {
                                     if let Some(r) = episode.runtime {
                                         ls.media.shows.runtime += r;
+                                        units_consumed = Some(r);
                                     }
                                     ls.unique_items.show_episodes.insert((
                                         meta.id,
@@ -4571,6 +4578,7 @@ impl MiscellaneousService {
                                 if let Some(episode) = item.get_episode(s.episode) {
                                     if let Some(r) = episode.runtime {
                                         ls.media.podcasts.runtime += r;
+                                        units_consumed = Some(r);
                                     }
                                     ls.unique_items
                                         .podcast_episodes
@@ -4586,10 +4594,14 @@ impl MiscellaneousService {
                         ls.unique_items.visual_novels.insert(seen.metadata_id);
                         if let Some(r) = item.length {
                             ls.media.visual_novels.runtime += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Unknown => {}
                 }
+            }
+            if let Some(consumed_update) = units_consumed {
+                todo!("Update the user_to_entity model");
             }
         }
 
