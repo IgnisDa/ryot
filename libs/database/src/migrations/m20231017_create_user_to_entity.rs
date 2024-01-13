@@ -27,6 +27,7 @@ pub enum UserToEntity {
     // specifics
     MetadataMonitored,
     MetadataReminder,
+    MetadataUnitsConsumed,
     MetadataOwnership,
     ExerciseExtraInformation,
 }
@@ -54,6 +55,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
                     .col(ColumnDef::new(UserToEntity::MetadataMonitored).boolean())
                     .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
+                    .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataOwnership).json_binary())
                     .col(
                         ColumnDef::new(UserToEntity::NumTimesInteracted)
