@@ -4601,7 +4601,19 @@ impl MiscellaneousService {
                 }
             }
             if let Some(consumed_update) = units_consumed {
-                todo!("Update the user_to_entity model");
+                UserToEntity::update_many()
+                    .filter(user_to_entity::Column::UserId.eq(user_id))
+                    .filter(user_to_entity::Column::MetadataId.eq(meta.id))
+                    .col_expr(
+                        user_to_entity::Column::MetadataUnitsConsumed,
+                        Expr::expr(Func::coalesce([
+                            Expr::col(user_to_entity::Column::MetadataUnitsConsumed).into(),
+                            Expr::val(0).into(),
+                        ]))
+                        .add(consumed_update),
+                    )
+                    .exec(&self.db)
+                    .await?;
             }
         }
 
