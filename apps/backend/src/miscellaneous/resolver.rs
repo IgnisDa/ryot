@@ -1563,6 +1563,7 @@ impl MiscellaneousService {
         }
         let creators = creators
             .into_iter()
+            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
         let partial_metadata_ids = MetadataToMetadata::find()
