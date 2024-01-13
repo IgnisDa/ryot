@@ -17,8 +17,8 @@ query UserExerciseDetails($input: UserExerciseDetailsInput!) {
     }
     details {
       exerciseId
-      numTimesInteracted
       lastUpdatedOn
+      exerciseNumTimesInteracted
       exerciseExtraInformation {
         lifetimeStats {
           weight

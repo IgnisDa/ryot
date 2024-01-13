@@ -70,7 +70,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		{ name: "In Progress" },
 		await getAuthorizationHeader(request),
 	);
-	console.log({ takeInProgress, takeUpcoming });
 	const collectionId = userCollectionsList[0].id;
 	const { collectionContents } = await gqlClient.request(
 		CollectionContentsDocument,

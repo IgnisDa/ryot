@@ -26,6 +26,8 @@ mod m20231226_add_character_column;
 mod m20231231_change_import_report_types;
 mod m20240105_add_repeated_from_column;
 mod m20240109_remove_persons;
+mod m20240112_add_metadata_units_consumed_column;
+mod m20240112_change_num_times_interacted;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -75,6 +77,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20231231_change_import_report_types::Migration),
             Box::new(m20240105_add_repeated_from_column::Migration),
             Box::new(m20240109_remove_persons::Migration),
+            Box::new(m20240112_add_metadata_units_consumed_column::Migration),
+            Box::new(m20240112_change_num_times_interacted::Migration),
         ]
     }
 }

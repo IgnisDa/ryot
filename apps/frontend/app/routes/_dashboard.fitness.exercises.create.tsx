@@ -1,6 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	Box,
 	Button,
 	Container,
 	FileInput,
@@ -133,7 +132,7 @@ export default function Page() {
 				externalLink={{ source: MetadataSource.Custom }}
 			>
 				<ScrollArea.Autosize mah={400}>
-					<Box component={Form} method="post">
+					<Form method="post" replace>
 						<Stack>
 							<Title>Create Exercise</Title>
 							<TextInput label="Name" required autoFocus name="id" />
@@ -201,7 +200,7 @@ export default function Page() {
 							/>
 							<Button type="submit">Create</Button>
 						</Stack>
-					</Box>
+					</Form>
 				</ScrollArea.Autosize>
 			</MediaDetailsLayout>
 		</Container>

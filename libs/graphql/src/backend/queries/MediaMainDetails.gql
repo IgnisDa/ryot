@@ -21,5 +21,12 @@ query MediaMainDetails($metadataId: Int!) {
       name
       part
     }
+    assets {
+      images
+      videos {
+        videoId
+        source
+      }
+    }
   }
 }

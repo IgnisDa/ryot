@@ -154,7 +154,7 @@ export default function Page() {
 			<Stack>
 				<Group justify="space-between">
 					<Title>Preferences</Title>
-					<Form method="post">
+					<Form method="post" reloadDocument>
 						<ActionIcon
 							color="red"
 							variant="outline"
