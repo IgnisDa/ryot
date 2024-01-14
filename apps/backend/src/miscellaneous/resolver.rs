@@ -4451,39 +4451,51 @@ impl MiscellaneousService {
 
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
-            .filter(review::Column::PostedOn.gt(start_from))
+            .apply_if(start_from, |query, v| {
+                query.filter(review::Column::PostedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
-            .filter(user_measurement::Column::Timestamp.gt(start_from))
+            .apply_if(start_from, |query, v| {
+                query.filter(user_measurement::Column::Timestamp.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
-            .filter(workout::Column::EndTime.gt(start_from))
+            .apply_if(start_from, |query, v| {
+                query.filter(workout::Column::EndTime.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_media_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .filter(user_to_entity::Column::LastUpdatedOn.gt(start_from))
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_exercises_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .filter(user_to_entity::Column::LastUpdatedOn.gt(start_from))
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
-            .filter(workout::Column::EndTime.gt(start_from))
+            .apply_if(start_from, |query, v| {
+                query.filter(workout::Column::EndTime.gt(v))
+            })
             .select_only()
             .column_as(
                 Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
