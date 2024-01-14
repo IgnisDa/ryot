@@ -107,10 +107,7 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                 }
                 s => {
                     failed_items.push(ImportFailedItem {
-                        error: Some(format!(
-                            "Import of this media type is not supported yet: {}",
-                            s
-                        )),
+                        error: Some(format!("Import of {s:#?} media type is not supported yet")),
                         identifier: metadata.title.unwrap_or_default(),
                         lot: None,
                         step: ImportFailStep::ItemDetailsFromSource,
@@ -120,9 +117,9 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
         }
     }
     Ok(ImportResult {
-        collections: vec![],
         media,
         failed_items,
         workouts: vec![],
+        collections: vec![],
     })
 }
