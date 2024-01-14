@@ -4451,33 +4451,39 @@ impl MiscellaneousService {
 
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .filter(review::Column::PostedOn.gt(start_from))
             .count(&self.db)
             .await?;
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_measurement::Column::Timestamp.gt(start_from))
             .count(&self.db)
             .await?;
 
         let num_workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .filter(workout::Column::EndTime.gt(start_from))
             .count(&self.db)
             .await?;
 
         let num_media_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .filter(user_to_entity::Column::LastUpdatedOn.gt(start_from))
             .count(&self.db)
             .await?;
 
         let num_exercises_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .filter(user_to_entity::Column::LastUpdatedOn.gt(start_from))
             .count(&self.db)
             .await?;
 
         let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .filter(workout::Column::EndTime.gt(start_from))
             .select_only()
             .column_as(
                 Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
@@ -4492,13 +4498,13 @@ impl MiscellaneousService {
             .await?
             .unwrap();
 
-        ls.media.reviews_posted = num_reviews;
-        ls.media.media_interacted_with = num_media_interacted_with;
-        ls.fitness.measurements_recorded = num_measurements;
-        ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
-        ls.fitness.workouts.recorded = num_workouts;
-        ls.fitness.workouts.weight = total_workout_weight;
-        ls.fitness.workouts.duration = total_workout_time.to_u64().unwrap();
+        ls.media.reviews_posted += num_reviews;
+        ls.media.media_interacted_with += num_media_interacted_with;
+        ls.fitness.measurements_recorded += num_measurements;
+        ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
+        ls.fitness.workouts.recorded += num_workouts;
+        ls.fitness.workouts.weight += total_workout_weight;
+        ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -6233,7 +6239,7 @@ impl MiscellaneousService {
             };
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
-                media: metadata
+                media: metadata,
             };
             contents
                 .entry(assoc.role)
