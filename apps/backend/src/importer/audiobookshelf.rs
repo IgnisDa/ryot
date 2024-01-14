@@ -76,39 +76,36 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
             .await
             .unwrap();
         for item in finished_items.results {
-            if let Some(lib_media) = item.media {
-                if let Some(metadata) = lib_media.metadata {
-                    match item.media_type.unwrap() {
-                        MediaType::Book => {
-                            let lot = MetadataLot::AudioBook;
-                            if let Some(asin) = metadata.asin {
-                                media.push(ImportOrExportMediaItem {
-                                    internal_identifier: Some(
-                                        ImportOrExportItemIdentifier::NeedsDetails(asin),
-                                    ),
-                                    lot,
-                                    source: MetadataSource::Audible,
-                                    source_id: metadata.title.unwrap_or_default(),
-                                    identifier: item.id,
-                                    collections: vec![],
-                                    reviews: vec![],
-                                    seen_history: vec![ImportOrExportMediaItemSeen {
-                                        ..Default::default()
-                                    }],
-                                })
-                            } else {
-                                failed_items.push(ImportFailedItem {
-                                    error: Some("No ASIN found".to_string()),
-                                    identifier: metadata.title.unwrap_or_default(),
-                                    lot: Some(lot),
-                                    step: ImportFailStep::InputTransformation,
-                                });
-                            }
-                        }
-                        MediaType::Podcast => {
-                            tracing::error!("Podcasts are not supported yet");
-                        }
+            let metadata = item.media.unwrap().metadata.unwrap();
+            match item.media_type.unwrap() {
+                MediaType::Book => {
+                    let lot = MetadataLot::AudioBook;
+                    if let Some(asin) = metadata.asin {
+                        media.push(ImportOrExportMediaItem {
+                            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                                asin,
+                            )),
+                            lot,
+                            source: MetadataSource::Audible,
+                            source_id: metadata.title.unwrap_or_default(),
+                            identifier: item.id,
+                            seen_history: vec![ImportOrExportMediaItemSeen {
+                                ..Default::default()
+                            }],
+                            collections: vec![],
+                            reviews: vec![],
+                        })
+                    } else {
+                        failed_items.push(ImportFailedItem {
+                            error: Some("No ASIN found".to_string()),
+                            identifier: metadata.title.unwrap_or_default(),
+                            lot: Some(lot),
+                            step: ImportFailStep::InputTransformation,
+                        });
                     }
+                }
+                MediaType::Podcast => {
+                    tracing::error!("Podcasts are not supported yet");
                 }
             }
         }
