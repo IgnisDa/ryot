@@ -1390,7 +1390,7 @@ impl MiscellaneousService {
 async fn get_service_latest_version() -> Result<String> {
     #[derive(Serialize, Deserialize, Debug)]
     struct GithubResponse {
-        tag_name: String,
+        tag_name: Option<String>,
     }
     let github_response = surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
         .header(USER_AGENT, USER_AGENT_STR)
@@ -1401,6 +1401,7 @@ async fn get_service_latest_version() -> Result<String> {
         .map_err(|e| anyhow!(e))?;
     let tag = github_response
         .tag_name
+        .ok_or(anyhow!("Could not get the latest version from Github"))?
         .strip_prefix('v')
         .unwrap()
         .to_owned();
