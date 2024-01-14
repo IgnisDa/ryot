@@ -4,6 +4,7 @@ use data_encoding::BASE64;
 use database::{MetadataLot, MetadataSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use strum::Display;
 use surf::http::headers::AUTHORIZATION;
 
 use crate::{
@@ -16,7 +17,7 @@ use crate::{
 
 use super::DeployAudiobookshelfImportInput;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Display)]
 #[serde(rename_all = "snake_case")]
 enum MediaType {
     Book,
@@ -104,8 +105,16 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                         });
                     }
                 }
-                MediaType::Podcast => {
-                    tracing::error!("Podcasts are not supported yet");
+                s => {
+                    failed_items.push(ImportFailedItem {
+                        error: Some(format!(
+                            "Import of this media type is not supported yet: {}",
+                            s
+                        )),
+                        identifier: metadata.title.unwrap_or_default(),
+                        lot: None,
+                        step: ImportFailStep::ItemDetailsFromSource,
+                    });
                 }
             }
         }
