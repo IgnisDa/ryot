@@ -1783,7 +1783,7 @@ const IndividualProgressModal = (props: {
 		>
 			<Form action="?intent=individualProgressUpdate" method="post" replace>
 				<input hidden name="metadataId" defaultValue={props.metadataId} />
-				<input hidden name="progress" defaultValue={value} />
+				<input hidden name="progress" value={value} readOnly />
 				<input
 					hidden
 					name="date"
