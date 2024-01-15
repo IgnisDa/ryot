@@ -75,3 +75,55 @@ jobs:
         run: flyctl deploy --remote-only --detach --config config/fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: ${{ needs.docker-build.result == 'success' && startsWith(github.ref, 'refs/tags/') }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Create a new release
+        uses: softprops/action-gh-release@v1
+
+      - name: Install nodejs dependencies
+        run: yarn install --immutable
+
+      - name: Setup Moon
+        uses: moonrepo/setup-moon-action@v1.2.0
+
+      - name: Build plugin
+        run: |
+          moon run kodi:build
+
+      - name: Upload plugin to releases
+        run: |
+          gh release upload ${{ github.ref_name }} "tmp/script.ryot.zip"
+
+  deploy-docs:
+    needs: release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Deploy to github pages
+        run: poetry run mkdocs gh-deploy --force
