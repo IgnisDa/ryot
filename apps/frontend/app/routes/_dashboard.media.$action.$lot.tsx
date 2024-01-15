@@ -164,9 +164,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 export const meta: MetaFunction = ({ params }) => {
 	return [
 		{
-			title: `${params.action === "list" ? "List" : "Search"} ${
-				params.lot?.toLowerCase() || ""
-			}s | Ryot`,
+			title: `${params.action === "list" ? "List" : "Search"} ${changeCase(
+				params.lot?.toLowerCase() || "",
+			)}s | Ryot`,
 		},
 	];
 };

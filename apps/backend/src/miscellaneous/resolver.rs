@@ -1390,7 +1390,7 @@ impl MiscellaneousService {
 async fn get_service_latest_version() -> Result<String> {
     #[derive(Serialize, Deserialize, Debug)]
     struct GithubResponse {
-        tag_name: String,
+        tag_name: Option<String>,
     }
     let github_response = surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
         .header(USER_AGENT, USER_AGENT_STR)
@@ -1401,6 +1401,7 @@ async fn get_service_latest_version() -> Result<String> {
         .map_err(|e| anyhow!(e))?;
     let tag = github_response
         .tag_name
+        .ok_or(anyhow!("Could not get the latest version from Github"))?
         .strip_prefix('v')
         .unwrap()
         .to_owned();
@@ -4451,33 +4452,51 @@ impl MiscellaneousService {
 
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(review::Column::PostedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(user_measurement::Column::Timestamp.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(workout::Column::EndTime.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_media_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_exercises_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(workout::Column::EndTime.gt(v))
+            })
             .select_only()
             .column_as(
                 Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
@@ -4492,13 +4511,13 @@ impl MiscellaneousService {
             .await?
             .unwrap();
 
-        ls.media.reviews_posted = num_reviews;
-        ls.media.media_interacted_with = num_media_interacted_with;
-        ls.fitness.measurements_recorded = num_measurements;
-        ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
-        ls.fitness.workouts.recorded = num_workouts;
-        ls.fitness.workouts.weight = total_workout_weight;
-        ls.fitness.workouts.duration = total_workout_time.to_u64().unwrap();
+        ls.media.reviews_posted += num_reviews;
+        ls.media.media_interacted_with += num_media_interacted_with;
+        ls.fitness.measurements_recorded += num_measurements;
+        ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
+        ls.fitness.workouts.recorded += num_workouts;
+        ls.fitness.workouts.weight += total_workout_weight;
+        ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -6233,7 +6252,7 @@ impl MiscellaneousService {
             };
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
-                media: metadata
+                media: metadata,
             };
             contents
                 .entry(assoc.role)

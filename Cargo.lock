@@ -1673,9 +1673,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e66c9d817f1720209181c316d28635c050fa304f9c79e47a520882661b7308"
+checksum = "7e962a19be5cfc3f3bf6dd8f61eb50107f356ad6270fbb3ed41476571db78be5"
 
 [[package]]
 name = "database"
@@ -4319,7 +4319,7 @@ checksum = "dc31bd9b61a32c31f9650d18add92aa83a49ba979c143eefd27fe7177b05bd5f"
 
 [[package]]
 name = "ryot"
-version = "4.1.2"
+version = "4.1.3"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4336,6 +4336,7 @@ dependencies = [
  "const-str",
  "convert_case",
  "csv",
+ "data-encoding",
  "database",
  "derive_more 1.0.0-beta.6",
  "dotenvy",
