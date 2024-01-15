@@ -392,9 +392,9 @@ struct MetadataCreatorGroupedByRole {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct CreatorDetails {
+struct PersonDetails {
     details: person::Model,
-    contents: Vec<CreatorDetailsGroupedByRole>,
+    contents: Vec<PersonDetailsGroupedByRole>,
     source_url: Option<String>,
 }
 
@@ -412,11 +412,17 @@ struct GenreDetails {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct CreatorDetailsGroupedByRole {
+struct PersonDetailsItemWithCharacter {
+    media: PartialMetadata,
+    character: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct PersonDetailsGroupedByRole {
     /// The name of the role performed.
     name: String,
     /// The media items in which this role was performed.
-    items: Vec<PartialMetadata>,
+    items: Vec<PersonDetailsItemWithCharacter>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -596,7 +602,7 @@ struct ProgressUpdateCache {
 }
 
 #[derive(SimpleObject)]
-struct UserCreatorDetails {
+struct UserPersonDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
 }
@@ -628,7 +634,9 @@ struct UserMediaDetails {
     /// The average rating of this media in this service.
     average_rating: Option<Decimal>,
     /// The ownership status of the media.
-    pub ownership: Option<UserMediaOwnership>,
+    ownership: Option<UserMediaOwnership>,
+    /// The number of units of this media that were consumed.
+    units_consumed: Option<i32>,
 }
 
 #[derive(SimpleObject, Debug, Clone)]
@@ -776,11 +784,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about a creator present in the database.
-    async fn person_details(
-        &self,
-        gql_ctx: &Context<'_>,
-        person_id: i32,
-    ) -> Result<CreatorDetails> {
+    async fn person_details(&self, gql_ctx: &Context<'_>, person_id: i32) -> Result<PersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.person_details(person_id).await
     }
@@ -958,7 +962,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         person_id: i32,
-    ) -> Result<UserCreatorDetails> {
+    ) -> Result<UserPersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_person_details(user_id, person_id).await
@@ -1386,7 +1390,7 @@ impl MiscellaneousService {
 async fn get_service_latest_version() -> Result<String> {
     #[derive(Serialize, Deserialize, Debug)]
     struct GithubResponse {
-        tag_name: String,
+        tag_name: Option<String>,
     }
     let github_response = surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
         .header(USER_AGENT, USER_AGENT_STR)
@@ -1397,6 +1401,7 @@ async fn get_service_latest_version() -> Result<String> {
         .map_err(|e| anyhow!(e))?;
     let tag = github_response
         .tag_name
+        .ok_or(anyhow!("Could not get the latest version from Github"))?
         .strip_prefix('v')
         .unwrap()
         .to_owned();
@@ -1563,6 +1568,7 @@ impl MiscellaneousService {
         }
         let creators = creators
             .into_iter()
+            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
         let partial_metadata_ids = MetadataToMetadata::find()
@@ -1832,6 +1838,7 @@ impl MiscellaneousService {
         let user_to_meta =
             get_user_and_metadata_association(&user_id, &metadata_id, &self.db).await;
         let reminder = user_to_meta.clone().and_then(|n| n.metadata_reminder);
+        let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
         let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
 
         let average_rating = if reviews.is_empty() {
@@ -1850,12 +1857,13 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
-            next_episode: next_episode.clone(),
+            next_episode,
             is_monitored,
             seen_by,
             reminder,
             average_rating,
             ownership,
+            units_consumed,
         })
     }
 
@@ -1863,14 +1871,14 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         creator_id: i32,
-    ) -> Result<UserCreatorDetails> {
+    ) -> Result<UserPersonDetails> {
         let reviews = self
             .item_reviews(user_id, None, Some(creator_id), None, None)
             .await?;
         let collections =
             entity_in_collections(&self.db, user_id, creator_id.to_string(), EntityLot::Person)
                 .await?;
-        Ok(UserCreatorDetails {
+        Ok(UserPersonDetails {
             reviews,
             collections,
         })
@@ -2671,6 +2679,7 @@ impl MiscellaneousService {
                 let many_metadata = Metadata::find()
                     .select_only()
                     .column(metadata::Column::Id)
+                    .filter(metadata::Column::IsPartial.eq(false))
                     .order_by_asc(metadata::Column::LastUpdatedOn)
                     .into_tuple::<i32>()
                     .all(&self.db)
@@ -3707,12 +3716,12 @@ impl MiscellaneousService {
                 };
                 let rating = match respect_preferences {
                     true => {
-                        let prefs =
+                        let preferences =
                             partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
                                 .await?
                                 .preferences;
                         r.rating.map(|s| {
-                            s.checked_div(match prefs.general.review_scale {
+                            s.checked_div(match preferences.general.review_scale {
                                 UserReviewScale::OutOfFive => dec!(20),
                                 UserReviewScale::OutOfHundred => dec!(1),
                             })
@@ -4423,7 +4432,17 @@ impl MiscellaneousService {
         calculate_from_beginning: bool,
     ) -> Result<IdObject> {
         let (mut ls, start_from) = match calculate_from_beginning {
-            true => (UserSummary::default(), None),
+            true => {
+                UserToEntity::update_many()
+                    .filter(user_to_entity::Column::UserId.eq(user_id))
+                    .col_expr(
+                        user_to_entity::Column::MetadataUnitsConsumed,
+                        Expr::value(Some(0)),
+                    )
+                    .exec(&self.db)
+                    .await?;
+                (UserSummary::default(), None)
+            }
             false => {
                 let here = self.latest_user_summary(user_id).await?;
                 let time = here.calculated_on;
@@ -4433,33 +4452,51 @@ impl MiscellaneousService {
 
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(review::Column::PostedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(user_measurement::Column::Timestamp.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(workout::Column::EndTime.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_media_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let num_exercises_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
             .count(&self.db)
             .await?;
 
         let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .apply_if(start_from, |query, v| {
+                query.filter(workout::Column::EndTime.gt(v))
+            })
             .select_only()
             .column_as(
                 Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
@@ -4474,13 +4511,13 @@ impl MiscellaneousService {
             .await?
             .unwrap();
 
-        ls.media.reviews_posted = num_reviews;
-        ls.media.media_interacted_with = num_media_interacted_with;
-        ls.fitness.measurements_recorded = num_measurements;
-        ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
-        ls.fitness.workouts.recorded = num_workouts;
-        ls.fitness.workouts.weight = total_workout_weight;
-        ls.fitness.workouts.duration = total_workout_time.to_u64().unwrap();
+        ls.media.reviews_posted += num_reviews;
+        ls.media.media_interacted_with += num_media_interacted_with;
+        ls.fitness.measurements_recorded += num_measurements;
+        ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
+        ls.fitness.workouts.recorded += num_workouts;
+        ls.fitness.workouts.weight += total_workout_weight;
+        ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -4495,37 +4532,35 @@ impl MiscellaneousService {
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
-            meta.find_related(MetadataToPerson)
-                .all(&self.db)
-                .await?
-                .into_iter()
-                .for_each(|c| {
-                    ls.unique_items.creators.insert(c.person_id);
-                });
+            let mut units_consumed = None;
             if let Some(specs) = meta.specifics {
                 match specs {
                     MediaSpecifics::AudioBook(item) => {
                         ls.unique_items.audio_books.insert(meta.id);
                         if let Some(r) = item.runtime {
                             ls.media.audio_books.runtime += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Anime(item) => {
                         ls.unique_items.anime.insert(meta.id);
                         if let Some(r) = item.episodes {
                             ls.media.anime.episodes += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Manga(item) => {
                         ls.unique_items.manga.insert(meta.id);
                         if let Some(r) = item.chapters {
                             ls.media.manga.chapters += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Book(item) => {
                         ls.unique_items.books.insert(meta.id);
                         if let Some(pg) = item.pages {
                             ls.media.books.pages += pg;
+                            units_consumed = Some(pg);
                         }
                     }
 
@@ -4533,6 +4568,7 @@ impl MiscellaneousService {
                         ls.unique_items.movies.insert(meta.id);
                         if let Some(r) = item.runtime {
                             ls.media.movies.runtime += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Show(item) => {
@@ -4550,6 +4586,7 @@ impl MiscellaneousService {
                                 {
                                     if let Some(r) = episode.runtime {
                                         ls.media.shows.runtime += r;
+                                        units_consumed = Some(r);
                                     }
                                     ls.unique_items.show_episodes.insert((
                                         meta.id,
@@ -4576,6 +4613,7 @@ impl MiscellaneousService {
                                 if let Some(episode) = item.get_episode(s.episode) {
                                     if let Some(r) = episode.runtime {
                                         ls.media.podcasts.runtime += r;
+                                        units_consumed = Some(r);
                                     }
                                     ls.unique_items
                                         .podcast_episodes
@@ -4591,14 +4629,28 @@ impl MiscellaneousService {
                         ls.unique_items.visual_novels.insert(seen.metadata_id);
                         if let Some(r) = item.length {
                             ls.media.visual_novels.runtime += r;
+                            units_consumed = Some(r);
                         }
                     }
                     MediaSpecifics::Unknown => {}
                 }
             }
+            if let Some(consumed_update) = units_consumed {
+                UserToEntity::update_many()
+                    .filter(user_to_entity::Column::UserId.eq(user_id))
+                    .filter(user_to_entity::Column::MetadataId.eq(meta.id))
+                    .col_expr(
+                        user_to_entity::Column::MetadataUnitsConsumed,
+                        Expr::expr(Func::coalesce([
+                            Expr::col(user_to_entity::Column::MetadataUnitsConsumed).into(),
+                            Expr::val(0).into(),
+                        ]))
+                        .add(consumed_update),
+                    )
+                    .exec(&self.db)
+                    .await?;
+            }
         }
-
-        ls.media.creators_interacted_with = ls.unique_items.creators.len();
 
         ls.media.podcasts.played_episodes = ls.unique_items.podcast_episodes.len();
         ls.media.podcasts.played = ls.unique_items.podcasts.len();
@@ -6177,7 +6229,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn person_details(&self, person_id: i32) -> Result<CreatorDetails> {
+    async fn person_details(&self, person_id: i32) -> Result<PersonDetails> {
         let mut details = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
         details.display_images = details.images.as_urls(&self.file_storage_service).await;
         let associations = MetadataToPerson::find()
@@ -6198,17 +6250,21 @@ impl MiscellaneousService {
                 source: m.source,
                 id: m.id,
             };
+            let to_push = PersonDetailsItemWithCharacter {
+                character: assoc.character,
+                media: metadata,
+            };
             contents
                 .entry(assoc.role)
                 .and_modify(|e| {
-                    e.push(metadata.clone());
+                    e.push(to_push.clone());
                 })
-                .or_insert(vec![metadata]);
+                .or_insert(vec![to_push]);
         }
         let contents = contents
             .into_iter()
             .sorted_by_key(|(role, _)| role.clone())
-            .map(|(name, items)| CreatorDetailsGroupedByRole { name, items })
+            .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
             .collect_vec();
         let slug = slug::slugify(&details.name);
         let identifier = &details.identifier;
@@ -6232,7 +6288,7 @@ impl MiscellaneousService {
             )),
             MetadataSource::Igdb => Some(format!("https://www.igdb.com/company/{slug}")),
         };
-        Ok(CreatorDetails {
+        Ok(PersonDetails {
             details,
             contents,
             source_url,

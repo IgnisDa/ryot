@@ -110,7 +110,7 @@ impl IsFeatureEnabled for BookConfig {}
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
     /// The Postgres database connection string.
-    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres
+    /// Format described in https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres.
     #[setting(validate = not_empty)]
     pub url: String,
 }
@@ -175,7 +175,7 @@ impl IsFeatureEnabled for PodcastConfig {}
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
 pub struct TwitchConfig {
     /// The client ID issues by Twitch. **Required** to enable video games
-    /// tracking. [More information](/docs/guides/video-games.md)
+    /// tracking. [More information](/docs/guides/video-games.md).
     pub client_id: String,
     /// The client secret issued by Twitch. **Required** to enable video games
     /// tracking.
@@ -248,7 +248,7 @@ pub struct FileStorageConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
 pub struct FrontendUmamiConfig {
-    /// For example: https://umami.is/script.js
+    /// For example: https://umami.is/script.js.
     pub script_url: String,
     pub website_id: String,
     pub domains: String,

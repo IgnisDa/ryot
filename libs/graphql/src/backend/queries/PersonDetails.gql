@@ -16,9 +16,12 @@ query PersonDetails($personId: Int!) {
     contents {
       name
       items {
-        id
-        title
-        image
+        character
+        media {
+          id
+          title
+          image
+        }
       }
     }
   }

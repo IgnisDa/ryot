@@ -691,7 +691,6 @@ pub mod media {
         pub anime: AnimeSummary,
         pub manga: MangaSummary,
         pub reviews_posted: u64,
-        pub creators_interacted_with: usize,
         pub media_interacted_with: u64,
     }
     #[derive(
@@ -744,7 +743,6 @@ pub mod media {
         pub shows: HashSet<i32>,
         pub podcast_episodes: HashSet<(i32, i32)>,
         pub podcasts: HashSet<i32>,
-        pub creators: HashSet<i32>,
     }
 
     #[derive(
@@ -1674,6 +1672,7 @@ pub mod fitness {
         #[graphql(skip_input)]
         // If specified, the workout will be created with this ID.
         pub id: Option<String>,
+        pub repeated_from: Option<String>,
         pub name: String,
         pub comment: Option<String>,
         pub start_time: DateTimeUtc,

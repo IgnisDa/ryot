@@ -20,14 +20,14 @@ use super::{DeployStrongAppImportInput, ImportResult};
 #[serde(rename_all = "PascalCase")]
 struct Entry {
     date: String,
-    notes: Option<String>,
     weight: Option<Decimal>,
     reps: Option<usize>,
     distance: Option<Decimal>,
     seconds: Option<Decimal>,
+    notes: Option<String>,
     #[serde(alias = "Set Order")]
     set_order: u8,
-    #[serde(alias = "Workout Duration")]
+    #[serde(alias = "Workout Duration", alias = "Duration")]
     workout_duration: String,
     #[serde(alias = "Workout Name")]
     workout_name: String,
@@ -47,9 +47,19 @@ pub async fn import(
         .local_minus_utc();
     let offset = Duration::seconds(offset.into());
     let file_string = fs::read_to_string(&input.export_path)?;
+    // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
+    let data = file_string.clone();
+    let first_line = data.lines().next().unwrap();
+    let delimiter = if first_line.contains(';') {
+        b';'
+    } else if first_line.contains(',') {
+        b','
+    } else {
+        return Err("Could not determine delimiter".into());
+    };
     let mut workouts = vec![];
     let mut entries_reader = ReaderBuilder::new()
-        .delimiter(b';')
+        .delimiter(delimiter)
         .from_reader(file_string.as_bytes())
         .deserialize::<Entry>()
         .map(|r| r.unwrap())
@@ -117,6 +127,7 @@ pub async fn import(
             };
             workouts.push(UserWorkoutInput {
                 id: None,
+                repeated_from: None,
                 name: entry.workout_name,
                 comment: entry.workout_notes,
                 start_time: ndt,

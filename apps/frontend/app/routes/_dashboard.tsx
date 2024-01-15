@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
@@ -19,7 +20,7 @@ import {
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
+import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetails,
 	UpgradeType,
@@ -138,6 +139,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
+	const [parent] = useAutoAnimate();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -259,7 +261,7 @@ export default function Layout() {
 				</Box>
 				<Stack gap="xs">
 					<Flex direction="column" justify="center" gap="md">
-						<Form method="POST" action="/actions?intent=toggleColorScheme">
+						<Form method="post" action="/actions?intent=toggleColorScheme">
 							<Group justify="center">
 								<UnstyledButton
 									aria-label="Toggle theme"
@@ -281,7 +283,7 @@ export default function Layout() {
 							</Group>
 						</Form>
 						<Form
-							method="POST"
+							method="post"
 							action="/actions?intent=logout"
 							style={{ display: "flex" }}
 						>
@@ -329,7 +331,7 @@ export default function Layout() {
 					/>
 				</Flex>
 				<AppShell.Main py={{ sm: "xl" }}>
-					<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%">
+					<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%" ref={parent}>
 						<Outlet />
 					</Box>
 					<Box className={classes.shellFooter}>
@@ -366,14 +368,18 @@ function LinksGroup({
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const allLinks = (hasLinks ? links || [] : []).filter(Boolean);
 	const items = allLinks.map((link) => (
-		<Link
+		<NavLink
 			className={classes.link}
 			to={link.link}
 			key={link.label}
 			onClick={toggle}
 		>
-			{link.label}
-		</Link>
+			{({ isActive }) => (
+				<span style={isActive ? { textDecoration: "underline" } : undefined}>
+					{link.label}
+				</span>
+			)}
+		</NavLink>
 	));
 
 	return (

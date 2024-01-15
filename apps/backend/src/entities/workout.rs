@@ -24,6 +24,7 @@ use crate::{
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub repeated_from: Option<String>,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
     #[schema(exclude)]
@@ -68,6 +69,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(
+        belongs_to = "Entity",
+        from = "Column::RepeatedFrom",
+        to = "Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    RepeatedFrom,
 }
 
 impl Related<super::user::Entity> for Entity {

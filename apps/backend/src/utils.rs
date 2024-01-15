@@ -5,11 +5,10 @@ use async_graphql::{Error, Result};
 use axum::{
     async_trait,
     extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
+    http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
 use chrono::{NaiveDate, Utc};
-use http::header::AUTHORIZATION;
 use http_types::headers::HeaderName;
 use itertools::Itertools;
 use rs_utils::PROJECT_NAME;
@@ -153,13 +152,7 @@ where
             };
             user_to_meta.insert(db).await.unwrap()
         }
-        Some(u) => {
-            let increase = u.num_times_interacted;
-            let mut i: user_to_entity::ActiveModel = u.into();
-            i.last_updated_on = ActiveValue::Set(Utc::now());
-            i.num_times_interacted = ActiveValue::Set(increase + 1);
-            i.update(db).await.unwrap()
-        }
+        Some(u) => u,
     })
 }
 

@@ -186,7 +186,7 @@ export default function Page() {
 					<Flex justify="end">
 						<Group>
 							{loaderData.userNotificationPlatforms.length > 0 ? (
-								<Form action="?intent=test" method="post">
+								<Form action="?intent=test" method="post" replace>
 									<Button size="xs" variant="light" color="green" type="submit">
 										Trigger test notifications
 									</Button>

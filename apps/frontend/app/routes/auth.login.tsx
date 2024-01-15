@@ -135,12 +135,12 @@ export default function Page() {
 					Login
 				</Button>
 				{loaderData.enabledFeatures.signupAllowed ? (
-					<Box mt="lg" style={{ textAlign: "right" }}>
-						Need an account? Register{" "}
+					<Box mt="lg" ta="right">
+						Create a{" "}
 						<Anchor to={$path("/auth/register")} component={Link}>
-							here
+							new account
 						</Anchor>
-						.
+						?
 					</Box>
 				) : null}
 			</Box>

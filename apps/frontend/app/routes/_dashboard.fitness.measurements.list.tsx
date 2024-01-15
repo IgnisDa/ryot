@@ -166,7 +166,7 @@ export default function Page() {
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
-				<Box component={Form} method="post" action="?intent=create">
+				<Form replace method="post" action="?intent=create">
 					<Stack>
 						<DateTimePicker
 							label="Timestamp"
@@ -207,7 +207,7 @@ export default function Page() {
 						<Textarea label="Comment" name="comment" />
 						<Button type="submit">Submit</Button>
 					</Stack>
-				</Box>
+				</Form>
 			</Drawer>
 			<Stack>
 				<Flex align="center" gap="md">
@@ -319,7 +319,7 @@ export default function Page() {
 									width: 80,
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<Form action="?intent=delete" method="post">
+										<Form action="?intent=delete" method="post" replace>
 											<ActionIcon
 												color="red"
 												onClick={(e) => {

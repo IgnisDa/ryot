@@ -70,7 +70,11 @@ export interface ImportOrExportItemReview {
 	spoiler: boolean | null;
 	/** Actual text for the review. */
 	text: string | null;
-	/** The visibility set by the user. */
+	/**
+	 * The visibility set by the user.
+	 *
+	 * @default 'public'
+	 */
 	visibility: Visibility | null;
 }
 
@@ -114,13 +118,21 @@ export interface ImportOrExportMediaItem {
 	collections: string[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
 	identifier: string;
-	/** The type of media. */
+	/**
+	 * The type of media.
+	 *
+	 * @default 'Book'
+	 */
 	lot: MetadataLot;
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
 	/** The seen history for the user. */
 	seenHistory: ImportOrExportMediaItemSeen[];
-	/** The source of media. */
+	/**
+	 * The source of media.
+	 *
+	 * @default 'Audible'
+	 */
 	source: MetadataSource;
 	/** An string to help identify it in the original source. */
 	sourceId: string;
@@ -225,6 +237,7 @@ export interface Workout {
 	id: string;
 	information: WorkoutInformation;
 	name: string;
+	repeatedFrom: string | null;
 	startTime: string;
 	summary: WorkoutSummary;
 }

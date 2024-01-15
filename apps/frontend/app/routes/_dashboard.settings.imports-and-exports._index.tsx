@@ -89,6 +89,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, traktImportFormSchema),
 				}))
+				.with(ImportSource.Audiobookshelf, () => ({
+					audiobookshelf: processSubmission(
+						formData,
+						audiobookshelfImportFormSchema,
+					),
+				}))
 				.with(ImportSource.MediaTracker, () => ({
 					mediaTracker: processSubmission(
 						formData,
@@ -147,6 +153,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const mediaTrackerImportFormSchema = z.object({
+	apiUrl: z.string().url(),
+	apiKey: z.string(),
+});
+
+const audiobookshelfImportFormSchema = z.object({
 	apiUrl: z.string().url(),
 	apiKey: z.string(),
 });
@@ -225,6 +236,7 @@ export default function Page() {
 									<Title order={2}>Import data</Title>
 									<Anchor
 										size="xs"
+										// FIXME: Use `useFragment` here
 										href={`https://ignisda.github.io/ryot/importing.html#${match(
 											deployImportSource,
 										)
@@ -261,6 +273,21 @@ export default function Page() {
 									<ImportSourceElement fetcher={fetcher} formRef={formRef}>
 										{match(deployImportSource)
 											.with(ImportSource.MediaTracker, () => (
+												<>
+													<TextInput
+														label="Instance Url"
+														required
+														name="apiUrl"
+													/>
+													<PasswordInput
+														mt="sm"
+														label="API Key"
+														required
+														name="apiKey"
+													/>
+												</>
+											))
+											.with(ImportSource.Audiobookshelf, () => (
 												<>
 													<TextInput
 														label="Instance Url"

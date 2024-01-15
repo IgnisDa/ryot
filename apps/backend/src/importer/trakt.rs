@@ -191,7 +191,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     && (show_season_number.is_none() || show_episode_number.is_none())
                 {
                     failed_items.push(ImportFailedItem {
-                        lot: d.lot,
+                        lot: Some(d.lot),
                         step: ImportFailStep::ItemDetailsFromSource,
                         identifier: "".to_owned(),
                         error: Some(
@@ -233,7 +233,7 @@ fn process_item(
         (d.ids.trakt, d.ids.tmdb, MetadataLot::Show)
     } else {
         return Err(ImportFailedItem {
-            lot: MetadataLot::VideoGame,
+            lot: None,
             step: ImportFailStep::ItemDetailsFromSource,
             identifier: "".to_owned(),
             error: Some("Item is neither a movie or a show".to_owned()),
@@ -251,7 +251,7 @@ fn process_item(
             collections: vec![],
         }),
         None => Err(ImportFailedItem {
-            lot: MetadataLot::Book,
+            lot: None,
             step: ImportFailStep::ItemDetailsFromSource,
             identifier: "".to_owned(),
             error: Some("Item does not have an associated TMDB id".to_owned()),

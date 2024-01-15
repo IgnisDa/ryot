@@ -40,6 +40,8 @@ pub enum ImportSource {
     StoryGraph,
     #[sea_orm(string_value = "SA")]
     StrongApp,
+    #[sea_orm(string_value = "AB")]
+    Audiobookshelf,
 }
 
 #[derive(Iden)]

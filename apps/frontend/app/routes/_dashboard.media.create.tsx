@@ -1,7 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
-	Box,
 	Button,
 	Code,
 	Container,
@@ -136,7 +135,7 @@ export default function Page() {
 				externalLink={{ source: MetadataSource.Custom }}
 			>
 				<ScrollArea.Autosize mah={400}>
-					<Box component={Form} method="post">
+					<Form method="post">
 						<Stack>
 							<Title>Create Media</Title>
 							<TextInput label="Title" required autoFocus name="title" />
@@ -157,7 +156,7 @@ export default function Page() {
 								description={
 									<>
 										Please search for <Code>Specifics</Code> inputs at the{" "}
-										<Anchor href="/graphql" size="xs" target="_blank">
+										<Anchor href="/backend/graphql" size="xs" target="_blank">
 											graphql endpoint
 										</Anchor>{" "}
 										for the required JSON structure
@@ -222,7 +221,7 @@ export default function Page() {
 							/>
 							<Button type="submit">Create</Button>
 						</Stack>
-					</Box>
+					</Form>
 				</ScrollArea.Autosize>
 			</MediaDetailsLayout>
 		</Container>

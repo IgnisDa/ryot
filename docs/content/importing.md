@@ -8,6 +8,13 @@ before starting an import. To start, click on "Imports and Exports" link under t
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
 You can go to the reports page by clicking on "Reports" link on the imports page.
 
+## Notes
+
+- Imports are very difficult to have 100% success rate. Though we try our best,
+  you might have to manually import some data from your previous provider.
+- You can see the descriptions of the failing importing steps by reviewing the
+  documentation of the `ImportFailStep` enum in the `/backend/graphql` endpoint.
+
 ## Goodreads
 
 Ryot translates [Goodreads](https://www.goodreads.com/) shelves in the
@@ -129,6 +136,24 @@ their ratings, history, comments and lists. A few points to note.
   going to your profile page, and checking the URL.
 - Enter this username in the input.
 
+## Audiobookshelf
+
+!!! warning
+
+      This will only import media that are already finished. Setup an
+      [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
+
+!!! warning
+
+      The Audiobookshelf importer supports only audio books. If also need to import
+      podcasts, please open an issue and wait till podcast support is added.
+
+### Steps
+
+- Obtain an API token as described in the Audiobookshelf
+  [authentication](https://api.audiobookshelf.org/#authentication) docs.
+- Enter the correct details in the input.
+
 ## TV Time
 
 !!! warning
@@ -137,10 +162,3 @@ their ratings, history, comments and lists. A few points to note.
 
 All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
 tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
-
-## Notes
-
-- Imports are very difficult to have 100% success rate. Though we try our best,
-  you might have to manually import some data from your previous provider.
-- You can see the descriptions of the failing importing steps by reviewing the
-  documentation of the `ImportFailStep` enum in the `/graphql` endpoint.

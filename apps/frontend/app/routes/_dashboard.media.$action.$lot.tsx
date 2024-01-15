@@ -14,7 +14,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -37,7 +37,7 @@ import {
 	IconSortDescending,
 	IconX,
 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -164,24 +164,24 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 export const meta: MetaFunction = ({ params }) => {
 	return [
 		{
-			title: `${params.action === "list" ? "List" : "Search"} ${
-				params.lot?.toLowerCase() || ""
-			}s | Ryot`,
+			title: `${params.action === "list" ? "List" : "Search"} ${changeCase(
+				params.lot?.toLowerCase() || "",
+			)}s | Ryot`,
 		},
 	];
 };
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [searchParams, { setP }] = useSearchParam();
+	const [_, { setP }] = useSearchParam();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
-	const [query, setQuery] = useState(searchParams.get("query") || "");
+	const [query, setQuery] = useState(loaderData.query || "");
 
-	useEffect(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", query), [query]);
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==

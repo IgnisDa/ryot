@@ -187,31 +187,32 @@ export default function Page() {
 										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 											{role.items.map((item) => (
 												<Anchor
-													key={item.id}
-													data-media-id={item.id}
+													key={item.media.id}
+													data-media-id={item.media.id}
 													component={Link}
 													to={$path("/media/item/:id", {
-														id: item.id || "",
+														id: item.media.id || "",
 													})}
 												>
 													<Avatar
 														imageProps={{ loading: "lazy" }}
-														src={item.image}
+														src={item.media.image}
 														radius="sm"
 														h={100}
 														w={85}
 														mx="auto"
-														alt={`${item.title} picture`}
+														alt={item.media.title}
 														styles={{ image: { objectPosition: "top" } }}
 													/>
 													<Text
 														c="dimmed"
 														size="xs"
 														ta="center"
-														lineClamp={1}
+														lineClamp={2}
 														mt={4}
 													>
-														{item.title}
+														{item.media.title}{" "}
+														{item.character ? `as ${item.character}` : ""}
 													</Text>
 												</Anchor>
 											))}

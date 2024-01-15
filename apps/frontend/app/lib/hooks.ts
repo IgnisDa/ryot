@@ -2,12 +2,9 @@ import { $path } from "@ignisda/remix-routes";
 import { useMantineTheme } from "@mantine/core";
 import { useNavigate, useSearchParams } from "@remix-run/react";
 import { useAtom } from "jotai";
-import { getStringAsciiValue } from "./generals";
-import {
-	InProgressWorkout,
-	currentWorkoutAtom,
-	setWorkoutStartingCookie,
-} from "./workout";
+import Cookies from "js-cookie";
+import { COOKIES_KEYS, getStringAsciiValue } from "./generals";
+import { InProgressWorkout, currentWorkoutAtom } from "./workout";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();
@@ -47,7 +44,11 @@ export function getWorkoutStarter() {
 
 	const fn = (wkt: InProgressWorkout) => {
 		setCurrentWorkout(wkt);
-		setWorkoutStartingCookie();
+		Cookies.set(COOKIES_KEYS.isWorkoutInProgress, "true", {
+			expires: 2,
+			sameSite: "Strict",
+			secure: true,
+		});
 		navigate($path("/fitness/workouts/current"));
 	};
 	return fn;

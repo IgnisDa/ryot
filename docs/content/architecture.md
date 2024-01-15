@@ -1,7 +1,7 @@
 # Architecture
 
 The frontend is a Remix app, the backend is an Axum server. All these run behind a Caddy
-reverse proxy managed by `supervisord`.
+reverse proxy and are managed by `concurrently`.
 
 ## Logs
 

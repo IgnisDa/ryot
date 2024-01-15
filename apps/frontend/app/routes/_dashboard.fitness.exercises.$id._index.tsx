@@ -194,10 +194,11 @@ export default function Page() {
 										data={changeCase(loaderData.exerciseDetails.lot)}
 									/>
 								) : null}
-								{loaderData.userExerciseDetails.details?.numTimesInteracted ? (
+								{loaderData.userExerciseDetails.details
+									?.exerciseNumTimesInteracted ? (
 									<DisplayData
 										name="Times done"
-										data={`${loaderData.userExerciseDetails.details.numTimesInteracted} times`}
+										data={`${loaderData.userExerciseDetails.details.exerciseNumTimesInteracted} times`}
 										noCasing
 									/>
 								) : null}
@@ -250,12 +251,10 @@ export default function Page() {
 									<Paper key={h.workoutId} withBorder p="xs">
 										<Anchor
 											component={Link}
-											to={
-												$path("/fitness/workouts/:id", {
-													id: h.workoutId,
-													// FIXME: Use the `withFragment` helper from ufo
-												}) + `#${loaderData.exerciseDetails.id}__${h.index}`
-											}
+											to={`${$path("/fitness/workouts/:id", {
+												id: h.workoutId,
+												// FIXME: Use the `withFragment` helper from ufo
+											})}#${loaderData.exerciseDetails.id}__${h.index}`}
 											fw="bold"
 										>
 											{h.workoutName}
@@ -327,7 +326,7 @@ export default function Page() {
 											stat="times done"
 											val={
 												loaderData.userExerciseDetails.details
-													.numTimesInteracted
+													.exerciseNumTimesInteracted || 0
 											}
 										/>
 									</Box>
@@ -384,13 +383,12 @@ export default function Page() {
 																	</Text>
 																	<Anchor
 																		component={Link}
-																		to={
-																			$path("/fitness/workouts/:id", {
-																				id: s.workoutId,
-																				// FIXME: Use the `withFragment` helper from ufo
-																			}) +
-																			`#${loaderData.exerciseDetails.id}__${s.exerciseIdx}`
-																		}
+																		to={`${$path("/fitness/workouts/:id", {
+																			id: s.workoutId,
+																			// FIXME: Use the `withFragment` helper from ufo
+																		})}#${loaderData.exerciseDetails.id}__${
+																			s.exerciseIdx
+																		}`}
 																		fw="bold"
 																	>
 																		<IconExternalLink size={16} />

@@ -18,6 +18,8 @@ pub enum Workout {
     Summary,
     /// Actual exercises performed, supersets, etc.
     Information,
+    /// The workout this one was repeated from
+    RepeatedFrom,
 }
 
 #[async_trait::async_trait]
@@ -60,6 +62,24 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Workout::Name).string().not_null())
                     .col(ColumnDef::new(Workout::Comment).string())
+                    .col(ColumnDef::new(Workout::RepeatedFrom).string())
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .alter_table(
+                TableAlterStatement::new()
+                    .table(Workout::Table)
+                    .add_foreign_key(
+                        TableForeignKey::new()
+                            .name("workout_repeated_from_fk")
+                            .from_tbl(Workout::Table)
+                            .from_col(Workout::RepeatedFrom)
+                            .to_tbl(Workout::Table)
+                            .to_col(Workout::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
