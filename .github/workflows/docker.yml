@@ -108,6 +108,7 @@ jobs:
   deploy-docs:
     needs: release
     runs-on: ubuntu-latest
+    if: ${{ needs.release.result == 'success' }}
     defaults:
       run:
         working-directory: docs
