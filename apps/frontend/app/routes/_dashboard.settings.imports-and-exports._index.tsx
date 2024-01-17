@@ -642,7 +642,7 @@ export default function Page() {
 							<Form action="?intent=deployExport" method="post">
 								<MultiSelect
 									name="toExport"
-									label="Export to JSON"
+									label="Data to export"
 									description="Multiple items can be selected"
 									required
 									data={Object.values(ExportItem).map((is) => ({
