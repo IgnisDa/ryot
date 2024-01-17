@@ -649,7 +649,7 @@ export type ImportOrExportItemReviewComment = {
   /** The user ids of all those who liked it. */
   likedBy: Array<Scalars['Int']['output']>;
   text: Scalars['String']['output'];
-  user: ReviewCommentUser;
+  user: IdAndNamedObject;
 };
 
 export type ImportReport = {
@@ -1567,12 +1567,6 @@ export enum RegisterErrorVariant {
 }
 
 export type RegisterResult = IdObject | RegisterError;
-
-/** A user that has commented on a review. */
-export type ReviewCommentUser = {
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-};
 
 export type ReviewItem = {
   comments: Array<ImportOrExportItemReviewComment>;

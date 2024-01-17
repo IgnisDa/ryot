@@ -44,8 +44,7 @@ export interface UserMeasurement {
 
 export type MetadataLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
 
-/** A user that has commented on a review. */
-export interface ReviewCommentUser {
+export interface IdAndNamedObject {
 	id: number;
 	name: string;
 }
@@ -57,7 +56,7 @@ export interface ImportOrExportItemReviewComment {
 	/** The user ids of all those who liked it. */
 	likedBy: number[];
 	text: string;
-	user: ReviewCommentUser;
+	user: IdAndNamedObject;
 }
 
 export type Visibility = 'public' | 'private';

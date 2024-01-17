@@ -85,7 +85,7 @@ use crate::{
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
             PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
-            ReviewCommentUser, ReviewPostedEvent, SeenOrReviewOrCalendarEventExtraInformation,
+            ReviewPostedEvent, SeenOrReviewOrCalendarEventExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
             UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
             VisualNovelSpecifics,
@@ -6644,7 +6644,7 @@ impl MiscellaneousService {
             comments.push(ImportOrExportItemReviewComment {
                 id: nanoid!(20),
                 text: input.text.unwrap(),
-                user: ReviewCommentUser {
+                user: IdAndNamedObject {
                     id: user_id,
                     name: user.name,
                 },
