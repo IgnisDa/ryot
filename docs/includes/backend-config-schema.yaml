@@ -32,7 +32,10 @@ books:
     cover_image_size: "M"
 
   # Settings related to Google Books.
-  google_books: {}
+  google_books:
+    # Whether to pass the raw query string to the search API.
+    # @envvar BOOKS_GOOGLE_BOOKS_PASS_RAW_QUERY
+    pass_raw_query: false
 
 # The database related settings.
 database:
