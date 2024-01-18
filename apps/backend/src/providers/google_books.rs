@@ -27,6 +27,7 @@ static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
 pub struct GoogleBooksService {
     client: Client,
     page_limit: i32,
+    pass_raw_query: bool,
 }
 
 impl MediaProviderLanguages for GoogleBooksService {
@@ -40,9 +41,13 @@ impl MediaProviderLanguages for GoogleBooksService {
 }
 
 impl GoogleBooksService {
-    pub async fn new(_config: &config::GoogleBooksConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::GoogleBooksConfig, page_limit: i32) -> Self {
         let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
-        Self { client, page_limit }
+        Self {
+            client,
+            page_limit,
+            pass_raw_query: config.pass_raw_query,
+        }
     }
 }
 
@@ -107,7 +112,10 @@ impl MediaProvider for GoogleBooksService {
             .client
             .get("")
             .query(&serde_json::json!({
-                "q": format!("intitle:{}", query),
+                "q": match self.pass_raw_query {
+                    true => query.to_owned(),
+                    false => format!("intitle:{}", query)
+                },
                 "maxResults": self.page_limit,
                 "printType": "books",
                 "startIndex": index

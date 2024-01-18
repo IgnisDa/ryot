@@ -1,8 +1,7 @@
 # Deployment
 
-The easiest way to deploy Ryot is using the docker
-[image](https://github.com/IgnisDa/ryot/pkgs/container/ryot). Here is a
-non-exhaustive set of guides to deploy Ryot.
+The easiest way to deploy Ryot is using the [docker compose](./index.md#installation). Here
+is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 
 ## Railway
 
@@ -15,7 +14,7 @@ non-exhaustive set of guides to deploy Ryot.
   "New Variable" and then "Add Reference". Click on "Add".
 5. Go to the "Settings" tab and then click on "Generate Domain".
 6. Optionally, you can set the [healthcheck](https://docs.railway.app/deploy/healthchecks)
-  path to `/config`.
+  path to `/backend/config`.
 
 ## Dokku
 
