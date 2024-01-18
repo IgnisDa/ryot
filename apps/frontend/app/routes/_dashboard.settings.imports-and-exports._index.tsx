@@ -673,7 +673,7 @@ export default function Page() {
 								<Stack mx="xs">
 									{loaderData.userExports.map((exp) => (
 										<Box key={exp.startedAt} w="100%">
-											<Group justify="space-between">
+											<Group justify="space-between" wrap="nowrap">
 												<Box>
 													<Text>{exp.exported.map(changeCase).join(", ")}</Text>
 													<Text size="xs" span c="dimmed">
