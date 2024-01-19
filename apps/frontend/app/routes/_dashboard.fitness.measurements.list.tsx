@@ -47,7 +47,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { LOCAL_STORAGE_KEYS, dayjsLib } from "~/lib/generals";
+import { ApplicationKey, dayjsLib } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -158,7 +158,7 @@ export default function Page() {
 	const [opened, { open, close }] = useDisclosure(false);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
-		key: LOCAL_STORAGE_KEYS.savedMeasurementsDisplaySelectedStats,
+		key: ApplicationKey.SavedMeasurementsDisplaySelectedStats,
 		getInitialValueInEffect: true,
 	});
 	const [_, { setP }] = useSearchParam();

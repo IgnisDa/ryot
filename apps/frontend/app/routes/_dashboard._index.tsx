@@ -45,7 +45,7 @@ import { ApplicationGrid } from "~/components/common";
 import { MediaItemWithoutUpdateModal } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
-	COOKIES_KEYS,
+	ApplicationKey,
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
@@ -53,6 +53,8 @@ import {
 import { getUserPreferences } from "~/lib/graphql.server";
 import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
 import { getDefaultWorkout } from "~/lib/workout";
+
+const cookieName = ApplicationKey.CurrentWorkout;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userPreferences = await getUserPreferences(request);
@@ -93,8 +95,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		await getAuthorizationHeader(request),
 	);
 	const cookies = request.headers.get("Cookie");
-	const workoutInProgress =
-		parse(cookies || "")[COOKIES_KEYS.isWorkoutInProgress] === "true";
+	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return json({
 		workoutInProgress,
 		userPreferences: {

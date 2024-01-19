@@ -10,8 +10,8 @@ import {
 import { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
-import { LOCAL_STORAGE_KEYS } from "~/lib/generals";
 import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
+import { ApplicationKey } from "./generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
@@ -50,7 +50,7 @@ export type InProgressWorkout = {
 type CurrentWorkout = InProgressWorkout | null;
 
 export const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
-	LOCAL_STORAGE_KEYS.currentWorkout,
+	ApplicationKey.CurrentWorkout,
 	null,
 );
 
