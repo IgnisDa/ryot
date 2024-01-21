@@ -34,7 +34,7 @@ pub enum Seen {
     State,
     UserId,
     MetadataId,
-    LastUpdatedOn,
+    UpdatedAt,
     // for the time being this stores the `season` and `episode` numbers
     ExtraInformation,
     NumTimesUpdated,
@@ -72,8 +72,9 @@ impl MigrationTrait for Migration {
                             .default(SeenState::InProgress),
                     )
                     .col(
-                        ColumnDef::new(Seen::LastUpdatedOn)
-                            .timestamp_with_time_zone()
+                        ColumnDef::new(Seen::UpdatedAt)
+                            .array(ColumnType::TimestampWithTimeZone)
+                            .default("{}")
                             .not_null(),
                     )
                     .col(ColumnDef::new(Seen::ExtraInformation).json_binary())
