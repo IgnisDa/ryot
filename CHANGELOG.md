@@ -1,5 +1,25 @@
 
 
+# Version 4.1.6 (2024-01-21)
+
+## Bug Fixes
+
+- **database:** add migration to remove useless section from dashboard
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
+# Version 4.1.5 (2024-01-21)
+
+
+
+# Version 4.1.4 (2024-01-18)
+
+
+
 # Version 4.1.3 (2024-01-15)
 
 
@@ -9,10 +29,6 @@
 
 
 # Version 4.1.1 (2024-01-12)
-
-
-
-# Version 4.1.0 (2024-01-12)
 
 
 
@@ -37,6 +53,18 @@
   
 
 # Version 4.0.10 (2024-01-03)
+
+## Bug Fixes
+
+- **backend:** set default value for summary
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
+# Version 4.1.0 (2024-01-02)
 
 
 
@@ -1813,7 +1841,7 @@
   
   
 
-# Version 1.3.2 (2023-06-18)
+# Version 1.3.2 (2023-06-19)
 
 ## Bug Fixes
 

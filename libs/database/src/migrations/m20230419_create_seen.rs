@@ -35,6 +35,7 @@ pub enum Seen {
     UserId,
     MetadataId,
     LastUpdatedOn,
+    UpdatedAt,
     // for the time being this stores the `season` and `episode` numbers
     ExtraInformation,
     NumTimesUpdated,
@@ -64,7 +65,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::FinishedOn).date())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
-                    .col(ColumnDef::new(Seen::NumTimesUpdated).integer())
                     .col(
                         ColumnDef::new(Seen::State)
                             .string_len(2)
@@ -72,9 +72,22 @@ impl MigrationTrait for Migration {
                             .default(SeenState::InProgress),
                     )
                     .col(
+                        ColumnDef::new(Seen::UpdatedAt)
+                            .array(ColumnType::TimestampWithTimeZone)
+                            .not_null()
+                            .extra("DEFAULT ARRAY[CURRENT_TIMESTAMP]"),
+                    )
+                    .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()
-                            .not_null(),
+                            .not_null()
+                            .extra("GENERATED ALWAYS AS (updated_at[array_length(updated_at, 1)]) STORED")
+                    )
+                    .col(
+                        ColumnDef::new(Seen::NumTimesUpdated)
+                            .integer()
+                            .not_null()
+                            .extra("GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED")
                     )
                     .col(ColumnDef::new(Seen::ExtraInformation).json_binary())
                     .foreign_key(

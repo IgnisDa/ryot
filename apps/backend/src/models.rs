@@ -135,7 +135,7 @@ pub struct ChangeCollectionToEntityInput {
     pub entity_lot: EntityLot,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Default)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
 pub struct IdAndNamedObject {
     pub id: i32,
     pub name: String,
@@ -1063,25 +1063,6 @@ pub mod media {
         }
     }
 
-    /// A user that has commented on a review.
-    #[derive(
-        Clone,
-        Debug,
-        PartialEq,
-        FromJsonQueryResult,
-        Eq,
-        Serialize,
-        Deserialize,
-        Default,
-        Hash,
-        SimpleObject,
-        Schematic,
-    )]
-    pub struct ReviewCommentUser {
-        pub id: i32,
-        pub name: String,
-    }
-
     /// Comments left in replies to posted reviews.
     #[skip_serializing_none]
     #[derive(
@@ -1099,7 +1080,7 @@ pub mod media {
     pub struct ImportOrExportItemReviewComment {
         pub id: String,
         pub text: String,
-        pub user: ReviewCommentUser,
+        pub user: IdAndNamedObject,
         /// The user ids of all those who liked it.
         pub liked_by: HashSet<i32>,
         pub created_on: DateTimeUtc,

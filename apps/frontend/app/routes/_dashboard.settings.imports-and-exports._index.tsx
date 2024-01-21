@@ -236,7 +236,7 @@ export default function Page() {
 									<Title order={2}>Import data</Title>
 									<Anchor
 										size="xs"
-										// FIXME: Use `useFragment` here
+										// FIXME: Use `withFragment` here
 										href={`https://ignisda.github.io/ryot/importing.html#${match(
 											deployImportSource,
 										)
@@ -248,7 +248,9 @@ export default function Page() {
 											.with(ImportSource.StoryGraph, () => "storygraph")
 											.with(ImportSource.StrongApp, () => "strong-app")
 											.with(ImportSource.Trakt, () => "trakt")
-											.otherwise(() => "")}`}
+											.with(ImportSource.Audiobookshelf, () => "audiobookshelf")
+											.with(undefined, () => "")
+											.exhaustive()}`}
 										target="_blank"
 									>
 										Docs
@@ -640,7 +642,7 @@ export default function Page() {
 							<Form action="?intent=deployExport" method="post">
 								<MultiSelect
 									name="toExport"
-									label="Export to JSON"
+									label="Data to export"
 									description="Multiple items can be selected"
 									required
 									data={Object.values(ExportItem).map((is) => ({
@@ -668,10 +670,10 @@ export default function Page() {
 							<Divider />
 							<Title order={3}>Export history</Title>
 							{loaderData.userExports.length > 0 ? (
-								<Stack mx="xs">
+								<Stack>
 									{loaderData.userExports.map((exp) => (
 										<Box key={exp.startedAt} w="100%">
-											<Group justify="space-between">
+											<Group justify="space-between" wrap="nowrap">
 												<Box>
 													<Text>{exp.exported.map(changeCase).join(", ")}</Text>
 													<Text size="xs" span c="dimmed">

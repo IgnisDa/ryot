@@ -228,7 +228,6 @@ export type CreateUserYankIntegrationInput = {
 };
 
 export enum DashboardElementLot {
-  Actions = 'ACTIONS',
   InProgress = 'IN_PROGRESS',
   Summary = 'SUMMARY',
   Upcoming = 'UPCOMING'
@@ -649,7 +648,7 @@ export type ImportOrExportItemReviewComment = {
   /** The user ids of all those who liked it. */
   likedBy: Array<Scalars['Int']['output']>;
   text: Scalars['String']['output'];
-  user: ReviewCommentUser;
+  user: IdAndNamedObject;
 };
 
 export type ImportReport = {
@@ -1568,12 +1567,6 @@ export enum RegisterErrorVariant {
 
 export type RegisterResult = IdObject | RegisterError;
 
-/** A user that has commented on a review. */
-export type ReviewCommentUser = {
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-};
-
 export type ReviewItem = {
   comments: Array<ImportOrExportItemReviewComment>;
   id: Scalars['Int']['output'];
@@ -1603,7 +1596,7 @@ export type Seen = {
   id: Scalars['Int']['output'];
   lastUpdatedOn: Scalars['DateTime']['output'];
   metadataId: Scalars['Int']['output'];
-  numTimesUpdated?: Maybe<Scalars['Int']['output']>;
+  numTimesUpdated: Scalars['Int']['output'];
   podcastInformation?: Maybe<SeenPodcastExtraInformation>;
   progress: Scalars['Int']['output'];
   showInformation?: Maybe<SeenShowExtraInformation>;
@@ -2757,7 +2750,7 @@ export type UserMediaDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserMediaDetailsQuery = { userMediaDetails: { averageRating?: string | null, unitsConsumed?: number | null, isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated?: number | null, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } | null, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated?: number | null, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null }>, reviews: Array<{ id: number, rating?: string | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }> }>, reminder?: { remindOn: string, message: string } | null, ownership?: { markedOn: string, ownedOn?: string | null } | null, nextEpisode?: { seasonNumber?: number | null, episodeNumber?: number | null } | null } };
+export type UserMediaDetailsQuery = { userMediaDetails: { averageRating?: string | null, unitsConsumed?: number | null, isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null } | null, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null }>, reviews: Array<{ id: number, rating?: string | null, text?: string | null, spoiler: boolean, visibility: Visibility, showSeason?: number | null, showEpisode?: number | null, podcastEpisode?: number | null, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }> }>, reminder?: { remindOn: string, message: string } | null, ownership?: { markedOn: string, ownedOn?: string | null } | null, nextEpisode?: { seasonNumber?: number | null, episodeNumber?: number | null } | null } };
 
 export type UserMetadataGroupDetailsQueryVariables = Exact<{
   metadataGroupId: Scalars['Int']['input'];
@@ -2811,7 +2804,7 @@ export type WorkoutDetailsQuery = { workoutDetails: { id: string, name: string, 
 
 export type CalendarEventPartFragment = { calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MetadataLot, metadataImage?: string | null, date: string, showSeasonNumber?: number | null, showEpisodeNumber?: number | null, podcastEpisodeNumber?: number | null };
 
-export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated?: number | null, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null };
+export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showInformation?: { episode: number, season: number } | null, podcastInformation?: { episode: number } | null };
 
 export type MediaSearchItemPartFragment = { identifier: string, title: string, image?: string | null, publishYear?: number | null };
 

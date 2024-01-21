@@ -1,4 +1,5 @@
 import { conform, useForm } from "@conform-to/react";
+import { parse } from "@conform-to/zod";
 import { $path } from "@ignisda/remix-routes";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import {
@@ -17,7 +18,6 @@ import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -39,12 +39,23 @@ export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	const submission = processSubmission(formData, schema);
+	const { value, error } = parse(formData, { schema });
+	if (!value)
+		return json(
+			{ status: "error" },
+			{
+				status: 400,
+				headers: await createToastHeaders({
+					type: "error",
+					message:
+						error.password?.at(0) ||
+						error.confirm?.at(0) ||
+						"Invalid form data",
+				}),
+			},
+		);
 	const { registerUser } = await gqlClient.request(RegisterUserDocument, {
-		input: {
-			password: submission.password,
-			username: submission.username,
-		},
+		input: { password: value.password, username: value.username },
 	});
 	if (registerUser.__typename === "RegisterError") {
 		const message = match(registerUser.error)
@@ -54,7 +65,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				() => "This username already exists",
 			)
 			.exhaustive();
-		return json({ status: "error", submission } as const, {
+		return json({ status: "error" } as const, {
 			status: 400,
 			headers: await createToastHeaders({ message, type: "error" }),
 		});

@@ -83,8 +83,7 @@ import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
-	COOKIES_KEYS,
-	LOCAL_STORAGE_KEYS,
+	ApplicationKey,
 	dayjsLib,
 	getPresignedGetUrl,
 	getSetColor,
@@ -106,10 +105,12 @@ import {
 	timerAtom,
 } from "~/lib/workout";
 
+const workoutCookieName = ApplicationKey.CurrentWorkout;
+const defaultTimerLocalStorageKey = ApplicationKey.DefaultExerciseRestTimer;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookies = request.headers.get("Cookie");
-	const inProgress =
-		parse(cookies || "")[COOKIES_KEYS.isWorkoutInProgress] === "true";
+	const inProgress = parse(cookies || "")[workoutCookieName] === "true";
 	if (!inProgress)
 		return redirectWithToast($path("/"), {
 			type: "error",
@@ -142,7 +143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
 		headers: combineHeaders(
 			{
-				"Set-Cookie": serialize(COOKIES_KEYS.isWorkoutInProgress, "", {
+				"Set-Cookie": serialize(workoutCookieName, "", {
 					expires: new Date(0),
 					sameSite: "strict",
 					secure: true,
@@ -387,7 +388,7 @@ export default function Page() {
 											});
 											if (yes) {
 												navigate($path("/"));
-												Cookies.remove(COOKIES_KEYS.isWorkoutInProgress);
+												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
 											}
 										}}
@@ -689,9 +690,7 @@ const ExerciseDisplay = (props: {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
 									const defaultDuration = parseInt(
-										localStorage.getItem(
-											LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
-										) || "20",
+										localStorage.getItem(defaultTimerLocalStorageKey) || "20",
 									);
 									draft.exercises[props.exerciseIdx].restTimer = {
 										enabled: v.currentTarget.checked,
@@ -715,7 +714,7 @@ const ExerciseDisplay = (props: {
 									if (restTimer && value) {
 										restTimer.duration = value;
 										localStorage.setItem(
-											LOCAL_STORAGE_KEYS.defaultExerciseRestTimer,
+											defaultTimerLocalStorageKey,
 											value.toString(),
 										);
 									}

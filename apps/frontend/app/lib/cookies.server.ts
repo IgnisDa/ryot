@@ -1,8 +1,8 @@
 import { createCookie, createCookieSessionStorage } from "@remix-run/node";
-import { COOKIES_KEYS } from "~/lib/generals";
+import { ApplicationKey } from "./generals";
 
-export const authCookie = createCookie(COOKIES_KEYS.auth, {});
-export const colorSchemeCookie = createCookie(COOKIES_KEYS.colorScheme, {
+export const authCookie = createCookie(ApplicationKey.Auth, {});
+export const colorSchemeCookie = createCookie(ApplicationKey.ColorScheme, {
 	maxAge: 60 * 60 * 24 * 365,
 });
 export const toastSessionStorage = createCookieSessionStorage({
