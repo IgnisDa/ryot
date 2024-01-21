@@ -670,10 +670,10 @@ export default function Page() {
 							<Divider />
 							<Title order={3}>Export history</Title>
 							{loaderData.userExports.length > 0 ? (
-								<Stack mx="xs">
+								<Stack>
 									{loaderData.userExports.map((exp) => (
 										<Box key={exp.startedAt} w="100%">
-											<Group justify="space-between">
+											<Group justify="space-between" wrap="nowrap">
 												<Box>
 													<Text>{exp.exported.map(changeCase).join(", ")}</Text>
 													<Text size="xs" span c="dimmed">

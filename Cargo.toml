@@ -26,6 +26,7 @@ schematic = { version = "0.13.3", features = [
 ], default-features = false }
 sea-orm = { version = "0.12.10", features = [
     "debug-print",
+    "postgres-array",
     "macros",
     "runtime-tokio-rustls",
     "sqlx-postgres",

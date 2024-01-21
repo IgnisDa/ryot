@@ -28,18 +28,21 @@ dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
 
-export const COOKIES_KEYS = {
-	auth: "0",
-	colorScheme: "1",
-	isWorkoutInProgress: "2",
+export const getApplicationKeyAccessor = (keyName: number) => {
+	const base1 = btoa(keyName.toString());
+	const base2 = btoa(base1);
+	return `ryot_${base2}`.replaceAll(/=/g, "eq");
 };
 
-export const LOCAL_STORAGE_KEYS = {
-	savedMeasurementsDisplaySelectedStats: "0",
-	savedOpenedLinkGroups: "1",
-	defaultExerciseRestTimer: "2",
-	currentWorkout: "3",
-} as const;
+export const ApplicationKey = {
+	Auth: getApplicationKeyAccessor(0),
+	ColorScheme: getApplicationKeyAccessor(1),
+	IsWorkoutInProgress: getApplicationKeyAccessor(2),
+	SavedMeasurementsDisplaySelectedStats: getApplicationKeyAccessor(3),
+	SavedOpenedLinkGroups: getApplicationKeyAccessor(4),
+	DefaultExerciseRestTimer: getApplicationKeyAccessor(5),
+	CurrentWorkout: getApplicationKeyAccessor(6),
+};
 
 export const gqlClientSide = new GraphQLClient("/backend/graphql", {
 	credentials: "include",
