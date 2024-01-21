@@ -10,10 +10,19 @@ impl MigrationTrait for Migration {
             let db = manager.get_connection();
             db.execute_unprepared(
                 r"
-ALTER TABLE seen ADD COLUMN updated_at timestamp with time zone[] DEFAULT '{}' NOT NULL;
+ALTER TABLE seen ADD COLUMN updated_at timestamptz[] DEFAULT '{}' NOT NULL;
 UPDATE seen SET updated_at = ARRAY[last_updated_on];
-ALTER TABLE seen DROP COLUMN last_updated_on;
-ALTER TABLE seen DROP COLUMN num_times_updated;
+ALTER TABLE seen
+    DROP COLUMN last_updated_on,
+    DROP COLUMN num_times_updated;
+                ",
+            )
+            .await?;
+            db.execute_unprepared(
+                r"
+ALTER TABLE seen
+    ADD COLUMN last_updated_on timestamptz GENERATED ALWAYS AS (updated_at[array_length(updated_at, 1)]) STORED NOT NULL,
+    ADD COLUMN num_times_updated integer GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED NOT NULL;
                 ",
             )
             .await?;
