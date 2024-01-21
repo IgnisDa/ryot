@@ -30,6 +30,7 @@ mod m20240112_add_metadata_units_consumed_column;
 mod m20240112_change_num_times_interacted;
 mod m20240121_add_updated_at_to_seen;
 mod m20240121_remove_useless_section_from_dashboard;
+mod m20240122_remove_useless_section_from_dashboard;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -83,6 +84,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240112_change_num_times_interacted::Migration),
             Box::new(m20240121_add_updated_at_to_seen::Migration),
             Box::new(m20240121_remove_useless_section_from_dashboard::Migration),
+            Box::new(m20240122_remove_useless_section_from_dashboard::Migration),
         ]
     }
 }
