@@ -32,6 +32,8 @@ pub struct Model {
     pub user_id: i32,
     pub metadata_id: i32,
     pub state: SeenState,
+    #[graphql(skip)]
+    #[serde(skip)]
     pub updated_at: Vec<DateTimeUtc>,
     #[graphql(skip)]
     #[serde(skip)]
@@ -42,7 +44,7 @@ pub struct Model {
     pub podcast_information: Option<SeenPodcastExtraInformation>,
     // Generated columns
     pub last_updated_on: DateTimeUtc,
-    pub num_times_updated: Option<i32>,
+    pub num_times_updated: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
