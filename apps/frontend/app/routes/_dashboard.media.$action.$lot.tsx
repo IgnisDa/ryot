@@ -2,6 +2,7 @@ import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Box,
+	Button,
 	Center,
 	Container,
 	Flex,
@@ -16,7 +17,7 @@ import {
 } from "@mantine/core";
 import { useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
 	MediaGeneralFilter,
@@ -32,6 +33,7 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconListCheck,
+	IconPhotoPlus,
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
@@ -229,13 +231,23 @@ export default function Page() {
 						);
 				}}
 			>
-				<Tabs.List mb="xs">
+				<Tabs.List mb="xs" style={{ alignItems: "center" }}>
 					<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
 						<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
 					</Tabs.Tab>
 					<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
 						<Text>Search</Text>
 					</Tabs.Tab>
+					<Box ml="auto">
+						<Button
+							component={Link}
+							leftSection={<IconPhotoPlus />}
+							to={$path("/media/create")}
+							variant="transparent"
+						>
+							Create
+						</Button>
+					</Box>
 				</Tabs.List>
 			</Tabs>
 
