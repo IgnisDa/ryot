@@ -10,7 +10,7 @@ impl MigrationTrait for Migration {
             let db = manager.get_connection();
             db.execute_unprepared(
                 r"
-ALTER TABLE seen ADD COLUMN updated_at timestamptz[] DEFAULT '{}' NOT NULL;
+ALTER TABLE seen ADD COLUMN updated_at timestamptz[] DEFAULT ARRAY[CURRENT_TIMESTAMP] NOT NULL;
 UPDATE seen SET updated_at = ARRAY[last_updated_on];
 ALTER TABLE seen
     DROP COLUMN last_updated_on,

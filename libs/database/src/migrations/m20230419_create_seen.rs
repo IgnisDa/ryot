@@ -74,8 +74,8 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Seen::UpdatedAt)
                             .array(ColumnType::TimestampWithTimeZone)
-                            .default("{}")
-                            .not_null(),
+                            .not_null()
+                            .extra("DEFAULT ARRAY[CURRENT_TIMESTAMP]"),
                     )
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
