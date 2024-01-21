@@ -3,7 +3,6 @@ import {
 	Alert,
 	Anchor,
 	Box,
-	Button,
 	Center,
 	Container,
 	Flex,
@@ -33,9 +32,7 @@ import {
 	IconArrowsRight,
 	IconBarbell,
 	IconFriends,
-	IconPhotoPlus,
 	IconScaleOutline,
-	IconWeight,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
 import { ReactNode } from "react";
@@ -51,8 +48,7 @@ import {
 	getMetadataIcon,
 } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
-import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
-import { getDefaultWorkout } from "~/lib/workout";
+import { useGetMantineColor } from "~/lib/hooks";
 
 const cookieName = ApplicationKey.CurrentWorkout;
 
@@ -118,7 +114,6 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
-	const startWorkout = getWorkoutStarter();
 
 	return (
 		<Container>
@@ -457,55 +452,6 @@ export default function Page() {
 												},
 											]}
 										/>
-									) : null}
-								</SimpleGrid>
-							</Section>
-						))
-						.with([DashboardElementLot.Actions, false], () => (
-							<Section key="actions">
-								<Title>Actions</Title>
-								<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-									{loaderData.userPreferences.fitness.enabled ? (
-										loaderData.workoutInProgress ? (
-											<Button
-												variant="outline"
-												to={$path("/fitness/workouts/current")}
-												component={Link}
-												leftSection={<IconBarbell />}
-											>
-												Go to current workout
-											</Button>
-										) : (
-											<Button
-												variant="outline"
-												leftSection={<IconBarbell />}
-												onClick={() => {
-													startWorkout(getDefaultWorkout());
-												}}
-											>
-												Start a workout
-											</Button>
-										)
-									) : null}
-									{loaderData.userPreferences.media.enabled ? (
-										<Button
-											variant="outline"
-											component={Link}
-											leftSection={<IconPhotoPlus />}
-											to={$path("/media/create")}
-										>
-											Create a media item
-										</Button>
-									) : null}
-									{loaderData.userPreferences.fitness.enabled ? (
-										<Button
-											variant="outline"
-											component={Link}
-											leftSection={<IconWeight />}
-											to={$path("/fitness/exercises/create")}
-										>
-											Create an exercise
-										</Button>
 									) : null}
 								</SimpleGrid>
 							</Section>

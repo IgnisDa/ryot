@@ -228,7 +228,6 @@ export type CreateUserYankIntegrationInput = {
 };
 
 export enum DashboardElementLot {
-  Actions = 'ACTIONS',
   InProgress = 'IN_PROGRESS',
   Summary = 'SUMMARY',
   Upcoming = 'UPCOMING'

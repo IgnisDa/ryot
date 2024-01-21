@@ -248,7 +248,6 @@ pub enum DashboardElementLot {
     Upcoming,
     InProgress,
     Summary,
-    Actions,
 }
 
 #[skip_serializing_none]
@@ -291,11 +290,6 @@ impl Default for UserGeneralPreferences {
                 },
                 UserGeneralDashboardElement {
                     section: DashboardElementLot::Summary,
-                    hidden: false,
-                    num_elements: None,
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Actions,
                     hidden: false,
                     num_elements: None,
                 },
