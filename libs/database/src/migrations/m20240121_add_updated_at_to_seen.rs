@@ -1,35 +1,21 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230419_create_seen::Seen;
-
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if manager.has_column("seen", "last_updated_on").await? {
-            manager
-                .alter_table(
-                    TableAlterStatement::new()
-                        .table(Seen::Table)
-                        .drop_column(Alias::new("last_updated_on"))
-                        .to_owned(),
-                )
-                .await?;
-            manager
-                .alter_table(
-                    TableAlterStatement::new()
-                        .table(Seen::Table)
-                        .add_column(
-                            ColumnDef::new(Seen::UpdatedAt)
-                                .array(ColumnType::TimestampWithTimeZone)
-                                .default("{}")
-                                .not_null(),
-                        )
-                        .to_owned(),
-                )
-                .await?;
+        if !manager.has_column("seen", "updated_at").await? {
+            let db = manager.get_connection();
+            db.execute_unprepared(
+                r"
+ALTER TABLE seen ADD COLUMN updated_at timestamp with time zone[] DEFAULT '{}' NOT NULL;
+UPDATE seen SET updated_at = ARRAY[last_updated_on];
+ALTER TABLE seen DROP COLUMN last_updated_on;
+                ",
+            )
+            .await?;
         }
         Ok(())
     }
