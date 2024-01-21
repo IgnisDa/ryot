@@ -1,5 +1,17 @@
 
 
+# Version 4.1.6 (2024-01-21)
+
+## Bug Fixes
+
+- **database:** add migration to remove useless section from dashboard
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 4.1.5 (2024-01-21)
 
 
