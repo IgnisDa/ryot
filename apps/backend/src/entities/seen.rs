@@ -29,11 +29,10 @@ pub struct Model {
     pub progress: i32,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
-    pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
     pub metadata_id: i32,
-    pub num_times_updated: Option<i32>,
     pub state: SeenState,
+    pub updated_at: Vec<DateTimeUtc>,
     #[graphql(skip)]
     #[serde(skip)]
     pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
@@ -41,6 +40,9 @@ pub struct Model {
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]
     pub podcast_information: Option<SeenPodcastExtraInformation>,
+    // Generated columns
+    pub last_updated_on: DateTimeUtc,
+    pub num_times_updated: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
