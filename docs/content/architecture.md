@@ -63,10 +63,4 @@ the requests sent to your server.
 ### Version Control
 
 Unless it is a very small change, I prefer creating a separate branch and merging it via an
-MR when it is done. The changelog is generated using
-[git-chglog](https://github.com/git-chglog/git-chglog). Once all changes are done, run the
-following command to update the changelog.
-
-```bash
-git-chglog --next-tag <tag-name> -o CHANGELOG.md
-```
+MR when it is done.
