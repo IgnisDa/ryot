@@ -13,6 +13,7 @@ impl MigrationTrait for Migration {
 ALTER TABLE seen ADD COLUMN updated_at timestamp with time zone[] DEFAULT '{}' NOT NULL;
 UPDATE seen SET updated_at = ARRAY[last_updated_on];
 ALTER TABLE seen DROP COLUMN last_updated_on;
+ALTER TABLE seen DROP COLUMN num_times_updated;
                 ",
             )
             .await?;
