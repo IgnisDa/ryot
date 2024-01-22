@@ -58,8 +58,9 @@ COPY --from=app-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
 HEALTHCHECK --interval=5m --timeout=3s \
   CMD curl -f http://localhost:5000/config || exit 1
 CMD [ \
-    "concurrently", "--names", "frontend,backend,proxy", "--kill-others", \
-    "PORT=3000 npx remix-serve ./build/server/index.js", \
+    "concurrently", "--kill-others", \
+    "--names", "backend,proxy,frontend", \
     "BACKEND_PORT=5000 /usr/local/bin/ryot", \
-    "caddy run --config /etc/caddy/Caddyfile" \
+    "caddy run --config /etc/caddy/Caddyfile", \
+    "PORT=3000 npx remix-serve ./build/server/index.js", \
 ]
