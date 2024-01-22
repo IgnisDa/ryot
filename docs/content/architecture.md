@@ -62,5 +62,5 @@ the requests sent to your server.
 
 ### Version Control
 
-Unless it is a very small change, I prefer creating a separate branch and merging it via an
-MR when it is done.
+Unless it is a very small change, I prefer creating a separate branch and merging it via
+a pull request when it is done.
