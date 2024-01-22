@@ -4730,14 +4730,16 @@ impl MiscellaneousService {
             }));
         };
         let user = user.unwrap();
-        let parsed_hash = PasswordHash::new(&user.password).unwrap();
-        if get_password_hasher()
-            .verify_password(password.as_bytes(), &parsed_hash)
-            .is_err()
-        {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::CredentialsMismatch,
-            }));
+        if self.config.users.validate_password {
+            let parsed_hash = PasswordHash::new(&user.password).unwrap();
+            if get_password_hasher()
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_err()
+            {
+                return Ok(LoginResult::Error(LoginError {
+                    error: LoginErrorVariant::CredentialsMismatch,
+                }));
+            }
         }
         let jwt_key = jwt::sign(
             user.id,
