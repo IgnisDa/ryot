@@ -498,8 +498,9 @@ const StatInput = (props: {
 				}}
 				onFocus={(e) => e.target.select()}
 				size="xs"
-				styles={{ input: { fontSize: 15, width: rem(72) } }}
-				ta="center"
+				styles={{
+					input: { fontSize: 15, width: rem(72), textAlign: "center" },
+				}}
 				decimalScale={
 					typeof props.inputStep === "number"
 						? Math.log10(1 / props.inputStep)

@@ -238,7 +238,7 @@ export default function Page() {
 					<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
 						<Text>Search</Text>
 					</Tabs.Tab>
-					<Box ml="auto">
+					<Box ml="auto" visibleFrom="md">
 						<Button
 							component={Link}
 							leftSection={<IconPhotoPlus />}

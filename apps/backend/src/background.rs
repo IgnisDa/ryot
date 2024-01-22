@@ -85,20 +85,57 @@ pub async fn yank_integrations_data(
 
 // Application Jobs
 
+// The background jobs which cannot be throttled.
+#[derive(Debug, Deserialize, Serialize, Display)]
+pub enum CoreApplicationJob {
+    YankIntegrationsData(i32),
+    BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
+}
+
+impl Job for CoreApplicationJob {
+    const NAME: &'static str = "apalis::CoreApplicationJob";
+}
+
+pub async fn perform_core_application_job(
+    information: CoreApplicationJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    let name = information.to_string();
+    tracing::trace!("Started job: {:#?}", name);
+    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    let start = Instant::now();
+    let status = match information {
+        CoreApplicationJob::YankIntegrationsData(user_id) => misc_service
+            .yank_integrations_data_for_user(user_id)
+            .await
+            .is_ok(),
+        CoreApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
+            .bulk_progress_update(user_id, input)
+            .await
+            .is_ok(),
+    };
+    tracing::trace!(
+        "Job: {:#?}, Time Taken: {}ms, Successful = {}",
+        name,
+        (Instant::now() - start).as_millis(),
+        status
+    );
+    Ok(())
+}
+
+// The background jobs which can be throttled.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
     ImportFromExternalSource(i32, DeployImportJobInput),
-    RecalculateUserSummary(i32),
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
-    BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
-    YankIntegrationsData(i32),
     ReviewPosted(ReviewPostedEvent),
     PerformExport(i32, Vec<ExportItem>),
+    RecalculateUserSummary(i32),
 }
 
 impl Job for ApplicationJob {
@@ -123,10 +160,6 @@ pub async fn perform_application_job(
             .is_ok(),
         ApplicationJob::RecalculateUserSummary(user_id) => misc_service
             .calculate_user_summary(user_id, true)
-            .await
-            .is_ok(),
-        ApplicationJob::YankIntegrationsData(user_id) => misc_service
-            .yank_integrations_data_for_user(user_id)
             .await
             .is_ok(),
         ApplicationJob::ReEvaluateUserWorkouts(user_id) => exercise_service
@@ -154,10 +187,6 @@ pub async fn perform_application_job(
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
         }
-        ApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
-            .bulk_progress_update(user_id, input)
-            .await
-            .is_ok(),
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
         }
