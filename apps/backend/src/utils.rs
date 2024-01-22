@@ -23,7 +23,7 @@ use surf::{
 };
 
 use crate::{
-    background::ApplicationJob,
+    background::{ApplicationJob, CoreApplicationJob},
     entities::{
         collection, collection_to_entity,
         prelude::{Collection, CollectionToEntity, User, UserToEntity},
@@ -72,6 +72,7 @@ pub async fn create_app_services(
     s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
     perform_application_job: &SqliteStorage<ApplicationJob>,
+    perform_core_application_job: &SqliteStorage<CoreApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
     let timezone = Arc::new(timezone);

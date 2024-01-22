@@ -41,7 +41,10 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use utils::TEMP_DIR;
 
 use crate::{
-    background::{media_jobs, perform_application_job, user_jobs, yank_integrations_data},
+    background::{
+        media_jobs, perform_application_job, perform_core_application_job, user_jobs,
+        yank_integrations_data,
+    },
     entities::prelude::Exercise,
     graphql::get_schema,
     models::CompleteExport,
@@ -139,6 +142,7 @@ async fn main() -> Result<()> {
         .await?;
 
     let perform_application_job_storage = create_storage(pool.clone()).await;
+    let perform_core_application_job_storage = create_storage(pool.clone()).await;
 
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
@@ -150,6 +154,7 @@ async fn main() -> Result<()> {
         s3_client,
         config,
         &perform_application_job_storage,
+        &perform_core_application_job_storage,
         tz,
     )
     .await;
@@ -239,6 +244,7 @@ async fn main() -> Result<()> {
     let media_service_2 = app_services.media_service.clone();
     let media_service_3 = app_services.media_service.clone();
     let media_service_4 = app_services.media_service.clone();
+    let media_service_5 = app_services.media_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
@@ -298,6 +304,13 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(perform_application_job_storage.clone())
                     .build_fn(perform_application_job)
+            })
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("perform_core_application_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(media_service_5.clone()))
+                    .with_storage(perform_core_application_job_storage.clone())
+                    .build_fn(perform_core_application_job)
             })
             .run()
             .await;

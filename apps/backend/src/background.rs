@@ -89,6 +89,19 @@ pub async fn yank_integrations_data(
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum CoreApplicationJob {}
 
+impl Job for CoreApplicationJob {
+    const NAME: &'static str = "apalis::CoreApplicationJob";
+}
+
+pub async fn perform_core_application_job(
+    information: CoreApplicationJob,
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    let name = information.to_string();
+    tracing::trace!("Started job: {:#?}", name);
+    Ok(())
+}
+
 // The background jobs which can be throttled.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
