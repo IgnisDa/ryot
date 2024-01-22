@@ -50,7 +50,7 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
-    background::ApplicationJob,
+    background::{ApplicationJob, CoreApplicationJob},
     entities::{
         calendar_event, collection, collection_to_entity, exercise, genre, metadata,
         metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
@@ -1351,6 +1351,7 @@ impl MiscellaneousMutation {
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub perform_application_job: SqliteStorage<ApplicationJob>,
+    pub perform_core_application_job: SqliteStorage<CoreApplicationJob>,
     timezone: Arc<chrono_tz::Tz>,
     file_storage_service: Arc<FileStorageService>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
@@ -1365,6 +1366,7 @@ impl MiscellaneousService {
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &SqliteStorage<ApplicationJob>,
+        perform_core_application_job: &SqliteStorage<CoreApplicationJob>,
         timezone: Arc<chrono_tz::Tz>,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
@@ -1383,6 +1385,7 @@ impl MiscellaneousService {
             file_storage_service,
             seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
+            perform_core_application_job: perform_core_application_job.clone(),
         }
     }
 }
@@ -2635,9 +2638,9 @@ impl MiscellaneousService {
         user_id: i32,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
-        self.perform_application_job
+        self.perform_core_application_job
             .clone()
-            .push(ApplicationJob::BulkProgressUpdate(user_id, input))
+            .push(CoreApplicationJob::BulkProgressUpdate(user_id, input))
             .await?;
         Ok(true)
     }
@@ -2658,16 +2661,17 @@ impl MiscellaneousService {
         job_name: BackgroundJob,
         user_id: i32,
     ) -> Result<bool> {
+        let core_sqlite_storage = &mut self.perform_core_application_job.clone();
         let sqlite_storage = &mut self.perform_application_job.clone();
         match job_name {
+            BackgroundJob::YankIntegrationsData => {
+                core_sqlite_storage
+                    .push(CoreApplicationJob::YankIntegrationsData(user_id))
+                    .await?;
+            }
             BackgroundJob::CalculateSummary => {
                 sqlite_storage
                     .push(ApplicationJob::RecalculateUserSummary(user_id))
-                    .await?;
-            }
-            BackgroundJob::YankIntegrationsData => {
-                sqlite_storage
-                    .push(ApplicationJob::YankIntegrationsData(user_id))
                     .await?;
             }
             BackgroundJob::UpdateAllMetadata => {
