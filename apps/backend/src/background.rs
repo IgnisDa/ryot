@@ -85,20 +85,25 @@ pub async fn yank_integrations_data(
 
 // Application Jobs
 
+// The background jobs which cannot be throttled.
+#[derive(Debug, Deserialize, Serialize, Display)]
+pub enum CoreApplicationJob {}
+
+// The background jobs which can be throttled.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
     ImportFromExternalSource(i32, DeployImportJobInput),
-    RecalculateUserSummary(i32),
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
-    BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
     RecalculateCalendarEvents,
     AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
-    YankIntegrationsData(i32),
     ReviewPosted(ReviewPostedEvent),
     PerformExport(i32, Vec<ExportItem>),
+    RecalculateUserSummary(i32),
+    YankIntegrationsData(i32),
+    BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
 }
 
 impl Job for ApplicationJob {
