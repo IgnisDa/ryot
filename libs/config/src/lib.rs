@@ -381,6 +381,9 @@ pub struct UsersConfig {
     /// The number of days till login auth token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i64,
+    /// Whether to validate the password for users. Should be set to false only for testing.
+    #[setting(default = true)]
+    pub validate_password: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
