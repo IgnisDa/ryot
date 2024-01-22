@@ -44,7 +44,7 @@ jobs:
           images: |
             name=${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
-            type=ref,event=pr
+            type=ref,event=pr,enable={{!is_default_branch}}
             type=semver,pattern=v{{version}},enable={{is_default_branch}}
             type=semver,pattern=v{{major}}.{{minor}},enable={{is_default_branch}}
             type=semver,pattern=v{{major}},enable={{is_default_branch}}
