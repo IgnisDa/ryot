@@ -291,6 +291,13 @@ async fn main() -> Result<()> {
                     .build_fn(yank_integrations_data)
             })
             // application jobs
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("perform_core_application_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisExtension(media_service_5.clone()))
+                    .with_storage(perform_core_application_job_storage.clone())
+                    .build_fn(perform_core_application_job)
+            })
             .register_with_count(3, move |c| {
                 WorkerBuilder::new(format!("perform_application_job-{c}"))
                     .layer(ApalisTraceLayer::new())
@@ -304,13 +311,6 @@ async fn main() -> Result<()> {
                     .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(perform_application_job_storage.clone())
                     .build_fn(perform_application_job)
-            })
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("perform_core_application_job-{c}"))
-                    .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_5.clone()))
-                    .with_storage(perform_core_application_job_storage.clone())
-                    .build_fn(perform_core_application_job)
             })
             .run()
             .await;
