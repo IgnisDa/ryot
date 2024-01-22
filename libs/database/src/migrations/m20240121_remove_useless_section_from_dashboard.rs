@@ -8,7 +8,7 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         db.execute_unprepared(
-                r#"UPDATE public.user SET preferences = replace(preferences::text, ', {"hidden": true, "section": "ACTIONS"}', '')::jsonb;"#,
+                r#"UPDATE "user" SET preferences = replace(preferences::text, ', {"hidden": true, "section": "ACTIONS"}', '')::jsonb;"#,
             )
             .await?;
         Ok(())

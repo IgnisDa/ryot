@@ -9,7 +9,7 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
                 r#"
-UPDATE public.user SET preferences = replace(preferences::text, ', {"hidden": false, "section": "ACTIONS"}', '')::jsonb;
+UPDATE "user" SET preferences = replace(preferences::text, ', {"hidden": false, "section": "ACTIONS"}', '')::jsonb;
 "#,
             )
             .await?;
