@@ -76,6 +76,7 @@ import {
 	IconClock,
 	IconDeviceTv,
 	IconEdit,
+	IconEyeCheck,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPercentage,
@@ -564,6 +565,12 @@ export default function Page() {
 									key={col.id}
 								/>
 							))}
+							{loaderData.userMediaDetails.isMonitored ? (
+								<Flex align="center" gap={2}>
+									<IconEyeCheck size={20} />
+									<Text size="xs">This media is being monitored</Text>
+								</Flex>
+							) : null}
 						</Group>
 					) : null}
 					<Suspense fallback={<FallbackForDefer />}>
