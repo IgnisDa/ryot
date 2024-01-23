@@ -87,8 +87,8 @@ use crate::{
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenOrReviewOrCalendarEventExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
-            VisualNovelSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, UsersToBeNotified,
+            VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -5929,19 +5929,12 @@ impl MiscellaneousService {
         Ok(success)
     }
 
-    /// Given a metadata id, get all the users that need to be sent notifications
-    /// for it's state change.
-    pub async fn users_to_be_notified_for_state_changes(
-        &self,
-        metadata_id: i32,
-    ) -> Result<Vec<i32>> {
-        #[derive(Debug, FromQueryResult, Clone, Default)]
-        pub struct ToNotify {
-            to_notify: Vec<i32>,
-        }
-        let meta_map: Vec<_> = ToNotify::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            r#"
+    /// Get all the users that need to be sent notifications for metadata state change.
+    pub async fn users_to_be_notified_for_state_changes(&self) -> Result<Vec<UsersToBeNotified>> {
+        let meta_map: Vec<_> =
+            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
 SELECT
     m.id as metadata_id,
     array_agg(DISTINCT CASE WHEN u.id IS NOT NULL THEN u.id END) as to_notify
@@ -5953,16 +5946,15 @@ LEFT JOIN collection_to_entity cte ON m.id = cte.metadata_id
 LEFT JOIN collection c ON cte.collection_id = c.id
 LEFT JOIN "user" uc ON c.user_id = uc.id
 WHERE
-    m.id = $1 AND
     ((ute.metadata_monitored = true) OR (c.name IN ('Watchlist', 'In Progress')))
 GROUP BY
     m.id;
         "#,
-            [metadata_id.into()],
-        ))
-        .all(&self.db)
-        .await?;
-        Ok(meta_map.get(0).cloned().unwrap_or_default().to_notify)
+                [],
+            ))
+            .all(&self.db)
+            .await?;
+        Ok(meta_map)
     }
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
@@ -5970,23 +5962,11 @@ GROUP BY
             tracing::trace!("Monitored media updating has been disabled.");
             return Ok(());
         }
-        let mut meta_map = HashMap::new();
-        for metadata_id in Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .into_tuple::<i32>()
-            .all(&self.db)
-            .await?
-        {
-            let user_ids = self
-                .users_to_be_notified_for_state_changes(metadata_id)
-                .await?;
-            meta_map.insert(metadata_id, user_ids);
-        }
+        let meta_map = self.users_to_be_notified_for_state_changes().await?;
 
-        for (meta, users) in meta_map {
-            let notifications = self.update_metadata(meta).await?;
-            for user in users {
+        for row in meta_map {
+            let notifications = self.update_metadata(row.metadata_id).await?;
+            for user in row.to_notify {
                 for notification in notifications.iter() {
                     self.send_media_state_changed_notification_for_user(user, notification)
                         .await?;
