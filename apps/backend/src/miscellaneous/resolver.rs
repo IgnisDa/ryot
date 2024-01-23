@@ -5931,6 +5931,7 @@ impl MiscellaneousService {
 
     /// Get all the users that need to be sent notifications for metadata state change.
     pub async fn users_to_be_notified_for_state_changes(&self) -> Result<Vec<UsersToBeNotified>> {
+        // DEV: Ideally this should be using a materialized view, but I am too lazy.
         let meta_map: Vec<_> =
             UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
                 DbBackend::Postgres,
