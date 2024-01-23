@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use surf::{http::headers::AUTHORIZATION, Client};
-use tracing::instrument;
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
@@ -299,7 +298,6 @@ where id = {id};
         })
     }
 
-    #[instrument(skip(self))]
     async fn details(&self, identifier: &str) -> Result<MediaDetails> {
         let client = get_client(&self.config).await;
         let req_body = format!(
@@ -314,7 +312,6 @@ where id = {id};
             .map_err(|e| anyhow!(e))?;
         let mut details: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
-        tracing::trace!("Got detail: {:?}", detail);
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![c.id.to_string()],
             None => vec![],
