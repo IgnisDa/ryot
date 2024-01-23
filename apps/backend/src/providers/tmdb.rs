@@ -536,7 +536,7 @@ impl MediaProvider for TmdbMovieService {
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
                 title: d.title.unwrap(),
-                publish_year: convert_date_to_year(&d.release_date.unwrap()),
+                publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
                 image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
             })
             .collect_vec();
