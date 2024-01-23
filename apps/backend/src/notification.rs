@@ -13,6 +13,7 @@ impl UserNotificationSetting {
     pub async fn send_message(&self, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);
         if env::var("DISABLE_NOTIFICATIONS").is_ok() {
+            tracing::warn!("Notifications not sent, body was: {}", msg);
             return Ok(());
         }
         match self {
