@@ -1924,7 +1924,7 @@ const CreateReminderModal = (props: {
 	title: string;
 	metadataId: number;
 }) => {
-	const [remindOn, setRemindOn] = useState(new Date());
+	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
 
 	return (
 		<Modal
