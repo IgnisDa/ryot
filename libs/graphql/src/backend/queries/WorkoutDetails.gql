@@ -5,6 +5,7 @@ query WorkoutDetails($workoutId: String!) {
     comment
     startTime
     endTime
+    repeatedFrom
     summary {
       ...WorkoutSummaryPart
     }

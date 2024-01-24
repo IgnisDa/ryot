@@ -85,12 +85,22 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
+	let repeatedWorkoutName = null;
+	if (workoutDetails.repeatedFrom) {
+		const { workoutDetails: repeatedWorkout } = await gqlClient.request(
+			WorkoutDetailsDocument,
+			{ workoutId: workoutDetails.repeatedFrom },
+			await getAuthorizationHeader(request),
+		);
+		repeatedWorkoutName = repeatedWorkout.name;
+	}
 	return json({
 		workoutId,
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
 		workoutDetails,
+		repeatedWorkoutName,
 	});
 };
 
@@ -235,6 +245,22 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</Group>
+					{loaderData.repeatedWorkoutName &&
+					loaderData.workoutDetails.repeatedFrom ? (
+						<Box>
+							<Text c="dimmed" span>
+								Repeated from{" "}
+							</Text>
+							<Anchor
+								component={Link}
+								to={$path("/fitness/workouts/:id", {
+									id: loaderData.workoutDetails.repeatedFrom,
+								})}
+							>
+								{loaderData.repeatedWorkoutName}
+							</Anchor>
+						</Box>
+					) : null}
 					<Box>
 						<Text c="dimmed" span>
 							Done on{" "}
