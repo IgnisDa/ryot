@@ -69,7 +69,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { parse, serialize } from "cookie";
+import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -96,7 +96,6 @@ import {
 	getUserPreferences,
 } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { combineHeaders } from "~/lib/utilities.server";
 import {
 	Exercise,
 	ExerciseSet,
@@ -141,19 +140,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		await getAuthorizationHeader(request),
 	);
 	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
-		headers: combineHeaders(
-			{
-				"Set-Cookie": serialize(workoutCookieName, "", {
-					expires: new Date(0),
-					sameSite: "strict",
-					secure: true,
-				}),
-			},
-			await createToastHeaders({
-				message: "Workout completed successfully",
-				type: "success",
-			}),
-		),
+		headers: await createToastHeaders({
+			message: "Workout completed successfully",
+			type: "success",
+		}),
 	});
 };
 
@@ -365,6 +355,7 @@ export default function Page() {
 															);
 														stopTimer();
 														interval.stop();
+														Cookies.remove(workoutCookieName);
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
 															{ method: "post" },
