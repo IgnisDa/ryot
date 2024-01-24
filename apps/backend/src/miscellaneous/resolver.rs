@@ -4185,16 +4185,19 @@ impl MiscellaneousService {
                 unreachable!()
             };
             let user = user_by_id(&self.db, insert.user_id.unwrap()).await?;
-            self.perform_application_job
-                .clone()
-                .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
-                    obj_id,
-                    obj_title,
-                    entity_lot,
-                    username: user.name,
-                    review_id: insert.id.clone().unwrap(),
-                }))
-                .await?;
+            // DEV: Do not send notification if updating a review
+            if input.review_id.is_none() {
+                self.perform_application_job
+                    .clone()
+                    .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                        obj_id,
+                        obj_title,
+                        entity_lot,
+                        username: user.name,
+                        review_id: insert.id.clone().unwrap(),
+                    }))
+                    .await?;
+            }
         }
         Ok(IdObject {
             id: insert.id.unwrap(),
