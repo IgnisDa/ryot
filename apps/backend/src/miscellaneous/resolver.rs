@@ -41,7 +41,7 @@ use sea_orm::{
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering, PostgresQueryBuilder, Query,
-    SelectStatement, Value, Values,
+    SelectStatement, Value,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -4920,16 +4920,9 @@ impl MiscellaneousService {
         Ok(CreateCustomMediaResult::Ok(media))
     }
 
-    fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
-        match self.db.get_database_backend() {
-            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
-            _ => unreachable!(),
-        }
-    }
-
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
-        let (sql, values) = self.get_sql_and_values(stmt);
-        Statement::from_sql_and_values(self.db.get_database_backend(), sql, values)
+        let (sql, values) = stmt.build(PostgresQueryBuilder {});
+        Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
     }
 
     async fn update_user_preference(
