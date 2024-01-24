@@ -6911,7 +6911,7 @@ GROUP BY
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
         };
-        format!("{}/{}", self.config.frontend.url, url)
+        format!("{}/{}?defaultTab=reviews", self.config.frontend.url, url)
     }
 }
 
