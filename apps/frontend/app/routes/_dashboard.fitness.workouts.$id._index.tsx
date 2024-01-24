@@ -85,14 +85,18 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	let repeatedWorkoutName = null;
+	let repeatedWorkout = null;
 	if (workoutDetails.repeatedFrom) {
-		const { workoutDetails: repeatedWorkout } = await gqlClient.request(
+		const { workoutDetails: repeatedWorkoutData } = await gqlClient.request(
 			WorkoutDetailsDocument,
 			{ workoutId: workoutDetails.repeatedFrom },
 			await getAuthorizationHeader(request),
 		);
-		repeatedWorkoutName = repeatedWorkout.name;
+		repeatedWorkout = {
+			id: workoutDetails.repeatedFrom,
+			name: repeatedWorkoutData.name,
+			doneOn: repeatedWorkoutData.startTime,
+		};
 	}
 	return json({
 		workoutId,
@@ -100,7 +104,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
 		workoutDetails,
-		repeatedWorkoutName,
+		repeatedWorkout,
 	});
 };
 
@@ -245,8 +249,7 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</Group>
-					{loaderData.repeatedWorkoutName &&
-					loaderData.workoutDetails.repeatedFrom ? (
+					{loaderData.repeatedWorkout ? (
 						<Box>
 							<Text c="dimmed" span>
 								Repeated from{" "}
@@ -254,11 +257,15 @@ export default function Page() {
 							<Anchor
 								component={Link}
 								to={$path("/fitness/workouts/:id", {
-									id: loaderData.workoutDetails.repeatedFrom,
+									id: loaderData.repeatedWorkout.id,
 								})}
 							>
-								{loaderData.repeatedWorkoutName}
+								{loaderData.repeatedWorkout.name}
 							</Anchor>
+							<Text c="dimmed" span>
+								{" "}
+								on {dayjsLib(loaderData.repeatedWorkout.doneOn).format("LLL")}
+							</Text>
 						</Box>
 					) : null}
 					<Box>
