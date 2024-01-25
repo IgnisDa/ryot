@@ -396,6 +396,7 @@ impl ImporterService {
                             change_state: None,
                         },
                         user_id,
+                        false,
                     )
                     .await
                 {

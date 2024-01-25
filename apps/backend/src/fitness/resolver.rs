@@ -27,7 +27,7 @@ use tracing::instrument;
 use crate::{
     background::ApplicationJob,
     entities::{
-        collection,
+        collection, collection_to_entity,
         exercise::{self, ExerciseListItem},
         prelude::{Exercise, UserMeasurement, UserToEntity, Workout},
         user::UserWithOnlyPreferences,
@@ -62,6 +62,7 @@ struct ExerciseListFilter {
     mechanic: Option<ExerciseMechanic>,
     equipment: Option<ExerciseEquipment>,
     muscle: Option<ExerciseMuscle>,
+    collection: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -512,6 +513,9 @@ impl ExerciseService {
                     .apply_if(q.equipment, |q, v| {
                         q.filter(exercise::Column::Equipment.eq(v))
                     })
+                    .apply_if(q.collection, |q, v| {
+                        q.filter(collection_to_entity::Column::CollectionId.eq(v))
+                    })
             })
             .apply_if(input.search.query, |query, v| {
                 query.filter(
@@ -526,6 +530,10 @@ impl ExerciseService {
                         )),
                 )
             })
+            .join(
+                JoinType::LeftJoin,
+                exercise::Relation::CollectionToEntity.def(),
+            )
             .join(
                 JoinType::LeftJoin,
                 user_to_entity::Relation::Exercise

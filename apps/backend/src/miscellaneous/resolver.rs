@@ -2438,6 +2438,7 @@ impl MiscellaneousService {
         &self,
         input: ProgressUpdateInput,
         user_id: i32,
+        respect_cache: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
             user_id,
@@ -2446,8 +2447,7 @@ impl MiscellaneousService {
             show_episode_number: input.show_episode_number,
             podcast_episode_number: input.podcast_episode_number,
         };
-
-        if self.seen_progress_cache.get(&cache).await.is_some() {
+        if respect_cache && self.seen_progress_cache.get(&cache).await.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
@@ -2618,7 +2618,7 @@ impl MiscellaneousService {
             }
         };
         let id = seen.id;
-        if seen.state == SeenState::Completed {
+        if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache
                 .insert(
                     cache,
@@ -2651,7 +2651,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, user_id).await.ok();
+            self.progress_update(seen, user_id, false).await.ok();
         }
         Ok(true)
     }
@@ -4185,16 +4185,19 @@ impl MiscellaneousService {
                 unreachable!()
             };
             let user = user_by_id(&self.db, insert.user_id.unwrap()).await?;
-            self.perform_application_job
-                .clone()
-                .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
-                    obj_id,
-                    obj_title,
-                    entity_lot,
-                    username: user.name,
-                    review_id: insert.id.clone().unwrap(),
-                }))
-                .await?;
+            // DEV: Do not send notification if updating a review
+            if input.review_id.is_none() {
+                self.perform_application_job
+                    .clone()
+                    .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                        obj_id,
+                        obj_title,
+                        entity_lot,
+                        username: user.name,
+                        review_id: insert.id.clone().unwrap(),
+                    }))
+                    .await?;
+            }
         }
         Ok(IdObject {
             id: insert.id.unwrap(),
@@ -5770,6 +5773,7 @@ impl MiscellaneousService {
                 change_state: None,
             },
             user_id,
+            true,
         )
         .await
         .ok();
@@ -6908,7 +6912,7 @@ GROUP BY
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
         };
-        format!("{}/{}", self.config.frontend.url, url)
+        format!("{}/{}?defaultTab=reviews", self.config.frontend.url, url)
     }
 }
 
