@@ -2651,7 +2651,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, user_id, true).await.ok();
+            self.progress_update(seen, user_id, false).await.ok();
         }
         Ok(true)
     }
