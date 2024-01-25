@@ -167,7 +167,7 @@ export default function Page() {
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
-				<Form replace method="post" action="?intent=create">
+				<Form replace method="post" action="?intent=create" onSubmit={close}>
 					<Stack>
 						<DateTimePicker
 							label="Timestamp"
