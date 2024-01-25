@@ -530,7 +530,10 @@ impl ExerciseService {
                         )),
                 )
             })
-            .join(JoinType::Join, exercise::Relation::CollectionToEntity.def())
+            .join(
+                JoinType::LeftJoin,
+                exercise::Relation::CollectionToEntity.def(),
+            )
             .join(
                 JoinType::LeftJoin,
                 user_to_entity::Relation::Exercise
