@@ -70,6 +70,7 @@ const defaultFiltersValue = {
 	level: undefined,
 	mechanic: undefined,
 	sortBy: ExerciseSortBy.NumTimesPerformed,
+	collection: undefined,
 };
 
 const searchParamsSchema = z.object({
@@ -260,7 +261,10 @@ export default function Page() {
 											onChange={(v) => setP("sortBy", v)}
 										/>
 										{Object.keys(defaultFiltersValue)
-											.filter((f) => f !== "sortBy" && f !== "order")
+											.filter(
+												(f) =>
+													f !== "sortBy" && f !== "order" && f !== "collection",
+											)
 											.map((f) => (
 												<Select
 													key={f}
