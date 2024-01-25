@@ -129,6 +129,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const id = params.id;
 	invariant(id, "No ID provided");
 	const metadataId = parseInt(id);
+	const headers = await getAuthorizationHeader(request);
 	const [
 		coreDetails,
 		userPreferences,
@@ -140,11 +141,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(MediaMainDetailsDocument, { metadataId }),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		gqlClient.request(UserCollectionsListDocument, {}, headers),
 	]);
 	const mediaAdditionalDetails = gqlClient.request(
 		MediaAdditionalDetailsDocument,
@@ -153,7 +150,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const userMediaDetails = gqlClient.request(
 		UserMediaDetailsDocument,
 		{ metadataId },
-		await getAuthorizationHeader(request),
+		headers,
 	);
 	return defer({
 		query,
