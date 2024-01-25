@@ -62,6 +62,7 @@ struct ExerciseListFilter {
     mechanic: Option<ExerciseMechanic>,
     equipment: Option<ExerciseEquipment>,
     muscle: Option<ExerciseMuscle>,
+    collection: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
