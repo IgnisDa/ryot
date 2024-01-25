@@ -35,6 +35,7 @@ import {
 	ExerciseParametersDocument,
 	ExerciseSortBy,
 	ExercisesListDocument,
+	UserCollectionsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -84,6 +85,7 @@ const searchParamsSchema = z.object({
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscle: z.nativeEnum(ExerciseMuscle).optional(),
+	collection: zx.IntAsString.optional(),
 	selectionEnabled: zx.BoolAsString.optional(),
 });
 
@@ -97,6 +99,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userDetails,
 		{ exerciseParameters },
 		{ exercisesList },
+		{ userCollectionsList },
 	] = await Promise.all([
 		getCoreDetails(),
 		getUserPreferences(request),
@@ -117,15 +120,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 						mechanic: query.mechanic,
 						muscle: query.muscle,
 						type: query.type,
+						collection: query.collection,
 					},
 					sortBy: query.sortBy,
 				},
 			},
 			await getAuthorizationHeader(request),
 		),
+		gqlClient.request(
+			UserCollectionsListDocument,
+			{},
+			await getAuthorizationHeader(request),
+		),
 	]);
 	return json({
 		coreDetails: { pageLimit: coreDetails.pageLimit },
+		userCollectionsList,
 		userPreferences,
 		userDetails,
 		query,
@@ -271,6 +281,23 @@ export default function Page() {
 													onChange={(v) => setP(f, v)}
 												/>
 											))}
+										{loaderData.userCollectionsList.length > 0 ? (
+											<Select
+												label="Collection"
+												defaultValue={loaderData.query.collection?.toString()}
+												data={[
+													{
+														group: "My collections",
+														items: loaderData.userCollectionsList.map((c) => ({
+															value: c.id.toString(),
+															label: c.name,
+														})),
+													},
+												]}
+												onChange={(v) => setP("collection", v)}
+												clearable
+											/>
+										) : null}
 									</Stack>
 								</MantineThemeProvider>
 							</Modal>
