@@ -2438,6 +2438,7 @@ impl MiscellaneousService {
         &self,
         input: ProgressUpdateInput,
         user_id: i32,
+        respect_cache: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
             user_id,
@@ -2446,8 +2447,7 @@ impl MiscellaneousService {
             show_episode_number: input.show_episode_number,
             podcast_episode_number: input.podcast_episode_number,
         };
-
-        if self.seen_progress_cache.get(&cache).await.is_some() {
+        if respect_cache && self.seen_progress_cache.get(&cache).await.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
@@ -2618,7 +2618,7 @@ impl MiscellaneousService {
             }
         };
         let id = seen.id;
-        if seen.state == SeenState::Completed {
+        if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache
                 .insert(
                     cache,
@@ -2651,7 +2651,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, user_id).await.ok();
+            self.progress_update(seen, user_id, true).await.ok();
         }
         Ok(true)
     }
@@ -5773,6 +5773,7 @@ impl MiscellaneousService {
                 change_state: None,
             },
             user_id,
+            true,
         )
         .await
         .ok();
