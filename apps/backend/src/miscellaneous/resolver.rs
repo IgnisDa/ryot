@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, File},
-    io::{BufWriter, Write},
     iter::zip,
     path::PathBuf,
     str::FromStr,
@@ -45,6 +44,7 @@ use sea_query::{
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use struson::writer::{JsonStreamWriter, JsonWriter};
 use surf::http::headers::USER_AGENT;
 use tracing::instrument;
 use uuid::Uuid;
@@ -6491,7 +6491,11 @@ GROUP BY
         Ok(())
     }
 
-    pub async fn export_media(&self, user_id: i32, writer: &mut BufWriter<File>) -> Result<bool> {
+    pub async fn export_media(
+        &self,
+        user_id: i32,
+        writer: &mut JsonStreamWriter<File>,
+    ) -> Result<bool> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .all(&self.db)
@@ -6506,10 +6510,7 @@ GROUP BY
             .order_by(metadata::Column::Id, Order::Asc)
             .all(&self.db)
             .await?;
-        for (m_idx, m) in all_meta.iter().enumerate() {
-            if m_idx != 0 && m_idx != all_meta.len() {
-                writer.write_all(b",").unwrap();
-            }
+        for m in all_meta.iter() {
             let mut seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
@@ -6564,14 +6565,17 @@ GROUP BY
                 reviews,
                 collections,
             };
-            let to_write = serde_json::to_string(&exp).unwrap();
-            writer.write_all(to_write.as_bytes()).unwrap();
+            writer.serialize_value(&exp).unwrap();
         }
         Ok(true)
     }
 
-    pub async fn export_people(&self, user_id: i32, writer: &mut BufWriter<File>) -> Result<bool> {
-        let mut resp: Vec<ImportOrExportPersonItem> = vec![];
+    pub async fn export_people(
+        &self,
+        user_id: i32,
+        writer: &mut JsonStreamWriter<File>,
+    ) -> Result<bool> {
+        let mut people: Vec<ImportOrExportPersonItem> = vec![];
         let all_reviews = Review::find()
             .filter(review::Column::PersonId.is_not_null())
             .filter(review::Column::UserId.eq(user_id))
@@ -6582,7 +6586,7 @@ GROUP BY
             let creator = creator.unwrap();
             let review_item =
                 get_review_export_item(self.review_by_id(review.id, user_id, false).await.unwrap());
-            if let Some(entry) = resp.iter_mut().find(|c| c.name == creator.name) {
+            if let Some(entry) = people.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {
                 let collections = entity_in_collections(
@@ -6595,18 +6599,16 @@ GROUP BY
                 .into_iter()
                 .map(|c| c.name)
                 .collect();
-                resp.push(ImportOrExportPersonItem {
+                people.push(ImportOrExportPersonItem {
                     name: creator.name,
                     reviews: vec![review_item],
                     collections,
                 });
             }
         }
-        let mut to_write = serde_json::to_string(&resp).unwrap();
-        // remove the outer array
-        to_write.remove(0);
-        to_write.pop();
-        writer.write_all(to_write.as_bytes()).unwrap();
+        for person in people {
+            writer.serialize_value(&person).unwrap();
+        }
         Ok(true)
     }
 
