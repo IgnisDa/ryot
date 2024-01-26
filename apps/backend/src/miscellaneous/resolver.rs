@@ -6006,6 +6006,13 @@ GROUP BY
                 .await
                 .ok();
         }
+        if matches!(change, MediaStateChanged::MediaPublished)
+            && preferences.notifications.media_published
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
         if matches!(change, MediaStateChanged::EpisodeNameChanged)
             && preferences.notifications.episode_name_changed
         {
@@ -6796,6 +6803,46 @@ GROUP BY
 
     #[instrument(skip(self))]
     pub async fn send_notifications_for_released_media(&self) -> Result<()> {
+        let today = get_current_date(self.timezone.as_ref());
+        let calendar_events = CalendarEvent::find()
+            .filter(calendar_event::Column::Date.eq(today))
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let notifications = calendar_events
+            .into_iter()
+            .map(|(cal_event, meta)| {
+                let meta = meta.unwrap();
+                let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
+                let notification = match cal_event.metadata_extra_information {
+                    SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
+                        format!("{} ({}) has been released today.", meta.title, url)
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => format!(
+                        "S{}E{} of {} ({}) has been released today.",
+                        show.season, show.episode, meta.title, url
+                    ),
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => format!(
+                        "E{} of {} ({}) has been released today.",
+                        podcast.episode, meta.title, url
+                    ),
+                };
+                (meta.id, (notification, MediaStateChanged::MediaPublished))
+            })
+            .collect_vec();
+        let meta_map = self.users_to_be_notified_for_state_changes().await?;
+        for (metadata_id, notification) in notifications.into_iter() {
+            let users_to_notify = meta_map
+                .iter()
+                .find(|val| val.metadata_id == metadata_id)
+                .map(|val| &val.to_notify)
+                .cloned()
+                .unwrap_or_default();
+            for user in users_to_notify {
+                self.send_media_state_changed_notification_for_user(user, &notification)
+                    .await?;
+            }
+        }
         Ok(())
     }
 
