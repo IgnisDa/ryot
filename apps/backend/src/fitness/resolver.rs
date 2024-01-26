@@ -1,4 +1,8 @@
-use std::{fs::File, sync::Arc};
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    sync::Arc,
+};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -18,7 +22,6 @@ use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use strum::IntoEnumIterator;
-use struson::writer::{JsonStreamWriter, JsonWriter};
 use tracing::instrument;
 
 use crate::{
@@ -644,9 +647,9 @@ impl ExerciseService {
     pub async fn export_measurements(
         &self,
         user_id: i32,
-        writer: &mut JsonStreamWriter<File>,
+        writer: &mut BufWriter<File>,
     ) -> Result<bool> {
-        let measurements = self
+        let resp = self
             .user_measurements_list(
                 user_id,
                 UserMeasurementsListInput {
@@ -655,9 +658,10 @@ impl ExerciseService {
                 },
             )
             .await?;
-        for measurement in measurements {
-            writer.serialize_value(&measurement).unwrap();
-        }
+        let mut to_write = serde_json::to_string(&resp).unwrap();
+        to_write.remove(0);
+        to_write.pop();
+        writer.write_all(to_write.as_bytes()).unwrap();
         Ok(true)
     }
 
@@ -776,7 +780,7 @@ impl ExerciseService {
     pub async fn export_workouts(
         &self,
         user_id: i32,
-        writer: &mut JsonStreamWriter<File>,
+        writer: &mut BufWriter<File>,
     ) -> Result<bool> {
         let workout_ids = Workout::find()
             .select_only()
@@ -786,10 +790,14 @@ impl ExerciseService {
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
+        let mut workouts = vec![];
         for workout_id in workout_ids {
-            let details = self.workout_details(workout_id, user_id).await?;
-            writer.serialize_value(&details).unwrap();
+            workouts.push(self.workout_details(workout_id, user_id).await?);
         }
+        let mut to_write = serde_json::to_string(&workouts).unwrap();
+        to_write.remove(0);
+        to_write.pop();
+        writer.write_all(to_write.as_bytes()).unwrap();
         Ok(true)
     }
 

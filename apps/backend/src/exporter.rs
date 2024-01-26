@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufWriter, Write},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use apalis::prelude::Storage;
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
@@ -7,7 +13,6 @@ use nanoid::nanoid;
 use rs_utils::IsFeatureEnabled;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use struson::writer::{JsonStreamWriter, JsonWriter};
 
 use crate::{
     background::ApplicationJob, file_storage::FileStorageService,
@@ -93,14 +98,14 @@ impl ExporterService {
             ));
         }
         let started_at = Utc::now();
-        // let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
-        let export_path = PathBuf::from(TEMP_DIR).join("ryot-export.json");
+        let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
         let file = File::create(&export_path).unwrap();
-        let mut writer = JsonStreamWriter::new(file);
-        writer.begin_object().unwrap();
-        for export in to_export.iter() {
-            writer.name(&export.to_string())?;
-            writer.begin_array().unwrap();
+        let mut writer = BufWriter::new(file);
+        writer.write_all(b"{").unwrap();
+        for (idx, export) in to_export.iter().enumerate() {
+            writer
+                .write_all(format!(r#""{}":["#, export).as_bytes())
+                .unwrap();
             match export {
                 ExportItem::Media => {
                     self.media_service
@@ -123,10 +128,13 @@ impl ExporterService {
                         .await?
                 }
             };
-            writer.end_array().unwrap();
+            writer.write_all(b"]").unwrap();
+            if idx != to_export.len() - 1 {
+                writer.write_all(b",").unwrap();
+            }
         }
-        writer.end_object().unwrap();
-        writer.finish_document().unwrap();
+        writer.write_all(b"}").unwrap();
+        drop(writer);
         let ended_at = Utc::now();
         let (_, url) = self
             .file_storage_service
