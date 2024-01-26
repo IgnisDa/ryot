@@ -93,8 +93,7 @@ impl ExporterService {
             ));
         }
         let started_at = Utc::now();
-        // let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
-        let export_path = PathBuf::from(TEMP_DIR).join("ryot-export.json");
+        let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
         let file = File::create(&export_path).unwrap();
         let mut writer = JsonStreamWriter::new(file);
         writer.begin_object().unwrap();
