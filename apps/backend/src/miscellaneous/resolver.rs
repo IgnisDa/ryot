@@ -134,6 +134,7 @@ pub enum MediaStateChanged {
     ReleaseDateChanged,
     NumberOfSeasonsChanged,
     EpisodeReleased,
+    EpisodePublished,
     EpisodeNameChanged,
     ChaptersOrEpisodesChanged,
     EpisodeImagesChanged,
@@ -5208,6 +5209,9 @@ impl MiscellaneousService {
                         }
                         "episode_images_changed" => {
                             preferences.notifications.episode_images_changed = value_bool.unwrap()
+                        }
+                        "episode_published" => {
+                            preferences.notifications.episode_published = value_bool.unwrap()
                         }
                         "status_changed" => {
                             preferences.notifications.status_changed = value_bool.unwrap()

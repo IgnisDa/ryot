@@ -53,6 +53,7 @@ query UserPreferences {
       episodeNameChanged
       episodeImagesChanged
       statusChanged
+      episodePublished
       releaseDateChanged
       numberOfSeasonsChanged
       numberOfChaptersOrEpisodesChanged

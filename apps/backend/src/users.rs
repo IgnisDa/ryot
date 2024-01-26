@@ -15,6 +15,8 @@ pub struct UserNotificationsPreferences {
     pub episode_released: bool,
     pub release_date_changed: bool,
     pub episode_images_changed: bool,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub episode_published: bool,
     // Show
     pub episode_name_changed: bool,
     pub number_of_seasons_changed: bool,
@@ -30,6 +32,7 @@ impl Default for UserNotificationsPreferences {
             episode_released: true,
             episode_name_changed: true,
             episode_images_changed: true,
+            episode_published: true,
             release_date_changed: true,
             number_of_seasons_changed: true,
             number_of_chapters_or_episodes_changed: true,
