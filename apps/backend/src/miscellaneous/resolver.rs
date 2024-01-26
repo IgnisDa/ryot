@@ -4460,6 +4460,8 @@ impl MiscellaneousService {
             }
         };
 
+        tracing::trace!("Calculating numbers summary for user {:?}", ls);
+
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
             .apply_if(start_from, |query, v| {
@@ -4467,6 +4469,8 @@ impl MiscellaneousService {
             })
             .count(&self.db)
             .await?;
+
+        tracing::trace!("Calculated number reviews for user {:?}", num_reviews);
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
@@ -4476,6 +4480,11 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        tracing::trace!(
+            "Calculated number measurements for user {:?}",
+            num_measurements
+        );
+
         let num_workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
             .apply_if(start_from, |query, v| {
@@ -4483,6 +4492,8 @@ impl MiscellaneousService {
             })
             .count(&self.db)
             .await?;
+
+        tracing::trace!("Calculated number workouts for user {:?}", num_workouts);
 
         let num_media_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
@@ -4493,6 +4504,11 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        tracing::trace!(
+            "Calculated number media interacted with for user {:?}",
+            num_media_interacted_with
+        );
+
         let num_exercises_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
@@ -4501,6 +4517,11 @@ impl MiscellaneousService {
             })
             .count(&self.db)
             .await?;
+
+        tracing::trace!(
+            "Calculated number exercises interacted with for user {:?}",
+            num_exercises_interacted_with
+        );
 
         let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
@@ -4520,6 +4541,11 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
+
+        tracing::trace!(
+            "Calculated total workout time for user {:?}",
+            total_workout_time
+        );
 
         ls.media.reviews_posted += num_reviews;
         ls.media.media_interacted_with += num_media_interacted_with;
