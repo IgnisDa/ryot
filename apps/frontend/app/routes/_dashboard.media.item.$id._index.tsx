@@ -1564,6 +1564,14 @@ export default function Page() {
 																	}
 																	user={loaderData.userDetails}
 																	title={loaderData.mediaMainDetails.title}
+																	isShow={
+																		loaderData.mediaMainDetails.lot ===
+																		MetadataLot.Show
+																	}
+																	isPodcast={
+																		loaderData.mediaMainDetails.lot ===
+																		MetadataLot.Podcast
+																	}
 																/>
 															))}
 														</Stack>

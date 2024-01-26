@@ -128,6 +128,8 @@ export const ReviewItemDisplay = (props: {
 	user: ApplicationUser;
 	reviewScale: UserReviewScale;
 	title: string;
+	isShow?: boolean;
+	isPodcast?: boolean;
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
@@ -178,6 +180,11 @@ export const ReviewItemDisplay = (props: {
 											  : "person",
 									existingReviewId: props.review.id,
 									title: props.title,
+									podcastEpisodeNumber: props.review.podcastEpisode,
+									showEpisodeNumber: props.review.showEpisode,
+									showSeasonNumber: props.review.showSeason,
+									isPodcast: props.isPodcast,
+									isShow: props.isShow,
 								},
 							)}
 						>
