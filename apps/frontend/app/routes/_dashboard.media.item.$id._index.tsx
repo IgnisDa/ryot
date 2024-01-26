@@ -572,13 +572,13 @@ export default function Page() {
 													key={col.id}
 												/>
 											))}
-											{userMediaDetails.isMonitored ? (
-												<Flex align="center" gap={2}>
-													<IconEyeCheck size={20} />
-													<Text size="xs">This media is being monitored</Text>
-												</Flex>
-											) : null}
 										</Group>
+									) : null}
+									{userMediaDetails.isMonitored ? (
+										<Flex align="center" gap={2}>
+											<IconEyeCheck size={20} />
+											<Text size="xs">This media is being monitored</Text>
+										</Flex>
 									) : null}
 								</>
 							)}
