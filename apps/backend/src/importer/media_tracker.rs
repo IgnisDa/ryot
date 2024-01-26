@@ -1,5 +1,3 @@
-// Responsible for importing from https://github.com/bonukai/MediaTracker.
-
 use async_graphql::Result;
 use database::{MetadataLot, MetadataSource, Visibility};
 use rust_decimal::Decimal;
@@ -80,10 +78,13 @@ struct Item {
     media_type: Option<MediaType>,
 }
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemReview {
     id: i32,
+    #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
+    date: Option<DateTimeUtc>,
     rating: Option<Decimal>,
     review: Option<String>,
 }
@@ -317,7 +318,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
-                        date: None,
+                        date: r.date,
                         spoiler: Some(false),
                         text: r.review,
                         visibility: None,
