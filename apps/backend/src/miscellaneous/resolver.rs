@@ -3162,6 +3162,7 @@ impl MiscellaneousService {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),
         };
+        let mut updated_at = seen.updated_at.clone();
         if seen.user_id != user_id {
             return Err(Error::new("No seen found for this user and metadata"));
         }
@@ -3172,7 +3173,8 @@ impl MiscellaneousService {
         if let Some(finished_on) = input.finished_on {
             seen.finished_on = ActiveValue::Set(Some(finished_on));
         }
-        seen.last_updated_on = ActiveValue::Set(Utc::now());
+        updated_at.push(Utc::now());
+        seen.updated_at = ActiveValue::Set(updated_at);
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
         Ok(true)
