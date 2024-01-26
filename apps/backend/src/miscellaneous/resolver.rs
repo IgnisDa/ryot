@@ -6794,6 +6794,11 @@ GROUP BY
         Ok(())
     }
 
+    #[instrument(skip(self))]
+    pub async fn send_notifications_for_released_media(&self) -> Result<()> {
+        Ok(())
+    }
+
     pub async fn associate_person_with_metadata(
         &self,
         metadata_id: i32,

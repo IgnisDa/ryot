@@ -52,6 +52,10 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     tracing::trace!("Recalculating calendar events");
     service.recalculate_calendar_events().await.unwrap();
     tracing::trace!("Sending notifications for released media");
+    service
+        .send_notifications_for_released_media()
+        .await
+        .unwrap();
     Ok(())
 }
 
