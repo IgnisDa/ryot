@@ -655,65 +655,7 @@ impl ExerciseService {
                 },
             )
             .await?;
-        {
-            use chrono::Utc;
-            use rust_decimal::Decimal;
-            use std::collections::HashMap;
-            #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-            pub struct UserMeasurementStats {
-                pub weight: Option<Decimal>,
-                pub body_mass_index: Option<Decimal>,
-                pub total_body_water: Option<Decimal>,
-                pub muscle: Option<Decimal>,
-                pub lean_body_mass: Option<Decimal>,
-                pub body_fat: Option<Decimal>,
-                pub bone_mass: Option<Decimal>,
-                pub custom: Option<HashMap<String, Decimal>>,
-            }
-            #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-            pub struct Model {
-                pub timestamp: DateTimeUtc,
-                #[serde(skip)]
-                pub user_id: i32,
-                pub name: Option<String>,
-                pub comment: Option<String>,
-                pub stats: UserMeasurementStats,
-            }
-            fn get_data() -> Model {
-                let stats = UserMeasurementStats {
-                    weight: Some(Decimal::new(70000, 2)),
-                    body_mass_index: Some(Decimal::new(220, 2)),
-                    total_body_water: None,
-                    muscle: None,
-                    lean_body_mass: None,
-                    body_fat: Some(Decimal::new(1500, 2)),
-                    bone_mass: None,
-                    custom: None,
-                };
-                Model {
-                    timestamp: Utc::now(),
-                    user_id: 123,
-                    name: None,
-                    comment: Some("".to_string()),
-                    stats,
-                }
-            }
-            let mut writer = Vec::<u8>::new();
-            let mut json_writer = JsonStreamWriter::new(&mut writer);
-            json_writer.begin_object().unwrap();
-            json_writer.name("outer").unwrap();
-            json_writer.begin_array().unwrap();
-            for i in vec![get_data(), get_data(), get_data()] {
-                json_writer.serialize_value(&i).unwrap();
-            }
-            json_writer.end_array().unwrap();
-            json_writer.end_object().unwrap();
-            json_writer.finish_document().unwrap();
-            let json = String::from_utf8(writer).unwrap();
-            println!("{}", json);
-        }
         for measurement in measurements {
-            dbg!(&measurement);
             writer.serialize_value(&measurement).unwrap();
         }
         Ok(true)
