@@ -2,7 +2,6 @@ import { parse } from "@conform-to/zod";
 import { json } from "@remix-run/node";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
-import { zx } from "zodix";
 import { authCookie } from "./cookies.server";
 
 export const expectedEnvironmentVariables = z.object({
@@ -35,10 +34,15 @@ export type ApplicationUser = {
 	lot: UserLot;
 };
 
+const emptyNumberString = z
+	.any()
+	.transform((v) => (!v ? undefined : parseInt(v)))
+	.nullable();
+
 export const ShowAndPodcastSchema = z.object({
-	showSeasonNumber: zx.IntAsString.optional().nullable(),
-	showEpisodeNumber: zx.IntAsString.optional().nullable(),
-	podcastEpisodeNumber: zx.IntAsString.optional().nullable(),
+	showSeasonNumber: emptyNumberString,
+	showEpisodeNumber: emptyNumberString,
+	podcastEpisodeNumber: emptyNumberString,
 });
 
 export const processSubmission = <Schema extends ZodTypeAny>(
