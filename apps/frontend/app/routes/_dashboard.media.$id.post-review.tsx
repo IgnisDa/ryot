@@ -224,7 +224,7 @@ export default function Page() {
 								defaultValue={
 									loaderData.existingReview?.showSeason
 										? Number(loaderData.existingReview.showSeason)
-										: undefined
+										: loaderData.query.showSeasonNumber || undefined
 								}
 							/>
 							<NumberInput
@@ -234,7 +234,7 @@ export default function Page() {
 								defaultValue={
 									loaderData.existingReview?.showEpisode
 										? Number(loaderData.existingReview.showEpisode)
-										: undefined
+										: loaderData.query.showEpisodeNumber || undefined
 								}
 							/>
 						</Flex>
@@ -248,7 +248,7 @@ export default function Page() {
 								defaultValue={
 									loaderData.existingReview?.podcastEpisode
 										? Number(loaderData.existingReview.podcastEpisode)
-										: undefined
+										: loaderData.query.podcastEpisodeNumber || undefined
 								}
 							/>
 						</Flex>
