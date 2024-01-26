@@ -51,6 +51,7 @@ export const redirectIfNotAuthenticated = async (request: Request) => {
 				status: 302,
 				headers: combineHeaders(
 					await createToastHeaders({
+						type: "error",
 						message: "You must be logged in to view this page",
 					}),
 					{ "Set-Cookie": await getLogoutCookies() },

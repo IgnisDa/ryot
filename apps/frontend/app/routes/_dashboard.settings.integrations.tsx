@@ -79,6 +79,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", generateAuthToken: false } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Integration deleted successfully",
 				}),
 			});
@@ -111,6 +112,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			}
 			return json({ status: "success", generateAuthToken: false } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Integration created successfully",
 				}),
 			});
