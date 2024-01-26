@@ -6909,7 +6909,7 @@ GROUP BY
             .all(&self.db)
             .await?;
         for user in users {
-            let url = self.get_frontend_url(event.obj_id, event.entity_lot);
+            let url = self.get_frontend_url(event.obj_id, event.entity_lot, Some("reviews"));
             self.send_notifications_to_user_platforms(
                 user.id,
                 &format!(
@@ -6922,15 +6922,24 @@ GROUP BY
         Ok(())
     }
 
-    fn get_frontend_url(&self, id: i32, entity_lot: EntityLot) -> String {
-        let url = match entity_lot {
+    fn get_frontend_url(
+        &self,
+        id: i32,
+        entity_lot: EntityLot,
+        default_tab: Option<&str>,
+    ) -> String {
+        let mut url = match entity_lot {
             EntityLot::Media => format!("media/item/{}", id),
             EntityLot::Person => format!("media/people/{}", id),
             EntityLot::MediaGroup => format!("media/groups/{}", id),
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
         };
-        format!("{}/{}?defaultTab=reviews", self.config.frontend.url, url)
+        url = format!("{}/{}", self.config.frontend.url, url);
+        if let Some(tab) = default_tab {
+            url = format!("{}?defaultTab={}", url, tab);
+        }
+        url
     }
 }
 
