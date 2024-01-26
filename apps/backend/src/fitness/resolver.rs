@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{BufWriter, Write},
-    sync::Arc,
-};
+use std::{fs::File, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -22,6 +18,7 @@ use sea_query::{Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use strum::IntoEnumIterator;
+use struson::writer::{JsonStreamWriter, JsonWriter};
 use tracing::instrument;
 
 use crate::{
@@ -647,9 +644,9 @@ impl ExerciseService {
     pub async fn export_measurements(
         &self,
         user_id: i32,
-        writer: &mut BufWriter<File>,
+        writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
-        let resp = self
+        let measurements = self
             .user_measurements_list(
                 user_id,
                 UserMeasurementsListInput {
@@ -658,10 +655,67 @@ impl ExerciseService {
                 },
             )
             .await?;
-        let mut to_write = serde_json::to_string(&resp).unwrap();
-        to_write.remove(0);
-        to_write.pop();
-        writer.write_all(to_write.as_bytes()).unwrap();
+        {
+            use chrono::Utc;
+            use rust_decimal::Decimal;
+            use std::collections::HashMap;
+            #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+            pub struct UserMeasurementStats {
+                pub weight: Option<Decimal>,
+                pub body_mass_index: Option<Decimal>,
+                pub total_body_water: Option<Decimal>,
+                pub muscle: Option<Decimal>,
+                pub lean_body_mass: Option<Decimal>,
+                pub body_fat: Option<Decimal>,
+                pub bone_mass: Option<Decimal>,
+                pub custom: Option<HashMap<String, Decimal>>,
+            }
+            #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+            pub struct Model {
+                pub timestamp: DateTimeUtc,
+                #[serde(skip)]
+                pub user_id: i32,
+                pub name: Option<String>,
+                pub comment: Option<String>,
+                pub stats: UserMeasurementStats,
+            }
+            fn get_data() -> Model {
+                let stats = UserMeasurementStats {
+                    weight: Some(Decimal::new(70000, 2)),
+                    body_mass_index: Some(Decimal::new(220, 2)),
+                    total_body_water: None,
+                    muscle: None,
+                    lean_body_mass: None,
+                    body_fat: Some(Decimal::new(1500, 2)),
+                    bone_mass: None,
+                    custom: None,
+                };
+                Model {
+                    timestamp: Utc::now(),
+                    user_id: 123,
+                    name: None,
+                    comment: Some("".to_string()),
+                    stats,
+                }
+            }
+            let mut writer = Vec::<u8>::new();
+            let mut json_writer = JsonStreamWriter::new(&mut writer);
+            json_writer.begin_object().unwrap();
+            json_writer.name("outer").unwrap();
+            json_writer.begin_array().unwrap();
+            for i in vec![get_data(), get_data(), get_data()] {
+                json_writer.serialize_value(&i).unwrap();
+            }
+            json_writer.end_array().unwrap();
+            json_writer.end_object().unwrap();
+            json_writer.finish_document().unwrap();
+            let json = String::from_utf8(writer).unwrap();
+            println!("{}", json);
+        }
+        for measurement in measurements {
+            dbg!(&measurement);
+            writer.serialize_value(&measurement).unwrap();
+        }
         Ok(true)
     }
 
@@ -780,7 +834,7 @@ impl ExerciseService {
     pub async fn export_workouts(
         &self,
         user_id: i32,
-        writer: &mut BufWriter<File>,
+        writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
         let workout_ids = Workout::find()
             .select_only()
@@ -790,14 +844,10 @@ impl ExerciseService {
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
-        let mut workouts = vec![];
         for workout_id in workout_ids {
-            workouts.push(self.workout_details(workout_id, user_id).await?);
+            let details = self.workout_details(workout_id, user_id).await?;
+            writer.serialize_value(&details).unwrap();
         }
-        let mut to_write = serde_json::to_string(&workouts).unwrap();
-        to_write.remove(0);
-        to_write.pop();
-        writer.write_all(to_write.as_bytes()).unwrap();
         Ok(true)
     }
 
