@@ -11,12 +11,12 @@ use crate::models::fitness::UserUnitSystem;
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserNotificationsPreferences {
+    #[serde(default)] // FIXME: remove in the next major release
+    pub media_published: bool,
     pub status_changed: bool,
     pub episode_released: bool,
     pub release_date_changed: bool,
     pub episode_images_changed: bool,
-    #[serde(default)] // FIXME: remove in the next major release
-    pub episode_published: bool,
     // Show
     pub episode_name_changed: bool,
     pub number_of_seasons_changed: bool,
@@ -28,11 +28,11 @@ pub struct UserNotificationsPreferences {
 impl Default for UserNotificationsPreferences {
     fn default() -> Self {
         Self {
+            media_published: true,
             status_changed: true,
             episode_released: true,
             episode_name_changed: true,
             episode_images_changed: true,
-            episode_published: true,
             release_date_changed: true,
             number_of_seasons_changed: true,
             number_of_chapters_or_episodes_changed: true,
