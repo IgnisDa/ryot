@@ -190,6 +190,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await sleepForASecond();
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Progress updated successfully",
 				}),
 			});
@@ -203,6 +204,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Reminder deleted successfully",
 				}),
 			});
@@ -216,6 +218,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Monitor toggled successfully",
 				}),
 			});
@@ -229,6 +232,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Ownership toggled successfully",
 				}),
 			});
@@ -242,6 +246,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Record deleted successfully",
 				}),
 			});
@@ -255,6 +260,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Metadata update job deployed successfully",
 				}),
 			});
@@ -268,7 +274,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return redirectWithToast(
 				$path("/media/item/:id", { id: submission.mergeInto }),
-				{ message: "Metadata merged successfully" },
+				{ type: "success", message: "Metadata merged successfully" },
 			);
 		},
 		createMediaReminder: async () => {
@@ -296,6 +302,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Adjusted seen item successfully",
 				}),
 			});
