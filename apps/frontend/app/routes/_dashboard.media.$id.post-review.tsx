@@ -32,6 +32,7 @@ import { useRef } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
@@ -109,10 +110,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return redirectWithToast(redirectTo, {
-				message: "Review submitted successfully",
-				type: "success",
-			});
+			return redirectWithToast(
+				withQuery(redirectTo, { defaultTab: "reviews" }),
+				{
+					message: "Review submitted successfully",
+					type: "success",
+				},
+			);
 		},
 		delete: async () => {
 			invariant(submission.reviewId, "No reviewId provided");
