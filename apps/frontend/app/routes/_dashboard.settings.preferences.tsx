@@ -345,6 +345,7 @@ export default function Page() {
 													"episodeReleased",
 													() => "Number of episodes changes",
 												)
+												.with("mediaPublished", () => "A media is published")
 												.with("statusChanged", () => "Status changes")
 												.with(
 													"releaseDateChanged",

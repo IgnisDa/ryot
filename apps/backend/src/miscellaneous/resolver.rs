@@ -87,8 +87,8 @@ use crate::{
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenOrReviewOrCalendarEventExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UsersToBeNotified,
-            VideoGameSpecifics, VisualNovelSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
+            VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -130,6 +130,7 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 #[derive(Debug)]
 pub enum MediaStateChanged {
+    MediaPublished,
     StatusChanged,
     ReleaseDateChanged,
     NumberOfSeasonsChanged,
@@ -3162,6 +3163,7 @@ impl MiscellaneousService {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),
         };
+        let mut updated_at = seen.updated_at.clone();
         if seen.user_id != user_id {
             return Err(Error::new("No seen found for this user and metadata"));
         }
@@ -3172,7 +3174,8 @@ impl MiscellaneousService {
         if let Some(finished_on) = input.finished_on {
             seen.finished_on = ActiveValue::Set(Some(finished_on));
         }
-        seen.last_updated_on = ActiveValue::Set(Utc::now());
+        updated_at.push(Utc::now());
+        seen.updated_at = ActiveValue::Set(updated_at);
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
         Ok(true)
@@ -4432,6 +4435,7 @@ impl MiscellaneousService {
         Ok(ls.summary.unwrap_or_default())
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn calculate_user_summary(
         &self,
         user_id: i32,
@@ -4525,6 +4529,8 @@ impl MiscellaneousService {
         ls.fitness.workouts.weight += total_workout_weight;
         ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
 
+        tracing::trace!("Calculated numbers summary for user {:?}", ls);
+
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -4537,6 +4543,7 @@ impl MiscellaneousService {
             .await?;
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
+            tracing::trace!("Processing seen item {:?}", seen);
             let meta = metadata.to_owned().unwrap();
             let mut units_consumed = None;
             if let Some(specs) = meta.specifics {
@@ -4681,6 +4688,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let obj = user_model.update(&self.db).await.unwrap();
+        tracing::trace!("Calculated summary for user {:?}", obj.name);
         Ok(IdObject { id: obj.id })
     }
 
@@ -5201,6 +5209,9 @@ impl MiscellaneousService {
                         }
                         "episode_images_changed" => {
                             preferences.notifications.episode_images_changed = value_bool.unwrap()
+                        }
+                        "media_published" => {
+                            preferences.notifications.media_published = value_bool.unwrap()
                         }
                         "status_changed" => {
                             preferences.notifications.status_changed = value_bool.unwrap()
@@ -5927,7 +5938,12 @@ impl MiscellaneousService {
     }
 
     /// Get all the users that need to be sent notifications for metadata state change.
-    pub async fn users_to_be_notified_for_state_changes(&self) -> Result<Vec<UsersToBeNotified>> {
+    pub async fn users_to_be_notified_for_state_changes(&self) -> Result<HashMap<i32, Vec<i32>>> {
+        #[derive(Debug, FromQueryResult, Clone, Default)]
+        struct UsersToBeNotified {
+            metadata_id: i32,
+            to_notify: Vec<i32>,
+        }
         // DEV: Ideally this should be using a materialized view, but I am too lazy.
         let meta_map: Vec<_> =
             UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
@@ -5952,7 +5968,11 @@ GROUP BY
             ))
             .all(&self.db)
             .await?;
-        Ok(meta_map)
+        Ok(meta_map
+            .into_iter()
+            .filter(|m| !m.to_notify.is_empty())
+            .map(|m| (m.metadata_id, m.to_notify))
+            .collect())
     }
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
@@ -5961,10 +5981,9 @@ GROUP BY
             return Ok(());
         }
         let meta_map = self.users_to_be_notified_for_state_changes().await?;
-
-        for row in meta_map {
-            let notifications = self.update_metadata(row.metadata_id).await?;
-            for user in row.to_notify {
+        for (metadata_id, to_notify) in meta_map {
+            let notifications = self.update_metadata(metadata_id).await?;
+            for user in to_notify {
                 for notification in notifications.iter() {
                     self.send_media_state_changed_notification_for_user(user, notification)
                         .await?;
@@ -5990,6 +6009,13 @@ GROUP BY
         }
         if matches!(change, MediaStateChanged::EpisodeReleased)
             && preferences.notifications.episode_released
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::MediaPublished)
+            && preferences.notifications.media_published
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
@@ -6781,6 +6807,46 @@ GROUP BY
         Ok(())
     }
 
+    #[instrument(skip(self))]
+    pub async fn send_notifications_for_released_media(&self) -> Result<()> {
+        let today = get_current_date(self.timezone.as_ref());
+        let calendar_events = CalendarEvent::find()
+            .filter(calendar_event::Column::Date.eq(today))
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let notifications = calendar_events
+            .into_iter()
+            .map(|(cal_event, meta)| {
+                let meta = meta.unwrap();
+                let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
+                let notification = match cal_event.metadata_extra_information {
+                    SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
+                        format!("{} ({}) has been released today.", meta.title, url)
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => format!(
+                        "S{}E{} of {} ({}) has been released today.",
+                        show.season, show.episode, meta.title, url
+                    ),
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => format!(
+                        "E{} of {} ({}) has been released today.",
+                        podcast.episode, meta.title, url
+                    ),
+                };
+                (meta.id, (notification, MediaStateChanged::MediaPublished))
+            })
+            .collect_vec();
+        let meta_map = self.users_to_be_notified_for_state_changes().await?;
+        for (metadata_id, notification) in notifications.into_iter() {
+            let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
+            for user in users_to_notify {
+                self.send_media_state_changed_notification_for_user(user, &notification)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
     pub async fn associate_person_with_metadata(
         &self,
         metadata_id: i32,
@@ -6891,7 +6957,7 @@ GROUP BY
             .all(&self.db)
             .await?;
         for user in users {
-            let url = self.get_frontend_url(event.obj_id, event.entity_lot);
+            let url = self.get_frontend_url(event.obj_id, event.entity_lot, Some("reviews"));
             self.send_notifications_to_user_platforms(
                 user.id,
                 &format!(
@@ -6904,15 +6970,24 @@ GROUP BY
         Ok(())
     }
 
-    fn get_frontend_url(&self, id: i32, entity_lot: EntityLot) -> String {
-        let url = match entity_lot {
+    fn get_frontend_url(
+        &self,
+        id: i32,
+        entity_lot: EntityLot,
+        default_tab: Option<&str>,
+    ) -> String {
+        let mut url = match entity_lot {
             EntityLot::Media => format!("media/item/{}", id),
             EntityLot::Person => format!("media/people/{}", id),
             EntityLot::MediaGroup => format!("media/groups/{}", id),
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
         };
-        format!("{}/{}?defaultTab=reviews", self.config.frontend.url, url)
+        url = format!("{}/{}", self.config.frontend.url, url);
+        if let Some(tab) = default_tab {
+            url = format!("{}?defaultTab={}", url, tab);
+        }
+        url
     }
 }
 

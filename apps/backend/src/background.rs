@@ -51,6 +51,11 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     service.send_pending_media_reminders().await.unwrap();
     tracing::trace!("Recalculating calendar events");
     service.recalculate_calendar_events().await.unwrap();
+    tracing::trace!("Sending notifications for released media");
+    service
+        .send_notifications_for_released_media()
+        .await
+        .unwrap();
     Ok(())
 }
 
@@ -173,9 +178,7 @@ pub async fn perform_application_job(
                     .users_to_be_notified_for_state_changes()
                     .await
                     .unwrap()
-                    .iter()
-                    .find(|val| val.metadata_id == metadata.id)
-                    .map(|val| &val.to_notify)
+                    .get(&metadata.id)
                     .cloned()
                     .unwrap_or_default();
                 for notification in notifications {

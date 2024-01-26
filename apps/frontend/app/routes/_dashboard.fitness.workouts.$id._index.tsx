@@ -131,6 +131,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Workout edited successfully",
 				}),
 			});
@@ -143,6 +144,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			return redirectWithToast($path("/fitness/workouts/list"), {
+				type: "success",
 				message: "Workout deleted successfully",
 			});
 		},

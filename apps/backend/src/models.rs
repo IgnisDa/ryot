@@ -1146,12 +1146,6 @@ pub mod media {
         pub lot: MetadataLot,
         pub source: MetadataSource,
     }
-
-    #[derive(Debug, FromQueryResult, Clone, Default)]
-    pub struct UsersToBeNotified {
-        pub metadata_id: i32,
-        pub to_notify: Vec<i32>,
-    }
 }
 
 pub mod fitness {
