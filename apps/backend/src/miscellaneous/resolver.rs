@@ -87,8 +87,8 @@ use crate::{
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenOrReviewOrCalendarEventExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UsersToBeNotified,
-            VideoGameSpecifics, VisualNovelSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
+            VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -5938,7 +5938,12 @@ impl MiscellaneousService {
     }
 
     /// Get all the users that need to be sent notifications for metadata state change.
-    pub async fn users_to_be_notified_for_state_changes(&self) -> Result<Vec<UsersToBeNotified>> {
+    pub async fn users_to_be_notified_for_state_changes(&self) -> Result<HashMap<i32, Vec<i32>>> {
+        #[derive(Debug, FromQueryResult, Clone, Default)]
+        struct UsersToBeNotified {
+            metadata_id: i32,
+            to_notify: Vec<i32>,
+        }
         // DEV: Ideally this should be using a materialized view, but I am too lazy.
         let meta_map: Vec<_> =
             UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
@@ -5963,7 +5968,11 @@ GROUP BY
             ))
             .all(&self.db)
             .await?;
-        Ok(meta_map)
+        Ok(meta_map
+            .into_iter()
+            .filter(|m| !m.to_notify.is_empty())
+            .map(|m| (m.metadata_id, m.to_notify))
+            .collect())
     }
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
@@ -5972,10 +5981,9 @@ GROUP BY
             return Ok(());
         }
         let meta_map = self.users_to_be_notified_for_state_changes().await?;
-
-        for row in meta_map {
-            let notifications = self.update_metadata(row.metadata_id).await?;
-            for user in row.to_notify {
+        for (metadata_id, to_notify) in meta_map {
+            let notifications = self.update_metadata(metadata_id).await?;
+            for user in to_notify {
                 for notification in notifications.iter() {
                     self.send_media_state_changed_notification_for_user(user, notification)
                         .await?;
@@ -6830,12 +6838,7 @@ GROUP BY
             .collect_vec();
         let meta_map = self.users_to_be_notified_for_state_changes().await?;
         for (metadata_id, notification) in notifications.into_iter() {
-            let users_to_notify = meta_map
-                .iter()
-                .find(|val| val.metadata_id == metadata_id)
-                .map(|val| &val.to_notify)
-                .cloned()
-                .unwrap_or_default();
+            let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
             for user in users_to_notify {
                 self.send_media_state_changed_notification_for_user(user, &notification)
                     .await?;

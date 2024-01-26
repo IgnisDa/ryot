@@ -178,9 +178,7 @@ pub async fn perform_application_job(
                     .users_to_be_notified_for_state_changes()
                     .await
                     .unwrap()
-                    .iter()
-                    .find(|val| val.metadata_id == metadata.id)
-                    .map(|val| &val.to_notify)
+                    .get(&metadata.id)
                     .cloned()
                     .unwrap_or_default();
                 for notification in notifications {
