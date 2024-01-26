@@ -105,22 +105,22 @@ impl ExporterService {
                 ExportItem::Media => {
                     self.media_service
                         .export_media(user_id, &mut writer)
-                        .await?
+                        .await?;
                 }
                 ExportItem::People => {
                     self.media_service
                         .export_people(user_id, &mut writer)
-                        .await?
+                        .await?;
                 }
                 ExportItem::Measurements => {
                     self.exercise_service
                         .export_measurements(user_id, &mut writer)
-                        .await?
+                        .await?;
                 }
                 ExportItem::Workouts => {
                     self.exercise_service
                         .export_workouts(user_id, &mut writer)
-                        .await?
+                        .await?;
                 }
             };
             writer.end_array().unwrap();
