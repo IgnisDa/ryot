@@ -4434,6 +4434,7 @@ impl MiscellaneousService {
         Ok(ls.summary.unwrap_or_default())
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn calculate_user_summary(
         &self,
         user_id: i32,
@@ -4527,6 +4528,8 @@ impl MiscellaneousService {
         ls.fitness.workouts.weight += total_workout_weight;
         ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
 
+        tracing::trace!("Calculated numbers summary for user {:?}", ls);
+
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -4539,6 +4542,7 @@ impl MiscellaneousService {
             .await?;
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
+            tracing::trace!("Processing seen item {:?}", seen);
             let meta = metadata.to_owned().unwrap();
             let mut units_consumed = None;
             if let Some(specs) = meta.specifics {
@@ -4683,6 +4687,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let obj = user_model.update(&self.db).await.unwrap();
+        tracing::trace!("Calculated summary for user {:?}", obj);
         Ok(IdObject { id: obj.id })
     }
 
