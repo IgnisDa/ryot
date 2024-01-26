@@ -4688,7 +4688,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let obj = user_model.update(&self.db).await.unwrap();
-        tracing::trace!("Calculated summary for user {:?}", obj);
+        tracing::trace!("Calculated summary for user {:?}", obj.name);
         Ok(IdObject { id: obj.id })
     }
 
