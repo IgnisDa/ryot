@@ -376,6 +376,7 @@ pub mod media {
     #[graphql(input_name = "ShowSpecificsInput")]
     pub struct ShowSpecifics {
         pub seasons: Vec<ShowSeason>,
+        pub runtime: Option<i32>,
     }
 
     impl ShowSpecifics {
