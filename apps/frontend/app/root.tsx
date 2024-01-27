@@ -117,9 +117,9 @@ export default function App() {
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
 				{loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL &&
-				loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID ? (
+				loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID &&
+				!loaderData.envData.DISABLE_TELEMETRY ? (
 					<script
-						async
 						defer
 						src={loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL}
 						data-website-id={loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID}
