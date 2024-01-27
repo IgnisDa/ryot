@@ -2465,7 +2465,7 @@ impl MiscellaneousService {
             .await
             .unwrap();
         #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
-        pub enum ProgressUpdateAction {
+        enum ProgressUpdateAction {
             Update,
             Now,
             InThePast,
@@ -2627,6 +2627,7 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
+        tracing::debug!("Progress update = {:?}", seen);
         let id = seen.id;
         if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache
