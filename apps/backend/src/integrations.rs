@@ -288,7 +288,7 @@ impl IntegrationService {
             .body_json()
             .await
             .unwrap();
-        tracing::trace!("Got response for items in progress {:#?}", resp);
+        tracing::debug!("Got response for items in progress {:#?}", resp);
         let mut media_items = vec![];
         for item in resp.library_items.iter() {
             if let Some(asin) = item.media.metadata.asin.clone() {
@@ -299,7 +299,7 @@ impl IntegrationService {
                     .body_json()
                     .await
                     .unwrap();
-                tracing::trace!("Got response for individual item progress {:#?}", resp);
+                tracing::debug!("Got response for individual item progress {:#?}", resp);
                 media_items.push(IntegrationMedia {
                     identifier: asin,
                     lot: MetadataLot::AudioBook,

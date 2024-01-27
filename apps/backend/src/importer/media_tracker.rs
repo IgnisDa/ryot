@@ -204,7 +204,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         })
     });
 
-    tracing::trace!("Loaded data for {total:?} lists", total = lists.len());
+    tracing::debug!("Loaded data for {total:?} lists", total = lists.len());
 
     let data_len = data.len();
 
@@ -253,7 +253,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MetadataSource::Igdb),
             MediaType::Audiobook => (details.audible_id.clone().unwrap(), MetadataSource::Audible),
         };
-        tracing::trace!(
+        tracing::debug!(
             "Got details for {type:?}, with {seen} seen history: {id} ({idx}/{total})",
             type = media_type,
             id = d.id,

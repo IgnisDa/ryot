@@ -4390,7 +4390,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: i32,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
-        tracing::trace!("Updating metadata for {:?}", metadata_id);
+        tracing::debug!("Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
             .col_expr(metadata::Column::IsPartial, Expr::value(false))
@@ -4428,7 +4428,7 @@ impl MiscellaneousService {
                 vec![]
             }
         };
-        tracing::trace!("Updated metadata for {:?}", metadata_id);
+        tracing::debug!("Updated metadata for {:?}", metadata_id);
         Ok(notifications)
     }
 
@@ -6003,7 +6003,7 @@ GROUP BY
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
         if !self.config.server.update_monitored_media {
-            tracing::trace!("Monitored media updating has been disabled.");
+            tracing::debug!("Monitored media updating has been disabled.");
             return Ok(());
         }
         let meta_map = self.users_to_be_notified_for_state_changes().await?;
@@ -6732,7 +6732,7 @@ GROUP BY
             }
 
             if need_to_delete {
-                tracing::trace!(
+                tracing::debug!(
                     "Need to delete calendar event id = {:#?} since it is invalid",
                     cal_event.id
                 );
