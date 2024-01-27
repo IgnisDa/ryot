@@ -3696,9 +3696,13 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: &str,
     ) -> Result<IdObject> {
-        if let Some(m) = self
-            .media_exists_in_database(lot, source, identifier)
+        if let Some(m) = Metadata::find()
+            .filter(metadata::Column::Lot.eq(lot))
+            .filter(metadata::Column::Source.eq(source))
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .one(&self.db)
             .await?
+            .map(|m| IdObject { id: m.id })
         {
             Ok(m)
         } else {
@@ -5554,21 +5558,6 @@ impl MiscellaneousService {
         user_db.notifications = ActiveValue::Set(update_value);
         user_db.update(&self.db).await?;
         Ok(true)
-    }
-
-    async fn media_exists_in_database(
-        &self,
-        lot: MetadataLot,
-        source: MetadataSource,
-        identifier: &str,
-    ) -> Result<Option<IdObject>> {
-        let media = Metadata::find()
-            .filter(metadata::Column::Lot.eq(lot))
-            .filter(metadata::Column::Source.eq(source))
-            .filter(metadata::Column::Identifier.eq(identifier))
-            .one(&self.db)
-            .await?;
-        Ok(media.map(|m| IdObject { id: m.id }))
     }
 
     async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
