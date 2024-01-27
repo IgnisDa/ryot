@@ -37,6 +37,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { redirectWithToast } from "~/lib/toast.server";
 import {
@@ -154,7 +155,13 @@ export default function Page() {
 
 	return (
 		<Container size="xs">
-			<Form method="post" ref={formRef}>
+			<Form
+				method="post"
+				ref={formRef}
+				onSubmit={() => {
+					events.postReview(loaderData.query.title);
+				}}
+			>
 				<input
 					hidden
 					name={

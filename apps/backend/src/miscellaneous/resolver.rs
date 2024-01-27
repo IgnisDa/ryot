@@ -2433,13 +2433,13 @@ impl MiscellaneousService {
         })
     }
 
-    // DEV: First we update progress only if media has not been consumed for
-    // this user in the last `n` duration.
     pub async fn progress_update(
         &self,
         input: ProgressUpdateInput,
         user_id: i32,
+        // update only if media has not been consumed for this user in the last `n` duration
         respect_cache: bool,
+        // this is present so that validation does not occur since one can add progress to partial metadata
         validate_episode: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {

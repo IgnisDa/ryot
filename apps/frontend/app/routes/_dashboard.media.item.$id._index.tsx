@@ -102,6 +102,7 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb } from "~/lib/generals";
 import {
 	getCoreDetails,
@@ -481,7 +482,14 @@ export default function Page() {
 
 	const PutOnHoldBtn = () => {
 		return (
-			<Form action="?intent=individualProgressUpdate" method="post" replace>
+			<Form
+				action="?intent=individualProgressUpdate"
+				method="post"
+				replace
+				onSubmit={() => {
+					events.updateProgress(loaderData.mediaMainDetails.title);
+				}}
+			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
@@ -490,7 +498,14 @@ export default function Page() {
 	};
 	const DropBtn = () => {
 		return (
-			<Form action="?intent=individualProgressUpdate" method="post" replace>
+			<Form
+				action="?intent=individualProgressUpdate"
+				method="post"
+				replace
+				onSubmit={() => {
+					events.updateProgress(loaderData.mediaMainDetails.title);
+				}}
+			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
@@ -525,6 +540,7 @@ export default function Page() {
 				metadataId={loaderData.metadataId}
 			/>
 			<ProgressUpdateModal
+				title={loaderData.mediaMainDetails.title}
 				onClose={() => setUpdateProgressModalData(undefined)}
 				opened={updateProgressModalData !== undefined}
 				data={updateProgressModalData}
@@ -927,6 +943,7 @@ export default function Page() {
 															<>
 																{userMediaDetails.inProgress ? (
 																	<IndividualProgressModal
+																		title={loaderData.mediaMainDetails.title}
 																		progress={
 																			userMediaDetails.inProgress.progress
 																		}
@@ -1019,6 +1036,11 @@ export default function Page() {
 																	action="?intent=individualProgressUpdate"
 																	method="post"
 																	replace
+																	onSubmit={() => {
+																		events.updateProgress(
+																			loaderData.mediaMainDetails.title,
+																		);
+																	}}
 																>
 																	<input
 																		hidden
@@ -1065,6 +1087,11 @@ export default function Page() {
 																	action="?intent=individualProgressUpdate"
 																	method="post"
 																	replace
+																	onSubmit={() => {
+																		events.updateProgress(
+																			loaderData.mediaMainDetails.title,
+																		);
+																	}}
 																>
 																	<input
 																		hidden
@@ -1668,6 +1695,7 @@ type UpdateProgress = {
 };
 
 const ProgressUpdateModal = (props: {
+	title: string;
 	opened: boolean;
 	onClose: () => void;
 	data?: UpdateProgress;
@@ -1687,7 +1715,10 @@ const ProgressUpdateModal = (props: {
 				method="post"
 				action="?intent=progressUpdate"
 				replace
-				onSubmit={props.onClose}
+				onSubmit={() => {
+					props.onClose();
+					events.updateProgress(props.title);
+				}}
 			>
 				{[
 					...Object.entries(props.data),
@@ -1873,6 +1904,7 @@ const ProgressUpdateModal = (props: {
 };
 
 const IndividualProgressModal = (props: {
+	title: string;
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
@@ -1902,7 +1934,14 @@ const IndividualProgressModal = (props: {
 			centered
 			size="sm"
 		>
-			<Form action="?intent=individualProgressUpdate" method="post" replace>
+			<Form
+				action="?intent=individualProgressUpdate"
+				method="post"
+				replace
+				onSubmit={() => {
+					events.updateProgress(props.title);
+				}}
+			>
 				<input hidden name="metadataId" defaultValue={props.metadataId} />
 				<input hidden name="progress" value={value} readOnly />
 				<input

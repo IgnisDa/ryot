@@ -437,6 +437,11 @@ pub struct AppConfig {
     /// Settings related to visual novels.
     #[setting(nested)]
     pub visual_novels: VisualNovelConfig,
+
+    // Global options
+    /// Whether to disable telemetry.
+    #[setting(default = false, env = "DISABLE_TELEMETRY")]
+    pub disable_telemetry: bool,
 }
 
 impl AppConfig {
