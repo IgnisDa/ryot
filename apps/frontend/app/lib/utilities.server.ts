@@ -5,6 +5,10 @@ import { ZodTypeAny, output, z } from "zod";
 import { authCookie } from "./cookies.server";
 
 export const expectedEnvironmentVariables = z.object({
+	DISABLE_TELEMETRY: z
+		.string()
+		.optional()
+		.transform((v) => v === "true"),
 	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
 	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
