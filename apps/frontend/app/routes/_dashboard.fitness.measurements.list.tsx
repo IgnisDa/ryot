@@ -47,6 +47,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import { ApplicationKey, dayjsLib } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
@@ -168,7 +169,15 @@ export default function Page() {
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
-				<Form replace method="post" action="?intent=create" onSubmit={close}>
+				<Form
+					replace
+					method="post"
+					action="?intent=create"
+					onSubmit={() => {
+						events.createMeasurement();
+						close();
+					}}
+				>
 					<Stack>
 						<DateTimePicker
 							label="Timestamp"
