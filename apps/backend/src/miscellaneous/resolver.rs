@@ -4460,7 +4460,7 @@ impl MiscellaneousService {
             }
         };
 
-        tracing::trace!("Calculating numbers summary for user {:?}", ls);
+        tracing::debug!("Calculating numbers summary for user {:?}", ls);
 
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
@@ -4470,7 +4470,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        tracing::trace!("Calculated number reviews for user {:?}", num_reviews);
+        tracing::debug!("Calculated number reviews for user {:?}", num_reviews);
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
@@ -4480,7 +4480,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        tracing::trace!(
+        tracing::debug!(
             "Calculated number measurements for user {:?}",
             num_measurements
         );
@@ -4493,7 +4493,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        tracing::trace!("Calculated number workouts for user {:?}", num_workouts);
+        tracing::debug!("Calculated number workouts for user {:?}", num_workouts);
 
         let num_media_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
@@ -4504,7 +4504,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        tracing::trace!(
+        tracing::debug!(
             "Calculated number media interacted with for user {:?}",
             num_media_interacted_with
         );
@@ -4518,7 +4518,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        tracing::trace!(
+        tracing::debug!(
             "Calculated number exercises interacted with for user {:?}",
             num_exercises_interacted_with
         );
@@ -4542,7 +4542,7 @@ impl MiscellaneousService {
             .await?
             .unwrap();
 
-        tracing::trace!(
+        tracing::debug!(
             "Calculated total workout time for user {:?}",
             total_workout_time
         );
@@ -4555,7 +4555,7 @@ impl MiscellaneousService {
         ls.fitness.workouts.weight += total_workout_weight;
         ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
 
-        tracing::trace!("Calculated numbers summary for user {:?}", ls);
+        tracing::debug!("Calculated numbers summary for user {:?}", ls);
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -4569,7 +4569,7 @@ impl MiscellaneousService {
             .await?;
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
-            tracing::trace!("Processing seen item {:?}", seen);
+            tracing::debug!("Processing seen item {:?}", seen);
             let meta = metadata.to_owned().unwrap();
             let mut units_consumed = None;
             if let Some(specs) = meta.specifics {
@@ -4714,7 +4714,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let obj = user_model.update(&self.db).await.unwrap();
-        tracing::trace!("Calculated summary for user {:?}", obj.name);
+        tracing::debug!("Calculated summary for user {:?}", obj.name);
         Ok(IdObject { id: obj.id })
     }
 
