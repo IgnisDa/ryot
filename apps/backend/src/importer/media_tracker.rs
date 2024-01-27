@@ -123,6 +123,7 @@ enum ItemNumberOfPages {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemDetails {
+    id: i32,
     seen_history: Vec<ItemSeen>,
     seasons: Vec<ItemSeason>,
     user_rating: Option<ItemReview>,
@@ -236,6 +237,11 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 continue;
             }
         };
+        tracing::trace!(
+            "Got details for media id = {id}, with {seen} seen history",
+            id = d.id,
+            seen = details.seen_history.len()
+        );
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
