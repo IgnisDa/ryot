@@ -716,6 +716,11 @@ impl MediaProvider for TmdbShowService {
             .filter(|c| POSSIBLE_ROLES.contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
+        let total_runtime = seasons
+            .iter()
+            .flat_map(|s| s.episodes.iter())
+            .map(|e| e.runtime.unwrap_or_default())
+            .sum();
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
@@ -747,6 +752,11 @@ impl MediaProvider for TmdbShowService {
             videos,
             publish_year: convert_date_to_year(&show_data.first_air_date.unwrap_or_default()),
             specifics: MediaSpecifics::Show(ShowSpecifics {
+                runtime: if total_runtime == 0 {
+                    None
+                } else {
+                    Some(total_runtime)
+                },
                 seasons: seasons
                     .into_iter()
                     .map(|s| {

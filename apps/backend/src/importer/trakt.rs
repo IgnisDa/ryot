@@ -167,7 +167,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         .parse::<usize>()
         .unwrap();
     for page in 1..total_history + 1 {
-        tracing::trace!("Fetching user history {page:?}/{total_history:?}");
+        tracing::debug!("Fetching user history {page:?}/{total_history:?}");
         let mut rsp = client
             .get("history")
             .query(&serde_json::json!({ "page": page, "limit": 1000 }))

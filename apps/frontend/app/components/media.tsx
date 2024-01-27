@@ -480,6 +480,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	hasInteracted?: boolean;
 	averageRating?: string;
 	noRatingLink?: boolean;
+	noBottomRight?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 }) => {
 	const navigate = useNavigate();
@@ -584,9 +585,13 @@ export const MediaItemWithoutUpdateModal = (props: {
 				)
 			}
 			bottomLeft={props.item.publishYear}
-			bottomRight={changeCase(
-				props.lot ? props.lot : props.entityLot ? props.entityLot : "",
-			)}
+			bottomRight={
+				props.noBottomRight
+					? undefined
+					: changeCase(
+							props.lot ? props.lot : props.entityLot ? props.entityLot : "",
+					  )
+			}
 			highlightRightText={
 				props.hasInteracted ? "This media exists in the database" : undefined
 			}
