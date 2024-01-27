@@ -2500,6 +2500,7 @@ impl MiscellaneousService {
             },
             Some(_) => ProgressUpdateAction::ChangeState,
         };
+        tracing::debug!("Progress update action = {:?}", action);
         let err = || {
             Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::NoSeenInProgress,
@@ -2552,14 +2553,15 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
-                let extra_information = match meta.lot {
-                    MetadataLot::Show => {
-                        if let (Some(season), Some(episode), Some(MediaSpecifics::Show(spec))) = (
-                            input.show_season_number,
-                            input.show_episode_number,
-                            meta.specifics,
-                        ) {
-                            if validate_episode {
+                tracing::debug!("Progress update meta = {:?}", meta.title);
+                let extra_information = if validate_episode {
+                    match meta.lot {
+                        MetadataLot::Show => {
+                            if let (Some(season), Some(episode), Some(MediaSpecifics::Show(spec))) = (
+                                input.show_season_number,
+                                input.show_episode_number,
+                                meta.specifics,
+                            ) {
                                 let is_there = spec.get_episode(season, episode).is_some();
                                 if !is_there {
                                     return Ok(ProgressUpdateResultUnion::Error(
@@ -2568,21 +2570,19 @@ impl MiscellaneousService {
                                         },
                                     ));
                                 }
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                    SeenShowExtraInformation { season, episode },
+                                ))
+                            } else {
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
                             }
-                            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                SeenShowExtraInformation { season, episode },
-                            ))
-                        } else {
-                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                error: ProgressUpdateErrorVariant::InvalidUpdate,
-                            }));
                         }
-                    }
-                    MetadataLot::Podcast => {
-                        if let (Some(episode), Some(MediaSpecifics::Podcast(spec))) =
-                            (input.podcast_episode_number, meta.specifics)
-                        {
-                            if validate_episode {
+                        MetadataLot::Podcast => {
+                            if let (Some(episode), Some(MediaSpecifics::Podcast(spec))) =
+                                (input.podcast_episode_number, meta.specifics)
+                            {
                                 let is_there = spec.get_episode(episode).is_some();
                                 if !is_there {
                                     return Ok(ProgressUpdateResultUnion::Error(
@@ -2591,29 +2591,63 @@ impl MiscellaneousService {
                                         },
                                     ));
                                 }
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                    SeenPodcastExtraInformation { episode },
+                                ))
+                            } else {
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
                             }
-                            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                SeenPodcastExtraInformation { episode },
-                            ))
-                        } else {
-                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                error: ProgressUpdateErrorVariant::InvalidUpdate,
-                            }));
                         }
+                        _ => None,
                     }
-                    _ => None,
+                } else {
+                    match meta.lot {
+                        MetadataLot::Show => {
+                            if let (Some(season), Some(episode)) =
+                                (input.show_season_number, input.show_episode_number)
+                            {
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                    SeenShowExtraInformation { season, episode },
+                                ))
+                            } else {
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
+                            }
+                        }
+                        MetadataLot::Podcast => {
+                            if let Some(episode) = input.podcast_episode_number {
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                    SeenPodcastExtraInformation { episode },
+                                ))
+                            } else {
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
+                            }
+                        }
+                        _ => None,
+                    }
                 };
+                tracing::debug!(
+                    "Progress update extra information = {:?}",
+                    extra_information
+                );
                 let finished_on = if action == ProgressUpdateAction::JustStarted {
                     None
                 } else {
                     input.date
                 };
+                tracing::debug!("Progress update finished on = {:?}", finished_on);
                 let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
                 {
                     (0, Some(Utc::now().date_naive()))
                 } else {
                     (100, None)
                 };
+                tracing::debug!("Progress update progress = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
@@ -5858,75 +5892,78 @@ impl MiscellaneousService {
                 if metadata.model.lot == MetadataLot::Podcast
                     || metadata.model.lot == MetadataLot::Show
                 {
-                    // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
-                    // correspond to each episode exactly once, it means the show can be removed
-                    // from the "In Progress" collection.
-                    let all_episodes = match metadata.model.specifics.unwrap() {
-                        MediaSpecifics::Show(s) => s
-                            .seasons
-                            .into_iter()
-                            .filter(|s| s.name != "Specials")
-                            .flat_map(|s| {
-                                s.episodes.into_iter().map(move |e| {
-                                    format!("{}-{}", s.season_number, e.episode_number)
+                    if let Some(specifics) = metadata.model.specifics {
+                        // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
+                        // correspond to each episode exactly once, it means the show can be removed
+                        // from the "In Progress" collection.
+                        let all_episodes = match specifics {
+                            MediaSpecifics::Show(s) => s
+                                .seasons
+                                .into_iter()
+                                .filter(|s| s.name != "Specials")
+                                .flat_map(|s| {
+                                    s.episodes.into_iter().map(move |e| {
+                                        format!("{}-{}", s.season_number, e.episode_number)
+                                    })
                                 })
-                            })
-                            .collect_vec(),
-                        MediaSpecifics::Podcast(p) => p
-                            .episodes
+                                .collect_vec(),
+                            MediaSpecifics::Podcast(p) => p
+                                .episodes
+                                .into_iter()
+                                .map(|e| format!("{}", e.number))
+                                .collect_vec(),
+                            _ => unreachable!(),
+                        };
+                        let seen_history =
+                            self.seen_history(seen.user_id, seen.metadata_id).await?;
+                        let mut bag = HashMap::<String, i32>::from_iter(
+                            all_episodes.iter().cloned().map(|e| (e, 0)),
+                        );
+                        seen_history
                             .into_iter()
-                            .map(|e| format!("{}", e.number))
-                            .collect_vec(),
-                        _ => unreachable!(),
-                    };
-                    let seen_history = self.seen_history(seen.user_id, seen.metadata_id).await?;
-                    let mut bag = HashMap::<String, i32>::from_iter(
-                        all_episodes.iter().cloned().map(|e| (e, 0)),
-                    );
-                    seen_history
-                        .into_iter()
-                        .map(|h| {
-                            if let Some(s) = h.show_information {
-                                format!("{}-{}", s.season, s.episode)
-                            } else if let Some(p) = h.podcast_information {
-                                format!("{}", p.episode)
-                            } else {
-                                String::new()
-                            }
-                        })
-                        .take_while_inclusive(|h| h != all_episodes.first().unwrap())
-                        .for_each(|ep| {
-                            bag.entry(ep).and_modify(|c| *c += 1);
-                        });
-                    let is_complete = bag.values().all(|&e| e == 1);
-                    if is_complete {
-                        self.remove_entity_from_collection(
-                            seen.user_id,
-                            ChangeCollectionToEntityInput {
-                                collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: seen.metadata_id.to_string(),
-                                entity_lot: EntityLot::Media,
-                            },
-                        )
-                        .await
-                        .ok();
-                    } else {
-                        self.add_entity_to_collection(
-                            seen.user_id,
-                            ChangeCollectionToEntityInput {
-                                collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: seen.metadata_id.to_string(),
-                                entity_lot: EntityLot::Media,
-                            },
-                        )
-                        .await
-                        .ok();
-                        let is_monitored = self
-                            .get_monitored_status(seen.user_id, seen.metadata_id)
-                            .await?;
-                        if !is_monitored {
-                            self.toggle_media_monitor(seen.user_id, seen.metadata_id)
+                            .map(|h| {
+                                if let Some(s) = h.show_information {
+                                    format!("{}-{}", s.season, s.episode)
+                                } else if let Some(p) = h.podcast_information {
+                                    format!("{}", p.episode)
+                                } else {
+                                    String::new()
+                                }
+                            })
+                            .take_while_inclusive(|h| h != all_episodes.first().unwrap())
+                            .for_each(|ep| {
+                                bag.entry(ep).and_modify(|c| *c += 1);
+                            });
+                        let is_complete = bag.values().all(|&e| e == 1);
+                        if is_complete {
+                            self.remove_entity_from_collection(
+                                seen.user_id,
+                                ChangeCollectionToEntityInput {
+                                    collection_name: DefaultCollection::InProgress.to_string(),
+                                    entity_id: seen.metadata_id.to_string(),
+                                    entity_lot: EntityLot::Media,
+                                },
+                            )
+                            .await
+                            .ok();
+                        } else {
+                            self.add_entity_to_collection(
+                                seen.user_id,
+                                ChangeCollectionToEntityInput {
+                                    collection_name: DefaultCollection::InProgress.to_string(),
+                                    entity_id: seen.metadata_id.to_string(),
+                                    entity_lot: EntityLot::Media,
+                                },
+                            )
+                            .await
+                            .ok();
+                            let is_monitored = self
+                                .get_monitored_status(seen.user_id, seen.metadata_id)
                                 .await?;
+                            if !is_monitored {
+                                self.toggle_media_monitor(seen.user_id, seen.metadata_id)
+                                    .await?;
+                            }
                         }
                     }
                 } else {
