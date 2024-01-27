@@ -55,6 +55,7 @@
 		"zodix": "0.4.4"
 	},
 	"devDependencies": {
+		"@bitprojects/umami-logger-typescript": "1.0.10",
 		"@remix-run/dev": "2.5.1",
 		"@types/cookie": "0.6.0",
 		"@types/crypto-js": "4.2.1",

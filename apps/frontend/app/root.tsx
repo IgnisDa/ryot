@@ -1,3 +1,4 @@
+import type Umami from "@bitprojects/umami-logger-typescript";
 import {
 	ActionIcon,
 	Alert,
@@ -35,6 +36,14 @@ import {
 } from "~/lib/utilities.server";
 import { MountPoint } from "./components/confirmation";
 import { colorSchemeCookie } from "./lib/cookies.server";
+
+declare global {
+	interface Window {
+		umami?: {
+			track: typeof Umami.trackEvent;
+		};
+	}
+}
 
 const theme = createTheme({
 	fontFamily: "Poppins",
