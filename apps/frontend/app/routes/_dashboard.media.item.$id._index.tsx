@@ -614,6 +614,12 @@ export default function Page() {
 											)}`,
 										mediaAdditionalDetails.showSpecifics?.seasons &&
 											`${mediaAdditionalDetails.showSpecifics.seasons.length} seasons`,
+										mediaAdditionalDetails.showSpecifics?.runtime &&
+											`${humanizeDuration(
+												mediaAdditionalDetails.showSpecifics.runtime *
+													1000 *
+													60,
+											)}`,
 										mediaAdditionalDetails.audioBookSpecifics?.runtime &&
 											`${humanizeDuration(
 												mediaAdditionalDetails.audioBookSpecifics.runtime *
