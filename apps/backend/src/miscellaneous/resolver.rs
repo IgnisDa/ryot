@@ -2440,6 +2440,7 @@ impl MiscellaneousService {
         input: ProgressUpdateInput,
         user_id: i32,
         respect_cache: bool,
+        validate_episode: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
             user_id,
@@ -2558,11 +2559,15 @@ impl MiscellaneousService {
                             input.show_episode_number,
                             meta.specifics,
                         ) {
-                            let is_there = spec.get_episode(season, episode).is_some();
-                            if !is_there {
-                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                }));
+                            if validate_episode {
+                                let is_there = spec.get_episode(season, episode).is_some();
+                                if !is_there {
+                                    return Ok(ProgressUpdateResultUnion::Error(
+                                        ProgressUpdateError {
+                                            error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                        },
+                                    ));
+                                }
                             }
                             Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
                                 SeenShowExtraInformation { season, episode },
@@ -2577,11 +2582,15 @@ impl MiscellaneousService {
                         if let (Some(episode), Some(MediaSpecifics::Podcast(spec))) =
                             (input.podcast_episode_number, meta.specifics)
                         {
-                            let is_there = spec.get_episode(episode).is_some();
-                            if !is_there {
-                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                }));
+                            if validate_episode {
+                                let is_there = spec.get_episode(episode).is_some();
+                                if !is_there {
+                                    return Ok(ProgressUpdateResultUnion::Error(
+                                        ProgressUpdateError {
+                                            error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                        },
+                                    ));
+                                }
                             }
                             Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
                                 SeenPodcastExtraInformation { episode },
@@ -2652,7 +2661,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, user_id, false).await.ok();
+            self.progress_update(seen, user_id, false, true).await.ok();
         }
         Ok(true)
     }
@@ -5811,6 +5820,7 @@ impl MiscellaneousService {
             },
             user_id,
             true,
+            false,
         )
         .await
         .ok();
