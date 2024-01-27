@@ -44,6 +44,10 @@ database:
   # @envvar DATABASE_URL
   url: ""
 
+# Whether to disable telemetry.
+# @envvar DISABLE_TELEMETRY
+disable_telemetry: false
+
 # Settings related to exercises.
 exercise: {}
 
