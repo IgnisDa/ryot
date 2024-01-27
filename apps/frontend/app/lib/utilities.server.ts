@@ -9,9 +9,13 @@ export const expectedEnvironmentVariables = z.object({
 		.string()
 		.optional()
 		.transform((v) => v === "true"),
-	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
+	FRONTEND_UMAMI_SCRIPT_URL: z
+		.string()
+		.default("https://umami.diptesh.me/script"),
+	FRONTEND_UMAMI_WEBSITE_ID: z
+		.string()
+		.default("5ecd6915-d542-4fda-aa5f-70f09f04e2e0"),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
-	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
 });
 
 /**
