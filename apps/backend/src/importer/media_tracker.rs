@@ -237,11 +237,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 continue;
             }
         };
-        tracing::trace!(
-            "Got details for media id = {id}, with {seen} seen history",
-            id = d.id,
-            seen = details.seen_history.len()
-        );
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
@@ -259,11 +254,12 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             MediaType::Audiobook => (details.audible_id.clone().unwrap(), MetadataSource::Audible),
         };
         tracing::trace!(
-            "Got details for {type:?}: {id} ({idx}/{total})",
+            "Got details for {type:?}, with {seen} seen history: {id} ({idx}/{total})",
             type = media_type,
             id = d.id,
             idx = idx,
-            total = data_len
+            total = data_len,
+            seen = details.seen_history.len()
         );
         let need_details = details.goodreads_id.is_none();
 
