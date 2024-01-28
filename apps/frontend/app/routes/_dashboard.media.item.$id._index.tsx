@@ -1318,7 +1318,7 @@ export default function Page() {
 												>
 													<Stack>
 														<Box>
-															<Text>
+															<Text fz={{ base: "sm", md: "md" }}>
 																Seen by all users {userMediaDetails.seenBy} time
 																{userMediaDetails.seenBy > 1 ? "s" : ""} and{" "}
 																{userMediaDetails.history.length} time
@@ -1329,7 +1329,7 @@ export default function Page() {
 																by you.
 															</Text>
 															{userMediaDetails.ownership ? (
-																<Text>
+																<Text fz={{ base: "sm", md: "md" }}>
 																	You owned this media
 																	{userMediaDetails.ownership.ownedOn
 																		? ` on ${userMediaDetails.ownership.ownedOn}`
@@ -1338,7 +1338,7 @@ export default function Page() {
 																</Text>
 															) : null}
 															{userMediaDetails.unitsConsumed ? (
-																<Text>
+																<Text fz={{ base: "sm", md: "md" }}>
 																	Consumed{" "}
 																	{match(loaderData.mediaMainDetails.lot)
 																		.with(
