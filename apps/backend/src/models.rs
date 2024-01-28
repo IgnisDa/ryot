@@ -760,9 +760,12 @@ pub mod media {
     pub struct UserSummary {
         pub fitness: UserFitnessSummary,
         pub media: UserMediaSummary,
-        pub calculated_on: DateTimeUtc,
         #[graphql(skip)]
         pub unique_items: UserSummaryUniqueItems,
+        pub calculated_on: DateTimeUtc,
+        #[graphql(skip)]
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub calculated_from_beginning: bool,
     }
 
     #[derive(Debug, InputObject, Default)]

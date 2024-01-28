@@ -4472,6 +4472,8 @@ impl MiscellaneousService {
             }
         };
 
+        ls.calculated_from_beginning = calculate_from_beginning;
+
         tracing::debug!("Calculating numbers summary for user {:?}", ls);
 
         let num_reviews = Review::find()
