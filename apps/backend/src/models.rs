@@ -1120,7 +1120,6 @@ pub mod media {
     pub enum SeenOrReviewOrCalendarEventExtraInformation {
         Show(SeenShowExtraInformation),
         Podcast(SeenPodcastExtraInformation),
-        Other(()),
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1926,7 +1926,7 @@ impl MiscellaneousService {
             m_images: Option<Vec<MetadataImage>>,
             m_lot: MetadataLot,
             m_specifics: MediaSpecifics,
-            metadata_extra_information: SeenOrReviewOrCalendarEventExtraInformation,
+            metadata_extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -1987,25 +1987,26 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let mut image = None;
-            match evt.metadata_extra_information {
-                SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                    calc.show_season_number = Some(s.season);
-                    calc.show_episode_number = Some(s.episode);
-                    if let MediaSpecifics::Show(sh) = evt.m_specifics {
-                        if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
-                            image = ep.poster_images.first().cloned();
+            if let Some(extra_info) = evt.metadata_extra_information.clone() {
+                match extra_info {
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
+                        calc.show_season_number = Some(s.season);
+                        calc.show_episode_number = Some(s.episode);
+                        if let MediaSpecifics::Show(sh) = evt.m_specifics {
+                            if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                                image = ep.poster_images.first().cloned();
+                            }
                         }
                     }
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
+                        calc.podcast_episode_number = Some(p.episode);
+                        if let MediaSpecifics::Podcast(po) = evt.m_specifics {
+                            if let Some(ep) = po.get_episode(p.episode) {
+                                image = ep.thumbnail.clone();
+                            }
+                        };
+                    }
                 }
-                SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
-                    calc.podcast_episode_number = Some(p.episode);
-                    if let MediaSpecifics::Podcast(po) = evt.m_specifics {
-                        if let Some(ep) = po.get_episode(p.episode) {
-                            image = ep.thumbnail.clone();
-                        }
-                    };
-                }
-                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {}
             }
             if image.is_none() {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
@@ -3764,7 +3765,6 @@ impl MiscellaneousService {
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
                             (None, None, Some(d.episode))
                         }
-                        SeenOrReviewOrCalendarEventExtraInformation::Other(_) => (None, None, None),
                     },
                     None => (None, None, None),
                 };
@@ -4382,7 +4382,6 @@ impl MiscellaneousService {
                     SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
                         (None, None, Some(p.episode))
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Other(_) => (None, None, None),
                 },
             };
             let cache = ProgressUpdateCache {
@@ -4661,9 +4660,6 @@ impl MiscellaneousService {
                     MediaSpecifics::Show(item) => {
                         ls.unique_items.shows.insert(seen.metadata_id);
                         match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
-                                unreachable!()
-                            }
                             SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
                                 unreachable!()
                             }
@@ -4690,9 +4686,6 @@ impl MiscellaneousService {
                     MediaSpecifics::Podcast(item) => {
                         ls.unique_items.podcasts.insert(seen.metadata_id);
                         match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
-                                unreachable!()
-                            }
                             SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
                                 unreachable!()
                             }
@@ -6742,30 +6735,30 @@ GROUP BY
                 .await?
                 .unwrap();
             let mut need_to_delete = false;
-            match cal_event.metadata_extra_information {
-                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
-                    if cal_event.date != meta.publish_date.unwrap() {
-                        need_to_delete = true;
+            if let Some(extra_info) = cal_event.metadata_extra_information {
+                match extra_info {
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
+                        if let MediaSpecifics::Show(show_info) = meta.specifics.unwrap() {
+                            if let Some((_, ep)) = show_info.get_episode(show.season, show.episode)
+                            {
+                                if ep.publish_date.unwrap() != cal_event.date {
+                                    need_to_delete = true;
+                                }
+                            }
+                        }
                     }
-                }
-                SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
-                    if let MediaSpecifics::Show(show_info) = meta.specifics.unwrap() {
-                        if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
-                            if ep.publish_date.unwrap() != cal_event.date {
-                                need_to_delete = true;
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
+                        if let MediaSpecifics::Podcast(podcast_info) = meta.specifics.unwrap() {
+                            if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                                if ep.publish_date != cal_event.date {
+                                    need_to_delete = true;
+                                }
                             }
                         }
                     }
                 }
-                SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
-                    if let MediaSpecifics::Podcast(podcast_info) = meta.specifics.unwrap() {
-                        if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                            if ep.publish_date != cal_event.date {
-                                need_to_delete = true;
-                            }
-                        }
-                    }
-                }
+            } else if cal_event.date != meta.publish_date.unwrap() {
+                need_to_delete = true;
             }
 
             if need_to_delete {
@@ -6796,13 +6789,13 @@ GROUP BY
                         let event = calendar_event::ActiveModel {
                             metadata_id: ActiveValue::Set(Some(meta.id)),
                             date: ActiveValue::Set(episode.publish_date),
-                            metadata_extra_information: ActiveValue::Set(
+                            metadata_extra_information: ActiveValue::Set(Some(
                                 SeenOrReviewOrCalendarEventExtraInformation::Podcast(
                                     SeenPodcastExtraInformation {
                                         episode: episode.number,
                                     },
                                 ),
-                            ),
+                            )),
                             ..Default::default()
                         };
                         calendar_events_inserts.push(event);
@@ -6815,14 +6808,14 @@ GROUP BY
                                 let event = calendar_event::ActiveModel {
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
                                     date: ActiveValue::Set(date),
-                                    metadata_extra_information: ActiveValue::Set(
+                                    metadata_extra_information: ActiveValue::Set(Some(
                                         SeenOrReviewOrCalendarEventExtraInformation::Show(
                                             SeenShowExtraInformation {
                                                 season: season.season_number,
                                                 episode: episode.episode_number,
                                             },
                                         ),
-                                    ),
+                                    )),
                                     ..Default::default()
                                 };
                                 calendar_events_inserts.push(event);
@@ -6834,9 +6827,6 @@ GROUP BY
                     let event = calendar_event::ActiveModel {
                         metadata_id: ActiveValue::Set(Some(meta.id)),
                         date: ActiveValue::Set(meta.publish_date.unwrap()),
-                        metadata_extra_information: ActiveValue::Set(
-                            SeenOrReviewOrCalendarEventExtraInformation::Other(()),
-                        ),
                         ..Default::default()
                     };
                     calendar_events_inserts.push(event);
@@ -6883,18 +6873,19 @@ GROUP BY
             .map(|(cal_event, meta)| {
                 let meta = meta.unwrap();
                 let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
-                let notification = match cal_event.metadata_extra_information {
-                    SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
-                        format!("{} ({}) has been released today.", meta.title, url)
+                let notification = if let Some(extra_info) = cal_event.metadata_extra_information {
+                    match extra_info {
+                        SeenOrReviewOrCalendarEventExtraInformation::Show(show) => format!(
+                            "S{}E{} of {} ({}) has been released today.",
+                            show.season, show.episode, meta.title, url
+                        ),
+                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => format!(
+                            "E{} of {} ({}) has been released today.",
+                            podcast.episode, meta.title, url
+                        ),
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => format!(
-                        "S{}E{} of {} ({}) has been released today.",
-                        show.season, show.episode, meta.title, url
-                    ),
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => format!(
-                        "E{} of {} ({}) has been released today.",
-                        podcast.episode, meta.title, url
-                    ),
+                } else {
+                    format!("{} ({}) has been released today.", meta.title, url)
                 };
                 (meta.id, (notification, MediaStateChanged::MediaPublished))
             })
@@ -7058,7 +7049,6 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
     all_seen.iter_mut().for_each(|s| {
         if let Some(i) = s.extra_information.as_ref() {
             match i {
-                SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {}
                 SeenOrReviewOrCalendarEventExtraInformation::Show(sea) => {
                     s.show_information = Some(sea.clone());
                 }

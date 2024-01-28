@@ -13,7 +13,7 @@ pub struct Model {
     pub id: i32,
     pub date: NaiveDate,
     pub metadata_id: Option<i32>,
-    pub metadata_extra_information: SeenOrReviewOrCalendarEventExtraInformation,
+    pub metadata_extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
