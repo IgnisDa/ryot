@@ -4583,7 +4583,6 @@ impl MiscellaneousService {
             .await?;
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
-            tracing::debug!("Processing seen item {:?}", seen);
             let meta = metadata.to_owned().unwrap();
             let mut units_consumed = None;
             if let Some(specs) = meta.specifics {
@@ -4592,13 +4591,6 @@ impl MiscellaneousService {
                         ls.unique_items.audio_books.insert(meta.id);
                         if let Some(r) = item.runtime {
                             ls.media.audio_books.runtime += r;
-                            units_consumed = Some(r);
-                        }
-                    }
-                    MediaSpecifics::Anime(item) => {
-                        ls.unique_items.anime.insert(meta.id);
-                        if let Some(r) = item.episodes {
-                            ls.media.anime.episodes += r;
                             units_consumed = Some(r);
                         }
                     }
@@ -4616,7 +4608,6 @@ impl MiscellaneousService {
                             units_consumed = Some(pg);
                         }
                     }
-
                     MediaSpecifics::Movie(item) => {
                         ls.unique_items.movies.insert(meta.id);
                         if let Some(r) = item.runtime {
@@ -4624,13 +4615,21 @@ impl MiscellaneousService {
                             units_consumed = Some(r);
                         }
                     }
+                    MediaSpecifics::Anime(item) => {
+                        ls.unique_items.anime.insert(meta.id);
+                        match seen.extra_information.to_owned().unwrap() {
+                            SeenOrReviewOrCalendarEventExtraInformation::Anime(s) => {
+                                if let (Some(_), Some(episode)) = (item.episodes, s.episode) {
+                                    ls.unique_items.anime_episodes.insert((meta.id, episode));
+                                    units_consumed = Some(1);
+                                }
+                            }
+                            _ => unreachable!(),
+                        };
+                    }
                     MediaSpecifics::Show(item) => {
                         ls.unique_items.shows.insert(seen.metadata_id);
                         match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
-                                unreachable!()
-                            }
-                            SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
                             SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
                                 if let Some((season, episode)) =
                                     item.get_episode(s.season, s.episode)
@@ -4649,15 +4648,12 @@ impl MiscellaneousService {
                                         .insert((meta.id, season.season_number));
                                 }
                             }
+                            _ => unreachable!(),
                         };
                     }
                     MediaSpecifics::Podcast(item) => {
                         ls.unique_items.podcasts.insert(seen.metadata_id);
                         match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
-                                unreachable!()
-                            }
-                            SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
                             SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
                                 if let Some(episode) = item.get_episode(s.episode) {
                                     if let Some(r) = episode.runtime {
@@ -4669,6 +4665,7 @@ impl MiscellaneousService {
                                         .insert((meta.id, s.episode));
                                 }
                             }
+                            _ => unreachable!(),
                         }
                     }
                     MediaSpecifics::VideoGame(_item) => {
@@ -4708,9 +4705,11 @@ impl MiscellaneousService {
         ls.media.shows.watched_seasons = ls.unique_items.show_seasons.len();
         ls.media.shows.watched = ls.unique_items.shows.len();
 
+        ls.media.anime.episodes = ls.unique_items.anime_episodes.len();
+        ls.media.anime.watched = ls.unique_items.anime.len();
+
         ls.media.video_games.played = ls.unique_items.video_games.len();
         ls.media.audio_books.played = ls.unique_items.audio_books.len();
-        ls.media.anime.watched = ls.unique_items.anime.len();
         ls.media.manga.read = ls.unique_items.manga.len();
         ls.media.books.read = ls.unique_items.books.len();
         ls.media.movies.watched = ls.unique_items.movies.len();

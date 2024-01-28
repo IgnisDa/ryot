@@ -666,7 +666,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct AnimeSummary {
-        pub episodes: i32,
+        pub episodes: usize,
         pub watched: usize,
     }
 
@@ -733,6 +733,8 @@ pub mod media {
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
     pub struct UserSummaryUniqueItems {
         pub audio_books: HashSet<i32>,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub anime_episodes: HashSet<(i32, i32)>,
         pub anime: HashSet<i32>,
         pub manga: HashSet<i32>,
         pub books: HashSet<i32>,
