@@ -28,6 +28,9 @@ fragment SeenPart on Seen {
   animeInformation {
     episode
   }
+  mangaInformation {
+    chapter
+  }
 }
 
 fragment MediaSearchItemPart on MediaSearchItem {
@@ -103,6 +106,7 @@ fragment ReviewItemPart on ReviewItem {
   showEpisode
   podcastEpisode
   animeEpisode
+  mangaChapter
   postedOn
   postedBy {
     id

@@ -25,6 +25,7 @@ pub struct IntegrationMedia {
     pub show_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -110,6 +111,7 @@ impl IntegrationService {
             podcast_episode_number: None,
             show_season_number: payload.item.season_number,
             show_episode_number: payload.item.episode_number,
+            manga_chapter_number: None,
             anime_episode_number: None,
         })
     }
@@ -235,6 +237,7 @@ impl IntegrationService {
             show_season_number: payload.metadata.season_number,
             show_episode_number: payload.metadata.episode_number,
             anime_episode_number: None,
+            manga_chapter_number: None,
         })
     }
 
@@ -312,6 +315,7 @@ impl IntegrationService {
                     show_episode_number: None,
                     podcast_episode_number: None,
                     anime_episode_number: None,
+                    manga_chapter_number: None,
                 });
             }
         }

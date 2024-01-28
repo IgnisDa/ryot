@@ -394,6 +394,7 @@ impl ImporterService {
                             show_episode_number: seen.show_episode_number,
                             podcast_episode_number: seen.podcast_episode_number,
                             anime_episode_number: seen.anime_episode_number,
+                            manga_chapter_number: seen.manga_chapter_number,
                             change_state: None,
                         },
                         user_id,
