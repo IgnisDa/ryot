@@ -628,25 +628,32 @@ export default function Page() {
 										mediaAdditionalDetails.mangaSpecifics?.volumes &&
 											`${mediaAdditionalDetails.mangaSpecifics.volumes} volumes`,
 										mediaAdditionalDetails.movieSpecifics?.runtime &&
-											`${humanizeDuration(
+											humanizeDuration(
 												mediaAdditionalDetails.movieSpecifics.runtime *
 													1000 *
 													60,
-											)}`,
+											),
 										mediaAdditionalDetails.showSpecifics?.seasons &&
-											`${mediaAdditionalDetails.showSpecifics.seasons.length} seasons`,
+											`${
+												mediaAdditionalDetails.showSpecifics.seasons.length
+											} season${
+												mediaAdditionalDetails.showSpecifics.seasons.length ===
+												1
+													? ""
+													: "s"
+											}`,
 										mediaAdditionalDetails.showSpecifics?.runtime &&
-											`${humanizeDuration(
+											humanizeDuration(
 												mediaAdditionalDetails.showSpecifics.runtime *
 													1000 *
 													60,
-											)}`,
+											),
 										mediaAdditionalDetails.audioBookSpecifics?.runtime &&
-											`${humanizeDuration(
+											humanizeDuration(
 												mediaAdditionalDetails.audioBookSpecifics.runtime *
 													1000 *
 													60,
-											)}`,
+											),
 									]
 										.filter(Boolean)
 										.join(" • ")}
