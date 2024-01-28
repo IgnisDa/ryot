@@ -85,10 +85,10 @@ use crate::{
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
             PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
-            ReviewPostedEvent, SeenOrReviewOrCalendarEventExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
-            VisualNovelSpecifics,
+            ReviewPostedEvent, SeenAnimeExtraInformation,
+            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
+            UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -2582,6 +2582,11 @@ impl MiscellaneousService {
                             }));
                         }
                     }
+                    MetadataLot::Anime => Some(SeenOrReviewOrCalendarEventExtraInformation::Anime(
+                        SeenAnimeExtraInformation {
+                            episode: input.anime_episode_number,
+                        },
+                    )),
                     _ => None,
                 };
                 tracing::debug!(
