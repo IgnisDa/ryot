@@ -581,7 +581,6 @@ impl ExerciseService {
                 .clone()
                 .push(ApplicationJob::UpdateExerciseJob(exercise))
                 .await?;
-            tracing::debug!(job_id = ?job, "Deployed job to update exercise library.");
             job_ids.push(job.to_string());
         }
         Ok(job_ids.len().try_into().unwrap())
