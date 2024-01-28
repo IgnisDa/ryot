@@ -62,6 +62,7 @@ import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const searchParamsSchema = z.object({
+	defaultTab: z.string().optional(),
 	selectionEnabled: zx.BoolAsString.optional(),
 });
 
@@ -141,7 +142,10 @@ export default function Page() {
 						))}
 					</Group>
 				) : null}
-				<Tabs variant="outline" defaultValue="overview">
+				<Tabs
+					variant="outline"
+					defaultValue={loaderData.query.defaultTab || "overview"}
+				>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="overview"

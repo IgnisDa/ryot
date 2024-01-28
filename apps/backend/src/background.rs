@@ -51,6 +51,11 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     service.send_pending_media_reminders().await.unwrap();
     tracing::trace!("Recalculating calendar events");
     service.recalculate_calendar_events().await.unwrap();
+    tracing::trace!("Sending notifications for released media");
+    service
+        .send_notifications_for_released_media()
+        .await
+        .unwrap();
     Ok(())
 }
 
@@ -169,14 +174,20 @@ pub async fn perform_application_job(
         ApplicationJob::UpdateMetadata(metadata) => {
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
             if !notifications.is_empty() {
+                let users_to_notify = misc_service
+                    .users_to_be_notified_for_state_changes()
+                    .await
+                    .unwrap()
+                    .get(&metadata.id)
+                    .cloned()
+                    .unwrap_or_default();
                 for notification in notifications {
-                    let user_ids = misc_service
-                        .users_to_be_notified_for_state_changes(metadata.id)
-                        .await
-                        .unwrap();
-                    for user_id in user_ids {
+                    for user_id in users_to_notify.iter() {
                         misc_service
-                            .send_media_state_changed_notification_for_user(user_id, &notification)
+                            .send_media_state_changed_notification_for_user(
+                                user_id.to_owned(),
+                                &notification,
+                            )
                             .await
                             .ok();
                     }

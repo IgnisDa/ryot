@@ -2,13 +2,20 @@ import { parse } from "@conform-to/zod";
 import { json } from "@remix-run/node";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
-import { zx } from "zodix";
 import { authCookie } from "./cookies.server";
 
 export const expectedEnvironmentVariables = z.object({
-	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
+	DISABLE_TELEMETRY: z
+		.string()
+		.optional()
+		.transform((v) => v === "true"),
+	FRONTEND_UMAMI_SCRIPT_URL: z
+		.string()
+		.default("https://umami.diptesh.me/script.js"),
+	FRONTEND_UMAMI_WEBSITE_ID: z
+		.string()
+		.default("5ecd6915-d542-4fda-aa5f-70f09f04e2e0"),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
-	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
 });
 
 /**
@@ -35,10 +42,15 @@ export type ApplicationUser = {
 	lot: UserLot;
 };
 
+const emptyNumberString = z
+	.any()
+	.transform((v) => (!v ? undefined : parseInt(v)))
+	.nullable();
+
 export const ShowAndPodcastSchema = z.object({
-	showSeasonNumber: zx.IntAsString.optional().nullable(),
-	showEpisodeNumber: zx.IntAsString.optional().nullable(),
-	podcastEpisodeNumber: zx.IntAsString.optional().nullable(),
+	showSeasonNumber: emptyNumberString,
+	showEpisodeNumber: emptyNumberString,
+	podcastEpisodeNumber: emptyNumberString,
 });
 
 export const processSubmission = <Schema extends ZodTypeAny>(

@@ -69,7 +69,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { parse, serialize } from "cookie";
+import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -82,6 +82,7 @@ import { match } from "ts-pattern";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import {
 	ApplicationKey,
 	dayjsLib,
@@ -96,7 +97,6 @@ import {
 	getUserPreferences,
 } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { combineHeaders } from "~/lib/utilities.server";
 import {
 	Exercise,
 	ExerciseSet,
@@ -141,19 +141,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		await getAuthorizationHeader(request),
 	);
 	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
-		headers: combineHeaders(
-			{
-				"Set-Cookie": serialize(workoutCookieName, "", {
-					expires: new Date(0),
-					sameSite: "strict",
-					secure: true,
-				}),
-			},
-			await createToastHeaders({
-				message: "Workout completed successfully",
-				type: "success",
-			}),
-		),
+		headers: await createToastHeaders({
+			message: "Workout completed successfully",
+			type: "success",
+		}),
 	});
 };
 
@@ -359,12 +350,14 @@ export default function Page() {
 															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
+														events.createWorkout();
 														const input =
 															currentWorkoutToCreateWorkoutInput(
 																currentWorkout,
 															);
 														stopTimer();
 														interval.stop();
+														Cookies.remove(workoutCookieName);
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
 															{ method: "post" },
@@ -414,7 +407,7 @@ export default function Page() {
 										to={$path("/fitness/exercises/list", {
 											selectionEnabled: true,
 											page: 1,
-											sortBy: ExerciseSortBy.NumTimesPerformed,
+											sortBy: ExerciseSortBy.LastPerformed,
 										})}
 									>
 										Add exercise

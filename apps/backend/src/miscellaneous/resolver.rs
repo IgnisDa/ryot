@@ -35,13 +35,13 @@ use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber,
-    Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    QueryTrait, RelationTrait, Statement,
+    DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement,
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering, PostgresQueryBuilder, Query,
-    SelectStatement, Value, Values,
+    SelectStatement, Value,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -130,6 +130,7 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 #[derive(Debug)]
 pub enum MediaStateChanged {
+    MediaPublished,
     StatusChanged,
     ReleaseDateChanged,
     NumberOfSeasonsChanged,
@@ -2432,12 +2433,14 @@ impl MiscellaneousService {
         })
     }
 
-    // DEV: First we update progress only if media has not been consumed for
-    // this user in the last `n` duration.
     pub async fn progress_update(
         &self,
         input: ProgressUpdateInput,
         user_id: i32,
+        // update only if media has not been consumed for this user in the last `n` duration
+        respect_cache: bool,
+        // this is present so that validation does not occur since one can add progress to partial metadata
+        validate_episode: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
             user_id,
@@ -2446,8 +2449,7 @@ impl MiscellaneousService {
             show_episode_number: input.show_episode_number,
             podcast_episode_number: input.podcast_episode_number,
         };
-
-        if self.seen_progress_cache.get(&cache).await.is_some() {
+        if respect_cache && self.seen_progress_cache.get(&cache).await.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
@@ -2463,7 +2465,7 @@ impl MiscellaneousService {
             .await
             .unwrap();
         #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
-        pub enum ProgressUpdateAction {
+        enum ProgressUpdateAction {
             Update,
             Now,
             InThePast,
@@ -2498,6 +2500,7 @@ impl MiscellaneousService {
             },
             Some(_) => ProgressUpdateAction::ChangeState,
         };
+        tracing::debug!("Progress update action = {:?}", action);
         let err = || {
             Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::NoSeenInProgress,
@@ -2550,60 +2553,101 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
-                let extra_information = match meta.lot {
-                    MetadataLot::Show => {
-                        if let (Some(season), Some(episode), Some(MediaSpecifics::Show(spec))) = (
-                            input.show_season_number,
-                            input.show_episode_number,
-                            meta.specifics,
-                        ) {
-                            let is_there = spec.get_episode(season, episode).is_some();
-                            if !is_there {
+                tracing::debug!("Progress update meta = {:?}", meta.title);
+                let extra_information = if validate_episode {
+                    match meta.lot {
+                        MetadataLot::Show => {
+                            if let (Some(season), Some(episode), Some(MediaSpecifics::Show(spec))) = (
+                                input.show_season_number,
+                                input.show_episode_number,
+                                meta.specifics,
+                            ) {
+                                let is_there = spec.get_episode(season, episode).is_some();
+                                if !is_there {
+                                    return Ok(ProgressUpdateResultUnion::Error(
+                                        ProgressUpdateError {
+                                            error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                        },
+                                    ));
+                                }
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                    SeenShowExtraInformation { season, episode },
+                                ))
+                            } else {
                                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
                                 }));
                             }
-                            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                SeenShowExtraInformation { season, episode },
-                            ))
-                        } else {
-                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                error: ProgressUpdateErrorVariant::InvalidUpdate,
-                            }));
                         }
-                    }
-                    MetadataLot::Podcast => {
-                        if let (Some(episode), Some(MediaSpecifics::Podcast(spec))) =
-                            (input.podcast_episode_number, meta.specifics)
-                        {
-                            let is_there = spec.get_episode(episode).is_some();
-                            if !is_there {
+                        MetadataLot::Podcast => {
+                            if let (Some(episode), Some(MediaSpecifics::Podcast(spec))) =
+                                (input.podcast_episode_number, meta.specifics)
+                            {
+                                let is_there = spec.get_episode(episode).is_some();
+                                if !is_there {
+                                    return Ok(ProgressUpdateResultUnion::Error(
+                                        ProgressUpdateError {
+                                            error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                        },
+                                    ));
+                                }
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                    SeenPodcastExtraInformation { episode },
+                                ))
+                            } else {
                                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                                     error: ProgressUpdateErrorVariant::InvalidUpdate,
                                 }));
                             }
-                            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                SeenPodcastExtraInformation { episode },
-                            ))
-                        } else {
-                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                error: ProgressUpdateErrorVariant::InvalidUpdate,
-                            }));
                         }
+                        _ => None,
                     }
-                    _ => None,
+                } else {
+                    match meta.lot {
+                        MetadataLot::Show => {
+                            if let (Some(season), Some(episode)) =
+                                (input.show_season_number, input.show_episode_number)
+                            {
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                    SeenShowExtraInformation { season, episode },
+                                ))
+                            } else {
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
+                            }
+                        }
+                        MetadataLot::Podcast => {
+                            if let Some(episode) = input.podcast_episode_number {
+                                Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                    SeenPodcastExtraInformation { episode },
+                                ))
+                            } else {
+                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
+                                }));
+                            }
+                        }
+                        _ => None,
+                    }
                 };
+                tracing::debug!(
+                    "Progress update extra information = {:?}",
+                    extra_information
+                );
                 let finished_on = if action == ProgressUpdateAction::JustStarted {
                     None
                 } else {
                     input.date
                 };
+                tracing::debug!("Progress update finished on = {:?}", finished_on);
                 let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
                 {
                     (0, Some(Utc::now().date_naive()))
                 } else {
                     (100, None)
                 };
+                tracing::debug!("Progress update progress = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
@@ -2617,8 +2661,9 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
+        tracing::debug!("Progress update = {:?}", seen);
         let id = seen.id;
-        if seen.state == SeenState::Completed {
+        if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache
                 .insert(
                     cache,
@@ -2651,7 +2696,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, user_id).await.ok();
+            self.progress_update(seen, user_id, false, true).await.ok();
         }
         Ok(true)
     }
@@ -3162,6 +3207,7 @@ impl MiscellaneousService {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),
         };
+        let mut updated_at = seen.updated_at.clone();
         if seen.user_id != user_id {
             return Err(Error::new("No seen found for this user and metadata"));
         }
@@ -3172,7 +3218,8 @@ impl MiscellaneousService {
         if let Some(finished_on) = input.finished_on {
             seen.finished_on = ActiveValue::Set(Some(finished_on));
         }
-        seen.last_updated_on = ActiveValue::Set(Utc::now());
+        updated_at.push(Utc::now());
+        seen.updated_at = ActiveValue::Set(updated_at);
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
         Ok(true)
@@ -3683,9 +3730,13 @@ impl MiscellaneousService {
         source: MetadataSource,
         identifier: &str,
     ) -> Result<IdObject> {
-        if let Some(m) = self
-            .media_exists_in_database(lot, source, identifier)
+        if let Some(m) = Metadata::find()
+            .filter(metadata::Column::Lot.eq(lot))
+            .filter(metadata::Column::Source.eq(source))
+            .filter(metadata::Column::Identifier.eq(identifier))
+            .one(&self.db)
             .await?
+            .map(|m| IdObject { id: m.id })
         {
             Ok(m)
         } else {
@@ -4185,16 +4236,19 @@ impl MiscellaneousService {
                 unreachable!()
             };
             let user = user_by_id(&self.db, insert.user_id.unwrap()).await?;
-            self.perform_application_job
-                .clone()
-                .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
-                    obj_id,
-                    obj_title,
-                    entity_lot,
-                    username: user.name,
-                    review_id: insert.id.clone().unwrap(),
-                }))
-                .await?;
+            // DEV: Do not send notification if updating a review
+            if input.review_id.is_none() {
+                self.perform_application_job
+                    .clone()
+                    .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                        obj_id,
+                        obj_title,
+                        entity_lot,
+                        username: user.name,
+                        review_id: insert.id.clone().unwrap(),
+                    }))
+                    .await?;
+            }
         }
         Ok(IdObject {
             id: insert.id.unwrap(),
@@ -4370,7 +4424,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: i32,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
-        tracing::trace!("Updating metadata for {:?}", metadata_id);
+        tracing::debug!("Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
             .col_expr(metadata::Column::IsPartial, Expr::value(false))
@@ -4408,7 +4462,7 @@ impl MiscellaneousService {
                 vec![]
             }
         };
-        tracing::trace!("Updated metadata for {:?}", metadata_id);
+        tracing::debug!("Updated metadata for {:?}", metadata_id);
         Ok(notifications)
     }
 
@@ -4429,6 +4483,7 @@ impl MiscellaneousService {
         Ok(ls.summary.unwrap_or_default())
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn calculate_user_summary(
         &self,
         user_id: i32,
@@ -4453,6 +4508,8 @@ impl MiscellaneousService {
             }
         };
 
+        tracing::debug!("Calculating numbers summary for user {:?}", ls);
+
         let num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
             .apply_if(start_from, |query, v| {
@@ -4460,6 +4517,8 @@ impl MiscellaneousService {
             })
             .count(&self.db)
             .await?;
+
+        tracing::debug!("Calculated number reviews for user {:?}", num_reviews);
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
@@ -4469,6 +4528,11 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        tracing::debug!(
+            "Calculated number measurements for user {:?}",
+            num_measurements
+        );
+
         let num_workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
             .apply_if(start_from, |query, v| {
@@ -4476,6 +4540,8 @@ impl MiscellaneousService {
             })
             .count(&self.db)
             .await?;
+
+        tracing::debug!("Calculated number workouts for user {:?}", num_workouts);
 
         let num_media_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
@@ -4486,6 +4552,11 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
+        tracing::debug!(
+            "Calculated number media interacted with for user {:?}",
+            num_media_interacted_with
+        );
+
         let num_exercises_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
@@ -4494,6 +4565,11 @@ impl MiscellaneousService {
             })
             .count(&self.db)
             .await?;
+
+        tracing::debug!(
+            "Calculated number exercises interacted with for user {:?}",
+            num_exercises_interacted_with
+        );
 
         let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
@@ -4514,6 +4590,11 @@ impl MiscellaneousService {
             .await?
             .unwrap();
 
+        tracing::debug!(
+            "Calculated total workout time for user {:?}",
+            total_workout_time
+        );
+
         ls.media.reviews_posted += num_reviews;
         ls.media.media_interacted_with += num_media_interacted_with;
         ls.fitness.measurements_recorded += num_measurements;
@@ -4521,6 +4602,8 @@ impl MiscellaneousService {
         ls.fitness.workouts.recorded += num_workouts;
         ls.fitness.workouts.weight += total_workout_weight;
         ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
+
+        tracing::debug!("Calculated numbers summary for user {:?}", ls);
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -4534,6 +4617,7 @@ impl MiscellaneousService {
             .await?;
 
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
+            tracing::debug!("Processing seen item {:?}", seen);
             let meta = metadata.to_owned().unwrap();
             let mut units_consumed = None;
             if let Some(specs) = meta.specifics {
@@ -4678,6 +4762,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let obj = user_model.update(&self.db).await.unwrap();
+        tracing::debug!("Calculated summary for user {:?}", obj.name);
         Ok(IdObject { id: obj.id })
     }
 
@@ -4730,14 +4815,16 @@ impl MiscellaneousService {
             }));
         };
         let user = user.unwrap();
-        let parsed_hash = PasswordHash::new(&user.password).unwrap();
-        if get_password_hasher()
-            .verify_password(password.as_bytes(), &parsed_hash)
-            .is_err()
-        {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::CredentialsMismatch,
-            }));
+        if self.config.users.validate_password {
+            let parsed_hash = PasswordHash::new(&user.password).unwrap();
+            if get_password_hasher()
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_err()
+            {
+                return Ok(LoginResult::Error(LoginError {
+                    error: LoginErrorVariant::CredentialsMismatch,
+                }));
+            }
         }
         let jwt_key = jwt::sign(
             user.id,
@@ -4918,16 +5005,9 @@ impl MiscellaneousService {
         Ok(CreateCustomMediaResult::Ok(media))
     }
 
-    fn get_sql_and_values(&self, stmt: SelectStatement) -> (String, Values) {
-        match self.db.get_database_backend() {
-            DatabaseBackend::Postgres => stmt.build(PostgresQueryBuilder {}),
-            _ => unreachable!(),
-        }
-    }
-
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
-        let (sql, values) = self.get_sql_and_values(stmt);
-        Statement::from_sql_and_values(self.db.get_database_backend(), sql, values)
+        let (sql, values) = stmt.build(PostgresQueryBuilder {});
+        Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
     }
 
     async fn update_user_preference(
@@ -5203,6 +5283,9 @@ impl MiscellaneousService {
                         }
                         "episode_images_changed" => {
                             preferences.notifications.episode_images_changed = value_bool.unwrap()
+                        }
+                        "media_published" => {
+                            preferences.notifications.media_published = value_bool.unwrap()
                         }
                         "status_changed" => {
                             preferences.notifications.status_changed = value_bool.unwrap()
@@ -5511,21 +5594,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn media_exists_in_database(
-        &self,
-        lot: MetadataLot,
-        source: MetadataSource,
-        identifier: &str,
-    ) -> Result<Option<IdObject>> {
-        let media = Metadata::find()
-            .filter(metadata::Column::Lot.eq(lot))
-            .filter(metadata::Column::Source.eq(source))
-            .filter(metadata::Column::Identifier.eq(identifier))
-            .one(&self.db)
-            .await?;
-        Ok(media.map(|m| IdObject { id: m.id }))
-    }
-
     async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
         match lot {
             MetadataLot::AudioBook => vec![MetadataSource::Audible],
@@ -5775,6 +5843,8 @@ impl MiscellaneousService {
                 change_state: None,
             },
             user_id,
+            true,
+            false,
         )
         .await
         .ok();
@@ -5822,75 +5892,78 @@ impl MiscellaneousService {
                 if metadata.model.lot == MetadataLot::Podcast
                     || metadata.model.lot == MetadataLot::Show
                 {
-                    // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
-                    // correspond to each episode exactly once, it means the show can be removed
-                    // from the "In Progress" collection.
-                    let all_episodes = match metadata.model.specifics.unwrap() {
-                        MediaSpecifics::Show(s) => s
-                            .seasons
-                            .into_iter()
-                            .filter(|s| s.name != "Specials")
-                            .flat_map(|s| {
-                                s.episodes.into_iter().map(move |e| {
-                                    format!("{}-{}", s.season_number, e.episode_number)
+                    if let Some(specifics) = metadata.model.specifics {
+                        // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
+                        // correspond to each episode exactly once, it means the show can be removed
+                        // from the "In Progress" collection.
+                        let all_episodes = match specifics {
+                            MediaSpecifics::Show(s) => s
+                                .seasons
+                                .into_iter()
+                                .filter(|s| s.name != "Specials")
+                                .flat_map(|s| {
+                                    s.episodes.into_iter().map(move |e| {
+                                        format!("{}-{}", s.season_number, e.episode_number)
+                                    })
                                 })
-                            })
-                            .collect_vec(),
-                        MediaSpecifics::Podcast(p) => p
-                            .episodes
+                                .collect_vec(),
+                            MediaSpecifics::Podcast(p) => p
+                                .episodes
+                                .into_iter()
+                                .map(|e| format!("{}", e.number))
+                                .collect_vec(),
+                            _ => unreachable!(),
+                        };
+                        let seen_history =
+                            self.seen_history(seen.user_id, seen.metadata_id).await?;
+                        let mut bag = HashMap::<String, i32>::from_iter(
+                            all_episodes.iter().cloned().map(|e| (e, 0)),
+                        );
+                        seen_history
                             .into_iter()
-                            .map(|e| format!("{}", e.number))
-                            .collect_vec(),
-                        _ => unreachable!(),
-                    };
-                    let seen_history = self.seen_history(seen.user_id, seen.metadata_id).await?;
-                    let mut bag = HashMap::<String, i32>::from_iter(
-                        all_episodes.iter().cloned().map(|e| (e, 0)),
-                    );
-                    seen_history
-                        .into_iter()
-                        .map(|h| {
-                            if let Some(s) = h.show_information {
-                                format!("{}-{}", s.season, s.episode)
-                            } else if let Some(p) = h.podcast_information {
-                                format!("{}", p.episode)
-                            } else {
-                                String::new()
-                            }
-                        })
-                        .take_while_inclusive(|h| h != all_episodes.first().unwrap())
-                        .for_each(|ep| {
-                            bag.entry(ep).and_modify(|c| *c += 1);
-                        });
-                    let is_complete = bag.values().all(|&e| e == 1);
-                    if is_complete {
-                        self.remove_entity_from_collection(
-                            seen.user_id,
-                            ChangeCollectionToEntityInput {
-                                collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: seen.metadata_id.to_string(),
-                                entity_lot: EntityLot::Media,
-                            },
-                        )
-                        .await
-                        .ok();
-                    } else {
-                        self.add_entity_to_collection(
-                            seen.user_id,
-                            ChangeCollectionToEntityInput {
-                                collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: seen.metadata_id.to_string(),
-                                entity_lot: EntityLot::Media,
-                            },
-                        )
-                        .await
-                        .ok();
-                        let is_monitored = self
-                            .get_monitored_status(seen.user_id, seen.metadata_id)
-                            .await?;
-                        if !is_monitored {
-                            self.toggle_media_monitor(seen.user_id, seen.metadata_id)
+                            .map(|h| {
+                                if let Some(s) = h.show_information {
+                                    format!("{}-{}", s.season, s.episode)
+                                } else if let Some(p) = h.podcast_information {
+                                    format!("{}", p.episode)
+                                } else {
+                                    String::new()
+                                }
+                            })
+                            .take_while_inclusive(|h| h != all_episodes.first().unwrap())
+                            .for_each(|ep| {
+                                bag.entry(ep).and_modify(|c| *c += 1);
+                            });
+                        let is_complete = bag.values().all(|&e| e == 1);
+                        if is_complete {
+                            self.remove_entity_from_collection(
+                                seen.user_id,
+                                ChangeCollectionToEntityInput {
+                                    collection_name: DefaultCollection::InProgress.to_string(),
+                                    entity_id: seen.metadata_id.to_string(),
+                                    entity_lot: EntityLot::Media,
+                                },
+                            )
+                            .await
+                            .ok();
+                        } else {
+                            self.add_entity_to_collection(
+                                seen.user_id,
+                                ChangeCollectionToEntityInput {
+                                    collection_name: DefaultCollection::InProgress.to_string(),
+                                    entity_id: seen.metadata_id.to_string(),
+                                    entity_lot: EntityLot::Media,
+                                },
+                            )
+                            .await
+                            .ok();
+                            let is_monitored = self
+                                .get_monitored_status(seen.user_id, seen.metadata_id)
                                 .await?;
+                            if !is_monitored {
+                                self.toggle_media_monitor(seen.user_id, seen.metadata_id)
+                                    .await?;
+                            }
                         }
                     }
                 } else {
@@ -5927,65 +6000,53 @@ impl MiscellaneousService {
         Ok(success)
     }
 
-    /// Given a metadata id, get all the users that need to be sent notifications
-    /// for it's state change.
-    pub async fn users_to_be_notified_for_state_changes(
-        &self,
-        metadata_id: i32,
-    ) -> Result<Vec<i32>> {
-        let mut user_ids = vec![];
-        // DEV: This is very inefficient but since we are running this once a day, it does not matter
-        for your_col in [DefaultCollection::Watchlist, DefaultCollection::InProgress] {
-            let collections = Collection::find()
-                .filter(collection::Column::Name.eq(your_col.to_string()))
-                .all(&self.db)
-                .await?;
-            for col in collections {
-                let related_meta = col.find_related(CollectionToEntity).all(&self.db).await?;
-                for rel in related_meta {
-                    if let Some(metadata) = rel.find_related(Metadata).one(&self.db).await? {
-                        if metadata.id == metadata_id {
-                            user_ids.push(col.user_id);
-                        }
-                    }
-                }
-            }
+    /// Get all the users that need to be sent notifications for metadata state change.
+    pub async fn users_to_be_notified_for_state_changes(&self) -> Result<HashMap<i32, Vec<i32>>> {
+        #[derive(Debug, FromQueryResult, Clone, Default)]
+        struct UsersToBeNotified {
+            metadata_id: i32,
+            to_notify: Vec<i32>,
         }
-        let monitored_media = UserToEntity::find()
-            .filter(user_to_entity::Column::MetadataMonitored.eq(true))
-            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
+        // DEV: Ideally this should be using a materialized view, but I am too lazy.
+        let meta_map: Vec<_> =
+            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
+SELECT
+    m.id as metadata_id,
+    array_agg(DISTINCT CASE WHEN u.id IS NOT NULL THEN u.id END) as to_notify
+FROM
+    metadata m
+LEFT JOIN user_to_entity ute ON m.id = ute.metadata_id
+LEFT JOIN "user" u ON ute.user_id = u.id
+LEFT JOIN collection_to_entity cte ON m.id = cte.metadata_id
+LEFT JOIN collection c ON cte.collection_id = c.id
+LEFT JOIN "user" uc ON c.user_id = uc.id
+WHERE
+    ((ute.metadata_monitored = true) OR (c.name IN ('Watchlist', 'In Progress')))
+GROUP BY
+    m.id;
+        "#,
+                [],
+            ))
             .all(&self.db)
             .await?;
-        for meta in monitored_media {
-            if meta.metadata_id.unwrap() == metadata_id {
-                user_ids.push(meta.user_id);
-            }
-        }
-        Ok(user_ids)
+        Ok(meta_map
+            .into_iter()
+            .filter(|m| !m.to_notify.is_empty())
+            .map(|m| (m.metadata_id, m.to_notify))
+            .collect())
     }
 
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
         if !self.config.server.update_monitored_media {
-            tracing::trace!("Monitored media updating has been disabled.");
+            tracing::debug!("Monitored media updating has been disabled.");
             return Ok(());
         }
-        let mut meta_map = HashMap::new();
-        for metadata_id in Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .into_tuple::<i32>()
-            .all(&self.db)
-            .await?
-        {
-            let user_ids = self
-                .users_to_be_notified_for_state_changes(metadata_id)
-                .await?;
-            meta_map.insert(metadata_id, user_ids);
-        }
-
-        for (meta, users) in meta_map {
-            let notifications = self.update_metadata(meta).await?;
-            for user in users {
+        let meta_map = self.users_to_be_notified_for_state_changes().await?;
+        for (metadata_id, to_notify) in meta_map {
+            let notifications = self.update_metadata(metadata_id).await?;
+            for user in to_notify {
                 for notification in notifications.iter() {
                     self.send_media_state_changed_notification_for_user(user, notification)
                         .await?;
@@ -6011,6 +6072,13 @@ impl MiscellaneousService {
         }
         if matches!(change, MediaStateChanged::EpisodeReleased)
             && preferences.notifications.episode_released
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::MediaPublished)
+            && preferences.notifications.media_published
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
@@ -6701,7 +6769,7 @@ impl MiscellaneousService {
             }
 
             if need_to_delete {
-                tracing::trace!(
+                tracing::debug!(
                     "Need to delete calendar event id = {:#?} since it is invalid",
                     cal_event.id
                 );
@@ -6799,6 +6867,46 @@ impl MiscellaneousService {
             }
         }
         tracing::debug!("Finished updating calendar events");
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn send_notifications_for_released_media(&self) -> Result<()> {
+        let today = get_current_date(self.timezone.as_ref());
+        let calendar_events = CalendarEvent::find()
+            .filter(calendar_event::Column::Date.eq(today))
+            .find_also_related(Metadata)
+            .all(&self.db)
+            .await?;
+        let notifications = calendar_events
+            .into_iter()
+            .map(|(cal_event, meta)| {
+                let meta = meta.unwrap();
+                let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
+                let notification = match cal_event.metadata_extra_information {
+                    SeenOrReviewOrCalendarEventExtraInformation::Other(_) => {
+                        format!("{} ({}) has been released today.", meta.title, url)
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => format!(
+                        "S{}E{} of {} ({}) has been released today.",
+                        show.season, show.episode, meta.title, url
+                    ),
+                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => format!(
+                        "E{} of {} ({}) has been released today.",
+                        podcast.episode, meta.title, url
+                    ),
+                };
+                (meta.id, (notification, MediaStateChanged::MediaPublished))
+            })
+            .collect_vec();
+        let meta_map = self.users_to_be_notified_for_state_changes().await?;
+        for (metadata_id, notification) in notifications.into_iter() {
+            let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
+            for user in users_to_notify {
+                self.send_media_state_changed_notification_for_user(user, &notification)
+                    .await?;
+            }
+        }
         Ok(())
     }
 
@@ -6912,7 +7020,7 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         for user in users {
-            let url = self.get_frontend_url(event.obj_id, event.entity_lot);
+            let url = self.get_frontend_url(event.obj_id, event.entity_lot, Some("reviews"));
             self.send_notifications_to_user_platforms(
                 user.id,
                 &format!(
@@ -6925,15 +7033,24 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    fn get_frontend_url(&self, id: i32, entity_lot: EntityLot) -> String {
-        let url = match entity_lot {
+    fn get_frontend_url(
+        &self,
+        id: i32,
+        entity_lot: EntityLot,
+        default_tab: Option<&str>,
+    ) -> String {
+        let mut url = match entity_lot {
             EntityLot::Media => format!("media/item/{}", id),
             EntityLot::Person => format!("media/people/{}", id),
             EntityLot::MediaGroup => format!("media/groups/{}", id),
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
         };
-        format!("{}/{}", self.config.frontend.url, url)
+        url = format!("{}/{}", self.config.frontend.url, url);
+        if let Some(tab) = default_tab {
+            url = format!("{}?defaultTab={}", url, tab);
+        }
+        url
     }
 }
 

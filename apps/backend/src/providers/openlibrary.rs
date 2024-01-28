@@ -222,11 +222,11 @@ impl MediaProvider for OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
 
-        tracing::trace!("Getting work details.");
+        tracing::debug!("Getting work details.");
         let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
-        tracing::trace!("Getting edition details.");
+        tracing::debug!("Getting edition details.");
         let mut rsp = self
             .client
             .get(format!("works/{}/editions.json", identifier))
@@ -308,7 +308,7 @@ impl MediaProvider for OpenlibraryService {
             data: String,
         }
 
-        tracing::trace!("Getting suggestion details.");
+        tracing::debug!("Getting suggestion details.");
         // DEV: Reverse engineered the API
         let html = self
             .client

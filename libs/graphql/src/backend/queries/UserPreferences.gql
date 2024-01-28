@@ -49,6 +49,7 @@ query UserPreferences {
       }
     }
     notifications {
+      mediaPublished
       episodeReleased
       episodeNameChanged
       episodeImagesChanged

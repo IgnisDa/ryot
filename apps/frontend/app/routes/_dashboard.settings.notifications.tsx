@@ -80,6 +80,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Notification platform deleted successfully",
 				}),
 			});

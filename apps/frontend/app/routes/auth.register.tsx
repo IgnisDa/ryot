@@ -71,6 +71,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		});
 	}
 	return redirectWithToast($path("/auth/login"), {
+		type: "success",
 		message: "Please login with your new credentials",
 	});
 };

@@ -248,7 +248,7 @@ impl ImporterService {
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > Duration::hours(24) {
-                tracing::trace!("Invalidating job with id = {id}", id = job.id);
+                tracing::debug!("Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
                 job.success = ActiveValue::Set(Some(false));
                 job.save(&self.media_service.db).await?;
@@ -396,6 +396,8 @@ impl ImporterService {
                             change_state: None,
                         },
                         user_id,
+                        false,
+                        false,
                     )
                     .await
                 {
@@ -510,7 +512,7 @@ impl ImporterService {
             ..Default::default()
         };
         let model = model.insert(&self.media_service.db).await.unwrap();
-        tracing::trace!("Started import job with id = {id}", id = model.id);
+        tracing::debug!("Started import job with id = {id}", id = model.id);
         Ok(model)
     }
 

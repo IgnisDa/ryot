@@ -32,10 +32,12 @@ import { useRef } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { redirectWithToast } from "~/lib/toast.server";
 import {
@@ -109,10 +111,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return redirectWithToast(redirectTo, {
-				message: "Review submitted successfully",
-				type: "success",
-			});
+			return redirectWithToast(
+				withQuery(redirectTo, { defaultTab: "reviews" }),
+				{
+					message: "Review submitted successfully",
+					type: "success",
+				},
+			);
 		},
 		delete: async () => {
 			invariant(submission.reviewId, "No reviewId provided");
@@ -150,7 +155,13 @@ export default function Page() {
 
 	return (
 		<Container size="xs">
-			<Form method="post" ref={formRef}>
+			<Form
+				method="post"
+				ref={formRef}
+				onSubmit={() => {
+					events.postReview(loaderData.query.title);
+				}}
+			>
 				<input
 					hidden
 					name={
@@ -220,7 +231,7 @@ export default function Page() {
 								defaultValue={
 									loaderData.existingReview?.showSeason
 										? Number(loaderData.existingReview.showSeason)
-										: undefined
+										: loaderData.query.showSeasonNumber || undefined
 								}
 							/>
 							<NumberInput
@@ -230,7 +241,7 @@ export default function Page() {
 								defaultValue={
 									loaderData.existingReview?.showEpisode
 										? Number(loaderData.existingReview.showEpisode)
-										: undefined
+										: loaderData.query.showEpisodeNumber || undefined
 								}
 							/>
 						</Flex>
@@ -244,7 +255,7 @@ export default function Page() {
 								defaultValue={
 									loaderData.existingReview?.podcastEpisode
 										? Number(loaderData.existingReview.podcastEpisode)
-										: undefined
+										: loaderData.query.podcastEpisodeNumber || undefined
 								}
 							/>
 						</Flex>

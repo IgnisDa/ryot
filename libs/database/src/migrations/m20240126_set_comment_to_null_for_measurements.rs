@@ -7,9 +7,7 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(
-                r#"UPDATE "user" SET preferences = replace(preferences::text, ', {"hidden": true, "section": "ACTIONS"}', '')::jsonb;"#,
-            )
+        db.execute_unprepared(r#"UPDATE "user_measurement" SET comment = NULL WHERE comment = ''"#)
             .await?;
         Ok(())
     }

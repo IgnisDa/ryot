@@ -25,6 +25,8 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import invariant from "tiny-invariant";
+import { z } from "zod";
+import { zx } from "zodix";
 import { MediaDetailsLayout } from "~/components/common";
 import {
 	AddEntityToCollectionModal,
@@ -40,7 +42,14 @@ import {
 	getUserPreferences,
 } from "~/lib/graphql.server";
 
+const searchParamsSchema = z.object({
+	defaultTab: z.string().optional().default("media"),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataGroupId = params.id ? Number(params.id) : null;
 	invariant(metadataGroupId, "No ID provided");
 	const [
@@ -67,6 +76,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 	]);
 	return json({
+		query,
 		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		userDetails,
@@ -125,7 +135,7 @@ export default function Page() {
 						))}
 					</Group>
 				) : null}
-				<Tabs variant="outline" defaultValue="media">
+				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
 							Media

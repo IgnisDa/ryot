@@ -11,6 +11,7 @@
 		"@conform-to/zod": "0.9.1",
 		"@formkit/auto-animate": "0.8.1",
 		"@hello-pangea/dnd": "16.5.0",
+		"@ignisda/remix-routes": "3.3.0",
 		"@mantine/carousel": "7.4.2",
 		"@mantine/charts": "7.4.2",
 		"@mantine/core": "7.4.2",
@@ -54,7 +55,7 @@
 		"zodix": "0.4.4"
 	},
 	"devDependencies": {
-		"@ignisda/remix-routes": "3.3.0",
+		"@bitprojects/umami-logger-typescript": "1.0.10",
 		"@remix-run/dev": "2.5.1",
 		"@types/cookie": "0.6.0",
 		"@types/crypto-js": "4.2.1",

@@ -85,12 +85,26 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
+	let repeatedWorkout = null;
+	if (workoutDetails.repeatedFrom) {
+		const { workoutDetails: repeatedWorkoutData } = await gqlClient.request(
+			WorkoutDetailsDocument,
+			{ workoutId: workoutDetails.repeatedFrom },
+			await getAuthorizationHeader(request),
+		);
+		repeatedWorkout = {
+			id: workoutDetails.repeatedFrom,
+			name: repeatedWorkoutData.name,
+			doneOn: repeatedWorkoutData.startTime,
+		};
+	}
 	return json({
 		workoutId,
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
 		workoutDetails,
+		repeatedWorkout,
 	});
 };
 
@@ -117,6 +131,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
+					type: "success",
 					message: "Workout edited successfully",
 				}),
 			});
@@ -129,6 +144,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			return redirectWithToast($path("/fitness/workouts/list"), {
+				type: "success",
 				message: "Workout deleted successfully",
 			});
 		},
@@ -235,6 +251,25 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</Group>
+					{loaderData.repeatedWorkout ? (
+						<Box>
+							<Text c="dimmed" span>
+								Repeated from{" "}
+							</Text>
+							<Anchor
+								component={Link}
+								to={$path("/fitness/workouts/:id", {
+									id: loaderData.repeatedWorkout.id,
+								})}
+							>
+								{loaderData.repeatedWorkout.name}
+							</Anchor>
+							<Text c="dimmed" span>
+								{" "}
+								on {dayjsLib(loaderData.repeatedWorkout.doneOn).format("LLL")}
+							</Text>
+						</Box>
+					) : null}
 					<Box>
 						<Text c="dimmed" span>
 							Done on{" "}

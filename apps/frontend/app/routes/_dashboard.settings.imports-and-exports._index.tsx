@@ -50,6 +50,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import { dayjsLib, uploadFileToServiceAndGetPath } from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -229,6 +230,9 @@ export default function Page() {
 							method="post"
 							action="?intent=deployImport"
 							ref={formRef}
+							onSubmit={() => {
+								if (deployImportSource) events.deployImport(deployImportSource);
+							}}
 						>
 							<input hidden name="source" defaultValue={deployImportSource} />
 							<Stack>

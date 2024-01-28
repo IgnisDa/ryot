@@ -128,6 +128,8 @@ export const ReviewItemDisplay = (props: {
 	user: ApplicationUser;
 	reviewScale: UserReviewScale;
 	title: string;
+	isShow?: boolean;
+	isPodcast?: boolean;
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
@@ -178,6 +180,11 @@ export const ReviewItemDisplay = (props: {
 											  : "person",
 									existingReviewId: props.review.id,
 									title: props.title,
+									podcastEpisodeNumber: props.review.podcastEpisode,
+									showEpisodeNumber: props.review.showEpisode,
+									showSeasonNumber: props.review.showSeason,
+									isPodcast: props.isPodcast,
+									isShow: props.isShow,
 								},
 							)}
 						>
@@ -473,6 +480,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	hasInteracted?: boolean;
 	averageRating?: string;
 	noRatingLink?: boolean;
+	noBottomRight?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 }) => {
 	const navigate = useNavigate();
@@ -577,9 +585,13 @@ export const MediaItemWithoutUpdateModal = (props: {
 				)
 			}
 			bottomLeft={props.item.publishYear}
-			bottomRight={changeCase(
-				props.lot ? props.lot : props.entityLot ? props.entityLot : "",
-			)}
+			bottomRight={
+				props.noBottomRight
+					? undefined
+					: changeCase(
+							props.lot ? props.lot : props.entityLot ? props.entityLot : "",
+					  )
+			}
 			highlightRightText={
 				props.hasInteracted ? "This media exists in the database" : undefined
 			}

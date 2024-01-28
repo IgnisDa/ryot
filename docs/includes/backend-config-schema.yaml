@@ -44,6 +44,10 @@ database:
   # @envvar DATABASE_URL
   url: ""
 
+# Whether to disable telemetry.
+# @envvar DISABLE_TELEMETRY
+disable_telemetry: false
+
 # Settings related to exercises.
 exercise: {}
 
@@ -233,6 +237,10 @@ users:
   # The number of days till login auth token is valid.
   # @envvar USERS_TOKEN_VALID_FOR_DAYS
   token_valid_for_days: 90
+
+  # Whether to validate the password for users. Should be set to false only for testing.
+  # @envvar USERS_VALIDATE_PASSWORD
+  validate_password: true
 
 # Settings related to video games.
 video_games:

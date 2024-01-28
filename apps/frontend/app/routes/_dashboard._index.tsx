@@ -490,6 +490,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 				}`,
 			}}
 			lot={um.metadataLot}
+			noBottomRight
 			noRatingLink
 		/>
 	);
