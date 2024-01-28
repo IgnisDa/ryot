@@ -6722,6 +6722,7 @@ GROUP BY
         Ok(true)
     }
 
+    // FIXME: Refactor this to use database queries instead of sea-orm.
     #[instrument(skip(self))]
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
         let mut calendar_stream = CalendarEvent::find()
@@ -6777,6 +6778,7 @@ GROUP BY
             .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
             .filter(metadata::Column::PublishDate.is_not_null())
             .filter(metadata::Column::Specifics.is_not_null())
+            .filter(metadata::Column::IsPartial.eq(false))
             .order_by_desc(metadata::Column::LastUpdatedOn)
             .stream(&self.db)
             .await?;
