@@ -360,6 +360,7 @@ struct ReviewItem {
     show_season: Option<i32>,
     show_episode: Option<i32>,
     podcast_episode: Option<i32>,
+    anime_episode: Option<i32>,
     comments: Vec<ImportOrExportItemReviewComment>,
 }
 
@@ -600,6 +601,7 @@ struct ProgressUpdateCache {
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
     podcast_episode_number: Option<i32>,
+    anime_episode_number: Option<i32>,
 }
 
 #[derive(SimpleObject)]
@@ -2006,6 +2008,7 @@ impl MiscellaneousService {
                             }
                         };
                     }
+                    SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => {}
                 }
             }
             if image.is_none() {
@@ -2449,6 +2452,7 @@ impl MiscellaneousService {
             show_season_number: input.show_season_number,
             show_episode_number: input.show_episode_number,
             podcast_episode_number: input.podcast_episode_number,
+            anime_episode_number: input.anime_episode_number,
         };
         if respect_cache && self.seen_progress_cache.get(&cache).await.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -3757,16 +3761,19 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
-                let (show_se, show_ep, podcast_ep) = match r.extra_information {
+                let (show_se, show_ep, podcast_ep, anime_ep) = match r.extra_information {
                     Some(s) => match s {
                         SeenOrReviewOrCalendarEventExtraInformation::Show(d) => {
-                            (Some(d.season), Some(d.episode), None)
+                            (Some(d.season), Some(d.episode), None, None)
                         }
                         SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
-                            (None, None, Some(d.episode))
+                            (None, None, Some(d.episode), None)
+                        }
+                        SeenOrReviewOrCalendarEventExtraInformation::Anime(d) => {
+                            (None, None, None, d.episode)
                         }
                     },
-                    None => (None, None, None),
+                    None => (None, None, None, None),
                 };
                 let rating = match respect_preferences {
                     true => {
@@ -3795,6 +3802,7 @@ impl MiscellaneousService {
                     show_season: show_se,
                     show_episode: show_ep,
                     podcast_episode: podcast_ep,
+                    anime_episode: anime_ep,
                     posted_by: IdAndNamedObject {
                         id: user.id,
                         name: user.name,
@@ -4373,14 +4381,17 @@ impl MiscellaneousService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
-            let (ssn, sen, pen) = match &si.extra_information {
-                None => (None, None, None),
+            let (ssn, sen, pen, aen) = match &si.extra_information {
+                None => (None, None, None, None),
                 Some(ei) => match ei {
                     SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                        (Some(s.season), Some(s.episode), None)
+                        (Some(s.season), Some(s.episode), None, None)
                     }
                     SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
-                        (None, None, Some(p.episode))
+                        (None, None, Some(p.episode), None)
+                    }
+                    SeenOrReviewOrCalendarEventExtraInformation::Anime(a) => {
+                        (None, None, None, a.episode)
                     }
                 },
             };
@@ -4390,6 +4401,7 @@ impl MiscellaneousService {
                 show_season_number: ssn,
                 show_episode_number: sen,
                 podcast_episode_number: pen,
+                anime_episode_number: aen,
             };
             self.seen_progress_cache.remove(&cache).await;
             let seen_id = si.id;
@@ -4663,6 +4675,7 @@ impl MiscellaneousService {
                             SeenOrReviewOrCalendarEventExtraInformation::Podcast(_) => {
                                 unreachable!()
                             }
+                            SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
                             SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
                                 if let Some((season, episode)) =
                                     item.get_episode(s.season, s.episode)
@@ -4689,6 +4702,7 @@ impl MiscellaneousService {
                             SeenOrReviewOrCalendarEventExtraInformation::Show(_) => {
                                 unreachable!()
                             }
+                            SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
                             SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
                                 if let Some(episode) = item.get_episode(s.episode) {
                                     if let Some(r) = episode.runtime {
@@ -5833,6 +5847,7 @@ impl MiscellaneousService {
                 show_season_number: pu.show_season_number,
                 show_episode_number: pu.show_episode_number,
                 podcast_episode_number: pu.podcast_episode_number,
+                anime_episode_number: pu.anime_episode_number,
                 change_state: None,
             },
             user_id,
@@ -6581,6 +6596,7 @@ GROUP BY
                         None => (None, None),
                     };
                     let podcast_episode_number = s.podcast_information.map(|d| d.episode);
+                    let anime_episode_number = s.anime_information.and_then(|d| d.episode);
                     ImportOrExportMediaItemSeen {
                         progress: Some(s.progress),
                         started_on: s.started_on.map(convert_naive_to_utc),
@@ -6588,6 +6604,7 @@ GROUP BY
                         show_season_number,
                         show_episode_number,
                         podcast_episode_number,
+                        anime_episode_number,
                     }
                 })
                 .collect();
@@ -6757,6 +6774,7 @@ GROUP BY
                             }
                         }
                     }
+                    SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
                 }
             } else if cal_event.date != meta.publish_date.unwrap() {
                 need_to_delete = true;
@@ -6885,6 +6903,7 @@ GROUP BY
                             "E{} of {} ({}) has been released today.",
                             podcast.episode, meta.title, url
                         ),
+                        SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
                     }
                 } else {
                     format!("{} ({}) has been released today.", meta.title, url)
@@ -7056,6 +7075,9 @@ fn modify_seen_elements(all_seen: &mut [seen::Model]) {
                 }
                 SeenOrReviewOrCalendarEventExtraInformation::Podcast(sea) => {
                     s.podcast_information = Some(sea.clone());
+                }
+                SeenOrReviewOrCalendarEventExtraInformation::Anime(sea) => {
+                    s.anime_information = Some(sea.clone());
                 }
             };
         }

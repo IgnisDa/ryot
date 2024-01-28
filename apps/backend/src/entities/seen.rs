@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{prelude::UserToEntity, user_to_entity},
     models::media::{
-        SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-        SeenShowExtraInformation,
+        SeenAnimeExtraInformation, SeenOrReviewOrCalendarEventExtraInformation,
+        SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
     utils::associate_user_with_metadata,
 };
@@ -42,6 +42,8 @@ pub struct Model {
     pub show_information: Option<SeenShowExtraInformation>,
     #[sea_orm(ignore)]
     pub podcast_information: Option<SeenPodcastExtraInformation>,
+    #[sea_orm(ignore)]
+    pub anime_information: Option<SeenAnimeExtraInformation>,
     // Generated columns
     pub last_updated_on: DateTimeUtc,
     pub num_times_updated: i32,

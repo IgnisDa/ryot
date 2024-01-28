@@ -791,6 +791,7 @@ pub mod media {
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
+        pub anime_episode_number: Option<i32>,
         pub change_state: Option<SeenState>,
     }
 
@@ -890,6 +891,8 @@ pub mod media {
         pub show_episode_number: Option<i32>,
         /// If for a podcast, the episode which was seen.
         pub podcast_episode_number: Option<i32>,
+        /// If for an anime, the episode which was seen.
+        pub anime_episode_number: Option<i32>,
     }
 
     /// Review data associated to a rating.
@@ -1116,10 +1119,16 @@ pub mod media {
         pub episode: i32,
     }
 
+    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    pub struct SeenAnimeExtraInformation {
+        pub episode: Option<i32>,
+    }
+
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
     pub enum SeenOrReviewOrCalendarEventExtraInformation {
         Show(SeenShowExtraInformation),
         Podcast(SeenPodcastExtraInformation),
+        Anime(SeenAnimeExtraInformation),
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
