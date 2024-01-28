@@ -2443,8 +2443,6 @@ impl MiscellaneousService {
         user_id: i32,
         // update only if media has not been consumed for this user in the last `n` duration
         respect_cache: bool,
-        // this is present so that validation does not occur since one can add progress to partial metadata
-        validate_episode: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
             user_id,
@@ -2559,82 +2557,32 @@ impl MiscellaneousService {
                     .unwrap()
                     .unwrap();
                 tracing::debug!("Progress update meta = {:?}", meta.title);
-                let extra_information = if validate_episode {
-                    match meta.lot {
-                        MetadataLot::Show => {
-                            if let (Some(season), Some(episode), Some(MediaSpecifics::Show(spec))) = (
-                                input.show_season_number,
-                                input.show_episode_number,
-                                meta.specifics,
-                            ) {
-                                let is_there = spec.get_episode(season, episode).is_some();
-                                if !is_there {
-                                    return Ok(ProgressUpdateResultUnion::Error(
-                                        ProgressUpdateError {
-                                            error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                        },
-                                    ));
-                                }
-                                Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                    SeenShowExtraInformation { season, episode },
-                                ))
-                            } else {
-                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                }));
-                            }
+                let extra_information = match meta.lot {
+                    MetadataLot::Show => {
+                        if let (Some(season), Some(episode)) =
+                            (input.show_season_number, input.show_episode_number)
+                        {
+                            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
+                                SeenShowExtraInformation { season, episode },
+                            ))
+                        } else {
+                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                error: ProgressUpdateErrorVariant::InvalidUpdate,
+                            }));
                         }
-                        MetadataLot::Podcast => {
-                            if let (Some(episode), Some(MediaSpecifics::Podcast(spec))) =
-                                (input.podcast_episode_number, meta.specifics)
-                            {
-                                let is_there = spec.get_episode(episode).is_some();
-                                if !is_there {
-                                    return Ok(ProgressUpdateResultUnion::Error(
-                                        ProgressUpdateError {
-                                            error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                        },
-                                    ));
-                                }
-                                Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                    SeenPodcastExtraInformation { episode },
-                                ))
-                            } else {
-                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                }));
-                            }
-                        }
-                        _ => None,
                     }
-                } else {
-                    match meta.lot {
-                        MetadataLot::Show => {
-                            if let (Some(season), Some(episode)) =
-                                (input.show_season_number, input.show_episode_number)
-                            {
-                                Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                    SeenShowExtraInformation { season, episode },
-                                ))
-                            } else {
-                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                }));
-                            }
+                    MetadataLot::Podcast => {
+                        if let Some(episode) = input.podcast_episode_number {
+                            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                                SeenPodcastExtraInformation { episode },
+                            ))
+                        } else {
+                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                error: ProgressUpdateErrorVariant::InvalidUpdate,
+                            }));
                         }
-                        MetadataLot::Podcast => {
-                            if let Some(episode) = input.podcast_episode_number {
-                                Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                    SeenPodcastExtraInformation { episode },
-                                ))
-                            } else {
-                                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                    error: ProgressUpdateErrorVariant::InvalidUpdate,
-                                }));
-                            }
-                        }
-                        _ => None,
                     }
+                    _ => None,
                 };
                 tracing::debug!(
                     "Progress update extra information = {:?}",
@@ -2701,7 +2649,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, user_id, false, true).await.ok();
+            self.progress_update(seen, user_id, false).await.ok();
         }
         Ok(true)
     }
@@ -5852,7 +5800,6 @@ impl MiscellaneousService {
             },
             user_id,
             true,
-            false,
         )
         .await
         .ok();
