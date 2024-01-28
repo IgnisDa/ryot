@@ -3,3 +3,4 @@ node_modules
 .moon/cache
 .moon/docker
 **/.env
+.git

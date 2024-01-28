@@ -41,18 +41,7 @@ serde_json = "1.0.111"
 strum = { version = "0.25.0", features = ["derive"] }
 tracing = { version = "0.1.40", features = ["attributes"] }
 
-[workspace.metadata.dist]
-cargo-dist-version = "0.2.0"
-ci = ["github"]
-installers = ["shell", "powershell"]
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "aarch64-apple-darwin",
-]
-
-[profile.dist]
-inherits = "release"
+[profile.release]
 opt-level = 's'
 strip = true
 lto = "thin"

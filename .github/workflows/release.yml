@@ -9,113 +9,17 @@ env:
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "*-?v[0-9]+*"
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  create-release:
+  docker-build:
     runs-on: ubuntu-latest
-    outputs:
-      has-releases: ${{ steps.create-release.outputs.has-releases }}
-      is-prerelease: ${{ steps.create-release.outputs.is-prerelease }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install cargo-dist
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-      - id: create-release
-        run: |
-          cargo dist plan --tag=${{ github.ref_name }} --output-format=json > dist-manifest.json
-          echo "dist plan ran successfully"
-          cat dist-manifest.json
-
-          # Create the Github Release™ based on what cargo-dist thinks it should be
-          ANNOUNCEMENT_TITLE=$(jq --raw-output ".announcement_title" dist-manifest.json)
-          IS_PRERELEASE=$(jq --raw-output ".announcement_is_prerelease" dist-manifest.json)
-          jq --raw-output ".announcement_github_body" dist-manifest.json > new_dist_announcement.md
-          gh release create ${{ github.ref_name }} --draft --prerelease="$IS_PRERELEASE" --title="$ANNOUNCEMENT_TITLE" --notes-file=new_dist_announcement.md
-          echo "created announcement!"
-          echo "is-prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
-
-          # Upload the manifest to the Github Release™
-          gh release upload ${{ github.ref_name }} dist-manifest.json
-          echo "uploaded manifest!"
-
-          # Disable all the upload-artifacts tasks if we have no actual releases
-          HAS_RELEASES=$(jq --raw-output ".releases != null" dist-manifest.json)
-          echo "has-releases=$HAS_RELEASES" >> "$GITHUB_OUTPUT"
-
-  upload-artifacts:
-    needs: create-release
-    if: ${{ needs.create-release.outputs.has-releases == 'true' }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-20.04
-            dist-args: --artifacts=global
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-          - os: macos-11
-            dist-args: --artifacts=local --target=aarch64-apple-darwin --target=x86_64-apple-darwin
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-          - os: ubuntu-20.04
-            dist-args: --artifacts=local --target=x86_64-unknown-linux-gnu
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-
-    runs-on: ${{ matrix.os }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Install nodejs dependencies
-        run: yarn install --immutable
-      - name: Setup Moon
-        uses: moonrepo/setup-moon-action@v1.2.0
-      - name: Install cargo-dist
-        run: ${{ matrix.install-dist }}
-      - name: Build the frontend
-        run: moon run frontend:build
-      - name: Run cargo-dist
-        run: |
-          # Actually do builds and make zips and whatnot
-          cargo dist build --tag=${{ github.ref_name }} --output-format=json ${{ matrix.dist-args }} > dist-manifest.json
-          echo "dist ran successfully"
-          cat dist-manifest.json
-
-          # Parse out what we just built and upload it to the Github Release™
-          jq --raw-output ".artifacts[]?.path | select( . != null )" dist-manifest.json > uploads.txt
-          echo "uploading..."
-          cat uploads.txt
-          gh release upload ${{ github.ref_name }} $(cat uploads.txt)
-          echo "uploaded!"
-
-  upload-kodi-plugin:
-    needs: create-release
-    runs-on: ubuntu-20.04
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Install nodejs dependencies
-        run: yarn install --immutable
-      - name: Setup Moon
-        uses: moonrepo/setup-moon-action@v1.2.0
-      - name: Build plugin
-        run: |
-          moon run kodi:build
-      - name: Upload plugin to releases
-        run: |
-          gh release upload ${{ github.ref_name }} "tmp/script.ryot.zip"
-
-  docker-release:
-    runs-on: ubuntu-latest
-    needs: create-release
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -133,17 +37,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get docker image name and build args
-        id: required_args
-        run: |
-          image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
-          image_names="$image_name:${{ github.ref_name }},$image_name:unstable"
-          if [ "${{ needs.create-release.outputs.is-prerelease }}" = "false" ]; then
-            image_names="$image_names,$image_name:latest"
-          fi
-          # lowercase the name
-          image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
-          echo "image_names=$image_names" >> $GITHUB_OUTPUT
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            name=${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=ref,event=pr,enable={{!is_default_branch}}
+            type=semver,pattern=v{{version}},enable={{is_default_branch}}
+            type=semver,pattern=v{{major}}.{{minor}},enable={{is_default_branch}}
+            type=semver,pattern=v{{major}},enable={{is_default_branch}}
+            type=raw,value=unstable,enable={{is_default_branch}}
 
       - name: Build and push to ghcr
         uses: docker/build-push-action@v3
@@ -151,26 +56,14 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.required_args.outputs.image_names }}
-
-  # Mark the Github Release™ as a non-draft now that everything has succeeded!
-  publish-release:
-    # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
-    needs:
-      [create-release, upload-artifacts, docker-release, upload-kodi-plugin]
-    if: ${{ always() && needs.create-release.result == 'success' && (needs.upload-artifacts.result == 'skipped' || needs.upload-artifacts.result == 'success') }}
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: mark release as non-draft
-        run: |
-          gh release edit ${{ github.ref_name }} --draft=false
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ubuntu-latest
-    needs: docker-release
+    needs: docker-build
+    if: ${{ needs.docker-build.result == 'success' && github.ref == 'refs/heads/main' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -183,21 +76,55 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  deploy-docs:
-    # otherwise the docs dislay the incorrect version
-    needs: publish-release
+  release:
     runs-on: ubuntu-latest
+    needs: docker-build
+    if: ${{ needs.docker-build.result == 'success' && startsWith(github.ref, 'refs/tags/') }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Create a new release
+        uses: softprops/action-gh-release@v1
+
+      - name: Install nodejs dependencies
+        run: yarn install --immutable
+
+      - name: Setup Moon
+        uses: moonrepo/setup-moon-action@v1.2.0
+
+      - name: Build plugin
+        run: |
+          moon run kodi:build
+
+      - name: Upload plugin to releases
+        run: |
+          gh release upload ${{ github.ref_name }} "tmp/script.ryot.zip"
+
+  deploy-docs:
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ needs.release.result == 'success' }}
     defaults:
       run:
         working-directory: docs
+
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
+
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
+
       - name: Install dependencies
         run: poetry install
+
       - name: Deploy to github pages
         run: poetry run mkdocs gh-deploy --force
