@@ -70,6 +70,7 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
+	IconBackpack,
 	IconBook,
 	IconBrandPagekit,
 	IconBulb,
@@ -577,26 +578,30 @@ export default function Page() {
 					<Suspense fallback={<FallbackForDefer />}>
 						<Await resolve={loaderData.userMediaDetails}>
 							{({ userMediaDetails }) => (
-								<>
-									{userMediaDetails.collections.length > 0 ? (
-										<Group id="entity-collections">
-											{userMediaDetails.collections.map((col) => (
+								<Group>
+									{userMediaDetails.collections.length > 0
+										? userMediaDetails.collections.map((col) => (
 												<DisplayCollection
 													col={col}
 													entityId={loaderData.metadataId.toString()}
 													entityLot={EntityLot.Media}
 													key={col.id}
 												/>
-											))}
-										</Group>
-									) : null}
+										  ))
+										: null}
 									{userMediaDetails.isMonitored ? (
 										<Flex align="center" gap={2}>
 											<IconEyeCheck size={20} />
 											<Text size="xs">This media is being monitored</Text>
 										</Flex>
 									) : null}
-								</>
+									{userMediaDetails.ownership ? (
+										<Flex align="center" gap={2}>
+											<IconBackpack size={20} />
+											<Text size="xs">You own this media</Text>
+										</Flex>
+									) : null}
+								</Group>
 							)}
 						</Await>
 					</Suspense>
@@ -1328,15 +1333,7 @@ export default function Page() {
 																	: ""}{" "}
 																by you.
 															</Text>
-															{userMediaDetails.ownership ? (
-																<Text fz={{ base: "sm", md: "md" }}>
-																	You owned this media
-																	{userMediaDetails.ownership.ownedOn
-																		? ` on ${userMediaDetails.ownership.ownedOn}`
-																		: null}
-																	.
-																</Text>
-															) : null}
+
 															{userMediaDetails.unitsConsumed ? (
 																<Text fz={{ base: "sm", md: "md" }}>
 																	Consumed{" "}
