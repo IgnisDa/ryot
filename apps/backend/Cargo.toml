@@ -17,7 +17,7 @@ argon2 = "0.5.3"
 async-graphql = { workspace = true }
 async-graphql-axum = "7.0.1"
 async-trait = "0.1.77"
-aws-sdk-s3 = { version = "1.12.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.14.0", features = ["behavior-version-latest"] }
 axum = { version = "0.7.4", features = ["macros", "multipart"] }
 boilermates = "0.3.0"
 chrono = { workspace = true }
@@ -63,7 +63,7 @@ sea-query = "0.30.7"
 semver = "1.0.21"
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { version = "3.5.0", features = ["chrono_0_4"] }
+serde_with = { version = "3.5.1", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
 slug = "0.1.5"
 sqlx = { version = "0.7.3", default-features = false }
