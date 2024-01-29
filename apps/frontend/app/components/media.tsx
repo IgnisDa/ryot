@@ -53,7 +53,7 @@ import { match } from "ts-pattern";
 import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
-import classes from "~/styles/media-components.module.css";
+import classes from "~/styles/common.module.css";
 import { confirmWrapper } from "./confirmation";
 
 const commitMedia = async (
