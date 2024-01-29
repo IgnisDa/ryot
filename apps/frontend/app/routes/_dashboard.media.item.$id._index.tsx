@@ -2358,6 +2358,16 @@ const SeenItem = (props: {
 								EP-{props.history.podcastInformation.episode}
 							</Text>
 						) : null}
+						{props.history.animeInformation?.episode ? (
+							<Text c="dimmed">
+								EP-{props.history.animeInformation.episode}
+							</Text>
+						) : null}
+						{props.history.mangaInformation?.chapter ? (
+							<Text c="dimmed">
+								Ch-{props.history.mangaInformation.chapter}
+							</Text>
+						) : null}
 					</Flex>
 					<Flex ml="sm" direction="column" gap={{ md: 4 }}>
 						<Flex gap={{ base: "md", md: "xl" }} wrap="wrap">
