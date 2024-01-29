@@ -204,6 +204,12 @@ export const ReviewItemDisplay = (props: {
 					{typeof props.review.podcastEpisode === "number" ? (
 						<Text c="dimmed">EP-{props.review.podcastEpisode}</Text>
 					) : null}
+					{typeof props.review.animeEpisode === "number" ? (
+						<Text c="dimmed">EP-{props.review.animeEpisode}</Text>
+					) : null}
+					{typeof props.review.mangaChapter === "number" ? (
+						<Text c="dimmed">Ch-{props.review.mangaChapter}</Text>
+					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
