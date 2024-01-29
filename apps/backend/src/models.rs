@@ -650,7 +650,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct MangaSummary {
-        pub chapters: i32,
+        pub chapters: usize,
         pub read: usize,
     }
 
@@ -736,6 +736,8 @@ pub mod media {
         #[serde(default)] // FIXME: Remove in the next major release
         pub anime_episodes: HashSet<(i32, i32)>,
         pub anime: HashSet<i32>,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub manga_chapters: HashSet<(i32, i32)>,
         pub manga: HashSet<i32>,
         pub books: HashSet<i32>,
         pub movies: HashSet<i32>,

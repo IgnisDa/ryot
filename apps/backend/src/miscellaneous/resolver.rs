@@ -4611,13 +4611,6 @@ impl MiscellaneousService {
                             units_consumed = Some(r);
                         }
                     }
-                    MediaSpecifics::Manga(item) => {
-                        ls.unique_items.manga.insert(meta.id);
-                        if let Some(r) = item.chapters {
-                            ls.media.manga.chapters += r;
-                            units_consumed = Some(r);
-                        }
-                    }
                     MediaSpecifics::Book(item) => {
                         ls.unique_items.books.insert(meta.id);
                         if let Some(pg) = item.pages {
@@ -4638,6 +4631,18 @@ impl MiscellaneousService {
                             SeenOrReviewOrCalendarEventExtraInformation::Anime(s) => {
                                 if let (Some(_), Some(episode)) = (item.episodes, s.episode) {
                                     ls.unique_items.anime_episodes.insert((meta.id, episode));
+                                    units_consumed = Some(1);
+                                }
+                            }
+                            _ => unreachable!(),
+                        };
+                    }
+                    MediaSpecifics::Manga(item) => {
+                        ls.unique_items.manga.insert(meta.id);
+                        match seen.extra_information.to_owned().unwrap() {
+                            SeenOrReviewOrCalendarEventExtraInformation::Manga(s) => {
+                                if let (Some(_), Some(chapter)) = (item.chapters, s.chapter) {
+                                    ls.unique_items.manga_chapters.insert((meta.id, chapter));
                                     units_consumed = Some(1);
                                 }
                             }
@@ -4725,9 +4730,11 @@ impl MiscellaneousService {
         ls.media.anime.episodes = ls.unique_items.anime_episodes.len();
         ls.media.anime.watched = ls.unique_items.anime.len();
 
+        ls.media.manga.read = ls.unique_items.manga.len();
+        ls.media.manga.chapters = ls.unique_items.manga_chapters.len();
+
         ls.media.video_games.played = ls.unique_items.video_games.len();
         ls.media.audio_books.played = ls.unique_items.audio_books.len();
-        ls.media.manga.read = ls.unique_items.manga.len();
         ls.media.books.read = ls.unique_items.books.len();
         ls.media.movies.watched = ls.unique_items.movies.len();
         ls.media.visual_novels.played = ls.unique_items.visual_novels.len();
