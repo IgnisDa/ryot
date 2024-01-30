@@ -47,10 +47,12 @@ const emptyNumberString = z
 	.transform((v) => (!v ? undefined : parseInt(v)))
 	.nullable();
 
-export const ShowAndPodcastSchema = z.object({
+export const MetadataSpecificsSchema = z.object({
 	showSeasonNumber: emptyNumberString,
 	showEpisodeNumber: emptyNumberString,
 	podcastEpisodeNumber: emptyNumberString,
+	animeEpisodeNumber: emptyNumberString,
+	mangaChapterNumber: emptyNumberString,
 });
 
 export const processSubmission = <Schema extends ZodTypeAny>(

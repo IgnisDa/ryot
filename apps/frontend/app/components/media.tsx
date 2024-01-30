@@ -195,6 +195,8 @@ export const ReviewItemDisplay = (props: {
 										showSeasonNumber: props.review.showSeason,
 										showEpisodeNumber: props.review.showEpisode,
 										podcastEpisodeNumber: props.review.podcastEpisode,
+										animeEpisodeNumber: props.review.animeEpisode,
+										mangaChapterNumber: props.review.mangaChapter,
 									});
 								}}
 							>
@@ -832,6 +834,8 @@ export const DisplayCollection = (props: {
 export type PostReview = {
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
+	animeEpisodeNumber?: number | null;
+	mangaChapterNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
 	existingReview?: DeepPartial<ReviewItem>;
 };
@@ -952,18 +956,40 @@ export const PostReviewModal = (props: {
 						</Flex>
 					) : null}
 					{props.lot === MetadataLot.Podcast ? (
-						<Flex gap="md">
-							<NumberInput
-								label="Episode"
-								name="podcastEpisodeNumber"
-								hideControls
-								defaultValue={
-									props.data?.existingReview?.podcastEpisode
-										? props.data.existingReview.podcastEpisode
-										: props.data.podcastEpisodeNumber || undefined
-								}
-							/>
-						</Flex>
+						<NumberInput
+							label="Episode"
+							name="podcastEpisodeNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.podcastEpisode
+									? props.data.existingReview.podcastEpisode
+									: props.data.podcastEpisodeNumber || undefined
+							}
+						/>
+					) : null}
+					{props.lot === MetadataLot.Anime ? (
+						<NumberInput
+							label="Episode"
+							name="animeEpisodeNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.animeEpisode
+									? props.data.existingReview.animeEpisode
+									: props.data.animeEpisodeNumber || undefined
+							}
+						/>
+					) : null}
+					{props.lot === MetadataLot.Manga ? (
+						<NumberInput
+							label="Chapter"
+							name="mangaChapterNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.mangaChapter
+									? props.data.existingReview.mangaChapter
+									: props.data.mangaChapterNumber || undefined
+							}
+						/>
 					) : null}
 					<Textarea
 						label="Review"

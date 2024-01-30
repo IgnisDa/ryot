@@ -115,7 +115,7 @@ import {
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
-	ShowAndPodcastSchema,
+	MetadataSpecificsSchema,
 	processSubmission,
 } from "~/lib/utilities.server";
 
@@ -125,7 +125,7 @@ const searchParamsSchema = z
 		openProgressModal: zx.BoolAsString.optional(),
 		openReviewModal: zx.BoolAsString.optional(),
 	})
-	.merge(ShowAndPodcastSchema);
+	.merge(MetadataSpecificsSchema);
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
@@ -404,7 +404,7 @@ const bulkUpdateSchema = z
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
 	})
-	.merge(ShowAndPodcastSchema)
+	.merge(MetadataSpecificsSchema)
 	.merge(metadataIdSchema);
 
 const seenIdSchema = z.object({ seenId: zx.IntAsString });
@@ -442,7 +442,7 @@ const progressUpdateSchema = z
 		completePodcast: zx.BoolAsString.optional(),
 	})
 	.merge(metadataIdSchema)
-	.merge(ShowAndPodcastSchema);
+	.merge(MetadataSpecificsSchema);
 
 const showSpecificsSchema = z.array(
 	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),

@@ -20,7 +20,7 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import {
-	ShowAndPodcastSchema,
+	MetadataSpecificsSchema,
 	getLogoutCookies,
 	processSubmission,
 } from "~/lib/utilities.server";
@@ -173,4 +173,4 @@ const reviewSchema = z
 		personId: zx.IntAsString.optional(),
 		reviewId: zx.IntAsString.optional(),
 	})
-	.merge(ShowAndPodcastSchema);
+	.merge(MetadataSpecificsSchema);
