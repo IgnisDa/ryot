@@ -121,6 +121,7 @@ const searchParamsSchema = z
 	.object({
 		defaultTab: z.string().optional().default("overview"),
 		openProgressModal: zx.BoolAsString.optional(),
+		openReviewModal: zx.BoolAsString.optional(),
 	})
 	.merge(ShowAndPodcastSchema);
 
@@ -480,6 +481,9 @@ export default function Page() {
 	const [updateProgressModalData, setUpdateProgressModalData] = useState<
 		UpdateProgress | undefined
 	>(loaderData.query.openProgressModal ? {} : undefined);
+	const [postReviewModalData, setPostReviewModalData] = useState<
+		PostReview | undefined
+	>(loaderData.query.openReviewModal ? {} : undefined);
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -544,6 +548,12 @@ export default function Page() {
 				onClose={() => setUpdateProgressModalData(undefined)}
 				opened={updateProgressModalData !== undefined}
 				data={updateProgressModalData}
+			/>
+			<PostReviewModal
+				onClose={() => setPostReviewModalData(undefined)}
+				opened={postReviewModalData !== undefined}
+				data={postReviewModalData}
+				entityType="metadata"
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -1165,19 +1175,8 @@ export default function Page() {
 													<Button
 														variant="outline"
 														w="100%"
-														component={Link}
-														to={$path(
-															"/media/:id/post-review",
-															{ id: loaderData.metadataId },
-															{
-																title: loaderData.mediaMainDetails.title,
-																entityType: "metadata",
-																isPodcast:
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast,
-																isShow:
-																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Show,
+														onClick={() => {
+															setPostReviewModalData({
 																showSeasonNumber:
 																	userMediaDetails?.nextEntry?.season ??
 																	undefined,
@@ -1193,8 +1192,8 @@ export default function Page() {
 																		? userMediaDetails?.nextEntry?.episode ??
 																		  undefined
 																		: null,
-															},
-														)}
+															});
+														}}
 													>
 														Post a review
 													</Button>
@@ -1711,6 +1710,45 @@ export default function Page() {
 	);
 }
 
+type PostReview = {
+	existingReviewId?: number | null;
+	showSeasonNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	podcastEpisodeNumber?: number | null;
+};
+
+const PostReviewModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	entityType: "metadata" | "metadataGroup" | "collection" | "person";
+	data?: PostReview;
+}) => {
+	const loaderData = useLoaderData<typeof loader>();
+
+	if (!props.data) return <></>;
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+			size="lg"
+		>
+			<Form
+				method="post"
+				action="/actions?intent=performReviewAction"
+				replace
+				onSubmit={() => {
+					props.onClose();
+					events.postReview(loaderData.mediaMainDetails.title);
+				}}
+			>
+				<div>Post your review here</div>
+			</Form>
+		</Modal>
+	);
+};
+
 type UpdateProgress = {
 	onlySeason?: boolean;
 	completeShow?: boolean;
@@ -1725,8 +1763,8 @@ const ProgressUpdateModal = (props: {
 	onClose: () => void;
 	data?: UpdateProgress;
 }) => {
-	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 	const loaderData = useLoaderData<typeof loader>();
+	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
 	if (!props.data) return <></>;
 	return (
