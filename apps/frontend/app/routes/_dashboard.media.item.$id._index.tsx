@@ -14,11 +14,14 @@ import {
 	Group,
 	Image,
 	Indicator,
+	Input,
 	Menu,
 	Modal,
 	NumberInput,
 	Paper,
+	Rating,
 	ScrollArea,
+	SegmentedControl,
 	Select,
 	SimpleGrid,
 	Skeleton,
@@ -27,6 +30,7 @@ import {
 	Tabs,
 	Text,
 	TextInput,
+	Textarea,
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
@@ -40,7 +44,7 @@ import {
 	defer,
 	json,
 } from "@remix-run/node";
-import { Await, Form, Link, useLoaderData } from "@remix-run/react";
+import { Await, Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	CreateMediaReminderDocument,
 	DeleteMediaReminderDocument,
@@ -62,6 +66,7 @@ import {
 	UserMediaDetailsDocument,
 	UserMediaDetailsQuery,
 	UserReviewScale,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -88,13 +93,14 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { Fragment, ReactNode, Suspense, useState } from "react";
+import { Fragment, ReactNode, Suspense, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { MediaDetailsLayout } from "~/components/common";
+import { confirmWrapper } from "~/components/confirmation";
 import {
 	AddEntityToCollectionModal,
 	DisplayCollection,
@@ -554,6 +560,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="metadata"
+				objectId={loaderData.metadataId}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -1720,10 +1727,13 @@ type PostReview = {
 const PostReviewModal = (props: {
 	opened: boolean;
 	onClose: () => void;
+	objectId: number;
 	entityType: "metadata" | "metadataGroup" | "collection" | "person";
 	data?: PostReview;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const fetcher = useFetcher();
+	const formRef = useRef<HTMLFormElement>(null);
 
 	if (!props.data) return <></>;
 	return (
@@ -1736,14 +1746,161 @@ const PostReviewModal = (props: {
 		>
 			<Form
 				method="post"
+				ref={formRef}
 				action="/actions?intent=performReviewAction"
 				replace
-				onSubmit={() => {
-					props.onClose();
+				onSubmit={(e) => {
+					e.preventDefault();
 					events.postReview(loaderData.mediaMainDetails.title);
+					fetcher.submit(formRef.current);
+					props.onClose();
 				}}
 			>
-				<div>Post your review here</div>
+				<input
+					hidden
+					name={
+						props.entityType === "metadata"
+							? "metadataId"
+							: props.entityType === "metadataGroup"
+							  ? "metadataGroupId"
+							  : props.entityType === "collection"
+								  ? "collectionId"
+								  : props.entityType === "person"
+									  ? "personId"
+									  : undefined
+					}
+					value={props.objectId}
+				/>
+				{props.data.existingReviewId ? (
+					<input hidden name="reviewId" value={props.data.existingReviewId} />
+				) : null}
+				<Stack>
+					<Flex align="center" gap="xl">
+						{match(loaderData.userPreferences.reviewScale)
+							.with(UserReviewScale.OutOfFive, () => (
+								<Flex gap="sm" mt="lg">
+									<Input.Label>Rating:</Input.Label>
+									<Rating
+										name="rating"
+										defaultValue={
+											props.data.existingReview?.rating
+												? Number(props.data.existingReview.rating)
+												: undefined
+										}
+										fractions={2}
+									/>
+								</Flex>
+							))
+							.with(UserReviewScale.OutOfHundred, () => (
+								<NumberInput
+									label="Rating"
+									name="rating"
+									min={0}
+									max={100}
+									step={1}
+									w="40%"
+									hideControls
+									rightSection={<IconPercentage size={16} />}
+									defaultValue={
+										loaderData.existingReview?.rating
+											? Number(loaderData.existingReview.rating)
+											: undefined
+									}
+								/>
+							))
+							.exhaustive()}
+						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
+					</Flex>
+					{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
+						<Flex gap="md">
+							<NumberInput
+								label="Season"
+								name="showSeasonNumber"
+								hideControls
+								defaultValue={
+									loaderData.existingReview?.showSeason
+										? Number(loaderData.existingReview.showSeason)
+										: loaderData.query.showSeasonNumber || undefined
+								}
+							/>
+							<NumberInput
+								label="Episode"
+								name="showEpisodeNumber"
+								hideControls
+								defaultValue={
+									loaderData.existingReview?.showEpisode
+										? Number(loaderData.existingReview.showEpisode)
+										: loaderData.query.showEpisodeNumber || undefined
+								}
+							/>
+						</Flex>
+					) : null}
+					{loaderData.mediaMainDetails.lot === MetadataLot.Podcast ? (
+						<Flex gap="md">
+							<NumberInput
+								label="Episode"
+								name="podcastEpisodeNumber"
+								hideControls
+								defaultValue={
+									loaderData.existingReview?.podcastEpisode
+										? Number(loaderData.existingReview.podcastEpisode)
+										: loaderData.query.podcastEpisodeNumber || undefined
+								}
+							/>
+						</Flex>
+					) : null}
+					<Textarea
+						label="Review"
+						name="text"
+						description="Markdown is supported"
+						autoFocus
+						minRows={10}
+						maxRows={20}
+						autosize
+						defaultValue={loaderData.existingReview?.text ?? undefined}
+					/>
+					<Box>
+						<Input.Label>Visibility</Input.Label>
+						<SegmentedControl
+							fullWidth
+							data={[
+								{
+									label: Visibility.Public,
+									value: Visibility.Public,
+								},
+								{
+									label: Visibility.Private,
+									value: Visibility.Private,
+								},
+							]}
+							defaultValue={
+								loaderData.existingReview?.visibility ?? Visibility.Public
+							}
+							name="visibility"
+						/>
+					</Box>
+					<Button mt="md" type="submit" w="100%">
+						{props.data.existingReviewId ? "Update" : "Submit"}
+					</Button>
+					{props.data.existingReviewId ? (
+						<>
+							<input hidden name="shouldDelete" defaultValue="true" />
+							<Button
+								w="100%"
+								color="red"
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this review? This action cannot be undone.",
+									});
+									if (conf) fetcher.submit(formRef.current);
+								}}
+							>
+								Delete
+							</Button>
+						</>
+					) : null}
+				</Stack>
 			</Form>
 		</Modal>
 	);

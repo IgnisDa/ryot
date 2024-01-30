@@ -4,18 +4,26 @@ import {
 	AddEntityToCollectionDocument,
 	CommitMediaDocument,
 	CreateReviewCommentDocument,
+	DeleteReviewDocument,
 	EntityLot,
 	MetadataLot,
 	MetadataSource,
+	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { namedAction } from "remix-utils/named-action";
+import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { getLogoutCookies, processSubmission } from "~/lib/utilities.server";
+import {
+	ShowAndPodcastSchema,
+	getLogoutCookies,
+	processSubmission,
+} from "~/lib/utilities.server";
 
 export const loader = async () => redirect($path("/"));
 
@@ -100,6 +108,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 			return json({ status: "success", submission } as const);
 		},
+		performReviewAction: async () => {
+			const submission = processSubmission(formData, reviewSchema);
+			if (submission.shouldDelete) {
+				invariant(submission.reviewId, "No reviewId provided");
+				await gqlClient.request(
+					DeleteReviewDocument,
+					{ reviewId: submission.reviewId },
+					await getAuthorizationHeader(request),
+				);
+				return json({ status: "success", submission } as const, {
+					headers: await createToastHeaders({
+						message: "Review deleted successfully",
+						type: "success",
+					}),
+				});
+			}
+			await gqlClient.request(
+				PostReviewDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					message: "Review submitted successfully",
+					type: "success",
+				}),
+			});
+		},
 	});
 };
 
@@ -123,3 +159,18 @@ const changeCollectionToEntitySchema = z.object({
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
 });
+
+const reviewSchema = z
+	.object({
+		shouldDelete: zx.BoolAsString.optional(),
+		rating: z.string().optional(),
+		text: z.string().optional(),
+		visibility: z.nativeEnum(Visibility).optional(),
+		spoiler: zx.CheckboxAsString.optional(),
+		metadataId: zx.IntAsString.optional(),
+		metadataGroupId: zx.IntAsString.optional(),
+		collectionId: zx.IntAsString.optional(),
+		personId: zx.IntAsString.optional(),
+		reviewId: zx.IntAsString.optional(),
+	})
+	.merge(ShowAndPodcastSchema);
