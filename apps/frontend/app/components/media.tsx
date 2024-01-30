@@ -6,25 +6,32 @@ import {
 	Badge,
 	Box,
 	Button,
+	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
 	Group,
 	Image,
+	Input,
 	Loader,
 	Modal,
+	NumberInput,
 	Paper,
+	Rating,
 	ScrollArea,
+	SegmentedControl,
 	Select,
 	Stack,
 	Text,
 	TextInput,
+	Textarea,
 	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	Form,
 	Link,
 	useFetcher,
 	useNavigate,
@@ -37,12 +44,14 @@ import {
 	type PartialMetadata,
 	type ReviewItem,
 	UserReviewScale,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconCheck,
 	IconEdit,
+	IconPercentage,
 	IconStarFilled,
 	IconTrash,
 	IconX,
@@ -50,6 +59,7 @@ import {
 import { ReactNode, useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import events from "~/lib/events";
 import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
@@ -793,5 +803,196 @@ export const DisplayCollection = (props: {
 				</Flex>
 			</removeEntityFromCollection.Form>
 		</Badge>
+	);
+};
+
+export type PostReview = {
+	showSeasonNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	podcastEpisodeNumber?: number | null;
+	existingReview?: ReviewItem;
+};
+
+export const PostReviewModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	objectId: number;
+	entityType: "metadata" | "metadataGroup" | "collection" | "person";
+	title: string;
+	reviewScale: UserReviewScale;
+	data?: PostReview;
+	lot?: MetadataLot;
+}) => {
+	const fetcher = useFetcher();
+	const formRef = useRef<HTMLFormElement>(null);
+
+	if (!props.data) return <></>;
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+			size="lg"
+		>
+			<Form
+				method="post"
+				ref={formRef}
+				action="/actions?intent=performReviewAction"
+				replace
+				onSubmit={(e) => {
+					e.preventDefault();
+					events.postReview(props.title);
+					fetcher.submit(formRef.current);
+					props.onClose();
+				}}
+			>
+				<input
+					hidden
+					name={
+						props.entityType === "metadata"
+							? "metadataId"
+							: props.entityType === "metadataGroup"
+							  ? "metadataGroupId"
+							  : props.entityType === "collection"
+								  ? "collectionId"
+								  : props.entityType === "person"
+									  ? "personId"
+									  : undefined
+					}
+					value={props.objectId}
+				/>
+				{props.data.existingReview?.id ? (
+					<input hidden name="reviewId" value={props.data.existingReview.id} />
+				) : null}
+				<Stack>
+					<Flex align="center" gap="xl">
+						{match(props.reviewScale)
+							.with(UserReviewScale.OutOfFive, () => (
+								<Flex gap="sm" mt="lg">
+									<Input.Label>Rating:</Input.Label>
+									<Rating
+										name="rating"
+										defaultValue={
+											props.data?.existingReview?.rating
+												? Number(props.data.existingReview.rating)
+												: undefined
+										}
+										fractions={2}
+									/>
+								</Flex>
+							))
+							.with(UserReviewScale.OutOfHundred, () => (
+								<NumberInput
+									label="Rating"
+									name="rating"
+									min={0}
+									max={100}
+									step={1}
+									w="40%"
+									hideControls
+									rightSection={<IconPercentage size={16} />}
+									defaultValue={
+										props.data?.existingReview?.rating
+											? Number(props.data.existingReview.rating)
+											: undefined
+									}
+								/>
+							))
+							.exhaustive()}
+						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
+					</Flex>
+					{props.lot === MetadataLot.Show ? (
+						<Flex gap="md">
+							<NumberInput
+								label="Season"
+								name="showSeasonNumber"
+								hideControls
+								defaultValue={
+									props.data?.existingReview?.showSeason
+										? props.data.existingReview.showSeason
+										: props.data.showSeasonNumber || undefined
+								}
+							/>
+							<NumberInput
+								label="Episode"
+								name="showEpisodeNumber"
+								hideControls
+								defaultValue={
+									props.data?.existingReview?.showEpisode
+										? props.data.existingReview.showEpisode
+										: props.data.showEpisodeNumber || undefined
+								}
+							/>
+						</Flex>
+					) : null}
+					{props.lot === MetadataLot.Podcast ? (
+						<Flex gap="md">
+							<NumberInput
+								label="Episode"
+								name="podcastEpisodeNumber"
+								hideControls
+								defaultValue={
+									props.data?.existingReview?.podcastEpisode
+										? props.data.existingReview.podcastEpisode
+										: props.data.podcastEpisodeNumber || undefined
+								}
+							/>
+						</Flex>
+					) : null}
+					<Textarea
+						label="Review"
+						name="text"
+						description="Markdown is supported"
+						autoFocus
+						minRows={10}
+						maxRows={20}
+						autosize
+						defaultValue={props.data.existingReview?.text ?? undefined}
+					/>
+					<Box>
+						<Input.Label>Visibility</Input.Label>
+						<SegmentedControl
+							fullWidth
+							data={[
+								{
+									label: Visibility.Public,
+									value: Visibility.Public,
+								},
+								{
+									label: Visibility.Private,
+									value: Visibility.Private,
+								},
+							]}
+							defaultValue={
+								props.data.existingReview?.visibility ?? Visibility.Public
+							}
+							name="visibility"
+						/>
+					</Box>
+					<Button mt="md" type="submit" w="100%">
+						{props.data.existingReview?.id ? "Update" : "Submit"}
+					</Button>
+					{props.data.existingReview?.id ? (
+						<>
+							<input hidden name="shouldDelete" defaultValue="true" />
+							<Button
+								w="100%"
+								color="red"
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this review? This action cannot be undone.",
+									});
+									if (conf) fetcher.submit(formRef.current);
+								}}
+							>
+								Delete
+							</Button>
+						</>
+					) : null}
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };
