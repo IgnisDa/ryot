@@ -253,11 +253,15 @@ export const ReviewItemDisplay = (props: {
 							</Text>
 						</Flex>
 					) : null}
-					{props.review.text ? (
+					{props.review.textRendered ? (
 						!props.review.spoiler ? (
 							<>
-								{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
-								<div dangerouslySetInnerHTML={{ __html: props.review.text }} />
+								<div
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+									dangerouslySetInnerHTML={{
+										__html: props.review.textRendered,
+									}}
+								/>
 							</>
 						) : (
 							<>
@@ -269,7 +273,9 @@ export const ReviewItemDisplay = (props: {
 								<Collapse in={opened}>
 									<Text
 										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-										dangerouslySetInnerHTML={{ __html: props.review.text }}
+										dangerouslySetInnerHTML={{
+											__html: props.review.textRendered,
+										}}
 									/>
 								</Collapse>
 							</>
@@ -879,6 +885,7 @@ export const PostReviewModal = (props: {
 									  : undefined
 					}
 					value={props.objectId}
+					readOnly
 				/>
 				{props.data.existingReview?.id ? (
 					<input hidden name="reviewId" value={props.data.existingReview.id} />
@@ -966,7 +973,7 @@ export const PostReviewModal = (props: {
 						minRows={10}
 						maxRows={20}
 						autosize
-						defaultValue={props.data.existingReview?.text ?? undefined}
+						defaultValue={props.data.existingReview?.textOriginal ?? undefined}
 					/>
 					<Box>
 						<Input.Label>Visibility</Input.Label>
