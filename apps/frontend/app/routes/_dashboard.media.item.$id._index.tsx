@@ -88,7 +88,7 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactNode, Suspense, useState } from "react";
+import { Fragment, ReactNode, Suspense, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -541,7 +541,6 @@ export default function Page() {
 				metadataId={loaderData.metadataId}
 			/>
 			<ProgressUpdateModal
-				title={loaderData.mediaMainDetails.title}
 				onClose={() => setUpdateProgressModalData(undefined)}
 				opened={updateProgressModalData !== undefined}
 				data={updateProgressModalData}
@@ -1722,7 +1721,6 @@ type UpdateProgress = {
 };
 
 const ProgressUpdateModal = (props: {
-	title: string;
 	opened: boolean;
 	onClose: () => void;
 	data?: UpdateProgress;
@@ -1744,65 +1742,51 @@ const ProgressUpdateModal = (props: {
 				replace
 				onSubmit={() => {
 					props.onClose();
-					events.updateProgress(props.title);
+					events.updateProgress(loaderData.mediaMainDetails.title);
 				}}
 			>
 				{[
 					...Object.entries(props.data),
 					["metadataId", loaderData.metadataId.toString()],
-				].map(([k, v]) =>
-					typeof v !== "undefined" ? (
-						<input hidden name={k} defaultValue={v?.toString()} key={k} />
-					) : (
-						<></>
-					),
-				)}
-				<Suspense fallback={<FallbackForDefer />}>
-					<Await resolve={loaderData.mediaAdditionalDetails}>
-						{({ mediaDetails: mediaAdditionalDetails }) => (
-							<>
-								{mediaAdditionalDetails?.showSpecifics ? (
-									<input
-										hidden
-										name="showSpecifics"
-										defaultValue={JSON.stringify(
-											mediaAdditionalDetails.showSpecifics.seasons.map((s) => ({
-												seasonNumber: s.seasonNumber,
-												episodes: s.episodes.map((e) => e.episodeNumber),
-											})),
-										)}
-									/>
-								) : null}
-							</>
-						)}
-					</Await>
-				</Suspense>
-				<Suspense fallback={<FallbackForDefer />}>
-					<Await resolve={loaderData.mediaAdditionalDetails}>
-						{({ mediaDetails: mediaAdditionalDetails }) => (
-							<>
-								{mediaAdditionalDetails?.podcastSpecifics ? (
-									<input
-										hidden
-										name="podcastSpecifics"
-										defaultValue={JSON.stringify(
-											mediaAdditionalDetails.podcastSpecifics.episodes.map(
-												(e) => ({
-													episodeNumber: e.number,
-												}),
-											),
-										)}
-									/>
-								) : null}
-							</>
-						)}
-					</Await>
-				</Suspense>
+				].map(([k, v]) => (
+					<Fragment key={k}>
+						{typeof v !== "undefined" ? (
+							<input hidden name={k} defaultValue={v?.toString()} key={k} />
+						) : null}
+					</Fragment>
+				))}
 				<Stack>
 					<Suspense fallback={<FallbackForDefer />}>
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ mediaDetails: mediaAdditionalDetails }) => (
 								<>
+									{mediaAdditionalDetails?.showSpecifics ? (
+										<input
+											hidden
+											name="showSpecifics"
+											defaultValue={JSON.stringify(
+												mediaAdditionalDetails.showSpecifics.seasons.map(
+													(s) => ({
+														seasonNumber: s.seasonNumber,
+														episodes: s.episodes.map((e) => e.episodeNumber),
+													}),
+												),
+											)}
+										/>
+									) : null}
+									{mediaAdditionalDetails?.podcastSpecifics ? (
+										<input
+											hidden
+											name="podcastSpecifics"
+											defaultValue={JSON.stringify(
+												mediaAdditionalDetails.podcastSpecifics.episodes.map(
+													(e) => ({
+														episodeNumber: e.number,
+													}),
+												),
+											)}
+										/>
+									) : null}
 									{mediaAdditionalDetails?.showSpecifics ? (
 										<>
 											{props.data?.onlySeason || props.data?.completeShow ? (
@@ -1855,14 +1839,6 @@ const ProgressUpdateModal = (props: {
 											) : null}
 										</>
 									) : null}
-								</>
-							)}
-						</Await>
-					</Suspense>
-					<Suspense fallback={<FallbackForDefer />}>
-						<Await resolve={loaderData.mediaAdditionalDetails}>
-							{({ mediaDetails: mediaAdditionalDetails }) => (
-								<>
 									{mediaAdditionalDetails?.podcastSpecifics ? (
 										props.data?.completePodcast ? (
 											<Alert color="yellow" icon={<IconAlertCircle />}>
@@ -1888,12 +1864,10 @@ const ProgressUpdateModal = (props: {
 							)}
 						</Await>
 					</Suspense>
-					{loaderData.mediaMainDetails?.lot ? (
-						<Title order={6}>
-							When did you {getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}{" "}
-							it?
-						</Title>
-					) : null}
+					<Title order={6}>
+						When did you {getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}{" "}
+						it?
+					</Title>
 					<Button
 						variant="outline"
 						type="submit"
