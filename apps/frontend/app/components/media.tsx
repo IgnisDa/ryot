@@ -157,6 +157,7 @@ export const ReviewItemDisplay = (props: {
 	const deleteReviewCommentFetcher = useFetcher();
 	const changeScoreFormRef = useRef<HTMLFormElement>(null);
 	const changeScoreFetcher = useFetcher();
+	const deleteReviewFetcher = useFetcher();
 
 	return (
 		<>
@@ -186,18 +187,43 @@ export const ReviewItemDisplay = (props: {
 						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 					</Box>
 					{props.user && props.user.id === props.review.postedBy?.id ? (
-						<ActionIcon
-							onClick={() => {
-								setPostReviewModalData({
-									existingReview: props.review,
-									showSeasonNumber: props.review.showSeason,
-									showEpisodeNumber: props.review.showEpisode,
-									podcastEpisodeNumber: props.review.podcastEpisode,
-								});
-							}}
-						>
-							<IconEdit size={16} />
-						</ActionIcon>
+						<>
+							<ActionIcon
+								onClick={() => {
+									setPostReviewModalData({
+										existingReview: props.review,
+										showSeasonNumber: props.review.showSeason,
+										showEpisodeNumber: props.review.showEpisode,
+										podcastEpisodeNumber: props.review.podcastEpisode,
+									});
+								}}
+							>
+								<IconEdit size={16} />
+							</ActionIcon>
+							<ActionIcon
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this review? This action cannot be undone.",
+									});
+									if (conf)
+										deleteReviewFetcher.submit(
+											{
+												shouldDelete: "true",
+												reviewId: props.review.id?.toString(),
+												// biome-ignore lint/suspicious/noExplicitAny: otherwise an error here
+											} as any,
+											{
+												method: "post",
+												action: "/actions?intent=performReviewAction",
+											},
+										);
+								}}
+								color="red"
+							>
+								<IconTrash size={16} />
+							</ActionIcon>
+						</>
 					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
@@ -826,7 +852,6 @@ export const PostReviewModal = (props: {
 			onClose={props.onClose}
 			withCloseButton={false}
 			centered
-			size="lg"
 		>
 			<Form
 				method="post"
@@ -966,24 +991,6 @@ export const PostReviewModal = (props: {
 					<Button mt="md" type="submit" w="100%">
 						{props.data.existingReview?.id ? "Update" : "Submit"}
 					</Button>
-					{props.data.existingReview?.id ? (
-						<>
-							<input hidden name="shouldDelete" defaultValue="true" />
-							<Button
-								w="100%"
-								color="red"
-								onClick={async () => {
-									const conf = await confirmWrapper({
-										confirmation:
-											"Are you sure you want to delete this review? This action cannot be undone.",
-									});
-									if (conf) fetcher.submit(formRef.current);
-								}}
-							>
-								Delete
-							</Button>
-						</>
-					) : null}
 				</Stack>
 			</Form>
 		</Modal>
