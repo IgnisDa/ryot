@@ -1783,34 +1783,19 @@ const ProgressUpdateModal = (props: {
 										/>
 									) : null}
 									{mediaAdditionalDetails?.showSpecifics ? (
-										<input
-											hidden
-											name="showSpecifics"
-											defaultValue={JSON.stringify(
-												mediaAdditionalDetails.showSpecifics.seasons.map(
-													(s) => ({
-														seasonNumber: s.seasonNumber,
-														episodes: s.episodes.map((e) => e.episodeNumber),
-													}),
-												),
-											)}
-										/>
-									) : null}
-									{mediaAdditionalDetails?.podcastSpecifics ? (
-										<input
-											hidden
-											name="podcastSpecifics"
-											defaultValue={JSON.stringify(
-												mediaAdditionalDetails.podcastSpecifics.episodes.map(
-													(e) => ({
-														episodeNumber: e.number,
-													}),
-												),
-											)}
-										/>
-									) : null}
-									{mediaAdditionalDetails?.showSpecifics ? (
 										<>
+											<input
+												hidden
+												name="showSpecifics"
+												defaultValue={JSON.stringify(
+													mediaAdditionalDetails.showSpecifics.seasons.map(
+														(s) => ({
+															seasonNumber: s.seasonNumber,
+															episodes: s.episodes.map((e) => e.episodeNumber),
+														}),
+													),
+												)}
+											/>
 											{props.data?.onlySeason || props.data?.completeShow ? (
 												<Alert color="yellow" icon={<IconAlertCircle />}>
 													{props.data.onlySeason
@@ -1862,25 +1847,38 @@ const ProgressUpdateModal = (props: {
 										</>
 									) : null}
 									{mediaAdditionalDetails?.podcastSpecifics ? (
-										props.data?.completePodcast ? (
-											<Alert color="yellow" icon={<IconAlertCircle />}>
-												This will mark all episodes for this podcast as seen
-											</Alert>
-										) : (
-											<>
-												<Title order={6}>Select episode</Title>
-												<Autocomplete
-													label="Episode"
-													data={mediaAdditionalDetails.podcastSpecifics.episodes.map(
-														(se) => ({
-															label: se.title.toString(),
-															value: se.number.toString(),
+										<>
+											<input
+												hidden
+												name="podcastSpecifics"
+												defaultValue={JSON.stringify(
+													mediaAdditionalDetails.podcastSpecifics.episodes.map(
+														(e) => ({
+															episodeNumber: e.number,
 														}),
-													)}
-													defaultValue={props.data?.podcastEpisodeNumber?.toString()}
-												/>
-											</>
-										)
+													),
+												)}
+											/>
+											{props.data?.completePodcast ? (
+												<Alert color="yellow" icon={<IconAlertCircle />}>
+													This will mark all episodes for this podcast as seen
+												</Alert>
+											) : (
+												<>
+													<Title order={6}>Select episode</Title>
+													<Autocomplete
+														label="Episode"
+														data={mediaAdditionalDetails.podcastSpecifics.episodes.map(
+															(se) => ({
+																label: se.title.toString(),
+																value: se.number.toString(),
+															}),
+														)}
+														defaultValue={props.data?.podcastEpisodeNumber?.toString()}
+													/>
+												</>
+											)}
+										</>
 									) : null}
 								</>
 							)}
