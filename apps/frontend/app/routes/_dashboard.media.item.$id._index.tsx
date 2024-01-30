@@ -1620,6 +1620,7 @@ export default function Page() {
 														<Stack>
 															{userMediaDetails.reviews.map((r) => (
 																<ReviewItemDisplay
+																	entityType="metadata"
 																	review={r}
 																	key={r.id}
 																	metadataId={loaderData.metadataId}
@@ -1628,14 +1629,7 @@ export default function Page() {
 																	}
 																	user={loaderData.userDetails}
 																	title={loaderData.mediaMainDetails.title}
-																	isShow={
-																		loaderData.mediaMainDetails.lot ===
-																		MetadataLot.Show
-																	}
-																	isPodcast={
-																		loaderData.mediaMainDetails.lot ===
-																		MetadataLot.Podcast
-																	}
+																	lot={loaderData.mediaMainDetails.lot}
 																/>
 															))}
 														</Stack>

@@ -135,19 +135,22 @@ export const MediaScrollArea = (props: {
 
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
+	entityType: EntityType;
 	user: ApplicationUser;
 	reviewScale: UserReviewScale;
 	title: string;
-	isShow?: boolean;
-	isPodcast?: boolean;
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
 	collectionId?: number;
+	lot?: MetadataLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
+	const [postReviewModalData, setPostReviewModalData] = useState<
+		PostReview | undefined
+	>(undefined);
 	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
 	const createReviewCommentFetcher = useFetcher();
 	const deleteReviewCommentFormRef = useRef<HTMLFormElement>(null);
@@ -157,6 +160,22 @@ export const ReviewItemDisplay = (props: {
 
 	return (
 		<>
+			<PostReviewModal
+				onClose={() => setPostReviewModalData(undefined)}
+				opened={postReviewModalData !== undefined}
+				data={postReviewModalData}
+				entityType={props.entityType}
+				objectId={
+					props.metadataId ||
+					props.metadataGroupId ||
+					props.collectionId ||
+					props.personId ||
+					-1
+				}
+				reviewScale={props.reviewScale}
+				title={props.title}
+				lot={props.lot}
+			/>
 			<Box key={props.review.id} data-review-id={props.review.id}>
 				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
@@ -167,41 +186,18 @@ export const ReviewItemDisplay = (props: {
 						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 					</Box>
 					{props.user && props.user.id === props.review.postedBy?.id ? (
-						<Anchor
-							component={Link}
-							to={$path(
-								"/media/:id/post-review",
-								{
-									id: String(
-										props.metadataId ||
-											props.metadataGroupId ||
-											props.collectionId ||
-											props.personId ||
-											props.review.id,
-									),
-								},
-								{
-									entityType: props.metadataId
-										? "metadata"
-										: props.metadataGroupId
-										  ? "metadataGroup"
-										  : props.collectionId
-											  ? "collection"
-											  : "person",
-									existingReviewId: props.review.id,
-									title: props.title,
-									podcastEpisodeNumber: props.review.podcastEpisode,
-									showEpisodeNumber: props.review.showEpisode,
+						<ActionIcon
+							onClick={() => {
+								setPostReviewModalData({
+									existingReview: props.review,
 									showSeasonNumber: props.review.showSeason,
-									isPodcast: props.isPodcast,
-									isShow: props.isShow,
-								},
-							)}
+									showEpisodeNumber: props.review.showEpisode,
+									podcastEpisodeNumber: props.review.podcastEpisode,
+								});
+							}}
 						>
-							<ActionIcon>
-								<IconEdit size={16} />
-							</ActionIcon>
-						</Anchor>
+							<IconEdit size={16} />
+						</ActionIcon>
 					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
@@ -810,14 +806,16 @@ export type PostReview = {
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
-	existingReview?: ReviewItem;
+	existingReview?: DeepPartial<ReviewItem>;
 };
+
+type EntityType = "metadata" | "metadataGroup" | "collection" | "person";
 
 export const PostReviewModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	objectId: number;
-	entityType: "metadata" | "metadataGroup" | "collection" | "person";
+	entityType: EntityType;
 	title: string;
 	reviewScale: UserReviewScale;
 	data?: PostReview;
