@@ -1280,8 +1280,10 @@ export type PodcastsSummary = {
 };
 
 export type PostReviewInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   collectionId?: InputMaybe<Scalars['Int']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
   metadataGroupId?: InputMaybe<Scalars['Int']['input']>;
   metadataId?: InputMaybe<Scalars['Int']['input']>;
   personId?: InputMaybe<Scalars['Int']['input']>;

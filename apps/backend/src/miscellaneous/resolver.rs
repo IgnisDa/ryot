@@ -4142,10 +4142,20 @@ impl MiscellaneousService {
             Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
                 SeenShowExtraInformation { season, episode },
             ))
+        } else if let Some(episode) = input.podcast_episode_number {
+            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
+                SeenPodcastExtraInformation { episode },
+            ))
+        } else if let Some(episode) = input.anime_episode_number {
+            Some(SeenOrReviewOrCalendarEventExtraInformation::Anime(
+                SeenAnimeExtraInformation {
+                    episode: Some(episode),
+                },
+            ))
         } else {
-            input.podcast_episode_number.map(|episode| {
-                SeenOrReviewOrCalendarEventExtraInformation::Podcast(SeenPodcastExtraInformation {
-                    episode,
+            input.manga_chapter_number.map(|chapter| {
+                SeenOrReviewOrCalendarEventExtraInformation::Manga(SeenMangaExtraInformation {
+                    chapter: Some(chapter),
                 })
             })
         };
