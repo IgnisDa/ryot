@@ -628,8 +628,8 @@ struct UserMediaDetails {
     history: Vec<seen::Model>,
     /// The seen item if it is in progress.
     in_progress: Option<seen::Model>,
-    /// The next episode of this media.
-    next_episode: Option<UserMediaNextEpisode>,
+    /// The next episode/chapter of this media.
+    next_entry: Option<UserMediaNextEntry>,
     /// Whether the user is monitoring this media.
     is_monitored: bool,
     /// The reminder that the user has set for this media.
@@ -645,9 +645,10 @@ struct UserMediaDetails {
 }
 
 #[derive(SimpleObject, Debug, Clone)]
-struct UserMediaNextEpisode {
-    season_number: Option<i32>,
-    episode_number: Option<i32>,
+struct UserMediaNextEntry {
+    season: Option<i32>,
+    episode: Option<i32>,
+    chapter: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1784,30 +1785,52 @@ impl MiscellaneousService {
                     .collect_vec()
                     .into_iter()
                     .flat_map(|(s, e)| {
-                        e.iter().map(move |e| UserMediaNextEpisode {
-                            season_number: Some(s),
-                            episode_number: Some(e.episode_number),
+                        e.iter().map(move |e| UserMediaNextEntry {
+                            season: Some(s),
+                            episode: Some(e.episode_number),
+                            chapter: None,
                         })
                     })
                     .collect_vec();
                 let next = all_episodes.iter().position(|e| {
-                    e.season_number == Some(h.show_information.as_ref().unwrap().season)
-                        && e.episode_number == Some(h.show_information.as_ref().unwrap().episode)
+                    e.season == Some(h.show_information.as_ref().unwrap().season)
+                        && e.episode == Some(h.show_information.as_ref().unwrap().episode)
                 });
                 Some(all_episodes.get(next? + 1)?.clone())
             } else if let Some(p) = &media_details.podcast_specifics {
                 let all_episodes = p
                     .episodes
                     .iter()
-                    .map(|e| UserMediaNextEpisode {
-                        season_number: None,
-                        episode_number: Some(e.number),
+                    .map(|e| UserMediaNextEntry {
+                        season: None,
+                        episode: Some(e.number),
+                        chapter: None,
                     })
                     .collect_vec();
                 let next = all_episodes.iter().position(|e| {
-                    e.episode_number == Some(h.podcast_information.as_ref().unwrap().episode)
+                    e.episode == Some(h.podcast_information.as_ref().unwrap().episode)
                 });
                 Some(all_episodes.get(next? + 1)?.clone())
+            } else if let Some(anime_spec) = &media_details.anime_specifics {
+                anime_spec.episodes.and_then(|_| {
+                    h.anime_information.as_ref().and_then(|hist| {
+                        hist.episode.map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: Some(e + 1),
+                            chapter: None,
+                        })
+                    })
+                })
+            } else if let Some(manga_spec) = &media_details.manga_specifics {
+                manga_spec.chapters.and_then(|_| {
+                    h.manga_information.as_ref().and_then(|hist| {
+                        hist.chapter.map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: None,
+                            chapter: Some(e + 1),
+                        })
+                    })
+                })
             } else {
                 None
             }
@@ -1865,7 +1888,7 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
-            next_episode,
+            next_entry: next_episode,
             is_monitored,
             seen_by,
             reminder,

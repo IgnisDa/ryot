@@ -24,9 +24,10 @@ query UserMediaDetails($metadataId: Int!) {
     }
     isMonitored
     seenBy
-    nextEpisode {
-      seasonNumber
-      episodeNumber
+    nextEntry {
+      season
+      episode
+      chapter
     }
   }
 }
