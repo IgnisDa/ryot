@@ -994,7 +994,7 @@ export default function Page() {
 															MetadataLot.Podcast ? (
 															<>
 																<Menu.Label>Shows and podcasts</Menu.Label>
-																{userMediaDetails.nextEpisode ? (
+																{userMediaDetails.nextEntry ? (
 																	<>
 																		<Menu.Item
 																			onClick={() => {
@@ -1002,20 +1002,20 @@ export default function Page() {
 																					podcastEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
 																						MetadataLot.Podcast
-																							? userMediaDetails.nextEpisode
-																									?.episodeNumber
+																							? userMediaDetails.nextEntry
+																									?.episode
 																							: undefined,
 																					showSeasonNumber:
 																						loaderData.mediaMainDetails.lot ===
 																						MetadataLot.Show
-																							? userMediaDetails.nextEpisode
-																									?.seasonNumber
+																							? userMediaDetails.nextEntry
+																									?.season
 																							: undefined,
 																					showEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
 																						MetadataLot.Show
-																							? userMediaDetails.nextEpisode
-																									?.episodeNumber
+																							? userMediaDetails.nextEntry
+																									?.episode
 																							: undefined,
 																				});
 																			}}
@@ -1023,8 +1023,8 @@ export default function Page() {
 																			Mark{" "}
 																			{loaderData.mediaMainDetails.lot ===
 																			MetadataLot.Show
-																				? `S${userMediaDetails.nextEpisode?.seasonNumber}-E${userMediaDetails.nextEpisode?.episodeNumber}`
-																				: `EP-${userMediaDetails.nextEpisode?.episodeNumber}`}{" "}
+																				? `S${userMediaDetails.nextEntry?.season}-E${userMediaDetails.nextEntry?.episode}`
+																				: `EP-${userMediaDetails.nextEntry?.episode}`}{" "}
 																			as seen
 																		</Menu.Item>
 																		<PutOnHoldBtn />
@@ -1157,19 +1157,19 @@ export default function Page() {
 																	loaderData.mediaMainDetails.lot ===
 																	MetadataLot.Show,
 																showSeasonNumber:
-																	userMediaDetails?.nextEpisode?.seasonNumber ??
+																	userMediaDetails?.nextEntry?.season ??
 																	undefined,
 																showEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
 																	MetadataLot.Show
-																		? userMediaDetails?.nextEpisode
-																				?.episodeNumber ?? undefined
+																		? userMediaDetails?.nextEntry?.episode ??
+																		  undefined
 																		: null,
 																podcastEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
 																	MetadataLot.Podcast
-																		? userMediaDetails?.nextEpisode
-																				?.episodeNumber ?? undefined
+																		? userMediaDetails?.nextEntry?.episode ??
+																		  undefined
 																		: null,
 															},
 														)}
