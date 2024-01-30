@@ -386,7 +386,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await sleepForASecond();
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
-					type: !deployBulkProgressUpdate ? "error" : undefined,
+					type: !deployBulkProgressUpdate ? "error" : "success",
 					message: !deployBulkProgressUpdate
 						? "Progress was not updated"
 						: "Progress updated successfully",
