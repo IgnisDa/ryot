@@ -99,7 +99,8 @@ fragment CollectionPart on Collection {
 fragment ReviewItemPart on ReviewItem {
   id
   rating
-  text
+  textOriginal
+  textRendered
   spoiler
   visibility
   showSeason

@@ -353,7 +353,8 @@ struct ReviewItem {
     id: i32,
     posted_on: DateTimeUtc,
     rating: Option<Decimal>,
-    text: Option<String>,
+    text_original: Option<String>,
+    text_rendered: Option<String>,
     visibility: Visibility,
     spoiler: bool,
     posted_by: IdAndNamedObject,
@@ -3778,7 +3779,8 @@ impl MiscellaneousService {
                     posted_on: r.posted_on,
                     rating,
                     spoiler: r.spoiler,
-                    text: r.text,
+                    text_original: r.text.clone(),
+                    text_rendered: r.text.map(|t| markdown_to_html(&t)),
                     visibility: r.visibility,
                     show_season: show_se,
                     show_episode: show_ep,
@@ -3833,10 +3835,6 @@ impl MiscellaneousService {
             .filter(|r| match r.visibility {
                 Visibility::Private => r.posted_by.id == user_id,
                 _ => true,
-            })
-            .map(|r| ReviewItem {
-                text: r.text.map(|t| markdown_to_html(&t)),
-                ..r
             })
             .collect();
         Ok(all_reviews)
@@ -7091,7 +7089,7 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
             visibility: Some(rev.visibility),
             date: Some(rev.posted_on),
             spoiler: Some(rev.spoiler),
-            text: rev.text,
+            text: rev.text_original,
         }),
         rating: rev.rating,
         show_season_number: rev.show_season,
