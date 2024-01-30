@@ -121,7 +121,7 @@ import {
 
 const searchParamsSchema = z
 	.object({
-		defaultTab: z.string().optional().default("overview"),
+		defaultTab: z.string().optional(),
 		openProgressModal: zx.BoolAsString.optional(),
 		openReviewModal: zx.BoolAsString.optional(),
 	})
@@ -805,7 +805,10 @@ export default function Page() {
 							)}
 						</Await>
 					</Suspense>
-					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
+					<Tabs
+						variant="outline"
+						defaultValue={loaderData.query.defaultTab || "overview"}
+					>
 						<Tabs.List mb="xs">
 							{loaderData.mediaMainDetails.description ||
 							loaderData.mediaMainDetails.genres.length > 0 ? (

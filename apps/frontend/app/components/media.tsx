@@ -578,14 +578,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 							e.preventDefault();
 							navigate(
 								$path(
-									"/media/:id/post-review",
+									"/media/item/:id",
 									{ id: props.item.identifier },
-									{
-										entityType: "metadata",
-										title: props.item.title,
-										isShow: props.lot === MetadataLot.Show,
-										isPodcast: props.lot === MetadataLot.Podcast,
-									},
+									{ openReviewModal: true },
 								),
 							);
 						}}
