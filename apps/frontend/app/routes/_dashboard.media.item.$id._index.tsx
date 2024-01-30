@@ -440,6 +440,8 @@ const progressUpdateSchema = z
 		onlySeason: zx.BoolAsString.optional(),
 		completeShow: zx.BoolAsString.optional(),
 		completePodcast: zx.BoolAsString.optional(),
+		animeEpisodes: zx.IntAsString.optional(),
+		mangaChapters: zx.IntAsString.optional(),
 	})
 	.merge(metadataIdSchema)
 	.merge(MetadataSpecificsSchema);
@@ -1762,6 +1764,24 @@ const ProgressUpdateModal = (props: {
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ mediaDetails: mediaAdditionalDetails }) => (
 								<>
+									{mediaAdditionalDetails?.animeSpecifics?.episodes ? (
+										<input
+											hidden
+											name="animeEpisodes"
+											defaultValue={
+												mediaAdditionalDetails.animeSpecifics.episodes
+											}
+										/>
+									) : null}
+									{mediaAdditionalDetails?.mangaSpecifics?.chapters ? (
+										<input
+											hidden
+											name="mangaChapters"
+											defaultValue={
+												mediaAdditionalDetails.mangaSpecifics.chapters
+											}
+										/>
+									) : null}
 									{mediaAdditionalDetails?.showSpecifics ? (
 										<input
 											hidden
