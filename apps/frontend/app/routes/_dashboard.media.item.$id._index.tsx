@@ -989,22 +989,14 @@ export default function Page() {
 													</Menu.Target>
 													<Menu.Dropdown>
 														{loaderData.mediaMainDetails.lot ===
-															MetadataLot.Show ||
-														loaderData.mediaMainDetails.lot ===
-															MetadataLot.Podcast ? (
+														MetadataLot.Show ? (
 															<>
-																<Menu.Label>Shows and podcasts</Menu.Label>
+																<Menu.Label>Shows</Menu.Label>
 																{userMediaDetails.nextEntry ? (
 																	<>
 																		<Menu.Item
 																			onClick={() => {
 																				setUpdateProgressModalData({
-																					podcastEpisodeNumber:
-																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Podcast
-																							? userMediaDetails.nextEntry
-																									?.episode
-																							: undefined,
 																					showSeasonNumber:
 																						loaderData.mediaMainDetails.lot ===
 																						MetadataLot.Show
@@ -1021,10 +1013,7 @@ export default function Page() {
 																			}}
 																		>
 																			Mark{" "}
-																			{loaderData.mediaMainDetails.lot ===
-																			MetadataLot.Show
-																				? `S${userMediaDetails.nextEntry?.season}-E${userMediaDetails.nextEntry?.episode}`
-																				: `EP-${userMediaDetails.nextEntry?.episode}`}{" "}
+																			{`S${userMediaDetails.nextEntry?.season}-E${userMediaDetails.nextEntry?.episode}`}{" "}
 																			as seen
 																		</Menu.Item>
 																		<PutOnHoldBtn />
@@ -1035,8 +1024,42 @@ export default function Page() {
 																	<DropBtn />
 																) : (
 																	<Menu.Item disabled>
-																		No history. Update from the seasons/episodes
-																		tab.
+																		No history. Update from the seasons tab.
+																	</Menu.Item>
+																)}
+															</>
+														) : null}
+														{loaderData.mediaMainDetails.lot ===
+														MetadataLot.Podcast ? (
+															<>
+																<Menu.Label>Podcasts</Menu.Label>
+																{userMediaDetails.nextEntry ? (
+																	<>
+																		<Menu.Item
+																			onClick={() => {
+																				setUpdateProgressModalData({
+																					podcastEpisodeNumber:
+																						loaderData.mediaMainDetails.lot ===
+																						MetadataLot.Podcast
+																							? userMediaDetails.nextEntry
+																									?.episode
+																							: undefined,
+																				});
+																			}}
+																		>
+																			Mark EP-
+																			{userMediaDetails.nextEntry?.episode} as
+																			listened
+																		</Menu.Item>
+																		<PutOnHoldBtn />
+																	</>
+																) : null}
+																{userMediaDetails &&
+																userMediaDetails.history.length !== 0 ? (
+																	<DropBtn />
+																) : (
+																	<Menu.Item disabled>
+																		No history. Update from the episodes tab.
 																	</Menu.Item>
 																)}
 															</>
