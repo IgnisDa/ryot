@@ -3,7 +3,7 @@ name = "ryot"
 version = "4.1.12"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
-license = "GPL-V3"
+license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
