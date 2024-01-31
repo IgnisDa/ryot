@@ -1885,6 +1885,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "duplicate"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de78e66ac9061e030587b2a2e75cc88f22304913c907b11307bca737141230cb"
+dependencies = [
+ "heck",
+ "proc-macro-error",
+]
+
+[[package]]
 name = "ecdsa"
 version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4319,7 +4329,7 @@ checksum = "dc31bd9b61a32c31f9650d18add92aa83a49ba979c143eefd27fe7177b05bd5f"
 
 [[package]]
 name = "ryot"
-version = "4.1.14"
+version = "4.1.15"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4375,6 +4385,7 @@ dependencies = [
  "slug",
  "sqlx",
  "strum",
+ "struson",
  "surf",
  "tokio",
  "tower-http",
@@ -5418,6 +5429,18 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.46",
+]
+
+[[package]]
+name = "struson"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "901a2e572f42df01125e0dcac606e4502aee6e60e2d52db9f491986cc9cf5bb7"
+dependencies = [
+ "duplicate",
+ "serde",
+ "strum",
+ "thiserror",
 ]
 
 [[package]]
