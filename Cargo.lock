@@ -5433,9 +5433,9 @@ dependencies = [
 
 [[package]]
 name = "struson"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf69e26863b65aec685a544da4d544251f155fc99c7833da6e619372b7cb8b3b"
+checksum = "901a2e572f42df01125e0dcac606e4502aee6e60e2d52db9f491986cc9cf5bb7"
 dependencies = [
  "duplicate",
  "serde",
