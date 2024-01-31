@@ -1,5 +1,3 @@
-// Responsible for importing from https://github.com/bonukai/MediaTracker.
-
 use async_graphql::Result;
 use database::{MetadataLot, MetadataSource, Visibility};
 use rust_decimal::Decimal;
@@ -80,10 +78,13 @@ struct Item {
     media_type: Option<MediaType>,
 }
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemReview {
     id: i32,
+    #[serde_as(as = "Option<TimestampMilliSeconds<i64, Flexible>>")]
+    date: Option<DateTimeUtc>,
     rating: Option<Decimal>,
     review: Option<String>,
 }
@@ -122,6 +123,7 @@ enum ItemNumberOfPages {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemDetails {
+    id: i32,
     seen_history: Vec<ItemSeen>,
     seasons: Vec<ItemSeason>,
     user_rating: Option<ItemReview>,
@@ -202,7 +204,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         })
     });
 
-    tracing::trace!("Loaded data for {total:?} lists", total = lists.len());
+    tracing::debug!("Loaded data for {total:?} lists", total = lists.len());
 
     let data_len = data.len();
 
@@ -251,12 +253,13 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MetadataSource::Igdb),
             MediaType::Audiobook => (details.audible_id.clone().unwrap(), MetadataSource::Audible),
         };
-        tracing::trace!(
-            "Got details for {type:?}: {id} ({idx}/{total})",
+        tracing::debug!(
+            "Got details for {type:?}, with {seen} seen history: {id} ({idx}/{total})",
             type = media_type,
             id = d.id,
             idx = idx,
-            total = data_len
+            total = data_len,
+            seen = details.seen_history.len()
         );
         let need_details = details.goodreads_id.is_none();
 
@@ -317,7 +320,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
-                        date: None,
+                        date: r.date,
                         spoiler: Some(false),
                         text: r.review,
                         visibility: None,

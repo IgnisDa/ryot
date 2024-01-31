@@ -82,6 +82,7 @@ import { match } from "ts-pattern";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import {
 	ApplicationKey,
 	dayjsLib,
@@ -349,6 +350,7 @@ export default function Page() {
 															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
+														events.createWorkout();
 														const input =
 															currentWorkoutToCreateWorkoutInput(
 																currentWorkout,

@@ -578,7 +578,7 @@ impl ExerciseService {
                 .clone()
                 .push(ApplicationJob::UpdateExerciseJob(exercise))
                 .await?;
-            tracing::trace!(job_id = ?job, "Deployed job to update exercise library.");
+            tracing::debug!(job_id = ?job, "Deployed job to update exercise library.");
             job_ids.push(job.to_string());
         }
         Ok(job_ids.len().try_into().unwrap())
@@ -604,7 +604,7 @@ impl ExerciseService {
             .one(&self.db)
             .await?
         {
-            tracing::trace!(
+            tracing::debug!(
                 "Updating existing exercise with identifier: {}",
                 ex.identifier
             );
@@ -636,7 +636,7 @@ impl ExerciseService {
                 mechanic: ActiveValue::Set(ex.attributes.mechanic),
             };
             let created_exercise = db_exercise.insert(&self.db).await?;
-            tracing::trace!("Created new exercise with id: {}", created_exercise.id);
+            tracing::debug!("Created new exercise with id: {}", created_exercise.id);
         }
         Ok(())
     }
@@ -711,7 +711,7 @@ impl ExerciseService {
     ) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
         let id = nanoid!(12);
-        tracing::trace!("Creating new workout with id: {}", id);
+        tracing::debug!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(
                 user_id,
@@ -852,7 +852,7 @@ impl ExerciseService {
                 assets: workout.information.assets,
             };
             self.create_user_workout(user_id, workout_input).await?;
-            tracing::trace!("Re-evaluated workout: {}/{}", idx + 1, total);
+            tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
         }
         let mut all_associations = UserToEntity::find()
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
