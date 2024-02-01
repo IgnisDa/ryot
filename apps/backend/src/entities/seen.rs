@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{prelude::UserToEntity, user_to_entity},
     models::media::{
-        SeenAnimeExtraInformation, SeenMangaExtraInformation,
-        SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+        SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
         SeenShowExtraInformation,
     },
     utils::associate_user_with_metadata,
@@ -36,17 +35,10 @@ pub struct Model {
     #[graphql(skip)]
     #[serde(skip)]
     pub updated_at: Vec<DateTimeUtc>,
-    #[graphql(skip)]
-    #[serde(skip)]
-    pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
-    #[sea_orm(ignore)]
-    pub show_information: Option<SeenShowExtraInformation>,
-    #[sea_orm(ignore)]
-    pub podcast_information: Option<SeenPodcastExtraInformation>,
-    #[sea_orm(ignore)]
-    pub anime_information: Option<SeenAnimeExtraInformation>,
-    #[sea_orm(ignore)]
-    pub manga_information: Option<SeenMangaExtraInformation>,
+    pub show_extra_information: Option<SeenShowExtraInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub anime_extra_information: Option<SeenAnimeExtraInformation>,
+    pub manga_extra_information: Option<SeenMangaExtraInformation>,
     // Generated columns
     pub last_updated_on: DateTimeUtc,
     pub num_times_updated: i32,

@@ -1120,23 +1120,31 @@ pub mod media {
         pub image: Option<String>,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenShowExtraInformation {
         pub season: i32,
         pub episode: i32,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenPodcastExtraInformation {
         pub episode: i32,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenAnimeExtraInformation {
         pub episode: Option<i32>,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenMangaExtraInformation {
         pub chapter: Option<i32>,
     }

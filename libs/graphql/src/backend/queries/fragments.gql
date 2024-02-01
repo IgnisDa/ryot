@@ -18,17 +18,17 @@ fragment SeenPart on Seen {
   finishedOn
   lastUpdatedOn
   numTimesUpdated
-  showInformation {
+  showExtraInformation {
     episode
     season
   }
-  podcastInformation {
+  podcastExtraInformation {
     episode
   }
-  animeInformation {
+  animeExtraInformation {
     episode
   }
-  mangaInformation {
+  mangaExtraInformation {
     chapter
   }
 }
