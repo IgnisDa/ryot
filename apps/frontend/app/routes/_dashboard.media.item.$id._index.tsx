@@ -321,6 +321,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				showEpisodeNumber: submission.showEpisodeNumber,
 				showSeasonNumber: submission.showSeasonNumber,
 				podcastEpisodeNumber: submission.podcastEpisodeNumber,
+				animeEpisodeNumber: submission.animeEpisodeNumber,
+				mangaChapterNumber: submission.mangaChapterNumber,
 			};
 			let needsFinalUpdate = true;
 			const updates = [];
@@ -330,37 +332,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const podcastSpecifics = podcastSpecificsSchema.parse(
 				JSON.parse(submission.podcastSpecifics || "[]"),
 			);
-			if (submission.completeShow) {
-				for (const season of showSpecifics) {
-					for (const episode of season.episodes) {
-						updates.push({
-							...variables,
-							showSeasonNumber: season.seasonNumber,
-							showEpisodeNumber: episode,
-						});
+			if (submission.metadataLot === MetadataLot.Anime) {
+				if (submission.animeEpisodes) {
+					if (submission.animeEpisodeNumber) {
+						if (submission.animeAllEpisodesBefore) {
+							for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
+								updates.push({
+									...variables,
+									animeEpisodeNumber: i,
+								});
+							}
+							needsFinalUpdate = false;
+						}
 					}
 				}
-				needsFinalUpdate = true;
 			}
-			if (submission.completePodcast) {
-				for (const episode of podcastSpecifics) {
-					updates.push({
-						...variables,
-						podcastEpisodeNumber: episode.episodeNumber,
-					});
-				}
-				needsFinalUpdate = true;
-			}
-			if (submission.onlySeason) {
-				const selectedSeason = showSpecifics.find(
-					(s) => s.seasonNumber === submission.showSeasonNumber,
-				);
-				invariant(selectedSeason, "No season selected");
-				needsFinalUpdate = true;
-				if (submission.showAllSeasonsBefore) {
+			if (submission.metadataLot === MetadataLot.Show) {
+				if (submission.completeShow) {
 					for (const season of showSpecifics) {
-						if (season.seasonNumber > selectedSeason.seasonNumber) break;
-						for (const episode of season.episodes || []) {
+						for (const episode of season.episodes) {
 							updates.push({
 								...variables,
 								showSeasonNumber: season.seasonNumber,
@@ -368,13 +358,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							});
 						}
 					}
-				} else {
-					for (const episode of selectedSeason.episodes || []) {
+					needsFinalUpdate = true;
+				}
+				if (submission.onlySeason) {
+					const selectedSeason = showSpecifics.find(
+						(s) => s.seasonNumber === submission.showSeasonNumber,
+					);
+					invariant(selectedSeason, "No season selected");
+					needsFinalUpdate = true;
+					if (submission.showAllSeasonsBefore) {
+						for (const season of showSpecifics) {
+							if (season.seasonNumber > selectedSeason.seasonNumber) break;
+							for (const episode of season.episodes || []) {
+								updates.push({
+									...variables,
+									showSeasonNumber: season.seasonNumber,
+									showEpisodeNumber: episode,
+								});
+							}
+						}
+					} else {
+						for (const episode of selectedSeason.episodes || []) {
+							updates.push({
+								...variables,
+								showEpisodeNumber: episode,
+							});
+						}
+					}
+				}
+			}
+			if (submission.metadataLot === MetadataLot.Podcast) {
+				if (submission.completePodcast) {
+					for (const episode of podcastSpecifics) {
 						updates.push({
 							...variables,
-							showEpisodeNumber: episode,
+							podcastEpisodeNumber: episode.episodeNumber,
 						});
 					}
+					needsFinalUpdate = true;
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
@@ -433,6 +454,7 @@ const editSeenItem = z.object({
 
 const progressUpdateSchema = z
 	.object({
+		metadataLot: z.nativeEnum(MetadataLot),
 		date: z.string().optional(),
 		showSpecifics: z.string().optional(),
 		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
@@ -441,6 +463,7 @@ const progressUpdateSchema = z
 		completeShow: zx.BoolAsString.optional(),
 		completePodcast: zx.BoolAsString.optional(),
 		animeEpisodes: zx.IntAsString.optional(),
+		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaChapters: zx.IntAsString.optional(),
 	})
 	.merge(metadataIdSchema)
@@ -1731,6 +1754,9 @@ const ProgressUpdateModal = (props: {
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
+		string | undefined
+	>(undefined);
 
 	if (!props.data) return <></>;
 	return (
@@ -1752,6 +1778,7 @@ const ProgressUpdateModal = (props: {
 				{[
 					...Object.entries(props.data),
 					["metadataId", loaderData.metadataId.toString()],
+					["metadataLot", loaderData.mediaMainDetails.lot.toString()],
 				].map(([k, v]) => (
 					<Fragment key={k}>
 						{typeof v !== "undefined" ? (
@@ -1764,14 +1791,34 @@ const ProgressUpdateModal = (props: {
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ mediaDetails: mediaAdditionalDetails }) => (
 								<>
-									{mediaAdditionalDetails?.animeSpecifics?.episodes ? (
-										<input
-											hidden
-											name="animeEpisodes"
-											defaultValue={
-												mediaAdditionalDetails.animeSpecifics.episodes
-											}
-										/>
+									{mediaAdditionalDetails?.animeSpecifics ? (
+										<>
+											<NumberInput
+												label="Episode"
+												name="animeEpisodeNumber"
+												description="Leaving this empty will mark the whole anime as watched"
+												hideControls
+												value={animeEpisodeNumber}
+												onChange={(e) => setAnimeEpisodeNumber(e.toString())}
+											/>
+											{mediaAdditionalDetails?.animeSpecifics?.episodes ? (
+												<>
+													<input
+														hidden
+														name="animeEpisodes"
+														defaultValue={
+															mediaAdditionalDetails.animeSpecifics.episodes
+														}
+													/>
+													{animeEpisodeNumber ? (
+														<Checkbox
+															label="Mark all episodes before this as watched"
+															name="animeAllEpisodesBefore"
+														/>
+													) : null}
+												</>
+											) : null}
+										</>
 									) : null}
 									{mediaAdditionalDetails?.mangaSpecifics?.chapters ? (
 										<input
