@@ -47,7 +47,6 @@ export function getWorkoutStarter() {
 		Cookies.set(ApplicationKey.CurrentWorkout, "true", {
 			expires: 2,
 			sameSite: "Strict",
-			secure: true,
 		});
 		navigate($path("/fitness/workouts/current"));
 	};

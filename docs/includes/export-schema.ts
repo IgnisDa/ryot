@@ -95,8 +95,12 @@ export interface ImportOrExportItemRating {
 
 /** A specific instance when an entity was seen. */
 export interface ImportOrExportMediaItemSeen {
+	/** If for an anime, the episode which was seen. */
+	animeEpisodeNumber: number | null;
 	/** The timestamp when finished watching. */
 	endedOn: string | null;
+	/** If for a manga, the chapter which was seen. */
+	mangaChapterNumber: number | null;
 	/** If for a podcast, the episode which was seen. */
 	podcastEpisodeNumber: number | null;
 	/** The progress of media done. If none, it is considered as done. */

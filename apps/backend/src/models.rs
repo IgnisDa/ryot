@@ -650,7 +650,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct MangaSummary {
-        pub chapters: i32,
+        pub chapters: usize,
         pub read: usize,
     }
 
@@ -666,7 +666,7 @@ pub mod media {
         FromJsonQueryResult,
     )]
     pub struct AnimeSummary {
-        pub episodes: i32,
+        pub episodes: usize,
         pub watched: usize,
     }
 
@@ -733,7 +733,11 @@ pub mod media {
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
     pub struct UserSummaryUniqueItems {
         pub audio_books: HashSet<i32>,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub anime_episodes: HashSet<(i32, i32)>,
         pub anime: HashSet<i32>,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub manga_chapters: HashSet<(i32, i32)>,
         pub manga: HashSet<i32>,
         pub books: HashSet<i32>,
         pub movies: HashSet<i32>,
@@ -760,9 +764,12 @@ pub mod media {
     pub struct UserSummary {
         pub fitness: UserFitnessSummary,
         pub media: UserMediaSummary,
-        pub calculated_on: DateTimeUtc,
         #[graphql(skip)]
         pub unique_items: UserSummaryUniqueItems,
+        pub calculated_on: DateTimeUtc,
+        #[graphql(skip)]
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub calculated_from_beginning: bool,
     }
 
     #[derive(Debug, InputObject, Default)]
@@ -781,6 +788,8 @@ pub mod media {
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
+        pub anime_episode_number: Option<i32>,
+        pub manga_chapter_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -791,6 +800,8 @@ pub mod media {
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
+        pub anime_episode_number: Option<i32>,
+        pub manga_chapter_number: Option<i32>,
         pub change_state: Option<SeenState>,
     }
 
@@ -890,6 +901,10 @@ pub mod media {
         pub show_episode_number: Option<i32>,
         /// If for a podcast, the episode which was seen.
         pub podcast_episode_number: Option<i32>,
+        /// If for an anime, the episode which was seen.
+        pub anime_episode_number: Option<i32>,
+        /// If for a manga, the chapter which was seen.
+        pub manga_chapter_number: Option<i32>,
     }
 
     /// Review data associated to a rating.
@@ -1116,11 +1131,22 @@ pub mod media {
         pub episode: i32,
     }
 
+    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    pub struct SeenAnimeExtraInformation {
+        pub episode: Option<i32>,
+    }
+
+    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    pub struct SeenMangaExtraInformation {
+        pub chapter: Option<i32>,
+    }
+
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
     pub enum SeenOrReviewOrCalendarEventExtraInformation {
         Show(SeenShowExtraInformation),
         Podcast(SeenPodcastExtraInformation),
-        Other(()),
+        Anime(SeenAnimeExtraInformation),
+        Manga(SeenMangaExtraInformation),
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

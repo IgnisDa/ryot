@@ -6,25 +6,32 @@ import {
 	Badge,
 	Box,
 	Button,
+	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
 	Group,
 	Image,
+	Input,
 	Loader,
 	Modal,
+	NumberInput,
 	Paper,
+	Rating,
 	ScrollArea,
+	SegmentedControl,
 	Select,
 	Stack,
 	Text,
 	TextInput,
+	Textarea,
 	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	Form,
 	Link,
 	useFetcher,
 	useNavigate,
@@ -37,12 +44,14 @@ import {
 	type PartialMetadata,
 	type ReviewItem,
 	UserReviewScale,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconCheck,
 	IconEdit,
+	IconPercentage,
 	IconStarFilled,
 	IconTrash,
 	IconX,
@@ -50,10 +59,11 @@ import {
 import { ReactNode, useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import events from "~/lib/events";
 import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
-import classes from "~/styles/media-components.module.css";
+import classes from "~/styles/common.module.css";
 import { confirmWrapper } from "./confirmation";
 
 const commitMedia = async (
@@ -125,28 +135,48 @@ export const MediaScrollArea = (props: {
 
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
+	entityType: EntityType;
 	user: ApplicationUser;
 	reviewScale: UserReviewScale;
 	title: string;
-	isShow?: boolean;
-	isPodcast?: boolean;
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
 	collectionId?: number;
+	lot?: MetadataLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
+	const [postReviewModalData, setPostReviewModalData] = useState<
+		PostReview | undefined
+	>(undefined);
 	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
 	const createReviewCommentFetcher = useFetcher();
 	const deleteReviewCommentFormRef = useRef<HTMLFormElement>(null);
 	const deleteReviewCommentFetcher = useFetcher();
 	const changeScoreFormRef = useRef<HTMLFormElement>(null);
 	const changeScoreFetcher = useFetcher();
+	const deleteReviewFetcher = useFetcher();
 
 	return (
 		<>
+			<PostReviewModal
+				onClose={() => setPostReviewModalData(undefined)}
+				opened={postReviewModalData !== undefined}
+				data={postReviewModalData}
+				entityType={props.entityType}
+				objectId={
+					props.metadataId ||
+					props.metadataGroupId ||
+					props.collectionId ||
+					props.personId ||
+					-1
+				}
+				reviewScale={props.reviewScale}
+				title={props.title}
+				lot={props.lot}
+			/>
 			<Box key={props.review.id} data-review-id={props.review.id}>
 				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
@@ -157,41 +187,45 @@ export const ReviewItemDisplay = (props: {
 						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 					</Box>
 					{props.user && props.user.id === props.review.postedBy?.id ? (
-						<Anchor
-							component={Link}
-							to={$path(
-								"/media/:id/post-review",
-								{
-									id: String(
-										props.metadataId ||
-											props.metadataGroupId ||
-											props.collectionId ||
-											props.personId ||
-											props.review.id,
-									),
-								},
-								{
-									entityType: props.metadataId
-										? "metadata"
-										: props.metadataGroupId
-										  ? "metadataGroup"
-										  : props.collectionId
-											  ? "collection"
-											  : "person",
-									existingReviewId: props.review.id,
-									title: props.title,
-									podcastEpisodeNumber: props.review.podcastEpisode,
-									showEpisodeNumber: props.review.showEpisode,
-									showSeasonNumber: props.review.showSeason,
-									isPodcast: props.isPodcast,
-									isShow: props.isShow,
-								},
-							)}
-						>
-							<ActionIcon>
+						<>
+							<ActionIcon
+								onClick={() => {
+									setPostReviewModalData({
+										existingReview: props.review,
+										showSeasonNumber: props.review.showSeason,
+										showEpisodeNumber: props.review.showEpisode,
+										podcastEpisodeNumber: props.review.podcastEpisode,
+										animeEpisodeNumber: props.review.animeEpisode,
+										mangaChapterNumber: props.review.mangaChapter,
+									});
+								}}
+							>
 								<IconEdit size={16} />
 							</ActionIcon>
-						</Anchor>
+							<ActionIcon
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this review? This action cannot be undone.",
+									});
+									if (conf)
+										deleteReviewFetcher.submit(
+											{
+												shouldDelete: "true",
+												reviewId: props.review.id?.toString(),
+												// biome-ignore lint/suspicious/noExplicitAny: otherwise an error here
+											} as any,
+											{
+												method: "post",
+												action: "/actions?intent=performReviewAction",
+											},
+										);
+								}}
+								color="red"
+							>
+								<IconTrash size={16} />
+							</ActionIcon>
+						</>
 					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
@@ -204,6 +238,12 @@ export const ReviewItemDisplay = (props: {
 					{typeof props.review.podcastEpisode === "number" ? (
 						<Text c="dimmed">EP-{props.review.podcastEpisode}</Text>
 					) : null}
+					{typeof props.review.animeEpisode === "number" ? (
+						<Text c="dimmed">EP-{props.review.animeEpisode}</Text>
+					) : null}
+					{typeof props.review.mangaChapter === "number" ? (
+						<Text c="dimmed">Ch-{props.review.mangaChapter}</Text>
+					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
@@ -215,11 +255,15 @@ export const ReviewItemDisplay = (props: {
 							</Text>
 						</Flex>
 					) : null}
-					{props.review.text ? (
+					{props.review.textRendered ? (
 						!props.review.spoiler ? (
 							<>
-								{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
-								<div dangerouslySetInnerHTML={{ __html: props.review.text }} />
+								<div
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+									dangerouslySetInnerHTML={{
+										__html: props.review.textRendered,
+									}}
+								/>
 							</>
 						) : (
 							<>
@@ -231,7 +275,9 @@ export const ReviewItemDisplay = (props: {
 								<Collapse in={opened}>
 									<Text
 										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-										dangerouslySetInnerHTML={{ __html: props.review.text }}
+										dangerouslySetInnerHTML={{
+											__html: props.review.textRendered,
+										}}
 									/>
 								</Collapse>
 							</>
@@ -566,14 +612,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 							e.preventDefault();
 							navigate(
 								$path(
-									"/media/:id/post-review",
+									"/media/item/:id",
 									{ id: props.item.identifier },
-									{
-										entityType: "metadata",
-										title: props.item.title,
-										isShow: props.lot === MetadataLot.Show,
-										isPodcast: props.lot === MetadataLot.Podcast,
-									},
+									{ openReviewModal: true },
 								),
 							);
 						}}
@@ -787,5 +828,204 @@ export const DisplayCollection = (props: {
 				</Flex>
 			</removeEntityFromCollection.Form>
 		</Badge>
+	);
+};
+
+export type PostReview = {
+	showSeasonNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	animeEpisodeNumber?: number | null;
+	mangaChapterNumber?: number | null;
+	podcastEpisodeNumber?: number | null;
+	existingReview?: DeepPartial<ReviewItem>;
+};
+
+type EntityType = "metadata" | "metadataGroup" | "collection" | "person";
+
+export const PostReviewModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	objectId: number;
+	entityType: EntityType;
+	title: string;
+	reviewScale: UserReviewScale;
+	data?: PostReview;
+	lot?: MetadataLot;
+}) => {
+	const fetcher = useFetcher();
+	const formRef = useRef<HTMLFormElement>(null);
+
+	if (!props.data) return <></>;
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form
+				method="post"
+				ref={formRef}
+				action="/actions?intent=performReviewAction"
+				replace
+				onSubmit={(e) => {
+					e.preventDefault();
+					events.postReview(props.title);
+					fetcher.submit(formRef.current);
+					props.onClose();
+				}}
+			>
+				<input
+					hidden
+					name={
+						props.entityType === "metadata"
+							? "metadataId"
+							: props.entityType === "metadataGroup"
+							  ? "metadataGroupId"
+							  : props.entityType === "collection"
+								  ? "collectionId"
+								  : props.entityType === "person"
+									  ? "personId"
+									  : undefined
+					}
+					value={props.objectId}
+					readOnly
+				/>
+				{props.data.existingReview?.id ? (
+					<input hidden name="reviewId" value={props.data.existingReview.id} />
+				) : null}
+				<Stack>
+					<Flex align="center" gap="xl">
+						{match(props.reviewScale)
+							.with(UserReviewScale.OutOfFive, () => (
+								<Flex gap="sm" mt="lg">
+									<Input.Label>Rating:</Input.Label>
+									<Rating
+										name="rating"
+										defaultValue={
+											props.data?.existingReview?.rating
+												? Number(props.data.existingReview.rating)
+												: undefined
+										}
+										fractions={2}
+									/>
+								</Flex>
+							))
+							.with(UserReviewScale.OutOfHundred, () => (
+								<NumberInput
+									label="Rating"
+									name="rating"
+									min={0}
+									max={100}
+									step={1}
+									w="40%"
+									hideControls
+									rightSection={<IconPercentage size={16} />}
+									defaultValue={
+										props.data?.existingReview?.rating
+											? Number(props.data.existingReview.rating)
+											: undefined
+									}
+								/>
+							))
+							.exhaustive()}
+						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
+					</Flex>
+					{props.lot === MetadataLot.Show ? (
+						<Flex gap="md">
+							<NumberInput
+								label="Season"
+								name="showSeasonNumber"
+								hideControls
+								defaultValue={
+									props.data?.existingReview?.showSeason
+										? props.data.existingReview.showSeason
+										: props.data.showSeasonNumber || undefined
+								}
+							/>
+							<NumberInput
+								label="Episode"
+								name="showEpisodeNumber"
+								hideControls
+								defaultValue={
+									props.data?.existingReview?.showEpisode
+										? props.data.existingReview.showEpisode
+										: props.data.showEpisodeNumber || undefined
+								}
+							/>
+						</Flex>
+					) : null}
+					{props.lot === MetadataLot.Podcast ? (
+						<NumberInput
+							label="Episode"
+							name="podcastEpisodeNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.podcastEpisode
+									? props.data.existingReview.podcastEpisode
+									: props.data.podcastEpisodeNumber || undefined
+							}
+						/>
+					) : null}
+					{props.lot === MetadataLot.Anime ? (
+						<NumberInput
+							label="Episode"
+							name="animeEpisodeNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.animeEpisode
+									? props.data.existingReview.animeEpisode
+									: props.data.animeEpisodeNumber || undefined
+							}
+						/>
+					) : null}
+					{props.lot === MetadataLot.Manga ? (
+						<NumberInput
+							label="Chapter"
+							name="mangaChapterNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.mangaChapter
+									? props.data.existingReview.mangaChapter
+									: props.data.mangaChapterNumber || undefined
+							}
+						/>
+					) : null}
+					<Textarea
+						label="Review"
+						name="text"
+						description="Markdown is supported"
+						autoFocus
+						minRows={10}
+						maxRows={20}
+						autosize
+						defaultValue={props.data.existingReview?.textOriginal ?? undefined}
+					/>
+					<Box>
+						<Input.Label>Visibility</Input.Label>
+						<SegmentedControl
+							fullWidth
+							data={[
+								{
+									label: Visibility.Public,
+									value: Visibility.Public,
+								},
+								{
+									label: Visibility.Private,
+									value: Visibility.Private,
+								},
+							]}
+							defaultValue={
+								props.data.existingReview?.visibility ?? Visibility.Public
+							}
+							name="visibility"
+						/>
+					</Box>
+					<Button mt="md" type="submit" w="100%">
+						{props.data.existingReview?.id ? "Update" : "Submit"}
+					</Button>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };

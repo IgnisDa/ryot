@@ -32,6 +32,9 @@ mod m20240121_add_updated_at_to_seen;
 mod m20240121_remove_useless_section_from_dashboard;
 mod m20240122_remove_useless_section_from_dashboard;
 mod m20240126_set_comment_to_null_for_measurements;
+mod m20240128_change_calendar_event_data;
+mod m20240128_migrate_anime_seen;
+mod m20240128_migrate_manga_seen;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -87,6 +90,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20240121_remove_useless_section_from_dashboard::Migration),
             Box::new(m20240122_remove_useless_section_from_dashboard::Migration),
             Box::new(m20240126_set_comment_to_null_for_measurements::Migration),
+            Box::new(m20240128_change_calendar_event_data::Migration),
+            Box::new(m20240128_migrate_anime_seen::Migration),
+            Box::new(m20240128_migrate_manga_seen::Migration),
         ]
     }
 }

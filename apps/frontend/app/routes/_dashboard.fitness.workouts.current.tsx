@@ -32,7 +32,13 @@ import {
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
+import {
+	useDebouncedState,
+	useDidUpdate,
+	useDisclosure,
+	useInterval,
+	useListState,
+} from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
@@ -467,28 +473,36 @@ const StatInput = (props: {
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [value, setValue] = useDebouncedState(
+		currentWorkout?.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+			props.stat
+		] ?? undefined,
+		500,
+	);
+
+	useDidUpdate(() => {
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const val = value === "" ? undefined : Number(value);
+					draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+						props.stat
+					] = val as unknown as null;
+					if (val === undefined)
+						draft.exercises[props.exerciseIdx].sets[props.setIdx].confirmed =
+							false;
+				}),
+			);
+	}, [value]);
 
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
-				value={
+				defaultValue={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
 						.statistic[props.stat] ?? undefined
 				}
-				onChange={(v) => {
-					setCurrentWorkout(
-						produce(currentWorkout, (draft) => {
-							const value = v === "" ? undefined : Number(v);
-							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
-								props.stat
-							] = value as unknown as null;
-							if (value === undefined)
-								draft.exercises[props.exerciseIdx].sets[
-									props.setIdx
-								].confirmed = false;
-						}),
-					);
-				}}
+				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
 				size="xs"
 				styles={{
@@ -863,55 +877,15 @@ const ExerciseDisplay = (props: {
 								) : null}
 							</Group>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
-								(n, idx) => (
-									<Flex
+								(note, idx) => (
+									<NoteInput
 										key={`${
 											currentWorkout.exercises[props.exerciseIdx].identifier
 										}-${idx}`}
-										align="center"
-										gap="xs"
-									>
-										<Textarea
-											style={{ flexGrow: 1 }}
-											placeholder="Add a note"
-											size="xs"
-											minRows={1}
-											maxRows={4}
-											autosize
-											value={n}
-											onChange={(e) => {
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].notes[idx] =
-															e.currentTarget.value;
-													}),
-												);
-											}}
-										/>
-										<ActionIcon
-											color="red"
-											onClick={() => {
-												if (
-													currentWorkout.exercises[props.exerciseIdx].notes[idx]
-												) {
-													const yes = confirm(
-														"This note will be deleted. Are you sure you want to continue?",
-													);
-													if (yes)
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																draft.exercises[props.exerciseIdx].notes.splice(
-																	idx,
-																	1,
-																);
-															}),
-														);
-												}
-											}}
-										>
-											<IconTrash size={20} />
-										</ActionIcon>
-									</Flex>
+										exerciseIdx={props.exerciseIdx}
+										noteIdx={idx}
+										note={note}
+									/>
 								),
 							)}
 						</Stack>
@@ -1500,4 +1474,60 @@ const ReorderDrawer = (props: {
 			</DragDropContext>
 		</Drawer>
 	) : null;
+};
+
+const NoteInput = (props: {
+	exerciseIdx: number;
+	noteIdx: number;
+	note: string;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [value, setValue] = useDebouncedState(props.note, 500);
+
+	useDidUpdate(() => {
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
+				}),
+			);
+	}, [value]);
+
+	return (
+		<Flex align="center" gap="xs">
+			<Textarea
+				style={{ flexGrow: 1 }}
+				placeholder="Add a note"
+				size="xs"
+				minRows={1}
+				maxRows={4}
+				autosize
+				defaultValue={props.note}
+				onChange={(e) => setValue(e.currentTarget.value)}
+			/>
+			<ActionIcon
+				color="red"
+				onClick={() => {
+					if (
+						currentWorkout?.exercises[props.exerciseIdx].notes[props.noteIdx]
+					) {
+						const yes = confirm(
+							"This note will be deleted. Are you sure you want to continue?",
+						);
+						if (yes)
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									draft.exercises[props.exerciseIdx].notes.splice(
+										props.noteIdx,
+										1,
+									);
+								}),
+							);
+					}
+				}}
+			>
+				<IconTrash size={20} />
+			</ActionIcon>
+		</Flex>
+	);
 };

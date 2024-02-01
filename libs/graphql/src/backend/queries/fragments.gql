@@ -25,6 +25,12 @@ fragment SeenPart on Seen {
   podcastInformation {
     episode
   }
+  animeInformation {
+    episode
+  }
+  mangaInformation {
+    chapter
+  }
 }
 
 fragment MediaSearchItemPart on MediaSearchItem {
@@ -93,12 +99,15 @@ fragment CollectionPart on Collection {
 fragment ReviewItemPart on ReviewItem {
   id
   rating
-  text
+  textOriginal
+  textRendered
   spoiler
   visibility
   showSeason
   showEpisode
   podcastEpisode
+  animeEpisode
+  mangaChapter
   postedOn
   postedBy {
     id
