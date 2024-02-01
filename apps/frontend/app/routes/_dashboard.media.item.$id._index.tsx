@@ -345,6 +345,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}
 				}
 			}
+			if (submission.metadataLot === MetadataLot.Manga) {
+				if (submission.mangaChapterNumber) {
+					if (submission.mangaAllChaptersBefore) {
+						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
+							updates.push({
+								...variables,
+								mangaChapterNumber: i,
+							});
+						}
+						needsFinalUpdate = false;
+					}
+				}
+			}
 			if (submission.metadataLot === MetadataLot.Show) {
 				if (submission.completeShow) {
 					for (const season of showSpecifics) {
@@ -461,7 +474,7 @@ const progressUpdateSchema = z
 		completeShow: zx.BoolAsString.optional(),
 		completePodcast: zx.BoolAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		mangaChapters: zx.IntAsString.optional(),
+		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
 	})
 	.merge(metadataIdSchema)
 	.merge(MetadataSpecificsSchema);
@@ -1761,6 +1774,9 @@ const ProgressUpdateModal = (props: {
 	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
 		string | undefined
 	>(undefined);
+	const [mangaChapterNumber, setMangaChapterNumber] = useState<
+		string | undefined
+	>(undefined);
 
 	if (!props.data) return <></>;
 	return (
@@ -1813,14 +1829,23 @@ const ProgressUpdateModal = (props: {
 											) : null}
 										</>
 									) : null}
-									{mediaAdditionalDetails?.mangaSpecifics?.chapters ? (
-										<input
-											hidden
-											name="mangaChapters"
-											defaultValue={
-												mediaAdditionalDetails.mangaSpecifics.chapters
-											}
-										/>
+									{mediaAdditionalDetails?.mangaSpecifics ? (
+										<>
+											<NumberInput
+												label="Chapter"
+												name="mangaChapterNumber"
+												description="Leaving this empty will mark the whole manga as watched"
+												hideControls
+												value={mangaChapterNumber}
+												onChange={(e) => setMangaChapterNumber(e.toString())}
+											/>
+											{mangaChapterNumber ? (
+												<Checkbox
+													label="Mark all chapters before this as watched"
+													name="mangaAllChaptersBefore"
+												/>
+											) : null}
+										</>
 									) : null}
 									{mediaAdditionalDetails?.showSpecifics ? (
 										<>
