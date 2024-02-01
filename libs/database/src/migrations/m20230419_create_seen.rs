@@ -36,9 +36,11 @@ pub enum Seen {
     MetadataId,
     LastUpdatedOn,
     UpdatedAt,
-    // for the time being this stores the `season` and `episode` numbers
-    ExtraInformation,
     NumTimesUpdated,
+    ShowExtraInformation,
+    PodcastExtraInformation,
+    AnimeExtraInformation,
+    MangaExtraInformation,
 }
 
 #[async_trait::async_trait]
@@ -89,7 +91,10 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra("GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED")
                     )
-                    .col(ColumnDef::new(Seen::ExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::ShowExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::PodcastExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::AnimeExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::MangaExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")
