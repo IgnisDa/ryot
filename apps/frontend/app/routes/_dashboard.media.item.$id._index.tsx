@@ -1501,11 +1501,12 @@ export default function Page() {
 																								userMediaDetails.history.some(
 																									(h) =>
 																										h.progress === 100 &&
-																										h.showInformation &&
-																										h.showInformation
+																										h.showExtraInformation &&
+																										h.showExtraInformation
 																											.episode ===
 																											e.episodeNumber &&
-																										h.showInformation.season ===
+																										h.showExtraInformation
+																											.season ===
 																											s.seasonNumber,
 																								),
 																							)
@@ -1547,11 +1548,11 @@ export default function Page() {
 																										userMediaDetails.history.filter(
 																											(h) =>
 																												h.progress === 100 &&
-																												h.showInformation &&
-																												h.showInformation
+																												h.showExtraInformation &&
+																												h.showExtraInformation
 																													.episode ===
 																													e.episodeNumber &&
-																												h.showInformation
+																												h.showExtraInformation
 																													.season ===
 																													s.seasonNumber,
 																										).length || 0
@@ -1621,8 +1622,8 @@ export default function Page() {
 																				displayIndicator={
 																					userMediaDetails.history.filter(
 																						(h) =>
-																							h.podcastInformation?.episode ===
-																							e.number,
+																							h.podcastExtraInformation
+																								?.episode === e.number,
 																					).length || 0
 																				}
 																			>
@@ -2429,25 +2430,25 @@ const SeenItem = (props: {
 								? `(${props.history.progress}%)`
 								: null}
 						</Text>
-						{props.history.showInformation ? (
+						{props.history.showExtraInformation ? (
 							<Text c="dimmed">
-								S{props.history.showInformation.season}-E
-								{props.history.showInformation.episode}
+								S{props.history.showExtraInformation.season}-E
+								{props.history.showExtraInformation.episode}
 							</Text>
 						) : null}
-						{props.history.podcastInformation ? (
+						{props.history.podcastExtraInformation ? (
 							<Text c="dimmed">
-								EP-{props.history.podcastInformation.episode}
+								EP-{props.history.podcastExtraInformation.episode}
 							</Text>
 						) : null}
-						{props.history.animeInformation?.episode ? (
+						{props.history.animeExtraInformation?.episode ? (
 							<Text c="dimmed">
-								EP-{props.history.animeInformation.episode}
+								EP-{props.history.animeExtraInformation.episode}
 							</Text>
 						) : null}
-						{props.history.mangaInformation?.chapter ? (
+						{props.history.mangaExtraInformation?.chapter ? (
 							<Text c="dimmed">
-								Ch-{props.history.mangaInformation.chapter}
+								Ch-{props.history.mangaExtraInformation.chapter}
 							</Text>
 						) : null}
 					</Flex>
