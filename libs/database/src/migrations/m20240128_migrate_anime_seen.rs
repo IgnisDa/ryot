@@ -6,8 +6,9 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let db = manager.get_connection();
-        db.execute_unprepared(r#"
+        if manager.has_column("seen", "extra_information").await? {
+            let db = manager.get_connection();
+            db.execute_unprepared(r#"
 CREATE TEMP TABLE temp_episode_entries AS
 SELECT s.id AS original_seen_id, s.progress, s.started_on, s.finished_on, s.user_id,
        m.id AS metadata_id, s.state,
@@ -46,6 +47,7 @@ AND m.lot = 'AN'
 AND s.extra_information IS NULL;
         "#)
             .await?;
+        }
         Ok(())
     }
 
