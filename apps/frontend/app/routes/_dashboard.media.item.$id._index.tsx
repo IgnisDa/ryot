@@ -333,17 +333,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				JSON.parse(submission.podcastSpecifics || "[]"),
 			);
 			if (submission.metadataLot === MetadataLot.Anime) {
-				if (submission.animeEpisodes) {
-					if (submission.animeEpisodeNumber) {
-						if (submission.animeAllEpisodesBefore) {
-							for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
-								updates.push({
-									...variables,
-									animeEpisodeNumber: i,
-								});
-							}
-							needsFinalUpdate = false;
+				if (submission.animeEpisodeNumber) {
+					if (submission.animeAllEpisodesBefore) {
+						for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
+							updates.push({
+								...variables,
+								animeEpisodeNumber: i,
+							});
 						}
+						needsFinalUpdate = false;
 					}
 				}
 			}
@@ -462,7 +460,6 @@ const progressUpdateSchema = z
 		onlySeason: zx.BoolAsString.optional(),
 		completeShow: zx.BoolAsString.optional(),
 		completePodcast: zx.BoolAsString.optional(),
-		animeEpisodes: zx.IntAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaChapters: zx.IntAsString.optional(),
 	})
@@ -1176,18 +1173,25 @@ export default function Page() {
 																		name="progress"
 																		defaultValue={0}
 																	/>
-																	<Menu.Item
-																		type="submit"
-																		name="metadataId"
-																		value={loaderData.metadataId}
-																	>
-																		I'm{" "}
-																		{getVerb(
-																			Verb.Read,
-																			loaderData.mediaMainDetails.lot,
-																		)}
-																		ing it
-																	</Menu.Item>
+																	{![
+																		MetadataLot.Anime,
+																		MetadataLot.Manga,
+																	].includes(
+																		loaderData.mediaMainDetails.lot,
+																	) ? (
+																		<Menu.Item
+																			type="submit"
+																			name="metadataId"
+																			value={loaderData.metadataId}
+																		>
+																			I'm{" "}
+																			{getVerb(
+																				Verb.Read,
+																				loaderData.mediaMainDetails.lot,
+																			)}
+																			ing it
+																		</Menu.Item>
+																	) : null}
 																</Form>
 																<Menu.Item
 																	onClick={() => {
@@ -1801,22 +1805,11 @@ const ProgressUpdateModal = (props: {
 												value={animeEpisodeNumber}
 												onChange={(e) => setAnimeEpisodeNumber(e.toString())}
 											/>
-											{mediaAdditionalDetails?.animeSpecifics?.episodes ? (
-												<>
-													<input
-														hidden
-														name="animeEpisodes"
-														defaultValue={
-															mediaAdditionalDetails.animeSpecifics.episodes
-														}
-													/>
-													{animeEpisodeNumber ? (
-														<Checkbox
-															label="Mark all episodes before this as watched"
-															name="animeAllEpisodesBefore"
-														/>
-													) : null}
-												</>
+											{animeEpisodeNumber ? (
+												<Checkbox
+													label="Mark all episodes before this as watched"
+													name="animeAllEpisodesBefore"
+												/>
 											) : null}
 										</>
 									) : null}
