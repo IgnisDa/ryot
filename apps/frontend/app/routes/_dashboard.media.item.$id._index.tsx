@@ -357,7 +357,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				);
 				invariant(selectedSeason, "No season selected");
 				needsFinalUpdate = true;
-				if (submission.allSeasonsBefore) {
+				if (submission.showAllSeasonsBefore) {
 					for (const season of showSpecifics) {
 						if (season.seasonNumber > selectedSeason.seasonNumber) break;
 						for (const episode of season.episodes || []) {
@@ -435,7 +435,7 @@ const progressUpdateSchema = z
 	.object({
 		date: z.string().optional(),
 		showSpecifics: z.string().optional(),
-		allSeasonsBefore: zx.CheckboxAsString.optional(),
+		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
 		podcastSpecifics: z.string().optional(),
 		onlySeason: zx.BoolAsString.optional(),
 		completeShow: zx.BoolAsString.optional(),
@@ -1820,7 +1820,7 @@ const ProgressUpdateModal = (props: {
 											{props.data?.onlySeason ? (
 												<Checkbox
 													label="Mark all seasons before this as seen"
-													name="allSeasonsBefore"
+													name="showAllSeasonsBefore"
 												/>
 											) : null}
 											{!props.data?.onlySeason &&
