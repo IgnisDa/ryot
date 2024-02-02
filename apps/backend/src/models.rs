@@ -253,7 +253,16 @@ pub mod media {
     }
 
     #[derive(
-        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        InputObject,
+        PartialEq,
+        Eq,
+        Default,
+        FromJsonQueryResult,
     )]
     #[graphql(input_name = "AudioBookSpecificsInput")]
     pub struct AudioBookSpecifics {
@@ -261,7 +270,16 @@ pub mod media {
     }
 
     #[derive(
-        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        InputObject,
+        PartialEq,
+        Eq,
+        Default,
+        FromJsonQueryResult,
     )]
     #[graphql(input_name = "BookSpecificsInput")]
     pub struct BookSpecifics {
@@ -269,7 +287,16 @@ pub mod media {
     }
 
     #[derive(
-        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, Eq, PartialEq, Default,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        InputObject,
+        Eq,
+        PartialEq,
+        Default,
+        FromJsonQueryResult,
     )]
     #[graphql(input_name = "MovieSpecificsInput")]
     pub struct MovieSpecifics {
@@ -291,7 +318,7 @@ pub mod media {
     #[graphql(input_name = "PodcastSpecificsInput")]
     pub struct PodcastSpecifics {
         pub episodes: Vec<PodcastEpisode>,
-        pub total_episodes: i32,
+        pub total_episodes: usize,
     }
 
     impl PodcastSpecifics {
@@ -852,7 +879,7 @@ pub mod media {
         pub lot: MetadataImageLot,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct MediaDetails {
         pub identifier: String,
         pub is_nsfw: Option<bool>,
@@ -870,10 +897,18 @@ pub mod media {
         pub videos: Vec<MetadataVideo>,
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
-        pub specifics: MediaSpecifics,
         pub suggestions: Vec<PartialMetadataWithoutId>,
         pub group_identifiers: Vec<String>,
         pub provider_rating: Option<Decimal>,
+        pub audio_book_specifics: Option<AudioBookSpecifics>,
+        pub book_specifics: Option<BookSpecifics>,
+        pub movie_specifics: Option<MovieSpecifics>,
+        pub podcast_specifics: Option<PodcastSpecifics>,
+        pub show_specifics: Option<ShowSpecifics>,
+        pub video_game_specifics: Option<VideoGameSpecifics>,
+        pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+        pub anime_specifics: Option<AnimeSpecifics>,
+        pub manga_specifics: Option<MangaSpecifics>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -977,22 +1012,6 @@ pub mod media {
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
-    #[serde(tag = "t", content = "d")]
-    pub enum MediaSpecifics {
-        AudioBook(AudioBookSpecifics),
-        Book(BookSpecifics),
-        Movie(MovieSpecifics),
-        Podcast(PodcastSpecifics),
-        Show(ShowSpecifics),
-        VideoGame(VideoGameSpecifics),
-        VisualNovel(VisualNovelSpecifics),
-        Anime(AnimeSpecifics),
-        Manga(MangaSpecifics),
-        #[default]
-        Unknown,
     }
 
     #[derive(

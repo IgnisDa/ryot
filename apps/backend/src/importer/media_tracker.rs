@@ -17,7 +17,7 @@ use crate::{
         media::{
             BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
-            MediaDetails, MediaSpecifics, MetadataFreeCreator,
+            MediaDetails, MetadataFreeCreator,
         },
         IdObject,
     },
@@ -300,7 +300,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                             image: None,
                         })
                         .collect(),
-                    specifics: MediaSpecifics::Book(BookSpecifics { pages: num_pages }),
                     provider_rating: None,
                     genres: vec![],
                     url_images: vec![],
@@ -314,6 +313,8 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     people: vec![],
                     s3_images: vec![],
                     original_language: None,
+                    book_specifics: Some(BookSpecifics { pages: num_pages }),
+                    ..Default::default()
                 })),
                 true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             }),

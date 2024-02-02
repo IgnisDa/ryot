@@ -11,7 +11,7 @@ use surf::Client;
 use crate::{
     models::{
         media::{
-            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
+            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem,
             MetadataImageForMediaDetails, MetadataImageLot, PartialMetadataWithoutId,
         },
         NamedObject, SearchDetails, SearchResults,
@@ -209,23 +209,23 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         .body_json()
         .await
         .map_err(|e| anyhow!(e))?;
-    let (lot, specifics) = match media_type {
-        "manga" => (
-            MetadataLot::Manga,
-            MediaSpecifics::Manga(MangaSpecifics {
-                chapters: details.num_chapters,
-                volumes: details.num_volumes,
-                url: None,
-            }),
-        ),
-        "anime" => (
-            MetadataLot::Anime,
-            MediaSpecifics::Anime(AnimeSpecifics {
-                episodes: details.num_episodes,
-            }),
-        ),
+    let lot = match media_type {
+        "manga" => MetadataLot::Manga,
+        "anime" => MetadataLot::Anime,
         _ => unreachable!(),
     };
+    let manga_specifics =
+        details
+            .num_volumes
+            .zip(details.num_chapters)
+            .map(|(v, c)| MangaSpecifics {
+                chapters: Some(c),
+                volumes: Some(v),
+                url: None,
+            });
+    let anime_specifics = details
+        .num_episodes
+        .map(|e| AnimeSpecifics { episodes: Some(e) });
     let mut suggestions = vec![];
     for rel in details.related_anime.unwrap_or_default().into_iter() {
         suggestions.push(PartialMetadataWithoutId {
@@ -274,7 +274,6 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             image: details.main_picture.large,
             lot: MetadataImageLot::Poster,
         }],
-        specifics,
         publish_year: details
             .start_date
             .clone()
@@ -282,12 +281,9 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
         suggestions,
         provider_rating: details.mean,
-        creators: vec![],
-        videos: vec![],
-        group_identifiers: vec![],
-        people: vec![],
-        s3_images: vec![],
-        original_language: None,
+        anime_specifics,
+        manga_specifics,
+        ..Default::default()
     };
     Ok(data)
 }

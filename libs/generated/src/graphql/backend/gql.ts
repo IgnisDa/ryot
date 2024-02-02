@@ -16,7 +16,7 @@ const documents = {
     "mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}": types.AddEntityToCollectionDocument,
     "mutation CommitMedia($lot: MetadataLot!, $source: MetadataSource!, $identifier: String!) {\n  commitMedia(lot: $lot, source: $source, identifier: $identifier) {\n    id\n  }\n}": types.CommitMediaDocument,
     "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input)\n}": types.CreateCustomExerciseDocument,
-    "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}": types.CreateCustomMediaDocument,
+    "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    id\n  }\n}": types.CreateCustomMediaDocument,
     "mutation CreateMediaReminder($input: CreateMediaReminderInput!) {\n  createMediaReminder(input: $input)\n}": types.CreateMediaReminderDocument,
     "mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {\n  createOrUpdateCollection(input: $input) {\n    id\n  }\n}": types.CreateOrUpdateCollectionDocument,
     "mutation CreateReviewComment($input: CreateReviewCommentInput!) {\n  createReviewComment(input: $input)\n}": types.CreateReviewCommentDocument,
@@ -124,7 +124,7 @@ export function graphql(source: "mutation CreateCustomExercise($input: ExerciseI
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}"): (typeof documents)["mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    __typename\n    ... on IdObject {\n      id\n    }\n    ... on CreateCustomMediaError {\n      error\n    }\n  }\n}"];
+export function graphql(source: "mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation CreateCustomMedia($input: CreateCustomMediaInput!) {\n  createCustomMedia(input: $input) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -17,9 +17,9 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, MetadataVideo, MetadataVideoSource,
-            PartialMetadataPerson, PartialMetadataWithoutId, VideoGameSpecifics,
+            MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataPerson, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+            PartialMetadataWithoutId, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -451,7 +451,7 @@ impl IgdbService {
                 .map(|g| g.name)
                 .unique()
                 .collect(),
-            specifics: MediaSpecifics::VideoGame(VideoGameSpecifics {
+            video_game_specifics: Some(VideoGameSpecifics {
                 platforms: item
                     .platforms
                     .unwrap_or_default()
@@ -472,12 +472,7 @@ impl IgdbService {
                 })
                 .collect(),
             provider_rating: item.rating,
-            group_identifiers: vec![],
-            is_nsfw: None,
-            creators: vec![],
-            s3_images: vec![],
-            production_status: None,
-            original_language: None,
+            ..Default::default()
         }
     }
 

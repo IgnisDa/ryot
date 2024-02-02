@@ -17,10 +17,10 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-            ShowEpisode, ShowSeason, ShowSpecifics,
+            MediaDetails, MediaSearchItem, MetadataImage, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            PartialMetadataPerson, PartialMetadataWithoutId, ShowEpisode, ShowSeason,
+            ShowSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -487,7 +487,7 @@ impl MediaProvider for TmdbMovieService {
                 .and_then(|r| convert_date_to_year(r)),
             publish_date: data.release_date.and_then(|r| convert_string_to_date(&r)),
             description: data.overview,
-            specifics: MediaSpecifics::Movie(MovieSpecifics {
+            movie_specifics: Some(MovieSpecifics {
                 runtime: data.runtime,
             }),
             suggestions,
@@ -500,12 +500,11 @@ impl MediaProvider for TmdbMovieService {
             } else {
                 None
             },
-            creators: vec![],
-            s3_images: vec![],
             group_identifiers: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
                 .map(|c| c.id.to_string())
                 .collect(),
+            ..Default::default()
         })
     }
 
@@ -751,7 +750,7 @@ impl MediaProvider for TmdbShowService {
                 .collect(),
             videos,
             publish_year: convert_date_to_year(&show_data.first_air_date.unwrap_or_default()),
-            specifics: MediaSpecifics::Show(ShowSpecifics {
+            show_specifics: Some(ShowSpecifics {
                 runtime: if total_runtime == 0 {
                     None
                 } else {
@@ -807,9 +806,7 @@ impl MediaProvider for TmdbShowService {
             } else {
                 None
             },
-            group_identifiers: vec![],
-            creators: vec![],
-            s3_images: vec![],
+            ..Default::default()
         })
     }
 

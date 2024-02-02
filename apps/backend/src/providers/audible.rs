@@ -15,7 +15,7 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
+            AudioBookSpecifics, MediaDetails, MediaSearchItem, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
             PartialMetadataWithoutId,
         },
@@ -435,17 +435,12 @@ impl AudibleService {
                 .collect(),
             publish_year: convert_date_to_year(&release_date),
             publish_date: convert_string_to_date(&release_date),
-            specifics: MediaSpecifics::AudioBook(AudioBookSpecifics {
+            audio_book_specifics: Some(AudioBookSpecifics {
                 runtime: item.runtime_length_min,
             }),
             url_images: images,
-            videos: vec![],
             provider_rating: rating,
-            suggestions: vec![],
-            group_identifiers: vec![],
-            s3_images: vec![],
-            production_status: None,
-            original_language: None,
+            ..Default::default()
         }
     }
 }

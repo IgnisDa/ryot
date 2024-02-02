@@ -11,7 +11,7 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
+            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
             MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
         },
@@ -444,23 +444,23 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             }),
     );
     let people = people.into_iter().unique().collect_vec();
-    let (specifics, lot) = match details.type_.unwrap() {
-        details_query::MediaType::ANIME => (
-            MediaSpecifics::Anime(AnimeSpecifics {
-                episodes: details.episodes.map(|c| c.try_into().unwrap()),
-            }),
-            MetadataLot::Anime,
-        ),
-        details_query::MediaType::MANGA => (
-            MediaSpecifics::Manga(MangaSpecifics {
-                chapters: details.chapters.map(|c| c.try_into().unwrap()),
-                volumes: details.volumes.map(|v| v.try_into().unwrap()),
-                url: None,
-            }),
-            MetadataLot::Manga,
-        ),
+    let lot = match details.type_.unwrap() {
+        details_query::MediaType::ANIME => MetadataLot::Anime,
+        details_query::MediaType::MANGA => MetadataLot::Manga,
         details_query::MediaType::Other(_) => unreachable!(),
     };
+
+    let anime_specifics = details.episodes.map(|c| AnimeSpecifics {
+        episodes: c.try_into().ok(),
+    });
+    let manga_specifics = details
+        .chapters
+        .zip(details.volumes)
+        .map(|(c, v)| MangaSpecifics {
+            chapters: c.try_into().ok(),
+            volumes: v.try_into().ok(),
+            url: None,
+        });
 
     let year = details
         .start_date
@@ -516,13 +516,15 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
         genres: genres.into_iter().unique().collect(),
         publish_year: year,
         publish_date: None,
-        specifics,
+        anime_specifics,
+        manga_specifics,
         suggestions,
         provider_rating: score,
         group_identifiers: vec![],
         s3_images: vec![],
         production_status: None,
         original_language: None,
+        ..Default::default()
     })
 }
 
