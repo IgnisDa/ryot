@@ -20,15 +20,15 @@ ALTER TABLE metadata ADD COLUMN show_specifics JSONB;
 ALTER TABLE metadata ADD COLUMN video_game_specifics JSONB;
 ALTER TABLE metadata ADD COLUMN visual_novel_specifics JSONB;
 
-UPDATE metadata set audio_book_specifics = specifics -> 'd' where lot = 'AB' and specifics IS NOT NULL;
-UPDATE metadata set anime_specifics = specifics -> 'd' where lot = 'AN' and specifics IS NOT NULL;
-UPDATE metadata set book_specifics = specifics -> 'd' where lot = 'BO' and specifics IS NOT NULL;
-UPDATE metadata set podcast_specifics = specifics -> 'd' where lot = 'PO' and specifics IS NOT NULL;
-UPDATE metadata set manga_specifics = specifics -> 'd' where lot = 'MA' and specifics IS NOT NULL;
-UPDATE metadata set movie_specifics = specifics -> 'd' where lot = 'MO' and specifics IS NOT NULL;
-UPDATE metadata set show_specifics = specifics -> 'd' where lot = 'SH' and specifics IS NOT NULL;
-UPDATE metadata set video_game_specifics = specifics -> 'd' where lot = 'VG' and specifics IS NOT NULL;
-UPDATE metadata set visual_novel_specifics = specifics -> 'd' where lot = 'VN' and specifics IS NOT NULL;
+UPDATE metadata SET audio_book_specifics = specifics -> 'd' where lot = 'AB' AND specifics IS NOT NULL;
+UPDATE metadata SET anime_specifics = specifics -> 'd' where lot = 'AN' AND specifics IS NOT NULL;
+UPDATE metadata SET book_specifics = specifics -> 'd' where lot = 'BO' AND specifics IS NOT NULL;
+UPDATE metadata SET podcast_specifics = specifics -> 'd' where lot = 'PO' AND specifics IS NOT NULL;
+UPDATE metadata SET manga_specifics = specifics -> 'd' where lot = 'MA' AND specifics IS NOT NULL;
+UPDATE metadata SET movie_specifics = specifics -> 'd' where lot = 'MO' AND specifics IS NOT NULL;
+UPDATE metadata SET show_specifics = specifics -> 'd' where lot = 'SH' AND specifics IS NOT NULL;
+UPDATE metadata SET video_game_specifics = specifics -> 'd' where lot = 'VG' AND specifics IS NOT NULL;
+UPDATE metadata SET visual_novel_specifics = specifics -> 'd' where lot = 'VN' AND specifics IS NOT NULL;
 
 ALTER TABLE metadata DROP COLUMN specifics;
 "#,
