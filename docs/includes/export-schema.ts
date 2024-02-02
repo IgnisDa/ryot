@@ -79,8 +79,12 @@ export interface ImportOrExportItemReview {
 
 /** A rating given to an entity. */
 export interface ImportOrExportItemRating {
+	/** If for an anime, the episode for which this review was for. */
+	animeEpisodeNumber: number | null;
 	/** The comments attached to this review. */
 	comments: ImportOrExportItemReviewComment[] | null;
+	/** If for a manga, the chapter for which this review was for. */
+	mangaChapterNumber: number | null;
 	/** If for a podcast, the episode for which this review was for. */
 	podcastEpisodeNumber: number | null;
 	/** The score of the review. */

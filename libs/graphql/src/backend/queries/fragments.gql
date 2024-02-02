@@ -7,6 +7,14 @@ fragment SeenShowExtraInformationPart on SeenShowExtraInformation {
   season
 }
 
+fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
+  episode
+}
+
+fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
+  chapter
+}
+
 fragment CalendarEventPart on GraphqlCalendarEvent {
   calendarEventId
   metadataId
@@ -37,10 +45,10 @@ fragment SeenPart on Seen {
     ...SeenPodcastExtraInformationPart
   }
   animeExtraInformation {
-    episode
+    ...SeenAnimeExtraInformationPart
   }
   mangaExtraInformation {
-    chapter
+    ...SeenMangaExtraInformationPart
   }
 }
 
@@ -114,11 +122,6 @@ fragment ReviewItemPart on ReviewItem {
   textRendered
   spoiler
   visibility
-  showSeason
-  showEpisode
-  podcastEpisode
-  animeEpisode
-  mangaChapter
   postedOn
   postedBy {
     id
@@ -133,5 +136,17 @@ fragment ReviewItemPart on ReviewItem {
       name
     }
     likedBy
+  }
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
+  }
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
+  }
+  animeExtraInformation {
+    ...SeenAnimeExtraInformationPart
+  }
+  mangaExtraInformation {
+    ...SeenMangaExtraInformationPart
   }
 }

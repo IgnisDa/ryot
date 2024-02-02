@@ -86,9 +86,9 @@ use crate::{
             PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
-            UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, VideoGameSpecifics,
+            VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -358,11 +358,10 @@ struct ReviewItem {
     visibility: Visibility,
     spoiler: bool,
     posted_by: IdAndNamedObject,
-    show_season: Option<i32>,
-    show_episode: Option<i32>,
-    podcast_episode: Option<i32>,
-    anime_episode: Option<i32>,
-    manga_chapter: Option<i32>,
+    show_extra_information: Option<SeenShowExtraInformation>,
+    podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    anime_extra_information: Option<SeenAnimeExtraInformation>,
+    manga_extra_information: Option<SeenMangaExtraInformation>,
     comments: Vec<ImportOrExportItemReviewComment>,
 }
 
@@ -3726,23 +3725,6 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
-                let (show_se, show_ep, podcast_ep, anime_ep, manga_ch) = match r.extra_information {
-                    Some(s) => match s {
-                        SeenOrReviewOrCalendarEventExtraInformation::Show(d) => {
-                            (Some(d.season), Some(d.episode), None, None, None)
-                        }
-                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
-                            (None, None, Some(d.episode), None, None)
-                        }
-                        SeenOrReviewOrCalendarEventExtraInformation::Anime(d) => {
-                            (None, None, None, d.episode, None)
-                        }
-                        SeenOrReviewOrCalendarEventExtraInformation::Manga(d) => {
-                            (None, None, None, None, d.chapter)
-                        }
-                    },
-                    None => (None, None, None, None, None),
-                };
                 let rating = match respect_preferences {
                     true => {
                         let preferences =
@@ -3768,11 +3750,10 @@ impl MiscellaneousService {
                     text_original: r.text.clone(),
                     text_rendered: r.text.map(|t| markdown_to_html(&t)),
                     visibility: r.visibility,
-                    show_season: show_se,
-                    show_episode: show_ep,
-                    podcast_episode: podcast_ep,
-                    anime_episode: anime_ep,
-                    manga_chapter: manga_ch,
+                    show_extra_information: r.show_extra_information,
+                    podcast_extra_information: r.podcast_extra_information,
+                    anime_extra_information: r.anime_extra_information,
+                    manga_extra_information: r.manga_extra_information,
                     posted_by: IdAndNamedObject {
                         id: user.id,
                         name: user.name,
@@ -4122,29 +4103,26 @@ impl MiscellaneousService {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
         };
-        let extra_information = if let (Some(season), Some(episode)) =
+        let show_ei = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
-            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
-                SeenShowExtraInformation { season, episode },
-            ))
-        } else if let Some(episode) = input.podcast_episode_number {
-            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                SeenPodcastExtraInformation { episode },
-            ))
-        } else if let Some(episode) = input.anime_episode_number {
-            Some(SeenOrReviewOrCalendarEventExtraInformation::Anime(
-                SeenAnimeExtraInformation {
-                    episode: Some(episode),
-                },
-            ))
+            Some(SeenShowExtraInformation { season, episode })
         } else {
-            input.manga_chapter_number.map(|chapter| {
-                SeenOrReviewOrCalendarEventExtraInformation::Manga(SeenMangaExtraInformation {
-                    chapter: Some(chapter),
-                })
-            })
+            None
         };
+        let podcast_ei = input
+            .podcast_episode_number
+            .map(|episode| SeenPodcastExtraInformation { episode });
+        let anime_ei = input
+            .anime_episode_number
+            .map(|episode| SeenAnimeExtraInformation {
+                episode: Some(episode),
+            });
+        let manga_ei = input
+            .manga_chapter_number
+            .map(|chapter| SeenMangaExtraInformation {
+                chapter: Some(chapter),
+            });
         if input.rating.is_none() && input.text.is_none() {
             return Err(Error::new("At-least one of rating or review is required."));
         }
@@ -4165,7 +4143,10 @@ impl MiscellaneousService {
             metadata_group_id: ActiveValue::Set(input.metadata_group_id),
             person_id: ActiveValue::Set(input.person_id),
             collection_id: ActiveValue::Set(input.collection_id),
-            extra_information: ActiveValue::Set(extra_information),
+            show_extra_information: ActiveValue::Set(show_ei),
+            podcast_extra_information: ActiveValue::Set(podcast_ei),
+            anime_extra_information: ActiveValue::Set(anime_ei),
+            manga_extra_information: ActiveValue::Set(manga_ei),
             comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
@@ -7021,6 +7002,13 @@ GROUP BY
 }
 
 fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
+    let (show_season_number, show_episode_number) = match rev.show_extra_information {
+        Some(d) => (Some(d.season), Some(d.episode)),
+        None => (None, None),
+    };
+    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
+    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
+    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
     ImportOrExportItemRating {
         review: Some(ImportOrExportItemReview {
             visibility: Some(rev.visibility),
@@ -7029,9 +7017,11 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
             text: rev.text_original,
         }),
         rating: rev.rating,
-        show_season_number: rev.show_season,
-        show_episode_number: rev.show_episode,
-        podcast_episode_number: rev.podcast_episode,
+        show_season_number,
+        show_episode_number,
+        podcast_episode_number,
+        anime_episode_number,
+        manga_chapter_number,
         comments: match rev.comments.is_empty() {
             true => None,
             false => Some(rev.comments),

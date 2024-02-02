@@ -935,6 +935,10 @@ pub mod media {
         pub show_episode_number: Option<i32>,
         /// If for a podcast, the episode for which this review was for.
         pub podcast_episode_number: Option<i32>,
+        /// If for an anime, the episode for which this review was for.
+        pub anime_episode_number: Option<i32>,
+        /// If for a manga, the chapter for which this review was for.
+        pub manga_chapter_number: Option<i32>,
         /// The comments attached to this review.
         pub comments: Option<Vec<ImportOrExportItemReviewComment>>,
     }
@@ -1147,14 +1151,6 @@ pub mod media {
     )]
     pub struct SeenMangaExtraInformation {
         pub chapter: Option<i32>,
-    }
-
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
-    pub enum SeenOrReviewOrCalendarEventExtraInformation {
-        Show(SeenShowExtraInformation),
-        Podcast(SeenPodcastExtraInformation),
-        Anime(SeenAnimeExtraInformation),
-        Manga(SeenMangaExtraInformation),
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
