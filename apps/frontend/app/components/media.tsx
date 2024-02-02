@@ -192,11 +192,15 @@ export const ReviewItemDisplay = (props: {
 								onClick={() => {
 									setPostReviewModalData({
 										existingReview: props.review,
-										showSeasonNumber: props.review.showSeason,
-										showEpisodeNumber: props.review.showEpisode,
-										podcastEpisodeNumber: props.review.podcastEpisode,
-										animeEpisodeNumber: props.review.animeEpisode,
-										mangaChapterNumber: props.review.mangaChapter,
+										showSeasonNumber: props.review.showExtraInformation?.season,
+										showEpisodeNumber:
+											props.review.showExtraInformation?.episode,
+										podcastEpisodeNumber:
+											props.review.podcastExtraInformation?.episode,
+										animeEpisodeNumber:
+											props.review.animeExtraInformation?.episode,
+										mangaChapterNumber:
+											props.review.mangaExtraInformation?.chapter,
 									});
 								}}
 							>
@@ -229,20 +233,26 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
-					{typeof props.review.showSeason === "number" ? (
+					{typeof props.review.showExtraInformation?.season === "number" ? (
 						<Text c="dimmed">
-							S{props.review.showSeason}-E
-							{props.review.showEpisode}
+							S{props.review.showExtraInformation.season}-E
+							{props.review.showExtraInformation.episode}
 						</Text>
 					) : null}
-					{typeof props.review.podcastEpisode === "number" ? (
-						<Text c="dimmed">EP-{props.review.podcastEpisode}</Text>
+					{typeof props.review.podcastExtraInformation?.episode === "number" ? (
+						<Text c="dimmed">
+							EP-{props.review.podcastExtraInformation.episode}
+						</Text>
 					) : null}
-					{typeof props.review.animeEpisode === "number" ? (
-						<Text c="dimmed">EP-{props.review.animeEpisode}</Text>
+					{typeof props.review.animeExtraInformation?.episode === "number" ? (
+						<Text c="dimmed">
+							EP-{props.review.animeExtraInformation.episode}
+						</Text>
 					) : null}
-					{typeof props.review.mangaChapter === "number" ? (
-						<Text c="dimmed">Ch-{props.review.mangaChapter}</Text>
+					{typeof props.review.mangaExtraInformation?.chapter === "number" ? (
+						<Text c="dimmed">
+							Ch-{props.review.mangaExtraInformation.chapter}
+						</Text>
 					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
@@ -938,8 +948,8 @@ export const PostReviewModal = (props: {
 								name="showSeasonNumber"
 								hideControls
 								defaultValue={
-									props.data?.existingReview?.showSeason
-										? props.data.existingReview.showSeason
+									props.data?.existingReview?.showExtraInformation?.season
+										? props.data.existingReview.showExtraInformation?.season
 										: props.data.showSeasonNumber || undefined
 								}
 							/>
@@ -948,8 +958,8 @@ export const PostReviewModal = (props: {
 								name="showEpisodeNumber"
 								hideControls
 								defaultValue={
-									props.data?.existingReview?.showEpisode
-										? props.data.existingReview.showEpisode
+									props.data?.existingReview?.showExtraInformation?.episode
+										? props.data.existingReview.showExtraInformation?.episode
 										: props.data.showEpisodeNumber || undefined
 								}
 							/>
@@ -961,8 +971,8 @@ export const PostReviewModal = (props: {
 							name="podcastEpisodeNumber"
 							hideControls
 							defaultValue={
-								props.data?.existingReview?.podcastEpisode
-									? props.data.existingReview.podcastEpisode
+								props.data?.existingReview?.podcastExtraInformation?.episode
+									? props.data.existingReview.podcastExtraInformation?.episode
 									: props.data.podcastEpisodeNumber || undefined
 							}
 						/>
@@ -973,8 +983,8 @@ export const PostReviewModal = (props: {
 							name="animeEpisodeNumber"
 							hideControls
 							defaultValue={
-								props.data?.existingReview?.animeEpisode
-									? props.data.existingReview.animeEpisode
+								props.data?.existingReview?.animeExtraInformation?.episode
+									? props.data.existingReview.animeExtraInformation?.episode
 									: props.data.animeEpisodeNumber || undefined
 							}
 						/>
@@ -985,8 +995,8 @@ export const PostReviewModal = (props: {
 							name="mangaChapterNumber"
 							hideControls
 							defaultValue={
-								props.data?.existingReview?.mangaChapter
-									? props.data.existingReview.mangaChapter
+								props.data?.existingReview?.mangaExtraInformation?.chapter
+									? props.data.existingReview.mangaExtraInformation?.chapter
 									: props.data.mangaChapterNumber || undefined
 							}
 						/>
