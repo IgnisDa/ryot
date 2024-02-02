@@ -691,9 +691,8 @@ struct GraphqlCalendarEvent {
     metadata_title: String,
     metadata_image: Option<String>,
     metadata_lot: MetadataLot,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
+    show_extra_information: Option<SeenShowExtraInformation>,
+    podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -1947,7 +1946,8 @@ impl MiscellaneousService {
             m_images: Option<Vec<MetadataImage>>,
             m_lot: MetadataLot,
             m_specifics: MediaSpecifics,
-            metadata_extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
+            metadata_show_extra_information: Option<SeenShowExtraInformation>,
+            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -2008,29 +2008,23 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let mut image = None;
-            if let Some(extra_info) = evt.metadata_extra_information.clone() {
-                match extra_info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                        calc.show_season_number = Some(s.season);
-                        calc.show_episode_number = Some(s.episode);
-                        if let MediaSpecifics::Show(sh) = evt.m_specifics {
-                            if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
-                                image = ep.poster_images.first().cloned();
-                            }
-                        }
+
+            if let Some(s) = evt.metadata_show_extra_information {
+                if let MediaSpecifics::Show(sh) = evt.m_specifics {
+                    if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                        image = ep.poster_images.first().cloned();
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
-                        calc.podcast_episode_number = Some(p.episode);
-                        if let MediaSpecifics::Podcast(po) = evt.m_specifics {
-                            if let Some(ep) = po.get_episode(p.episode) {
-                                image = ep.thumbnail.clone();
-                            }
-                        };
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => {}
-                    SeenOrReviewOrCalendarEventExtraInformation::Manga(_) => {}
                 }
-            }
+                calc.show_extra_information = Some(s);
+            } else if let Some(p) = evt.metadata_podcast_extra_information {
+                if let MediaSpecifics::Podcast(po) = evt.m_specifics {
+                    if let Some(ep) = po.get_episode(p.episode) {
+                        image = ep.thumbnail.clone();
+                    }
+                };
+                calc.podcast_extra_information = Some(p);
+            };
+
             if image.is_none() {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
             }
@@ -6726,33 +6720,25 @@ GROUP BY
                 .await?
                 .unwrap();
             let mut need_to_delete = false;
-            if let Some(extra_info) = cal_event.metadata_extra_information {
-                match extra_info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
-                        if let MediaSpecifics::Show(show_info) = meta.specifics.unwrap() {
-                            if let Some((_, ep)) = show_info.get_episode(show.season, show.episode)
-                            {
-                                if ep.publish_date.unwrap() != cal_event.date {
-                                    need_to_delete = true;
-                                }
-                            }
+            if let Some(show) = cal_event.metadata_show_extra_information {
+                if let MediaSpecifics::Show(show_info) = meta.specifics.unwrap() {
+                    if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
+                        if ep.publish_date.unwrap() != cal_event.date {
+                            need_to_delete = true;
                         }
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
-                        if let MediaSpecifics::Podcast(podcast_info) = meta.specifics.unwrap() {
-                            if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                                if ep.publish_date != cal_event.date {
-                                    need_to_delete = true;
-                                }
-                            }
+                }
+            } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
+                if let MediaSpecifics::Podcast(podcast_info) = meta.specifics.unwrap() {
+                    if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                        if ep.publish_date != cal_event.date {
+                            need_to_delete = true;
                         }
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
-                    SeenOrReviewOrCalendarEventExtraInformation::Manga(_) => unreachable!(),
                 }
             } else if cal_event.date != meta.publish_date.unwrap() {
                 need_to_delete = true;
-            }
+            };
 
             if need_to_delete {
                 tracing::debug!(
@@ -6783,12 +6769,10 @@ GROUP BY
                         let event = calendar_event::ActiveModel {
                             metadata_id: ActiveValue::Set(Some(meta.id)),
                             date: ActiveValue::Set(episode.publish_date),
-                            metadata_extra_information: ActiveValue::Set(Some(
-                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                    SeenPodcastExtraInformation {
-                                        episode: episode.number,
-                                    },
-                                ),
+                            metadata_podcast_extra_information: ActiveValue::Set(Some(
+                                SeenPodcastExtraInformation {
+                                    episode: episode.number,
+                                },
                             )),
                             ..Default::default()
                         };
@@ -6802,13 +6786,11 @@ GROUP BY
                                 let event = calendar_event::ActiveModel {
                                     metadata_id: ActiveValue::Set(Some(meta.id)),
                                     date: ActiveValue::Set(date),
-                                    metadata_extra_information: ActiveValue::Set(Some(
-                                        SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                            SeenShowExtraInformation {
-                                                season: season.season_number,
-                                                episode: episode.episode_number,
-                                            },
-                                        ),
+                                    metadata_show_extra_information: ActiveValue::Set(Some(
+                                        SeenShowExtraInformation {
+                                            season: season.season_number,
+                                            episode: episode.episode_number,
+                                        },
                                     )),
                                     ..Default::default()
                                 };
@@ -6867,19 +6849,16 @@ GROUP BY
             .map(|(cal_event, meta)| {
                 let meta = meta.unwrap();
                 let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
-                let notification = if let Some(extra_info) = cal_event.metadata_extra_information {
-                    match extra_info {
-                        SeenOrReviewOrCalendarEventExtraInformation::Show(show) => format!(
-                            "S{}E{} of {} ({}) has been released today.",
-                            show.season, show.episode, meta.title, url
-                        ),
-                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => format!(
-                            "E{} of {} ({}) has been released today.",
-                            podcast.episode, meta.title, url
-                        ),
-                        SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
-                        SeenOrReviewOrCalendarEventExtraInformation::Manga(_) => unreachable!(),
-                    }
+                let notification = if let Some(show) = cal_event.metadata_show_extra_information {
+                    format!(
+                        "S{}E{} of {} ({}) has been released today.",
+                        show.season, show.episode, meta.title, url
+                    )
+                } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
+                    format!(
+                        "E{} of {} ({}) has been released today.",
+                        podcast.episode, meta.title, url
+                    )
                 } else {
                     format!("{} ({}) has been released today.", meta.title, url)
                 };

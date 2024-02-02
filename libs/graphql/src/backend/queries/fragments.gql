@@ -1,3 +1,12 @@
+fragment SeenPodcastExtraInformationPart on SeenPodcastExtraInformation {
+  episode
+}
+
+fragment SeenShowExtraInformationPart on SeenShowExtraInformation {
+  episode
+  season
+}
+
 fragment CalendarEventPart on GraphqlCalendarEvent {
   calendarEventId
   metadataId
@@ -5,9 +14,12 @@ fragment CalendarEventPart on GraphqlCalendarEvent {
   metadataLot
   metadataImage
   date
-  showSeasonNumber
-  showEpisodeNumber
-  podcastEpisodeNumber
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
+  }
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
+  }
 }
 
 fragment SeenPart on Seen {
@@ -19,11 +31,10 @@ fragment SeenPart on Seen {
   lastUpdatedOn
   numTimesUpdated
   showExtraInformation {
-    episode
-    season
+    ...SeenShowExtraInformationPart
   }
   podcastExtraInformation {
-    episode
+    ...SeenPodcastExtraInformationPart
   }
   animeExtraInformation {
     episode
