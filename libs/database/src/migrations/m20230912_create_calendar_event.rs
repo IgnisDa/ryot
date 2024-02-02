@@ -11,8 +11,8 @@ pub enum CalendarEvent {
     Id,
     Date,
     MetadataId,
-    // stores the `season` and `episode` numbers
-    MetadataExtraInformation,
+    MetadataShowExtraInformation,
+    MetadataPodcastExtraInformation,
 }
 
 pub static UNIQUE_KEY: &str = "calendar_event-date-metadataid-info__uq-idx";
@@ -32,7 +32,11 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
-                    .col(ColumnDef::new(CalendarEvent::MetadataExtraInformation).json_binary())
+                    .col(ColumnDef::new(CalendarEvent::MetadataShowExtraInformation).json_binary())
+                    .col(
+                        ColumnDef::new(CalendarEvent::MetadataPodcastExtraInformation)
+                            .json_binary(),
+                    )
                     .col(ColumnDef::new(CalendarEvent::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
@@ -53,7 +57,8 @@ impl MigrationTrait for Migration {
                     .table(CalendarEvent::Table)
                     .col(CalendarEvent::Date)
                     .col(CalendarEvent::MetadataId)
-                    .col(CalendarEvent::MetadataExtraInformation)
+                    .col(CalendarEvent::MetadataShowExtraInformation)
+                    .col(CalendarEvent::MetadataPodcastExtraInformation)
                     .to_owned(),
             )
             .await?;
