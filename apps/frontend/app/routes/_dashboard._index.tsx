@@ -478,9 +478,13 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 				publishYear: `${match(um.metadataLot)
 					.with(
 						MetadataLot.Show,
-						() => `S${um.showSeasonNumber}-E${um.showEpisodeNumber}`,
+						() =>
+							`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
 					)
-					.with(MetadataLot.Podcast, () => `EP-${um.podcastEpisodeNumber}`)
+					.with(
+						MetadataLot.Podcast,
+						() => `EP-${um.podcastExtraInformation?.episode}`,
+					)
 					.otherwise(() => "")} ${
 					numDaysLeft === 0
 						? "Today"
