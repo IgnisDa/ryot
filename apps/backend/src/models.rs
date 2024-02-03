@@ -19,7 +19,8 @@ use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
+    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
+    FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -838,6 +839,25 @@ pub mod media {
     pub enum ProgressUpdateErrorVariant {
         AlreadySeen,
         NoSeenInProgress,
+    }
+
+    #[derive(
+        Copy, Clone, Debug, PartialEq, Eq, DeriveActiveEnum, EnumIter, Serialize, Deserialize, Hash,
+    )]
+    #[sea_orm(rs_type = "String", db_type = "String(None)")]
+    pub enum UserToMetadataReason {
+        #[sea_orm(string_value = "Seen")]
+        Seen,
+        #[sea_orm(string_value = "Reviewed")]
+        Reviewed,
+        #[sea_orm(string_value = "Collection")]
+        Collection,
+        #[sea_orm(string_value = "Monitored")]
+        Monitored,
+        #[sea_orm(string_value = "Reminder")]
+        Reminder,
+        #[sea_orm(string_value = "Owned")]
+        Owned,
     }
 
     #[derive(Debug, SimpleObject)]
