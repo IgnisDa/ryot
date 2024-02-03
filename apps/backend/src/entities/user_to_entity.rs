@@ -24,7 +24,6 @@ pub struct Model {
     pub metadata_reminder: Option<UserMediaReminder>,
     pub metadata_ownership: Option<UserMediaOwnership>,
     #[graphql(skip)]
-    #[sea_orm(column_type = "Json")]
     pub metadata_reason: Option<Vec<UserToMetadataReason>>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
     pub exercise_num_times_interacted: Option<i32>,
