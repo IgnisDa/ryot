@@ -683,15 +683,17 @@ export default function Page() {
 													1000 *
 													60,
 											),
-										mediaAdditionalDetails.showSpecifics?.seasons &&
+										mediaAdditionalDetails.showSpecifics?.totalSeasons &&
 											`${
-												mediaAdditionalDetails.showSpecifics.seasons.length
+												mediaAdditionalDetails.showSpecifics.totalSeasons
 											} season${
 												mediaAdditionalDetails.showSpecifics.seasons.length ===
 												1
 													? ""
 													: "s"
 											}`,
+										mediaAdditionalDetails.showSpecifics?.totalEpisodes &&
+											`${mediaAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
 										mediaAdditionalDetails.showSpecifics?.runtime &&
 											humanizeDuration(
 												mediaAdditionalDetails.showSpecifics.runtime *
