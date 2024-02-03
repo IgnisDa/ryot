@@ -40,6 +40,7 @@ mod m20240202_normalize_calendar_events_data;
 mod m20240203_normalize_reviews_data;
 mod m20240204_normalize_metadata_data;
 mod m20240205_add_metadata_reason;
+mod m20240205_remove_default_value;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -103,6 +104,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240203_normalize_reviews_data::Migration),
             Box::new(m20240204_normalize_metadata_data::Migration),
             Box::new(m20240205_add_metadata_reason::Migration),
+            Box::new(m20240205_remove_default_value::Migration),
         ]
     }
 }
