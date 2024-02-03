@@ -836,7 +836,6 @@ pub mod media {
     pub enum ProgressUpdateErrorVariant {
         AlreadySeen,
         NoSeenInProgress,
-        InvalidUpdate,
     }
 
     #[derive(Debug, SimpleObject)]

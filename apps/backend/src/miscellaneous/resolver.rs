@@ -2535,17 +2535,11 @@ impl MiscellaneousService {
                 {
                     Some(SeenShowExtraInformation { season, episode })
                 } else {
-                    return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                        error: ProgressUpdateErrorVariant::InvalidUpdate,
-                    }));
+                    None
                 };
-                let podcast_ei = if let Some(episode) = input.podcast_episode_number {
-                    Some(SeenPodcastExtraInformation { episode })
-                } else {
-                    return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                        error: ProgressUpdateErrorVariant::InvalidUpdate,
-                    }));
-                };
+                let podcast_ei = input
+                    .podcast_episode_number
+                    .map(|e| SeenPodcastExtraInformation { episode: e });
                 let anime_ei = if matches!(meta.lot, MetadataLot::Anime) {
                     Some(SeenAnimeExtraInformation {
                         episode: input.anime_episode_number,
