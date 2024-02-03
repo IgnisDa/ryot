@@ -129,8 +129,6 @@ pub enum Metadata {
     IsPartial,
     // whether it is not safe for work
     IsNsfw,
-    // time when this item has been processed by the calendar indexer
-    LastProcessedOnForCalendar,
     // those creators who can not be created as a `person` due to incomplete info
     FreeCreators,
     // specifics for each type of media
@@ -176,10 +174,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Description).text())
                     .col(ColumnDef::new(Metadata::ProductionStatus).string())
                     .col(ColumnDef::new(Metadata::OriginalLanguage).string())
-                    .col(
-                        ColumnDef::new(Metadata::LastProcessedOnForCalendar)
-                            .timestamp_with_time_zone(),
-                    )
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
