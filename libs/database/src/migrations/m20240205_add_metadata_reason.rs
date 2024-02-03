@@ -11,8 +11,10 @@ impl MigrationTrait for Migration {
             .await?
         {
             let db = manager.get_connection();
-            db.execute_unprepared(r#"ALTER TABLE user_to_entity ADD COLUMN metadata_reason JSONB"#)
-                .await?;
+            db.execute_unprepared(
+                r#"ALTER TABLE user_to_entity ADD COLUMN metadata_reason text[]"#,
+            )
+            .await?;
         }
         Ok(())
     }

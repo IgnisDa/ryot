@@ -58,7 +58,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataOwnership).json_binary())
-                    .col(ColumnDef::new(UserToEntity::MetadataReason).json_binary())
+                    .col(ColumnDef::new(UserToEntity::MetadataReason).array(ColumnType::Text))
                     .col(
                         ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted)
                             .integer()
