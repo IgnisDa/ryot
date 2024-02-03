@@ -35,7 +35,6 @@ pub struct Model {
     pub videos: Option<Vec<MetadataVideo>>,
     pub production_status: Option<String>,
     pub provider_rating: Option<Decimal>,
-    pub last_processed_on_for_calendar: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]
     pub free_creators: Option<Vec<MetadataFreeCreator>>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,

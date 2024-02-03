@@ -2968,7 +2968,6 @@ impl MiscellaneousService {
         meta.book_specifics = ActiveValue::Set(input.book_specifics);
         meta.video_game_specifics = ActiveValue::Set(input.video_game_specifics);
         meta.visual_novel_specifics = ActiveValue::Set(input.visual_novel_specifics);
-        meta.last_processed_on_for_calendar = ActiveValue::Set(None);
         let metadata = meta.update(&self.db).await.unwrap();
 
         self.change_metadata_associations(
@@ -6632,7 +6631,7 @@ GROUP BY
         tracing::debug!("Finished deleting invalid calendar events");
 
         let mut metadata_stream = Metadata::find()
-            .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
+            .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
             .filter(metadata::Column::PublishDate.is_not_null())
             .filter(
                 metadata::Column::IsPartial
@@ -6695,19 +6694,6 @@ GROUP BY
             );
             for cal_insert in calendar_events_inserts {
                 cal_insert.insert(&self.db).await.ok();
-            }
-        }
-        if !metadata_updates.is_empty() {
-            for updates in metadata_updates.chunks(800) {
-                Metadata::update_many()
-                    .set(metadata::ActiveModel {
-                        last_processed_on_for_calendar: ActiveValue::Set(Some(Utc::now())),
-                        ..Default::default()
-                    })
-                    .filter(metadata::Column::Id.is_in(updates.to_owned()))
-                    .exec(&self.db)
-                    .await
-                    .ok();
             }
         }
         tracing::debug!("Finished updating calendar events");
