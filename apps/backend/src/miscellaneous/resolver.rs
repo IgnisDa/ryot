@@ -2728,10 +2728,12 @@ impl MiscellaneousService {
             let is_monitored = u.metadata_monitored.unwrap_or_default();
             // if user has set a reminder
             let is_reminder_active = u.metadata_reminder.is_some();
+            // if the metadata is owned
+            let is_owned = u.metadata_ownership.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
                 && !is_monitored
-                && !is_reminder_active
+                && !is_reminder_active && !is_owned
             {
                 tracing::debug!(
                     "Removing user_to_metadata = {id:?}",
