@@ -6606,7 +6606,11 @@ GROUP BY
         let mut metadata_stream = Metadata::find()
             .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
             .filter(metadata::Column::PublishDate.is_not_null())
-            .filter(metadata::Column::IsPartial.eq(false))
+            .filter(
+                metadata::Column::IsPartial
+                    .is_null()
+                    .or(metadata::Column::IsPartial.eq(false)),
+            )
             .order_by_desc(metadata::Column::LastUpdatedOn)
             .stream(&self.db)
             .await?;
