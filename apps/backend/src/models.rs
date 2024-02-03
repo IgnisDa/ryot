@@ -404,6 +404,8 @@ pub mod media {
     pub struct ShowSpecifics {
         pub seasons: Vec<ShowSeason>,
         pub runtime: Option<i32>,
+        pub total_seasons: Option<usize>,
+        pub total_episodes: Option<usize>,
     }
 
     impl ShowSpecifics {

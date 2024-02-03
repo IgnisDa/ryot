@@ -720,6 +720,8 @@ impl MediaProvider for TmdbShowService {
             .flat_map(|s| s.episodes.iter())
             .map(|e| e.runtime.unwrap_or_default())
             .sum();
+        let total_seasons = seasons.len();
+        let total_episodes = seasons.iter().flat_map(|s| s.episodes.iter()).count();
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
@@ -755,6 +757,16 @@ impl MediaProvider for TmdbShowService {
                     None
                 } else {
                     Some(total_runtime)
+                },
+                total_seasons: if total_seasons == 0 {
+                    None
+                } else {
+                    Some(total_seasons)
+                },
+                total_episodes: if total_episodes == 0 {
+                    None
+                } else {
+                    Some(total_episodes)
                 },
                 seasons: seasons
                     .into_iter()
