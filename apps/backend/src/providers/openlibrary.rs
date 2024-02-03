@@ -14,9 +14,8 @@ use tracing::instrument;
 use crate::{
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
-            PartialMetadataWithoutId,
+            BookSpecifics, MediaDetails, MediaSearchItem, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, PartialMetadataPerson, PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults,
     },
@@ -375,19 +374,11 @@ impl MediaProvider for OpenlibraryService {
             genres,
             url_images: images,
             publish_year: first_release_date.map(|d| d.year()),
-            specifics: MediaSpecifics::Book(BookSpecifics {
+            book_specifics: Some(BookSpecifics {
                 pages: Some(num_pages),
             }),
             suggestions,
-            publish_date: None,
-            provider_rating: None,
-            videos: vec![],
-            group_identifiers: vec![],
-            is_nsfw: None,
-            creators: vec![],
-            s3_images: vec![],
-            production_status: None,
-            original_language: None,
+            ..Default::default()
         })
     }
 

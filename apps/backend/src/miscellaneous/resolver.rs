@@ -80,15 +80,15 @@ use crate::{
             ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
             MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
-            MediaSpecifics, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
+            MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
             PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-            SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
-            UserSummary, VideoGameSpecifics, VisualNovelSpecifics,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMetadataReason,
+            VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -221,17 +221,6 @@ struct ProviderLanguageInformation {
     default: String,
 }
 
-#[derive(Debug, SimpleObject)]
-struct CreateCustomMediaError {
-    error: CreateCustomMediaErrorVariant,
-}
-
-#[derive(Union)]
-enum CreateCustomMediaResult {
-    Ok(IdObject),
-    Error(CreateCustomMediaError),
-}
-
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum UserDetailsErrorVariant {
     AuthTokenInvalid,
@@ -358,11 +347,10 @@ struct ReviewItem {
     visibility: Visibility,
     spoiler: bool,
     posted_by: IdAndNamedObject,
-    show_season: Option<i32>,
-    show_episode: Option<i32>,
-    podcast_episode: Option<i32>,
-    anime_episode: Option<i32>,
-    manga_chapter: Option<i32>,
+    show_extra_information: Option<SeenShowExtraInformation>,
+    podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    anime_extra_information: Option<SeenAnimeExtraInformation>,
+    manga_extra_information: Option<SeenMangaExtraInformation>,
     comments: Vec<ImportOrExportItemReviewComment>,
 }
 
@@ -691,9 +679,8 @@ struct GraphqlCalendarEvent {
     metadata_title: String,
     metadata_image: Option<String>,
     metadata_lot: MetadataLot,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
+    show_extra_information: Option<SeenShowExtraInformation>,
+    podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -1076,7 +1063,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CreateCustomMediaInput,
-    ) -> Result<CreateCustomMediaResult> {
+    ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_custom_media(input, user_id).await
@@ -1690,7 +1677,7 @@ impl MiscellaneousService {
             }
         };
 
-        let mut resp = GraphqlMediaDetails {
+        let resp = GraphqlMediaDetails {
             id: model.id,
             lot: model.lot,
             title: model.title,
@@ -1703,15 +1690,15 @@ impl MiscellaneousService {
             provider_rating: model.provider_rating,
             production_status: model.production_status,
             original_language: model.original_language,
-            book_specifics: None,
-            show_specifics: None,
-            movie_specifics: None,
-            manga_specifics: None,
-            anime_specifics: None,
-            podcast_specifics: None,
-            video_game_specifics: None,
-            audio_book_specifics: None,
-            visual_novel_specifics: None,
+            book_specifics: model.book_specifics,
+            show_specifics: model.show_specifics,
+            movie_specifics: model.movie_specifics,
+            manga_specifics: model.manga_specifics,
+            anime_specifics: model.anime_specifics,
+            podcast_specifics: model.podcast_specifics,
+            video_game_specifics: model.video_game_specifics,
+            audio_book_specifics: model.audio_book_specifics,
+            visual_novel_specifics: model.visual_novel_specifics,
             group,
             genres,
             creators,
@@ -1719,41 +1706,6 @@ impl MiscellaneousService {
             suggestions,
             assets,
         };
-        if let Some(specs) = model.specifics {
-            match specs {
-                MediaSpecifics::AudioBook(a) => {
-                    resp.audio_book_specifics = Some(a);
-                }
-                MediaSpecifics::Book(a) => {
-                    resp.book_specifics = Some(a);
-                }
-                MediaSpecifics::Movie(a) => {
-                    resp.movie_specifics = Some(a);
-                }
-                MediaSpecifics::Podcast(a) => {
-                    resp.podcast_specifics = Some(a);
-                }
-                MediaSpecifics::Show(a) => {
-                    resp.show_specifics = Some(a);
-                }
-                MediaSpecifics::VideoGame(a) => {
-                    resp.video_game_specifics = Some(a);
-                }
-                MediaSpecifics::VisualNovel(a) => {
-                    resp.visual_novel_specifics = Some(a);
-                }
-                MediaSpecifics::Anime(a) => {
-                    resp.anime_specifics = Some(a);
-                }
-                MediaSpecifics::Manga(a) => {
-                    if a.url.is_some() {
-                        resp.source_url = a.url.clone();
-                    }
-                    resp.manga_specifics = Some(a);
-                }
-                MediaSpecifics::Unknown => {}
-            };
-        }
         Ok(resp)
     }
 
@@ -1787,8 +1739,8 @@ impl MiscellaneousService {
                     })
                     .collect_vec();
                 let next = all_episodes.iter().position(|e| {
-                    e.season == Some(h.show_information.as_ref().unwrap().season)
-                        && e.episode == Some(h.show_information.as_ref().unwrap().episode)
+                    e.season == Some(h.show_extra_information.as_ref().unwrap().season)
+                        && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
                 });
                 Some(all_episodes.get(next? + 1)?.clone())
             } else if let Some(p) = &media_details.podcast_specifics {
@@ -1802,12 +1754,12 @@ impl MiscellaneousService {
                     })
                     .collect_vec();
                 let next = all_episodes.iter().position(|e| {
-                    e.episode == Some(h.podcast_information.as_ref().unwrap().episode)
+                    e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
                 });
                 Some(all_episodes.get(next? + 1)?.clone())
             } else if let Some(anime_spec) = &media_details.anime_specifics {
                 anime_spec.episodes.and_then(|_| {
-                    h.anime_information.as_ref().and_then(|hist| {
+                    h.anime_extra_information.as_ref().and_then(|hist| {
                         hist.episode.map(|e| UserMediaNextEntry {
                             season: None,
                             episode: Some(e + 1),
@@ -1817,7 +1769,7 @@ impl MiscellaneousService {
                 })
             } else if let Some(manga_spec) = &media_details.manga_specifics {
                 manga_spec.chapters.and_then(|_| {
-                    h.manga_information.as_ref().and_then(|hist| {
+                    h.manga_extra_information.as_ref().and_then(|hist| {
                         hist.chapter.map(|e| UserMediaNextEntry {
                             season: None,
                             episode: None,
@@ -1943,11 +1895,13 @@ impl MiscellaneousService {
             id: i32,
             date: NaiveDate,
             metadata_id: i32,
+            metadata_show_extra_information: Option<SeenShowExtraInformation>,
+            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
             m_title: String,
             m_images: Option<Vec<MetadataImage>>,
             m_lot: MetadataLot,
-            m_specifics: MediaSpecifics,
-            metadata_extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
+            m_show_specifics: Option<ShowSpecifics>,
+            m_podcast_specifics: Option<PodcastSpecifics>,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -1963,8 +1917,12 @@ impl MiscellaneousService {
                 "m_images",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::Specifics)),
-                "m_specifics",
+                Expr::col((AliasedMetadata::Table, metadata::Column::ShowSpecifics)),
+                "m_show_specifics",
+            )
+            .column_as(
+                Expr::col((AliasedMetadata::Table, metadata::Column::PodcastSpecifics)),
+                "m_podcast_specifics",
             )
             .filter(
                 Expr::col((AliasedUserToEntity::Table, user_to_entity::Column::UserId)).eq(user_id),
@@ -2008,29 +1966,23 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let mut image = None;
-            if let Some(extra_info) = evt.metadata_extra_information.clone() {
-                match extra_info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                        calc.show_season_number = Some(s.season);
-                        calc.show_episode_number = Some(s.episode);
-                        if let MediaSpecifics::Show(sh) = evt.m_specifics {
-                            if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
-                                image = ep.poster_images.first().cloned();
-                            }
-                        }
+
+            if let Some(s) = evt.metadata_show_extra_information {
+                if let Some(sh) = evt.m_show_specifics {
+                    if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                        image = ep.poster_images.first().cloned();
                     }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
-                        calc.podcast_episode_number = Some(p.episode);
-                        if let MediaSpecifics::Podcast(po) = evt.m_specifics {
-                            if let Some(ep) = po.get_episode(p.episode) {
-                                image = ep.thumbnail.clone();
-                            }
-                        };
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => {}
-                    SeenOrReviewOrCalendarEventExtraInformation::Manga(_) => {}
                 }
-            }
+                calc.show_extra_information = Some(s);
+            } else if let Some(p) = evt.metadata_podcast_extra_information {
+                if let Some(po) = evt.m_podcast_specifics {
+                    if let Some(ep) = po.get_episode(p.episode) {
+                        image = ep.thumbnail.clone();
+                    }
+                };
+                calc.podcast_extra_information = Some(p);
+            };
+
             if image.is_none() {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
             }
@@ -2080,15 +2032,14 @@ impl MiscellaneousService {
     }
 
     async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
-        let mut seen = Seen::find()
+        let seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
             .unwrap();
-        modify_seen_elements(&mut seen);
-        Ok(seen)
+        Ok(seen_items)
     }
 
     async fn media_list(
@@ -2578,47 +2529,31 @@ impl MiscellaneousService {
                     .unwrap()
                     .unwrap();
                 tracing::debug!("Progress update meta = {:?}", meta.title);
-                let extra_information = match meta.lot {
-                    MetadataLot::Show => {
-                        if let (Some(season), Some(episode)) =
-                            (input.show_season_number, input.show_episode_number)
-                        {
-                            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                SeenShowExtraInformation { season, episode },
-                            ))
-                        } else {
-                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                error: ProgressUpdateErrorVariant::InvalidUpdate,
-                            }));
-                        }
-                    }
-                    MetadataLot::Podcast => {
-                        if let Some(episode) = input.podcast_episode_number {
-                            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                SeenPodcastExtraInformation { episode },
-                            ))
-                        } else {
-                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                error: ProgressUpdateErrorVariant::InvalidUpdate,
-                            }));
-                        }
-                    }
-                    MetadataLot::Anime => Some(SeenOrReviewOrCalendarEventExtraInformation::Anime(
-                        SeenAnimeExtraInformation {
-                            episode: input.anime_episode_number,
-                        },
-                    )),
-                    MetadataLot::Manga => Some(SeenOrReviewOrCalendarEventExtraInformation::Manga(
-                        SeenMangaExtraInformation {
-                            chapter: input.manga_chapter_number,
-                        },
-                    )),
-                    _ => None,
+
+                let show_ei = if let (Some(season), Some(episode)) =
+                    (input.show_season_number, input.show_episode_number)
+                {
+                    Some(SeenShowExtraInformation { season, episode })
+                } else {
+                    None
                 };
-                tracing::debug!(
-                    "Progress update extra information = {:?}",
-                    extra_information
-                );
+                let podcast_ei = input
+                    .podcast_episode_number
+                    .map(|e| SeenPodcastExtraInformation { episode: e });
+                let anime_ei = if matches!(meta.lot, MetadataLot::Anime) {
+                    Some(SeenAnimeExtraInformation {
+                        episode: input.anime_episode_number,
+                    })
+                } else {
+                    None
+                };
+                let manga_ei = if matches!(meta.lot, MetadataLot::Manga) {
+                    Some(SeenMangaExtraInformation {
+                        chapter: input.manga_chapter_number,
+                    })
+                } else {
+                    None
+                };
                 let finished_on = if action == ProgressUpdateAction::JustStarted {
                     None
                 } else {
@@ -2638,8 +2573,11 @@ impl MiscellaneousService {
                     metadata_id: ActiveValue::Set(input.metadata_id),
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
-                    extra_information: ActiveValue::Set(extra_information),
                     state: ActiveValue::Set(SeenState::InProgress),
+                    show_extra_information: ActiveValue::Set(show_ei),
+                    podcast_extra_information: ActiveValue::Set(podcast_ei),
+                    anime_extra_information: ActiveValue::Set(anime_ei),
+                    manga_extra_information: ActiveValue::Set(manga_ei),
                     ..Default::default()
                 };
                 seen_insert.insert(&self.db).await.unwrap()
@@ -2790,42 +2728,59 @@ impl MiscellaneousService {
             let is_monitored = u.metadata_monitored.unwrap_or_default();
             // if user has set a reminder
             let is_reminder_active = u.metadata_reminder.is_some();
+            // if the metadata is owned
+            let is_owned = u.metadata_ownership.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
                 && !is_monitored
                 && !is_reminder_active
+                && !is_owned
             {
                 tracing::debug!(
                     "Removing user_to_metadata = {id:?}",
                     id = (u.user_id, u.metadata_id)
                 );
                 u.delete(&self.db).await.ok();
+            } else {
+                let mut new_reasons = HashSet::new();
+                if seen_count > 0 {
+                    new_reasons.insert(UserToMetadataReason::Seen);
+                }
+                if reviewed_count > 0 {
+                    new_reasons.insert(UserToMetadataReason::Reviewed);
+                }
+                if is_in_collection {
+                    new_reasons.insert(UserToMetadataReason::Collection);
+                }
+                if is_monitored {
+                    new_reasons.insert(UserToMetadataReason::Monitored);
+                }
+                if is_reminder_active {
+                    new_reasons.insert(UserToMetadataReason::Reminder);
+                }
+                if is_owned {
+                    new_reasons.insert(UserToMetadataReason::Owned);
+                }
+                let previous_reason =
+                    HashSet::from_iter(u.metadata_reason.clone().unwrap_or_default().into_iter());
+                if new_reasons != previous_reason {
+                    tracing::debug!(
+                        "Updating user_to_metadata = {id:?}",
+                        id = (u.user_id, u.metadata_id)
+                    );
+                    let mut u: user_to_entity::ActiveModel = u.into();
+                    u.metadata_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.update(&self.db).await.ok();
+                }
             }
         }
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn update_media(
         &self,
         metadata_id: i32,
-        title: String,
-        is_nsfw: Option<bool>,
-        description: Option<String>,
-        provider_rating: Option<Decimal>,
-        url_images: Vec<MetadataImageForMediaDetails>,
-        s3_images: Vec<MetadataImageForMediaDetails>,
-        videos: Vec<MetadataVideo>,
-        specifics: Option<MediaSpecifics>,
-        creators: Vec<MetadataFreeCreator>,
-        people: Vec<PartialMetadataPerson>,
-        genres: Vec<String>,
-        production_status: Option<String>,
-        original_language: Option<String>,
-        publish_year: Option<i32>,
-        publish_date: Option<NaiveDate>,
-        suggestions: Vec<PartialMetadataWithoutId>,
-        group_identifiers: Vec<String>,
+        input: MediaDetails,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
 
@@ -2835,7 +2790,7 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
 
-        if let (Some(p1), Some(p2)) = (&meta.production_status, &production_status) {
+        if let (Some(p1), Some(p2)) = (&meta.production_status, &input.production_status) {
             if p1 != p2 {
                 notifications.push((
                     format!("Status changed from {:#?} to {:#?}", p1, p2),
@@ -2843,8 +2798,7 @@ impl MiscellaneousService {
                 ));
             }
         }
-
-        if let (Some(p1), Some(p2)) = (meta.publish_year, publish_year) {
+        if let (Some(p1), Some(p2)) = (meta.publish_year, input.publish_year) {
             if p1 != p2 {
                 notifications.push((
                     format!("Publish year from {:#?} to {:#?}", p1, p2),
@@ -2852,60 +2806,58 @@ impl MiscellaneousService {
                 ));
             }
         }
-
-        match (&meta.specifics, &specifics) {
-            (Some(MediaSpecifics::Show(s1)), Some(MediaSpecifics::Show(s2))) => {
-                if s1.seasons.len() != s2.seasons.len() {
-                    notifications.push((
-                        format!(
-                            "Number of seasons changed from {:#?} to {:#?}",
-                            s1.seasons.len(),
-                            s2.seasons.len()
-                        ),
-                        MediaStateChanged::NumberOfSeasonsChanged,
-                    ));
-                } else {
-                    for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
-                        if s1.episodes.len() != s2.episodes.len() {
-                            notifications.push((
-                                format!(
-                                    "Number of episodes changed from {:#?} to {:#?} (Season {})",
-                                    s1.episodes.len(),
-                                    s2.episodes.len(),
-                                    s1.season_number
-                                ),
-                                MediaStateChanged::EpisodeReleased,
-                            ));
-                        } else {
-                            for (before_episode, after_episode) in
-                                zip(s1.episodes.iter(), s2.episodes.iter())
+        if let (Some(s1), Some(s2)) = (&meta.show_specifics, &input.show_specifics) {
+            if s1.seasons.len() != s2.seasons.len() {
+                notifications.push((
+                    format!(
+                        "Number of seasons changed from {:#?} to {:#?}",
+                        s1.seasons.len(),
+                        s2.seasons.len()
+                    ),
+                    MediaStateChanged::NumberOfSeasonsChanged,
+                ));
+            } else {
+                for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
+                    if s1.episodes.len() != s2.episodes.len() {
+                        notifications.push((
+                            format!(
+                                "Number of episodes changed from {:#?} to {:#?} (Season {})",
+                                s1.episodes.len(),
+                                s2.episodes.len(),
+                                s1.season_number
+                            ),
+                            MediaStateChanged::EpisodeReleased,
+                        ));
+                    } else {
+                        for (before_episode, after_episode) in
+                            zip(s1.episodes.iter(), s2.episodes.iter())
+                        {
+                            if before_episode.name != after_episode.name {
+                                notifications.push((
+                                    format!(
+                                        "Episode name changed from {:#?} to {:#?} (S{}E{})",
+                                        before_episode.name,
+                                        after_episode.name,
+                                        s1.season_number,
+                                        before_episode.episode_number
+                                    ),
+                                    MediaStateChanged::EpisodeNameChanged,
+                                ));
+                            }
+                            if before_episode.poster_images != after_episode.poster_images {
+                                notifications.push((
+                                    format!(
+                                        "Episode image changed for S{}E{}",
+                                        s1.season_number, before_episode.episode_number
+                                    ),
+                                    MediaStateChanged::EpisodeImagesChanged,
+                                ));
+                            }
+                            if let (Some(pd1), Some(pd2)) =
+                                (before_episode.publish_date, after_episode.publish_date)
                             {
-                                if before_episode.name != after_episode.name {
+                                if pd1 != pd2 {
                                     notifications.push((
-                                        format!(
-                                            "Episode name changed from {:#?} to {:#?} (S{}E{})",
-                                            before_episode.name,
-                                            after_episode.name,
-                                            s1.season_number,
-                                            before_episode.episode_number
-                                        ),
-                                        MediaStateChanged::EpisodeNameChanged,
-                                    ));
-                                }
-                                if before_episode.poster_images != after_episode.poster_images {
-                                    notifications.push((
-                                        format!(
-                                            "Episode image changed for S{}E{}",
-                                            s1.season_number, before_episode.episode_number
-                                        ),
-                                        MediaStateChanged::EpisodeImagesChanged,
-                                    ));
-                                }
-                                if let (Some(pd1), Some(pd2)) =
-                                    (before_episode.publish_date, after_episode.publish_date)
-                                {
-                                    if pd1 != pd2 {
-                                        notifications.push((
                                             format!(
                                                 "Episode release date changed from {:?} to {:?} (S{}E{})",
                                                 pd1,
@@ -2915,69 +2867,63 @@ impl MiscellaneousService {
                                             ),
                                             MediaStateChanged::ReleaseDateChanged,
                                         ));
-                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            (Some(MediaSpecifics::Anime(a1)), Some(MediaSpecifics::Anime(a2))) => {
-                if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
-                    if e1 != e2 {
-                        notifications.push((
-                            format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
-                            MediaStateChanged::ChaptersOrEpisodesChanged,
-                        ));
-                    }
-                }
-            }
-            (Some(MediaSpecifics::Manga(p1)), Some(MediaSpecifics::Manga(m2))) => {
-                if let (Some(c1), Some(c2)) = (p1.chapters, m2.chapters) {
-                    if c1 != c2 {
-                        notifications.push((
-                            format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
-                            MediaStateChanged::ChaptersOrEpisodesChanged,
-                        ));
-                    }
-                }
-            }
-            (Some(MediaSpecifics::Podcast(p1)), Some(MediaSpecifics::Podcast(p2))) => {
-                if p1.episodes.len() != p2.episodes.len() {
+        };
+        if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &input.anime_specifics) {
+            if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
+                if e1 != e2 {
                     notifications.push((
-                        format!(
-                            "Number of episodes changed from {:#?} to {:#?}",
-                            p1.episodes.len(),
-                            p2.episodes.len()
-                        ),
-                        MediaStateChanged::EpisodeReleased,
+                        format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
+                        MediaStateChanged::ChaptersOrEpisodesChanged,
                     ));
-                } else {
-                    for (before_episode, after_episode) in
-                        zip(p1.episodes.iter(), p2.episodes.iter())
-                    {
-                        if before_episode.title != after_episode.title {
-                            notifications.push((
-                                format!(
-                                    "Episode name changed from {:#?} to {:#?} (EP{})",
-                                    before_episode.title,
-                                    after_episode.title,
-                                    before_episode.number
-                                ),
-                                MediaStateChanged::EpisodeNameChanged,
-                            ));
-                        }
-                        if before_episode.thumbnail != after_episode.thumbnail {
-                            notifications.push((
-                                format!("Episode image changed for EP{}", before_episode.number),
-                                MediaStateChanged::EpisodeImagesChanged,
-                            ));
-                        }
+                }
+            }
+        };
+        if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &input.manga_specifics) {
+            if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
+                if c1 != c2 {
+                    notifications.push((
+                        format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
+                        MediaStateChanged::ChaptersOrEpisodesChanged,
+                    ));
+                }
+            }
+        };
+        if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &input.podcast_specifics) {
+            if p1.episodes.len() != p2.episodes.len() {
+                notifications.push((
+                    format!(
+                        "Number of episodes changed from {:#?} to {:#?}",
+                        p1.episodes.len(),
+                        p2.episodes.len()
+                    ),
+                    MediaStateChanged::EpisodeReleased,
+                ));
+            } else {
+                for (before_episode, after_episode) in zip(p1.episodes.iter(), p2.episodes.iter()) {
+                    if before_episode.title != after_episode.title {
+                        notifications.push((
+                            format!(
+                                "Episode name changed from {:#?} to {:#?} (EP{})",
+                                before_episode.title, after_episode.title, before_episode.number
+                            ),
+                            MediaStateChanged::EpisodeNameChanged,
+                        ));
+                    }
+                    if before_episode.thumbnail != after_episode.thumbnail {
+                        notifications.push((
+                            format!("Episode image changed for EP{}", before_episode.number),
+                            MediaStateChanged::EpisodeImagesChanged,
+                        ));
                     }
                 }
             }
-            _ => {}
-        }
+        };
 
         let notifications = notifications
             .into_iter()
@@ -2985,46 +2931,53 @@ impl MiscellaneousService {
             .collect_vec();
 
         let mut images = vec![];
-        images.extend(url_images.into_iter().map(|i| MetadataImage {
+        images.extend(input.url_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::Url(i.image),
             lot: i.lot,
         }));
-        images.extend(s3_images.into_iter().map(|i| MetadataImage {
+        images.extend(input.s3_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::S3(i.image),
             lot: i.lot,
         }));
-        let free_creators = if creators.is_empty() {
+        let free_creators = if input.creators.is_empty() {
             None
         } else {
-            Some(creators)
+            Some(input.creators)
         };
 
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
-        meta.title = ActiveValue::Set(title);
-        meta.is_nsfw = ActiveValue::Set(is_nsfw);
+        meta.title = ActiveValue::Set(input.title);
+        meta.is_nsfw = ActiveValue::Set(input.is_nsfw);
         meta.is_partial = ActiveValue::Set(Some(false));
-        meta.provider_rating = ActiveValue::Set(provider_rating);
-        meta.description = ActiveValue::Set(description);
+        meta.provider_rating = ActiveValue::Set(input.provider_rating);
+        meta.description = ActiveValue::Set(input.description);
         meta.images = ActiveValue::Set(Some(images));
-        meta.videos = ActiveValue::Set(Some(videos));
-        meta.production_status = ActiveValue::Set(production_status);
-        meta.original_language = ActiveValue::Set(original_language);
-        meta.publish_year = ActiveValue::Set(publish_year);
-        meta.publish_date = ActiveValue::Set(publish_date);
+        meta.videos = ActiveValue::Set(Some(input.videos));
+        meta.production_status = ActiveValue::Set(input.production_status);
+        meta.original_language = ActiveValue::Set(input.original_language);
+        meta.publish_year = ActiveValue::Set(input.publish_year);
+        meta.publish_date = ActiveValue::Set(input.publish_date);
         meta.free_creators = ActiveValue::Set(free_creators);
-        meta.specifics = ActiveValue::Set(specifics);
-        meta.last_processed_on_for_calendar = ActiveValue::Set(None);
+        meta.anime_specifics = ActiveValue::Set(input.anime_specifics);
+        meta.audio_book_specifics = ActiveValue::Set(input.audio_book_specifics);
+        meta.manga_specifics = ActiveValue::Set(input.manga_specifics);
+        meta.movie_specifics = ActiveValue::Set(input.movie_specifics);
+        meta.podcast_specifics = ActiveValue::Set(input.podcast_specifics);
+        meta.show_specifics = ActiveValue::Set(input.show_specifics);
+        meta.book_specifics = ActiveValue::Set(input.book_specifics);
+        meta.video_game_specifics = ActiveValue::Set(input.video_game_specifics);
+        meta.visual_novel_specifics = ActiveValue::Set(input.visual_novel_specifics);
         let metadata = meta.update(&self.db).await.unwrap();
 
         self.change_metadata_associations(
             metadata.id,
             metadata.lot,
             metadata.source,
-            genres,
-            suggestions,
-            group_identifiers,
-            people,
+            input.genres,
+            input.suggestions,
+            input.group_identifiers,
+            input.people,
         )
         .await?;
         Ok(notifications)
@@ -3229,7 +3182,15 @@ impl MiscellaneousService {
             images: ActiveValue::Set(Some(images)),
             videos: ActiveValue::Set(Some(details.videos)),
             identifier: ActiveValue::Set(details.identifier),
-            specifics: ActiveValue::Set(Some(details.specifics)),
+            audio_book_specifics: ActiveValue::Set(details.audio_book_specifics),
+            anime_specifics: ActiveValue::Set(details.anime_specifics),
+            book_specifics: ActiveValue::Set(details.book_specifics),
+            manga_specifics: ActiveValue::Set(details.manga_specifics),
+            movie_specifics: ActiveValue::Set(details.movie_specifics),
+            podcast_specifics: ActiveValue::Set(details.podcast_specifics),
+            show_specifics: ActiveValue::Set(details.show_specifics),
+            video_game_specifics: ActiveValue::Set(details.video_game_specifics),
+            visual_novel_specifics: ActiveValue::Set(details.visual_novel_specifics),
             provider_rating: ActiveValue::Set(details.provider_rating),
             production_status: ActiveValue::Set(details.production_status),
             original_language: ActiveValue::Set(details.original_language),
@@ -3740,23 +3701,6 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
-                let (show_se, show_ep, podcast_ep, anime_ep, manga_ch) = match r.extra_information {
-                    Some(s) => match s {
-                        SeenOrReviewOrCalendarEventExtraInformation::Show(d) => {
-                            (Some(d.season), Some(d.episode), None, None, None)
-                        }
-                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(d) => {
-                            (None, None, Some(d.episode), None, None)
-                        }
-                        SeenOrReviewOrCalendarEventExtraInformation::Anime(d) => {
-                            (None, None, None, d.episode, None)
-                        }
-                        SeenOrReviewOrCalendarEventExtraInformation::Manga(d) => {
-                            (None, None, None, None, d.chapter)
-                        }
-                    },
-                    None => (None, None, None, None, None),
-                };
                 let rating = match respect_preferences {
                     true => {
                         let preferences =
@@ -3782,11 +3726,10 @@ impl MiscellaneousService {
                     text_original: r.text.clone(),
                     text_rendered: r.text.map(|t| markdown_to_html(&t)),
                     visibility: r.visibility,
-                    show_season: show_se,
-                    show_episode: show_ep,
-                    podcast_episode: podcast_ep,
-                    anime_episode: anime_ep,
-                    manga_chapter: manga_ch,
+                    show_extra_information: r.show_extra_information,
+                    podcast_extra_information: r.podcast_extra_information,
+                    anime_extra_information: r.anime_extra_information,
+                    manga_extra_information: r.manga_extra_information,
                     posted_by: IdAndNamedObject {
                         id: user.id,
                         name: user.name,
@@ -4136,29 +4079,26 @@ impl MiscellaneousService {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
         };
-        let extra_information = if let (Some(season), Some(episode)) =
+        let show_ei = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
-            Some(SeenOrReviewOrCalendarEventExtraInformation::Show(
-                SeenShowExtraInformation { season, episode },
-            ))
-        } else if let Some(episode) = input.podcast_episode_number {
-            Some(SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                SeenPodcastExtraInformation { episode },
-            ))
-        } else if let Some(episode) = input.anime_episode_number {
-            Some(SeenOrReviewOrCalendarEventExtraInformation::Anime(
-                SeenAnimeExtraInformation {
-                    episode: Some(episode),
-                },
-            ))
+            Some(SeenShowExtraInformation { season, episode })
         } else {
-            input.manga_chapter_number.map(|chapter| {
-                SeenOrReviewOrCalendarEventExtraInformation::Manga(SeenMangaExtraInformation {
-                    chapter: Some(chapter),
-                })
-            })
+            None
         };
+        let podcast_ei = input
+            .podcast_episode_number
+            .map(|episode| SeenPodcastExtraInformation { episode });
+        let anime_ei = input
+            .anime_episode_number
+            .map(|episode| SeenAnimeExtraInformation {
+                episode: Some(episode),
+            });
+        let manga_ei = input
+            .manga_chapter_number
+            .map(|chapter| SeenMangaExtraInformation {
+                chapter: Some(chapter),
+            });
         if input.rating.is_none() && input.text.is_none() {
             return Err(Error::new("At-least one of rating or review is required."));
         }
@@ -4179,7 +4119,10 @@ impl MiscellaneousService {
             metadata_group_id: ActiveValue::Set(input.metadata_group_id),
             person_id: ActiveValue::Set(input.person_id),
             collection_id: ActiveValue::Set(input.collection_id),
-            extra_information: ActiveValue::Set(extra_information),
+            show_extra_information: ActiveValue::Set(show_ei),
+            podcast_extra_information: ActiveValue::Set(podcast_ei),
+            anime_extra_information: ActiveValue::Set(anime_ei),
+            manga_extra_information: ActiveValue::Set(manga_ei),
             comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
@@ -4371,23 +4314,13 @@ impl MiscellaneousService {
     pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
-            let (ssn, sen, pen, aen, mcn) = match &si.extra_information {
-                None => (None, None, None, None, None),
-                Some(ei) => match ei {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                        (Some(s.season), Some(s.episode), None, None, None)
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(p) => {
-                        (None, None, Some(p.episode), None, None)
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Anime(a) => {
-                        (None, None, None, a.episode, None)
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Manga(m) => {
-                        (None, None, None, None, m.chapter)
-                    }
-                },
+            let (ssn, sen) = match &si.show_extra_information {
+                Some(d) => (Some(d.season), Some(d.episode)),
+                None => (None, None),
             };
+            let pen = si.podcast_extra_information.as_ref().map(|d| d.episode);
+            let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
+            let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
             let cache = ProgressUpdateCache {
                 user_id,
                 metadata_id: si.metadata_id,
@@ -4439,29 +4372,7 @@ impl MiscellaneousService {
             .details_from_provider_for_existing_media(metadata_id)
             .await;
         let notifications = match maybe_details {
-            Ok(details) => {
-                self.update_media(
-                    metadata_id,
-                    details.title,
-                    details.is_nsfw,
-                    details.description,
-                    details.provider_rating,
-                    details.url_images,
-                    details.s3_images,
-                    details.videos,
-                    Some(details.specifics),
-                    details.creators,
-                    details.people,
-                    details.genres,
-                    details.production_status,
-                    details.original_language,
-                    details.publish_year,
-                    details.publish_date,
-                    details.suggestions,
-                    details.group_identifiers,
-                )
-                .await?
-            }
+            Ok(details) => self.update_media(metadata_id, details).await?,
             Err(e) => {
                 tracing::error!("Error while updating metadata = {:?}: {:?}", metadata_id, e);
                 vec![]
@@ -4626,107 +4537,81 @@ impl MiscellaneousService {
         while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
             let meta = metadata.to_owned().unwrap();
             let mut units_consumed = None;
-            if let Some(specs) = meta.specifics {
-                match specs {
-                    MediaSpecifics::AudioBook(item) => {
-                        ls.unique_items.audio_books.insert(meta.id);
-                        if let Some(r) = item.runtime {
-                            ls.media.audio_books.runtime += r;
-                            units_consumed = Some(r);
-                        }
-                    }
-                    MediaSpecifics::Book(item) => {
-                        ls.unique_items.books.insert(meta.id);
-                        if let Some(pg) = item.pages {
-                            ls.media.books.pages += pg;
-                            units_consumed = Some(pg);
-                        }
-                    }
-                    MediaSpecifics::Movie(item) => {
-                        ls.unique_items.movies.insert(meta.id);
-                        if let Some(r) = item.runtime {
-                            ls.media.movies.runtime += r;
-                            units_consumed = Some(r);
-                        }
-                    }
-                    MediaSpecifics::Anime(item) => {
-                        ls.unique_items.anime.insert(meta.id);
-                        match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Anime(s) => {
-                                if let (Some(_), Some(episode)) = (item.episodes, s.episode) {
-                                    ls.unique_items.anime_episodes.insert((meta.id, episode));
-                                    units_consumed = Some(1);
-                                }
-                            }
-                            _ => unreachable!(),
-                        };
-                    }
-                    MediaSpecifics::Manga(item) => {
-                        ls.unique_items.manga.insert(meta.id);
-                        match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Manga(s) => {
-                                if let (Some(_), Some(chapter)) = (item.chapters, s.chapter) {
-                                    ls.unique_items.manga_chapters.insert((meta.id, chapter));
-                                    units_consumed = Some(1);
-                                }
-                            }
-                            _ => unreachable!(),
-                        };
-                    }
-                    MediaSpecifics::Show(item) => {
-                        ls.unique_items.shows.insert(seen.metadata_id);
-                        match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Show(s) => {
-                                if let Some((season, episode)) =
-                                    item.get_episode(s.season, s.episode)
-                                {
-                                    if let Some(r) = episode.runtime {
-                                        ls.media.shows.runtime += r;
-                                        units_consumed = Some(r);
-                                    }
-                                    ls.unique_items.show_episodes.insert((
-                                        meta.id,
-                                        season.season_number,
-                                        episode.episode_number,
-                                    ));
-                                    ls.unique_items
-                                        .show_seasons
-                                        .insert((meta.id, season.season_number));
-                                }
-                            }
-                            _ => unreachable!(),
-                        };
-                    }
-                    MediaSpecifics::Podcast(item) => {
-                        ls.unique_items.podcasts.insert(seen.metadata_id);
-                        match seen.extra_information.to_owned().unwrap() {
-                            SeenOrReviewOrCalendarEventExtraInformation::Podcast(s) => {
-                                if let Some(episode) = item.get_episode(s.episode) {
-                                    if let Some(r) = episode.runtime {
-                                        ls.media.podcasts.runtime += r;
-                                        units_consumed = Some(r);
-                                    }
-                                    ls.unique_items
-                                        .podcast_episodes
-                                        .insert((meta.id, s.episode));
-                                }
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    MediaSpecifics::VideoGame(_item) => {
-                        ls.unique_items.video_games.insert(seen.metadata_id);
-                    }
-                    MediaSpecifics::VisualNovel(item) => {
-                        ls.unique_items.visual_novels.insert(seen.metadata_id);
-                        if let Some(r) = item.length {
-                            ls.media.visual_novels.runtime += r;
-                            units_consumed = Some(r);
-                        }
-                    }
-                    MediaSpecifics::Unknown => {}
+            if let Some(item) = meta.audio_book_specifics {
+                ls.unique_items.audio_books.insert(meta.id);
+                if let Some(r) = item.runtime {
+                    ls.media.audio_books.runtime += r;
+                    units_consumed = Some(r);
                 }
-            }
+            } else if let Some(item) = meta.book_specifics {
+                ls.unique_items.books.insert(meta.id);
+                if let Some(pg) = item.pages {
+                    ls.media.books.pages += pg;
+                    units_consumed = Some(pg);
+                }
+            } else if let Some(item) = meta.movie_specifics {
+                ls.unique_items.movies.insert(meta.id);
+                if let Some(r) = item.runtime {
+                    ls.media.movies.runtime += r;
+                    units_consumed = Some(r);
+                }
+            } else if let Some(item) = meta.anime_specifics {
+                ls.unique_items.anime.insert(meta.id);
+                if let Some(s) = seen.anime_extra_information.to_owned() {
+                    if let (Some(_), Some(episode)) = (item.episodes, s.episode) {
+                        ls.unique_items.anime_episodes.insert((meta.id, episode));
+                        units_consumed = Some(1);
+                    }
+                }
+            } else if let Some(item) = meta.manga_specifics {
+                ls.unique_items.manga.insert(meta.id);
+                if let Some(s) = seen.manga_extra_information.to_owned() {
+                    if let (Some(_), Some(chapter)) = (item.chapters, s.chapter) {
+                        ls.unique_items.manga_chapters.insert((meta.id, chapter));
+                        units_consumed = Some(1);
+                    }
+                }
+            } else if let Some(item) = meta.show_specifics {
+                ls.unique_items.shows.insert(seen.metadata_id);
+                if let Some(s) = seen.show_extra_information.to_owned() {
+                    if let Some((season, episode)) = item.get_episode(s.season, s.episode) {
+                        if let Some(r) = episode.runtime {
+                            ls.media.shows.runtime += r;
+                            units_consumed = Some(r);
+                        }
+                        ls.unique_items.show_episodes.insert((
+                            meta.id,
+                            season.season_number,
+                            episode.episode_number,
+                        ));
+                        ls.unique_items
+                            .show_seasons
+                            .insert((meta.id, season.season_number));
+                    }
+                };
+            } else if let Some(item) = meta.podcast_specifics {
+                ls.unique_items.podcasts.insert(seen.metadata_id);
+                if let Some(s) = seen.podcast_extra_information.to_owned() {
+                    if let Some(episode) = item.get_episode(s.episode) {
+                        if let Some(r) = episode.runtime {
+                            ls.media.podcasts.runtime += r;
+                            units_consumed = Some(r);
+                        }
+                        ls.unique_items
+                            .podcast_episodes
+                            .insert((meta.id, s.episode));
+                    }
+                }
+            } else if let Some(_item) = meta.video_game_specifics {
+                ls.unique_items.video_games.insert(seen.metadata_id);
+            } else if let Some(item) = meta.visual_novel_specifics {
+                ls.unique_items.visual_novels.insert(seen.metadata_id);
+                if let Some(r) = item.length {
+                    ls.media.visual_novels.runtime += r;
+                    units_consumed = Some(r);
+                }
+            };
+
             if let Some(consumed_update) = units_consumed {
                 UserToEntity::update_many()
                     .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -4905,51 +4790,7 @@ impl MiscellaneousService {
         &self,
         input: CreateCustomMediaInput,
         user_id: i32,
-    ) -> Result<CreateCustomMediaResult> {
-        let mut input = input;
-        let err = || {
-            Ok(CreateCustomMediaResult::Error(CreateCustomMediaError {
-                error: CreateCustomMediaErrorVariant::LotDoesNotMatchSpecifics,
-            }))
-        };
-        let specifics = match input.lot {
-            MetadataLot::AudioBook => match input.audio_book_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::AudioBook(s.clone()),
-            },
-            MetadataLot::Book => match input.book_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::Book(s.clone()),
-            },
-            MetadataLot::Movie => match input.movie_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::Movie(s.clone()),
-            },
-            MetadataLot::Podcast => match input.podcast_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::Podcast(s.clone()),
-            },
-            MetadataLot::Show => match input.show_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::Show(s.clone()),
-            },
-            MetadataLot::VideoGame => match input.video_game_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::VideoGame(s.clone()),
-            },
-            MetadataLot::VisualNovel => match input.visual_novel_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::VisualNovel(s.clone()),
-            },
-            MetadataLot::Anime => match input.anime_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::Anime(s.clone()),
-            },
-            MetadataLot::Manga => match input.manga_specifics {
-                None => return err(),
-                Some(ref mut s) => MediaSpecifics::Manga(s.clone()),
-            },
-        };
+    ) -> Result<IdObject> {
         let identifier = Uuid::new_v4().to_string();
         let images = input
             .images
@@ -4988,18 +4829,18 @@ impl MiscellaneousService {
             creators,
             genres: input.genres.unwrap_or_default(),
             s3_images: images,
-            url_images: vec![],
             videos,
             publish_year: input.publish_year,
-            specifics,
-            production_status: None,
-            provider_rating: None,
-            is_nsfw: input.is_nsfw,
-            publish_date: None,
-            suggestions: vec![],
-            group_identifiers: vec![],
-            people: vec![],
-            original_language: None,
+            anime_specifics: input.anime_specifics,
+            audio_book_specifics: input.audio_book_specifics,
+            book_specifics: input.book_specifics,
+            manga_specifics: input.manga_specifics,
+            movie_specifics: input.movie_specifics,
+            podcast_specifics: input.podcast_specifics,
+            show_specifics: input.show_specifics,
+            video_game_specifics: input.video_game_specifics,
+            visual_novel_specifics: input.visual_novel_specifics,
+            ..Default::default()
         };
         let media = self.commit_media_internal(details).await?;
         self.add_entity_to_collection(
@@ -5011,7 +4852,7 @@ impl MiscellaneousService {
             },
         )
         .await?;
-        Ok(CreateCustomMediaResult::Ok(media))
+        Ok(media)
     }
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
@@ -5902,78 +5743,75 @@ impl MiscellaneousService {
                 if metadata.model.lot == MetadataLot::Podcast
                     || metadata.model.lot == MetadataLot::Show
                 {
-                    if let Some(specifics) = metadata.model.specifics {
-                        // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
-                        // correspond to each episode exactly once, it means the show can be removed
-                        // from the "In Progress" collection.
-                        let all_episodes = match specifics {
-                            MediaSpecifics::Show(s) => s
-                                .seasons
-                                .into_iter()
-                                .filter(|s| s.name != "Specials")
-                                .flat_map(|s| {
-                                    s.episodes.into_iter().map(move |e| {
-                                        format!("{}-{}", s.season_number, e.episode_number)
-                                    })
-                                })
-                                .collect_vec(),
-                            MediaSpecifics::Podcast(p) => p
-                                .episodes
-                                .into_iter()
-                                .map(|e| format!("{}", e.number))
-                                .collect_vec(),
-                            _ => unreachable!(),
-                        };
-                        let seen_history =
-                            self.seen_history(seen.user_id, seen.metadata_id).await?;
-                        let mut bag = HashMap::<String, i32>::from_iter(
-                            all_episodes.iter().cloned().map(|e| (e, 0)),
-                        );
-                        seen_history
+                    // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
+                    // correspond to each episode exactly once, it means the show can be removed
+                    // from the "In Progress" collection.
+                    let all_episodes = if let Some(s) = metadata.model.show_specifics {
+                        s.seasons
                             .into_iter()
-                            .map(|h| {
-                                if let Some(s) = h.show_information {
-                                    format!("{}-{}", s.season, s.episode)
-                                } else if let Some(p) = h.podcast_information {
-                                    format!("{}", p.episode)
-                                } else {
-                                    String::new()
-                                }
+                            .filter(|s| s.name != "Specials")
+                            .flat_map(|s| {
+                                s.episodes.into_iter().map(move |e| {
+                                    format!("{}-{}", s.season_number, e.episode_number)
+                                })
                             })
-                            .take_while_inclusive(|h| h != all_episodes.first().unwrap())
-                            .for_each(|ep| {
-                                bag.entry(ep).and_modify(|c| *c += 1);
-                            });
-                        let is_complete = bag.values().all(|&e| e == 1);
-                        if is_complete {
-                            self.remove_entity_from_collection(
-                                seen.user_id,
-                                ChangeCollectionToEntityInput {
-                                    collection_name: DefaultCollection::InProgress.to_string(),
-                                    entity_id: seen.metadata_id.to_string(),
-                                    entity_lot: EntityLot::Media,
-                                },
-                            )
-                            .await
-                            .ok();
-                        } else {
-                            self.add_entity_to_collection(
-                                seen.user_id,
-                                ChangeCollectionToEntityInput {
-                                    collection_name: DefaultCollection::InProgress.to_string(),
-                                    entity_id: seen.metadata_id.to_string(),
-                                    entity_lot: EntityLot::Media,
-                                },
-                            )
-                            .await
-                            .ok();
-                            let is_monitored = self
-                                .get_monitored_status(seen.user_id, seen.metadata_id)
-                                .await?;
-                            if !is_monitored {
-                                self.toggle_media_monitor(seen.user_id, seen.metadata_id)
-                                    .await?;
+                            .collect_vec()
+                    } else if let Some(p) = metadata.model.podcast_specifics {
+                        p.episodes
+                            .into_iter()
+                            .map(|e| format!("{}", e.number))
+                            .collect_vec()
+                    } else {
+                        unreachable!();
+                    };
+                    let seen_history = self.seen_history(seen.user_id, seen.metadata_id).await?;
+                    let mut bag = HashMap::<String, i32>::from_iter(
+                        all_episodes.iter().cloned().map(|e| (e, 0)),
+                    );
+                    seen_history
+                        .into_iter()
+                        .map(|h| {
+                            if let Some(s) = h.show_extra_information {
+                                format!("{}-{}", s.season, s.episode)
+                            } else if let Some(p) = h.podcast_extra_information {
+                                format!("{}", p.episode)
+                            } else {
+                                String::new()
                             }
+                        })
+                        .take_while_inclusive(|h| h != all_episodes.first().unwrap())
+                        .for_each(|ep| {
+                            bag.entry(ep).and_modify(|c| *c += 1);
+                        });
+                    let is_complete = bag.values().all(|&e| e == 1);
+                    if is_complete {
+                        self.remove_entity_from_collection(
+                            seen.user_id,
+                            ChangeCollectionToEntityInput {
+                                collection_name: DefaultCollection::InProgress.to_string(),
+                                entity_id: seen.metadata_id.to_string(),
+                                entity_lot: EntityLot::Media,
+                            },
+                        )
+                        .await
+                        .ok();
+                    } else {
+                        self.add_entity_to_collection(
+                            seen.user_id,
+                            ChangeCollectionToEntityInput {
+                                collection_name: DefaultCollection::InProgress.to_string(),
+                                entity_id: seen.metadata_id.to_string(),
+                                entity_lot: EntityLot::Media,
+                            },
+                        )
+                        .await
+                        .ok();
+                        let is_monitored = self
+                            .get_monitored_status(seen.user_id, seen.metadata_id)
+                            .await?;
+                        if !is_monitored {
+                            self.toggle_media_monitor(seen.user_id, seen.metadata_id)
+                                .await?;
                         }
                     }
                 } else {
@@ -6584,23 +6422,22 @@ GROUP BY
             .all(&self.db)
             .await?;
         for m in all_meta.iter() {
-            let mut seen_history = m
+            let seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
-            modify_seen_elements(&mut seen_history);
             let seen_history = seen_history
                 .into_iter()
                 .map(|s| {
-                    let (show_season_number, show_episode_number) = match s.show_information {
+                    let (show_season_number, show_episode_number) = match s.show_extra_information {
                         Some(d) => (Some(d.season), Some(d.episode)),
                         None => (None, None),
                     };
-                    let podcast_episode_number = s.podcast_information.map(|d| d.episode);
-                    let anime_episode_number = s.anime_information.and_then(|d| d.episode);
-                    let manga_chapter_number = s.manga_information.and_then(|d| d.chapter);
+                    let podcast_episode_number = s.podcast_extra_information.map(|d| d.episode);
+                    let anime_episode_number = s.anime_extra_information.and_then(|d| d.episode);
+                    let manga_chapter_number = s.manga_extra_information.and_then(|d| d.chapter);
                     ImportOrExportMediaItemSeen {
                         progress: Some(s.progress),
                         started_on: s.started_on.map(convert_naive_to_utc),
@@ -6745,119 +6582,108 @@ GROUP BY
         Ok(true)
     }
 
-    // FIXME: Refactor this to use database queries instead of sea-orm.
     #[instrument(skip(self))]
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
-        let mut calendar_stream = CalendarEvent::find()
-            .order_by_asc(calendar_event::Column::Id)
+        let date_to_calculate_from = get_current_date(self.timezone.as_ref()).pred_opt().unwrap();
+
+        let mut meta_stream = Metadata::find()
+            .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
+            .filter(metadata::Column::IsPartial.eq(false))
             .stream(&self.db)
             .await?;
-        while let Some(cal_event) = calendar_stream.try_next().await? {
-            let meta = cal_event
-                .find_related(Metadata)
-                .one(&self.db)
-                .await?
-                .unwrap();
-            let mut need_to_delete = false;
-            if let Some(extra_info) = cal_event.metadata_extra_information {
-                match extra_info {
-                    SeenOrReviewOrCalendarEventExtraInformation::Show(show) => {
-                        if let MediaSpecifics::Show(show_info) = meta.specifics.unwrap() {
-                            if let Some((_, ep)) = show_info.get_episode(show.season, show.episode)
-                            {
-                                if ep.publish_date.unwrap() != cal_event.date {
-                                    need_to_delete = true;
-                                }
-                            }
-                        }
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => {
-                        if let MediaSpecifics::Podcast(podcast_info) = meta.specifics.unwrap() {
-                            if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                                if ep.publish_date != cal_event.date {
-                                    need_to_delete = true;
-                                }
-                            }
-                        }
-                    }
-                    SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
-                    SeenOrReviewOrCalendarEventExtraInformation::Manga(_) => unreachable!(),
-                }
-            } else if cal_event.date != meta.publish_date.unwrap() {
-                need_to_delete = true;
-            }
 
-            if need_to_delete {
-                tracing::debug!(
-                    "Need to delete calendar event id = {:#?} since it is invalid",
-                    cal_event.id
-                );
-                CalendarEvent::delete_by_id(cal_event.id)
-                    .exec(&self.db)
-                    .await?;
+        while let Some(meta) = meta_stream.try_next().await? {
+            let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
+            for cal_event in calendar_events {
+                let mut need_to_delete = false;
+                if let Some(show) = cal_event.metadata_show_extra_information {
+                    if let Some(show_info) = &meta.show_specifics {
+                        if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
+                            if ep.publish_date.unwrap() != cal_event.date {
+                                need_to_delete = true;
+                            }
+                        }
+                    }
+                } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
+                    if let Some(podcast_info) = &meta.podcast_specifics {
+                        if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                            if ep.publish_date != cal_event.date {
+                                need_to_delete = true;
+                            }
+                        }
+                    }
+                } else if cal_event.date != meta.publish_date.unwrap() {
+                    need_to_delete = true;
+                };
+
+                if need_to_delete {
+                    tracing::debug!(
+                        "Need to delete calendar event id = {:#?} since it is outdated",
+                        cal_event.id
+                    );
+                    CalendarEvent::delete_by_id(cal_event.id)
+                        .exec(&self.db)
+                        .await?;
+                }
             }
         }
+
         tracing::debug!("Finished deleting invalid calendar events");
 
         let mut metadata_stream = Metadata::find()
-            .filter(metadata::Column::LastProcessedOnForCalendar.is_null())
+            .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
             .filter(metadata::Column::PublishDate.is_not_null())
-            .filter(metadata::Column::Specifics.is_not_null())
-            .filter(metadata::Column::IsPartial.eq(false))
+            .filter(
+                metadata::Column::IsPartial
+                    .is_null()
+                    .or(metadata::Column::IsPartial.eq(false)),
+            )
             .order_by_desc(metadata::Column::LastUpdatedOn)
             .stream(&self.db)
             .await?;
         let mut calendar_events_inserts = vec![];
         let mut metadata_updates = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {
-            match &meta.specifics.unwrap() {
-                MediaSpecifics::Podcast(ps) => {
-                    for episode in ps.episodes.iter() {
-                        let event = calendar_event::ActiveModel {
-                            metadata_id: ActiveValue::Set(Some(meta.id)),
-                            date: ActiveValue::Set(episode.publish_date),
-                            metadata_extra_information: ActiveValue::Set(Some(
-                                SeenOrReviewOrCalendarEventExtraInformation::Podcast(
-                                    SeenPodcastExtraInformation {
-                                        episode: episode.number,
-                                    },
-                                ),
-                            )),
-                            ..Default::default()
-                        };
-                        calendar_events_inserts.push(event);
-                    }
-                }
-                MediaSpecifics::Show(ss) => {
-                    for season in ss.seasons.iter() {
-                        for episode in season.episodes.iter() {
-                            if let Some(date) = episode.publish_date {
-                                let event = calendar_event::ActiveModel {
-                                    metadata_id: ActiveValue::Set(Some(meta.id)),
-                                    date: ActiveValue::Set(date),
-                                    metadata_extra_information: ActiveValue::Set(Some(
-                                        SeenOrReviewOrCalendarEventExtraInformation::Show(
-                                            SeenShowExtraInformation {
-                                                season: season.season_number,
-                                                episode: episode.episode_number,
-                                            },
-                                        ),
-                                    )),
-                                    ..Default::default()
-                                };
-                                calendar_events_inserts.push(event);
-                            }
-                        }
-                    }
-                }
-                _ => {
+            if let Some(ps) = &meta.podcast_specifics {
+                for episode in ps.episodes.iter() {
                     let event = calendar_event::ActiveModel {
                         metadata_id: ActiveValue::Set(Some(meta.id)),
-                        date: ActiveValue::Set(meta.publish_date.unwrap()),
+                        date: ActiveValue::Set(episode.publish_date),
+                        metadata_podcast_extra_information: ActiveValue::Set(Some(
+                            SeenPodcastExtraInformation {
+                                episode: episode.number,
+                            },
+                        )),
                         ..Default::default()
                     };
                     calendar_events_inserts.push(event);
                 }
+            } else if let Some(ss) = &meta.show_specifics {
+                for season in ss.seasons.iter() {
+                    for episode in season.episodes.iter() {
+                        if let Some(date) = episode.publish_date {
+                            let event = calendar_event::ActiveModel {
+                                metadata_id: ActiveValue::Set(Some(meta.id)),
+                                date: ActiveValue::Set(date),
+                                metadata_show_extra_information: ActiveValue::Set(Some(
+                                    SeenShowExtraInformation {
+                                        season: season.season_number,
+                                        episode: episode.episode_number,
+                                    },
+                                )),
+                                ..Default::default()
+                            };
+                            calendar_events_inserts.push(event);
+                        }
+                    }
+                }
+            } else {
+                let event = calendar_event::ActiveModel {
+                    metadata_id: ActiveValue::Set(Some(meta.id)),
+                    date: ActiveValue::Set(meta.publish_date.unwrap()),
+                    ..Default::default()
+                };
+                calendar_events_inserts.push(event);
             };
             metadata_updates.push(meta.id);
         }
@@ -6868,19 +6694,6 @@ GROUP BY
             );
             for cal_insert in calendar_events_inserts {
                 cal_insert.insert(&self.db).await.ok();
-            }
-        }
-        if !metadata_updates.is_empty() {
-            for updates in metadata_updates.chunks(800) {
-                Metadata::update_many()
-                    .set(metadata::ActiveModel {
-                        last_processed_on_for_calendar: ActiveValue::Set(Some(Utc::now())),
-                        ..Default::default()
-                    })
-                    .filter(metadata::Column::Id.is_in(updates.to_owned()))
-                    .exec(&self.db)
-                    .await
-                    .ok();
             }
         }
         tracing::debug!("Finished updating calendar events");
@@ -6900,19 +6713,16 @@ GROUP BY
             .map(|(cal_event, meta)| {
                 let meta = meta.unwrap();
                 let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
-                let notification = if let Some(extra_info) = cal_event.metadata_extra_information {
-                    match extra_info {
-                        SeenOrReviewOrCalendarEventExtraInformation::Show(show) => format!(
-                            "S{}E{} of {} ({}) has been released today.",
-                            show.season, show.episode, meta.title, url
-                        ),
-                        SeenOrReviewOrCalendarEventExtraInformation::Podcast(podcast) => format!(
-                            "E{} of {} ({}) has been released today.",
-                            podcast.episode, meta.title, url
-                        ),
-                        SeenOrReviewOrCalendarEventExtraInformation::Anime(_) => unreachable!(),
-                        SeenOrReviewOrCalendarEventExtraInformation::Manga(_) => unreachable!(),
-                    }
+                let notification = if let Some(show) = cal_event.metadata_show_extra_information {
+                    format!(
+                        "S{}E{} of {} ({}) has been released today.",
+                        show.season, show.episode, meta.title, url
+                    )
+                } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
+                    format!(
+                        "E{} of {} ({}) has been released today.",
+                        podcast.episode, meta.title, url
+                    )
                 } else {
                     format!("{} ({}) has been released today.", meta.title, url)
                 };
@@ -7074,28 +6884,14 @@ GROUP BY
     }
 }
 
-fn modify_seen_elements(all_seen: &mut [seen::Model]) {
-    all_seen.iter_mut().for_each(|s| {
-        if let Some(i) = s.extra_information.as_ref() {
-            match i {
-                SeenOrReviewOrCalendarEventExtraInformation::Show(sea) => {
-                    s.show_information = Some(sea.clone());
-                }
-                SeenOrReviewOrCalendarEventExtraInformation::Podcast(sea) => {
-                    s.podcast_information = Some(sea.clone());
-                }
-                SeenOrReviewOrCalendarEventExtraInformation::Anime(sea) => {
-                    s.anime_information = Some(sea.clone());
-                }
-                SeenOrReviewOrCalendarEventExtraInformation::Manga(sea) => {
-                    s.manga_information = Some(sea.clone());
-                }
-            };
-        }
-    });
-}
-
 fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
+    let (show_season_number, show_episode_number) = match rev.show_extra_information {
+        Some(d) => (Some(d.season), Some(d.episode)),
+        None => (None, None),
+    };
+    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
+    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
+    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
     ImportOrExportItemRating {
         review: Some(ImportOrExportItemReview {
             visibility: Some(rev.visibility),
@@ -7104,9 +6900,11 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
             text: rev.text_original,
         }),
         rating: rev.rating,
-        show_season_number: rev.show_season,
-        show_episode_number: rev.show_episode,
-        podcast_episode_number: rev.podcast_episode,
+        show_season_number,
+        show_episode_number,
+        podcast_episode_number,
+        anime_episode_number,
+        manga_chapter_number,
         comments: match rev.comments.is_empty() {
             true => None,
             false => Some(rev.comments),

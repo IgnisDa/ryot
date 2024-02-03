@@ -12,7 +12,7 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
+            BookSpecifics, MediaDetails, MediaSearchItem, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot,
         },
         SearchDetails, SearchResults,
@@ -227,20 +227,12 @@ impl GoogleBooksService {
             genres: genres.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             publish_date: None,
-            specifics: MediaSpecifics::Book(BookSpecifics {
+            book_specifics: Some(BookSpecifics {
                 pages: item.page_count,
             }),
             url_images: images.unique().collect(),
             provider_rating: item.average_rating,
-            // DEV: I could not find a way to get similar books from the API
-            suggestions: vec![],
-            group_identifiers: vec![],
-            videos: vec![],
-            is_nsfw: None,
-            people: vec![],
-            s3_images: vec![],
-            production_status: None,
-            original_language: None,
+            ..Default::default()
         }
     }
 

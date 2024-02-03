@@ -41,6 +41,8 @@ query MediaAdditionalDetails($metadataId: Int!) {
       totalEpisodes
     }
     showSpecifics {
+      totalSeasons
+      totalEpisodes
       runtime
       seasons {
         seasonNumber

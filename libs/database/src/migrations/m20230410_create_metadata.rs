@@ -125,16 +125,22 @@ pub enum Metadata {
     Source,
     // the rating from the provider
     ProviderRating,
-    // details about the media
-    Specifics,
     // whether the entire data for this has been downloaded
     IsPartial,
     // whether it is not safe for work
     IsNsfw,
-    // time when this item has been processed by the calendar indexer
-    LastProcessedOnForCalendar,
     // those creators who can not be created as a `person` due to incomplete info
     FreeCreators,
+    // specifics for each type of media
+    AudioBookSpecifics,
+    AnimeSpecifics,
+    BookSpecifics,
+    PodcastSpecifics,
+    MangaSpecifics,
+    MovieSpecifics,
+    ShowSpecifics,
+    VideoGameSpecifics,
+    VisualNovelSpecifics,
 }
 
 #[async_trait::async_trait]
@@ -168,10 +174,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Description).text())
                     .col(ColumnDef::new(Metadata::ProductionStatus).string())
                     .col(ColumnDef::new(Metadata::OriginalLanguage).string())
-                    .col(
-                        ColumnDef::new(Metadata::LastProcessedOnForCalendar)
-                            .timestamp_with_time_zone(),
-                    )
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
@@ -181,8 +183,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean())
                     .col(ColumnDef::new(Metadata::Identifier).string().not_null())
                     .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
-                    .col(ColumnDef::new(Metadata::Specifics).json_binary())
                     .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
+                    .col(ColumnDef::new(Metadata::AudioBookSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::AnimeSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::BookSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::PodcastSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::MangaSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::MovieSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::ShowSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::VideoGameSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::VisualNovelSpecifics).json_binary())
                     .to_owned(),
             )
             .await?;

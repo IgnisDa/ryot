@@ -1,3 +1,20 @@
+fragment SeenPodcastExtraInformationPart on SeenPodcastExtraInformation {
+  episode
+}
+
+fragment SeenShowExtraInformationPart on SeenShowExtraInformation {
+  episode
+  season
+}
+
+fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
+  episode
+}
+
+fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
+  chapter
+}
+
 fragment CalendarEventPart on GraphqlCalendarEvent {
   calendarEventId
   metadataId
@@ -5,9 +22,12 @@ fragment CalendarEventPart on GraphqlCalendarEvent {
   metadataLot
   metadataImage
   date
-  showSeasonNumber
-  showEpisodeNumber
-  podcastEpisodeNumber
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
+  }
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
+  }
 }
 
 fragment SeenPart on Seen {
@@ -18,18 +38,17 @@ fragment SeenPart on Seen {
   finishedOn
   lastUpdatedOn
   numTimesUpdated
-  showInformation {
-    episode
-    season
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
   }
-  podcastInformation {
-    episode
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
   }
-  animeInformation {
-    episode
+  animeExtraInformation {
+    ...SeenAnimeExtraInformationPart
   }
-  mangaInformation {
-    chapter
+  mangaExtraInformation {
+    ...SeenMangaExtraInformationPart
   }
 }
 
@@ -103,11 +122,6 @@ fragment ReviewItemPart on ReviewItem {
   textRendered
   spoiler
   visibility
-  showSeason
-  showEpisode
-  podcastEpisode
-  animeEpisode
-  mangaChapter
   postedOn
   postedBy {
     id
@@ -122,5 +136,17 @@ fragment ReviewItemPart on ReviewItem {
       name
     }
     likedBy
+  }
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
+  }
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
+  }
+  animeExtraInformation {
+    ...SeenAnimeExtraInformationPart
+  }
+  mangaExtraInformation {
+    ...SeenMangaExtraInformationPart
   }
 }

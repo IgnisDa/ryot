@@ -11,8 +11,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MediaSearchItem, MetadataFreeCreator, MetadataImageForMediaDetails,
+            MetadataImageLot, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -67,7 +67,7 @@ struct ITunesItem {
     description: Option<String>,
     artist_name: Option<String>,
     genres: Option<Vec<Genre>>,
-    track_count: Option<i32>,
+    track_count: Option<usize>,
     track_id: Option<i64>,
     artwork_url_100: Option<String>,
     artwork_url_30: Option<String>,
@@ -173,21 +173,11 @@ impl MediaProvider for ITunesService {
             url_images,
             creators,
             genres,
-            specifics: MediaSpecifics::Podcast(PodcastSpecifics {
+            podcast_specifics: Some(PodcastSpecifics {
                 episodes,
                 total_episodes,
             }),
-            // DEV: API does not return any ratings
-            provider_rating: None,
-            // DEV: I could not find a way to get similar podcasts from the API
-            suggestions: vec![],
-            group_identifiers: vec![],
-            videos: vec![],
-            is_nsfw: None,
-            people: vec![],
-            s3_images: vec![],
-            production_status: None,
-            original_language: None,
+            ..Default::default()
         })
     }
 

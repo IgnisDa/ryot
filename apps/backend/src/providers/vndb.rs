@@ -11,8 +11,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, PartialMetadataPerson, VisualNovelSpecifics,
+            MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataPerson, PartialMetadataPerson, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -232,18 +232,12 @@ impl VndbService {
             genres: genres.into_iter().unique().collect(),
             publish_year: item.released.clone().and_then(|d| convert_date_to_year(&d)),
             publish_date: item.released.and_then(|d| convert_string_to_date(&d)),
-            specifics: MediaSpecifics::VisualNovel(VisualNovelSpecifics {
+            visual_novel_specifics: Some(VisualNovelSpecifics {
                 length: item.length_minutes,
             }),
             provider_rating: item.rating,
             url_images: images.unique().collect(),
-            is_nsfw: None,
-            videos: vec![],
-            suggestions: vec![],
-            creators: vec![],
-            s3_images: vec![],
-            group_identifiers: vec![],
-            original_language: None,
+            ..Default::default()
         }
     }
 }

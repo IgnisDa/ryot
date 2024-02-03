@@ -48,8 +48,6 @@ pub enum Review {
     PostedOn,
     Rating,
     Text,
-    // for the time being this stores the `season` and `episode` numbers
-    ExtraInformation,
     Visibility,
     UserId,
     MetadataId,
@@ -58,6 +56,10 @@ pub enum Review {
     CollectionId,
     Spoiler,
     Comments,
+    ShowExtraInformation,
+    PodcastExtraInformation,
+    AnimeExtraInformation,
+    MangaExtraInformation,
 }
 
 #[async_trait::async_trait]
@@ -89,7 +91,10 @@ impl MigrationTrait for Migration {
                             .default(false),
                     )
                     .col(ColumnDef::new(Review::Comments).json_binary().not_null())
-                    .col(ColumnDef::new(Review::ExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::ShowExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::PodcastExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::AnimeExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::MangaExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(Review::Visibility)
                             .string_len(2)

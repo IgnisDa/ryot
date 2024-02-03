@@ -38,7 +38,6 @@ import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
-import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
@@ -72,14 +71,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		{ input },
 		await getAuthorizationHeader(request),
 	);
-	if (createCustomMedia.__typename === "IdObject")
-		return redirect($path("/media/item/:id", { id: createCustomMedia.id }));
-	return json({ status: "error", submission } as const, {
-		headers: await createToastHeaders({
-			type: "error",
-			message: createCustomMedia.error,
-		}),
-	});
+	return redirect($path("/media/item/:id", { id: createCustomMedia.id }));
 };
 
 const optionalString = z.string().optional();

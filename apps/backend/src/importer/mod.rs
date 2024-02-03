@@ -437,6 +437,7 @@ impl ImporterService {
                             show_season_number: review.show_season_number,
                             show_episode_number: review.show_episode_number,
                             podcast_episode_number: review.podcast_episode_number,
+                            manga_chapter_number: review.manga_chapter_number,
                             ..Default::default()
                         },
                     )

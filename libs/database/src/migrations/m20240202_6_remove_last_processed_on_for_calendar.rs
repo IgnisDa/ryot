@@ -7,13 +7,13 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         if manager
-            .has_column("calendar_event", "metadata_extra_information")
+            .has_column("metadata", "last_processed_on_for_calendar")
             .await?
         {
             let db = manager.get_connection();
-            db.execute_unprepared(r#"
-UPDATE "calendar_event" SET metadata_extra_information = NULL WHERE metadata_extra_information = '{"Other": null}'
-        "#)
+            db.execute_unprepared(
+                r#"ALTER TABLE metadata DROP COLUMN last_processed_on_for_calendar"#,
+            )
             .await?;
         }
         Ok(())

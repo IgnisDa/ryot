@@ -11,9 +11,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            MangaSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
-            PartialMetadataWithoutId,
+            MangaSpecifics, MediaDetails, MediaSearchItem, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, PartialMetadataPerson, PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults,
     },
@@ -328,20 +327,14 @@ impl MediaProvider for MangaUpdatesService {
                 })
                 .collect(),
             publish_year: data.year.and_then(|y| y.parse().ok()),
-            specifics: MediaSpecifics::Manga(MangaSpecifics {
+            manga_specifics: Some(MangaSpecifics {
                 chapters: data.latest_chapter,
                 volumes: None,
                 url: data.url,
             }),
             suggestions,
             provider_rating: data.bayesian_rating,
-            videos: vec![],
-            publish_date: None,
-            group_identifiers: vec![],
-            is_nsfw: None,
-            creators: vec![],
-            s3_images: vec![],
-            original_language: None,
+            ..Default::default()
         })
     }
 

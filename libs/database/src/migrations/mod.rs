@@ -35,6 +35,13 @@ mod m20240126_set_comment_to_null_for_measurements;
 mod m20240128_change_calendar_event_data;
 mod m20240128_migrate_anime_seen;
 mod m20240128_migrate_manga_seen;
+mod m20240202_0_normalize_seen_data;
+mod m20240202_1_normalize_calendar_events_data;
+mod m20240202_2_normalize_reviews_data;
+mod m20240202_3_add_metadata_reason;
+mod m20240202_4_normalize_metadata_data;
+mod m20240202_5_remove_default_value;
+mod m20240202_6_remove_last_processed_on_for_calendar;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -93,6 +100,13 @@ impl MigratorTrait for Migrator {
             Box::new(m20240128_change_calendar_event_data::Migration),
             Box::new(m20240128_migrate_anime_seen::Migration),
             Box::new(m20240128_migrate_manga_seen::Migration),
+            Box::new(m20240202_0_normalize_seen_data::Migration),
+            Box::new(m20240202_1_normalize_calendar_events_data::Migration),
+            Box::new(m20240202_2_normalize_reviews_data::Migration),
+            Box::new(m20240202_4_normalize_metadata_data::Migration),
+            Box::new(m20240202_3_add_metadata_reason::Migration),
+            Box::new(m20240202_5_remove_default_value::Migration),
+            Box::new(m20240202_6_remove_last_processed_on_for_calendar::Migration),
         ]
     }
 }

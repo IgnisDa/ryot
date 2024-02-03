@@ -19,7 +19,8 @@ use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
+    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
+    FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -253,7 +254,16 @@ pub mod media {
     }
 
     #[derive(
-        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        InputObject,
+        PartialEq,
+        Eq,
+        Default,
+        FromJsonQueryResult,
     )]
     #[graphql(input_name = "AudioBookSpecificsInput")]
     pub struct AudioBookSpecifics {
@@ -261,7 +271,16 @@ pub mod media {
     }
 
     #[derive(
-        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, PartialEq, Eq, Default,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        InputObject,
+        PartialEq,
+        Eq,
+        Default,
+        FromJsonQueryResult,
     )]
     #[graphql(input_name = "BookSpecificsInput")]
     pub struct BookSpecifics {
@@ -269,7 +288,16 @@ pub mod media {
     }
 
     #[derive(
-        Debug, Serialize, Deserialize, SimpleObject, Clone, InputObject, Eq, PartialEq, Default,
+        Debug,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        InputObject,
+        Eq,
+        PartialEq,
+        Default,
+        FromJsonQueryResult,
     )]
     #[graphql(input_name = "MovieSpecificsInput")]
     pub struct MovieSpecifics {
@@ -291,7 +319,7 @@ pub mod media {
     #[graphql(input_name = "PodcastSpecificsInput")]
     pub struct PodcastSpecifics {
         pub episodes: Vec<PodcastEpisode>,
-        pub total_episodes: i32,
+        pub total_episodes: usize,
     }
 
     impl PodcastSpecifics {
@@ -377,6 +405,8 @@ pub mod media {
     pub struct ShowSpecifics {
         pub seasons: Vec<ShowSeason>,
         pub runtime: Option<i32>,
+        pub total_seasons: Option<usize>,
+        pub total_episodes: Option<usize>,
     }
 
     impl ShowSpecifics {
@@ -809,7 +839,25 @@ pub mod media {
     pub enum ProgressUpdateErrorVariant {
         AlreadySeen,
         NoSeenInProgress,
-        InvalidUpdate,
+    }
+
+    #[derive(
+        Copy, Clone, Debug, PartialEq, Eq, DeriveActiveEnum, EnumIter, Serialize, Deserialize, Hash,
+    )]
+    #[sea_orm(rs_type = "String", db_type = "String(None)")]
+    pub enum UserToMetadataReason {
+        #[sea_orm(string_value = "Seen")]
+        Seen,
+        #[sea_orm(string_value = "Reviewed")]
+        Reviewed,
+        #[sea_orm(string_value = "Collection")]
+        Collection,
+        #[sea_orm(string_value = "Monitored")]
+        Monitored,
+        #[sea_orm(string_value = "Reminder")]
+        Reminder,
+        #[sea_orm(string_value = "Owned")]
+        Owned,
     }
 
     #[derive(Debug, SimpleObject)]
@@ -852,7 +900,7 @@ pub mod media {
         pub lot: MetadataImageLot,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct MediaDetails {
         pub identifier: String,
         pub is_nsfw: Option<bool>,
@@ -870,10 +918,18 @@ pub mod media {
         pub videos: Vec<MetadataVideo>,
         pub publish_year: Option<i32>,
         pub publish_date: Option<NaiveDate>,
-        pub specifics: MediaSpecifics,
         pub suggestions: Vec<PartialMetadataWithoutId>,
         pub group_identifiers: Vec<String>,
         pub provider_rating: Option<Decimal>,
+        pub audio_book_specifics: Option<AudioBookSpecifics>,
+        pub book_specifics: Option<BookSpecifics>,
+        pub movie_specifics: Option<MovieSpecifics>,
+        pub podcast_specifics: Option<PodcastSpecifics>,
+        pub show_specifics: Option<ShowSpecifics>,
+        pub video_game_specifics: Option<VideoGameSpecifics>,
+        pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+        pub anime_specifics: Option<AnimeSpecifics>,
+        pub manga_specifics: Option<MangaSpecifics>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -935,6 +991,10 @@ pub mod media {
         pub show_episode_number: Option<i32>,
         /// If for a podcast, the episode for which this review was for.
         pub podcast_episode_number: Option<i32>,
+        /// If for an anime, the episode for which this review was for.
+        pub anime_episode_number: Option<i32>,
+        /// If for a manga, the chapter for which this review was for.
+        pub manga_chapter_number: Option<i32>,
         /// The comments attached to this review.
         pub comments: Option<Vec<ImportOrExportItemReviewComment>>,
     }
@@ -973,22 +1033,6 @@ pub mod media {
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
-    #[serde(tag = "t", content = "d")]
-    pub enum MediaSpecifics {
-        AudioBook(AudioBookSpecifics),
-        Book(BookSpecifics),
-        Movie(MovieSpecifics),
-        Podcast(PodcastSpecifics),
-        Show(ShowSpecifics),
-        VideoGame(VideoGameSpecifics),
-        VisualNovel(VisualNovelSpecifics),
-        Anime(AnimeSpecifics),
-        Manga(MangaSpecifics),
-        #[default]
-        Unknown,
     }
 
     #[derive(
@@ -1120,33 +1164,33 @@ pub mod media {
         pub image: Option<String>,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenShowExtraInformation {
         pub season: i32,
         pub episode: i32,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenPodcastExtraInformation {
         pub episode: i32,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenAnimeExtraInformation {
         pub episode: Option<i32>,
     }
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+    #[derive(
+        Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+    )]
     pub struct SeenMangaExtraInformation {
         pub chapter: Option<i32>,
-    }
-
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, FromJsonQueryResult)]
-    pub enum SeenOrReviewOrCalendarEventExtraInformation {
-        Show(SeenShowExtraInformation),
-        Podcast(SeenPodcastExtraInformation),
-        Anime(SeenAnimeExtraInformation),
-        Manga(SeenMangaExtraInformation),
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

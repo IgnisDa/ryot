@@ -145,15 +145,15 @@ const CalendarEvent = (props: {
 						>
 							{evt.metadataTitle}
 						</Anchor>{" "}
-						{typeof evt.showSeasonNumber === "number" ? (
+						{typeof evt.showExtraInformation?.season === "number" ? (
 							<Text span c="dimmed" size="sm">
-								(S{evt.showSeasonNumber}-E
-								{evt.showEpisodeNumber})
+								(S{evt.showExtraInformation.season}-E
+								{evt.showExtraInformation.episode})
 							</Text>
 						) : null}
-						{typeof evt.podcastEpisodeNumber === "number" ? (
+						{typeof evt.podcastExtraInformation?.episode === "number" ? (
 							<Text span c="dimmed" size="sm">
-								(EP-{evt.podcastEpisodeNumber})
+								(EP-{evt.podcastExtraInformation.episode})
 							</Text>
 						) : null}
 					</Text>

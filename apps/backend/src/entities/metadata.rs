@@ -6,7 +6,11 @@ use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::media::{MediaSpecifics, MetadataFreeCreator, MetadataImage, MetadataVideo};
+use crate::models::media::{
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataFreeCreator,
+    MetadataImage, MetadataVideo, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
+    VideoGameSpecifics, VisualNovelSpecifics,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "metadata")]
@@ -19,7 +23,6 @@ pub struct Model {
     pub title: String,
     pub identifier: String,
     pub source: MetadataSource,
-    pub specifics: Option<MediaSpecifics>,
     pub is_nsfw: Option<bool>,
     pub is_partial: Option<bool>,
     pub description: Option<String>,
@@ -32,9 +35,17 @@ pub struct Model {
     pub videos: Option<Vec<MetadataVideo>>,
     pub production_status: Option<String>,
     pub provider_rating: Option<Decimal>,
-    pub last_processed_on_for_calendar: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]
     pub free_creators: Option<Vec<MetadataFreeCreator>>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    pub anime_specifics: Option<AnimeSpecifics>,
+    pub manga_specifics: Option<MangaSpecifics>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

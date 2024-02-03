@@ -16,9 +16,8 @@ use surf::Client;
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadataWithoutId,
-            PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MediaSearchItem, MetadataFreeCreator, MetadataImageForMediaDetails,
+            MetadataImageLot, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
         },
         IdAndNamedObject, SearchDetails, SearchResults,
     },
@@ -103,9 +102,10 @@ impl MediaProvider for ListennotesService {
                 source: MetadataSource::Listennotes,
             })
             .collect();
-        match details.specifics {
-            MediaSpecifics::Podcast(ref mut specifics) => loop {
-                if specifics.total_episodes > i32::try_from(specifics.episodes.len()).unwrap() {
+
+        if let Some(ref mut specifics) = details.podcast_specifics {
+            loop {
+                if specifics.total_episodes > specifics.episodes.len() {
                     let last_episode = specifics.episodes.last().unwrap();
                     let next_pub_date = last_episode.publish_date;
                     let episode_number = last_episode.number;
@@ -116,17 +116,13 @@ impl MediaProvider for ListennotesService {
                             Some(episode_number),
                         )
                         .await?;
-                    match new_details.specifics {
-                        MediaSpecifics::Podcast(p) => {
-                            specifics.episodes.extend(p.episodes);
-                        }
-                        _ => unreachable!(),
+                    if let Some(p) = new_details.podcast_specifics {
+                        specifics.episodes.extend(p.episodes);
                     }
                 } else {
                     break;
                 }
-            },
-            _ => unreachable!(),
+            }
         };
         Ok(details)
     }
@@ -212,7 +208,7 @@ impl ListennotesService {
             image: Option<String>,
             episodes: Vec<PodcastEpisode>,
             genre_ids: Vec<i32>,
-            total_episodes: i32,
+            total_episodes: usize,
         }
         let mut rsp = self
             .client
@@ -247,10 +243,9 @@ impl ListennotesService {
                 image: a,
                 lot: MetadataImageLot::Poster,
             })),
-            videos: vec![],
             publish_year: podcast_data.publish_date.map(|r| r.year()),
             publish_date: podcast_data.publish_date.map(|d| d.date_naive()),
-            specifics: MediaSpecifics::Podcast(PodcastSpecifics {
+            podcast_specifics: Some(PodcastSpecifics {
                 episodes: podcast_data
                     .episodes
                     .into_iter()
@@ -264,12 +259,7 @@ impl ListennotesService {
                 total_episodes: podcast_data.total_episodes,
             }),
             provider_rating: podcast_data.listen_score,
-            suggestions: vec![],
-            group_identifiers: vec![],
-            people: vec![],
-            s3_images: vec![],
-            production_status: None,
-            original_language: None,
+            ..Default::default()
         })
     }
 }

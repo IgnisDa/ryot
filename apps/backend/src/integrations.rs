@@ -206,7 +206,10 @@ impl IntegrationService {
                     .filter(metadata::Column::Lot.eq(MetadataLot::Show))
                     .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
                     .filter(get_ilike_query(
-                        Func::cast_as(Expr::col(metadata::Column::Specifics), Alias::new("text")),
+                        Func::cast_as(
+                            Expr::col(metadata::Column::ShowSpecifics),
+                            Alias::new("text"),
+                        ),
                         identifier,
                     ))
                     .one(db)
