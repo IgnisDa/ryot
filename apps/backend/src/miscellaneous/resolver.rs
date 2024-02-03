@@ -6555,50 +6555,52 @@ GROUP BY
         Ok(true)
     }
 
-    // FIXME: Refactor this to use database queries instead of sea-orm.
     #[instrument(skip(self))]
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
-        let mut calendar_stream = CalendarEvent::find()
-            .order_by_asc(calendar_event::Column::Id)
+        let date_to_calculate_from = get_current_date(self.timezone.as_ref()).pred_opt().unwrap();
+
+        let mut meta_stream = Metadata::find()
+            .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
+            .filter(metadata::Column::IsPartial.eq(false))
             .stream(&self.db)
             .await?;
-        while let Some(cal_event) = calendar_stream.try_next().await? {
-            let meta = cal_event
-                .find_related(Metadata)
-                .one(&self.db)
-                .await?
-                .unwrap();
-            let mut need_to_delete = false;
-            if let Some(show) = cal_event.metadata_show_extra_information {
-                if let Some(show_info) = meta.show_specifics {
-                    if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
-                        if ep.publish_date.unwrap() != cal_event.date {
-                            need_to_delete = true;
-                        }
-                    }
-                }
-            } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
-                if let Some(podcast_info) = meta.podcast_specifics {
-                    if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                        if ep.publish_date != cal_event.date {
-                            need_to_delete = true;
-                        }
-                    }
-                }
-            } else if cal_event.date != meta.publish_date.unwrap() {
-                need_to_delete = true;
-            };
 
-            if need_to_delete {
-                tracing::debug!(
-                    "Need to delete calendar event id = {:#?} since it is invalid",
-                    cal_event.id
-                );
-                CalendarEvent::delete_by_id(cal_event.id)
-                    .exec(&self.db)
-                    .await?;
+        while let Some(meta) = meta_stream.try_next().await? {
+            let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
+            for cal_event in calendar_events {
+                let mut need_to_delete = false;
+                if let Some(show) = cal_event.metadata_show_extra_information {
+                    if let Some(show_info) = &meta.show_specifics {
+                        if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
+                            if ep.publish_date.unwrap() != cal_event.date {
+                                need_to_delete = true;
+                            }
+                        }
+                    }
+                } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
+                    if let Some(podcast_info) = &meta.podcast_specifics {
+                        if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                            if ep.publish_date != cal_event.date {
+                                need_to_delete = true;
+                            }
+                        }
+                    }
+                } else if cal_event.date != meta.publish_date.unwrap() {
+                    need_to_delete = true;
+                };
+
+                if need_to_delete {
+                    tracing::debug!(
+                        "Need to delete calendar event id = {:#?} since it is outdated",
+                        cal_event.id
+                    );
+                    CalendarEvent::delete_by_id(cal_event.id)
+                        .exec(&self.db)
+                        .await?;
+                }
             }
         }
+
         tracing::debug!("Finished deleting invalid calendar events");
 
         let mut metadata_stream = Metadata::find()
