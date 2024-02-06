@@ -48,6 +48,7 @@ import { useAtom } from "jotai";
 import { Fragment } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withFragment } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DisplayExerciseStats } from "~/components/fitness";
@@ -255,10 +256,10 @@ export default function Page() {
 									<Paper key={h.workoutId} withBorder p="xs">
 										<Anchor
 											component={Link}
-											to={`${$path("/fitness/workouts/:id", {
-												id: h.workoutId,
-												// FIXME: Use the `withFragment` helper from ufo
-											})}#${loaderData.exerciseDetails.id}__${h.index}`}
+											to={withFragment(
+												$path("/fitness/workouts/:id", { id: h.workoutId }),
+												`${loaderData.exerciseDetails.id}__${h.index}`,
+											)}
 											fw="bold"
 										>
 											{h.workoutName}
@@ -387,12 +388,12 @@ export default function Page() {
 																	</Text>
 																	<Anchor
 																		component={Link}
-																		to={`${$path("/fitness/workouts/:id", {
-																			id: s.workoutId,
-																			// FIXME: Use the `withFragment` helper from ufo
-																		})}#${loaderData.exerciseDetails.id}__${
-																			s.exerciseIdx
-																		}`}
+																		to={withFragment(
+																			$path("/fitness/workouts/:id", {
+																				id: s.workoutId,
+																			}),
+																			`${loaderData.exerciseDetails.id}__${s.exerciseIdx}`,
+																		)}
 																		fw="bold"
 																	>
 																		<IconExternalLink size={16} />

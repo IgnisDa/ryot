@@ -47,6 +47,7 @@ import { IconDownload } from "@tabler/icons-react";
 import { ReactNode, RefObject, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withFragment } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -240,21 +241,24 @@ export default function Page() {
 									<Title order={2}>Import data</Title>
 									<Anchor
 										size="xs"
-										// FIXME: Use `withFragment` here
-										href={`https://ignisda.github.io/ryot/importing.html#${match(
-											deployImportSource,
-										)
-											.with(ImportSource.Goodreads, () => "goodreads")
-											.with(ImportSource.Mal, () => "myanimelist")
-											.with(ImportSource.GenericJson, () => "generic-json")
-											.with(ImportSource.MediaTracker, () => "mediatracker")
-											.with(ImportSource.Movary, () => "movary")
-											.with(ImportSource.StoryGraph, () => "storygraph")
-											.with(ImportSource.StrongApp, () => "strong-app")
-											.with(ImportSource.Trakt, () => "trakt")
-											.with(ImportSource.Audiobookshelf, () => "audiobookshelf")
-											.with(undefined, () => "")
-											.exhaustive()}`}
+										href={withFragment(
+											"https://ignisda.github.io/ryot/importing.html",
+											match(deployImportSource)
+												.with(ImportSource.Goodreads, () => "goodreads")
+												.with(ImportSource.Mal, () => "myanimelist")
+												.with(ImportSource.GenericJson, () => "generic-json")
+												.with(ImportSource.MediaTracker, () => "mediatracker")
+												.with(ImportSource.Movary, () => "movary")
+												.with(ImportSource.StoryGraph, () => "storygraph")
+												.with(ImportSource.StrongApp, () => "strong-app")
+												.with(ImportSource.Trakt, () => "trakt")
+												.with(
+													ImportSource.Audiobookshelf,
+													() => "audiobookshelf",
+												)
+												.with(undefined, () => "")
+												.exhaustive(),
+										)}
 										target="_blank"
 									>
 										Docs
