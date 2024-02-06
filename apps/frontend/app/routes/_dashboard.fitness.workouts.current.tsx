@@ -841,7 +841,7 @@ const ExerciseDisplay = (props: {
 			<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
-						<Stack>
+						<Stack ref={parent}>
 							<Group justify="space-between" pos="relative" wrap="nowrap">
 								<Anchor
 									component={Link}
@@ -1508,22 +1508,19 @@ const NoteInput = (props: {
 			<ActionIcon
 				color="red"
 				onClick={() => {
-					if (
-						currentWorkout?.exercises[props.exerciseIdx].notes[props.noteIdx]
-					) {
-						const yes = confirm(
-							"This note will be deleted. Are you sure you want to continue?",
-						);
-						if (yes)
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
+					const yes = confirm(
+						"This note will be deleted. Are you sure you want to continue?",
+					);
+					if (yes)
+						setCurrentWorkout(
+							produce(currentWorkout, (draft) => {
+								if (draft)
 									draft.exercises[props.exerciseIdx].notes.splice(
 										props.noteIdx,
 										1,
 									);
-								}),
-							);
-					}
+							}),
+						);
 				}}
 			>
 				<IconTrash size={20} />
