@@ -1,4 +1,5 @@
 import { redirect } from "@remix-run/node";
+import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import { combineHeaders } from "~/lib/utilities.server";
 import { toastSessionStorage } from "./cookies.server";
@@ -8,7 +9,7 @@ export const toastKey = "toast";
 const TypeSchema = z.enum(["message", "success", "error"]);
 const ToastSchema = z.object({
 	message: z.string(),
-	id: z.string().default(() => crypto.randomUUID()),
+	id: z.string().default(() => randomUUID()),
 	title: z.string().optional(),
 	type: TypeSchema.default("message"),
 });

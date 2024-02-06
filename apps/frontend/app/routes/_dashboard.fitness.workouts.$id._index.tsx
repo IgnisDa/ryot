@@ -64,6 +64,7 @@ import { ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withFragment } from "ufo";
 import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -293,6 +294,17 @@ export default function Page() {
 									loaderData.workoutDetails.summary.total.weight,
 								)}
 							/>
+							{typeof loaderData.workoutDetails.summary.total.distance ===
+								"number" &&
+							Number(loaderData.workoutDetails.summary.total.distance) > 0 ? (
+								<DisplayStat
+									icon={<IconRun size={16} />}
+									data={displayDistanceWithUnit(
+										loaderData.userPreferences.unitSystem,
+										loaderData.workoutDetails.summary.total.distance,
+									)}
+								/>
+							) : null}
 							<DisplayStat
 								icon={<IconBarbell size={16} />}
 								data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
@@ -364,8 +376,10 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						<Anchor
 							key={otherExerciseIdx}
 							fz="xs"
-							// FIXME: Use `withFragment` from ufo
-							href={`#${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`}
+							href={withFragment(
+								"",
+								`${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
+							)}
 						>
 							{
 								loaderData.workoutDetails.information.exercises[

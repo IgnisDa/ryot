@@ -2001,7 +2001,7 @@ const IndividualProgressModal = (props: {
 	total?: number | null;
 	lot: MetadataLot;
 }) => {
-	const [value, setValue] = useState(props.progress);
+	const [value, setValue] = useState<number | undefined>(props.progress);
 
 	const [updateIcon, text] = match(props.lot)
 		.with(MetadataLot.Book, () => [<IconBook size={24} />, "Pages"])
@@ -2049,7 +2049,10 @@ const IndividualProgressModal = (props: {
 						/>
 						<NumberInput
 							value={value}
-							onChange={(v) => setValue(Number(v))}
+							onChange={(v) => {
+								if (v) setValue(Number(v));
+								else setValue(undefined);
+							}}
 							max={100}
 							min={0}
 							step={1}
@@ -2065,7 +2068,7 @@ const IndividualProgressModal = (props: {
 							</Text>
 							<Flex align="center" gap="xs">
 								<NumberInput
-									value={Math.ceil(((props.total || 1) * value) / 100)}
+									value={Math.ceil(((props.total || 1) * (value || 1)) / 100)}
 									onChange={(v) => {
 										const newVal = (Number(v) / (props.total || 1)) * 100;
 										setValue(Math.ceil(newVal));

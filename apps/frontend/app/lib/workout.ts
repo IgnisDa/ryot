@@ -10,6 +10,7 @@ import {
 import { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import { v4 as randomUUID } from "uuid";
 import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
 import { ApplicationKey } from "./generals";
 
@@ -107,7 +108,7 @@ export const duplicateOldWorkout = async (
 		}));
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
-			identifier: crypto.randomUUID(),
+			identifier: randomUUID(),
 			exerciseDetails: { images: exerciseDetails.details.images },
 			images: [],
 			videos: [],
@@ -141,7 +142,7 @@ export const addExerciseToWorkout = async (
 	for (const ex of selectedExercises) {
 		const userExerciseDetails = await getExerciseDetails(ex.name);
 		draft.exercises.push({
-			identifier: crypto.randomUUID(),
+			identifier: randomUUID(),
 			exerciseId: ex.name,
 			exerciseDetails: { images: userExerciseDetails.details.images },
 			lot: ex.lot,
