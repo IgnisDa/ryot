@@ -1,5 +1,17 @@
 
 
+# Version 4.2.3 (2024-02-07)
+
+## Bug Fixes
+
+- **backend:** correct after seen task
+  
+  ## Build
+
+- **backend:** bump version
+  
+  
+
 # Version 4.2.2 (2024-02-07)
 
 
