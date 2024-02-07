@@ -5762,8 +5762,11 @@ impl MiscellaneousService {
                             .map(|e| format!("{}", e.number))
                             .collect_vec()
                     } else {
-                        unreachable!();
+                        vec![]
                     };
+                    if all_episodes.is_empty() {
+                        return Ok(());
+                    }
                     let seen_history = self.seen_history(seen.user_id, seen.metadata_id).await?;
                     let mut bag = HashMap::<String, i32>::from_iter(
                         all_episodes.iter().cloned().map(|e| (e, 0)),
