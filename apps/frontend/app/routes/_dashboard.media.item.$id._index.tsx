@@ -1810,46 +1810,46 @@ const ProgressUpdateModal = (props: {
 					</Fragment>
 				))}
 				<Stack>
+					{loaderData.mediaMainDetails.lot === MetadataLot.Anime ? (
+						<>
+							<NumberInput
+								label="Episode"
+								name="animeEpisodeNumber"
+								description="Leaving this empty will mark the whole anime as watched"
+								hideControls
+								value={animeEpisodeNumber}
+								onChange={(e) => setAnimeEpisodeNumber(e.toString())}
+							/>
+							{animeEpisodeNumber ? (
+								<Checkbox
+									label="Mark all episodes before this as watched"
+									name="animeAllEpisodesBefore"
+								/>
+							) : null}
+						</>
+					) : null}
+					{loaderData.mediaMainDetails.lot === MetadataLot.Manga ? (
+						<>
+							<NumberInput
+								label="Chapter"
+								name="mangaChapterNumber"
+								description="Leaving this empty will mark the whole manga as watched"
+								hideControls
+								value={mangaChapterNumber}
+								onChange={(e) => setMangaChapterNumber(e.toString())}
+							/>
+							{mangaChapterNumber ? (
+								<Checkbox
+									label="Mark all chapters before this as watched"
+									name="mangaAllChaptersBefore"
+								/>
+							) : null}
+						</>
+					) : null}
 					<Suspense fallback={<FallbackForDefer />}>
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ mediaDetails: mediaAdditionalDetails }) => (
 								<>
-									{mediaAdditionalDetails?.animeSpecifics ? (
-										<>
-											<NumberInput
-												label="Episode"
-												name="animeEpisodeNumber"
-												description="Leaving this empty will mark the whole anime as watched"
-												hideControls
-												value={animeEpisodeNumber}
-												onChange={(e) => setAnimeEpisodeNumber(e.toString())}
-											/>
-											{animeEpisodeNumber ? (
-												<Checkbox
-													label="Mark all episodes before this as watched"
-													name="animeAllEpisodesBefore"
-												/>
-											) : null}
-										</>
-									) : null}
-									{mediaAdditionalDetails?.mangaSpecifics ? (
-										<>
-											<NumberInput
-												label="Chapter"
-												name="mangaChapterNumber"
-												description="Leaving this empty will mark the whole manga as watched"
-												hideControls
-												value={mangaChapterNumber}
-												onChange={(e) => setMangaChapterNumber(e.toString())}
-											/>
-											{mangaChapterNumber ? (
-												<Checkbox
-													label="Mark all chapters before this as watched"
-													name="mangaAllChaptersBefore"
-												/>
-											) : null}
-										</>
-									) : null}
 									{mediaAdditionalDetails?.showSpecifics ? (
 										<>
 											<input
