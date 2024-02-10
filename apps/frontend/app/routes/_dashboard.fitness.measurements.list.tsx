@@ -63,7 +63,8 @@ enum TimeSpan {
 }
 
 const searchParamsSchema = z.object({
-	timeSpan: z.nativeEnum(TimeSpan).default(TimeSpan.Last30Days),
+	timeSpan: z.nativeEnum(TimeSpan).optional(),
+	openModal: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -71,7 +72,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
-	const [startTime, endTime] = match(query.timeSpan)
+	const [startTime, endTime] = match(query.timeSpan || TimeSpan.Last30Days)
 		.with(TimeSpan.Last7Days, () => [now, now.subtract(7, "days")])
 		.with(TimeSpan.Last30Days, () => [now, now.subtract(30, "days")])
 		.with(TimeSpan.Last90Days, () => [now, now.subtract(90, "days")])
@@ -158,7 +159,9 @@ export default function Page() {
 			timestamp: tickFormatter(m.timestamp),
 		};
 	});
-	const [opened, { open, close }] = useDisclosure(false);
+	const [opened, { open, close }] = useDisclosure(
+		loaderData.query.openModal || false,
+	);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
 		key: ApplicationKey.SavedMeasurementsDisplaySelectedStats,
