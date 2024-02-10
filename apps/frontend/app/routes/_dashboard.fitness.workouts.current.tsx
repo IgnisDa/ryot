@@ -509,7 +509,7 @@ const StatInput = (props: {
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
-				defaultValue={
+				value={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
 						.statistic[props.stat] ?? undefined
 				}
@@ -1102,13 +1102,55 @@ const ExerciseDisplay = (props: {
 								</Menu>
 								<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
 									{props.exercise.alreadyDoneSets[idx] ? (
-										<DisplayExerciseStats
-											statistic={props.exercise.alreadyDoneSets[idx].statistic}
-											lot={props.exercise.lot}
-											hideExtras
-											centerText
-											unit={loaderData.userPreferences.unitSystem}
-										/>
+										<Box
+											onClick={
+												!props.exercise.sets[idx].confirmed
+													? undefined
+													: () => {
+															function convertStringValuesToNumbers(
+																obj: Record<string, unknown>,
+															) {
+																const newObject = { ...obj };
+																for (const key in newObject)
+																	if (
+																		typeof newObject[key] === "string" &&
+																		!Number.isNaN(newObject[key])
+																	)
+																		newObject[key] = parseFloat(
+																			newObject[key] as string,
+																		);
+																return newObject;
+															}
+															setCurrentWorkout(
+																produce(currentWorkout, (draft) => {
+																	if (draft) {
+																		draft.exercises[props.exerciseIdx].sets[
+																			idx
+																		].statistic = convertStringValuesToNumbers(
+																			props.exercise.alreadyDoneSets[idx]
+																				.statistic,
+																		);
+																	}
+																}),
+															);
+													  }
+											}
+											style={
+												!props.exercise.sets[idx].confirmed
+													? { cursor: "pointer" }
+													: undefined
+											}
+										>
+											<DisplayExerciseStats
+												statistic={
+													props.exercise.alreadyDoneSets[idx].statistic
+												}
+												lot={props.exercise.lot}
+												hideExtras
+												centerText
+												unit={loaderData.userPreferences.unitSystem}
+											/>
+										</Box>
 									) : (
 										"—"
 									)}
@@ -1213,6 +1255,7 @@ const ExerciseDisplay = (props: {
 														}),
 													);
 												}}
+												data-statistics={JSON.stringify(s.statistic)}
 											>
 												<IconCheck />
 											</ActionIcon>
