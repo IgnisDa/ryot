@@ -1103,38 +1103,34 @@ const ExerciseDisplay = (props: {
 								<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
 									{props.exercise.alreadyDoneSets[idx] ? (
 										<Box
-											onClick={
-												!props.exercise.sets[idx].confirmed
-													? undefined
-													: () => {
-															function convertStringValuesToNumbers(
-																obj: Record<string, unknown>,
-															) {
-																const newObject = { ...obj };
-																for (const key in newObject)
-																	if (
-																		typeof newObject[key] === "string" &&
-																		!Number.isNaN(newObject[key])
-																	)
-																		newObject[key] = parseFloat(
-																			newObject[key] as string,
-																		);
-																return newObject;
-															}
-															setCurrentWorkout(
-																produce(currentWorkout, (draft) => {
-																	if (draft) {
-																		draft.exercises[props.exerciseIdx].sets[
-																			idx
-																		].statistic = convertStringValuesToNumbers(
-																			props.exercise.alreadyDoneSets[idx]
-																				.statistic,
-																		);
-																	}
-																}),
+											onClick={() => {
+												if (props.exercise.sets[idx].confirmed) return;
+												const convertStringValuesToNumbers = (
+													obj: Record<string, unknown>,
+												) => {
+													const newObject = { ...obj };
+													for (const key in newObject)
+														if (
+															typeof newObject[key] === "string" &&
+															!Number.isNaN(newObject[key])
+														)
+															newObject[key] = parseFloat(
+																newObject[key] as string,
 															);
-													  }
-											}
+													return newObject;
+												};
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														if (draft) {
+															draft.exercises[props.exerciseIdx].sets[
+																idx
+															].statistic = convertStringValuesToNumbers(
+																props.exercise.alreadyDoneSets[idx].statistic,
+															);
+														}
+													}),
+												);
+											}}
 											style={
 												!props.exercise.sets[idx].confirmed
 													? { cursor: "pointer" }
