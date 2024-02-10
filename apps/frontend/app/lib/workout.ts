@@ -137,6 +137,7 @@ export const addExerciseToWorkout = async (
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: { name: string; lot: ExerciseLot }[],
 	navigate: (path: string) => void,
+	defaultTimer?: number | null,
 ) => {
 	const draft = createDraft(currentWorkout);
 	for (const ex of selectedExercises) {
@@ -159,7 +160,9 @@ export const addExerciseToWorkout = async (
 					// biome-ignore lint/suspicious/noExplicitAny: required here
 					statistic: s.statistic as any,
 				})) || [],
-			restTimer: null,
+			restTimer: defaultTimer
+				? { duration: defaultTimer, enabled: true }
+				: null,
 			notes: [],
 			images: [],
 			videos: [],
