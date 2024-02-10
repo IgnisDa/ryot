@@ -42,6 +42,7 @@ mod m20240202_3_add_metadata_reason;
 mod m20240202_4_normalize_metadata_data;
 mod m20240202_5_remove_default_value;
 mod m20240202_6_remove_last_processed_on_for_calendar;
+mod m20240210_remove_duplicated_calendar_events;
 
 pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -107,6 +108,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240202_3_add_metadata_reason::Migration),
             Box::new(m20240202_5_remove_default_value::Migration),
             Box::new(m20240202_6_remove_last_processed_on_for_calendar::Migration),
+            Box::new(m20240210_remove_duplicated_calendar_events::Migration),
         ]
     }
 }
