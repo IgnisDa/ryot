@@ -294,9 +294,7 @@ export default function Page() {
 									loaderData.workoutDetails.summary.total.weight,
 								)}
 							/>
-							{typeof loaderData.workoutDetails.summary.total.distance ===
-								"number" &&
-							Number(loaderData.workoutDetails.summary.total.distance) > 0 ? (
+							{Number(loaderData.workoutDetails.summary.total.distance) > 0 ? (
 								<DisplayStat
 									icon={<IconRun size={16} />}
 									data={displayDistanceWithUnit(
