@@ -59,6 +59,7 @@ impl MigrationTrait for Migration {
                     .col(CalendarEvent::MetadataId)
                     .col(CalendarEvent::MetadataShowExtraInformation)
                     .col(CalendarEvent::MetadataPodcastExtraInformation)
+                    .nulls_not_distinct()
                     .to_owned(),
             )
             .await?;
