@@ -270,6 +270,7 @@ pub struct UserGeneralDashboardElement {
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
+    #[serde(default)] // FIXME: remove in the next major release
     pub disable_yank_integrations: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
 }

@@ -428,6 +428,7 @@ export default function Page() {
 								setCurrentWorkout,
 								selectedExercises,
 								navigate,
+								loaderData.userPreferences.fitness.exercises.defaultTimer,
 							);
 						}}
 					>

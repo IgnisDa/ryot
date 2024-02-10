@@ -75,6 +75,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { Buffer } from "buffer";
 import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
@@ -410,13 +411,23 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
+										color="teal"
+										to={$path("/fitness/measurements/list", {
+											openModal: true,
+										})}
+									>
+										Add measurement
+									</Button>
+									<Button
+										component={Link}
+										variant="subtle"
 										to={$path("/fitness/exercises/list", {
 											selectionEnabled: true,
 											page: 1,
 											sortBy: ExerciseSortBy.LastPerformed,
 										})}
 									>
-										Add exercise
+										Add an exercise
 									</Button>
 								</Group>
 							</Stack>
@@ -498,7 +509,7 @@ const StatInput = (props: {
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
-				defaultValue={
+				value={
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
 						.statistic[props.stat] ?? undefined
 				}
@@ -1091,13 +1102,51 @@ const ExerciseDisplay = (props: {
 								</Menu>
 								<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
 									{props.exercise.alreadyDoneSets[idx] ? (
-										<DisplayExerciseStats
-											statistic={props.exercise.alreadyDoneSets[idx].statistic}
-											lot={props.exercise.lot}
-											hideExtras
-											centerText
-											unit={loaderData.userPreferences.unitSystem}
-										/>
+										<Box
+											onClick={() => {
+												if (props.exercise.sets[idx].confirmed) return;
+												const convertStringValuesToNumbers = (
+													obj: Record<string, unknown>,
+												) => {
+													const newObject = { ...obj };
+													for (const key in newObject)
+														if (
+															typeof newObject[key] === "string" &&
+															!Number.isNaN(newObject[key])
+														)
+															newObject[key] = parseFloat(
+																newObject[key] as string,
+															);
+													return newObject;
+												};
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														if (draft) {
+															draft.exercises[props.exerciseIdx].sets[
+																idx
+															].statistic = convertStringValuesToNumbers(
+																props.exercise.alreadyDoneSets[idx].statistic,
+															);
+														}
+													}),
+												);
+											}}
+											style={
+												!props.exercise.sets[idx].confirmed
+													? { cursor: "pointer" }
+													: undefined
+											}
+										>
+											<DisplayExerciseStats
+												statistic={
+													props.exercise.alreadyDoneSets[idx].statistic
+												}
+												lot={props.exercise.lot}
+												hideExtras
+												centerText
+												unit={loaderData.userPreferences.unitSystem}
+											/>
+										</Box>
 									) : (
 										"—"
 									)}
@@ -1202,6 +1251,7 @@ const ExerciseDisplay = (props: {
 														}),
 													);
 												}}
+												data-statistics={JSON.stringify(s.statistic)}
 											>
 												<IconCheck />
 											</ActionIcon>
