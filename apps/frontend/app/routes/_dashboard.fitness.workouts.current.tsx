@@ -411,13 +411,23 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
+										color="teal"
+										to={$path("/fitness/measurements/list", {
+											openModal: true,
+										})}
+									>
+										Add measurement
+									</Button>
+									<Button
+										component={Link}
+										variant="subtle"
 										to={$path("/fitness/exercises/list", {
 											selectionEnabled: true,
 											page: 1,
 											sortBy: ExerciseSortBy.LastPerformed,
 										})}
 									>
-										Add exercise
+										Add an exercise
 									</Button>
 								</Group>
 							</Stack>
