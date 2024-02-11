@@ -130,6 +130,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		coreDetails,
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
+			isMeasurementEnabled:
+				userPreferences.featuresEnabled.fitness.measurements,
 		},
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
 	});
@@ -408,16 +410,18 @@ export default function Page() {
 									/>
 								))}
 								<Group justify="center">
-									<Button
-										component={Link}
-										variant="subtle"
-										color="teal"
-										to={$path("/fitness/measurements/list", {
-											openModal: true,
-										})}
-									>
-										Add measurement
-									</Button>
+									{loaderData.userPreferences.isMeasurementEnabled ? (
+										<Button
+											component={Link}
+											variant="subtle"
+											color="teal"
+											to={$path("/fitness/measurements/list", {
+												openModal: true,
+											})}
+										>
+											Add measurement
+										</Button>
+									) : null}
 									<Button
 										component={Link}
 										variant="subtle"
