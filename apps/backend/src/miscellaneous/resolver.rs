@@ -3162,7 +3162,11 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn commit_media_internal(&self, details: MediaDetails) -> Result<IdObject> {
+    pub async fn commit_media_internal(
+        &self,
+        details: MediaDetails,
+        is_partial: Option<bool>,
+    ) -> Result<IdObject> {
         let mut images = vec![];
         images.extend(details.url_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::Url(i.image),
@@ -3195,6 +3199,7 @@ impl MiscellaneousService {
             production_status: ActiveValue::Set(details.production_status),
             original_language: ActiveValue::Set(details.original_language),
             is_nsfw: ActiveValue::Set(details.is_nsfw),
+            is_partial: ActiveValue::Set(is_partial),
             free_creators: ActiveValue::Set(if details.creators.is_empty() {
                 None
             } else {
@@ -3686,7 +3691,7 @@ impl MiscellaneousService {
             Ok(m)
         } else {
             let details = self.details_from_provider(lot, source, identifier).await?;
-            let media_id = self.commit_media_internal(details).await?;
+            let media_id = self.commit_media_internal(details, None).await?;
             Ok(media_id)
         }
     }
@@ -4820,6 +4825,17 @@ impl MiscellaneousService {
                 image: None,
             })
             .collect();
+        let is_partial = match input.lot {
+            MetadataLot::Anime => input.anime_specifics.is_none(),
+            MetadataLot::AudioBook => input.audio_book_specifics.is_none(),
+            MetadataLot::Book => input.book_specifics.is_none(),
+            MetadataLot::Manga => input.manga_specifics.is_none(),
+            MetadataLot::Movie => input.movie_specifics.is_none(),
+            MetadataLot::Podcast => input.podcast_specifics.is_none(),
+            MetadataLot::Show => input.show_specifics.is_none(),
+            MetadataLot::VideoGame => input.video_game_specifics.is_none(),
+            MetadataLot::VisualNovel => input.visual_novel_specifics.is_none(),
+        };
         let details = MediaDetails {
             identifier,
             title: input.title,
@@ -4842,7 +4858,9 @@ impl MiscellaneousService {
             visual_novel_specifics: input.visual_novel_specifics,
             ..Default::default()
         };
-        let media = self.commit_media_internal(details).await?;
+        let media = self
+            .commit_media_internal(details, Some(is_partial))
+            .await?;
         self.add_entity_to_collection(
             user_id,
             ChangeCollectionToEntityInput {
