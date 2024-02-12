@@ -442,7 +442,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 										)}
 									</Text>
 								</Flex>
-							) : null}{" "}
+							) : null}
 							{Number(props.exercise.total.distance) > 0 ? (
 								<Flex align="center" gap="xs">
 									<IconRun size={14} />
