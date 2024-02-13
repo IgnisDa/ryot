@@ -31,7 +31,7 @@ import {
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { camelCase } from "@ryot/ts-utils";
+import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
 import { MediaDetailsLayout } from "~/components/common";
@@ -59,9 +59,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		...submission,
 		images: JSON.parse(submission.images || "[]"),
 		videos: JSON.parse(submission.videos || "[]"),
-		[`${camelCase(submission.lot)}Specifics`]: JSON.parse(
-			submission.specifics || "{}",
-		),
+		[`${camelCase(submission.lot)}Specifics`]: submission.specifics
+			? JSON.parse(submission.specifics)
+			: undefined,
 	};
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
@@ -134,7 +134,10 @@ export default function Page() {
 							<Group>
 								<Select
 									label="Type"
-									data={Object.values(MetadataLot)}
+									data={Object.values(MetadataLot).map((v) => ({
+										value: v,
+										label: changeCase(v),
+									}))}
 									required
 									name="lot"
 								/>
@@ -143,7 +146,6 @@ export default function Page() {
 							<JsonInput
 								label="Specifics"
 								formatOnBlur
-								required
 								name="specifics"
 								description={
 									<>

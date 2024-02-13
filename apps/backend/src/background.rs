@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::{env, sync::Arc, time::Instant};
 
 use apalis::prelude::{Job, JobContext, JobError};
 use chrono::DateTime;
@@ -35,27 +35,37 @@ impl Job for ScheduledJob {
 }
 
 pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
-    tracing::trace!("Invalidating invalid media import jobs");
-    ctx.data::<Arc<ImporterService>>()
-        .unwrap()
-        .invalidate_import_jobs()
-        .await
-        .unwrap();
     let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    tracing::trace!("Checking for updates for media in Watchlist");
-    service
-        .update_watchlist_media_and_send_notifications()
-        .await
-        .unwrap();
-    tracing::trace!("Checking and sending any pending reminders");
-    service.send_pending_media_reminders().await.unwrap();
-    tracing::trace!("Recalculating calendar events");
-    service.recalculate_calendar_events().await.unwrap();
-    tracing::trace!("Sending notifications for released media");
-    service
-        .send_notifications_for_released_media()
-        .await
-        .unwrap();
+    if env::var("DISABLE_INVALIDATE_IMPORT_JOBS").is_err() {
+        tracing::trace!("Invalidating invalid media import jobs");
+        ctx.data::<Arc<ImporterService>>()
+            .unwrap()
+            .invalidate_import_jobs()
+            .await
+            .unwrap();
+    }
+    if env::var("DISABLE_UPDATE_WATCHLIST_MEDIA").is_err() {
+        tracing::trace!("Checking for updates for media in Watchlist");
+        service
+            .update_watchlist_media_and_send_notifications()
+            .await
+            .unwrap();
+    }
+    if env::var("DISABLE_SEND_PENDING_REMINDERS").is_err() {
+        tracing::trace!("Checking and sending any pending reminders");
+        service.send_pending_media_reminders().await.unwrap();
+    }
+    if env::var("DISABLE_RECALCULATE_CALENDAR_EVENTS").is_err() {
+        tracing::trace!("Recalculating calendar events");
+        service.recalculate_calendar_events().await.unwrap();
+    }
+    if env::var("DISABLE_SEND_NOTIFICATIONS_FOR_RELEASED_MEDIA").is_err() {
+        tracing::trace!("Sending notifications for released media");
+        service
+            .send_notifications_for_released_media()
+            .await
+            .unwrap();
+    }
     Ok(())
 }
 

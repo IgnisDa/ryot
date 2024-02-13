@@ -361,7 +361,9 @@ impl ImporterService {
                         .await
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
-                    self.media_service.commit_media_internal(*a.clone()).await
+                    self.media_service
+                        .commit_media_internal(*a.clone(), None)
+                        .await
                 }
             };
             let metadata = match data {

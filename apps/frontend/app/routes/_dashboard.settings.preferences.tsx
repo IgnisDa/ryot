@@ -417,14 +417,12 @@ export default function Page() {
 											if (Notification.permission !== "granted") {
 												await Notification.requestPermission();
 												window.location.reload();
-											}
+											} else
+												notifications.show({
+													color: "yellow",
+													message: "You have already granted permissions",
+												});
 										}}
-										color={
-											typeof window !== "undefined" &&
-											Notification.permission === "granted"
-												? "green"
-												: "red"
-										}
 									>
 										<IconBellRinging />
 									</ActionIcon>
