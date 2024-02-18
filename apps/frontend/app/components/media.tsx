@@ -538,6 +538,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noRatingLink?: boolean;
 	noBottomRight?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
+	nameRight?: JSX.Element;
 }) => {
 	const navigate = useNavigate();
 
@@ -647,6 +648,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.hasInteracted ? "This media exists in the database" : undefined
 			}
 			name={props.item.title}
+			nameRight={props.nameRight}
 			children={props.children}
 		/>
 	);

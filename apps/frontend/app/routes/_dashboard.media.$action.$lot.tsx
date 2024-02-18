@@ -82,16 +82,25 @@ enum Action {
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const [coreDetails, userPreferences, { latestUserSummary }] =
-		await Promise.all([
-			getCoreDetails(),
-			getUserPreferences(request),
-			gqlClient.request(
-				LatestUserSummaryDocument,
-				undefined,
-				await getAuthorizationHeader(request),
-			),
-		]);
+	const [
+		coreDetails,
+		userPreferences,
+		{ latestUserSummary },
+		{ userCollectionsList },
+	] = await Promise.all([
+		getCoreDetails(),
+		getUserPreferences(request),
+		gqlClient.request(
+			LatestUserSummaryDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+		gqlClient.request(
+			UserCollectionsListDocument,
+			{},
+			await getAuthorizationHeader(request),
+		),
+	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
@@ -131,15 +140,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 				await getAuthorizationHeader(request),
 			);
-			const { userCollectionsList } = await gqlClient.request(
-				UserCollectionsListDocument,
-				{},
-				await getAuthorizationHeader(request),
-			);
-			return [
-				{ list: mediaList, collections: userCollectionsList, url: urlParse },
-				undefined,
-			] as const;
+			return [{ list: mediaList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
 			const { mediaSourcesForLot } = await gqlClient.request(
@@ -169,15 +170,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		})
 		.exhaustive();
 	return json({
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		lot,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
-		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
+		query,
 		action,
+		numPage,
 		mediaList,
 		mediaSearch,
-		query,
-		numPage,
+		collections: userCollectionsList,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
+		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 	});
 };
 
@@ -354,14 +356,14 @@ export default function Page() {
 											)}
 										</ActionIcon>
 									</Flex>
-									{loaderData.mediaList.collections.length > 0 ? (
+									{loaderData.collections.length > 0 ? (
 										<Select
 											placeholder="Select a collection"
 											defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
 											data={[
 												{
 													group: "My collections",
-													items: loaderData.mediaList.collections.map((c) => ({
+													items: loaderData.collections.map((c) => ({
 														value: c.id.toString(),
 														label: c.name,
 													})),
