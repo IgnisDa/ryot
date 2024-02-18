@@ -417,6 +417,7 @@ export default function Page() {
 											color="teal"
 											to={$path("/fitness/measurements/list", {
 												openModal: true,
+												redirectTo: $path("/fitness/workouts/current"),
 											})}
 										>
 											Add measurement
