@@ -84,11 +84,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				formData,
 				changeCollectionToEntitySchema,
 			);
-			await gqlClient.request(
-				AddEntityToCollectionDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
+			for (const collectionName of submission.collectionName) {
+				await gqlClient.request(
+					AddEntityToCollectionDocument,
+					{ input: { ...submission, collectionName } },
+					await getAuthorizationHeader(request),
+				);
+			}
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					message: "Media added to collection successfully",
@@ -101,11 +103,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				formData,
 				changeCollectionToEntitySchema,
 			);
-			await gqlClient.request(
-				RemoveEntityFromCollectionDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
+			for (const collectionName of submission.collectionName) {
+				await gqlClient.request(
+					RemoveEntityFromCollectionDocument,
+					{ input: { ...submission, collectionName } },
+					await getAuthorizationHeader(request),
+				);
+			}
 			return json({ status: "success", submission } as const);
 		},
 		performReviewAction: async () => {
@@ -155,7 +159,7 @@ const reviewCommentSchema = z.object({
 });
 
 const changeCollectionToEntitySchema = z.object({
-	collectionName: z.string(),
+	collectionName: z.string().transform((v) => v.split(",")),
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
 });

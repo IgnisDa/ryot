@@ -16,12 +16,12 @@ import {
 	Input,
 	Loader,
 	Modal,
+	MultiSelect,
 	NumberInput,
 	Paper,
 	Rating,
 	ScrollArea,
 	SegmentedControl,
-	Select,
 	Stack,
 	Text,
 	TextInput,
@@ -770,7 +770,7 @@ export const AddEntityToCollectionModal = (props: {
 				<input hidden name="entityLot" defaultValue={props.entityLot} />
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<Select
+					<MultiSelect
 						data={props.collections}
 						searchable
 						name="collectionName"
