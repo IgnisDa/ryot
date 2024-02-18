@@ -154,10 +154,14 @@ export default function Page() {
 															workout.summary.total.weight,
 														)}
 													/>
-													<DisplayStat
-														icon={<IconTrophy size={16} />}
-														data={`${workout.summary.total.personalBestsAchieved.toString()} PRs`}
-													/>
+													{Number(
+														workout.summary.total.personalBestsAchieved,
+													) !== 0 ? (
+														<DisplayStat
+															icon={<IconTrophy size={16} />}
+															data={`${workout.summary.total.personalBestsAchieved} PRs`}
+														/>
+													) : null}
 												</Group>
 											</Stack>
 										</Accordion.Control>
