@@ -40,6 +40,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconBoxMultiple,
 	IconDotsVertical,
 	IconFilter,
 	IconFilterOff,
@@ -559,6 +560,7 @@ const MediaSearchItem = (props: {
 						</Menu.Target>
 						<Menu.Dropdown>
 							<Menu.Item
+								leftSection={<IconBoxMultiple size={14} />}
 								onClick={async (e) => {
 									if (!appItemId) {
 										const id = await basicCommit(e);
