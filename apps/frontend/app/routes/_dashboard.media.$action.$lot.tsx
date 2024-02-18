@@ -17,8 +17,14 @@ import {
 } from "@mantine/core";
 import { useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
+	Link,
+	useLoaderData,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
+import {
+	EntityLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaGeneralFilter,
@@ -26,8 +32,10 @@ import {
 	MediaSearchDocument,
 	MediaSortBy,
 	MediaSourcesForLotDocument,
+	MetadataLot,
 	MetadataSource,
 	UserCollectionsListDocument,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -48,11 +56,12 @@ import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
-	MediaSearchItem,
+	Item,
 	NewUserGuideAlert,
+	commitMedia,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getLot } from "~/lib/generals";
+import { Verb, getLot, getVerb } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
@@ -484,3 +493,93 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const MediaSearchItem = (props: {
+	item: Item;
+	idx: number;
+	query: string;
+	lot: MetadataLot;
+	source: MetadataSource;
+	action: "search" | "list";
+	hasInteracted: boolean;
+	reviewScale: UserReviewScale;
+	maybeItemId?: number;
+}) => {
+	const navigate = useNavigate();
+	const [isLoading, setIsLoading] = useState(false);
+	const revalidator = useRevalidator();
+	const basicCommit = async (e: React.MouseEvent) => {
+		if (props.maybeItemId) return props.maybeItemId;
+		e.preventDefault();
+		return await commitMedia(props.item.identifier, props.lot, props.source);
+	};
+
+	return (
+		<MediaItemWithoutUpdateModal
+			item={props.item}
+			lot={props.lot}
+			reviewScale={props.reviewScale}
+			hasInteracted={props.hasInteracted}
+			imageOverlayForLoadingIndicator={isLoading}
+			noRatingLink
+			onClick={async (e) => {
+				setIsLoading(true);
+				const id = await basicCommit(e);
+				setIsLoading(false);
+				return navigate($path("/media/item/:id", { id }));
+			}}
+		>
+			<>
+				<Button
+					variant="outline"
+					w="100%"
+					size="compact-md"
+					onClick={async (e) => {
+						const id = await basicCommit(e);
+						return navigate(
+							$path(
+								"/media/item/:id",
+								{ id },
+								props.lot !== MetadataLot.Show
+									? { defaultTab: "actions", openProgressModal: true }
+									: { defaultTab: "seasons" },
+							),
+						);
+					}}
+				>
+					{props.lot !== MetadataLot.Show
+						? `Mark as ${getVerb(Verb.Read, props.lot)}`
+						: "Show details"}
+				</Button>
+				<Button
+					mt="xs"
+					variant="outline"
+					w="100%"
+					size="compact-md"
+					onClick={async () => {
+						setIsLoading(true);
+						const id = await commitMedia(
+							props.item.identifier,
+							props.lot,
+							props.source,
+						);
+						const form = new FormData();
+						form.append("intent", "addEntityToCollection");
+						form.append("entityId", id);
+						form.append("entityLot", EntityLot.Media);
+						form.append("collectionName", "Watchlist");
+						await fetch($path("/actions"), {
+							body: form,
+							method: "POST",
+							credentials: "include",
+						});
+						setIsLoading(false);
+						revalidator.revalidate();
+					}}
+				>
+					Add to Watchlist
+				</Button>
+			</>
+		</MediaItemWithoutUpdateModal>
+	);
+};
