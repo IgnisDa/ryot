@@ -29,7 +29,6 @@ import {
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
-	IconArrowsRight,
 	IconBarbell,
 	IconFriends,
 	IconScaleOutline,
@@ -39,7 +38,10 @@ import { ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
-import { MediaItemWithoutUpdateModal } from "~/components/media";
+import {
+	MediaItemWithoutUpdateModal,
+	NewUserGuideAlert,
+} from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	ApplicationKey,
@@ -130,16 +132,7 @@ export default function Page() {
 					</Alert>
 				) : null}
 				{loaderData.latestUserSummary.media.mediaInteractedWith === 0 ? (
-					<Alert icon={<IconArrowsRight />} variant="outline" color="teal">
-						<Text>
-							To get started, select a media type from the sidebar, enter a
-							query in the search tab, and add a media to your seen history or
-							watchlist.
-						</Text>
-						<Text mt="xs">
-							This notice will disappear once your summary is re-calculated.
-						</Text>
-					</Alert>
+					<NewUserGuideAlert />
 				) : null}
 				{loaderData.userPreferences.dashboard.map((de) =>
 					match([de.section, de.hidden])

@@ -1,6 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
+	Alert,
 	Anchor,
 	Avatar,
 	Badge,
@@ -49,6 +50,7 @@ import {
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
+	IconArrowsRight,
 	IconCheck,
 	IconEdit,
 	IconPercentage,
@@ -1042,5 +1044,19 @@ export const PostReviewModal = (props: {
 				</Stack>
 			</Form>
 		</Modal>
+	);
+};
+
+export const NewUserGuideAlert = () => {
+	return (
+		<Alert icon={<IconArrowsRight />} variant="outline" color="teal">
+			<Text>
+				To get started, select a media type from the sidebar, enter a query in
+				the search tab, and add a media to your seen history or watchlist.
+			</Text>
+			<Text mt="xs">
+				This notice will disappear once your summary is re-calculated.
+			</Text>
+		</Alert>
 	);
 };

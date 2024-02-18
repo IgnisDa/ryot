@@ -20,6 +20,7 @@ import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
+	LatestUserSummaryDocument,
 	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
@@ -48,6 +49,7 @@ import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	MediaSearchItem,
+	NewUserGuideAlert,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getLot } from "~/lib/generals";
@@ -71,10 +73,16 @@ enum Action {
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
-		getUserPreferences(request),
-	]);
+	const [coreDetails, userPreferences, { latestUserSummary }] =
+		await Promise.all([
+			getCoreDetails(),
+			getUserPreferences(request),
+			gqlClient.request(
+				LatestUserSummaryDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			),
+		]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
@@ -155,6 +163,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		lot,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
+		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
 		action,
 		mediaList,
 		mediaSearch,
@@ -217,8 +226,10 @@ export default function Page() {
 
 	return (
 		<Container>
+			{loaderData.mediaInteractedWith === 0 ? <NewUserGuideAlert /> : null}
 			<Tabs
 				variant="default"
+				mt="sm"
 				value={loaderData.action}
 				onChange={(v) => {
 					if (v)
