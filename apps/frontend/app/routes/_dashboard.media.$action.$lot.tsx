@@ -7,6 +7,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Menu,
 	Modal,
 	Select,
 	Stack,
@@ -39,6 +40,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconDotsVertical,
 	IconFilter,
 	IconFilterOff,
 	IconListCheck,
@@ -59,6 +61,7 @@ import {
 	Item,
 	NewUserGuideAlert,
 	commitMedia,
+	AddEntityToCollectionModal,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { Verb, getLot, getVerb } from "~/lib/generals";
@@ -508,13 +511,29 @@ const MediaSearchItem = (props: {
 	maybeItemId?: number;
 }) => {
 	const navigate = useNavigate();
+	const loaderData = useLoaderData<typeof loader>();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const basicCommit = async (e: React.MouseEvent) => {
 		if (props.maybeItemId) return props.maybeItemId;
 		e.preventDefault();
-		return await commitMedia(props.item.identifier, props.lot, props.source);
+		setIsLoading(true);
+		const response = await commitMedia(
+			props.item.identifier,
+			props.lot,
+			props.source,
+		);
+		setIsLoading(false);
+		return response;
 	};
+	const [
+		isAddMediaToCollectionModalOpened,
+		{
+			open: openIsAddMediaToCollectionModalOpened,
+			close: closeIsAddMediaToCollectionModalOpened,
+		},
+	] = useDisclosure(false);
+	const [appItemId, setAppItemId] = useState(props.maybeItemId);
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -530,6 +549,39 @@ const MediaSearchItem = (props: {
 				setIsLoading(false);
 				return navigate($path("/media/item/:id", { id }));
 			}}
+			nameRight={
+				<>
+					<Menu shadow="md">
+						<Menu.Target>
+							<ActionIcon size="xs">
+								<IconDotsVertical />
+							</ActionIcon>
+						</Menu.Target>
+						<Menu.Dropdown>
+							<Menu.Item
+								onClick={async (e) => {
+									if (!appItemId) {
+										const id = await basicCommit(e);
+										setAppItemId(id);
+									}
+									openIsAddMediaToCollectionModalOpened();
+								}}
+							>
+								Add to collections
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
+					{appItemId ? (
+						<AddEntityToCollectionModal
+							opened={isAddMediaToCollectionModalOpened}
+							onClose={closeIsAddMediaToCollectionModalOpened}
+							entityId={appItemId.toString()}
+							entityLot={EntityLot.Media}
+							collections={loaderData.collections.map((c) => c.name)}
+						/>
+					) : null}
+				</>
+			}
 		>
 			<>
 				<Button
@@ -558,13 +610,9 @@ const MediaSearchItem = (props: {
 					variant="outline"
 					w="100%"
 					size="compact-md"
-					onClick={async () => {
+					onClick={async (e) => {
 						setIsLoading(true);
-						const id = await commitMedia(
-							props.item.identifier,
-							props.lot,
-							props.source,
-						);
+						const id = await basicCommit(e);
 						const form = new FormData();
 						form.append("intent", "addEntityToCollection");
 						form.append("entityId", id);

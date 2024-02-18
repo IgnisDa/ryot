@@ -504,9 +504,9 @@ export const BaseDisplayItem = (props: {
 						</Text>
 					</Tooltip>
 				</Flex>
-				<Flex justify="space-between">
+				<Flex justify="space-between" align="center" mb="xs">
 					<Tooltip label={props.name} position="top">
-						<Text w="100%" truncate fw="bold" mb="xs">
+						<Text w="100%" truncate fw="bold">
 							{props.name}
 						</Text>
 					</Tooltip>
