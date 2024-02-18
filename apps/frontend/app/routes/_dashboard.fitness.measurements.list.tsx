@@ -26,6 +26,7 @@ import {
 	LoaderFunctionArgs,
 	MetaFunction,
 	json,
+	redirect,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -48,7 +49,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { ApplicationKey, dayjsLib } from "~/lib/generals";
+import { ApplicationKey, dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
@@ -65,6 +66,7 @@ enum TimeSpan {
 const searchParamsSchema = z.object({
 	timeSpan: z.nativeEnum(TimeSpan).optional(),
 	openModal: zx.BoolAsString.optional(),
+	[redirectToQueryParam]: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -108,20 +110,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return namedAction(request, {
 		create: async () => {
 			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
-			const submission: any = {};
-			for (const [name, value] of formData.entries())
-				if (value !== "") set(submission, name, value);
+			const input: any = {};
+			for (const [name, value] of formData.entries()) {
+				console.log(name, value);
+				if (value !== "" && name !== redirectToQueryParam)
+					set(input, name, value);
+			}
 			await gqlClient.request(
 				CreateUserMeasurementDocument,
-				{ input: submission },
+				{ input },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			const toastHeaders = {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Measurement submitted successfully",
 				}),
-			});
+			};
+			const redirectTo = formData.get(redirectToQueryParam);
+			if (redirectTo) return redirect(redirectTo.toString(), toastHeaders);
+			return json(
+				{ status: "success", submission: input } as const,
+				toastHeaders,
+			);
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
@@ -167,8 +178,9 @@ export default function Page() {
 		key: ApplicationKey.SavedMeasurementsDisplaySelectedStats,
 		getInitialValueInEffect: true,
 	});
-	const [_, { setP }] = useSearchParam();
+	const [searchParams, { setP }] = useSearchParam();
 
+	const redirectToFormEntry = searchParams.get(redirectToQueryParam);
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
@@ -181,6 +193,13 @@ export default function Page() {
 						close();
 					}}
 				>
+					{redirectToFormEntry ? (
+						<input
+							type="hidden"
+							name={redirectToQueryParam}
+							value={redirectToFormEntry}
+						/>
+					) : null}
 					<Stack>
 						<DateTimePicker
 							label="Timestamp"

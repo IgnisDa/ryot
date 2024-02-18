@@ -7,6 +7,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Menu,
 	Modal,
 	Select,
 	Stack,
@@ -17,19 +18,30 @@ import {
 } from "@mantine/core";
 import { useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
+	Link,
+	useLoaderData,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
+import {
+	EntityLot,
 	GraphqlSortOrder,
+	LatestUserSummaryDocument,
 	MediaGeneralFilter,
 	MediaListDocument,
 	MediaSearchDocument,
 	MediaSortBy,
 	MediaSourcesForLotDocument,
+	MetadataLot,
 	MetadataSource,
 	UserCollectionsListDocument,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconBoxMultiple,
+	IconDotsVertical,
 	IconFilter,
 	IconFilterOff,
 	IconListCheck,
@@ -47,10 +59,13 @@ import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
-	MediaSearchItem,
+	Item,
+	NewUserGuideAlert,
+	commitMedia,
+	AddEntityToCollectionModal,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getLot } from "~/lib/generals";
+import { Verb, getLot, getVerb } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
@@ -71,9 +86,24 @@ enum Action {
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const [coreDetails, userPreferences] = await Promise.all([
+	const [
+		coreDetails,
+		userPreferences,
+		{ latestUserSummary },
+		{ userCollectionsList },
+	] = await Promise.all([
 		getCoreDetails(),
 		getUserPreferences(request),
+		gqlClient.request(
+			LatestUserSummaryDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+		gqlClient.request(
+			UserCollectionsListDocument,
+			{},
+			await getAuthorizationHeader(request),
+		),
 	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
@@ -114,15 +144,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 				await getAuthorizationHeader(request),
 			);
-			const { userCollectionsList } = await gqlClient.request(
-				UserCollectionsListDocument,
-				{},
-				await getAuthorizationHeader(request),
-			);
-			return [
-				{ list: mediaList, collections: userCollectionsList, url: urlParse },
-				undefined,
-			] as const;
+			return [{ list: mediaList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
 			const { mediaSourcesForLot } = await gqlClient.request(
@@ -152,14 +174,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		})
 		.exhaustive();
 	return json({
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		lot,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
+		query,
 		action,
+		numPage,
 		mediaList,
 		mediaSearch,
-		query,
-		numPage,
+		collections: userCollectionsList,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
+		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 	});
 };
 
@@ -217,8 +241,10 @@ export default function Page() {
 
 	return (
 		<Container>
+			{loaderData.mediaInteractedWith === 0 ? <NewUserGuideAlert /> : null}
 			<Tabs
 				variant="default"
+				mt="sm"
 				value={loaderData.action}
 				onChange={(v) => {
 					if (v)
@@ -334,14 +360,14 @@ export default function Page() {
 											)}
 										</ActionIcon>
 									</Flex>
-									{loaderData.mediaList.collections.length > 0 ? (
+									{loaderData.collections.length > 0 ? (
 										<Select
 											placeholder="Select a collection"
 											defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
 											data={[
 												{
 													group: "My collections",
-													items: loaderData.mediaList.collections.map((c) => ({
+													items: loaderData.collections.map((c) => ({
 														value: c.id.toString(),
 														label: c.name,
 													})),
@@ -473,3 +499,139 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const MediaSearchItem = (props: {
+	item: Item;
+	idx: number;
+	query: string;
+	lot: MetadataLot;
+	source: MetadataSource;
+	action: "search" | "list";
+	hasInteracted: boolean;
+	reviewScale: UserReviewScale;
+	maybeItemId?: number;
+}) => {
+	const navigate = useNavigate();
+	const loaderData = useLoaderData<typeof loader>();
+	const [isLoading, setIsLoading] = useState(false);
+	const revalidator = useRevalidator();
+	const basicCommit = async (e: React.MouseEvent) => {
+		if (props.maybeItemId) return props.maybeItemId;
+		e.preventDefault();
+		setIsLoading(true);
+		const response = await commitMedia(
+			props.item.identifier,
+			props.lot,
+			props.source,
+		);
+		setIsLoading(false);
+		return response;
+	};
+	const [
+		isAddMediaToCollectionModalOpened,
+		{
+			open: openIsAddMediaToCollectionModalOpened,
+			close: closeIsAddMediaToCollectionModalOpened,
+		},
+	] = useDisclosure(false);
+	const [appItemId, setAppItemId] = useState(props.maybeItemId);
+
+	return (
+		<MediaItemWithoutUpdateModal
+			item={props.item}
+			lot={props.lot}
+			reviewScale={props.reviewScale}
+			hasInteracted={props.hasInteracted}
+			imageOverlayForLoadingIndicator={isLoading}
+			noRatingLink
+			onClick={async (e) => {
+				setIsLoading(true);
+				const id = await basicCommit(e);
+				setIsLoading(false);
+				return navigate($path("/media/item/:id", { id }));
+			}}
+			nameRight={
+				<>
+					<Menu shadow="md">
+						<Menu.Target>
+							<ActionIcon size="xs">
+								<IconDotsVertical />
+							</ActionIcon>
+						</Menu.Target>
+						<Menu.Dropdown>
+							<Menu.Item
+								leftSection={<IconBoxMultiple size={14} />}
+								onClick={async (e) => {
+									if (!appItemId) {
+										const id = await basicCommit(e);
+										setAppItemId(id);
+									}
+									openIsAddMediaToCollectionModalOpened();
+								}}
+							>
+								Add to collections
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
+					{appItemId ? (
+						<AddEntityToCollectionModal
+							opened={isAddMediaToCollectionModalOpened}
+							onClose={closeIsAddMediaToCollectionModalOpened}
+							entityId={appItemId.toString()}
+							entityLot={EntityLot.Media}
+							collections={loaderData.collections.map((c) => c.name)}
+						/>
+					) : null}
+				</>
+			}
+		>
+			<>
+				<Button
+					variant="outline"
+					w="100%"
+					size="compact-md"
+					onClick={async (e) => {
+						const id = await basicCommit(e);
+						return navigate(
+							$path(
+								"/media/item/:id",
+								{ id },
+								props.lot !== MetadataLot.Show
+									? { defaultTab: "actions", openProgressModal: true }
+									: { defaultTab: "seasons" },
+							),
+						);
+					}}
+				>
+					{props.lot !== MetadataLot.Show
+						? `Mark as ${getVerb(Verb.Read, props.lot)}`
+						: "Show details"}
+				</Button>
+				<Button
+					mt="xs"
+					variant="outline"
+					w="100%"
+					size="compact-md"
+					onClick={async (e) => {
+						setIsLoading(true);
+						const id = await basicCommit(e);
+						const form = new FormData();
+						form.append("intent", "addEntityToCollection");
+						form.append("entityId", id);
+						form.append("entityLot", EntityLot.Media);
+						form.append("collectionName", "Watchlist");
+						await fetch($path("/actions"), {
+							body: form,
+							method: "POST",
+							credentials: "include",
+						});
+						setIsLoading(false);
+						revalidator.revalidate();
+					}}
+				>
+					Add to Watchlist
+				</Button>
+			</>
+		</MediaItemWithoutUpdateModal>
+	);
+};

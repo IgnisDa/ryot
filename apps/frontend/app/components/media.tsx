@@ -1,6 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
+	Alert,
 	Anchor,
 	Avatar,
 	Badge,
@@ -15,12 +16,12 @@ import {
 	Input,
 	Loader,
 	Modal,
+	MultiSelect,
 	NumberInput,
 	Paper,
 	Rating,
 	ScrollArea,
 	SegmentedControl,
-	Select,
 	Stack,
 	Text,
 	TextInput,
@@ -30,13 +31,7 @@ import {
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	Form,
-	Link,
-	useFetcher,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
+import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	MetadataLot,
@@ -49,6 +44,7 @@ import {
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
+	IconArrowsRight,
 	IconCheck,
 	IconEdit,
 	IconPercentage,
@@ -60,13 +56,13 @@ import { ReactNode, useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
+import { dayjsLib, getFallbackImageUrl } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/common.module.css";
 import { confirmWrapper } from "./confirmation";
 
-const commitMedia = async (
+export const commitMedia = async (
 	identifier: string,
 	lot: MetadataLot,
 	source: MetadataSource,
@@ -451,6 +447,7 @@ export const BaseDisplayItem = (props: {
 	href: string;
 	highlightRightText?: string;
 	children?: ReactNode;
+	nameRight?: JSX.Element;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -507,18 +504,21 @@ export const BaseDisplayItem = (props: {
 						</Text>
 					</Tooltip>
 				</Flex>
-				<Tooltip label={props.name} position="right">
-					<Text w="100%" truncate fw="bold" mb="xs">
-						{props.name}
-					</Text>
-				</Tooltip>
+				<Flex justify="space-between" align="center" mb="xs">
+					<Tooltip label={props.name} position="top">
+						<Text w="100%" truncate fw="bold">
+							{props.name}
+						</Text>
+					</Tooltip>
+					{props.nameRight}
+				</Flex>
 				{props.children}
 			</Flex>
 		</Flex>
 	);
 };
 
-type Item = {
+export type Item = {
 	identifier: string;
 	title: string;
 	image?: string | null;
@@ -538,6 +538,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noRatingLink?: boolean;
 	noBottomRight?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
+	nameRight?: JSX.Element;
 }) => {
 	const navigate = useNavigate();
 
@@ -647,98 +648,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.hasInteracted ? "This media exists in the database" : undefined
 			}
 			name={props.item.title}
+			nameRight={props.nameRight}
 			children={props.children}
 		/>
-	);
-};
-
-export const MediaSearchItem = (props: {
-	item: Item;
-	idx: number;
-	query: string;
-	lot: MetadataLot;
-	source: MetadataSource;
-	action: "search" | "list";
-	hasInteracted: boolean;
-	reviewScale: UserReviewScale;
-	maybeItemId?: number;
-}) => {
-	const navigate = useNavigate();
-	const [isLoading, setIsLoading] = useState(false);
-	const revalidator = useRevalidator();
-	const basicCommit = async (e: React.MouseEvent) => {
-		if (props.maybeItemId) return props.maybeItemId;
-		e.preventDefault();
-		return await commitMedia(props.item.identifier, props.lot, props.source);
-	};
-
-	return (
-		<MediaItemWithoutUpdateModal
-			item={props.item}
-			lot={props.lot}
-			reviewScale={props.reviewScale}
-			hasInteracted={props.hasInteracted}
-			imageOverlayForLoadingIndicator={isLoading}
-			noRatingLink
-			onClick={async (e) => {
-				setIsLoading(true);
-				const id = await basicCommit(e);
-				setIsLoading(false);
-				return navigate($path("/media/item/:id", { id }));
-			}}
-		>
-			<>
-				<Button
-					variant="outline"
-					w="100%"
-					size="compact-md"
-					onClick={async (e) => {
-						const id = await basicCommit(e);
-						return navigate(
-							$path(
-								"/media/item/:id",
-								{ id },
-								props.lot !== MetadataLot.Show
-									? { defaultTab: "actions", openProgressModal: true }
-									: { defaultTab: "seasons" },
-							),
-						);
-					}}
-				>
-					{props.lot !== MetadataLot.Show
-						? `Mark as ${getVerb(Verb.Read, props.lot)}`
-						: "Show details"}
-				</Button>
-				<Button
-					mt="xs"
-					variant="outline"
-					w="100%"
-					size="compact-md"
-					onClick={async () => {
-						setIsLoading(true);
-						const id = await commitMedia(
-							props.item.identifier,
-							props.lot,
-							props.source,
-						);
-						const form = new FormData();
-						form.append("intent", "addEntityToCollection");
-						form.append("entityId", id);
-						form.append("entityLot", EntityLot.Media);
-						form.append("collectionName", "Watchlist");
-						await fetch($path("/actions"), {
-							body: form,
-							method: "POST",
-							credentials: "include",
-						});
-						setIsLoading(false);
-						revalidator.revalidate();
-					}}
-				>
-					Add to Watchlist
-				</Button>
-			</>
-		</MediaItemWithoutUpdateModal>
 	);
 };
 
@@ -768,7 +680,12 @@ export const AddEntityToCollectionModal = (props: {
 				<input hidden name="entityLot" defaultValue={props.entityLot} />
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<Select data={props.collections} searchable name="collectionName" />
+					<MultiSelect
+						data={props.collections}
+						searchable
+						name="collectionName"
+						nothingFoundMessage="Nothing found..."
+					/>
 					<Button
 						data-autofocus
 						variant="outline"
@@ -1037,5 +954,19 @@ export const PostReviewModal = (props: {
 				</Stack>
 			</Form>
 		</Modal>
+	);
+};
+
+export const NewUserGuideAlert = () => {
+	return (
+		<Alert icon={<IconArrowsRight />} variant="outline" color="teal">
+			<Text>
+				To get started, select a media type from the sidebar, enter a query in
+				the search tab, and add a media to your seen history or watchlist.
+			</Text>
+			<Text mt="xs">
+				This notice will disappear once your summary is re-calculated.
+			</Text>
+		</Alert>
 	);
 };

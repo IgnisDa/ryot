@@ -287,13 +287,15 @@ export default function Page() {
 									{ round: true, units: ["h", "m"] },
 								)}
 							/>
-							<DisplayStat
-								icon={<IconWeight size={16} />}
-								data={displayWeightWithUnit(
-									loaderData.userPreferences.unitSystem,
-									loaderData.workoutDetails.summary.total.weight,
-								)}
-							/>
+							{Number(loaderData.workoutDetails.summary.total.weight) !== 0 ? (
+								<DisplayStat
+									icon={<IconWeight size={16} />}
+									data={displayWeightWithUnit(
+										loaderData.userPreferences.unitSystem,
+										loaderData.workoutDetails.summary.total.weight,
+									)}
+								/>
+							) : null}
 							{Number(loaderData.workoutDetails.summary.total.distance) > 0 ? (
 								<DisplayStat
 									icon={<IconRun size={16} />}
@@ -307,10 +309,14 @@ export default function Page() {
 								icon={<IconBarbell size={16} />}
 								data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
 							/>
-							<DisplayStat
-								icon={<IconTrophy size={16} />}
-								data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved.toString()} PRs`}
-							/>
+							{Number(
+								loaderData.workoutDetails.summary.total.personalBestsAchieved,
+							) !== 0 ? (
+								<DisplayStat
+									icon={<IconTrophy size={16} />}
+									data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved} PRs`}
+								/>
+							) : null}
 							{loaderData.workoutDetails.summary.total.restTime > 0 ? (
 								<DisplayStat
 									icon={<IconZzz size={16} />}

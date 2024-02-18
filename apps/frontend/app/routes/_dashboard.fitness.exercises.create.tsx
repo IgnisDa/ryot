@@ -35,11 +35,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
+import { ClientError } from "graphql-request";
 import { z } from "zod";
 import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
+import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
@@ -74,14 +76,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			instructions: instructions?.split("\n") || [],
 		},
 	};
-	const { createCustomExercise } = await gqlClient.request(
-		CreateCustomExerciseDocument,
-		{ input },
-		await getAuthorizationHeader(request),
-	);
-	return redirect(
-		$path("/fitness/exercises/:id", { id: createCustomExercise }),
-	);
+	try {
+		const { createCustomExercise } = await gqlClient.request(
+			CreateCustomExerciseDocument,
+			{ input },
+			await getAuthorizationHeader(request),
+		);
+		return redirect(
+			$path("/fitness/exercises/:id", { id: createCustomExercise }),
+		);
+		// biome-ignore lint/suspicious/noExplicitAny: no other way to catch ClientError
+	} catch (e: any) {
+		if (e instanceof ClientError && e.response.errors) {
+			const message = e.response.errors[0].message;
+			return json(
+				{ error: e.message },
+				{
+					status: 400,
+					headers: await createToastHeaders({ message, type: "error" }),
+				},
+			);
+		}
+		throw e;
+	}
 };
 
 const optionalString = z.string().optional();
