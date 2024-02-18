@@ -5913,6 +5913,7 @@ GROUP BY
             return Ok(());
         }
         let meta_map = self.users_to_be_notified_for_state_changes().await?;
+        tracing::debug!("Users to be notified for state changes: {:?}", meta_map);
         for (metadata_id, to_notify) in meta_map {
             let notifications = self.update_metadata(metadata_id).await?;
             for user in to_notify {
