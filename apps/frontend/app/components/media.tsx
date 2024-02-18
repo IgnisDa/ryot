@@ -768,7 +768,12 @@ export const AddEntityToCollectionModal = (props: {
 				<input hidden name="entityLot" defaultValue={props.entityLot} />
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<Select data={props.collections} searchable name="collectionName" />
+					<Select
+						data={props.collections}
+						searchable
+						name="collectionName"
+						nothingFoundMessage="Nothing found..."
+					/>
 					<Button
 						data-autofocus
 						variant="outline"
