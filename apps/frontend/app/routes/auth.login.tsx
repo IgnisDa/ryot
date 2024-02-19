@@ -1,4 +1,4 @@
-import { conform, useForm } from "@conform-to/react";
+import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { $path } from "@ignisda/remix-routes";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import {
@@ -85,14 +85,13 @@ const schema = z.object({
 	[redirectToQueryParam]: z.string().optional(),
 });
 
+type Schema = z.infer<typeof schema>;
+
 export default function Page() {
 	const [searchParams] = useSearchParams();
 	const loaderData = useLoaderData<typeof loader>();
-	const [form, fields] = useForm({
-		defaultValue: {
-			redirectTo: searchParams.get(redirectToQueryParam) ?? "",
-		},
-	});
+	const [form, fields] = useForm<Schema>({});
+	const redirectValue = searchParams.get(redirectToQueryParam);
 
 	return (
 		<>
@@ -101,11 +100,10 @@ export default function Page() {
 				m="auto"
 				className={classes.form}
 				method="post"
-				{...form.props}
+				{...getFormProps(form)}
 			>
 				<TextInput
-					id="username-input"
-					{...conform.input(fields.username)}
+					{...getInputProps(fields.username, { type: "text" })}
 					label="Username"
 					autoFocus
 					required
@@ -114,9 +112,8 @@ export default function Page() {
 					}
 				/>
 				<PasswordInput
-					id="password-input"
 					label="Password"
-					{...conform.input(fields.password)}
+					{...getInputProps(fields.password, { type: "password" })}
 					mt="md"
 					required
 					defaultValue={
@@ -124,13 +121,15 @@ export default function Page() {
 							? "demo-password"
 							: undefined
 					}
-					error={fields.password.error}
+					error={fields.password.errors?.[0]}
 				/>
-				<input
-					{...conform.input(fields[redirectToQueryParam], {
-						type: "hidden",
-					})}
-				/>
+				{redirectValue ? (
+					<input
+						type="hidden"
+						name={redirectToQueryParam}
+						value={redirectValue}
+					/>
+				) : null}
 				<Button id="submit-button" mt="md" type="submit" w="100%">
 					Login
 				</Button>

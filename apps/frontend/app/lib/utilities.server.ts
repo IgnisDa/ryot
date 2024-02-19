@@ -1,4 +1,4 @@
-import { parse } from "@conform-to/zod";
+import { parseWithZod } from "@conform-to/zod";
 import { json } from "@remix-run/node";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
@@ -59,8 +59,8 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 	formData: FormData,
 	schema: Schema,
 ): output<Schema> => {
-	const submission = parse(formData, { schema });
-	if (submission.intent !== "submit")
+	const submission = parseWithZod(formData, { schema });
+	if (submission.status !== "success")
 		throw json({ status: "idle", submission } as const);
 	if (!submission.value)
 		throw json({ status: "error", submission } as const, { status: 400 });
