@@ -65,6 +65,7 @@ import {
 	AddEntityToCollectionModal,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import events from "~/lib/events";
 import { Verb, getLot, getVerb } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
@@ -619,12 +620,14 @@ const MediaSearchItem = (props: {
 						form.append("intent", "addEntityToCollection");
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
-						form.append("collectionName", "Watchlist");
+						const collectionName = "Watchlist";
+						form.append("collectionName", collectionName);
 						await fetch($path("/actions"), {
 							body: form,
 							method: "POST",
 							credentials: "include",
 						});
+						events.addToCollection(EntityLot.Media);
 						setIsLoading(false);
 						revalidator.revalidate();
 					}}
