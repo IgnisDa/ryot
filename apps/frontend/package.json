@@ -7,8 +7,8 @@
 		"hoistingLimits": "workspaces"
 	},
 	"dependencies": {
-		"@conform-to/react": "0.9.1",
-		"@conform-to/zod": "0.9.1",
+		"@conform-to/react": "1.0.1",
+		"@conform-to/zod": "1.0.1",
 		"@formkit/auto-animate": "0.8.1",
 		"@hello-pangea/dnd": "16.5.0",
 		"@ignisda/remix-routes": "3.3.0",

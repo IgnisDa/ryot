@@ -1455,31 +1455,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@conform-to/dom@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@conform-to/dom@npm:0.9.1"
-  checksum: db3f8bf9b8a1cc1111311677bed56162e890daf7f980a3ff2542f3dfc128bf3baa663504bb4d3f34a205aa832bfe57743aef3102fc95f860a9d9839f9b519808
+"@conform-to/dom@npm:1.0.1":
+  version: 1.0.1
+  resolution: "@conform-to/dom@npm:1.0.1"
+  checksum: c2918e2dc49d3a71394b90456f5b27a76fb7875442da54a7561bd6e41653fd1222bccdc8fbc8a91326f26d743dc7f1bbd0603db4815746bd7a84a48fdb9c18d1
   languageName: node
   linkType: hard
 
-"@conform-to/react@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@conform-to/react@npm:0.9.1"
+"@conform-to/react@npm:1.0.1":
+  version: 1.0.1
+  resolution: "@conform-to/react@npm:1.0.1"
   dependencies:
-    "@conform-to/dom": "npm:0.9.1"
+    "@conform-to/dom": "npm:1.0.1"
   peerDependencies:
-    react: ">=16.8"
-  checksum: 3110eebf84a309dea665cfa82d25b06e005a7218bd2f1460bf786eda6a05915020f7a1df64f64b0ffed046d713a50cc5c512253a6abde52062dec508dbd74465
+    react: ">=18"
+  checksum: 4a17246d41658b5dafceec7786454cf89957024439ea05ec31ce35cc1acd664e5bd94f5f5509e8f69f778098cddb4d1c535ad6e85f7678b3a324fa6a2e32a93b
   languageName: node
   linkType: hard
 
-"@conform-to/zod@npm:0.9.1":
-  version: 0.9.1
-  resolution: "@conform-to/zod@npm:0.9.1"
+"@conform-to/zod@npm:1.0.1":
+  version: 1.0.1
+  resolution: "@conform-to/zod@npm:1.0.1"
+  dependencies:
+    "@conform-to/dom": "npm:1.0.1"
   peerDependencies:
-    "@conform-to/dom": 0.9.1
     zod: ^3.21.0
-  checksum: b7f2eb44ec90659d188f1cf26f2868ebd950c6d9ec4c107a330afadef8d7574cd51535c59a37d3f479e8b90493e89acb09b6e643912a917c551980fe06ebe8fc
+  checksum: e8a53957a8689d324abb4704f0e66ae6e3fd958813c3be72c51c870d65b47c6b7677a056ffc01ff483d5cff4370863b6bef2fcfa9d65d44fbcc70b60f18d6a71
   languageName: node
   linkType: hard
 
@@ -3305,8 +3306,8 @@ __metadata:
   resolution: "@ryot/frontend@workspace:apps/frontend"
   dependencies:
     "@bitprojects/umami-logger-typescript": "npm:1.0.10"
-    "@conform-to/react": "npm:0.9.1"
-    "@conform-to/zod": "npm:0.9.1"
+    "@conform-to/react": "npm:1.0.1"
+    "@conform-to/zod": "npm:1.0.1"
     "@formkit/auto-animate": "npm:0.8.1"
     "@hello-pangea/dnd": "npm:16.5.0"
     "@ignisda/remix-routes": "npm:3.3.0"
