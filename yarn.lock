@@ -3345,7 +3345,7 @@ __metadata:
     howler: "npm:2.2.4"
     humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.0.3"
-    isbot: "npm:4.4.0"
+    isbot: "npm:5.1.0"
     jotai: "npm:2.6.2"
     js-cookie: "npm:3.0.5"
     mantine-datatable: "npm:7.4.6"
@@ -7302,10 +7302,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isbot@npm:4.4.0":
-  version: 4.4.0
-  resolution: "isbot@npm:4.4.0"
-  checksum: 8ebf10efc7c7e8ba07fc105cbd24c0d9539e41b4c8e4452909f1cd44752ad0c9b2381cb4e712c977a78e82a79827eb1b8e800f211046ee96eefedb29db2acb70
+"isbot@npm:5.1.0":
+  version: 5.1.0
+  resolution: "isbot@npm:5.1.0"
+  checksum: 45e43dbc437bace7d06a59f8c761ee2b0d8ac007a628bab6ec13995cd3341faa4480b17318cf508abc6a55f62a7115f333f351ed2e2852ed54977edb325e7982
   languageName: node
   linkType: hard
 

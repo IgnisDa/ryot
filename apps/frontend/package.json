@@ -38,7 +38,7 @@
 		"howler": "2.2.4",
 		"humanize-duration-ts": "2.1.1",
 		"immer": "10.0.3",
-		"isbot": "4.4.0",
+		"isbot": "5.1.0",
 		"jotai": "2.6.2",
 		"js-cookie": "3.0.5",
 		"mantine-datatable": "7.4.6",
