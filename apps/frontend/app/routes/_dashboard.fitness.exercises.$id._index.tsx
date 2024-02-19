@@ -265,7 +265,7 @@ export default function Page() {
 											{dayjsLib(h.workoutTime).format("LLLL")}
 										</Text>
 										{h.sets.map((s, idx) => (
-											<Flex key={`${idx}`} align="center">
+											<Flex key={`${idx}-${s.lot}`} align="center">
 												<Text
 													fz="sm"
 													c={getSetColor(s.lot)}

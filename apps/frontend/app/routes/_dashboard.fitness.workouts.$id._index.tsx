@@ -493,7 +493,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 			</Stack>
 			{props.exercise.sets.map((s, idx) => (
 				<DisplaySet
-					key={`${idx}`}
+					key={s.confirmedAt}
 					set={s}
 					idx={idx}
 					exerciseLot={props.exercise.lot}
