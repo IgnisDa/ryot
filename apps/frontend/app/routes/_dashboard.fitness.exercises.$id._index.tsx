@@ -51,12 +51,9 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
+import { AddEntityToCollectionModal } from "~/components/common";
 import { DisplayExerciseStats } from "~/components/fitness";
-import {
-	AddEntityToCollectionModal,
-	DisplayCollection,
-	MediaScrollArea,
-} from "~/components/media";
+import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";

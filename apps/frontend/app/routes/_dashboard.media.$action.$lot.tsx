@@ -56,13 +56,16 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	AddEntityToCollectionModal,
+	ApplicationGrid,
+	ApplicationPagination,
+} from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	Item,
 	NewUserGuideAlert,
 	commitMedia,
-	AddEntityToCollectionModal,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";

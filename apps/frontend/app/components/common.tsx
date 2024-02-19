@@ -4,23 +4,30 @@ import {
 	Anchor,
 	Badge,
 	Box,
+	Button,
 	Flex,
 	Image,
+	Modal,
+	MultiSelect,
 	Pagination,
 	PaginationProps,
 	SimpleGrid,
 	Stack,
 	Text,
+	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
+import { useFetcher } from "@remix-run/react";
 import type {
+	EntityLot,
 	MetadataLot,
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
-import { ReactNode, forwardRef } from "react";
+import { ReactNode, forwardRef, useRef } from "react";
 import { useState } from "react";
+import events from "~/lib/events";
 import { getFallbackImageUrl } from "~/lib/generals";
 import classes from "~/styles/common.module.css";
 
@@ -125,5 +132,61 @@ export const MediaDetailsLayout = (props: {
 				{props.children}
 			</Stack>
 		</Flex>
+	);
+};
+
+export const AddEntityToCollectionModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	entityId: string;
+	entityLot: EntityLot;
+	collections: string[];
+}) => {
+	const addEntityToCollectionFormRef = useRef<HTMLFormElement>(null);
+	const addEntityToCollectionFetcher = useFetcher();
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<addEntityToCollectionFetcher.Form
+				action="/actions?intent=addEntityToCollection"
+				method="post"
+				ref={addEntityToCollectionFormRef}
+				onSubmit={() => {
+					events.addToCollection(props.entityLot);
+				}}
+			>
+				<input hidden name="entityId" defaultValue={props.entityId} />
+				<input hidden name="entityLot" defaultValue={props.entityLot} />
+				<Stack>
+					<Title order={3}>Select collection</Title>
+					<MultiSelect
+						data={props.collections}
+						searchable
+						name="collectionName"
+						nothingFoundMessage="Nothing found..."
+					/>
+					<Button
+						data-autofocus
+						variant="outline"
+						onClick={() => {
+							addEntityToCollectionFetcher.submit(
+								addEntityToCollectionFormRef.current,
+							);
+							props.onClose();
+						}}
+					>
+						Set
+					</Button>
+					<Button variant="outline" color="red" onClick={props.onClose}>
+						Cancel
+					</Button>
+				</Stack>
+			</addEntityToCollectionFetcher.Form>
+		</Modal>
 	);
 };
