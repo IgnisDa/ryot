@@ -18,7 +18,6 @@ import {
 } from "@remix-run/node";
 import {
 	Links,
-	LiveReload,
 	Meta,
 	Outlet,
 	Scripts,
@@ -159,7 +158,6 @@ export default function App() {
 							<Outlet />
 						</Flex>
 						<ScrollRestoration />
-						<LiveReload />
 						<Scripts />
 					</MantineProvider>
 				</QueryClientProvider>
