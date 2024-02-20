@@ -1894,7 +1894,7 @@ const ProgressUpdateModal = (props: {
 												/>
 											) : null}
 											{!props.data?.onlySeason &&
-											props.data?.showSeasonNumber ? (
+											typeof props.data?.showSeasonNumber !== "undefined" ? (
 												<Select
 													label="Episode"
 													data={
