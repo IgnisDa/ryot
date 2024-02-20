@@ -51,8 +51,10 @@ import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticated(request);
-	const userPreferences = await getUserPreferences(request);
-	const coreDetails = await getCoreDetails();
+	const [userPreferences, coreDetails] = await Promise.all([
+		getUserPreferences(request),
+		getCoreDetails(),
+	]);
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
