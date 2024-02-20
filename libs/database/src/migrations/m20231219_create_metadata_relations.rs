@@ -1,18 +1,9 @@
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use super::{m20230410_create_metadata::Metadata, m20230501_create_metadata_group::MetadataGroup};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum MetadataToMetadataRelation {
-    #[sea_orm(string_value = "SU")]
-    Suggestion,
-}
 
 #[derive(Iden)]
 pub enum MetadataToMetadata {

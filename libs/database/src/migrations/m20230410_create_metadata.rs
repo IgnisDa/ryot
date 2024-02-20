@@ -1,99 +1,9 @@
-use async_graphql::Enum;
-use schematic::ConfigEnum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
-
-/// The different sources (or providers) from which data can be obtained from.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
-    Default,
-    Hash,
-    ConfigEnum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-#[config(rename_all = "PascalCase")]
-pub enum MetadataSource {
-    #[sea_orm(string_value = "AN")]
-    Anilist,
-    #[default]
-    #[sea_orm(string_value = "AU")]
-    Audible,
-    #[sea_orm(string_value = "CU")]
-    Custom,
-    #[sea_orm(string_value = "GO")]
-    GoogleBooks,
-    #[sea_orm(string_value = "IG")]
-    Igdb,
-    #[sea_orm(string_value = "IT")]
-    Itunes,
-    #[sea_orm(string_value = "LI")]
-    Listennotes,
-    #[sea_orm(string_value = "MU")]
-    MangaUpdates,
-    #[sea_orm(string_value = "MY")]
-    Mal,
-    #[sea_orm(string_value = "OL")]
-    Openlibrary,
-    #[sea_orm(string_value = "TM")]
-    Tmdb,
-    #[sea_orm(string_value = "VN")]
-    Vndb,
-}
-
-/// The different types of media that can be stored.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
-    Default,
-    Hash,
-    ConfigEnum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-#[config(rename_all = "PascalCase")]
-pub enum MetadataLot {
-    #[sea_orm(string_value = "AB")]
-    AudioBook,
-    #[sea_orm(string_value = "AN")]
-    Anime,
-    #[default]
-    #[sea_orm(string_value = "BO")]
-    Book,
-    #[sea_orm(string_value = "PO")]
-    Podcast,
-    #[sea_orm(string_value = "MA")]
-    Manga,
-    #[sea_orm(string_value = "MO")]
-    Movie,
-    #[sea_orm(string_value = "SH")]
-    Show,
-    #[sea_orm(string_value = "VG")]
-    VideoGame,
-    #[sea_orm(string_value = "VN")]
-    VisualNovel,
-}
 
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]

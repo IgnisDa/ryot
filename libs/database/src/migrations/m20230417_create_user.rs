@@ -1,21 +1,7 @@
-use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
-
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum UserLot {
-    #[sea_orm(string_value = "A")]
-    Admin,
-    #[sea_orm(string_value = "N")]
-    Normal,
-}
 
 #[derive(Iden)]
 pub enum User {
