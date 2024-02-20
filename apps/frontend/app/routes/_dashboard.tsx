@@ -19,7 +19,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
+import { LoaderFunctionArgs, SerializeFrom, json } from "@remix-run/node";
 import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetails,
@@ -41,12 +41,14 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
+import { ExternalScriptsHandle } from "remix-utils/external-scripts";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { ApplicationKey, getLot } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import { expectedEnvironmentVariables } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -124,19 +126,50 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("Cookie") || "",
 	);
+
+	const envData = expectedEnvironmentVariables.parse(process.env);
+
 	return json({
+		envData,
 		mediaLinks,
+		userDetails,
+		coreDetails,
 		fitnessLinks,
+		settingsLinks,
+		collectionLinks,
+		currentColorScheme,
 		userPreferences: {
 			media: userPreferences.featuresEnabled.media,
 			fitness: userPreferences.featuresEnabled.fitness,
 		},
-		userDetails,
-		coreDetails,
-		currentColorScheme,
-		settingsLinks,
-		collectionLinks,
 	});
+};
+
+export const handle: ExternalScriptsHandle<SerializeFrom<typeof loader>> = {
+	scripts({ data }) {
+		const scripts = [];
+		const shouldHaveUmami =
+			data.envData.FRONTEND_UMAMI_SCRIPT_URL &&
+			data.envData.FRONTEND_UMAMI_WEBSITE_ID &&
+			!data.envData.DISABLE_TELEMETRY &&
+			!data.userDetails.isDemo;
+		if (shouldHaveUmami) {
+			scripts.push({
+				src: data.envData.FRONTEND_UMAMI_SCRIPT_URL,
+				defer: true,
+				"data-website-id": data.envData.FRONTEND_UMAMI_WEBSITE_ID,
+				"data-domains": data.envData.FRONTEND_UMAMI_DOMAINS,
+			});
+		}
+		return [
+			{
+				src: "https://unpkg.com/htmx.org@1.9.6",
+				integrity:
+					"sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni",
+				crossOrigin: "anonymous",
+			},
+		];
+	},
 };
 
 export default function Layout() {

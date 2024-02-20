@@ -41,7 +41,7 @@ export const getIsAuthenticated = async (request: Request) => {
 
 export const redirectIfNotAuthenticated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
-	if (!isAuthenticated) {
+	if (!isAuthenticated || userDetails.__typename !== "User") {
 		const url = new URL(request.url);
 		throw redirect(
 			withQuery($path("/auth/login"), {
