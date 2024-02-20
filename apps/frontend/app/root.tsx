@@ -27,7 +27,6 @@ import {
 } from "@remix-run/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
-import { ExternalScripts } from "remix-utils/external-scripts";
 import { Toaster } from "~/components/toaster";
 import { getToast } from "~/lib/toast.server";
 import { combineHeaders } from "~/lib/utilities.server";
@@ -145,7 +144,6 @@ export default function App() {
 							<Outlet />
 						</Flex>
 						<ScrollRestoration />
-						<ExternalScripts />
 						<Scripts />
 					</MantineProvider>
 				</QueryClientProvider>
