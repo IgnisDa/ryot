@@ -1,4 +1,13 @@
+import type Umami from "@bitprojects/umami-logger-typescript";
 import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+
+declare global {
+	interface Window {
+		umami?: {
+			track: typeof Umami.trackEvent;
+		};
+	}
+}
 
 export default {
 	updateProgress: (title: string) => {
