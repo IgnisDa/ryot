@@ -55,6 +55,7 @@ pub struct Model {
     pub email: Option<String>,
     #[graphql(skip)]
     pub password: String,
+    pub is_demo: Option<bool>,
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,

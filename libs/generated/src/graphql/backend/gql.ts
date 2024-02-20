@@ -78,7 +78,7 @@ const documents = {
     "query PublicCollectionsList($input: SearchInput!) {\n  publicCollectionsList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      username\n    }\n  }\n}": types.PublicCollectionsListDocument,
     "query UserCalendarEvents($input: UserCalendarEventInput!) {\n  userCalendarEvents(input: $input) {\n    date\n    events {\n      ...CalendarEventPart\n    }\n  }\n}": types.UserCalendarEventsDocument,
     "query UserCollectionsList($name: String) {\n  userCollectionsList(name: $name) {\n    id\n    name\n    description\n    visibility\n    numItems\n  }\n}": types.UserCollectionsListDocument,
-    "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}": types.UserDetailsDocument,
+    "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      lot\n      name\n      email\n      isDemo\n    }\n  }\n}": types.UserDetailsDocument,
     "query UserExerciseDetails($input: UserExerciseDetailsInput!) {\n  userExerciseDetails(input: $input) {\n    collections {\n      ...CollectionPart\n    }\n    history {\n      workoutId\n      workoutName\n      workoutTime\n      index\n      sets {\n        lot\n        statistic {\n          ...WorkoutSetStatisticPart\n        }\n      }\n    }\n    details {\n      exerciseId\n      lastUpdatedOn\n      exerciseNumTimesInteracted\n      exerciseExtraInformation {\n        lifetimeStats {\n          weight\n          reps\n          distance\n          duration\n          personalBestsAchieved\n        }\n        personalBests {\n          lot\n          sets {\n            workoutId\n            workoutDoneOn\n            exerciseIdx\n            setIdx\n            data {\n              statistic {\n                ...WorkoutSetStatisticPart\n              }\n              lot\n            }\n          }\n        }\n      }\n    }\n  }\n}": types.UserExerciseDetailsDocument,
     "query UserExports {\n  userExports {\n    startedAt\n    endedAt\n    url\n    exported\n  }\n}": types.UserExportsDocument,
     "query UserIntegrations {\n  userIntegrations {\n    id\n    lot\n    description\n    timestamp\n    slug\n  }\n}": types.UserIntegrationsDocument,
@@ -372,7 +372,7 @@ export function graphql(source: "query UserCollectionsList($name: String) {\n  u
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}"): (typeof documents)["query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      email\n      name\n      lot\n    }\n  }\n}"];
+export function graphql(source: "query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      lot\n      name\n      email\n      isDemo\n    }\n  }\n}"): (typeof documents)["query UserDetails {\n  userDetails {\n    __typename\n    ... on User {\n      id\n      lot\n      name\n      email\n      isDemo\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
