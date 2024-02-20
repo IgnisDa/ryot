@@ -156,9 +156,6 @@ export const AddEntityToCollectionModal = (props: {
 				action="/actions?intent=addEntityToCollection"
 				method="post"
 				ref={addEntityToCollectionFormRef}
-				onSubmit={() => {
-					events.addToCollection(props.entityLot);
-				}}
 			>
 				<input hidden name="entityId" defaultValue={props.entityId} />
 				<input hidden name="entityLot" defaultValue={props.entityLot} />
@@ -177,6 +174,7 @@ export const AddEntityToCollectionModal = (props: {
 							addEntityToCollectionFetcher.submit(
 								addEntityToCollectionFormRef.current,
 							);
+							events.addToCollection(props.entityLot);
 							props.onClose();
 						}}
 					>
