@@ -31,9 +31,11 @@ import { useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import { MediaDetailsLayout } from "~/components/common";
 import {
 	AddEntityToCollectionModal,
+	MediaDetailsLayout,
+} from "~/components/common";
+import {
 	DisplayCollection,
 	MediaScrollArea,
 	PostReview,

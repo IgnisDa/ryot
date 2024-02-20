@@ -1,14 +1,11 @@
-use async_graphql::Enum;
-use schematic::ConfigEnum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
     m20230504_create_collection::Collection,
 };
+use crate::Visibility;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -16,29 +13,6 @@ pub struct Migration;
 pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 pub static METADATA_GROUP_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_group_foreign_key";
 pub static COLLECTION_TO_REVIEW_FOREIGN_KEY: &str = "review_to_collection_foreign_key";
-
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
-    Default,
-    ConfigEnum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum Visibility {
-    #[default]
-    #[sea_orm(string_value = "PU")]
-    Public,
-    #[sea_orm(string_value = "PR")]
-    Private,
-}
 
 /// A review can be for either a creator or a media item.
 #[derive(Iden)]

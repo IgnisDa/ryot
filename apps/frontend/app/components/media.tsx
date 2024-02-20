@@ -16,7 +16,6 @@ import {
 	Input,
 	Loader,
 	Modal,
-	MultiSelect,
 	NumberInput,
 	Paper,
 	Rating,
@@ -26,7 +25,6 @@ import {
 	Text,
 	TextInput,
 	Textarea,
-	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
@@ -651,59 +649,6 @@ export const MediaItemWithoutUpdateModal = (props: {
 			nameRight={props.nameRight}
 			children={props.children}
 		/>
-	);
-};
-
-export const AddEntityToCollectionModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	entityId: string;
-	entityLot: EntityLot;
-	collections: string[];
-}) => {
-	const addEntityToCollectionFormRef = useRef<HTMLFormElement>(null);
-	const addEntityToCollectionFetcher = useFetcher();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<addEntityToCollectionFetcher.Form
-				action="/actions?intent=addEntityToCollection"
-				method="post"
-				ref={addEntityToCollectionFormRef}
-			>
-				<input hidden name="entityId" defaultValue={props.entityId} />
-				<input hidden name="entityLot" defaultValue={props.entityLot} />
-				<Stack>
-					<Title order={3}>Select collection</Title>
-					<MultiSelect
-						data={props.collections}
-						searchable
-						name="collectionName"
-						nothingFoundMessage="Nothing found..."
-					/>
-					<Button
-						data-autofocus
-						variant="outline"
-						onClick={() => {
-							addEntityToCollectionFetcher.submit(
-								addEntityToCollectionFormRef.current,
-							);
-							props.onClose();
-						}}
-					>
-						Set
-					</Button>
-					<Button variant="outline" color="red" onClick={props.onClose}>
-						Cancel
-					</Button>
-				</Stack>
-			</addEntityToCollectionFetcher.Form>
-		</Modal>
 	);
 };
 

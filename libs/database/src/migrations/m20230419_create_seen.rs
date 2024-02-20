@@ -1,28 +1,11 @@
-use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
+
+use crate::SeenState;
 
 use super::{m20230410_create_metadata::Metadata, m20230417_create_user::User};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
-
-// The different possible states of a seen item.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum SeenState {
-    #[sea_orm(string_value = "CO")]
-    Completed,
-    #[sea_orm(string_value = "DR")]
-    Dropped,
-    #[sea_orm(string_value = "IP")]
-    InProgress,
-    #[sea_orm(string_value = "OH")]
-    OnAHold,
-}
 
 #[derive(Iden)]
 pub enum Seen {

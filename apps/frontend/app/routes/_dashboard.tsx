@@ -47,12 +47,15 @@ import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { ApplicationKey, getLot } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import { expectedEnvironmentVariables } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticated(request);
-	const userPreferences = await getUserPreferences(request);
-	const coreDetails = await getCoreDetails();
+	const [userPreferences, coreDetails] = await Promise.all([
+		getUserPreferences(request),
+		getCoreDetails(),
+	]);
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
@@ -122,18 +125,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("Cookie") || "",
 	);
+
+	const envData = expectedEnvironmentVariables.parse(process.env);
+	const shouldHaveUmami =
+		envData.FRONTEND_UMAMI_SCRIPT_URL &&
+		envData.FRONTEND_UMAMI_WEBSITE_ID &&
+		!envData.DISABLE_TELEMETRY &&
+		!userDetails.isDemo;
+
 	return json({
+		envData,
 		mediaLinks,
+		userDetails,
+		coreDetails,
 		fitnessLinks,
+		settingsLinks,
+		shouldHaveUmami,
+		collectionLinks,
+		currentColorScheme,
 		userPreferences: {
 			media: userPreferences.featuresEnabled.media,
 			fitness: userPreferences.featuresEnabled.fitness,
 		},
-		userDetails,
-		coreDetails,
-		currentColorScheme,
-		settingsLinks,
-		collectionLinks,
 	});
 };
 
@@ -163,183 +176,193 @@ export default function Layout() {
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 
 	return (
-		<AppShell
-			w="100%"
-			padding={0}
-			layout="alt"
-			navbar={{
-				width: { sm: 220, lg: 250 },
-				breakpoint: "sm",
-				collapsed: { mobile: !opened },
-			}}
-		>
-			<AppShell.Navbar py="md" px="md" className={classes.navbar}>
-				<Flex justify="end" hiddenFrom="sm">
-					<Burger
-						opened={opened}
-						onClick={toggle}
-						color={theme.colors.gray[6]}
-					/>
-				</Flex>
-				<Box component={ScrollArea} style={{ flexGrow: 1 }}>
-					<LinksGroup
-						label="Dashboard"
-						icon={IconHome2}
-						href={$path("/")}
-						opened={false}
-						toggle={toggle}
-						setOpened={() => {}}
-					/>
-					{loaderData.userPreferences.media.enabled ? (
+		<>
+			<AppShell
+				w="100%"
+				padding={0}
+				layout="alt"
+				navbar={{
+					width: { sm: 220, lg: 250 },
+					breakpoint: "sm",
+					collapsed: { mobile: !opened },
+				}}
+			>
+				<AppShell.Navbar py="md" px="md" className={classes.navbar}>
+					<Flex justify="end" hiddenFrom="sm">
+						<Burger
+							opened={opened}
+							onClick={toggle}
+							color={theme.colors.gray[6]}
+						/>
+					</Flex>
+					<Box component={ScrollArea} style={{ flexGrow: 1 }}>
 						<LinksGroup
-							label="Media"
-							icon={IconDeviceSpeaker}
-							links={loaderData.mediaLinks}
-							opened={openedLinkGroups?.media || false}
+							label="Dashboard"
+							icon={IconHome2}
+							href={$path("/")}
+							opened={false}
+							toggle={toggle}
+							setOpened={() => {}}
+						/>
+						{loaderData.userPreferences.media.enabled ? (
+							<LinksGroup
+								label="Media"
+								icon={IconDeviceSpeaker}
+								links={loaderData.mediaLinks}
+								opened={openedLinkGroups?.media || false}
+								toggle={toggle}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.media = k;
+										}),
+									)
+								}
+							/>
+						) : undefined}
+						{loaderData.userPreferences.fitness.enabled ? (
+							<LinksGroup
+								label="Fitness"
+								icon={IconStretching}
+								opened={openedLinkGroups?.fitness || false}
+								toggle={toggle}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.fitness = k;
+										}),
+									)
+								}
+								links={loaderData.fitnessLinks}
+							/>
+						) : undefined}
+						<LinksGroup
+							label="Calendar"
+							icon={IconCalendar}
+							href={$path("/calendar")}
+							opened={false}
+							toggle={toggle}
+							setOpened={() => {}}
+						/>
+						<LinksGroup
+							label="Collections"
+							icon={IconArchive}
+							opened={openedLinkGroups?.collection || false}
+							toggle={toggle}
+							setOpened={(k) => {
+								setOpenedLinkGroups(
+									produce(openedLinkGroups, (draft) => {
+										if (draft) draft.collection = k;
+									}),
+								);
+							}}
+							links={loaderData.collectionLinks}
+						/>
+						<LinksGroup
+							label="Settings"
+							icon={IconSettings}
+							opened={openedLinkGroups?.settings || false}
 							toggle={toggle}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.media = k;
+										if (draft) draft.settings = k;
 									}),
 								)
 							}
+							links={loaderData.settingsLinks}
 						/>
-					) : undefined}
-					{loaderData.userPreferences.fitness.enabled ? (
-						<LinksGroup
-							label="Fitness"
-							icon={IconStretching}
-							opened={openedLinkGroups?.fitness || false}
-							toggle={toggle}
-							setOpened={(k) =>
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.fitness = k;
-									}),
-								)
-							}
-							links={loaderData.fitnessLinks}
-						/>
-					) : undefined}
-					<LinksGroup
-						label="Calendar"
-						icon={IconCalendar}
-						href={$path("/calendar")}
-						opened={false}
-						toggle={toggle}
-						setOpened={() => {}}
-					/>
-					<LinksGroup
-						label="Collections"
-						icon={IconArchive}
-						opened={openedLinkGroups?.collection || false}
-						toggle={toggle}
-						setOpened={(k) => {
-							setOpenedLinkGroups(
-								produce(openedLinkGroups, (draft) => {
-									if (draft) draft.collection = k;
-								}),
-							);
-						}}
-						links={loaderData.collectionLinks}
-					/>
-					<LinksGroup
-						label="Settings"
-						icon={IconSettings}
-						opened={openedLinkGroups?.settings || false}
-						toggle={toggle}
-						setOpened={(k) =>
-							setOpenedLinkGroups(
-								produce(openedLinkGroups, (draft) => {
-									if (draft) draft.settings = k;
-								}),
-							)
-						}
-						links={loaderData.settingsLinks}
-					/>
-				</Box>
-				<Stack gap="xs">
-					<Flex direction="column" justify="center" gap="md">
-						<Form method="post" action="/actions?intent=toggleColorScheme">
-							<Group justify="center">
+					</Box>
+					<Stack gap="xs">
+						<Flex direction="column" justify="center" gap="md">
+							<Form method="post" action="/actions?intent=toggleColorScheme">
+								<Group justify="center">
+									<UnstyledButton
+										aria-label="Toggle theme"
+										className={classes.control2}
+										type="submit"
+									>
+										<Center className={classes.iconWrapper}>
+											<Icon size={16.8} stroke={1.5} />
+										</Center>
+										<Text size="sm" className={classes.value}>
+											{upperFirst(
+												loaderData.currentColorScheme === "dark"
+													? "light"
+													: "dark",
+											)}{" "}
+											theme
+										</Text>
+									</UnstyledButton>
+								</Group>
+							</Form>
+							<Form
+								method="post"
+								action="/actions?intent=logout"
+								style={{ display: "flex" }}
+							>
 								<UnstyledButton
-									aria-label="Toggle theme"
-									className={classes.control2}
+									mx="auto"
+									className={classes.oldLink}
 									type="submit"
 								>
-									<Center className={classes.iconWrapper}>
-										<Icon size={16.8} stroke={1.5} />
-									</Center>
-									<Text size="sm" className={classes.value}>
-										{upperFirst(
-											loaderData.currentColorScheme === "dark"
-												? "light"
-												: "dark",
-										)}{" "}
-										theme
-									</Text>
+									<Group>
+										<IconLogout size={19.2} />
+										<Text>Logout</Text>
+									</Group>
 								</UnstyledButton>
+							</Form>
+						</Flex>
+					</Stack>
+				</AppShell.Navbar>
+				<Flex direction="column" h="90%">
+					<Flex justify="space-between" p="md" hiddenFrom="sm">
+						<Link to={$path("/")} style={{ all: "unset" }}>
+							<Group>
+								<Image
+									src="/icon-512x512.png"
+									h={40}
+									w={40}
+									radius="md"
+									darkHidden
+								/>
+								<Image
+									src="/logo-light.png"
+									h={40}
+									w={40}
+									radius="md"
+									lightHidden
+								/>
+								<Text size="xl" className={classes.logoText}>
+									Ryot
+								</Text>
 							</Group>
-						</Form>
-						<Form
-							method="post"
-							action="/actions?intent=logout"
-							style={{ display: "flex" }}
-						>
-							<UnstyledButton
-								mx="auto"
-								className={classes.oldLink}
-								type="submit"
-							>
-								<Group>
-									<IconLogout size={19.2} />
-									<Text>Logout</Text>
-								</Group>
-							</UnstyledButton>
-						</Form>
+						</Link>
+						<Burger
+							opened={opened}
+							onClick={toggle}
+							color={theme.colors.gray[6]}
+						/>
 					</Flex>
-				</Stack>
-			</AppShell.Navbar>
-			<Flex direction="column" h="90%">
-				<Flex justify="space-between" p="md" hiddenFrom="sm">
-					<Link to={$path("/")} style={{ all: "unset" }}>
-						<Group>
-							<Image
-								src="/icon-512x512.png"
-								h={40}
-								w={40}
-								radius="md"
-								darkHidden
-							/>
-							<Image
-								src="/logo-light.png"
-								h={40}
-								w={40}
-								radius="md"
-								lightHidden
-							/>
-							<Text size="xl" className={classes.logoText}>
-								Ryot
-							</Text>
-						</Group>
-					</Link>
-					<Burger
-						opened={opened}
-						onClick={toggle}
-						color={theme.colors.gray[6]}
-					/>
+					<AppShell.Main py={{ sm: "xl" }}>
+						<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%" ref={parent}>
+							<Outlet />
+						</Box>
+						<Box className={classes.shellFooter}>
+							<Footer coreDetails={loaderData.coreDetails} />
+						</Box>
+					</AppShell.Main>
 				</Flex>
-				<AppShell.Main py={{ sm: "xl" }}>
-					<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%" ref={parent}>
-						<Outlet />
-					</Box>
-					<Box className={classes.shellFooter}>
-						<Footer coreDetails={loaderData.coreDetails} />
-					</Box>
-				</AppShell.Main>
-			</Flex>
-		</AppShell>
+			</AppShell>
+			{loaderData.shouldHaveUmami ? (
+				<script
+					defer
+					src={loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL}
+					data-website-id={loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID}
+					data-domains={loaderData.envData.FRONTEND_UMAMI_DOMAINS}
+				/>
+			) : null}
+		</>
 	);
 }
 

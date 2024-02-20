@@ -44,23 +44,18 @@ mod m20240202_5_remove_default_value;
 mod m20240202_6_remove_last_processed_on_for_calendar;
 mod m20240210_0_remove_duplicated_calendar_events;
 mod m20240210_1_create_correct_calendar_event_index;
+mod m20240220_add_is_demo_column;
 
-pub use m20230410_create_metadata::{Metadata as AliasedMetadata, MetadataLot, MetadataSource};
+pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
-pub use m20230417_create_user::UserLot;
-pub use m20230419_create_seen::{Seen as AliasedSeen, SeenState};
+pub use m20230419_create_seen::Seen as AliasedSeen;
 pub use m20230501_create_metadata_group::MetadataGroup as AliasedMetadataGroup;
 pub use m20230502_create_genre::{
     Genre as AliasedGenre, MetadataToGenre as AliasedMetadataToGenre,
 };
-pub use m20230505_create_review::{Review as AliasedReview, Visibility};
-pub use m20230509_create_import_report::ImportSource;
-pub use m20230622_create_exercise::{
-    Exercise as AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
-    ExerciseMechanic, ExerciseMuscle, ExerciseSource,
-};
+pub use m20230505_create_review::Review as AliasedReview;
+pub use m20230622_create_exercise::Exercise as AliasedExercise;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
-pub use m20231219_create_metadata_relations::MetadataToMetadataRelation;
 
 pub struct Migrator;
 
@@ -111,6 +106,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240202_6_remove_last_processed_on_for_calendar::Migration),
             Box::new(m20240210_0_remove_duplicated_calendar_events::Migration),
             Box::new(m20240210_1_create_correct_calendar_event_index::Migration),
+            Box::new(m20240220_add_is_demo_column::Migration),
         ]
     }
 }

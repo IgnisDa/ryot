@@ -101,6 +101,14 @@ impl UserWorkoutInput {
         if input.exercises.is_empty() {
             bail!("This workout has no associated exercises")
         }
+        let mut set_confirmed_at = input
+            .exercises
+            .first()
+            .unwrap()
+            .sets
+            .first()
+            .unwrap()
+            .confirmed_at;
         for (exercise_idx, ex) in input.exercises.iter_mut().enumerate() {
             if ex.sets.is_empty() {
                 bail!("This exercise has no associated sets")
@@ -158,6 +166,12 @@ impl UserWorkoutInput {
             ex.sets
                 .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
             for set in ex.sets.iter_mut() {
+                let mut actual_rest_time = None;
+                if exercise_idx != 0 && set.confirmed_at.is_some() && set_confirmed_at.is_some() {
+                    actual_rest_time =
+                        Some((set.confirmed_at.unwrap() - set_confirmed_at.unwrap()).num_seconds());
+                }
+                set_confirmed_at = set.confirmed_at;
                 set.remove_invalids(&db_ex.lot);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
@@ -181,6 +195,7 @@ impl UserWorkoutInput {
                     confirmed_at: set.confirmed_at,
                     totals,
                     personal_bests: vec![],
+                    actual_rest_time,
                 };
                 value.statistic.one_rm = value.calculate_one_rm();
                 value.statistic.pace = value.calculate_pace();

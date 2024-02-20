@@ -1,7 +1,7 @@
 # Configuration
 
 You can specify configuration options via environment variables or via files (loaded from
-`config/ryot.json`, `config/ryot.toml`, `config/ryot.yaml`) .
+`config/ryot.json`, `config/ryot.toml`, `config/ryot.yaml`). They should be present in `/home/ryot/config/ryot.<ext>`.
 
 Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
 ([example](https://ryot.fly.dev/backend/config)). This can also be treated as a [health

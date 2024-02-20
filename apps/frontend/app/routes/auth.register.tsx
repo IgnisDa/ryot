@@ -1,5 +1,5 @@
-import { conform, useForm } from "@conform-to/react";
-import { parse } from "@conform-to/zod";
+import { getFormProps, getInputProps, useForm } from "@conform-to/react";
+import { parseWithZod } from "@conform-to/zod";
 import { $path } from "@ignisda/remix-routes";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import {
@@ -39,8 +39,8 @@ export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	const { value, error } = parse(formData, { schema });
-	if (!value)
+	const submission = parseWithZod(formData, { schema });
+	if (submission.status !== "success")
 		return json(
 			{ status: "error" },
 			{
@@ -48,14 +48,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				headers: await createToastHeaders({
 					type: "error",
 					message:
-						error.password?.at(0) ||
-						error.confirm?.at(0) ||
+						submission.error?.password?.at(0) ||
+						submission.error?.confirm?.at(0) ||
 						"Invalid form data",
 				}),
 			},
 		);
 	const { registerUser } = await gqlClient.request(RegisterUserDocument, {
-		input: { password: value.password, username: value.username },
+		input: {
+			password: submission.value.password,
+			username: submission.value.username,
+		},
 	});
 	if (registerUser.__typename === "RegisterError") {
 		const message = match(registerUser.error)
@@ -90,7 +93,7 @@ const schema = z
 	});
 
 export default function Page() {
-	const [form, fields] = useForm();
+	const [form, fields] = useForm({});
 
 	return (
 		<>
@@ -99,28 +102,28 @@ export default function Page() {
 				m="auto"
 				className={classes.form}
 				method="post"
-				{...form.props}
+				{...getFormProps(form)}
 			>
 				<TextInput
-					{...conform.input(fields.username)}
+					{...getInputProps(fields.username, { type: "text" })}
 					label="Username"
 					autoFocus
 					required
-					error={fields.username.error}
+					error={fields.username.errors?.[0]}
 				/>
 				<PasswordInput
 					label="Password"
-					{...conform.input(fields.password)}
+					{...getInputProps(fields.password, { type: "password" })}
 					mt="md"
 					required
-					error={fields.password.error}
+					error={fields.password.errors?.[0]}
 				/>
 				<PasswordInput
 					label="Confirm password"
 					mt="md"
-					{...conform.input(fields.confirm)}
+					{...getInputProps(fields.confirm, { type: "password" })}
 					required
-					error={fields.confirm.error}
+					error={fields.confirm.errors?.[0]}
 				/>
 				<Button id="submit-button" mt="md" type="submit" w="100%">
 					Register
