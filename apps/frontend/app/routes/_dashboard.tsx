@@ -153,22 +153,14 @@ export const handle: ExternalScriptsHandle<SerializeFrom<typeof loader>> = {
 			data.envData.FRONTEND_UMAMI_WEBSITE_ID &&
 			!data.envData.DISABLE_TELEMETRY &&
 			!data.userDetails.isDemo;
-		if (shouldHaveUmami) {
+		if (shouldHaveUmami)
 			scripts.push({
 				src: data.envData.FRONTEND_UMAMI_SCRIPT_URL,
 				defer: true,
 				"data-website-id": data.envData.FRONTEND_UMAMI_WEBSITE_ID,
 				"data-domains": data.envData.FRONTEND_UMAMI_DOMAINS,
 			});
-		}
-		return [
-			{
-				src: "https://unpkg.com/htmx.org@1.9.6",
-				integrity:
-					"sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni",
-				crossOrigin: "anonymous",
-			},
-		];
+		return scripts;
 	},
 };
 
