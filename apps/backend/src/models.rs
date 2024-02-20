@@ -1481,6 +1481,7 @@ pub mod fitness {
         pub confirmed_at: Option<DateTimeUtc>,
         #[serde(default)]
         pub totals: WorkoutSetTotals,
+        pub actual_rest_time: Option<i64>,
     }
 
     impl WorkoutSetRecord {

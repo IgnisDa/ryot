@@ -2236,6 +2236,7 @@ export enum WorkoutSetPersonalBest {
 
 /** Details about the set performed. */
 export type WorkoutSetRecord = {
+  actualRestTime?: Maybe<Scalars['Int']['output']>;
   confirmedAt?: Maybe<Scalars['DateTime']['output']>;
   lot: SetLot;
   personalBests: Array<WorkoutSetPersonalBest>;

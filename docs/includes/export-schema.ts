@@ -186,6 +186,7 @@ export interface WorkoutSetTotals {
 
 /** Details about the set performed. */
 export interface WorkoutSetRecord {
+	actualRestTime: number | null;
 	confirmedAt: string | null;
 	lot: SetLot;
 	personalBests: WorkoutSetPersonalBest[];
