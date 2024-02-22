@@ -15,7 +15,7 @@ use crate::{
     miscellaneous::resolver::MiscellaneousService,
     models::{
         fitness::Exercise,
-        media::{PartialMetadataPerson, ProgressUpdateInput, ReviewPostedEvent},
+        media::{ProgressUpdateInput, ReviewPostedEvent},
         ExportItem,
     },
 };
@@ -146,7 +146,6 @@ pub enum ApplicationJob {
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
     RecalculateCalendarEvents,
-    AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
     ReviewPosted(ReviewPostedEvent),
     PerformExport(i32, Vec<ExportItem>),
@@ -211,10 +210,6 @@ pub async fn perform_application_job(
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
         }
-        ApplicationJob::AssociatePersonWithMetadata(metadata_id, person, index) => misc_service
-            .associate_person_with_metadata(metadata_id, person, index)
-            .await
-            .is_ok(),
         ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => misc_service
             .associate_group_with_metadata(lot, source, group_identifier)
             .await

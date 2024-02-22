@@ -2983,23 +2983,9 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
-    async fn deploy_associate_person_with_metadata_job(
-        &self,
-        metadata_id: i32,
-        person: PartialMetadataPerson,
-        index: usize,
-    ) -> Result<()> {
-        self.perform_application_job
-            .clone()
-            .push(ApplicationJob::AssociatePersonWithMetadata(
-                metadata_id,
-                person,
-                index,
-            ))
-            .await?;
-        Ok(())
-    }
-
+    // FIXME: Do not fetch the person details. Just commit the person to database. And use
+    // the same mechanism as the media details to update the person details
+    // (`commit_media`). This will require an `is_partial` flag in the person table.
     pub async fn associate_person_with_metadata(
         &self,
         metadata_id: i32,
@@ -3319,7 +3305,7 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         for (index, creator) in people.into_iter().enumerate() {
-            self.deploy_associate_person_with_metadata_job(metadata_id, creator, index)
+            self.associate_person_with_metadata(metadata_id, creator, index)
                 .await
                 .ok();
         }
