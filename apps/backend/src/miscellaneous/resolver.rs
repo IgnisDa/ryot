@@ -3000,6 +3000,78 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn associate_person_with_metadata(
+        &self,
+        metadata_id: i32,
+        person: PartialMetadataPerson,
+        index: usize,
+    ) -> Result<()> {
+        let mut related_media = vec![];
+        let role = person.role.clone();
+        let db_person = if let Some(db_person) = Person::find()
+            .filter(person::Column::Identifier.eq(&person.identifier))
+            .filter(person::Column::Source.eq(person.source))
+            .one(&self.db)
+            .await
+            .unwrap()
+        {
+            let now = Utc::now();
+            if now - db_person.last_updated_on
+                > ChronoDuration::days(self.config.server.person_outdated_threshold)
+            {
+                let new_rel = self.update_person(&person, &db_person, now).await?;
+                related_media.extend(new_rel);
+            }
+            db_person
+        } else {
+            let provider = self.get_non_media_provider(person.source).await?;
+            let provider_person = provider.person_details(&person).await?;
+            let images = provider_person.images.map(|images| {
+                images
+                    .into_iter()
+                    .map(|i| MetadataImage {
+                        url: StoredUrl::Url(i),
+                        lot: MetadataImageLot::Poster,
+                    })
+                    .collect()
+            });
+            let person = person::ActiveModel {
+                identifier: ActiveValue::Set(provider_person.identifier),
+                source: ActiveValue::Set(provider_person.source),
+                name: ActiveValue::Set(provider_person.name),
+                description: ActiveValue::Set(provider_person.description),
+                gender: ActiveValue::Set(provider_person.gender),
+                birth_date: ActiveValue::Set(provider_person.birth_date),
+                death_date: ActiveValue::Set(provider_person.death_date),
+                place: ActiveValue::Set(provider_person.place),
+                website: ActiveValue::Set(provider_person.website),
+                images: ActiveValue::Set(images),
+                ..Default::default()
+            };
+            related_media.extend(provider_person.related);
+            person.insert(&self.db).await?
+        };
+        let intermediate = metadata_to_person::ActiveModel {
+            metadata_id: ActiveValue::Set(metadata_id),
+            person_id: ActiveValue::Set(db_person.id),
+            role: ActiveValue::Set(role),
+            index: ActiveValue::Set(Some(index.try_into().unwrap())),
+            character: ActiveValue::Set(person.character),
+        };
+        intermediate.insert(&self.db).await.ok();
+        for (role, media) in related_media {
+            let pm = self.create_partial_metadata(media).await?;
+            let intermediate = metadata_to_person::ActiveModel {
+                person_id: ActiveValue::Set(db_person.id),
+                metadata_id: ActiveValue::Set(pm.id),
+                role: ActiveValue::Set(role),
+                ..Default::default()
+            };
+            intermediate.insert(&self.db).await.ok();
+        }
+        Ok(())
+    }
+
     async fn deploy_associate_group_with_metadata_job(
         &self,
         lot: MetadataLot,
@@ -6758,78 +6830,6 @@ GROUP BY
                 self.send_media_state_changed_notification_for_user(user, &notification)
                     .await?;
             }
-        }
-        Ok(())
-    }
-
-    pub async fn associate_person_with_metadata(
-        &self,
-        metadata_id: i32,
-        person: PartialMetadataPerson,
-        index: usize,
-    ) -> Result<()> {
-        let mut related_media = vec![];
-        let role = person.role.clone();
-        let db_person = if let Some(db_person) = Person::find()
-            .filter(person::Column::Identifier.eq(&person.identifier))
-            .filter(person::Column::Source.eq(person.source))
-            .one(&self.db)
-            .await
-            .unwrap()
-        {
-            let now = Utc::now();
-            if now - db_person.last_updated_on
-                > ChronoDuration::days(self.config.server.person_outdated_threshold)
-            {
-                let new_rel = self.update_person(&person, &db_person, now).await?;
-                related_media.extend(new_rel);
-            }
-            db_person
-        } else {
-            let provider = self.get_non_media_provider(person.source).await?;
-            let provider_person = provider.person_details(&person).await?;
-            let images = provider_person.images.map(|images| {
-                images
-                    .into_iter()
-                    .map(|i| MetadataImage {
-                        url: StoredUrl::Url(i),
-                        lot: MetadataImageLot::Poster,
-                    })
-                    .collect()
-            });
-            let person = person::ActiveModel {
-                identifier: ActiveValue::Set(provider_person.identifier),
-                source: ActiveValue::Set(provider_person.source),
-                name: ActiveValue::Set(provider_person.name),
-                description: ActiveValue::Set(provider_person.description),
-                gender: ActiveValue::Set(provider_person.gender),
-                birth_date: ActiveValue::Set(provider_person.birth_date),
-                death_date: ActiveValue::Set(provider_person.death_date),
-                place: ActiveValue::Set(provider_person.place),
-                website: ActiveValue::Set(provider_person.website),
-                images: ActiveValue::Set(images),
-                ..Default::default()
-            };
-            related_media.extend(provider_person.related);
-            person.insert(&self.db).await?
-        };
-        let intermediate = metadata_to_person::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
-            person_id: ActiveValue::Set(db_person.id),
-            role: ActiveValue::Set(role),
-            index: ActiveValue::Set(Some(index.try_into().unwrap())),
-            character: ActiveValue::Set(person.character),
-        };
-        intermediate.insert(&self.db).await.ok();
-        for (role, media) in related_media {
-            let pm = self.create_partial_metadata(media).await?;
-            let intermediate = metadata_to_person::ActiveModel {
-                person_id: ActiveValue::Set(db_person.id),
-                metadata_id: ActiveValue::Set(pm.id),
-                role: ActiveValue::Set(role),
-                ..Default::default()
-            };
-            intermediate.insert(&self.db).await.ok();
         }
         Ok(())
     }
