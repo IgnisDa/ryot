@@ -810,9 +810,12 @@ export const PostReviewModal = (props: {
 								name="showSeasonNumber"
 								hideControls
 								defaultValue={
-									props.data?.existingReview?.showExtraInformation?.season
+									typeof props.data?.existingReview?.showExtraInformation
+										?.season === "number"
 										? props.data.existingReview.showExtraInformation?.season
-										: props.data.showSeasonNumber || undefined
+										: typeof props.data.showSeasonNumber === "number"
+										  ? props.data.showSeasonNumber
+										  : undefined
 								}
 							/>
 							<NumberInput
