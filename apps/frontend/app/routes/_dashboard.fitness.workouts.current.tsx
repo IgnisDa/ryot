@@ -1470,6 +1470,7 @@ const ReorderDrawer = (props: {
 					}
 				}),
 			);
+			props.onClose();
 		}
 	}, [exerciseElements]);
 
@@ -1486,7 +1487,6 @@ const ReorderDrawer = (props: {
 						from: source.index,
 						to: destination?.index || 0,
 					});
-					props.onClose();
 				}}
 			>
 				<Droppable droppableId="dnd-list">
