@@ -21,7 +21,7 @@ use crate::{
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
-const MEDIA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
+const MEDIA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
 const MEDIA_FIELDS: &str = const_str::concat!(
     MEDIA_FIELDS_SMALL,
     ",",
@@ -59,6 +59,7 @@ struct ImageLinks {
 #[derive(Serialize, Deserialize, Debug)]
 struct Developer {
     id: String,
+    name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -205,6 +206,7 @@ impl VndbService {
             .into_iter()
             .map(|a| PartialMetadataPerson {
                 identifier: a.id,
+                name: a.name,
                 role: "Developer".to_owned(),
                 source: MetadataSource::Vndb,
                 character: None,

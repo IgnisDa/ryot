@@ -388,6 +388,7 @@ impl MediaProvider for TmdbMovieService {
                             if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
+                                    name: g.name.unwrap_or_default(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
                                     character: g.character,
@@ -416,6 +417,7 @@ impl MediaProvider for TmdbMovieService {
                             if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
+                                    name: g.name.unwrap_or_default(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
                                     character: g.character,
@@ -439,6 +441,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
+                    name: p.name,
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,
@@ -680,6 +683,7 @@ impl MediaProvider for TmdbShowService {
                                 if let Some(id) = g.id {
                                     g.known_for_department.map(|r| PartialMetadataPerson {
                                         identifier: id.to_string(),
+                                        name: g.name.unwrap_or_default(),
                                         role: r,
                                         source: MetadataSource::Tmdb,
                                         character: g.character,
@@ -700,6 +704,7 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
+                    name: p.name,
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,

@@ -263,6 +263,7 @@ impl MediaProvider for OpenlibraryService {
             };
             people.push(PartialMetadataPerson {
                 identifier: get_key(&key),
+                name: "".to_owned(),
                 role,
                 source: MetadataSource::Openlibrary,
                 character: None,
