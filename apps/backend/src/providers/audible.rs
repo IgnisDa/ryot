@@ -388,6 +388,7 @@ impl AudibleService {
                     identifier: au,
                     source: MetadataSource::Audible,
                     role: "Author".to_owned(),
+                    name: a.name,
                     character: None,
                 })
             })
