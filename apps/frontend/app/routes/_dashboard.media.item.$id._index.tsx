@@ -1852,13 +1852,13 @@ const ProgressUpdateModal = (props: {
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ mediaDetails: mediaAdditionalDetails }) => (
 								<>
-									{mediaAdditionalDetails?.showSpecifics ? (
+									{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
 										<>
 											<input
 												hidden
 												name="showSpecifics"
 												defaultValue={JSON.stringify(
-													mediaAdditionalDetails.showSpecifics.seasons.map(
+													mediaAdditionalDetails.showSpecifics?.seasons.map(
 														(s) => ({
 															seasonNumber: s.seasonNumber,
 															episodes: s.episodes.map((e) => e.episodeNumber),
@@ -1878,7 +1878,7 @@ const ProgressUpdateModal = (props: {
 											{!props.data?.completeShow ? (
 												<Select
 													label="Season"
-													data={mediaAdditionalDetails.showSpecifics.seasons.map(
+													data={mediaAdditionalDetails.showSpecifics?.seasons.map(
 														(s) => ({
 															label: `${s.seasonNumber}. ${s.name.toString()}`,
 															value: s.seasonNumber.toString(),
@@ -1898,7 +1898,7 @@ const ProgressUpdateModal = (props: {
 												<Select
 													label="Episode"
 													data={
-														mediaAdditionalDetails.showSpecifics.seasons
+														mediaAdditionalDetails.showSpecifics?.seasons
 															.find(
 																(s) =>
 																	s.seasonNumber ===
@@ -1916,13 +1916,13 @@ const ProgressUpdateModal = (props: {
 											) : null}
 										</>
 									) : null}
-									{mediaAdditionalDetails?.podcastSpecifics ? (
+									{loaderData.mediaMainDetails.lot === MetadataLot.Podcast ? (
 										<>
 											<input
 												hidden
 												name="podcastSpecifics"
 												defaultValue={JSON.stringify(
-													mediaAdditionalDetails.podcastSpecifics.episodes.map(
+													mediaAdditionalDetails.podcastSpecifics?.episodes.map(
 														(e) => ({
 															episodeNumber: e.number,
 														}),
@@ -1938,7 +1938,7 @@ const ProgressUpdateModal = (props: {
 													<Title order={6}>Select episode</Title>
 													<Autocomplete
 														label="Episode"
-														data={mediaAdditionalDetails.podcastSpecifics.episodes.map(
+														data={mediaAdditionalDetails.podcastSpecifics?.episodes.map(
 															(se) => ({
 																label: se.title.toString(),
 																value: se.number.toString(),
