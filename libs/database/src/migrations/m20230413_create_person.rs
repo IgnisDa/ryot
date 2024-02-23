@@ -25,6 +25,7 @@ pub enum Person {
     Place,
     Website,
     Images,
+    IsPartial,
 }
 
 #[derive(Iden)]
@@ -74,6 +75,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::DeathDate).date())
                     .col(ColumnDef::new(Person::Place).string())
                     .col(ColumnDef::new(Person::Website).string())
+                    .col(ColumnDef::new(Person::IsPartial).boolean())
                     .to_owned(),
             )
             .await?;
