@@ -417,6 +417,7 @@ impl IgdbService {
                 };
                 PartialMetadataPerson {
                     identifier: ic.id.to_string(),
+                    name: ic.company.name,
                     source: MetadataSource::Igdb,
                     role: role.to_owned(),
                     character: None,
