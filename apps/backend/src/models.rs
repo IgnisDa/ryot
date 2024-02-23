@@ -873,6 +873,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct PartialMetadataPerson {
+        pub name: String,
         pub identifier: String,
         pub source: MetadataSource,
         pub role: String,
