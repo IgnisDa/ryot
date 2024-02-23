@@ -2530,16 +2530,21 @@ impl MiscellaneousService {
                     .unwrap();
                 tracing::debug!("Progress update meta = {:?}", meta.title);
 
-                let show_ei = if let (Some(season), Some(episode)) =
-                    (input.show_season_number, input.show_episode_number)
-                {
-                    Some(SeenShowExtraInformation { season, episode })
+                let show_ei = if matches!(meta.lot, MetadataLot::Show) {
+                    Some(SeenShowExtraInformation {
+                        season: input.show_season_number.unwrap(),
+                        episode: input.show_episode_number.unwrap(),
+                    })
                 } else {
                     None
                 };
-                let podcast_ei = input
-                    .podcast_episode_number
-                    .map(|e| SeenPodcastExtraInformation { episode: e });
+                let podcast_ei = if matches!(meta.lot, MetadataLot::Podcast) {
+                    Some(SeenPodcastExtraInformation {
+                        episode: input.podcast_episode_number.unwrap(),
+                    })
+                } else {
+                    None
+                };
                 let anime_ei = if matches!(meta.lot, MetadataLot::Anime) {
                     Some(SeenAnimeExtraInformation {
                         episode: input.anime_episode_number,
