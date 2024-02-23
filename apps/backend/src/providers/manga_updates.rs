@@ -256,6 +256,7 @@ impl MediaProvider for MangaUpdatesService {
             .into_iter()
             .map(|a| PartialMetadataPerson {
                 identifier: a.author_id.unwrap().to_string(),
+                name: a.name.unwrap(),
                 role: a.lot.unwrap(),
                 source: MetadataSource::MangaUpdates,
                 character: None,
@@ -264,6 +265,7 @@ impl MediaProvider for MangaUpdatesService {
         people.extend(data.publishers.unwrap_or_default().into_iter().map(|a| {
             PartialMetadataPerson {
                 identifier: a.publisher_id.unwrap().to_string(),
+                name: a.name.unwrap(),
                 role: "Publisher".to_owned(),
                 source: MetadataSource::MangaUpdates,
                 character: None,
