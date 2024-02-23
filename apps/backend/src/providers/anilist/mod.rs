@@ -421,6 +421,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
         .map(|s| {
             let node = s.node.unwrap();
             PartialMetadataPerson {
+                name: node.name.unwrap().full.unwrap(),
                 identifier: node.id.to_string(),
                 source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
@@ -436,6 +437,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             .map(|s| {
                 let node = s.node.unwrap();
                 PartialMetadataPerson {
+                    name: node.name,
                     identifier: node.id.to_string(),
                     source: MetadataSource::Anilist,
                     role: "Production".to_owned(),
