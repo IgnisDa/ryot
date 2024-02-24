@@ -50,7 +50,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import { getUserDetails, getUserPreferences } from "~/lib/graphql.server";
 import classes from "~/styles/preferences.module.css";
 
 const searchSchema = z.object({
@@ -59,15 +59,13 @@ const searchSchema = z.object({
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchSchema);
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
+	const [userPreferences, userDetails] = await Promise.all([
 		getUserPreferences(request),
+		getUserDetails(request),
 	]);
 	return json({
 		query,
-		coreDetails: {
-			preferencesChangeAllowed: coreDetails.preferencesChangeAllowed,
-		},
+		userDetails: { isDemo: userDetails.isDemo },
 		userPreferences,
 	});
 };
@@ -79,7 +77,8 @@ export const meta: MetaFunction = () => {
 const notificationContent = {
 	title: "Invalid action",
 	color: "red",
-	message: "Changing preferences is disabled on this instance.",
+	message:
+		"Changing preferences is disabled for demo users. Please create an account to save your preferences.",
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -159,7 +158,7 @@ export default function Page() {
 							color="red"
 							variant="outline"
 							onClick={async (e) => {
-								if (loaderData.coreDetails.preferencesChangeAllowed) {
+								if (!loaderData.userDetails.isDemo) {
 									if (
 										!confirm(
 											"This will reset all your preferences to default. Are you sure you want to continue?",
@@ -182,7 +181,7 @@ export default function Page() {
 						</ActionIcon>
 					</Form>
 				</Group>
-				{!loaderData.coreDetails.preferencesChangeAllowed ? (
+				{loaderData.userDetails.isDemo ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						{notificationContent.message}
 					</Alert>
@@ -203,7 +202,7 @@ export default function Page() {
 						<Text mb="md">The different sections on the dashboard.</Text>
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
-								if (loaderData.coreDetails.preferencesChangeAllowed) {
+								if (!loaderData.userDetails.isDemo) {
 									flushSync(() => {
 										dashboardElementsHandlers.reorder({
 											from: source.index,
@@ -254,9 +253,7 @@ export default function Page() {
 												label={changeCase(snakeCase(name))}
 												// biome-ignore lint/suspicious/noExplicitAny: required here
 												defaultChecked={isEnabled as any}
-												disabled={
-													!loaderData.coreDetails.preferencesChangeAllowed
-												}
+												disabled={!!loaderData.userDetails.isDemo}
 												onChange={(ev) => {
 													const lot = snakeCase(name);
 													appendPref(
@@ -282,7 +279,7 @@ export default function Page() {
 										value: c,
 									}))}
 									defaultValue={loaderData.userPreferences.general.reviewScale}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(val) => {
 										if (val) appendPref("general.review_scale", val);
 									}}
@@ -294,7 +291,7 @@ export default function Page() {
 									defaultChecked={
 										loaderData.userPreferences.general.displayNsfw
 									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(ev) => {
 										appendPref(
 											"general.display_nsfw",
@@ -309,7 +306,7 @@ export default function Page() {
 									defaultChecked={
 										loaderData.userPreferences.general.disableYankIntegrations
 									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(ev) => {
 										appendPref(
 											"general.disable_yank_integrations",
@@ -366,9 +363,7 @@ export default function Page() {
 												)
 												.otherwise(() => undefined)}
 											defaultChecked={isEnabled}
-											disabled={
-												!loaderData.coreDetails.preferencesChangeAllowed
-											}
+											disabled={!!loaderData.userDetails.isDemo}
 											onChange={(ev) => {
 												appendPref(
 													`notifications.${snakeCase(name)}`,
@@ -394,7 +389,7 @@ export default function Page() {
 										loaderData.userPreferences.fitness.exercises.defaultTimer ||
 										undefined
 									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(num) => {
 										appendPref("fitness.exercises.default_timer", String(num));
 									}}
@@ -405,7 +400,7 @@ export default function Page() {
 									defaultValue={
 										loaderData.userPreferences.fitness.exercises.saveHistory
 									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(num) => {
 										if (num)
 											appendPref("fitness.exercises.save_history", String(num));
@@ -438,7 +433,7 @@ export default function Page() {
 										label: startCase(c.toLowerCase()),
 									}))}
 									defaultValue={loaderData.userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(val) => {
 										if (val) appendPref("fitness.exercises.unit_system", val);
 									}}
@@ -454,7 +449,7 @@ export default function Page() {
 										key={name}
 										label={changeCase(snakeCase(name))}
 										defaultChecked={isEnabled}
-										disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+										disabled={!!loaderData.userDetails.isDemo}
 										onChange={(ev) => {
 											appendPref(
 												`fitness.measurements.inbuilt.${snakeCase(name)}`,
@@ -472,7 +467,7 @@ export default function Page() {
 									null,
 									4,
 								)}
-								disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+								disabled={!!loaderData.userDetails.isDemo}
 								autosize
 								formatOnBlur
 								onChange={(v) => {
@@ -532,7 +527,7 @@ const EditDashboardElement = (props: {
 							label="Hidden"
 							labelPosition="left"
 							defaultChecked={focusedElement.hidden}
-							disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+							disabled={!!loaderData.userDetails.isDemo}
 							onChange={(ev) => {
 								const newValue = ev.currentTarget.checked;
 								const newDashboardData = Array.from(
@@ -552,7 +547,7 @@ const EditDashboardElement = (props: {
 								label="Number of elements"
 								size="xs"
 								defaultValue={focusedElement.numElements}
-								disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+								disabled={!!loaderData.userDetails.isDemo}
 								onChange={(num) => {
 									if (typeof num === "number") {
 										const newDashboardData = Array.from(

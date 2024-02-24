@@ -34,7 +34,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const coreDetails = await getCoreDetails();
 	return json({
 		enabledFeatures: { signupAllowed: enabledFeatures.signupAllowed },
-		coreDetails: { defaultCredentials: coreDetails.defaultCredentials },
 	});
 };
 
@@ -107,20 +106,12 @@ export default function Page() {
 					label="Username"
 					autoFocus
 					required
-					defaultValue={
-						loaderData.coreDetails.defaultCredentials ? "demo" : undefined
-					}
 				/>
 				<PasswordInput
 					label="Password"
 					{...getInputProps(fields.password, { type: "password" })}
 					mt="md"
 					required
-					defaultValue={
-						loaderData.coreDetails.defaultCredentials
-							? "demo-password"
-							: undefined
-					}
 					error={fields.password.errors?.[0]}
 				/>
 				{redirectValue ? (
