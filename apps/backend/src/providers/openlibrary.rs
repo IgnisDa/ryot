@@ -193,7 +193,7 @@ impl MediaProvider for OpenlibraryService {
     }
 
     #[instrument(skip(self))]
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
@@ -383,7 +383,7 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,

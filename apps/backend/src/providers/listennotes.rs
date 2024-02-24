@@ -69,7 +69,7 @@ impl ListennotesService {
 
 #[async_trait]
 impl MediaProvider for ListennotesService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut details = self
             .details_with_paginated_episodes(identifier, None, None)
             .await?;
@@ -127,7 +127,7 @@ impl MediaProvider for ListennotesService {
         Ok(details)
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,

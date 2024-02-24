@@ -197,7 +197,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         self.base
-            .save_all_images(&self.client, &typ, &identity, &mut images)
+            .save_all_images(&self.client, &typ, identity, &mut images)
             .await?;
         let images = images
             .into_iter()
@@ -281,7 +281,7 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
-    async fn group_details(
+    async fn media_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
@@ -347,7 +347,7 @@ impl MediaProvider for TmdbMovieService {
         ))
     }
 
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(format!("movie/{}", &identifier))
@@ -511,7 +511,7 @@ impl MediaProvider for TmdbMovieService {
         })
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -578,7 +578,7 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
@@ -827,7 +827,7 @@ impl MediaProvider for TmdbShowService {
         })
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,

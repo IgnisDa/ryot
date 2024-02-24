@@ -194,7 +194,7 @@ impl MediaProvider for MangaUpdatesService {
         Ok(resp)
     }
 
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let data: ItemRecord = self
             .client
             .get(format!("series/{}", identifier))
@@ -284,7 +284,7 @@ impl MediaProvider for MangaUpdatesService {
         })
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
