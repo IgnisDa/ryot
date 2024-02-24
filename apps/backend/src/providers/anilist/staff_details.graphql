@@ -36,6 +36,7 @@ query StaffQuery($id: Int!) {
     }
     staffMedia {
       edges {
+        staffRole
         node {
           id
           type

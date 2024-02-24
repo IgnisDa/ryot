@@ -192,16 +192,15 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
-        let data: AudnexResponse =
-            surf::get(format!("{}/authors/{}", AUDNEX_URL, identity.identifier))
-                .query(&json!({ "region": self.locale }))
-                .unwrap()
-                .await
-                .map_err(|e| anyhow!(e))?
-                .body_json()
-                .await
-                .map_err(|e| anyhow!(e))?;
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+        let data: AudnexResponse = surf::get(format!("{}/authors/{}", AUDNEX_URL, identity))
+            .query(&json!({ "region": self.locale }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
         Ok(MetadataPerson {
             identifier: data.asin,
             name: data.name,

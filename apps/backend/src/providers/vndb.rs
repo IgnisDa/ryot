@@ -87,12 +87,12 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identifier: &str) -> Result<MetadataPerson> {
         let mut rsp = self
             .client
             .post("producer")
             .body_json(&serde_json::json!({
-                "filters": format!(r#"["id", "=", "{}"]"#, identity.identifier),
+                "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
                 "fields": "id,name,description"
             }))

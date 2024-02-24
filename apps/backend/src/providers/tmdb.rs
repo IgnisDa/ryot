@@ -185,11 +185,11 @@ impl NonMediaTmdbService {
 
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
         let typ = "person".to_owned();
         let details: TmdbNonMediaEntity = self
             .client
-            .get(format!("{}/{}", typ, identity.identifier))
+            .get(format!("{}/{}", typ, identity))
             .await
             .map_err(|e| anyhow!(e))?
             .body_json()
@@ -197,7 +197,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         self.base
-            .save_all_images(&self.client, &typ, &identity.identifier, &mut images)
+            .save_all_images(&self.client, &typ, &identity, &mut images)
             .await?;
         let images = images
             .into_iter()
@@ -208,7 +208,7 @@ impl MediaProvider for NonMediaTmdbService {
         let mut related = vec![];
         let cred_det: TmdbCreditsResponse = self
             .client
-            .get(format!("{}/{}/combined_credits", typ, identity.identifier))
+            .get(format!("{}/{}/combined_credits", typ, identity))
             .query(&json!({ "language": self.base.language }))
             .unwrap()
             .await

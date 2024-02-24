@@ -211,7 +211,7 @@ where id = {id};
         ))
     }
 
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
@@ -233,7 +233,7 @@ fields
     company.published.cover.image_id;
 where id = {id};
             "#,
-            id = identity.identifier
+            id = identity
         );
         let mut rsp = client
             .post("involved_companies")

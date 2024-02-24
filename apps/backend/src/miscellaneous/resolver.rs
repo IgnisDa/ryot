@@ -3307,6 +3307,20 @@ impl MiscellaneousService {
         Ok(job_id.to_string())
     }
 
+    pub async fn deploy_update_person_job(&self, person_id: i32) -> Result<String> {
+        let person = Person::find_by_id(person_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let job_id = self
+            .perform_application_job
+            .clone()
+            .push(ApplicationJob::UpdatePerson(person))
+            .await?;
+        Ok(job_id.to_string())
+    }
+
     pub async fn merge_metadata(
         &self,
         merge_from: i32,
@@ -6786,14 +6800,13 @@ GROUP BY
         Ok(())
     }
 
-    async fn update_person(
+    pub async fn update_person(
         &self,
-        person: &PartialMetadataPerson,
-        db_person: &person::Model,
-        time: chrono::DateTime<Utc>,
+        person_id: i32,
     ) -> Result<Vec<(String, PartialMetadataWithoutId)>> {
+        let person = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
         let provider = self.get_non_media_provider(person.source).await?;
-        let provider_person = provider.person_details(person).await?;
+        let provider_person = provider.person_details(&person.identifier).await?;
         let images = provider_person.images.map(|images| {
             images
                 .into_iter()
@@ -6803,8 +6816,8 @@ GROUP BY
                 })
                 .collect()
         });
-        let mut to_update_person: person::ActiveModel = db_person.clone().into();
-        to_update_person.last_updated_on = ActiveValue::Set(time);
+        let mut to_update_person: person::ActiveModel = person.clone().into();
+        to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
         to_update_person.description = ActiveValue::Set(provider_person.description);
         to_update_person.gender = ActiveValue::Set(provider_person.gender);
         to_update_person.birth_date = ActiveValue::Set(provider_person.birth_date);

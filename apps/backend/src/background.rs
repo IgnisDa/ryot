@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use crate::{
-    entities::metadata,
+    entities::{metadata, person},
     exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
@@ -145,6 +145,7 @@ pub enum ApplicationJob {
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(metadata::Model),
     UpdateExerciseJob(Exercise),
+    UpdatePerson(person::Model),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
     ReviewPosted(ReviewPostedEvent),
@@ -204,6 +205,7 @@ pub async fn perform_application_job(
             }
             true
         }
+        ApplicationJob::UpdatePerson(person) => misc_service.update_person(person.id).await.is_ok(),
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
         }
