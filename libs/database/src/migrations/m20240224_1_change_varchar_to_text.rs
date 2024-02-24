@@ -19,7 +19,7 @@ alter table metadata
 ;
 
 alter table person
-alter column source type text,
+    alter column source type text,
     alter column identifier type text,
     alter column name type text,
     alter column gender type text,
