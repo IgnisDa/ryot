@@ -2753,7 +2753,7 @@ impl MiscellaneousService {
                 && !is_owned
             {
                 tracing::debug!(
-                    "Removing user_to_metadata = {id:?}",
+                    "Removing user_to_entity = {id:?}",
                     id = (u.user_id, u.metadata_id)
                 );
                 u.delete(&self.db).await.ok();
@@ -2781,8 +2781,67 @@ impl MiscellaneousService {
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons != previous_reason {
                     tracing::debug!(
-                        "Updating user_to_metadata = {id:?}",
+                        "Updating user_to_entity = {id:?}",
                         id = (u.user_id, u.metadata_id)
+                    );
+                    let mut u: user_to_entity::ActiveModel = u.into();
+                    u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.update(&self.db).await.ok();
+                }
+            }
+        }
+        let all_user_to_person = UserToEntity::find()
+            .filter(user_to_entity::Column::PersonId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
+        for u in all_user_to_person {
+            // check if it has been reviewed
+            let reviewed_count = Review::find()
+                .filter(review::Column::UserId.eq(u.user_id))
+                .filter(review::Column::PersonId.eq(u.person_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            // check if it is part of any collection
+            let collection_ids: Vec<i32> = Collection::find()
+                .select_only()
+                .column(collection::Column::Id)
+                .filter(collection::Column::UserId.eq(u.user_id))
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let person_ids: Vec<i32> = CollectionToEntity::find()
+                .select_only()
+                .column(collection_to_entity::Column::PersonId)
+                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
+                .filter(collection_to_entity::Column::PersonId.is_not_null())
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let is_in_collection = person_ids.contains(&u.person_id.unwrap());
+            if reviewed_count == 0 && !is_in_collection {
+                tracing::debug!(
+                    "Removing user_to_entity = {id:?}",
+                    id = (u.user_id, u.person_id)
+                );
+                u.delete(&self.db).await.ok();
+            } else {
+                let mut new_reasons = HashSet::new();
+                if reviewed_count > 0 {
+                    new_reasons.insert(UserToMediaReason::Reviewed);
+                }
+                if is_in_collection {
+                    new_reasons.insert(UserToMediaReason::Collection);
+                }
+                let previous_reason =
+                    HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                if new_reasons != previous_reason {
+                    tracing::debug!(
+                        "Updating user_to_entity = {id:?}",
+                        id = (u.user_id, u.person_id)
                     );
                     let mut u: user_to_entity::ActiveModel = u.into();
                     u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
