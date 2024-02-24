@@ -1,12 +1,15 @@
 use sea_orm_migration::prelude::*;
 
 use super::{
-    m20230410_create_metadata::Metadata, m20230417_create_user::User,
-    m20230622_create_exercise::Exercise,
+    m20230410_create_metadata::Metadata, m20230413_create_person::Person,
+    m20230417_create_user::User, m20230622_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
+
+pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
+pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
 
 /// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
@@ -24,6 +27,7 @@ pub enum UserToEntity {
     // the entities that can be associated
     MetadataId,
     ExerciseId,
+    PersonId,
     // specifics
     MetadataMonitored,
     MetadataReminder,
@@ -94,6 +98,15 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(UserToEntity::PersonId).integer())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(PERSON_FK_NAME)
+                            .from(UserToEntity::Table, UserToEntity::PersonId)
+                            .to(Person::Table, Person::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -116,6 +129,17 @@ impl MigrationTrait for Migration {
                     .table(UserToEntity::Table)
                     .col(UserToEntity::UserId)
                     .col(UserToEntity::ExerciseId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(PERSON_INDEX_NAME)
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::PersonId)
                     .to_owned(),
             )
             .await?;
