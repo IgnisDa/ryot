@@ -6840,6 +6840,7 @@ GROUP BY
         to_update_person.place = ActiveValue::Set(provider_person.place);
         to_update_person.website = ActiveValue::Set(provider_person.website);
         to_update_person.images = ActiveValue::Set(images);
+        to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.update(&self.db).await.ok();
         Ok(provider_person.related)
     }
