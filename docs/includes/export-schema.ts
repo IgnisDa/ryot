@@ -149,10 +149,18 @@ export interface ImportOrExportMediaItem {
 export interface ImportOrExportPersonItem {
 	/** The collections this entity was added to. */
 	collections: string[];
+	/** The provider identifier. */
+	identifier: string;
 	/** The name of the creator. */
 	name: string;
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
+	/**
+	 * The source of data.
+	 *
+	 * @default 'Audible'
+	 */
+	source: MetadataSource;
 }
 
 /** The assets that were uploaded for an entity. */

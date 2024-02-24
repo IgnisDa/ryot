@@ -6649,6 +6649,8 @@ GROUP BY
                 .collect();
                 people.push(ImportOrExportPersonItem {
                     name: creator.name,
+                    identifier: creator.identifier,
+                    source: creator.source,
                     reviews: vec![review_item],
                     collections,
                 });
