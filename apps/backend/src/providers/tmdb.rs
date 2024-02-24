@@ -30,7 +30,7 @@ use crate::{
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";
-static POSSIBLE_ROLES: [&str; 4] = ["Acting", "Production", "Directing", "Director"];
+static POSSIBLE_ROLES: [&str; 5] = ["Acting", "Directing", "Director", "Production", "Writer"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -218,7 +218,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
             if let Some(title) = media.title.or(media.name) {
-                if let Some(job) = media.character {
+                if let Some(job) = media.job {
                     if POSSIBLE_ROLES.contains(&job.as_str()) {
                         related.push((
                             job,
