@@ -40,8 +40,8 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(ImportReport::FinishedOn).timestamp_with_time_zone())
-                    .col(ColumnDef::new(ImportReport::Details).json_binary())
                     .col(ColumnDef::new(ImportReport::Success).boolean())
+                    .col(ColumnDef::new(ImportReport::Details).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("media_import_report_to_user_foreign_key")

@@ -49,14 +49,14 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(Workout::Name).text().not_null())
+                    .col(ColumnDef::new(Workout::Comment).text())
                     .col(ColumnDef::new(Workout::Summary).json_binary().not_null())
                     .col(
                         ColumnDef::new(Workout::Information)
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Workout::Name).text().not_null())
-                    .col(ColumnDef::new(Workout::Comment).text())
                     .col(ColumnDef::new(Workout::RepeatedFrom).text())
                     .to_owned(),
             )

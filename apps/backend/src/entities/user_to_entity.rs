@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{
     fitness::UserToExerciseExtraInformation,
-    media::{UserMediaOwnership, UserMediaReminder, UserToMetadataReason},
+    media::{UserMediaOwnership, UserMediaReminder, UserToMediaReason},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
@@ -18,6 +18,7 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
+    pub person_id: Option<i32>,
     pub metadata_id: Option<i32>,
     pub exercise_id: Option<String>,
     pub metadata_monitored: Option<bool>,
@@ -25,7 +26,7 @@ pub struct Model {
     pub metadata_reminder: Option<UserMediaReminder>,
     pub metadata_ownership: Option<UserMediaOwnership>,
     #[graphql(skip)]
-    pub metadata_reason: Option<Vec<UserToMetadataReason>>,
+    pub media_reason: Option<Vec<UserToMediaReason>>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
     pub exercise_num_times_interacted: Option<i32>,
 }
@@ -49,6 +50,14 @@ pub enum Relation {
     )]
     Metadata,
     #[sea_orm(
+        belongs_to = "super::person::Entity",
+        from = "Column::PersonId",
+        to = "super::person::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Person,
+    #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
         to = "super::user::Column::Id",
@@ -67,6 +76,12 @@ impl Related<super::exercise::Entity> for Entity {
 impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Metadata.def()
+    }
+}
+
+impl Related<super::person::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Person.def()
     }
 }
 

@@ -64,11 +64,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(Review::Comments).json_binary().not_null())
-                    .col(ColumnDef::new(Review::ShowExtraInformation).json_binary())
-                    .col(ColumnDef::new(Review::PodcastExtraInformation).json_binary())
-                    .col(ColumnDef::new(Review::AnimeExtraInformation).json_binary())
-                    .col(ColumnDef::new(Review::MangaExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(Review::Visibility)
                             .text()
@@ -76,6 +71,15 @@ impl MigrationTrait for Migration {
                             .default(Visibility::Private),
                     )
                     .col(ColumnDef::new(Review::UserId).integer().not_null())
+                    .col(ColumnDef::new(Review::MetadataId).integer())
+                    .col(ColumnDef::new(Review::PersonId).integer())
+                    .col(ColumnDef::new(Review::MetadataGroupId).integer())
+                    .col(ColumnDef::new(Review::CollectionId).integer())
+                    .col(ColumnDef::new(Review::Comments).json_binary().not_null())
+                    .col(ColumnDef::new(Review::ShowExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::PodcastExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::AnimeExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::MangaExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_user_foreign_key")
@@ -84,7 +88,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_metadata_foreign_key")
@@ -93,7 +96,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::PersonId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(PERSON_TO_REVIEW_FOREIGN_KEY)
@@ -102,7 +104,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::CollectionId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(COLLECTION_TO_REVIEW_FOREIGN_KEY)
@@ -111,7 +112,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Review::MetadataGroupId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_GROUP_TO_REVIEW_FOREIGN_KEY)

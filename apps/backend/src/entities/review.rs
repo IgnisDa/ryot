@@ -11,7 +11,7 @@ use crate::{
         ImportOrExportItemReviewComment, SeenAnimeExtraInformation, SeenMangaExtraInformation,
         SeenPodcastExtraInformation, SeenShowExtraInformation,
     },
-    utils::associate_user_with_metadata,
+    utils::{associate_user_with_metadata, associate_user_with_person},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
@@ -120,6 +120,10 @@ impl ActiveModelBehavior for ActiveModel {
         if insert {
             if let Some(metadata_id) = model.metadata_id {
                 associate_user_with_metadata(&model.user_id, &metadata_id, db)
+                    .await
+                    .ok();
+            } else if let Some(person_id) = model.person_id {
+                associate_user_with_person(&model.user_id, &person_id, db)
                     .await
                     .ok();
             }

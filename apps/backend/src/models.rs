@@ -845,7 +845,7 @@ pub mod media {
         Copy, Clone, Debug, PartialEq, Eq, DeriveActiveEnum, EnumIter, Serialize, Deserialize, Hash,
     )]
     #[sea_orm(rs_type = "String", db_type = "String(None)")]
-    pub enum UserToMetadataReason {
+    pub enum UserToMediaReason {
         #[sea_orm(string_value = "Seen")]
         Seen,
         #[sea_orm(string_value = "Reviewed")]
@@ -1030,6 +1030,10 @@ pub mod media {
     pub struct ImportOrExportPersonItem {
         /// The name of the creator.
         pub name: String,
+        /// The provider identifier.
+        pub identifier: String,
+        /// The source of data.
+        pub source: MetadataSource,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.

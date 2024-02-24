@@ -92,7 +92,8 @@ persons with these IDs: {:?}. Then upgrade to this version again.
             .all(db)
             .await?;
         tracing::warn!("Total people to delete: {}", all_persons.len());
-        db.execute_unprepared(
+        if !all_persons.is_empty() {
+            db.execute_unprepared(
             r#"
 alter table metadata_to_person drop constraint "fk-person-item_media-person_id";
 alter table collection_to_entity drop constraint "collection_to_entity-fk3";
@@ -107,6 +108,7 @@ alter table review add constraint "review_to_person_foreign_key" foreign key ("p
         "#,
         )
         .await?;
+        }
         Ok(())
     }
 
