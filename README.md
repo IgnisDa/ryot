@@ -31,11 +31,11 @@ hosted tracker you will ever need!
 
 ## 💻 Demo
 
-You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login
-and register with the username `demo` and password `demo-password`. This instance
-is automatically deployed from the latest release.
+You can use the demo account on [Fly.io](https://ryot.fly.dev). Login with the username
+`demo` and password `demo-password`. This instance is automatically deployed from the
+latest release.
 
-**NOTE**: The data in this instance can be deleted randomly.
+**NOTE**: The data in this account can be deleted randomly.
 
 ## 📝 ELI5
 
