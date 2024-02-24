@@ -39,6 +39,7 @@ import {
 	MetaFunction,
 	defer,
 	json,
+	redirect,
 } from "@remix-run/node";
 import { Await, Form, Link, useLoaderData } from "@remix-run/react";
 import {
@@ -109,7 +110,7 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getVerb } from "~/lib/generals";
+import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getUserDetails,
@@ -127,6 +128,7 @@ const searchParamsSchema = z
 		defaultTab: z.string().optional(),
 		openProgressModal: zx.BoolAsString.optional(),
 		openReviewModal: zx.BoolAsString.optional(),
+		[redirectToQueryParam]: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
@@ -419,14 +421,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			await sleepForASecond();
-			return json({ status: "success", submission } as const, {
+			const headers = {
 				headers: await createToastHeaders({
 					type: !deployBulkProgressUpdate ? "error" : "success",
 					message: !deployBulkProgressUpdate
 						? "Progress was not updated"
 						: "Progress updated successfully",
 				}),
-			});
+			};
+			if (submission[redirectToQueryParam])
+				return redirect(submission[redirectToQueryParam], headers);
+			return json({ status: "success", submission } as const, headers);
 		},
 	});
 };
@@ -470,6 +475,7 @@ const progressUpdateSchema = z
 	.object({
 		metadataLot: z.nativeEnum(MetadataLot),
 		date: z.string().optional(),
+		[redirectToQueryParam]: z.string().optional(),
 		showSpecifics: z.string().optional(),
 		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
 		podcastSpecifics: z.string().optional(),
@@ -1815,6 +1821,13 @@ const ProgressUpdateModal = (props: {
 						) : null}
 					</Fragment>
 				))}
+				{loaderData.query[redirectToQueryParam] ? (
+					<input
+						hidden
+						name={redirectToQueryParam}
+						defaultValue={loaderData.query[redirectToQueryParam]}
+					/>
+				) : null}
 				<Stack>
 					{loaderData.mediaMainDetails.lot === MetadataLot.Anime ? (
 						<>

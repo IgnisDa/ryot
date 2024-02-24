@@ -69,7 +69,7 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { Verb, getLot, getVerb } from "~/lib/generals";
+import { Verb, getLot, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
@@ -177,6 +177,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.exhaustive();
+	const url = new URL(request.url);
 	return json({
 		lot,
 		query,
@@ -184,6 +185,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		numPage,
 		mediaList,
 		mediaSearch,
+		// TODO: https://github.com/unjs/ufo/issues/211
+		url: url.pathname + url.search,
 		collections: userCollectionsList,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
@@ -601,7 +604,11 @@ const MediaSearchItem = (props: {
 								"/media/item/:id",
 								{ id },
 								props.lot !== MetadataLot.Show
-									? { defaultTab: "actions", openProgressModal: true }
+									? {
+											defaultTab: "actions",
+											openProgressModal: true,
+											[redirectToQueryParam]: loaderData.url,
+									  }
 									: { defaultTab: "seasons" },
 							),
 						);
