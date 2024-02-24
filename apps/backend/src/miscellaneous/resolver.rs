@@ -87,7 +87,7 @@ use crate::{
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMetadataReason,
+            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
             VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
@@ -2760,32 +2760,32 @@ impl MiscellaneousService {
             } else {
                 let mut new_reasons = HashSet::new();
                 if seen_count > 0 {
-                    new_reasons.insert(UserToMetadataReason::Seen);
+                    new_reasons.insert(UserToMediaReason::Seen);
                 }
                 if reviewed_count > 0 {
-                    new_reasons.insert(UserToMetadataReason::Reviewed);
+                    new_reasons.insert(UserToMediaReason::Reviewed);
                 }
                 if is_in_collection {
-                    new_reasons.insert(UserToMetadataReason::Collection);
+                    new_reasons.insert(UserToMediaReason::Collection);
                 }
                 if is_monitored {
-                    new_reasons.insert(UserToMetadataReason::Monitored);
+                    new_reasons.insert(UserToMediaReason::Monitored);
                 }
                 if is_reminder_active {
-                    new_reasons.insert(UserToMetadataReason::Reminder);
+                    new_reasons.insert(UserToMediaReason::Reminder);
                 }
                 if is_owned {
-                    new_reasons.insert(UserToMetadataReason::Owned);
+                    new_reasons.insert(UserToMediaReason::Owned);
                 }
                 let previous_reason =
-                    HashSet::from_iter(u.metadata_reason.clone().unwrap_or_default().into_iter());
+                    HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons != previous_reason {
                     tracing::debug!(
                         "Updating user_to_metadata = {id:?}",
                         id = (u.user_id, u.metadata_id)
                     );
                     let mut u: user_to_entity::ActiveModel = u.into();
-                    u.metadata_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     u.update(&self.db).await.ok();
                 }
             }

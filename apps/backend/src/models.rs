@@ -845,7 +845,7 @@ pub mod media {
         Copy, Clone, Debug, PartialEq, Eq, DeriveActiveEnum, EnumIter, Serialize, Deserialize, Hash,
     )]
     #[sea_orm(rs_type = "String", db_type = "String(None)")]
-    pub enum UserToMetadataReason {
+    pub enum UserToMediaReason {
         #[sea_orm(string_value = "Seen")]
         Seen,
         #[sea_orm(string_value = "Reviewed")]
