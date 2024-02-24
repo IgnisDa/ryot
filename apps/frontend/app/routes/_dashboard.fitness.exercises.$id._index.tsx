@@ -204,6 +204,15 @@ export default function Page() {
 										noCasing
 									/>
 								) : null}
+								{loaderData.userExerciseDetails.details?.createdOn ? (
+									<DisplayData
+										name="First done on"
+										data={dayjsLib(
+											loaderData.userExerciseDetails.details.createdOn,
+										).format("ll")}
+										noCasing
+									/>
+								) : null}
 								{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
 									<DisplayData
 										name="Last done on"
