@@ -93,14 +93,14 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
         let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let d = self.google_books_response_to_search_response(data.volume_info, data.id);
         Ok(d)
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,

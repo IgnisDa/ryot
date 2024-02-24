@@ -56,8 +56,6 @@ COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules .
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
 COPY --from=backend-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
-HEALTHCHECK --interval=5m --timeout=3s \
-  CMD curl -f http://localhost:5000/config || exit 1
 CMD [ \
     "concurrently", "--names", "frontend,backend,proxy", "--kill-others", \
     "PORT=3000 npx remix-serve ./build/server/index.js", \

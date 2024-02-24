@@ -5,6 +5,7 @@ import {
 	HumanizeDurationOptions,
 } from "humanize-duration-ts";
 import camelCase from "lodash/camelCase";
+import isEqual from "lodash/isEqual";
 import snakeCase from "lodash/snakeCase";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
@@ -91,4 +92,4 @@ export const randomString = (length: number) => {
 	return s;
 };
 
-export { camelCase, snakeCase, startCase, sum };
+export { camelCase,isEqual, snakeCase, startCase, sum };

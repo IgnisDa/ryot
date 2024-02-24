@@ -59,6 +59,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	displayWeightWithUnit,
+	isEqual,
 	snakeCase,
 	startCase,
 	sum,
@@ -1455,17 +1456,22 @@ const ReorderDrawer = (props: {
 	);
 
 	useEffect(() => {
-		setCurrentWorkout(
-			// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-			produce(currentWorkout, (draft: any) => {
-				if (draft) {
-					draft.exercises = exerciseElements.map((de) =>
-						// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-						draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
-					);
-				}
-			}),
-		);
+		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
+		const newOrder = exerciseElements.map((e) => e.exerciseId);
+		if (!isEqual(oldOrder, newOrder)) {
+			setCurrentWorkout(
+				// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+				produce(currentWorkout, (draft: any) => {
+					if (draft) {
+						draft.exercises = exerciseElements.map((de) =>
+							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+							draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
+						);
+					}
+				}),
+			);
+			props.onClose();
+		}
 	}, [exerciseElements]);
 
 	return currentWorkout ? (
@@ -1481,7 +1487,6 @@ const ReorderDrawer = (props: {
 						from: source.index,
 						to: destination?.index || 0,
 					});
-					props.onClose();
 				}}
 			>
 				<Droppable droppableId="dnd-list">

@@ -57,7 +57,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Review::Rating).decimal())
-                    .col(ColumnDef::new(Review::Text).string())
+                    .col(ColumnDef::new(Review::Text).text())
                     .col(
                         ColumnDef::new(Review::Spoiler)
                             .boolean()
@@ -71,7 +71,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::MangaExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(Review::Visibility)
-                            .string_len(2)
+                            .text()
                             .not_null()
                             .default(Visibility::Private),
                     )

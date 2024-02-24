@@ -192,16 +192,15 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
-        let data: AudnexResponse =
-            surf::get(format!("{}/authors/{}", AUDNEX_URL, identity.identifier))
-                .query(&json!({ "region": self.locale }))
-                .unwrap()
-                .await
-                .map_err(|e| anyhow!(e))?
-                .body_json()
-                .await
-                .map_err(|e| anyhow!(e))?;
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+        let data: AudnexResponse = surf::get(format!("{}/authors/{}", AUDNEX_URL, identity))
+            .query(&json!({ "region": self.locale }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
         Ok(MetadataPerson {
             identifier: data.asin,
             name: data.name,
@@ -217,7 +216,7 @@ impl MediaProvider for AudibleService {
         })
     }
 
-    async fn group_details(
+    async fn media_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
@@ -272,7 +271,7 @@ impl MediaProvider for AudibleService {
         ))
     }
 
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(identifier)
@@ -316,7 +315,7 @@ impl MediaProvider for AudibleService {
         Ok(item)
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -388,6 +387,7 @@ impl AudibleService {
                     identifier: au,
                     source: MetadataSource::Audible,
                     role: "Author".to_owned(),
+                    name: a.name,
                     character: None,
                 })
             })

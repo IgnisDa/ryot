@@ -26,6 +26,9 @@ query DetailsQuery($id: Int!) {
       edges {
         node {
           id
+          name {
+            full
+          }
         }
         role
       }
@@ -34,6 +37,7 @@ query DetailsQuery($id: Int!) {
       edges {
         node {
           id
+          name
         }
       }
     }

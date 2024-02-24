@@ -1,0 +1,3 @@
+mutation DeployUpdatePersonJob($personId: Int!) {
+  deployUpdatePersonJob(personId: $personId)
+}

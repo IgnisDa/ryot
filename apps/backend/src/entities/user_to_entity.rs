@@ -15,6 +15,7 @@ use crate::models::{
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
     pub metadata_id: Option<i32>,

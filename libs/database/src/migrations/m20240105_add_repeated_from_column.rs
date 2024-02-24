@@ -13,7 +13,7 @@ impl MigrationTrait for Migration {
                 .alter_table(
                     TableAlterStatement::new()
                         .table(Workout::Table)
-                        .add_column(ColumnDef::new(Workout::RepeatedFrom).string())
+                        .add_column(ColumnDef::new(Workout::RepeatedFrom).text())
                         .to_owned(),
                 )
                 .await?;

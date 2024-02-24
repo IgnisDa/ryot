@@ -45,7 +45,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(PersonToPartialMetadata::Role)
-                            .string()
+                            .text()
                             .not_null(),
                     )
                     .col(

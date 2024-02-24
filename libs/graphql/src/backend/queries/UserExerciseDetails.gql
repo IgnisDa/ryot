@@ -17,6 +17,7 @@ query UserExerciseDetails($input: UserExerciseDetailsInput!) {
     }
     details {
       exerciseId
+      createdOn
       lastUpdatedOn
       exerciseNumTimesInteracted
       exerciseExtraInformation {

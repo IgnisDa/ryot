@@ -45,6 +45,9 @@ mod m20240202_6_remove_last_processed_on_for_calendar;
 mod m20240210_0_remove_duplicated_calendar_events;
 mod m20240210_1_create_correct_calendar_event_index;
 mod m20240220_add_is_demo_column;
+mod m20240223_add_is_partial_field_to_person;
+mod m20240224_0_add_created_on_field_to_user_to_entity;
+mod m20240224_1_change_varchar_to_text;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -107,6 +110,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20240210_0_remove_duplicated_calendar_events::Migration),
             Box::new(m20240210_1_create_correct_calendar_event_index::Migration),
             Box::new(m20240220_add_is_demo_column::Migration),
+            Box::new(m20240223_add_is_partial_field_to_person::Migration),
+            Box::new(m20240224_0_add_created_on_field_to_user_to_entity::Migration),
+            Box::new(m20240224_1_change_varchar_to_text::Migration),
         ]
     }
 }

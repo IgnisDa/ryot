@@ -19,6 +19,7 @@ pub enum UserToEntity {
     Table,
     Id,
     UserId,
+    CreatedOn,
     LastUpdatedOn,
     // the entities that can be associated
     MetadataId,
@@ -46,6 +47,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .auto_increment()
                             .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(UserToEntity::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
                     )
                     .col(
                         ColumnDef::new(UserToEntity::LastUpdatedOn)
@@ -78,7 +85,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserToEntity::ExerciseId).string())
+                    .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk3")

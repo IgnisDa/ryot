@@ -30,7 +30,7 @@ use crate::{
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";
-static POSSIBLE_ROLES: [&str; 4] = ["Acting", "Production", "Directing", "Director"];
+static POSSIBLE_ROLES: [&str; 5] = ["Acting", "Directing", "Director", "Production", "Writer"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -185,11 +185,11 @@ impl NonMediaTmdbService {
 
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
         let typ = "person".to_owned();
         let details: TmdbNonMediaEntity = self
             .client
-            .get(format!("{}/{}", typ, identity.identifier))
+            .get(format!("{}/{}", typ, identity))
             .await
             .map_err(|e| anyhow!(e))?
             .body_json()
@@ -197,7 +197,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         self.base
-            .save_all_images(&self.client, &typ, &identity.identifier, &mut images)
+            .save_all_images(&self.client, &typ, identity, &mut images)
             .await?;
         let images = images
             .into_iter()
@@ -208,7 +208,7 @@ impl MediaProvider for NonMediaTmdbService {
         let mut related = vec![];
         let cred_det: TmdbCreditsResponse = self
             .client
-            .get(format!("{}/{}/combined_credits", typ, identity.identifier))
+            .get(format!("{}/{}/combined_credits", typ, identity))
             .query(&json!({ "language": self.base.language }))
             .unwrap()
             .await
@@ -218,7 +218,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
             if let Some(title) = media.title.or(media.name) {
-                if let Some(job) = media.character {
+                if let Some(job) = media.job {
                     if POSSIBLE_ROLES.contains(&job.as_str()) {
                         related.push((
                             job,
@@ -281,7 +281,7 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
-    async fn group_details(
+    async fn media_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
@@ -347,7 +347,7 @@ impl MediaProvider for TmdbMovieService {
         ))
     }
 
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(format!("movie/{}", &identifier))
@@ -388,6 +388,7 @@ impl MediaProvider for TmdbMovieService {
                             if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
+                                    name: g.name.unwrap_or_default(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
                                     character: g.character,
@@ -416,6 +417,7 @@ impl MediaProvider for TmdbMovieService {
                             if POSSIBLE_ROLES.contains(&r.as_str()) {
                                 Some(PartialMetadataPerson {
                                     identifier: id.to_string(),
+                                    name: g.name.unwrap_or_default(),
                                     role: r,
                                     source: MetadataSource::Tmdb,
                                     character: g.character,
@@ -439,6 +441,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
+                    name: p.name,
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,
@@ -508,7 +511,7 @@ impl MediaProvider for TmdbMovieService {
         })
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -575,7 +578,7 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
@@ -680,6 +683,7 @@ impl MediaProvider for TmdbShowService {
                                 if let Some(id) = g.id {
                                     g.known_for_department.map(|r| PartialMetadataPerson {
                                         identifier: id.to_string(),
+                                        name: g.name.unwrap_or_default(),
                                         role: r,
                                         source: MetadataSource::Tmdb,
                                         character: g.character,
@@ -700,6 +704,7 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
+                    name: p.name,
                     role: "Production".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,
@@ -822,7 +827,7 @@ impl MediaProvider for TmdbShowService {
         })
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,

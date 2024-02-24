@@ -25,25 +25,20 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Exercise::Table)
-                    .col(
-                        ColumnDef::new(Exercise::Id)
-                            .primary_key()
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Exercise::Id).primary_key().text().not_null())
                     .col(ColumnDef::new(Exercise::Muscles).json_binary().not_null())
-                    .col(ColumnDef::new(Exercise::Lot).string_len(2).not_null())
-                    .col(ColumnDef::new(Exercise::Level).string_len(1).not_null())
-                    .col(ColumnDef::new(Exercise::Force).string_len(3))
-                    .col(ColumnDef::new(Exercise::Mechanic).string_len(1))
-                    .col(ColumnDef::new(Exercise::Equipment).string_len(3))
-                    .col(ColumnDef::new(Exercise::Identifier).string().unique_key())
+                    .col(ColumnDef::new(Exercise::Lot).text().not_null())
+                    .col(ColumnDef::new(Exercise::Level).text().not_null())
+                    .col(ColumnDef::new(Exercise::Force).text())
+                    .col(ColumnDef::new(Exercise::Mechanic).text())
+                    .col(ColumnDef::new(Exercise::Equipment).text())
+                    .col(ColumnDef::new(Exercise::Identifier).text().unique_key())
                     .col(
                         ColumnDef::new(Exercise::Attributes)
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Exercise::Source).string_len(2).not_null())
+                    .col(ColumnDef::new(Exercise::Source).text().not_null())
                     .to_owned(),
             )
             .await?;

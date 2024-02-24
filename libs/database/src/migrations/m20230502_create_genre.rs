@@ -33,7 +33,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Genre::Name).string().unique_key().not_null())
+                    .col(ColumnDef::new(Genre::Name).text().unique_key().not_null())
                     .to_owned(),
             )
             .await?;

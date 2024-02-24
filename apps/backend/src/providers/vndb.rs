@@ -21,7 +21,7 @@ use crate::{
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
-const MEDIA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url";
+const MEDIA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
 const MEDIA_FIELDS: &str = const_str::concat!(
     MEDIA_FIELDS_SMALL,
     ",",
@@ -59,6 +59,7 @@ struct ImageLinks {
 #[derive(Serialize, Deserialize, Debug)]
 struct Developer {
     id: String,
+    name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -86,12 +87,12 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identifier: &str) -> Result<MetadataPerson> {
         let mut rsp = self
             .client
             .post("producer")
             .body_json(&serde_json::json!({
-                "filters": format!(r#"["id", "=", "{}"]"#, identity.identifier),
+                "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
                 "fields": "id,name,description"
             }))
@@ -115,7 +116,7 @@ impl MediaProvider for VndbService {
         })
     }
 
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .post("vn")
@@ -133,7 +134,7 @@ impl MediaProvider for VndbService {
         Ok(d)
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -205,6 +206,7 @@ impl VndbService {
             .into_iter()
             .map(|a| PartialMetadataPerson {
                 identifier: a.id,
+                name: a.name,
                 role: "Developer".to_owned(),
                 source: MetadataSource::Vndb,
                 character: None,

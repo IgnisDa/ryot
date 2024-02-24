@@ -150,7 +150,7 @@ impl IgdbService {
 
 #[async_trait]
 impl MediaProvider for IgdbService {
-    async fn group_details(
+    async fn media_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
@@ -211,7 +211,7 @@ where id = {id};
         ))
     }
 
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
@@ -233,7 +233,7 @@ fields
     company.published.cover.image_id;
 where id = {id};
             "#,
-            id = identity.identifier
+            id = identity
         );
         let mut rsp = client
             .post("involved_companies")
@@ -298,7 +298,7 @@ where id = {id};
         })
     }
 
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r#"{field} where id = {id};"#,
@@ -321,7 +321,7 @@ where id = {id};
         Ok(game_details)
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -417,6 +417,7 @@ impl IgdbService {
                 };
                 PartialMetadataPerson {
                     identifier: ic.id.to_string(),
+                    name: ic.company.name,
                     source: MetadataSource::Igdb,
                     role: role.to_owned(),
                     character: None,

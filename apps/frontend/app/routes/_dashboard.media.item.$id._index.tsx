@@ -39,6 +39,7 @@ import {
 	MetaFunction,
 	defer,
 	json,
+	redirect,
 } from "@remix-run/node";
 import { Await, Form, Link, useLoaderData } from "@remix-run/react";
 import {
@@ -100,6 +101,7 @@ import {
 } from "~/components/common";
 import {
 	DisplayCollection,
+	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	PostReview,
@@ -108,7 +110,7 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getVerb } from "~/lib/generals";
+import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getUserDetails,
@@ -126,6 +128,7 @@ const searchParamsSchema = z
 		defaultTab: z.string().optional(),
 		openProgressModal: zx.BoolAsString.optional(),
 		openReviewModal: zx.BoolAsString.optional(),
+		[redirectToQueryParam]: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
@@ -418,14 +421,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			await sleepForASecond();
-			return json({ status: "success", submission } as const, {
+			const headers = {
 				headers: await createToastHeaders({
 					type: !deployBulkProgressUpdate ? "error" : "success",
 					message: !deployBulkProgressUpdate
 						? "Progress was not updated"
 						: "Progress updated successfully",
 				}),
-			});
+			};
+			if (submission[redirectToQueryParam])
+				return redirect(submission[redirectToQueryParam], headers);
+			return json({ status: "success", submission } as const, headers);
 		},
 	});
 };
@@ -469,6 +475,7 @@ const progressUpdateSchema = z
 	.object({
 		metadataLot: z.nativeEnum(MetadataLot),
 		date: z.string().optional(),
+		[redirectToQueryParam]: z.string().optional(),
 		showSpecifics: z.string().optional(),
 		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
 		podcastSpecifics: z.string().optional(),
@@ -652,6 +659,9 @@ export default function Page() {
 											<IconBackpack size={20} />
 											<Text size="xs">You own this media</Text>
 										</Flex>
+									) : null}
+									{loaderData.mediaMainDetails.isPartial ? (
+										<MediaIsPartial mediaType="media" />
 									) : null}
 								</Group>
 							)}
@@ -1811,6 +1821,13 @@ const ProgressUpdateModal = (props: {
 						) : null}
 					</Fragment>
 				))}
+				{loaderData.query[redirectToQueryParam] ? (
+					<input
+						hidden
+						name={redirectToQueryParam}
+						defaultValue={loaderData.query[redirectToQueryParam]}
+					/>
+				) : null}
 				<Stack>
 					{loaderData.mediaMainDetails.lot === MetadataLot.Anime ? (
 						<>
@@ -1852,13 +1869,13 @@ const ProgressUpdateModal = (props: {
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ mediaDetails: mediaAdditionalDetails }) => (
 								<>
-									{mediaAdditionalDetails?.showSpecifics ? (
+									{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
 										<>
 											<input
 												hidden
 												name="showSpecifics"
 												defaultValue={JSON.stringify(
-													mediaAdditionalDetails.showSpecifics.seasons.map(
+													mediaAdditionalDetails.showSpecifics?.seasons.map(
 														(s) => ({
 															seasonNumber: s.seasonNumber,
 															episodes: s.episodes.map((e) => e.episodeNumber),
@@ -1878,7 +1895,7 @@ const ProgressUpdateModal = (props: {
 											{!props.data?.completeShow ? (
 												<Select
 													label="Season"
-													data={mediaAdditionalDetails.showSpecifics.seasons.map(
+													data={mediaAdditionalDetails.showSpecifics?.seasons.map(
 														(s) => ({
 															label: `${s.seasonNumber}. ${s.name.toString()}`,
 															value: s.seasonNumber.toString(),
@@ -1898,7 +1915,7 @@ const ProgressUpdateModal = (props: {
 												<Select
 													label="Episode"
 													data={
-														mediaAdditionalDetails.showSpecifics.seasons
+														mediaAdditionalDetails.showSpecifics?.seasons
 															.find(
 																(s) =>
 																	s.seasonNumber ===
@@ -1916,13 +1933,13 @@ const ProgressUpdateModal = (props: {
 											) : null}
 										</>
 									) : null}
-									{mediaAdditionalDetails?.podcastSpecifics ? (
+									{loaderData.mediaMainDetails.lot === MetadataLot.Podcast ? (
 										<>
 											<input
 												hidden
 												name="podcastSpecifics"
 												defaultValue={JSON.stringify(
-													mediaAdditionalDetails.podcastSpecifics.episodes.map(
+													mediaAdditionalDetails.podcastSpecifics?.episodes.map(
 														(e) => ({
 															episodeNumber: e.number,
 														}),
@@ -1938,7 +1955,7 @@ const ProgressUpdateModal = (props: {
 													<Title order={6}>Select episode</Title>
 													<Autocomplete
 														label="Episode"
-														data={mediaAdditionalDetails.podcastSpecifics.episodes.map(
+														data={mediaAdditionalDetails.podcastSpecifics?.episodes.map(
 															(se) => ({
 																label: se.title.toString(),
 																value: se.number.toString(),

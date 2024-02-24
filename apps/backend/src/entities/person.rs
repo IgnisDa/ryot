@@ -19,6 +19,7 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub name: String,
+    pub is_partial: Option<bool>,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub images: Option<Vec<MetadataImage>>,

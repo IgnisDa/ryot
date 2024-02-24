@@ -107,7 +107,7 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryLink {
             url: Option<String>,
@@ -124,7 +124,7 @@ impl MediaProvider for OpenlibraryService {
         }
         let mut rsp = self
             .client
-            .get(format!("authors/{}.json", identity.identifier))
+            .get(format!("authors/{}.json", identity))
             .await
             .map_err(|e| anyhow!(e))?;
         let data: OpenlibraryAuthor = rsp.body_json().await.map_err(|e| anyhow!(e))?;
@@ -143,7 +143,7 @@ impl MediaProvider for OpenlibraryService {
             .collect();
         let author_works: OpenlibraryEditionsResponse = self
             .client
-            .get(format!("authors/{}/works.json", identity.identifier))
+            .get(format!("authors/{}/works.json", identity))
             .query(&serde_json::json!({ "limit": 600 }))
             .unwrap()
             .await
@@ -193,7 +193,7 @@ impl MediaProvider for OpenlibraryService {
     }
 
     #[instrument(skip(self))]
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryAuthor {
             author: OpenlibraryKey,
@@ -263,6 +263,7 @@ impl MediaProvider for OpenlibraryService {
             };
             people.push(PartialMetadataPerson {
                 identifier: get_key(&key),
+                name: "".to_owned(),
                 role,
                 source: MetadataSource::Openlibrary,
                 character: None,
@@ -382,7 +383,7 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,

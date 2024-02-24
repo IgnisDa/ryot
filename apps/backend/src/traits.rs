@@ -8,10 +8,7 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     file_storage::FileStorageService,
     models::{
-        media::{
-            MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson,
-            PartialMetadataWithoutId,
-        },
+        media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataWithoutId},
         SearchResults,
     },
     utils::AuthContext,
@@ -19,9 +16,9 @@ use crate::{
 
 #[async_trait]
 pub trait MediaProvider {
-    /// Search for a query.
+    /// Search for a media via a query.
     #[allow(unused_variables)]
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -32,19 +29,19 @@ pub trait MediaProvider {
 
     /// Get details about a media item.
     #[allow(unused_variables)]
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         bail!("This provider does not support getting media details")
     }
 
     /// Get details about a person.
     #[allow(unused_variables)]
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
     }
 
     /// Get details about a group/collection.
     #[allow(unused_variables)]
-    async fn group_details(
+    async fn media_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {

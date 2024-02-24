@@ -26,8 +26,8 @@ static URL: &str = "https://graphql.anilist.co";
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/search.graphql",
-    response_derives = "Debug",
+    query_path = "src/providers/anilist/media_search.graphql",
+    response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
 struct SearchQuery;
@@ -36,7 +36,7 @@ struct SearchQuery;
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
     query_path = "src/providers/anilist/media_details.graphql",
-    response_derives = "Debug",
+    response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
 struct DetailsQuery;
@@ -44,17 +44,8 @@ struct DetailsQuery;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/studio_details.graphql",
-    response_derives = "Debug",
-    variables_derives = "Debug"
-)]
-struct StudioQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/providers/anilist/schema.json",
     query_path = "src/providers/anilist/staff_details.graphql",
-    response_derives = "Debug",
+    response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
 struct StaffQuery;
@@ -94,7 +85,7 @@ impl NonMediaAnilistService {
 
 #[async_trait]
 impl MediaProvider for NonMediaAnilistService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
         person_details(&self.base.client, identity).await
     }
 }
@@ -120,12 +111,12 @@ impl AnilistAnimeService {
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -169,12 +160,12 @@ impl AnilistMangaService {
 
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
-    async fn search(
+    async fn media_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -201,118 +192,84 @@ async fn get_client_config(url: &str) -> Client {
     get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
 }
 
-async fn person_details(
-    client: &Client,
-    identity: &PartialMetadataPerson,
-) -> Result<MetadataPerson> {
-    let data = if identity.role.as_str() == "Production" {
-        let variables = studio_query::Variables {
-            id: identity.identifier.parse::<i64>().unwrap(),
-        };
-        let body = StudioQuery::build_query(variables);
-        let details = client
-            .post("")
-            .body_json(&body)
-            .unwrap()
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Response<studio_query::ResponseData>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .data
-            .unwrap()
-            .studio
-            .unwrap();
-        let related = details
-            .media
-            .unwrap()
-            .edges
-            .unwrap()
-            .into_iter()
-            .map(|r| {
-                let data = r.unwrap().node.unwrap();
-                (
-                    "Development".to_owned(),
-                    PartialMetadataWithoutId {
-                        title: data.title.unwrap().user_preferred.unwrap(),
-                        identifier: data.id.to_string(),
-                        source: MetadataSource::Anilist,
-                        lot: match data.type_.unwrap() {
-                            studio_query::MediaType::ANIME => MetadataLot::Anime,
-                            studio_query::MediaType::MANGA => MetadataLot::Manga,
-                            studio_query::MediaType::Other(_) => unreachable!(),
-                        },
-                        image: data.cover_image.unwrap().extra_large,
-                    },
-                )
-            })
-            .collect();
-        MetadataPerson {
-            identifier: details.id.to_string(),
-            source: MetadataSource::Anilist,
-            name: details.name,
-            related,
-            website: None,
-            description: None,
-            gender: None,
-            place: None,
-            images: None,
-            death_date: None,
-            birth_date: None,
+async fn person_details(client: &Client, identity: &str) -> Result<MetadataPerson> {
+    let variables = staff_query::Variables {
+        id: identity.parse::<i64>().unwrap(),
+    };
+    let body = StaffQuery::build_query(variables);
+    let details = client
+        .post("")
+        .body_json(&body)
+        .unwrap()
+        .send()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .body_json::<Response<staff_query::ResponseData>>()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .data
+        .unwrap()
+        .staff
+        .unwrap();
+    let images = Vec::from_iter(details.image.and_then(|i| i.large));
+    let birth_date = details.date_of_birth.and_then(|d| {
+        if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+            NaiveDate::from_ymd_opt(
+                y.try_into().unwrap(),
+                m.try_into().unwrap(),
+                d.try_into().unwrap(),
+            )
+        } else {
+            None
         }
-    } else {
-        let variables = staff_query::Variables {
-            id: identity.identifier.parse::<i64>().unwrap(),
-        };
-        let body = StaffQuery::build_query(variables);
-        let details = client
-            .post("")
-            .body_json(&body)
-            .unwrap()
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Response<staff_query::ResponseData>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .data
-            .unwrap()
-            .staff
-            .unwrap();
-        let images = Vec::from_iter(details.image.and_then(|i| i.large));
-        let birth_date = details.date_of_birth.and_then(|d| {
-            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                NaiveDate::from_ymd_opt(
-                    y.try_into().unwrap(),
-                    m.try_into().unwrap(),
-                    d.try_into().unwrap(),
-                )
-            } else {
-                None
-            }
-        });
-        let death_date = details.date_of_death.and_then(|d| {
-            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                NaiveDate::from_ymd_opt(
-                    y.try_into().unwrap(),
-                    m.try_into().unwrap(),
-                    d.try_into().unwrap(),
-                )
-            } else {
-                None
-            }
-        });
-        let mut related = details
-            .character_media
+    });
+    let death_date = details.date_of_death.and_then(|d| {
+        if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+            NaiveDate::from_ymd_opt(
+                y.try_into().unwrap(),
+                m.try_into().unwrap(),
+                d.try_into().unwrap(),
+            )
+        } else {
+            None
+        }
+    });
+    let mut related = details
+        .character_media
+        .unwrap()
+        .edges
+        .unwrap()
+        .into_iter()
+        .map(|r| {
+            let data = r.unwrap().node.unwrap();
+            (
+                "Voicing".to_owned(),
+                PartialMetadataWithoutId {
+                    title: data.title.unwrap().user_preferred.unwrap(),
+                    identifier: data.id.to_string(),
+                    source: MetadataSource::Anilist,
+                    lot: match data.type_.unwrap() {
+                        staff_query::MediaType::ANIME => MetadataLot::Anime,
+                        staff_query::MediaType::MANGA => MetadataLot::Manga,
+                        staff_query::MediaType::Other(_) => unreachable!(),
+                    },
+                    image: data.cover_image.unwrap().extra_large,
+                },
+            )
+        })
+        .collect_vec();
+    related.extend(
+        details
+            .staff_media
             .unwrap()
             .edges
             .unwrap()
             .into_iter()
             .map(|r| {
-                let data = r.unwrap().node.unwrap();
+                let r = r.unwrap();
+                let data = r.clone().node.unwrap();
                 (
-                    "Voicing".to_owned(),
+                    r.staff_role.unwrap(),
                     PartialMetadataWithoutId {
                         title: data.title.unwrap().user_preferred.unwrap(),
                         identifier: data.id.to_string(),
@@ -325,47 +282,22 @@ async fn person_details(
                         image: data.cover_image.unwrap().extra_large,
                     },
                 )
-            })
-            .collect_vec();
-        related.extend(
-            details
-                .staff_media
-                .unwrap()
-                .edges
-                .unwrap()
-                .into_iter()
-                .map(|r| {
-                    let data = r.unwrap().node.unwrap();
-                    (
-                        "Production".to_owned(),
-                        PartialMetadataWithoutId {
-                            title: data.title.unwrap().user_preferred.unwrap(),
-                            identifier: data.id.to_string(),
-                            source: MetadataSource::Anilist,
-                            lot: match data.type_.unwrap() {
-                                staff_query::MediaType::ANIME => MetadataLot::Anime,
-                                staff_query::MediaType::MANGA => MetadataLot::Manga,
-                                staff_query::MediaType::Other(_) => unreachable!(),
-                            },
-                            image: data.cover_image.unwrap().extra_large,
-                        },
-                    )
-                }),
-        );
-        MetadataPerson {
-            identifier: details.id.to_string(),
-            source: MetadataSource::Anilist,
-            name: details.name.unwrap().full.unwrap(),
-            description: details.description,
-            gender: details.gender,
-            place: details.home_town,
-            images: Some(images),
-            death_date,
-            birth_date,
-            related,
-            website: None,
-        }
+            }),
+    );
+    let data = MetadataPerson {
+        identifier: details.id.to_string(),
+        source: MetadataSource::Anilist,
+        name: details.name.unwrap().full.unwrap(),
+        description: details.description,
+        gender: details.gender,
+        place: details.home_town,
+        images: Some(images),
+        death_date,
+        birth_date,
+        related,
+        website: None,
     };
+
     Ok(data)
 }
 
@@ -414,13 +346,14 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             .flatten()
             .map(|t| t.name),
     );
-    let mut people = Vec::from_iter(details.staff)
+    let people = Vec::from_iter(details.staff)
         .into_iter()
         .flat_map(|s| s.edges.unwrap())
         .flatten()
         .map(|s| {
             let node = s.node.unwrap();
             PartialMetadataPerson {
+                name: node.name.unwrap().full.unwrap(),
                 identifier: node.id.to_string(),
                 source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
@@ -428,21 +361,6 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             }
         })
         .collect_vec();
-    people.extend(
-        Vec::from_iter(details.studios)
-            .into_iter()
-            .flat_map(|s| s.edges.unwrap())
-            .flatten()
-            .map(|s| {
-                let node = s.node.unwrap();
-                PartialMetadataPerson {
-                    identifier: node.id.to_string(),
-                    source: MetadataSource::Anilist,
-                    role: "Production".to_owned(),
-                    character: None,
-                }
-            }),
-    );
     let people = people.into_iter().unique().collect_vec();
     let lot = match details.type_.unwrap() {
         details_query::MediaType::ANIME => MetadataLot::Anime,

@@ -13,9 +13,15 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
 import {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaFunction,
+	json,
+} from "@remix-run/node";
+import { Form, Link, useLoaderData } from "@remix-run/react";
+import {
+	DeployUpdatePersonJobDocument,
 	EntityLot,
 	PersonDetailsDocument,
 	UserCollectionsListDocument,
@@ -28,6 +34,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -37,6 +44,7 @@ import {
 } from "~/components/common";
 import {
 	DisplayCollection,
+	MediaIsPartial,
 	MediaScrollArea,
 	PostReview,
 	PostReviewModal,
@@ -48,6 +56,8 @@ import {
 	getUserDetails,
 	getUserPreferences,
 } from "~/lib/graphql.server";
+import { createToastHeaders } from "~/lib/toast.server";
+import { processSubmission } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -104,6 +114,28 @@ export const meta: MetaFunction = ({ data }) => {
 		},
 	];
 };
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		deployUpdatePersonJob: async () => {
+			const submission = processSubmission(formData, personIdSchema);
+			await gqlClient.request(
+				DeployUpdatePersonJobDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Metadata person job deployed successfully",
+				}),
+			});
+		},
+	});
+};
+
+const personIdSchema = z.object({ personId: zx.IntAsString });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -165,18 +197,21 @@ export default function Page() {
 							</>
 						) : null}
 					</Text>
-					{loaderData.userPersonDetails.collections.length > 0 ? (
-						<Group id="entity-collections">
-							{loaderData.userPersonDetails.collections.map((col) => (
-								<DisplayCollection
-									col={col}
-									entityId={loaderData.personId.toString()}
-									entityLot={EntityLot.Person}
-									key={col.id}
-								/>
-							))}
-						</Group>
-					) : null}
+					<Group id="entity-collections">
+						{loaderData.userPersonDetails.collections.length > 0
+							? loaderData.userPersonDetails.collections.map((col) => (
+									<DisplayCollection
+										col={col}
+										entityId={loaderData.personId.toString()}
+										entityLot={EntityLot.Person}
+										key={col.id}
+									/>
+							  ))
+							: null}
+						{loaderData.personDetails.details.isPartial ? (
+							<MediaIsPartial mediaType="person" />
+						) : null}
+					</Group>
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
@@ -281,6 +316,21 @@ export default function Page() {
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
+									<Form
+										action="?intent=deployUpdatePersonJob"
+										method="post"
+										replace
+									>
+										<Button
+											variant="outline"
+											type="submit"
+											w="100%"
+											name="personId"
+											value={loaderData.personId}
+										>
+											Update person
+										</Button>
+									</Form>
 									<AddEntityToCollectionModal
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}

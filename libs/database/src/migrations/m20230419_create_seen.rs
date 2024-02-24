@@ -52,7 +52,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
                     .col(
                         ColumnDef::new(Seen::State)
-                            .string_len(2)
+                            .text()
                             .not_null()
                             .default(SeenState::InProgress),
                     )
