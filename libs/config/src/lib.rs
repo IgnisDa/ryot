@@ -329,9 +329,6 @@ pub struct ServerConfig {
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
-    /// Whether default credentials will be populated on the login page of the
-    /// instance.
-    pub default_credentials: bool,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
@@ -364,14 +361,6 @@ pub struct UsersConfig {
     /// The secret used for generating JWT tokens.
     #[setting(default = format!("{}", PROJECT_NAME))]
     pub jwt_secret: String,
-    /// Whether users will be allowed to change their preferences in their profile
-    /// settings.
-    #[setting(default = true)]
-    pub allow_changing_preferences: bool,
-    /// Whether users will be allowed to change their username and password in their
-    /// profile settings.
-    #[setting(default = true)]
-    pub allow_changing_credentials: bool,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,

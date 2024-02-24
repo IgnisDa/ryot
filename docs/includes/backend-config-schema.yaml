@@ -174,11 +174,6 @@ server:
   # @envvar SERVER_CORS_ORIGINS
   cors_origins: []
 
-  # Whether default credentials will be populated on the login page of the
-  # instance.
-  # @envvar SERVER_DEFAULT_CREDENTIALS
-  default_credentials: false
-
   # The hours in which a media can be marked as seen again for a user. This
   # is used so that the same media can not be used marked as started when
   # it has been already marked as seen in the last `n` hours.
@@ -215,16 +210,6 @@ users:
   # The secret used for generating JWT tokens.
   # @envvar USERS_JWT_SECRET
   jwt_secret: ""
-
-  # Whether users will be allowed to change their preferences in their profile
-  # settings.
-  # @envvar USERS_ALLOW_CHANGING_PREFERENCES
-  allow_changing_preferences: true
-
-  # Whether users will be allowed to change their username and password in their
-  # profile settings.
-  # @envvar USERS_ALLOW_CHANGING_CREDENTIALS
-  allow_changing_credentials: true
 
   # Whether new users will be allowed to sign up to this instance.
   # @envvar USERS_ALLOW_REGISTRATION
