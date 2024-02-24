@@ -21,7 +21,19 @@ alter sequence if exists media_import_report_id_seq rename to import_report_id_s
 alter table "user" alter column preferences set not null;
 alter table user_measurement alter column stats set not null;
 
-alter table import_report rename constraint media_import_report_pkey to import_report_pkey;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE constraint_name = 'media_import_report_pkey'
+        AND table_name = 'import_report'
+        AND table_schema = 'public'
+    ) THEN
+        EXECUTE 'ALTER TABLE public.import_report RENAME CONSTRAINT media_import_report_pkey TO import_report_pkey;';
+    END IF;
+END
+$$;
 "#,
         )
         .await?;
