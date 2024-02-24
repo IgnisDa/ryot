@@ -2753,7 +2753,7 @@ impl MiscellaneousService {
                 && !is_owned
             {
                 tracing::debug!(
-                    "Removing user_to_entity = {id:?}",
+                    "Removing user_to_metadata = {id:?}",
                     id = (u.user_id, u.metadata_id)
                 );
                 u.delete(&self.db).await.ok();
@@ -2781,7 +2781,7 @@ impl MiscellaneousService {
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons != previous_reason {
                     tracing::debug!(
-                        "Updating user_to_entity = {id:?}",
+                        "Updating user_to_metadata = {id:?}",
                         id = (u.user_id, u.metadata_id)
                     );
                     let mut u: user_to_entity::ActiveModel = u.into();
@@ -2824,7 +2824,7 @@ impl MiscellaneousService {
             let is_in_collection = person_ids.contains(&u.person_id.unwrap());
             if reviewed_count == 0 && !is_in_collection {
                 tracing::debug!(
-                    "Removing user_to_entity = {id:?}",
+                    "Removing user_to_person = {id:?}",
                     id = (u.user_id, u.person_id)
                 );
                 u.delete(&self.db).await.ok();
@@ -2840,7 +2840,7 @@ impl MiscellaneousService {
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons != previous_reason {
                     tracing::debug!(
-                        "Updating user_to_entity = {id:?}",
+                        "Updating user_to_person = {id:?}",
                         id = (u.user_id, u.person_id)
                     );
                     let mut u: user_to_entity::ActiveModel = u.into();
