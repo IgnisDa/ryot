@@ -29,7 +29,7 @@ impl MigrationTrait for Migration {
 UPDATE user_to_entity
 SET created_on = workout.end_time
 FROM workout
-WHERE workout.id = (user_to_entity.exercise_extra_information -> 'history' -> -1 ->> 'workout_id')::text
+WHERE workout.id = (user_to_entity.exercise_extra_information -> 'history' -> -1 ->> 'workout_id')
 AND user_to_entity.exercise_id IS NOT NULL;
 ",
             )
@@ -38,10 +38,12 @@ AND user_to_entity.exercise_id IS NOT NULL;
             db.execute_unprepared(
                 "
 UPDATE user_to_entity
-SET created_on = seen.updated_at[1]
-FROM seen
+SET created_on = LEAST(seen.updated_at[1], collection_to_entity.last_updated_on)
+FROM seen, collection_to_entity
 WHERE user_to_entity.metadata_id = seen.metadata_id
+AND user_to_entity.metadata_id = collection_to_entity.metadata_id
 AND user_to_entity.user_id = seen.user_id
+AND user_to_entity.user_id = collection_to_entity.user_id
 AND user_to_entity.metadata_id IS NOT NULL;
 ",
             )
