@@ -573,15 +573,11 @@ struct CoreDetails {
     version: String,
     author_name: String,
     repository_link: String,
-    default_credentials: bool,
-    preferences_change_allowed: bool,
-    credentials_change_allowed: bool,
     item_details_height: u32,
     reviews_disabled: bool,
     videos_disabled: bool,
     upgrade: Option<UpgradeType>,
     page_limit: i32,
-    deploy_admin_jobs_allowed: bool,
     timezone: String,
 }
 
@@ -1452,11 +1448,7 @@ impl MiscellaneousService {
             page_limit: self.config.frontend.page_size,
             videos_disabled: self.config.server.videos_disabled,
             reviews_disabled: self.config.users.reviews_disabled,
-            default_credentials: self.config.server.default_credentials,
             item_details_height: self.config.frontend.item_details_height,
-            credentials_change_allowed: self.config.users.allow_changing_credentials,
-            preferences_change_allowed: self.config.users.allow_changing_preferences,
-            deploy_admin_jobs_allowed: self.config.server.deploy_admin_jobs_allowed,
         })
     }
 
@@ -2658,9 +2650,6 @@ impl MiscellaneousService {
                     .await?;
             }
             BackgroundJob::UpdateAllMetadata => {
-                if !self.config.server.deploy_admin_jobs_allowed {
-                    return Ok(false);
-                }
                 self.admin_account_guard(user_id).await?;
                 let many_metadata = Metadata::find()
                     .select_only()
@@ -4870,17 +4859,13 @@ impl MiscellaneousService {
             .unwrap()
             .into();
         if let Some(n) = input.username {
-            if self.config.users.allow_changing_credentials {
-                user_obj.name = ActiveValue::Set(n);
-            }
+            user_obj.name = ActiveValue::Set(n);
         }
         if let Some(e) = input.email {
             user_obj.email = ActiveValue::Set(Some(e));
         }
         if let Some(p) = input.password {
-            if self.config.users.allow_changing_credentials {
-                user_obj.password = ActiveValue::Set(p);
-            }
+            user_obj.password = ActiveValue::Set(p);
         }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(IdObject { id: user_obj.id })
@@ -4992,9 +4977,6 @@ impl MiscellaneousService {
         input: UpdateUserPreferenceInput,
         user_id: i32,
     ) -> Result<bool> {
-        if !self.config.users.allow_changing_preferences {
-            return Ok(false);
-        }
         let err = || Error::new("Incorrect property value encountered");
         let user_model = user_by_id(&self.db, user_id).await?;
         let mut preferences = user_model.preferences.clone();

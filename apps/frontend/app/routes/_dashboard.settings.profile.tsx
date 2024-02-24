@@ -18,22 +18,13 @@ import { useRef } from "react";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails, getUserDetails } from "~/lib/graphql.server";
+import { getUserDetails } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [coreDetails, userDetails] = await Promise.all([
-		getCoreDetails(),
-		getUserDetails(request),
-	]);
-	return json({
-		coreDetails: {
-			usernameChangeAllowed: coreDetails.credentialsChangeAllowed,
-			passwordChangeAllowed: coreDetails.credentialsChangeAllowed,
-		},
-		userDetails,
-	});
+	const [userDetails] = await Promise.all([getUserDetails(request)]);
+	return json({ userDetails });
 };
 
 export const meta: MetaFunction = () => {
@@ -75,10 +66,10 @@ export default function Page() {
 						<TextInput
 							label="Username"
 							name="username"
-							disabled={!loaderData.coreDetails.usernameChangeAllowed}
+							disabled={Boolean(loaderData.userDetails.isDemo)}
 							description={
-								!loaderData.coreDetails.usernameChangeAllowed &&
-								"Username can not be changed on this instance"
+								loaderData.userDetails.isDemo &&
+								"Username can not be changed for the demo user"
 							}
 							defaultValue={loaderData.userDetails.name}
 						/>
@@ -91,10 +82,10 @@ export default function Page() {
 						<PasswordInput
 							label="Password"
 							name="password"
-							disabled={!loaderData.coreDetails.passwordChangeAllowed}
+							disabled={Boolean(loaderData.userDetails.isDemo)}
 							description={
-								!loaderData.coreDetails.passwordChangeAllowed &&
-								"Password can not be changed on this instance"
+								loaderData.userDetails.isDemo &&
+								"Password can not be changed for the demo user"
 							}
 						/>
 						<Button
