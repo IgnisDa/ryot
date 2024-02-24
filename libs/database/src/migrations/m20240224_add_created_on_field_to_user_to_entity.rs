@@ -8,8 +8,8 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let db = manager.get_connection();
         if !manager.has_column("user_to_entity", "created_on").await? {
+            let db = manager.get_connection();
             manager
                 .alter_table(
                     TableAlterStatement::new()
@@ -23,6 +23,18 @@ impl MigrationTrait for Migration {
                         .to_owned(),
                 )
                 .await?;
+            // for media
+            db.execute_unprepared(
+                "
+UPDATE user_to_entity
+SET created_on = seen.updated_at[1]
+FROM seen
+WHERE user_to_entity.metadata_id = seen.metadata_id
+AND user_to_entity.metadata_id IS NOT NULL;
+",
+            )
+            .await?;
+            // for exercises
             db.execute_unprepared(
                 "
 UPDATE user_to_entity
