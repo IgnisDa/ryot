@@ -543,6 +543,9 @@ const MediaSearchItem = (props: {
 	] = useDisclosure(false);
 	const [appItemId, setAppItemId] = useState(props.maybeItemId);
 
+	const isShowOrPodcast =
+		props.lot === MetadataLot.Show || props.lot === MetadataLot.Podcast;
+
 	return (
 		<MediaItemWithoutUpdateModal
 			item={props.item}
@@ -603,7 +606,7 @@ const MediaSearchItem = (props: {
 							$path(
 								"/media/item/:id",
 								{ id },
-								props.lot !== MetadataLot.Show
+								!isShowOrPodcast
 									? {
 											defaultTab: "actions",
 											openProgressModal: true,
@@ -614,7 +617,7 @@ const MediaSearchItem = (props: {
 						);
 					}}
 				>
-					{props.lot !== MetadataLot.Show
+					{!isShowOrPodcast
 						? `Mark as ${getVerb(Verb.Read, props.lot)}`
 						: "Show details"}
 				</Button>
