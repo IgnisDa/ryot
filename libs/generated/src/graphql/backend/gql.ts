@@ -40,6 +40,7 @@ const documents = {
     "mutation DeployExportJob($toExport: [ExportItem!]!) {\n  deployExportJob(toExport: $toExport)\n}": types.DeployExportJobDocument,
     "mutation DeployImportJob($input: DeployImportJobInput!) {\n  deployImportJob(input: $input)\n}": types.DeployImportJobDocument,
     "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}": types.DeployUpdateMetadataJobDocument,
+    "mutation DeployUpdatePersonJob($personId: Int!) {\n  deployUpdatePersonJob(personId: $personId)\n}": types.DeployUpdatePersonJobDocument,
     "mutation EditSeenItem($input: EditSeenItemInput!) {\n  editSeenItem(input: $input)\n}": types.EditSeenItemDocument,
     "mutation EditUserWorkout($input: EditUserWorkoutInput!) {\n  editUserWorkout(input: $input)\n}": types.EditUserWorkoutDocument,
     "mutation GenerateAuthToken {\n  generateAuthToken\n}": types.GenerateAuthTokenDocument,
@@ -217,6 +218,10 @@ export function graphql(source: "mutation DeployImportJob($input: DeployImportJo
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}"): (typeof documents)["mutation DeployUpdateMetadataJob($metadataId: Int!) {\n  deployUpdateMetadataJob(metadataId: $metadataId)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation DeployUpdatePersonJob($personId: Int!) {\n  deployUpdatePersonJob(personId: $personId)\n}"): (typeof documents)["mutation DeployUpdatePersonJob($personId: Int!) {\n  deployUpdatePersonJob(personId: $personId)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

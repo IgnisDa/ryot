@@ -1091,9 +1091,18 @@ impl MiscellaneousMutation {
         service.deploy_update_metadata_job(metadata_id).await
     }
 
+    /// Deploy a job to update a person's metadata.
+    async fn deploy_update_person_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        person_id: i32,
+    ) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.deploy_update_person_job(person_id).await
+    }
+
     /// Merge a media item into another. This will move all `seen`, `collection`
-    /// and `review` associations with the new user and then delete the old media
-    /// item completely.
+    /// and `review` associations with to the metadata.
     async fn merge_metadata(
         &self,
         gql_ctx: &Context<'_>,
