@@ -4,6 +4,7 @@ query MediaMainDetails($metadataId: Int!) {
     lot
     source
     isNsfw
+    isPartial
     sourceUrl
     identifier
     description

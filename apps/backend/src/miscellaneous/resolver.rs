@@ -451,6 +451,7 @@ struct GraphqlMediaDetails {
     title: String,
     identifier: String,
     is_nsfw: Option<bool>,
+    is_partial: Option<bool>,
     description: Option<String>,
     original_language: Option<String>,
     provider_rating: Option<Decimal>,
@@ -1683,6 +1684,7 @@ impl MiscellaneousService {
             title: model.title,
             source: model.source,
             is_nsfw: model.is_nsfw,
+            is_partial: model.is_partial,
             identifier: model.identifier,
             description: model.description,
             publish_date: model.publish_date,
@@ -1700,11 +1702,11 @@ impl MiscellaneousService {
             audio_book_specifics: model.audio_book_specifics,
             visual_novel_specifics: model.visual_novel_specifics,
             group,
+            assets,
             genres,
             creators,
             source_url,
             suggestions,
-            assets,
         };
         Ok(resp)
     }
