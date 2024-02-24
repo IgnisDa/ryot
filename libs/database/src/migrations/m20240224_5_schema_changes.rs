@@ -20,6 +20,14 @@ alter sequence if exists media_import_report_id_seq rename to import_report_id_s
 
 alter table "user" alter column preferences set not null;
 alter table user_measurement alter column stats set not null;
+alter table exercise alter column muscles set not null;
+alter table exercise alter column attributes set not null;
+alter table metadata_group alter column images set not null;
+alter table review alter column comments set not null;
+alter table workout alter column summary set not null;
+alter table workout alter column information set not null;
+
+alter table user_to_entity alter column metadata_reason type jsonb;
 
 DO $$
 BEGIN
