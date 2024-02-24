@@ -337,10 +337,6 @@ pub struct ServerConfig {
     /// The number of days after which details about a person are considered outdated.
     #[setting(default = 30)]
     pub person_outdated_threshold: i64,
-    /// Admin jobs take a lot of resources, so they can be disabled completely from being
-    /// triggered manually. They still run as background jobs.
-    #[setting(default = true)]
-    pub deploy_admin_jobs_allowed: bool,
     /// The maximum file size in MB for user uploads.
     #[setting(default = 70)]
     pub max_file_size: usize,

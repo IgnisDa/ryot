@@ -184,11 +184,6 @@ server:
   # @envvar SERVER_PERSON_OUTDATED_THRESHOLD
   person_outdated_threshold: 30
 
-  # Admin jobs take a lot of resources, so they can be disabled completely from being
-  # triggered manually. They still run as background jobs.
-  # @envvar SERVER_DEPLOY_ADMIN_JOBS_ALLOWED
-  deploy_admin_jobs_allowed: true
-
   # The maximum file size in MB for user uploads.
   # @envvar SERVER_MAX_FILE_SIZE
   max_file_size: 70

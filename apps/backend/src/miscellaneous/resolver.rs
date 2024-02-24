@@ -578,7 +578,6 @@ struct CoreDetails {
     videos_disabled: bool,
     upgrade: Option<UpgradeType>,
     page_limit: i32,
-    deploy_admin_jobs_allowed: bool,
     timezone: String,
 }
 
@@ -1450,7 +1449,6 @@ impl MiscellaneousService {
             videos_disabled: self.config.server.videos_disabled,
             reviews_disabled: self.config.users.reviews_disabled,
             item_details_height: self.config.frontend.item_details_height,
-            deploy_admin_jobs_allowed: self.config.server.deploy_admin_jobs_allowed,
         })
     }
 
@@ -2652,9 +2650,6 @@ impl MiscellaneousService {
                     .await?;
             }
             BackgroundJob::UpdateAllMetadata => {
-                if !self.config.server.deploy_admin_jobs_allowed {
-                    return Ok(false);
-                }
                 self.admin_account_guard(user_id).await?;
                 let many_metadata = Metadata::find()
                     .select_only()
