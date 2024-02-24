@@ -68,13 +68,13 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Person::Name).text().not_null())
-                    .col(ColumnDef::new(Person::Images).json_binary())
                     .col(ColumnDef::new(Person::Description).text())
                     .col(ColumnDef::new(Person::Gender).text())
                     .col(ColumnDef::new(Person::BirthDate).date())
                     .col(ColumnDef::new(Person::DeathDate).date())
                     .col(ColumnDef::new(Person::Place).text())
                     .col(ColumnDef::new(Person::Website).text())
+                    .col(ColumnDef::new(Person::Images).json_binary())
                     .col(ColumnDef::new(Person::IsPartial).boolean())
                     .to_owned(),
             )

@@ -34,13 +34,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(MetadataGroup::Parts).integer().not_null())
                     .col(ColumnDef::new(MetadataGroup::Title).text().not_null())
                     .col(ColumnDef::new(MetadataGroup::Description).text())
+                    .col(ColumnDef::new(MetadataGroup::Lot).text().not_null())
+                    .col(ColumnDef::new(MetadataGroup::Source).text().not_null())
                     .col(
                         ColumnDef::new(MetadataGroup::Images)
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(MetadataGroup::Lot).text().not_null())
-                    .col(ColumnDef::new(MetadataGroup::Source).text().not_null())
                     .to_owned(),
             )
             .await?;

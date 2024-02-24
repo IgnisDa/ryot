@@ -39,20 +39,20 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(
-                        ColumnDef::new(Collection::LastUpdatedOn)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
                     .col(ColumnDef::new(Collection::Name).text().not_null())
-                    .col(ColumnDef::new(Collection::Description).text())
                     .col(ColumnDef::new(Collection::UserId).integer().not_null())
+                    .col(ColumnDef::new(Collection::Description).text())
                     .col(
                         ColumnDef::new(Collection::Visibility)
                             .text()
                             .not_null()
                             .default(Visibility::Private),
+                    )
+                    .col(
+                        ColumnDef::new(Collection::LastUpdatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
