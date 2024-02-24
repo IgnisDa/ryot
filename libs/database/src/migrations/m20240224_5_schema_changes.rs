@@ -16,7 +16,7 @@ alter table seen alter column state set default 'IP'::text;
 alter table review alter column visibility set default 'PR'::text;
 alter table collection alter column visibility set default 'PR'::text;
 
-alter sequence media_import_report_id_seq rename to import_report_id_seq;
+alter sequence if exists media_import_report_id_seq rename to import_report_id_seq;
 "#,
         )
         .await?;
