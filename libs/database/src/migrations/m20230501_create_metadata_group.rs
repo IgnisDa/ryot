@@ -39,12 +39,8 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(MetadataGroup::Lot).string_len(2).not_null())
-                    .col(
-                        ColumnDef::new(MetadataGroup::Source)
-                            .string_len(2)
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(MetadataGroup::Lot).text().not_null())
+                    .col(ColumnDef::new(MetadataGroup::Source).text().not_null())
                     .to_owned(),
             )
             .await?;

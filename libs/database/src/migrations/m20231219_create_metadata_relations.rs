@@ -43,7 +43,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MetadataToMetadata::Relation)
-                            .string_len(2)
+                            .text()
                             .not_null(),
                     )
                     .col(

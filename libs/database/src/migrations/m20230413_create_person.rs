@@ -54,7 +54,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Person::Identifier).text().not_null())
-                    .col(ColumnDef::new(Person::Source).string_len(2).not_null())
+                    .col(ColumnDef::new(Person::Source).text().not_null())
                     .col(
                         ColumnDef::new(Person::CreatedOn)
                             .timestamp_with_time_zone()

@@ -31,11 +31,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(ImportReport::Source)
-                            .string_len(2)
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ImportReport::Source).text().not_null())
                     .col(ColumnDef::new(ImportReport::UserId).integer().not_null())
                     .col(
                         ColumnDef::new(ImportReport::StartedOn)

@@ -50,7 +50,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Collection::UserId).integer().not_null())
                     .col(
                         ColumnDef::new(Collection::Visibility)
-                            .string_len(2)
+                            .text()
                             .not_null()
                             .default(Visibility::Private),
                     )

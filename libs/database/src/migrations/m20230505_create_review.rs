@@ -71,7 +71,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::MangaExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(Review::Visibility)
-                            .string_len(2)
+                            .text()
                             .not_null()
                             .default(Visibility::Private),
                     )

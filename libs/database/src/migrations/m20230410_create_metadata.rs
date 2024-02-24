@@ -73,7 +73,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Metadata::Lot).string_len(2).not_null())
+                    .col(ColumnDef::new(Metadata::Lot).text().not_null())
                     .col(
                         ColumnDef::new(Metadata::LastUpdatedOn)
                             .timestamp_with_time_zone()
@@ -92,7 +92,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::IsPartial).boolean())
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean())
                     .col(ColumnDef::new(Metadata::Identifier).text().not_null())
-                    .col(ColumnDef::new(Metadata::Source).string_len(2).not_null())
+                    .col(ColumnDef::new(Metadata::Source).text().not_null())
                     .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
                     .col(ColumnDef::new(Metadata::AudioBookSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::AnimeSpecifics).json_binary())

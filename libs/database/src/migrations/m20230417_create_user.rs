@@ -39,7 +39,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Email).unique_key().text())
                     .col(ColumnDef::new(User::Password).text().not_null())
                     .col(ColumnDef::new(User::IsDemo).boolean())
-                    .col(ColumnDef::new(User::Lot).string_len(1).not_null())
+                    .col(ColumnDef::new(User::Lot).text().not_null())
                     .col(ColumnDef::new(User::Preferences).json_binary().not_null())
                     .col(ColumnDef::new(User::YankIntegrations).json_binary())
                     .col(ColumnDef::new(User::SinkIntegrations).json_binary())
