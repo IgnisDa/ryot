@@ -92,4 +92,4 @@ export const randomString = (length: number) => {
 	return s;
 };
 
-export { camelCase,isEqual, snakeCase, startCase, sum };
+export { camelCase, isEqual, snakeCase, startCase, sum };
