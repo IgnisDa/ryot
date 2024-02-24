@@ -23,17 +23,6 @@ impl MigrationTrait for Migration {
                         .to_owned(),
                 )
                 .await?;
-            // for media
-            db.execute_unprepared(
-                "
-UPDATE user_to_entity
-SET created_on = seen.updated_at[1]
-FROM seen
-WHERE user_to_entity.metadata_id = seen.metadata_id
-AND user_to_entity.metadata_id IS NOT NULL;
-",
-            )
-            .await?;
             // for exercises
             db.execute_unprepared(
                 "
@@ -42,6 +31,18 @@ SET created_on = workout.end_time
 FROM workout
 WHERE workout.id = (user_to_entity.exercise_extra_information -> 'history' -> -1 ->> 'workout_id')::text
 AND user_to_entity.exercise_id IS NOT NULL;
+",
+            )
+            .await?;
+            // for media
+            db.execute_unprepared(
+                "
+UPDATE user_to_entity
+SET created_on = seen.updated_at[1]
+FROM seen
+WHERE user_to_entity.metadata_id = seen.metadata_id
+AND user_to_entity.user_id = seen.user_id
+AND user_to_entity.metadata_id IS NOT NULL;
 ",
             )
             .await?;
