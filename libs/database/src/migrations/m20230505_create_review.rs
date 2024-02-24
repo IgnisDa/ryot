@@ -57,7 +57,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Review::Rating).decimal())
-                    .col(ColumnDef::new(Review::Text).string())
+                    .col(ColumnDef::new(Review::Text).text())
                     .col(
                         ColumnDef::new(Review::Spoiler)
                             .boolean()

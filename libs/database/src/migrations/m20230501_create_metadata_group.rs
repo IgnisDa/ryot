@@ -30,14 +30,10 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(MetadataGroup::Identifier)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(MetadataGroup::Identifier).text().not_null())
                     .col(ColumnDef::new(MetadataGroup::Parts).integer().not_null())
-                    .col(ColumnDef::new(MetadataGroup::Title).string().not_null())
-                    .col(ColumnDef::new(MetadataGroup::Description).string())
+                    .col(ColumnDef::new(MetadataGroup::Title).text().not_null())
+                    .col(ColumnDef::new(MetadataGroup::Description).text())
                     .col(
                         ColumnDef::new(MetadataGroup::Images)
                             .json_binary()

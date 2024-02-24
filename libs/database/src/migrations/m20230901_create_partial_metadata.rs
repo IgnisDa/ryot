@@ -66,10 +66,10 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(PartialMetadata::Identifier)
-                            .string()
+                            .text()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(PartialMetadata::Title).string().not_null())
+                    .col(ColumnDef::new(PartialMetadata::Title).text().not_null())
                     .col(ColumnDef::new(PartialMetadata::Image).text())
                     .col(
                         ColumnDef::new(PartialMetadata::Lot)
