@@ -44,6 +44,7 @@ import {
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconCheck,
+	IconDropletHalf2Filled,
 	IconEdit,
 	IconPercentage,
 	IconStarFilled,
@@ -916,5 +917,14 @@ export const NewUserGuideAlert = () => {
 				This notice will disappear once your summary is re-calculated.
 			</Text>
 		</Alert>
+	);
+};
+
+export const MediaIsPartial = (props: { mediaType: string }) => {
+	return (
+		<Flex align="center" gap={2}>
+			<IconDropletHalf2Filled size={20} />
+			<Text size="xs">This {props.mediaType} is partially downloaded</Text>
+		</Flex>
 	);
 };

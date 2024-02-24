@@ -37,6 +37,7 @@ import {
 } from "~/components/common";
 import {
 	DisplayCollection,
+	MediaIsPartial,
 	MediaScrollArea,
 	PostReview,
 	PostReviewModal,
@@ -165,18 +166,21 @@ export default function Page() {
 							</>
 						) : null}
 					</Text>
-					{loaderData.userPersonDetails.collections.length > 0 ? (
-						<Group id="entity-collections">
-							{loaderData.userPersonDetails.collections.map((col) => (
-								<DisplayCollection
-									col={col}
-									entityId={loaderData.personId.toString()}
-									entityLot={EntityLot.Person}
-									key={col.id}
-								/>
-							))}
-						</Group>
-					) : null}
+					<Group id="entity-collections">
+						{loaderData.userPersonDetails.collections.length > 0
+							? loaderData.userPersonDetails.collections.map((col) => (
+									<DisplayCollection
+										col={col}
+										entityId={loaderData.personId.toString()}
+										entityLot={EntityLot.Person}
+										key={col.id}
+									/>
+							  ))
+							: null}
+						{loaderData.personDetails.details.isPartial ? (
+							<MediaIsPartial mediaType="person" />
+						) : null}
+					</Group>
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>

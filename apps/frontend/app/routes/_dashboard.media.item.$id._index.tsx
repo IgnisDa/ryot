@@ -100,6 +100,7 @@ import {
 } from "~/components/common";
 import {
 	DisplayCollection,
+	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	PostReview,
@@ -652,6 +653,9 @@ export default function Page() {
 											<IconBackpack size={20} />
 											<Text size="xs">You own this media</Text>
 										</Flex>
+									) : null}
+									{loaderData.mediaMainDetails.isPartial ? (
+										<MediaIsPartial mediaType="media" />
 									) : null}
 								</Group>
 							)}
