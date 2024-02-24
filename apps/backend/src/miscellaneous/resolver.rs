@@ -6210,6 +6210,9 @@ GROUP BY
 
     async fn person_details(&self, person_id: i32) -> Result<PersonDetails> {
         let mut details = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
+        if details.is_partial.unwrap_or_default() {
+            self.deploy_update_person_job(person_id).await?;
+        }
         details.display_images = details.images.as_urls(&self.file_storage_service).await;
         let associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(person_id))
