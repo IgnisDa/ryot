@@ -50,6 +50,7 @@ mod m20240224_0_add_created_on_field_to_user_to_entity;
 mod m20240224_1_change_varchar_to_text;
 mod m20240224_2_change_metadata_reason_to_media_reason;
 mod m20240224_3_add_person_id_column_to_user_to_entity;
+mod m20240224_4_migrate_user_to_person_entries;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -117,6 +118,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240224_1_change_varchar_to_text::Migration),
             Box::new(m20240224_2_change_metadata_reason_to_media_reason::Migration),
             Box::new(m20240224_3_add_person_id_column_to_user_to_entity::Migration),
+            Box::new(m20240224_4_migrate_user_to_person_entries::Migration),
         ]
     }
 }
