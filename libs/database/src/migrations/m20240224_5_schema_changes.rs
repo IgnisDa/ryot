@@ -27,7 +27,7 @@ alter table review alter column comments set not null;
 alter table workout alter column summary set not null;
 alter table workout alter column information set not null;
 
-alter table user_to_entity alter column metadata_reason type jsonb;
+alter table user_to_entity alter column metadata_reminder type jsonb;
 
 DO $$
 BEGIN
