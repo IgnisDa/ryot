@@ -6842,6 +6842,16 @@ GROUP BY
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.update(&self.db).await.ok();
+        for (role, media) in provider_person.related.clone() {
+            let pm = self.create_partial_metadata(media).await?;
+            let intermediate = metadata_to_person::ActiveModel {
+                person_id: ActiveValue::Set(person.id),
+                metadata_id: ActiveValue::Set(pm.id),
+                role: ActiveValue::Set(role),
+                ..Default::default()
+            };
+            intermediate.insert(&self.db).await.ok();
+        }
         Ok(provider_person.related)
     }
 
