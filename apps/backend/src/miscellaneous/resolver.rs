@@ -1715,8 +1715,7 @@ impl MiscellaneousService {
     async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
         let media_details = self.media_details(metadata_id).await?;
         let collections =
-            entity_in_collections(&self.db, user_id, metadata_id.to_string(), EntityLot::Media)
-                .await?;
+            entity_in_collections(&self.db, user_id, Some(metadata_id), None, None, None).await?;
         let reviews = self
             .item_reviews(user_id, Some(metadata_id), None, None, None)
             .await?;
@@ -1856,8 +1855,7 @@ impl MiscellaneousService {
             .item_reviews(user_id, None, Some(creator_id), None, None)
             .await?;
         let collections =
-            entity_in_collections(&self.db, user_id, creator_id.to_string(), EntityLot::Person)
-                .await?;
+            entity_in_collections(&self.db, user_id, None, Some(creator_id), None, None).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -1869,13 +1867,9 @@ impl MiscellaneousService {
         user_id: i32,
         metadata_group_id: i32,
     ) -> Result<UserMetadataGroupDetails> {
-        let collections = entity_in_collections(
-            &self.db,
-            user_id,
-            metadata_group_id.to_string(),
-            EntityLot::MediaGroup,
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, user_id, None, None, Some(metadata_group_id), None)
+                .await?;
         let reviews = self
             .item_reviews(user_id, None, None, Some(metadata_group_id), None)
             .await?;
@@ -6590,7 +6584,7 @@ GROUP BY
                 reviews.push(review_item);
             }
             let collections =
-                entity_in_collections(&self.db, user_id, m.id.to_string(), EntityLot::Media)
+                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -6629,16 +6623,12 @@ GROUP BY
             if let Some(entry) = people.iter_mut().find(|c| c.name == creator.name) {
                 entry.reviews.push(review_item);
             } else {
-                let collections = entity_in_collections(
-                    &self.db,
-                    user_id,
-                    creator.id.to_string(),
-                    EntityLot::Person,
-                )
-                .await?
-                .into_iter()
-                .map(|c| c.name)
-                .collect();
+                let collections =
+                    entity_in_collections(&self.db, user_id, None, Some(creator.id), None, None)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.name)
+                        .collect();
                 people.push(ImportOrExportPersonItem {
                     name: creator.name,
                     identifier: creator.identifier,

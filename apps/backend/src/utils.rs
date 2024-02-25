@@ -206,43 +206,37 @@ pub async fn get_stored_asset(
     }
 }
 
+type CteCol = collection_to_entity::Column;
+
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: i32,
-    entity_id: String,
-    entity_lot: EntityLot,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+    media_group_id: Option<i32>,
+    exercise_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
         .filter(collection::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
-    let target_column = match entity_lot {
-        EntityLot::Media => collection_to_entity::Column::MetadataId,
-        EntityLot::Person => collection_to_entity::Column::PersonId,
-        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
-        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
-        EntityLot::Collection => unreachable!(),
-    };
     let mtc = CollectionToEntity::find()
         .filter(
-            collection_to_entity::Column::CollectionId
-                .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
+            CteCol::CollectionId.is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(target_column.eq(match entity_id.parse::<i32>() {
-            Ok(id) => Value::Int(Some(id)),
-            Err(_) => Value::String(Some(Box::new(entity_id))),
-        }))
+        .filter(
+            CteCol::MetadataId
+                .eq(metadata_id)
+                .or(CteCol::PersonId.eq(person_id))
+                .or(CteCol::MetadataGroupId.eq(media_group_id))
+                .or(CteCol::ExerciseId.eq(exercise_id)),
+        )
         .find_also_related(Collection)
         .all(db)
         .await
         .unwrap();
-    let mut resp = vec![];
-    mtc.into_iter().for_each(|(_, b)| {
-        if let Some(m) = b {
-            resp.push(m);
-        }
-    });
+    let resp = mtc.into_iter().flat_map(|(_, b)| b).collect_vec();
     Ok(resp)
 }
 

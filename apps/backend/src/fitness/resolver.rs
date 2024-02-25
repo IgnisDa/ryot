@@ -371,8 +371,10 @@ impl ExerciseService {
         let collections = entity_in_collections(
             &self.db,
             user_id,
-            input.exercise_id.clone(),
-            EntityLot::Exercise,
+            None,
+            None,
+            None,
+            Some(input.exercise_id.clone()),
         )
         .await?;
         let mut resp = UserExerciseDetails {
