@@ -2728,11 +2728,8 @@ impl MiscellaneousService {
                 .await
                 .unwrap();
             let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
-            // if the metadata is monitored
             let is_monitored = u.media_monitored.unwrap_or_default();
-            // if user has set a reminder
             let is_reminder_active = u.media_reminder.is_some();
-            // if the metadata is owned
             let is_owned = u.metadata_ownership.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
@@ -2765,9 +2762,9 @@ impl MiscellaneousService {
                 if is_owned {
                     new_reasons.insert(UserToMediaReason::Owned);
                 }
-                let previous_reason =
+                let previous_reasons =
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
-                if new_reasons != previous_reason {
+                if new_reasons != previous_reasons {
                     tracing::debug!(
                         "Updating user_to_metadata = {id:?}",
                         id = (u.user_id, u.metadata_id)
@@ -2810,7 +2807,9 @@ impl MiscellaneousService {
                 .await
                 .unwrap();
             let is_in_collection = person_ids.contains(&u.person_id.unwrap());
-            if reviewed_count == 0 && !is_in_collection {
+            let is_monitored = u.media_monitored.unwrap_or_default();
+            let is_reminder_active = u.media_reminder.is_some();
+            if reviewed_count == 0 && !is_in_collection && !is_monitored && !is_reminder_active {
                 tracing::debug!(
                     "Removing user_to_person = {id:?}",
                     id = (u.user_id, u.person_id)
@@ -2824,9 +2823,15 @@ impl MiscellaneousService {
                 if is_in_collection {
                     new_reasons.insert(UserToMediaReason::Collection);
                 }
-                let previous_reason =
+                if is_monitored {
+                    new_reasons.insert(UserToMediaReason::Monitored);
+                }
+                if is_reminder_active {
+                    new_reasons.insert(UserToMediaReason::Reminder);
+                }
+                let previous_reasons =
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
-                if new_reasons != previous_reason {
+                if new_reasons != previous_reasons {
                     tracing::debug!(
                         "Updating user_to_person = {id:?}",
                         id = (u.user_id, u.person_id)
