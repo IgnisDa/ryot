@@ -29,7 +29,7 @@ pub enum UserToEntity {
     ExerciseId,
     PersonId,
     // specifics
-    MetadataMonitored,
+    MediaMonitored,
     MetadataReminder,
     MetadataUnitsConsumed,
     MetadataOwnership,
@@ -59,7 +59,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
-                    .col(ColumnDef::new(UserToEntity::MetadataMonitored).boolean())
+                    .col(ColumnDef::new(UserToEntity::MediaMonitored).boolean())
                     .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataId).integer())
