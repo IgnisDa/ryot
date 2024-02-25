@@ -314,6 +314,22 @@ export default function Page() {
 										);
 									}}
 								/>
+								<Switch
+									size="xs"
+									mt="md"
+									label="Disable navigation animation"
+									defaultChecked={
+										loaderData.userPreferences.general
+											.disableNavigationAnimation
+									}
+									disabled={!!loaderData.userDetails.isDemo}
+									onChange={(ev) => {
+										appendPref(
+											"general.disable_navigation_animation",
+											String(ev.currentTarget.checked),
+										);
+									}}
+								/>
 							</SimpleGrid>
 						</Stack>
 					</Tabs.Panel>
