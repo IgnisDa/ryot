@@ -130,8 +130,11 @@ where
 {
     UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-        .filter(user_to_entity::Column::MetadataId.eq(metadata_id.to_owned()))
-        .filter(user_to_entity::Column::PersonId.eq(person_id.to_owned()))
+        .filter(
+            user_to_entity::Column::MetadataId
+                .eq(metadata_id.to_owned())
+                .or(user_to_entity::Column::PersonId.eq(person_id.to_owned())),
+        )
         .one(db)
         .await
         .ok()
