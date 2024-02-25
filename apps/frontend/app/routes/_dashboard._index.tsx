@@ -519,7 +519,11 @@ const ActualDisplayStat = (props: {
 			<Flex wrap="wrap" ml="xs">
 				{props.data.map((d, idx) =>
 					d.type === "number" && d.value === 0 && d.hideIfZero ? undefined : (
-						<Box key={idx.toString()} mx="xs">
+						<Box
+							key={idx.toString()}
+							mx="xs"
+							data-stat-stringified={JSON.stringify(d)}
+						>
 							<Text
 								fw={d.label !== "Runtime" ? "bold" : undefined}
 								display="inline"
