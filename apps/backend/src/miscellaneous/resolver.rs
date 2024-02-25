@@ -1939,8 +1939,7 @@ impl MiscellaneousService {
                     .on_condition(move |left, _right| {
                         Condition::all().add_option(match only_monitored {
                             true => Some(
-                                Expr::col((left, user_to_entity::Column::MetadataMonitored))
-                                    .eq(true),
+                                Expr::col((left, user_to_entity::Column::MediaMonitored)).eq(true),
                             ),
                             false => None,
                         })
@@ -2068,7 +2067,7 @@ impl MiscellaneousService {
                     Some(MediaGeneralFilter::ExplicitlyMonitored) => Some(true),
                     _ => None,
                 },
-                |query, v| query.filter(user_to_entity::Column::MetadataMonitored.eq(v)),
+                |query, v| query.filter(user_to_entity::Column::MediaMonitored.eq(v)),
             )
             .apply_if(
                 match input.filter.as_ref().and_then(|f| f.general) {
@@ -2730,7 +2729,7 @@ impl MiscellaneousService {
                 .unwrap();
             let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
             // if the metadata is monitored
-            let is_monitored = u.metadata_monitored.unwrap_or_default();
+            let is_monitored = u.media_monitored.unwrap_or_default();
             // if user has set a reminder
             let is_reminder_active = u.metadata_reminder.is_some();
             // if the metadata is owned
@@ -3444,8 +3443,8 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
-            if old_association.metadata_monitored.is_none() {
-                cloned.metadata_monitored = ActiveValue::Set(association.metadata_monitored);
+            if old_association.media_monitored.is_none() {
+                cloned.media_monitored = ActiveValue::Set(association.media_monitored);
             }
             if old_association.metadata_reminder.is_none() {
                 cloned.metadata_reminder = ActiveValue::Set(association.metadata_reminder);
@@ -5986,7 +5985,7 @@ LEFT JOIN collection_to_entity cte ON m.id = cte.metadata_id
 LEFT JOIN collection c ON cte.collection_id = c.id
 LEFT JOIN "user" uc ON c.user_id = uc.id
 WHERE
-    ((ute.metadata_monitored = true) OR (c.name IN ('Watchlist', 'In Progress')))
+    ((ute.media_monitored = true) OR (c.name IN ('Watchlist', 'In Progress')))
 GROUP BY
     m.id;
         "#,
@@ -6083,9 +6082,9 @@ GROUP BY
 
     async fn toggle_media_monitor(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
         let metadata = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
-        let new_monitored_value = !metadata.metadata_monitored.unwrap_or_default();
+        let new_monitored_value = !metadata.media_monitored.unwrap_or_default();
         let mut metadata: user_to_entity::ActiveModel = metadata.into();
-        metadata.metadata_monitored = ActiveValue::Set(Some(new_monitored_value));
+        metadata.media_monitored = ActiveValue::Set(Some(new_monitored_value));
         metadata.save(&self.db).await?;
         Ok(new_monitored_value)
     }
@@ -6098,7 +6097,7 @@ GROUP BY
         let metadata =
             get_user_and_metadata_association(&user_id, &to_monitor_metadata_id, &self.db).await;
         Ok(if let Some(m) = metadata {
-            m.metadata_monitored.unwrap_or_default()
+            m.media_monitored.unwrap_or_default()
         } else {
             false
         })
