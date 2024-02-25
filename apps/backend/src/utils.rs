@@ -119,9 +119,10 @@ pub async fn create_app_services(
     }
 }
 
-pub async fn get_user_and_metadata_association<C>(
+pub async fn get_user_to_entity_association<C>(
     user_id: &i32,
-    metadata_id: &i32,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
     db: &C,
 ) -> Option<user_to_entity::Model>
 where
@@ -130,57 +131,33 @@ where
     UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
         .filter(user_to_entity::Column::MetadataId.eq(metadata_id.to_owned()))
+        .filter(user_to_entity::Column::PersonId.eq(person_id.to_owned()))
         .one(db)
         .await
         .ok()
         .flatten()
 }
 
-pub async fn associate_user_with_metadata<C>(
+pub async fn associate_user_with_entity<C>(
     user_id: &i32,
-    metadata_id: &i32,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
     db: &C,
 ) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
-    let user_to_meta = get_user_and_metadata_association(user_id, metadata_id, db).await;
+    let user_to_meta = get_user_to_entity_association(user_id, metadata_id, person_id, db).await;
     Ok(match user_to_meta {
         None => {
             let user_to_meta = user_to_entity::ActiveModel {
                 user_id: ActiveValue::Set(*user_id),
-                metadata_id: ActiveValue::Set(Some(*metadata_id)),
+                metadata_id: ActiveValue::Set(metadata_id),
+                person_id: ActiveValue::Set(person_id),
+                last_updated_on: ActiveValue::Set(Utc::now()),
                 ..Default::default()
             };
             user_to_meta.insert(db).await.unwrap()
-        }
-        Some(u) => u,
-    })
-}
-
-pub async fn associate_user_with_person<C>(
-    user_id: &i32,
-    person_id: &i32,
-    db: &C,
-) -> Result<user_to_entity::Model>
-where
-    C: ConnectionTrait,
-{
-    let user_to_person = UserToEntity::find()
-        .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-        .filter(user_to_entity::Column::PersonId.eq(person_id.to_owned()))
-        .one(db)
-        .await
-        .ok()
-        .flatten();
-    Ok(match user_to_person {
-        None => {
-            let user_to_person = user_to_entity::ActiveModel {
-                user_id: ActiveValue::Set(*user_id),
-                person_id: ActiveValue::Set(Some(*person_id)),
-                ..Default::default()
-            };
-            user_to_person.insert(db).await.unwrap()
         }
         Some(u) => u,
     })

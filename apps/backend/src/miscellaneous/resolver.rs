@@ -119,8 +119,8 @@ use crate::{
         UserYankIntegrationSettingKind,
     },
     utils::{
-        add_entity_to_collection, associate_user_with_metadata, entity_in_collections,
-        get_current_date, get_ilike_query, get_stored_asset, get_user_and_metadata_association,
+        add_entity_to_collection, associate_user_with_entity, entity_in_collections,
+        get_current_date, get_ilike_query, get_stored_asset, get_user_to_entity_association,
         partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR, USER_AGENT_STR,
         VERSION,
     },
@@ -1816,7 +1816,7 @@ impl MiscellaneousService {
             .unwrap();
         let seen_by: i32 = seen_by.try_into().unwrap();
         let user_to_meta =
-            get_user_and_metadata_association(&user_id, &metadata_id, &self.db).await;
+            get_user_to_entity_association(&user_id, Some(metadata_id), None, &self.db).await;
         let reminder = user_to_meta.clone().and_then(|n| n.media_reminder);
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
         let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
@@ -3441,10 +3441,10 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         if let Some(association) =
-            get_user_and_metadata_association(&user_id, &merge_into, &self.db).await
+            get_user_to_entity_association(&user_id, Some(merge_into), None, &self.db).await
         {
             let old_association =
-                get_user_and_metadata_association(&user_id, &merge_from, &self.db)
+                get_user_to_entity_association(&user_id, Some(merge_from), None, &self.db)
                     .await
                     .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
@@ -6086,7 +6086,8 @@ GROUP BY
     }
 
     async fn toggle_media_monitor(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
-        let metadata = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
+        let metadata =
+            associate_user_with_entity(&user_id, Some(metadata_id), None, &self.db).await?;
         let new_monitored_value = !metadata.media_monitored.unwrap_or_default();
         let mut metadata: user_to_entity::ActiveModel = metadata.into();
         metadata.media_monitored = ActiveValue::Set(Some(new_monitored_value));
@@ -6100,7 +6101,8 @@ GROUP BY
         to_monitor_metadata_id: i32,
     ) -> Result<bool> {
         let metadata =
-            get_user_and_metadata_association(&user_id, &to_monitor_metadata_id, &self.db).await;
+            get_user_to_entity_association(&user_id, Some(to_monitor_metadata_id), None, &self.db)
+                .await;
         Ok(if let Some(m) = metadata {
             m.media_monitored.unwrap_or_default()
         } else {
@@ -6464,7 +6466,8 @@ GROUP BY
         if input.remind_on < Utc::now().date_naive() {
             return Ok(false);
         }
-        let utm = associate_user_with_metadata(&user_id, &input.metadata_id, &self.db).await?;
+        let utm =
+            associate_user_with_entity(&user_id, Some(input.metadata_id), None, &self.db).await?;
         if utm.media_reminder.is_some() {
             self.delete_media_reminder(user_id, input.metadata_id)
                 .await?;
@@ -6479,7 +6482,7 @@ GROUP BY
     }
 
     async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
-        let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
+        let utm = associate_user_with_entity(&user_id, Some(metadata_id), None, &self.db).await?;
         let mut utm: user_to_entity::ActiveModel = utm.into();
         utm.media_reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
@@ -6492,7 +6495,7 @@ GROUP BY
         metadata_id: i32,
         owned_on: Option<NaiveDate>,
     ) -> Result<bool> {
-        let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
+        let utm = associate_user_with_entity(&user_id, Some(metadata_id), None, &self.db).await?;
         let has_ownership = utm.metadata_ownership.is_some();
         let mut utm: user_to_entity::ActiveModel = utm.into();
         if has_ownership {
