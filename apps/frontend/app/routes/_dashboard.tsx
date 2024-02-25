@@ -1,4 +1,3 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
@@ -152,7 +151,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [parent] = useAutoAnimate();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -345,7 +343,7 @@ export default function Layout() {
 						/>
 					</Flex>
 					<AppShell.Main py={{ sm: "xl" }}>
-						<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%" ref={parent}>
+						<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%">
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
