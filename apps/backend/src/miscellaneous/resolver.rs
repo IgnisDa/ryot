@@ -1817,7 +1817,7 @@ impl MiscellaneousService {
         let seen_by: i32 = seen_by.try_into().unwrap();
         let user_to_meta =
             get_user_and_metadata_association(&user_id, &metadata_id, &self.db).await;
-        let reminder = user_to_meta.clone().and_then(|n| n.metadata_reminder);
+        let reminder = user_to_meta.clone().and_then(|n| n.media_reminder);
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
         let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
 
@@ -2731,7 +2731,7 @@ impl MiscellaneousService {
             // if the metadata is monitored
             let is_monitored = u.media_monitored.unwrap_or_default();
             // if user has set a reminder
-            let is_reminder_active = u.metadata_reminder.is_some();
+            let is_reminder_active = u.media_reminder.is_some();
             // if the metadata is owned
             let is_owned = u.metadata_ownership.is_some();
             if seen_count + reviewed_count == 0
@@ -3446,8 +3446,8 @@ impl MiscellaneousService {
             if old_association.media_monitored.is_none() {
                 cloned.media_monitored = ActiveValue::Set(association.media_monitored);
             }
-            if old_association.metadata_reminder.is_none() {
-                cloned.metadata_reminder = ActiveValue::Set(association.metadata_reminder);
+            if old_association.media_reminder.is_none() {
+                cloned.media_reminder = ActiveValue::Set(association.media_reminder);
             }
             if old_association.metadata_ownership.is_none() {
                 cloned.metadata_ownership = ActiveValue::Set(association.metadata_ownership);
@@ -6460,12 +6460,12 @@ GROUP BY
             return Ok(false);
         }
         let utm = associate_user_with_metadata(&user_id, &input.metadata_id, &self.db).await?;
-        if utm.metadata_reminder.is_some() {
+        if utm.media_reminder.is_some() {
             self.delete_media_reminder(user_id, input.metadata_id)
                 .await?;
         }
         let mut utm: user_to_entity::ActiveModel = utm.into();
-        utm.metadata_reminder = ActiveValue::Set(Some(UserMediaReminder {
+        utm.media_reminder = ActiveValue::Set(Some(UserMediaReminder {
             remind_on: input.remind_on,
             message: input.message,
         }));
@@ -6476,7 +6476,7 @@ GROUP BY
     async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
         let utm = associate_user_with_metadata(&user_id, &metadata_id, &self.db).await?;
         let mut utm: user_to_entity::ActiveModel = utm.into();
-        utm.metadata_reminder = ActiveValue::Set(None);
+        utm.media_reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
         Ok(true)
     }
@@ -6504,11 +6504,11 @@ GROUP BY
 
     pub async fn send_pending_media_reminders(&self) -> Result<()> {
         for utm in UserToEntity::find()
-            .filter(user_to_entity::Column::MetadataReminder.is_not_null())
+            .filter(user_to_entity::Column::MediaReminder.is_not_null())
             .all(&self.db)
             .await?
         {
-            if let Some(reminder) = utm.metadata_reminder {
+            if let Some(reminder) = utm.media_reminder {
                 if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
                     self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
                         .await?;

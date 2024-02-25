@@ -21,13 +21,13 @@ pub struct Model {
     pub person_id: Option<i32>,
     pub metadata_id: Option<i32>,
     pub exercise_id: Option<String>,
-    pub metadata_reminder: Option<UserMediaReminder>,
     pub metadata_ownership: Option<UserMediaOwnership>,
     pub metadata_units_consumed: Option<i32>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
     pub exercise_num_times_interacted: Option<i32>,
     #[graphql(skip)]
     pub media_reason: Option<Vec<UserToMediaReason>>,
+    pub media_reminder: Option<UserMediaReminder>,
     pub media_monitored: Option<bool>,
 }
 
