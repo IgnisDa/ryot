@@ -146,6 +146,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userPreferences: {
 			media: userPreferences.featuresEnabled.media,
 			fitness: userPreferences.featuresEnabled.fitness,
+			disableNavigationAnimation:
+				userPreferences.general.disableNavigationAnimation,
 		},
 	});
 };
@@ -345,7 +347,17 @@ export default function Layout() {
 						/>
 					</Flex>
 					<AppShell.Main py={{ sm: "xl" }}>
-						<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%" ref={parent}>
+						<Box
+							mt="md"
+							style={{ flexGrow: 1 }}
+							pb={40}
+							mih="90%"
+							ref={
+								loaderData.userPreferences.disableNavigationAnimation
+									? undefined
+									: parent
+							}
+						>
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
