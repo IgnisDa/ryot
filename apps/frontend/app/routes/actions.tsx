@@ -80,42 +80,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		addEntityToCollection: async () => {
-			const submission = processSubmission(
-				formData,
-				changeCollectionToEntitySchema,
-			);
-			const metadataId =
-				submission.entityLot === EntityLot.Media
-					? Number(submission.entityId)
-					: undefined;
-			const mediaGroupId =
-				submission.entityLot === EntityLot.MediaGroup
-					? Number(submission.entityId)
-					: undefined;
-			const personId =
-				submission.entityLot === EntityLot.Person
-					? Number(submission.entityId)
-					: undefined;
-			const exerciseId =
-				submission.entityLot === EntityLot.Exercise
-					? submission.entityId
-					: undefined;
+			const [submission, input] =
+				getChangeCollectionToEntityVariables(formData);
 			for (const collectionName of submission.collectionName) {
 				await gqlClient.request(
 					AddEntityToCollectionDocument,
-					{
-						input: {
-							collectionName,
-							metadataId,
-							mediaGroupId,
-							exerciseId,
-							personId,
-						},
-					},
+					{ input: { ...input, collectionName } },
 					await getAuthorizationHeader(request),
 				);
 			}
-			return json({ status: "success", submission } as const, {
+			return json({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					message: "Media added to collection successfully",
 					type: "success",
@@ -123,14 +97,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		removeEntityFromCollection: async () => {
-			const submission = processSubmission(
-				formData,
-				changeCollectionToEntitySchema,
-			);
+			const [submission, input] =
+				getChangeCollectionToEntityVariables(formData);
 			for (const collectionName of submission.collectionName) {
 				await gqlClient.request(
 					RemoveEntityFromCollectionDocument,
-					{ input: { ...submission, collectionName } },
+					{ input: { ...input, collectionName } },
 					await getAuthorizationHeader(request),
 				);
 			}
@@ -202,3 +174,30 @@ const reviewSchema = z
 		reviewId: zx.IntAsString.optional(),
 	})
 	.merge(MetadataSpecificsSchema);
+
+const getChangeCollectionToEntityVariables = (formData: FormData) => {
+	const submission = processSubmission(
+		formData,
+		changeCollectionToEntitySchema,
+	);
+	const metadataId =
+		submission.entityLot === EntityLot.Media
+			? Number(submission.entityId)
+			: undefined;
+	const mediaGroupId =
+		submission.entityLot === EntityLot.MediaGroup
+			? Number(submission.entityId)
+			: undefined;
+	const personId =
+		submission.entityLot === EntityLot.Person
+			? Number(submission.entityId)
+			: undefined;
+	const exerciseId =
+		submission.entityLot === EntityLot.Exercise
+			? submission.entityId
+			: undefined;
+	return [
+		submission,
+		{ metadataId, mediaGroupId, exerciseId, personId },
+	] as const;
+};
