@@ -26,7 +26,7 @@ const documents = {
     "mutation CreateUserWorkout($input: UserWorkoutInput!) {\n  createUserWorkout(input: $input)\n}": types.CreateUserWorkoutDocument,
     "mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {\n  createUserYankIntegration(input: $input)\n}": types.CreateUserYankIntegrationDocument,
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
-    "mutation DeleteMediaReminder($metadataId: Int!) {\n  deleteMediaReminder(metadataId: $metadataId)\n}": types.DeleteMediaReminderDocument,
+    "mutation DeleteMediaReminder($metadataId: Int, $personId: Int) {\n  deleteMediaReminder(metadataId: $metadataId, personId: $personId)\n}": types.DeleteMediaReminderDocument,
     "mutation DeleteReview($reviewId: Int!) {\n  deleteReview(reviewId: $reviewId)\n}": types.DeleteReviewDocument,
     "mutation DeleteS3Object($key: String!) {\n  deleteS3Object(key: $key)\n}": types.DeleteS3ObjectDocument,
     "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
@@ -165,7 +165,7 @@ export function graphql(source: "mutation DeleteCollection($collectionName: Stri
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation DeleteMediaReminder($metadataId: Int!) {\n  deleteMediaReminder(metadataId: $metadataId)\n}"): (typeof documents)["mutation DeleteMediaReminder($metadataId: Int!) {\n  deleteMediaReminder(metadataId: $metadataId)\n}"];
+export function graphql(source: "mutation DeleteMediaReminder($metadataId: Int, $personId: Int) {\n  deleteMediaReminder(metadataId: $metadataId, personId: $personId)\n}"): (typeof documents)["mutation DeleteMediaReminder($metadataId: Int, $personId: Int) {\n  deleteMediaReminder(metadataId: $metadataId, personId: $personId)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

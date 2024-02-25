@@ -639,9 +639,10 @@ struct UserMediaNextEntry {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateMediaReminderInput {
-    metadata_id: i32,
     remind_on: NaiveDate,
     message: String,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1259,10 +1260,17 @@ impl MiscellaneousMutation {
     }
 
     /// Delete a reminder on a media for a user if it exists.
-    async fn delete_media_reminder(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<bool> {
+    async fn delete_media_reminder(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: Option<i32>,
+        person_id: Option<i32>,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_media_reminder(user_id, metadata_id).await
+        service
+            .delete_media_reminder(user_id, metadata_id, person_id)
+            .await
     }
 
     /// Mark media as owned or remove ownership.
@@ -6455,9 +6463,10 @@ GROUP BY
             return Ok(false);
         }
         let utm =
-            associate_user_with_entity(&user_id, Some(input.metadata_id), None, &self.db).await?;
+            associate_user_with_entity(&user_id, input.metadata_id, input.person_id, &self.db)
+                .await?;
         if utm.media_reminder.is_some() {
-            self.delete_media_reminder(user_id, input.metadata_id)
+            self.delete_media_reminder(user_id, input.metadata_id, input.person_id)
                 .await?;
         }
         let mut utm: user_to_entity::ActiveModel = utm.into();
@@ -6469,8 +6478,13 @@ GROUP BY
         Ok(true)
     }
 
-    async fn delete_media_reminder(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
-        let utm = associate_user_with_entity(&user_id, Some(metadata_id), None, &self.db).await?;
+    async fn delete_media_reminder(
+        &self,
+        user_id: i32,
+        metadata_id: Option<i32>,
+        person_id: Option<i32>,
+    ) -> Result<bool> {
+        let utm = associate_user_with_entity(&user_id, metadata_id, person_id, &self.db).await?;
         let mut utm: user_to_entity::ActiveModel = utm.into();
         utm.media_reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
@@ -6508,7 +6522,7 @@ GROUP BY
                 if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
                     self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
                         .await?;
-                    self.delete_media_reminder(utm.user_id, utm.metadata_id.unwrap())
+                    self.delete_media_reminder(utm.user_id, utm.metadata_id, utm.person_id)
                         .await?;
                 }
             }
