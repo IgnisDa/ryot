@@ -40,7 +40,7 @@ use sea_orm::{
 };
 use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering, PostgresQueryBuilder, Query,
-    SelectStatement, Value,
+    SelectStatement,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -4392,20 +4392,14 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .unwrap();
-        let target_column = match input.entity_lot {
-            EntityLot::Media => collection_to_entity::Column::MetadataId,
-            EntityLot::Person => collection_to_entity::Column::PersonId,
-            EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
-            EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
-            EntityLot::Collection => unreachable!(),
-        };
         CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::CollectionId.eq(collect.id))
             .filter(
-                target_column.eq(match input.entity_id.clone().parse::<i32>() {
-                    Ok(id) => Value::Int(Some(id)),
-                    Err(_) => Value::String(Some(Box::new(input.entity_id.clone()))),
-                }),
+                collection_to_entity::Column::MetadataId
+                    .eq(input.metadata_id)
+                    .or(collection_to_entity::Column::PersonId.eq(input.person_id))
+                    .or(collection_to_entity::Column::MetadataGroupId.eq(input.media_group_id))
+                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id)),
             )
             .exec(&self.db)
             .await?;
@@ -4446,8 +4440,8 @@ impl MiscellaneousService {
                     user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        entity_id: metadata_id.to_string(),
-                        entity_lot: EntityLot::Media,
+                        metadata_id: Some(metadata_id),
+                        ..Default::default()
                     },
                 )
                 .await
@@ -4957,8 +4951,8 @@ impl MiscellaneousService {
             user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: media.id.to_string(),
-                entity_lot: EntityLot::Media,
+                metadata_id: Some(media.id),
+                ..Default::default()
             },
         )
         .await?;
@@ -5817,8 +5811,8 @@ impl MiscellaneousService {
             seen.user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Watchlist.to_string(),
-                entity_id: seen.metadata_id.to_string(),
-                entity_lot: EntityLot::Media,
+                metadata_id: Some(seen.metadata_id),
+                ..Default::default()
             },
         )
         .await
@@ -5829,8 +5823,8 @@ impl MiscellaneousService {
                     seen.user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        entity_id: seen.metadata_id.to_string(),
-                        entity_lot: EntityLot::Media,
+                        metadata_id: Some(seen.metadata_id),
+                        ..Default::default()
                     },
                 )
                 .await
@@ -5841,8 +5835,8 @@ impl MiscellaneousService {
                     seen.user_id,
                     ChangeCollectionToEntityInput {
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        entity_id: seen.metadata_id.to_string(),
-                        entity_lot: EntityLot::Media,
+                        metadata_id: Some(seen.metadata_id),
+                        ..Default::default()
                     },
                 )
                 .await
@@ -5902,8 +5896,8 @@ impl MiscellaneousService {
                             seen.user_id,
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: seen.metadata_id.to_string(),
-                                entity_lot: EntityLot::Media,
+                                metadata_id: Some(seen.metadata_id),
+                                ..Default::default()
                             },
                         )
                         .await
@@ -5913,8 +5907,8 @@ impl MiscellaneousService {
                             seen.user_id,
                             ChangeCollectionToEntityInput {
                                 collection_name: DefaultCollection::InProgress.to_string(),
-                                entity_id: seen.metadata_id.to_string(),
-                                entity_lot: EntityLot::Media,
+                                metadata_id: Some(seen.metadata_id),
+                                ..Default::default()
                             },
                         )
                         .await
@@ -5932,8 +5926,8 @@ impl MiscellaneousService {
                         seen.user_id,
                         ChangeCollectionToEntityInput {
                             collection_name: DefaultCollection::InProgress.to_string(),
-                            entity_id: seen.metadata_id.to_string(),
-                            entity_lot: EntityLot::Media,
+                            metadata_id: Some(seen.metadata_id),
+                            ..Default::default()
                         },
                     )
                     .await

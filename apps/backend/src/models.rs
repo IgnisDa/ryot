@@ -129,11 +129,13 @@ pub struct CompleteExport {
     pub workouts: Option<Vec<workout::Model>>,
 }
 
-#[derive(Debug, InputObject)]
+#[derive(Debug, InputObject, Default)]
 pub struct ChangeCollectionToEntityInput {
     pub collection_name: String,
-    pub entity_id: String,
-    pub entity_lot: EntityLot,
+    pub metadata_id: Option<i32>,
+    pub person_id: Option<i32>,
+    pub media_group_id: Option<i32>,
+    pub exercise_id: Option<String>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]

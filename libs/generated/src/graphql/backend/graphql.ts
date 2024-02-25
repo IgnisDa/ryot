@@ -85,8 +85,10 @@ export type BooksSummary = {
 
 export type ChangeCollectionToEntityInput = {
   collectionName: Scalars['String']['input'];
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
+  exerciseId?: InputMaybe<Scalars['String']['input']>;
+  mediaGroupId?: InputMaybe<Scalars['Int']['input']>;
+  metadataId?: InputMaybe<Scalars['Int']['input']>;
+  personId?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type Collection = {
@@ -2103,10 +2105,10 @@ export type UserToEntity = {
   exerciseNumTimesInteracted?: Maybe<Scalars['Int']['output']>;
   id: Scalars['Int']['output'];
   lastUpdatedOn: Scalars['DateTime']['output'];
+  mediaMonitored?: Maybe<Scalars['Boolean']['output']>;
+  mediaReminder?: Maybe<UserMediaReminder>;
   metadataId?: Maybe<Scalars['Int']['output']>;
-  metadataMonitored?: Maybe<Scalars['Boolean']['output']>;
   metadataOwnership?: Maybe<UserMediaOwnership>;
-  metadataReminder?: Maybe<UserMediaReminder>;
   metadataUnitsConsumed?: Maybe<Scalars['Int']['output']>;
   personId?: Maybe<Scalars['Int']['output']>;
   userId: Scalars['Int']['output'];

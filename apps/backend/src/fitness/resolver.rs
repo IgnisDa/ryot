@@ -38,8 +38,7 @@ use crate::{
             GithubExerciseAttributes, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
             WorkoutListItem, WorkoutSetRecord,
         },
-        ChangeCollectionToEntityInput, EntityLot, SearchDetails, SearchInput, SearchResults,
-        StoredUrl,
+        ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
@@ -766,8 +765,8 @@ impl ExerciseService {
             user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: exercise.id.clone(),
-                entity_lot: EntityLot::Exercise,
+                exercise_id: Some(exercise.id.clone()),
+                ..Default::default()
             },
         )
         .await?;

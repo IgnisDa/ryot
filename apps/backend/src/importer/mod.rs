@@ -25,7 +25,7 @@ use crate::{
             CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
             PostReviewInput, ProgressUpdateInput,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot,
+        BackgroundJob, ChangeCollectionToEntityInput,
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -469,8 +469,8 @@ impl ImporterService {
                         user_id,
                         ChangeCollectionToEntityInput {
                             collection_name: col.to_string(),
-                            entity_id: metadata.id.to_string(),
-                            entity_lot: EntityLot::Media,
+                            metadata_id: Some(metadata.id),
+                            ..Default::default()
                         },
                     )
                     .await
