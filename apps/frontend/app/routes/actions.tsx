@@ -3,6 +3,7 @@ import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
 	CommitMediaDocument,
+	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
 	DeleteReviewDocument,
 	EntityLot,
@@ -136,6 +137,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		createMediaReminder: async () => {
+			const submission = processSubmission(formData, createMediaReminderSchema);
+			const { createMediaReminder } = await gqlClient.request(
+				CreateMediaReminderDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: !createMediaReminder ? "error" : undefined,
+					message: !createMediaReminder
+						? "Reminder was not created"
+						: "Reminder created successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -174,6 +191,13 @@ const reviewSchema = z
 		reviewId: zx.IntAsString.optional(),
 	})
 	.merge(MetadataSpecificsSchema);
+
+const createMediaReminderSchema = z.object({
+	message: z.string(),
+	remindOn: z.string(),
+	metadataId: zx.IntAsString.optional(),
+	personId: zx.IntAsString.optional(),
+});
 
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(

@@ -25,9 +25,11 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
@@ -39,7 +41,7 @@ import {
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/ts-utils";
+import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconArrowsRight,
@@ -926,5 +928,80 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 			<IconDropletHalf2Filled size={20} />
 			<Text size="xs">This {props.mediaType} is partially downloaded</Text>
 		</Flex>
+	);
+};
+
+export const CreateReminderModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	title: string;
+	metadataId?: number;
+	personId?: number;
+}) => {
+	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
+	const ref = useRef<HTMLFormElement>(null);
+	const fetcher = useFetcher();
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<fetcher.Form
+				method="post"
+				action="/actions?intent=createMediaReminder"
+				ref={ref}
+			>
+				<input
+					hidden
+					name="remindOn"
+					value={formatDateToNaiveDate(remindOn)}
+					readOnly
+				/>
+				<Stack>
+					<Title order={3}>Create a reminder</Title>
+					<Text>
+						A notification will be sent to all your configured{" "}
+						<Anchor to={$path("/settings/notifications")} component={Link}>
+							platforms
+						</Anchor>
+						.
+					</Text>
+					<TextInput
+						name="message"
+						label="Message"
+						required
+						defaultValue={`Complete '${props.title}'`}
+					/>
+					<DateInput
+						label="Remind on"
+						popoverProps={{ withinPortal: true }}
+						required
+						onChange={(v) => {
+							if (v) setRemindOn(v);
+						}}
+						value={remindOn}
+					/>
+					<input
+						hidden
+						name={props.metadataId ? "metadataId" : "personId"}
+						value={props.metadataId || props.personId}
+					/>
+					<Button
+						data-autofocus
+						variant="outline"
+						onClick={(e) => {
+							e.preventDefault();
+							props.onClose();
+							fetcher.submit(ref.current);
+						}}
+					>
+						Submit
+					</Button>
+				</Stack>
+			</fetcher.Form>
+		</Modal>
 	);
 };

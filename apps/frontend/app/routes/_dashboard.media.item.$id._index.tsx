@@ -26,7 +26,6 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
@@ -43,7 +42,6 @@ import {
 } from "@remix-run/node";
 import { Await, Form, Link, useLoaderData } from "@remix-run/react";
 import {
-	CreateMediaReminderDocument,
 	DeleteMediaReminderDocument,
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
@@ -100,6 +98,7 @@ import {
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateReminderModal,
 	DisplayCollection,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -287,22 +286,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ type: "success", message: "Metadata merged successfully" },
 			);
 		},
-		createMediaReminder: async () => {
-			const submission = processSubmission(formData, createMediaReminderSchema);
-			const { createMediaReminder } = await gqlClient.request(
-				CreateMediaReminderDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: !createMediaReminder ? "error" : undefined,
-					message: !createMediaReminder
-						? "Reminder was not created"
-						: "Reminder created successfully",
-				}),
-			});
-		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
 			await gqlClient.request(
@@ -449,13 +432,6 @@ const bulkUpdateSchema = z
 
 const seenIdSchema = z.object({ seenId: zx.IntAsString });
 
-const createMediaReminderSchema = z
-	.object({
-		message: z.string(),
-		remindOn: z.string(),
-	})
-	.merge(metadataIdSchema);
-
 const mergeMetadataSchema = z.object({
 	mergeFrom: zx.IntAsString,
 	mergeInto: zx.IntAsString,
@@ -577,8 +553,8 @@ export default function Page() {
 			<CreateReminderModal
 				onClose={createMediaReminderModalClose}
 				opened={createMediaReminderModalOpened}
-				metadataId={loaderData.metadataId}
 				title={loaderData.mediaMainDetails.title}
+				metadataId={loaderData.metadataId}
 			/>
 			<CreateOwnershipModal
 				onClose={mediaOwnershipModalClose}
@@ -2180,68 +2156,6 @@ const AdjustSeenTimesModal = (props: {
 						type="submit"
 						name="seenId"
 						value={props.seenId}
-					>
-						Submit
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-const CreateReminderModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	title: string;
-	metadataId: number;
-}) => {
-	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form method="post" action="?intent=createMediaReminder" replace>
-				<input
-					hidden
-					name="remindOn"
-					value={formatDateToNaiveDate(remindOn)}
-					readOnly
-				/>
-				<Stack>
-					<Title order={3}>Create a reminder</Title>
-					<Text>
-						A notification will be sent to all your configured{" "}
-						<Anchor to={$path("/settings/notifications")} component={Link}>
-							platforms
-						</Anchor>
-						.
-					</Text>
-					<TextInput
-						name="message"
-						label="Message"
-						required
-						defaultValue={`Complete '${props.title}'`}
-					/>
-					<DateInput
-						label="Remind on"
-						popoverProps={{ withinPortal: true }}
-						required
-						onChange={(v) => {
-							if (v) setRemindOn(v);
-						}}
-						value={remindOn}
-					/>
-					<Button
-						data-autofocus
-						variant="outline"
-						type="submit"
-						onClick={props.onClose}
-						name="metadataId"
-						value={props.metadataId}
 					>
 						Submit
 					</Button>
