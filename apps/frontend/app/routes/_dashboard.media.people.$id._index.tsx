@@ -6,6 +6,7 @@ import {
 	Button,
 	Container,
 	Group,
+	Menu,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -316,21 +317,26 @@ export default function Page() {
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
-									<Form
-										action="?intent=deployUpdatePersonJob"
-										method="post"
-										replace
-									>
-										<Button
-											variant="outline"
-											type="submit"
-											w="100%"
-											name="personId"
-											value={loaderData.personId}
-										>
-											Update person
-										</Button>
-									</Form>
+									<Menu shadow="md">
+										<Menu.Target>
+											<Button variant="outline">More actions</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											<Form
+												action="?intent=deployUpdatePersonJob"
+												method="post"
+												replace
+											>
+												<Menu.Item
+													type="submit"
+													name="personId"
+													value={loaderData.personId}
+												>
+													Update person
+												</Menu.Item>
+											</Form>
+										</Menu.Dropdown>
+									</Menu>
 									<AddEntityToCollectionModal
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
