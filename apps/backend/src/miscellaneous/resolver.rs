@@ -5274,12 +5274,15 @@ impl MiscellaneousService {
                         "display_nsfw" => {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
-                        "disable_yank_integrations" => {
-                            preferences.general.disable_yank_integrations = value_bool.unwrap();
-                        }
                         "dashboard" => {
                             preferences.general.dashboard =
                                 serde_json::from_str(&input.value).unwrap();
+                        }
+                        "disable_yank_integrations" => {
+                            preferences.general.disable_yank_integrations = value_bool.unwrap();
+                        }
+                        "disable_navigation_animation" => {
+                            preferences.general.disable_navigation_animation = value_bool.unwrap();
                         }
                         _ => return Err(err()),
                     },

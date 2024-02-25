@@ -270,9 +270,11 @@ pub struct UserGeneralDashboardElement {
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
+    pub dashboard: Vec<UserGeneralDashboardElement>,
     #[serde(default)] // FIXME: remove in the next major release
     pub disable_yank_integrations: bool,
-    pub dashboard: Vec<UserGeneralDashboardElement>,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub disable_navigation_animation: bool,
 }
 
 impl Default for UserGeneralPreferences {
@@ -280,7 +282,6 @@ impl Default for UserGeneralPreferences {
         Self {
             review_scale: UserReviewScale::default(),
             display_nsfw: true,
-            disable_yank_integrations: false,
             dashboard: vec![
                 UserGeneralDashboardElement {
                     section: DashboardElementLot::Upcoming,
@@ -298,6 +299,8 @@ impl Default for UserGeneralPreferences {
                     num_elements: None,
                 },
             ],
+            disable_yank_integrations: false,
+            disable_navigation_animation: false,
         }
     }
 }
