@@ -84,10 +84,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				formData,
 				changeCollectionToEntitySchema,
 			);
+			const metadataId =
+				submission.entityLot === EntityLot.Media
+					? Number(submission.entityId)
+					: undefined;
+			const mediaGroupId =
+				submission.entityLot === EntityLot.MediaGroup
+					? Number(submission.entityId)
+					: undefined;
+			const personId =
+				submission.entityLot === EntityLot.Person
+					? Number(submission.entityId)
+					: undefined;
+			const exerciseId =
+				submission.entityLot === EntityLot.Exercise
+					? submission.entityId
+					: undefined;
 			for (const collectionName of submission.collectionName) {
 				await gqlClient.request(
 					AddEntityToCollectionDocument,
-					{ input: { ...submission, collectionName } },
+					{
+						input: {
+							collectionName,
+							metadataId,
+							mediaGroupId,
+							exerciseId,
+							personId,
+						},
+					},
 					await getAuthorizationHeader(request),
 				);
 			}
