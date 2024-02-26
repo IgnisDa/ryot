@@ -42,6 +42,7 @@ export const ApplicationKey = {
 	SavedOpenedLinkGroups: getApplicationKeyAccessor(4),
 	DefaultExerciseRestTimer: getApplicationKeyAccessor(5),
 	CurrentWorkout: getApplicationKeyAccessor(6),
+	Toast: getApplicationKeyAccessor(7),
 };
 
 export const gqlClientSide = new GraphQLClient("/backend/graphql", {
@@ -60,8 +61,7 @@ export const getFallbackImageUrl = (
 	colorScheme: Exclude<MantineColorScheme, "auto">,
 	text = "No Image",
 ) =>
-	`https://placehold.co/100x200/${
-		colorScheme === "dark" ? "343632" : "c1c4bb"
+	`https://placehold.co/100x200/${colorScheme === "dark" ? "343632" : "c1c4bb"
 	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 
 /**

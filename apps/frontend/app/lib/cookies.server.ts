@@ -7,7 +7,7 @@ export const colorSchemeCookie = createCookie(ApplicationKey.ColorScheme, {
 });
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
-		name: "en_toast",
+		name: ApplicationKey.Toast,
 		sameSite: "lax",
 		path: "/",
 		httpOnly: true,
