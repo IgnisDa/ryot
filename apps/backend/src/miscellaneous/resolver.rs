@@ -2767,16 +2767,16 @@ impl MiscellaneousService {
                 }
                 let previous_reasons =
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                let mut u: user_to_entity::ActiveModel = u.into();
                 if new_reasons != previous_reasons {
                     tracing::debug!(
                         "Updating user_to_metadata = {id:?}",
-                        id = (u.user_id, u.metadata_id)
+                        id = (&u.user_id, &u.metadata_id)
                     );
-                    let mut u: user_to_entity::ActiveModel = u.into();
                     u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
-                    u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
                 }
+                u.needs_to_be_updated = ActiveValue::Set(None);
+                u.update(&self.db).await.ok();
             }
         }
         let all_user_to_person = UserToEntity::find()
@@ -2836,16 +2836,16 @@ impl MiscellaneousService {
                 }
                 let previous_reasons =
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                let mut u: user_to_entity::ActiveModel = u.into();
                 if new_reasons != previous_reasons {
                     tracing::debug!(
                         "Updating user_to_person = {id:?}",
-                        id = (u.user_id, u.person_id)
+                        id = (&u.user_id, &u.person_id)
                     );
-                    let mut u: user_to_entity::ActiveModel = u.into();
                     u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
-                    u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
                 }
+                u.needs_to_be_updated = ActiveValue::Set(None);
+                u.update(&self.db).await.ok();
             }
         }
         Ok(())
