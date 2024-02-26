@@ -5,6 +5,7 @@ import {
 	CommitMediaDocument,
 	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
+	DeleteMediaReminderDocument,
 	DeleteReviewDocument,
 	EntityLot,
 	MetadataLot,
@@ -153,6 +154,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
+		deleteMediaReminder: async () => {
+			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			await gqlClient.request(
+				DeleteMediaReminderDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			return json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Reminder deleted successfully",
+				}),
+			});
+		},
 	});
 };
 
@@ -192,12 +207,14 @@ const reviewSchema = z
 	})
 	.merge(MetadataSpecificsSchema);
 
-const createMediaReminderSchema = z.object({
-	message: z.string(),
-	remindOn: z.string(),
+const metadataOrPersonIdSchema = z.object({
 	metadataId: zx.IntAsString.optional(),
 	personId: zx.IntAsString.optional(),
 });
+
+const createMediaReminderSchema = z
+	.object({ message: z.string(), remindOn: z.string() })
+	.merge(metadataOrPersonIdSchema);
 
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(

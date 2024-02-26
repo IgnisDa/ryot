@@ -42,7 +42,6 @@ import {
 } from "@remix-run/node";
 import { Await, Form, Link, useLoaderData } from "@remix-run/react";
 import {
-	DeleteMediaReminderDocument,
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
 	DeployUpdateMetadataJobDocument,
@@ -201,20 +200,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Progress updated successfully",
-				}),
-			});
-		},
-		deleteMediaReminder: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
-				DeleteMediaReminderDocument,
-				submission,
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Reminder deleted successfully",
 				}),
 			});
 		},
@@ -1306,10 +1291,16 @@ export default function Page() {
 														</Form>
 														{userMediaDetails.reminder ? (
 															<Form
-																action="?intent=deleteMediaReminder"
+																action="/actions?intent=deleteMediaReminder"
 																method="post"
 																replace
 															>
+																<input
+																	hidden
+																	name="metadataId"
+																	value={loaderData.metadataId}
+																	readOnly
+																/>
 																<Menu.Item
 																	type="submit"
 																	color={
@@ -1317,8 +1308,6 @@ export default function Page() {
 																			? "red"
 																			: undefined
 																	}
-																	name="metadataId"
-																	value={loaderData.metadataId}
 																	onClick={(e) => {
 																		if (
 																			!confirm(
