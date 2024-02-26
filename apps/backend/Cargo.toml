@@ -60,7 +60,6 @@ scraper = "0.18.1"
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 sea-query = "0.30.7"
-semver = "1.0.22"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { version = "3.6.1", features = ["chrono_0_4"] }

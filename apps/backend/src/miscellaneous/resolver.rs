@@ -1,8 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs::{self, File},
+    fs::File,
     iter::zip,
-    path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
@@ -42,10 +41,8 @@ use sea_query::{
     Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering, PostgresQueryBuilder, Query,
     SelectStatement,
 };
-use semver::Version;
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
-use surf::http::headers::USER_AGENT;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -121,8 +118,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_ilike_query, get_stored_asset, get_user_to_entity_association,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR, USER_AGENT_STR,
-        VERSION,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, VERSION,
     },
 };
 
@@ -561,12 +557,6 @@ struct MediaConsumedInput {
     lot: MetadataLot,
 }
 
-#[derive(Enum, Eq, PartialEq, Copy, Clone)]
-enum UpgradeType {
-    Minor,
-    Major,
-}
-
 #[derive(SimpleObject)]
 struct CoreDetails {
     docs_link: String,
@@ -576,7 +566,6 @@ struct CoreDetails {
     item_details_height: u32,
     reviews_disabled: bool,
     videos_disabled: bool,
-    upgrade: Option<UpgradeType>,
     page_limit: i32,
     timezone: String,
 }
@@ -1391,63 +1380,9 @@ impl MiscellaneousService {
     }
 }
 
-async fn get_service_latest_version() -> Result<String> {
-    #[derive(Serialize, Deserialize, Debug)]
-    struct GithubResponse {
-        tag_name: Option<String>,
-    }
-    let github_response = surf::get("https://api.github.com/repos/ignisda/ryot/releases/latest")
-        .header(USER_AGENT, USER_AGENT_STR)
-        .await
-        .map_err(|e| anyhow!(e))?
-        .body_json::<GithubResponse>()
-        .await
-        .map_err(|e| anyhow!(e))?;
-    let tag = github_response
-        .tag_name
-        .ok_or(anyhow!("Could not get the latest version from Github"))?
-        .strip_prefix('v')
-        .unwrap()
-        .to_owned();
-    Ok(tag)
-}
-
-static FILE: &str = "core_details.json";
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Settings {
-    latest_version: String,
-}
-
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
-        let path = PathBuf::new().join(TEMP_DIR).join(FILE);
-        let settings = if !path.exists() {
-            let tag = get_service_latest_version().await?;
-            let settings = Settings {
-                latest_version: tag,
-            };
-            let data_to_write = serde_json::to_string(&settings);
-            fs::write(path, data_to_write.unwrap()).unwrap();
-            settings
-        } else {
-            let data = fs::read_to_string(path).unwrap();
-            serde_json::from_str(&data).unwrap()
-        };
-        let latest_version = Version::parse(&settings.latest_version)
-            .unwrap_or_else(|_| Version::parse("0.0.0").unwrap());
-        let current_version = Version::parse(VERSION).unwrap();
-        let upgrade = if latest_version > current_version {
-            Some(if latest_version.major > current_version.major {
-                UpgradeType::Major
-            } else {
-                UpgradeType::Minor
-            })
-        } else {
-            None
-        };
         Ok(CoreDetails {
-            upgrade,
             timezone: self.timezone.to_string(),
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),

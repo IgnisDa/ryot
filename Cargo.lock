@@ -4364,7 +4364,6 @@ dependencies = [
  "sea-orm",
  "sea-orm-migration",
  "sea-query",
- "semver 1.0.22",
  "serde",
  "serde-xml-rs",
  "serde_json",
