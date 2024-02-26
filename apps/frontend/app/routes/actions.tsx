@@ -12,6 +12,7 @@ import {
 	MetadataSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
+	ToggleMediaMonitorDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import invariant from "tiny-invariant";
@@ -152,6 +153,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			headers = await createToastHeaders({
 				type: "success",
 				message: "Reminder deleted successfully",
+			});
+		})
+		.with("toggleMediaMonitor", async () => {
+			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			await gqlClient.request(
+				ToggleMediaMonitorDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			headers = await createToastHeaders({
+				type: "success",
+				message: "Monitor toggled successfully",
 			});
 		})
 		.run();

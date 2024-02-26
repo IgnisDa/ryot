@@ -54,7 +54,6 @@ import {
 	MetadataSource,
 	MetadataVideoSource,
 	SeenState,
-	ToggleMediaMonitorDocument,
 	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
@@ -202,20 +201,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Progress updated successfully",
-				}),
-			});
-		},
-		toggleMediaMonitor: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
-				ToggleMediaMonitorDocument,
-				submission,
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Monitor toggled successfully",
 				}),
 			});
 		},
@@ -1242,10 +1227,11 @@ export default function Page() {
 													</Menu.Target>
 													<Menu.Dropdown>
 														<Form
-															action="?intent=toggleMediaMonitor"
+															action="/actions?intent=toggleMediaMonitor"
 															method="post"
 															replace
 														>
+															<HiddenLocationInput />
 															<Menu.Item
 																type="submit"
 																color={
