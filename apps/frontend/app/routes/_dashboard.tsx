@@ -20,7 +20,14 @@ import {
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	NavLink,
+	Outlet,
+	ShouldRevalidateFunction,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	CoreDetails,
 	UpgradeType,
@@ -151,6 +158,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		},
 	});
 };
+
+export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
