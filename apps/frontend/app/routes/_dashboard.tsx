@@ -50,6 +50,7 @@ import {
 import { produce } from "immer";
 import { match } from "ts-pattern";
 import { joinURL } from "ufo";
+import { HiddenLocationInput } from "~/components/common";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { ApplicationKey, getLot } from "~/lib/generals";
@@ -287,6 +288,7 @@ export default function Layout() {
 					<Stack gap="xs">
 						<Flex direction="column" justify="center" gap="md">
 							<Form method="post" action="/actions?intent=toggleColorScheme">
+								<HiddenLocationInput />
 								<Group justify="center">
 									<UnstyledButton
 										aria-label="Toggle theme"

@@ -94,6 +94,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
@@ -1301,6 +1302,7 @@ export default function Page() {
 																	value={loaderData.metadataId}
 																	readOnly
 																/>
+																<HiddenLocationInput />
 																<Menu.Item
 																	type="submit"
 																	color={

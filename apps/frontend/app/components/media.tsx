@@ -57,10 +57,15 @@ import { ReactNode, useRef, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import events from "~/lib/events";
-import { dayjsLib, getFallbackImageUrl } from "~/lib/generals";
+import {
+	dayjsLib,
+	getFallbackImageUrl,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/common.module.css";
+import { HiddenLocationInput } from "./common";
 import { confirmWrapper } from "./confirmation";
 
 export const commitMedia = async (
@@ -69,9 +74,13 @@ export const commitMedia = async (
 	source: MetadataSource,
 ) => {
 	const data = new FormData();
+	// TODO: https://github.com/unjs/ufo/issues/211
+	const location =
+		window.location.pathname + window.location.search + window.location.hash;
 	data.append("identifier", identifier);
 	data.append("lot", lot);
 	data.append("source", source);
+	data.append(redirectToQueryParam, location);
 	const resp = await fetch("/actions?intent=commitMedia", {
 		method: "POST",
 		body: data,
@@ -297,6 +306,7 @@ export const ReviewItemDisplay = (props: {
 							ref={createReviewCommentFormRef}
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
+							<HiddenLocationInput />
 							<Group>
 								<TextInput
 									name="text"
@@ -364,6 +374,7 @@ export const ReviewItemDisplay = (props: {
 																name="shouldDelete"
 																defaultValue="true"
 															/>
+															<HiddenLocationInput />
 															<ActionIcon
 																color="red"
 																onClick={async () => {
@@ -403,6 +414,7 @@ export const ReviewItemDisplay = (props: {
 																!c?.likedBy?.includes(props.user.id),
 															)}
 														/>
+														<HiddenLocationInput />
 														<input
 															hidden
 															name="decrementLikes"
@@ -685,6 +697,7 @@ export const DisplayCollection = (props: {
 					<input hidden name="entityId" defaultValue={props.entityId} />
 					<input hidden name="entityLot" defaultValue={props.entityLot} />
 					<input hidden name="collectionName" defaultValue={props.col.name} />
+					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
 						onClick={async () => {
@@ -766,6 +779,7 @@ export const PostReviewModal = (props: {
 					value={props.objectId}
 					readOnly
 				/>
+				<HiddenLocationInput />
 				{props.data.existingReview?.id ? (
 					<input hidden name="reviewId" value={props.data.existingReview.id} />
 				) : null}
@@ -960,6 +974,7 @@ export const CreateReminderModal = (props: {
 					value={formatDateToNaiveDate(remindOn)}
 					readOnly
 				/>
+				<HiddenLocationInput />
 				<Stack>
 					<Title order={3}>Create a reminder</Title>
 					<Text>

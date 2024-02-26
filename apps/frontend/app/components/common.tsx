@@ -28,7 +28,7 @@ import { IconExternalLink } from "@tabler/icons-react";
 import { ReactNode, forwardRef, useRef } from "react";
 import { useState } from "react";
 import events from "~/lib/events";
-import { getFallbackImageUrl } from "~/lib/generals";
+import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -159,6 +159,7 @@ export const AddEntityToCollectionModal = (props: {
 			>
 				<input hidden name="entityId" defaultValue={props.entityId} />
 				<input hidden name="entityLot" defaultValue={props.entityLot} />
+				<HiddenLocationInput />
 				<Stack>
 					<Title order={3}>Select collection</Title>
 					<MultiSelect
@@ -195,5 +196,7 @@ export const HiddenLocationInput = () => {
 	// TODO: https://github.com/unjs/ufo/issues/211
 	const value = location.pathname + location.search + location.hash;
 
-	return <input type="hidden" name="location" value={value} readOnly />;
+	return (
+		<input type="hidden" name={redirectToQueryParam} value={value} readOnly />
+	);
 };
