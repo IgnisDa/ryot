@@ -949,7 +949,7 @@ export default function Page() {
 															>
 																<Flex gap="md">
 																	{c.items.map((creator) => (
-																		<Box key={creator.id}>
+																		<Box key={`${creator.id}-${creator.name}`}>
 																			{creator.id ? (
 																				<Anchor
 																					component={Link}
