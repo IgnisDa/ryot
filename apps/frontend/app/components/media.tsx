@@ -46,9 +46,11 @@ import {
 	type ReviewItem,
 	UserReviewScale,
 	Visibility,
+	UserMediaReminderPartFragment,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
+	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconCheck,
@@ -989,5 +991,16 @@ export const CreateReminderModal = (props: {
 				</Stack>
 			</Form>
 		</Modal>
+	);
+};
+
+export const DisplayMediaReminder = (props: {
+	d: UserMediaReminderPartFragment;
+}) => {
+	return (
+		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
+			Reminder for {props.d.remindOn}
+			<Text c="green">{props.d.message}</Text>
+		</Alert>
 	);
 };

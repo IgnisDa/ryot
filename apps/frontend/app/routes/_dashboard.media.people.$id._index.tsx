@@ -47,6 +47,7 @@ import {
 import {
 	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	PostReview,
@@ -228,6 +229,9 @@ export default function Page() {
 							<MediaIsPartial mediaType="person" />
 						) : null}
 					</Group>
+					{loaderData.userPersonDetails.reminder ? (
+						<DisplayMediaReminder d={loaderData.userPersonDetails.reminder} />
+					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>

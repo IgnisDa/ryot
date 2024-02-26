@@ -100,6 +100,7 @@ import {
 import {
 	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
@@ -796,14 +797,7 @@ export default function Page() {
 										</Group>
 									) : null}
 									{userMediaDetails?.reminder ? (
-										<Alert
-											icon={<IconAlertCircle />}
-											variant="outline"
-											color="violet"
-										>
-											Reminder for {userMediaDetails.reminder.remindOn}
-											<Text c="green">{userMediaDetails.reminder.message}</Text>
-										</Alert>
+										<DisplayMediaReminder d={userMediaDetails.reminder} />
 									) : null}
 									{userMediaDetails?.inProgress ? (
 										<Alert icon={<IconAlertCircle />} variant="outline">
