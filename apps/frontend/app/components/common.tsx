@@ -17,7 +17,7 @@ import {
 	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
-import { useFetcher, useLocation } from "@remix-run/react";
+import { Form, useLocation } from "@remix-run/react";
 import type {
 	EntityLot,
 	MetadataLot,
@@ -25,7 +25,7 @@ import type {
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
-import { ReactNode, forwardRef, useRef } from "react";
+import { ReactNode, forwardRef } from "react";
 import { useState } from "react";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
@@ -142,9 +142,6 @@ export const AddEntityToCollectionModal = (props: {
 	entityLot: EntityLot;
 	collections: string[];
 }) => {
-	const addEntityToCollectionFormRef = useRef<HTMLFormElement>(null);
-	const addEntityToCollectionFetcher = useFetcher();
-
 	return (
 		<Modal
 			opened={props.opened}
@@ -152,11 +149,7 @@ export const AddEntityToCollectionModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<addEntityToCollectionFetcher.Form
-				action="/actions?intent=addEntityToCollection"
-				method="post"
-				ref={addEntityToCollectionFormRef}
-			>
+			<Form action="/actions?intent=addEntityToCollection" method="post">
 				<input hidden name="entityId" defaultValue={props.entityId} />
 				<input hidden name="entityLot" defaultValue={props.entityLot} />
 				<HiddenLocationInput />
@@ -171,10 +164,8 @@ export const AddEntityToCollectionModal = (props: {
 					<Button
 						data-autofocus
 						variant="outline"
+						type="submit"
 						onClick={() => {
-							addEntityToCollectionFetcher.submit(
-								addEntityToCollectionFormRef.current,
-							);
 							events.addToCollection(props.entityLot);
 							props.onClose();
 						}}
@@ -185,7 +176,7 @@ export const AddEntityToCollectionModal = (props: {
 						Cancel
 					</Button>
 				</Stack>
-			</addEntityToCollectionFetcher.Form>
+			</Form>
 		</Modal>
 	);
 };

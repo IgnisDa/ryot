@@ -31,7 +31,13 @@ import {
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useNavigate,
+	useSubmit,
+} from "@remix-run/react";
 import {
 	EntityLot,
 	MetadataLot,
@@ -53,9 +59,10 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactNode, useRef, useState } from "react";
+import { ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import events from "~/lib/events";
 import {
 	dayjsLib,
@@ -81,7 +88,7 @@ export const commitMedia = async (
 	data.append("lot", lot);
 	data.append("source", source);
 	data.append(redirectToQueryParam, location);
-	const resp = await fetch("/actions?intent=commitMedia", {
+	const resp = await fetch(withQuery("/actions", { intent: "commitMedia" }), {
 		method: "POST",
 		body: data,
 	});
@@ -157,13 +164,9 @@ export const ReviewItemDisplay = (props: {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
-	const createReviewCommentFetcher = useFetcher();
-	const deleteReviewCommentFormRef = useRef<HTMLFormElement>(null);
-	const deleteReviewCommentFetcher = useFetcher();
-	const changeScoreFormRef = useRef<HTMLFormElement>(null);
-	const changeScoreFetcher = useFetcher();
 	const deleteReviewFetcher = useFetcher();
+
+	const submit = useSubmit();
 
 	return (
 		<>
@@ -227,7 +230,9 @@ export const ReviewItemDisplay = (props: {
 											} as any,
 											{
 												method: "post",
-												action: "/actions?intent=performReviewAction",
+												action: withQuery("/actions", {
+													intent: "performReviewAction",
+												}),
 											},
 										);
 								}}
@@ -300,10 +305,10 @@ export const ReviewItemDisplay = (props: {
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<createReviewCommentFetcher.Form
+						<Form
 							action="/actions?intent=createReviewComment"
 							method="post"
-							ref={createReviewCommentFormRef}
+							onSubmit={() => toggleLeaveComment()}
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
 							<HiddenLocationInput />
@@ -313,19 +318,11 @@ export const ReviewItemDisplay = (props: {
 									placeholder="Enter comment"
 									style={{ flex: 1 }}
 								/>
-								<ActionIcon
-									color="green"
-									onClick={() => {
-										createReviewCommentFetcher.submit(
-											createReviewCommentFormRef.current,
-										);
-										toggleLeaveComment();
-									}}
-								>
+								<ActionIcon color="green" type="submit">
 									<IconCheck />
 								</ActionIcon>
 							</Group>
-						</createReviewCommentFetcher.Form>
+						</Form>
 					) : null}
 					{!openedLeaveComment ? (
 						<Button
@@ -354,10 +351,9 @@ export const ReviewItemDisplay = (props: {
 														) : null}
 													</Box>
 													{props.user.id === c?.user?.id ? (
-														<deleteReviewCommentFetcher.Form
+														<Form
 															action="/actions?intent=createReviewComment"
 															method="post"
-															ref={deleteReviewCommentFormRef}
 														>
 															<input
 																hidden
@@ -377,26 +373,26 @@ export const ReviewItemDisplay = (props: {
 															<HiddenLocationInput />
 															<ActionIcon
 																color="red"
-																onClick={async () => {
+																type="submit"
+																onClick={async (e) => {
+																	const form = e.currentTarget.form;
+																	e.preventDefault();
 																	const conf = await confirmWrapper({
 																		confirmation:
 																			"Are you sure you want to delete this comment?",
 																	});
-																	if (conf)
-																		deleteReviewCommentFetcher.submit(
-																			deleteReviewCommentFormRef.current,
-																		);
+																	if (conf) submit(form);
 																}}
 															>
 																<IconTrash size={16} />
 															</ActionIcon>
-														</deleteReviewCommentFetcher.Form>
+														</Form>
 													) : null}
-													<changeScoreFetcher.Form
+													<Form
 														action="/actions?intent=createReviewComment"
 														method="post"
-														ref={changeScoreFormRef}
 													>
+														<HiddenLocationInput />
 														<input
 															hidden
 															name="reviewId"
@@ -410,29 +406,24 @@ export const ReviewItemDisplay = (props: {
 														<input
 															hidden
 															name="incrementLikes"
-															defaultValue={String(
+															value={String(
 																!c?.likedBy?.includes(props.user.id),
 															)}
+															readOnly
 														/>
-														<HiddenLocationInput />
 														<input
 															hidden
 															name="decrementLikes"
-															defaultValue={String(
+															value={String(
 																c?.likedBy?.includes(props.user.id),
 															)}
+															readOnly
 														/>
-														<ActionIcon
-															onClick={() => {
-																changeScoreFetcher.submit(
-																	changeScoreFormRef.current,
-																);
-															}}
-														>
+														<ActionIcon type="submit">
 															<IconArrowBigUp size={16} />
 															<Text>{c?.likedBy?.length}</Text>
 														</ActionIcon>
-													</changeScoreFetcher.Form>
+													</Form>
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
@@ -673,16 +664,11 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const removeEntityFromCollectionFormRef = useRef<HTMLFormElement>(null);
-	const removeEntityFromCollection = useFetcher();
+	const submit = useSubmit();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<removeEntityFromCollection.Form
-				action="/actions?intent=removeEntityFromCollection"
-				method="post"
-				ref={removeEntityFromCollectionFormRef}
-			>
+			<Form action="/actions?intent=removeEntityFromCollection" method="post">
 				<Flex gap={2}>
 					<Anchor
 						component={Link}
@@ -700,21 +686,20 @@ export const DisplayCollection = (props: {
 					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
-						onClick={async () => {
+						onClick={async (e) => {
+							const form = e.currentTarget.form;
+							e.preventDefault();
 							const conf = await confirmWrapper({
 								confirmation:
 									"Are you sure you want to remove this media from this collection?",
 							});
-							if (conf)
-								removeEntityFromCollection.submit(
-									removeEntityFromCollectionFormRef.current,
-								);
+							if (conf) submit(form);
 						}}
 					>
 						<IconX />
 					</ActionIcon>
 				</Flex>
-			</removeEntityFromCollection.Form>
+			</Form>
 		</Badge>
 	);
 };
@@ -740,9 +725,6 @@ export const PostReviewModal = (props: {
 	data?: PostReview;
 	lot?: MetadataLot;
 }) => {
-	const fetcher = useFetcher();
-	const formRef = useRef<HTMLFormElement>(null);
-
 	if (!props.data) return <></>;
 	return (
 		<Modal
@@ -753,13 +735,10 @@ export const PostReviewModal = (props: {
 		>
 			<Form
 				method="post"
-				ref={formRef}
 				action="/actions?intent=performReviewAction"
 				replace
-				onSubmit={(e) => {
-					e.preventDefault();
+				onSubmit={() => {
 					events.postReview(props.title);
-					fetcher.submit(formRef.current);
 					props.onClose();
 				}}
 			>
@@ -953,8 +932,6 @@ export const CreateReminderModal = (props: {
 	personId?: number;
 }) => {
 	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
-	const ref = useRef<HTMLFormElement>(null);
-	const fetcher = useFetcher();
 
 	return (
 		<Modal
@@ -963,11 +940,7 @@ export const CreateReminderModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<fetcher.Form
-				method="post"
-				action="/actions?intent=createMediaReminder"
-				ref={ref}
-			>
+			<Form method="post" action="/actions?intent=createMediaReminder">
 				<input
 					hidden
 					name="remindOn"
@@ -1008,16 +981,13 @@ export const CreateReminderModal = (props: {
 					<Button
 						data-autofocus
 						variant="outline"
-						onClick={(e) => {
-							e.preventDefault();
-							props.onClose();
-							fetcher.submit(ref.current);
-						}}
+						onClick={() => props.onClose()}
+						type="submit"
 					>
 						Submit
 					</Button>
 				</Stack>
-			</fetcher.Form>
+			</Form>
 		</Modal>
 	);
 };

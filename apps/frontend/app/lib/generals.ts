@@ -61,7 +61,8 @@ export const getFallbackImageUrl = (
 	colorScheme: Exclude<MantineColorScheme, "auto">,
 	text = "No Image",
 ) =>
-	`https://placehold.co/100x200/${colorScheme === "dark" ? "343632" : "c1c4bb"
+	`https://placehold.co/100x200/${
+		colorScheme === "dark" ? "343632" : "c1c4bb"
 	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 
 /**
