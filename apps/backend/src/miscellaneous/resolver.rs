@@ -1233,10 +1233,17 @@ impl MiscellaneousMutation {
     }
 
     /// Toggle the monitor on a media for a user.
-    async fn toggle_media_monitor(&self, gql_ctx: &Context<'_>, metadata_id: i32) -> Result<bool> {
+    async fn toggle_media_monitor(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: Option<i32>,
+        person_id: Option<i32>,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.toggle_media_monitor(user_id, metadata_id).await
+        service
+            .toggle_media_monitor(user_id, metadata_id, person_id)
+            .await
     }
 
     /// Create or update a reminder on a media for a user.
@@ -1728,7 +1735,9 @@ impl MiscellaneousService {
                 None
             }
         });
-        let is_monitored = self.get_monitored_status(user_id, metadata_id).await?;
+        let is_monitored = self
+            .get_metadata_monitored_status(user_id, metadata_id)
+            .await?;
         let metadata_alias = Alias::new("m");
         let seen_alias = Alias::new("s");
         let seen_select = Query::select()
@@ -5868,10 +5877,10 @@ impl MiscellaneousService {
                         .await
                         .ok();
                         let is_monitored = self
-                            .get_monitored_status(seen.user_id, seen.metadata_id)
+                            .get_metadata_monitored_status(seen.user_id, seen.metadata_id)
                             .await?;
                         if !is_monitored {
-                            self.toggle_media_monitor(seen.user_id, seen.metadata_id)
+                            self.toggle_media_monitor(seen.user_id, Some(seen.metadata_id), None)
                                 .await?;
                         }
                     }
@@ -6027,9 +6036,14 @@ GROUP BY
         Ok(())
     }
 
-    async fn toggle_media_monitor(&self, user_id: i32, metadata_id: i32) -> Result<bool> {
+    async fn toggle_media_monitor(
+        &self,
+        user_id: i32,
+        metadata_id: Option<i32>,
+        person_id: Option<i32>,
+    ) -> Result<bool> {
         let metadata =
-            associate_user_with_entity(&user_id, Some(metadata_id), None, &self.db).await?;
+            associate_user_with_entity(&user_id, metadata_id, person_id, &self.db).await?;
         let new_monitored_value = !metadata.media_monitored.unwrap_or_default();
         let mut metadata: user_to_entity::ActiveModel = metadata.into();
         metadata.media_monitored = ActiveValue::Set(Some(new_monitored_value));
@@ -6037,7 +6051,7 @@ GROUP BY
         Ok(new_monitored_value)
     }
 
-    async fn get_monitored_status(
+    async fn get_metadata_monitored_status(
         &self,
         user_id: i32,
         to_monitor_metadata_id: i32,
