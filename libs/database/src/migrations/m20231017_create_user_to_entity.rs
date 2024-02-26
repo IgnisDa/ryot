@@ -24,6 +24,7 @@ pub enum UserToEntity {
     UserId,
     CreatedOn,
     LastUpdatedOn,
+    NeedsToBeUpdated,
     // the entities that can be associated
     MetadataId,
     ExerciseId,
@@ -75,6 +76,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::PersonId).integer())
+                    .col(ColumnDef::new(UserToEntity::NeedsToBeUpdated).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")
