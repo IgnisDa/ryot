@@ -28,11 +28,7 @@ import {
 	ShouldRevalidateFunction,
 	useLoaderData,
 } from "@remix-run/react";
-import {
-	CoreDetails,
-	UpgradeType,
-	UserLot,
-} from "@ryot/generated/graphql/backend/graphql";
+import { CoreDetails, UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
@@ -48,7 +44,6 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { match } from "ts-pattern";
 import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
@@ -467,38 +462,8 @@ function LinksGroup({
 }
 
 const Footer = (props: { coreDetails: CoreDetails }) => {
-	const [color, text] = match(props.coreDetails.upgrade)
-		.with(undefined, null, () => [undefined, undefined])
-		.with(
-			UpgradeType.Minor,
-			() => ["blue", "There is an update available."] as const,
-		)
-		.with(
-			UpgradeType.Major,
-			() =>
-				[
-					"red",
-					<>
-						There is a major upgrade, please follow the{" "}
-						<Anchor
-							href="https://ignisda.github.io/ryot/migration.html"
-							target="_blank"
-						>
-							migration
-						</Anchor>{" "}
-						docs.
-					</>,
-				] as const,
-		)
-		.exhaustive();
-
 	return (
 		<Stack>
-			{props.coreDetails.upgrade ? (
-				<Text ta="center" c={color}>
-					{text}
-				</Text>
-			) : undefined}
 			<Flex gap={80} justify="center">
 				<Anchor
 					href={`${props.coreDetails.repositoryLink}/releases/v${props.coreDetails.version}`}
