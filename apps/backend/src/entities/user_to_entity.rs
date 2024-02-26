@@ -29,6 +29,8 @@ pub struct Model {
     pub media_reason: Option<Vec<UserToMediaReason>>,
     pub media_reminder: Option<UserMediaReminder>,
     pub media_monitored: Option<bool>,
+    #[graphql(skip)]
+    pub needs_to_be_updated: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

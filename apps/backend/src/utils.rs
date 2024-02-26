@@ -158,6 +158,7 @@ where
                 metadata_id: ActiveValue::Set(metadata_id),
                 person_id: ActiveValue::Set(person_id),
                 last_updated_on: ActiveValue::Set(Utc::now()),
+                needs_to_be_updated: ActiveValue::Set(Some(true)),
                 ..Default::default()
             };
             user_to_meta.insert(db).await.unwrap()

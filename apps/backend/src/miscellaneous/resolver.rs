@@ -2693,6 +2693,7 @@ impl MiscellaneousService {
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
         let all_user_to_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
             .all(&self.db)
             .await
             .unwrap();
@@ -2773,12 +2774,14 @@ impl MiscellaneousService {
                     );
                     let mut u: user_to_entity::ActiveModel = u.into();
                     u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.needs_to_be_updated = ActiveValue::Set(None);
                     u.update(&self.db).await.ok();
                 }
             }
         }
         let all_user_to_person = UserToEntity::find()
             .filter(user_to_entity::Column::PersonId.is_not_null())
+            .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
             .all(&self.db)
             .await
             .unwrap();
@@ -2840,6 +2843,7 @@ impl MiscellaneousService {
                     );
                     let mut u: user_to_entity::ActiveModel = u.into();
                     u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.needs_to_be_updated = ActiveValue::Set(None);
                     u.update(&self.db).await.ok();
                 }
             }
@@ -3459,6 +3463,7 @@ impl MiscellaneousService {
             if old_association.metadata_ownership.is_none() {
                 cloned.metadata_ownership = ActiveValue::Set(association.metadata_ownership);
             }
+            cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&self.db).await?;
         } else {
             UserToEntity::update_many()
