@@ -2383,6 +2383,7 @@ impl MiscellaneousService {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
         }
+        tracing::debug!("Input for progress_update = {:?}", input);
 
         let prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
