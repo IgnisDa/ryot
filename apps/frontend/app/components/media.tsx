@@ -927,7 +927,7 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 export const CreateReminderModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	title: string;
+	defaultText: string;
 	metadataId?: number;
 	personId?: number;
 }) => {
@@ -961,7 +961,7 @@ export const CreateReminderModal = (props: {
 						name="message"
 						label="Message"
 						required
-						defaultValue={`Complete '${props.title}'`}
+						defaultValue={props.defaultText}
 					/>
 					<DateInput
 						label="Remind on"

@@ -539,7 +539,7 @@ export default function Page() {
 			<CreateReminderModal
 				onClose={createMediaReminderModalClose}
 				opened={createMediaReminderModalOpened}
-				title={loaderData.mediaMainDetails.title}
+				defaultText={`Complete '${loaderData.mediaMainDetails.title}'`}
 				metadataId={loaderData.metadataId}
 			/>
 			<CreateOwnershipModal

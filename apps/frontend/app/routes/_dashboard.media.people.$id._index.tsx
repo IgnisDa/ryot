@@ -162,7 +162,7 @@ export default function Page() {
 			<CreateReminderModal
 				onClose={createMediaReminderModalClose}
 				opened={createMediaReminderModalOpened}
-				title={loaderData.personDetails.details.name}
+				defaultText={`Check out new releases by '${loaderData.personDetails.details.name}'`}
 				personId={loaderData.personId}
 			/>
 			<PostReviewModal
