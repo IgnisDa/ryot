@@ -15,6 +15,10 @@ impl MigrationTrait for Migration {
                 "alter table user_to_entity add column needs_to_be_updated boolean",
             )
             .await?;
+            db.execute_unprepared(
+                "update user_to_entity set needs_to_be_updated = true where exercise_id is null",
+            )
+            .await?;
         }
         Ok(())
     }
