@@ -988,6 +988,7 @@ export const CreateReminderModal = (props: {
 						hidden
 						name={props.metadataId ? "metadataId" : "personId"}
 						value={props.metadataId || props.personId}
+						readOnly
 					/>
 					<Button
 						data-autofocus
