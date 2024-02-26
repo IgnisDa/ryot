@@ -17,7 +17,7 @@ import {
 	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
-import { useFetcher } from "@remix-run/react";
+import { useFetcher, useLocation } from "@remix-run/react";
 import type {
 	EntityLot,
 	MetadataLot,
@@ -187,4 +187,13 @@ export const AddEntityToCollectionModal = (props: {
 			</addEntityToCollectionFetcher.Form>
 		</Modal>
 	);
+};
+
+export const HiddenLocationInput = () => {
+	const location = useLocation();
+
+	// TODO: https://github.com/unjs/ufo/issues/211
+	const value = location.pathname + location.search + location.hash;
+
+	return <input type="hidden" name="location" value={value} readOnly />;
 };
