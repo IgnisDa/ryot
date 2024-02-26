@@ -47,6 +47,7 @@ import {
 import {
 	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaMonitored,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -214,7 +215,7 @@ export default function Page() {
 							</>
 						) : null}
 					</Text>
-					<Group id="entity-collections">
+					<Group>
 						{loaderData.userPersonDetails.collections.length > 0
 							? loaderData.userPersonDetails.collections.map((col) => (
 									<DisplayCollection
@@ -227,6 +228,9 @@ export default function Page() {
 							: null}
 						{loaderData.personDetails.details.isPartial ? (
 							<MediaIsPartial mediaType="person" />
+						) : null}
+						{loaderData.userPersonDetails.isMonitored ? (
+							<DisplayMediaMonitored entityLot="person" />
 						) : null}
 					</Group>
 					{loaderData.userPersonDetails.reminder ? (
@@ -342,16 +346,34 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<Form
-												action="?intent=deployUpdatePersonJob"
+												action="/actions?intent=toggleMediaMonitor"
 												method="post"
 												replace
 											>
+												<HiddenLocationInput />
 												<Menu.Item
 													type="submit"
+													color={
+														loaderData.userPersonDetails.isMonitored
+															? "red"
+															: undefined
+													}
 													name="personId"
 													value={loaderData.personId}
+													onClick={(e) => {
+														if (loaderData.userPersonDetails.isMonitored)
+															if (
+																!confirm(
+																	"Are you sure you want to stop monitoring this person?",
+																)
+															)
+																e.preventDefault();
+													}}
 												>
-													Update person
+													{loaderData.userPersonDetails.isMonitored
+														? "Stop"
+														: "Start"}{" "}
+													monitoring
 												</Menu.Item>
 											</Form>
 											{loaderData.userPersonDetails.reminder ? (
@@ -387,6 +409,19 @@ export default function Page() {
 													Create reminder
 												</Menu.Item>
 											)}
+											<Form
+												action="?intent=deployUpdatePersonJob"
+												method="post"
+												replace
+											>
+												<Menu.Item
+													type="submit"
+													name="personId"
+													value={loaderData.personId}
+												>
+													Update person
+												</Menu.Item>
+											</Form>
 										</Menu.Dropdown>
 									</Menu>
 									<AddEntityToCollectionModal

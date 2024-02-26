@@ -74,7 +74,6 @@ import {
 	IconClock,
 	IconDeviceTv,
 	IconEdit,
-	IconEyeCheck,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPercentage,
@@ -99,6 +98,7 @@ import {
 import {
 	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaMonitored,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -597,10 +597,7 @@ export default function Page() {
 										  ))
 										: null}
 									{userMediaDetails.isMonitored ? (
-										<Flex align="center" gap={2}>
-											<IconEyeCheck size={20} />
-											<Text size="xs">This media is being monitored</Text>
-										</Flex>
+										<DisplayMediaMonitored />
 									) : null}
 									{userMediaDetails.ownership ? (
 										<Flex align="center" gap={2}>

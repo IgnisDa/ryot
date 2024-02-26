@@ -44,9 +44,9 @@ import {
 	MetadataSource,
 	type PartialMetadata,
 	type ReviewItem,
+	UserMediaReminderPartFragment,
 	UserReviewScale,
 	Visibility,
-	UserMediaReminderPartFragment,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
@@ -56,6 +56,7 @@ import {
 	IconCheck,
 	IconDropletHalf2Filled,
 	IconEdit,
+	IconEyeCheck,
 	IconPercentage,
 	IconStarFilled,
 	IconTrash,
@@ -1002,5 +1003,16 @@ export const DisplayMediaReminder = (props: {
 			Reminder for {props.d.remindOn}
 			<Text c="green">{props.d.message}</Text>
 		</Alert>
+	);
+};
+
+export const DisplayMediaMonitored = (props: { entityLot?: string }) => {
+	return (
+		<Flex align="center" gap={2}>
+			<IconEyeCheck size={20} />
+			<Text size="xs">
+				This {props.entityLot || "media"} is being monitored
+			</Text>
+		</Flex>
 	);
 };
