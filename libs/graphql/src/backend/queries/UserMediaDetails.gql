@@ -15,8 +15,7 @@ query UserMediaDetails($metadataId: Int!) {
       ...ReviewItemPart
     }
     reminder {
-      remindOn
-      message
+      ...UserMediaReminderPart
     }
     ownership {
       markedOn
