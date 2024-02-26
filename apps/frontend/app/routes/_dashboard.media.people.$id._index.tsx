@@ -41,9 +41,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateReminderModal,
 	DisplayCollection,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -147,9 +149,22 @@ export default function Page() {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
+	const [
+		createMediaReminderModalOpened,
+		{
+			open: createMediaReminderModalOpen,
+			close: createMediaReminderModalClose,
+		},
+	] = useDisclosure(false);
 
 	return (
 		<>
+			<CreateReminderModal
+				onClose={createMediaReminderModalClose}
+				opened={createMediaReminderModalOpened}
+				title={loaderData.personDetails.details.name}
+				personId={loaderData.personId}
+			/>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -335,6 +350,39 @@ export default function Page() {
 													Update person
 												</Menu.Item>
 											</Form>
+											{loaderData.userPersonDetails.reminder ? (
+												<Form
+													action="/actions?intent=deleteMediaReminder"
+													method="post"
+													replace
+												>
+													<input
+														hidden
+														name="personId"
+														value={loaderData.personId}
+														readOnly
+													/>
+													<HiddenLocationInput />
+													<Menu.Item
+														type="submit"
+														color="red"
+														onClick={(e) => {
+															if (
+																!confirm(
+																	"Are you sure you want to delete this reminder?",
+																)
+															)
+																e.preventDefault();
+														}}
+													>
+														Remove reminder
+													</Menu.Item>
+												</Form>
+											) : (
+												<Menu.Item onClick={createMediaReminderModalOpen}>
+													Create reminder
+												</Menu.Item>
+											)}
 										</Menu.Dropdown>
 									</Menu>
 									<AddEntityToCollectionModal

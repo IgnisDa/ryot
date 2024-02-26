@@ -1305,11 +1305,7 @@ export default function Page() {
 																<HiddenLocationInput />
 																<Menu.Item
 																	type="submit"
-																	color={
-																		userMediaDetails.reminder
-																			? "red"
-																			: undefined
-																	}
+																	color="red"
 																	onClick={(e) => {
 																		if (
 																			!confirm(
