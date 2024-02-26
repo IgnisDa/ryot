@@ -6,7 +6,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if manager
+        if !manager
             .has_column("user_to_entity", "needs_to_be_updated")
             .await?
         {
