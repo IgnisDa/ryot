@@ -585,6 +585,8 @@ struct ProgressUpdateCache {
 struct UserPersonDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
+    reminder: Option<UserMediaReminder>,
+    is_monitored: Option<bool>,
 }
 
 #[derive(SimpleObject)]
@@ -1799,9 +1801,13 @@ impl MiscellaneousService {
             .await?;
         let collections =
             entity_in_collections(&self.db, user_id, None, Some(creator_id), None, None).await?;
+        let association =
+            get_user_to_entity_association(&user_id, None, Some(creator_id), &self.db).await;
         Ok(UserPersonDetails {
             reviews,
             collections,
+            is_monitored: association.clone().and_then(|n| n.media_monitored),
+            reminder: association.and_then(|n| n.media_reminder),
         })
     }
 
