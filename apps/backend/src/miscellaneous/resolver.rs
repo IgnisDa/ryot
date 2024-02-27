@@ -6968,8 +6968,8 @@ GROUP BY
             if already_intermediate.is_none() {
                 notifications.push((
                     format!(
-                        "{} has been associated with {} ({}).",
-                        title, person.name, role
+                        "{} has been associated with {} as {}",
+                        person.name, title, role
                     ),
                     MediaStateChanged::PersonMediaAssociated,
                 ));
