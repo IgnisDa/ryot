@@ -5959,6 +5959,43 @@ GROUP BY
             .collect())
     }
 
+    // Get all the users that need to be sent notifications for person state change.
+    pub async fn users_to_be_notified_for_person_state_changes(
+        &self,
+    ) -> Result<HashMap<i32, Vec<i32>>> {
+        #[derive(Debug, FromQueryResult, Clone, Default)]
+        struct UsersToBeNotified {
+            person_id: i32,
+            to_notify: Vec<i32>,
+        }
+        // DEV: Ideally this should be using a materialized view, but I am too lazy.
+        let person_map: Vec<_> =
+            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
+SELECT
+    p.id as person_id,
+    array_agg(DISTINCT CASE WHEN u.id IS NOT NULL THEN u.id END) as to_notify
+FROM
+    person p
+LEFT JOIN user_to_entity ute ON p.id = ute.person_id
+LEFT JOIN "user" u ON ute.user_id = u.id
+WHERE
+    ute.media_monitored = true
+GROUP BY
+    p.id;
+        "#,
+                [],
+            ))
+            .all(&self.db)
+            .await?;
+        Ok(person_map
+            .into_iter()
+            .filter(|m| !m.to_notify.is_empty())
+            .map(|m| (m.person_id, m.to_notify))
+            .collect())
+    }
+
     pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
         if !self.config.server.update_monitored_media {
             tracing::debug!("Monitored media updating has been disabled.");
