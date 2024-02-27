@@ -55,6 +55,7 @@ mod m20240224_5_migrate_user_to_person_entries;
 mod m20240225_0_change_metadata_monitored_to_media_monitored;
 mod m20240225_1_change_metadata_reminder_to_media_reminder;
 mod m20240226_add_needs_to_be_updated_field;
+mod m20240227_add_user_to_entity_constraint;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -127,6 +128,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240225_0_change_metadata_monitored_to_media_monitored::Migration),
             Box::new(m20240225_1_change_metadata_reminder_to_media_reminder::Migration),
             Box::new(m20240226_add_needs_to_be_updated_field::Migration),
+            Box::new(m20240227_add_user_to_entity_constraint::Migration),
         ]
     }
 }

@@ -10,6 +10,16 @@ pub struct Migration;
 
 pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
 pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
+pub static CONSTRAINT_SQL: &str = r#"
+ALTER TABLE "user_to_entity"
+ADD CONSTRAINT "user_to_entity__ensure_one_entity"
+CHECK (
+    (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END)
+    = 1
+);
+"#;
 
 /// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
@@ -42,6 +52,7 @@ pub enum UserToEntity {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
         manager
             .create_table(
                 Table::create()
@@ -145,6 +156,7 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        db.execute_unprepared(CONSTRAINT_SQL).await?;
         Ok(())
     }
 
