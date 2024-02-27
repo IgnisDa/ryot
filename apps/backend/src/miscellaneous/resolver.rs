@@ -5920,7 +5920,9 @@ impl MiscellaneousService {
     }
 
     /// Get all the users that need to be sent notifications for metadata state change.
-    pub async fn users_to_be_notified_for_state_changes(&self) -> Result<HashMap<i32, Vec<i32>>> {
+    pub async fn users_to_be_notified_for_metadata_state_changes(
+        &self,
+    ) -> Result<HashMap<i32, Vec<i32>>> {
         #[derive(Debug, FromQueryResult, Clone, Default)]
         struct UsersToBeNotified {
             metadata_id: i32,
@@ -5962,7 +5964,9 @@ GROUP BY
             tracing::debug!("Monitored media updating has been disabled.");
             return Ok(());
         }
-        let meta_map = self.users_to_be_notified_for_state_changes().await?;
+        let meta_map = self
+            .users_to_be_notified_for_metadata_state_changes()
+            .await?;
         tracing::debug!("Users to be notified for state changes: {:?}", meta_map);
         for (metadata_id, to_notify) in meta_map {
             let notifications = self.update_metadata(metadata_id).await?;
@@ -6816,7 +6820,9 @@ GROUP BY
                 (meta.id, (notification, MediaStateChanged::MediaPublished))
             })
             .collect_vec();
-        let meta_map = self.users_to_be_notified_for_state_changes().await?;
+        let meta_map = self
+            .users_to_be_notified_for_metadata_state_changes()
+            .await?;
         for (metadata_id, notification) in notifications.into_iter() {
             let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
             for user in users_to_notify {

@@ -185,7 +185,7 @@ pub async fn perform_application_job(
             let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
             if !notifications.is_empty() {
                 let users_to_notify = misc_service
-                    .users_to_be_notified_for_state_changes()
+                    .users_to_be_notified_for_metadata_state_changes()
                     .await
                     .unwrap()
                     .get(&metadata.id)
