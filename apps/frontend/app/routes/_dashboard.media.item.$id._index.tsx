@@ -278,8 +278,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				metadataId: submission.metadataId,
 				progress: 100,
 				date: submission.date,
-				showEpisodeNumber: submission.showEpisodeNumber,
 				showSeasonNumber: submission.showSeasonNumber,
+				showEpisodeNumber: submission.showEpisodeNumber,
 				podcastEpisodeNumber: submission.podcastEpisodeNumber,
 				animeEpisodeNumber: submission.animeEpisodeNumber,
 				mangaChapterNumber: submission.mangaChapterNumber,
@@ -329,14 +329,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							});
 						}
 					}
-					needsFinalUpdate = true;
+					needsFinalUpdate = false;
 				}
 				if (submission.onlySeason) {
 					const selectedSeason = showSpecifics.find(
 						(s) => s.seasonNumber === submission.showSeasonNumber,
 					);
 					invariant(selectedSeason, "No season selected");
-					needsFinalUpdate = true;
+					needsFinalUpdate = false;
 					if (submission.showAllSeasonsBefore) {
 						for (const season of showSpecifics) {
 							if (season.seasonNumber > selectedSeason.seasonNumber) break;
@@ -366,7 +366,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							podcastEpisodeNumber: episode.episodeNumber,
 						});
 					}
-					needsFinalUpdate = true;
+					needsFinalUpdate = false;
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
