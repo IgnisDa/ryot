@@ -1,7 +1,6 @@
 use std::{
     env,
     fs::{self, create_dir_all},
-    io::{Error as IoError, ErrorKind as IoErrorKind},
     path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -32,7 +31,7 @@ use rs_utils::PROJECT_NAME;
 use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
-use tokio::{net::TcpListener, try_join};
+use tokio::{join, net::TcpListener};
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -95,6 +94,7 @@ async fn main() -> Result<()> {
     let user_cleanup_every = config.scheduler.user_cleanup_every;
     let pull_every = config.integration.pull_every;
     let max_file_size = config.server.max_file_size;
+    let disable_background_jobs = config.server.disable_background_jobs;
     fs::write(
         &config.server.config_dump_path,
         serde_json::to_string_pretty(&config)?,
@@ -248,7 +248,7 @@ async fn main() -> Result<()> {
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
-        let mn = Monitor::new()
+        Monitor::new()
             // cron jobs
             .register_with_count(1, move |c| {
                 WorkerBuilder::new(format!("general_user_cleanup-{c}"))
@@ -313,17 +313,21 @@ async fn main() -> Result<()> {
                     .build_fn(perform_application_job)
             })
             .run()
-            .await;
-        Ok(mn)
+            .await
+            .unwrap();
     };
 
     let http = async {
         axum::serve(listener, app_routes.into_make_service())
             .await
-            .map_err(|e| IoError::new(IoErrorKind::Interrupted, e))
+            .unwrap();
     };
 
-    let _res = try_join!(monitor, http).expect("Could not start services");
+    if disable_background_jobs {
+        join!(http);
+    } else {
+        join!(monitor, http);
+    }
 
     Ok(())
 }
