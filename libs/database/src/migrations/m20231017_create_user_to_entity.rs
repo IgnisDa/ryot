@@ -10,6 +10,16 @@ pub struct Migration;
 
 pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
 pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
+pub static CONSTRAINT_SQL: &str = r#"
+ALTER TABLE "user_to_entity"
+ADD CONSTRAINT "user_to_entity__ensure_one_entity"
+CHECK (
+    (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END)
+    = 1
+);
+"#;
 
 /// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
@@ -24,13 +34,14 @@ pub enum UserToEntity {
     UserId,
     CreatedOn,
     LastUpdatedOn,
+    NeedsToBeUpdated,
     // the entities that can be associated
     MetadataId,
     ExerciseId,
     PersonId,
     // specifics
-    MetadataMonitored,
-    MetadataReminder,
+    MediaMonitored,
+    MediaReminder,
     MetadataUnitsConsumed,
     MetadataOwnership,
     ExerciseExtraInformation,
@@ -41,6 +52,7 @@ pub enum UserToEntity {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
         manager
             .create_table(
                 Table::create()
@@ -59,8 +71,8 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
-                    .col(ColumnDef::new(UserToEntity::MetadataMonitored).boolean())
-                    .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
+                    .col(ColumnDef::new(UserToEntity::MediaMonitored).boolean())
+                    .col(ColumnDef::new(UserToEntity::MediaReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataId).integer())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())
@@ -75,6 +87,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::PersonId).integer())
+                    .col(ColumnDef::new(UserToEntity::NeedsToBeUpdated).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")
@@ -143,6 +156,7 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        db.execute_unprepared(CONSTRAINT_SQL).await?;
         Ok(())
     }
 

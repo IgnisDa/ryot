@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{associate_user_with_metadata, associate_user_with_person};
+use crate::utils::associate_user_with_entity;
 
 use super::prelude::Collection;
 
@@ -106,15 +106,9 @@ impl ActiveModelBehavior for ActiveModel {
                 .one(db)
                 .await?
                 .unwrap();
-            if let Some(metadata_id) = model.metadata_id {
-                associate_user_with_metadata(&collection.user_id, &metadata_id, db)
-                    .await
-                    .ok();
-            } else if let Some(person_id) = model.person_id {
-                associate_user_with_person(&collection.user_id, &person_id, db)
-                    .await
-                    .ok();
-            }
+            associate_user_with_entity(&collection.user_id, model.metadata_id, model.person_id, db)
+                .await
+                .ok();
         }
         Ok(model)
     }

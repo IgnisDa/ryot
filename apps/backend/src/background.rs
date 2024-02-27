@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use crate::{
-    entities::{metadata, person},
     exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
@@ -47,7 +46,14 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     if env::var("DISABLE_UPDATE_WATCHLIST_MEDIA").is_err() {
         tracing::trace!("Checking for updates for media in Watchlist");
         service
-            .update_watchlist_media_and_send_notifications()
+            .update_watchlist_metadata_and_send_notifications()
+            .await
+            .unwrap();
+    }
+    if env::var("DISABLE_UPDATE_MONITORED_PEOPLE").is_err() {
+        tracing::trace!("Checking for updates for monitored people");
+        service
+            .update_monitored_people_and_send_notifications()
             .await
             .unwrap();
     }
@@ -138,14 +144,14 @@ pub async fn perform_core_application_job(
     Ok(())
 }
 
-// The background jobs which can be throttled.
+// The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
-    ImportFromExternalSource(i32, DeployImportJobInput),
+    ImportFromExternalSource(i32, Box<DeployImportJobInput>),
     ReEvaluateUserWorkouts(i32),
-    UpdateMetadata(metadata::Model),
+    UpdateMetadata(i32),
     UpdateExerciseJob(Exercise),
-    UpdatePerson(person::Model),
+    UpdatePerson(i32),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
     ReviewPosted(ReviewPostedEvent),
@@ -181,31 +187,14 @@ pub async fn perform_application_job(
             .re_evaluate_user_workouts(user_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdateMetadata(metadata) => {
-            let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
-            if !notifications.is_empty() {
-                let users_to_notify = misc_service
-                    .users_to_be_notified_for_state_changes()
-                    .await
-                    .unwrap()
-                    .get(&metadata.id)
-                    .cloned()
-                    .unwrap_or_default();
-                for notification in notifications {
-                    for user_id in users_to_notify.iter() {
-                        misc_service
-                            .send_media_state_changed_notification_for_user(
-                                user_id.to_owned(),
-                                &notification,
-                            )
-                            .await
-                            .ok();
-                    }
-                }
-            }
-            true
-        }
-        ApplicationJob::UpdatePerson(person) => misc_service.update_person(person.id).await.is_ok(),
+        ApplicationJob::UpdateMetadata(metadata_id) => misc_service
+            .update_metadata_and_notify_users(metadata_id)
+            .await
+            .is_ok(),
+        ApplicationJob::UpdatePerson(person_id) => misc_service
+            .update_person_and_notify_users(person_id)
+            .await
+            .is_ok(),
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
         }

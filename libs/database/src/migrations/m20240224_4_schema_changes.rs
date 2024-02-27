@@ -27,8 +27,6 @@ alter table review alter column comments set not null;
 alter table workout alter column summary set not null;
 alter table workout alter column information set not null;
 
-alter table user_to_entity alter column metadata_reminder type jsonb;
-
 DO $$
 BEGIN
     IF EXISTS (
@@ -45,6 +43,15 @@ $$;
 "#,
         )
         .await?;
+        if manager
+            .has_column("user_to_entity", "metadata_reminder")
+            .await?
+        {
+            db.execute_unprepared(
+                "alter table user_to_entity alter column metadata_reminder type jsonb",
+            )
+            .await?;
+        }
         Ok(())
     }
 

@@ -23,6 +23,9 @@ pub struct UserNotificationsPreferences {
     // Anime and Manga
     pub number_of_chapters_or_episodes_changed: bool,
     pub new_review_posted: bool,
+    // People
+    #[serde(default)] // FIXME: remove in the next major release
+    pub new_media_associated: bool,
 }
 
 impl Default for UserNotificationsPreferences {
@@ -37,6 +40,7 @@ impl Default for UserNotificationsPreferences {
             number_of_seasons_changed: true,
             number_of_chapters_or_episodes_changed: true,
             new_review_posted: true,
+            new_media_associated: true,
         }
     }
 }
@@ -270,9 +274,11 @@ pub struct UserGeneralDashboardElement {
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
+    pub dashboard: Vec<UserGeneralDashboardElement>,
     #[serde(default)] // FIXME: remove in the next major release
     pub disable_yank_integrations: bool,
-    pub dashboard: Vec<UserGeneralDashboardElement>,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub disable_navigation_animation: bool,
 }
 
 impl Default for UserGeneralPreferences {
@@ -280,7 +286,6 @@ impl Default for UserGeneralPreferences {
         Self {
             review_scale: UserReviewScale::default(),
             display_nsfw: true,
-            disable_yank_integrations: false,
             dashboard: vec![
                 UserGeneralDashboardElement {
                     section: DashboardElementLot::Upcoming,
@@ -298,6 +303,8 @@ impl Default for UserGeneralPreferences {
                     num_elements: None,
                 },
             ],
+            disable_yank_integrations: false,
+            disable_navigation_animation: false,
         }
     }
 }

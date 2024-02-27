@@ -192,13 +192,13 @@ server:
   # @envvar SERVER_VIDEOS_DISABLED
   videos_disabled: false
 
-  # Whether monitored media will be updated.
-  # @envvar SERVER_UPDATE_MONITORED_MEDIA
-  update_monitored_media: true
-
   # Whether the graphql playground will be enabled.
   # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
   graphql_playground_enabled: true
+
+  # Disable all background jobs.
+  # @envvar SERVER_DISABLE_BACKGROUND_JOBS
+  disable_background_jobs: false
 
 # Settings related to users.
 users:

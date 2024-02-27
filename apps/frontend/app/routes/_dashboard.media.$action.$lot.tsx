@@ -54,6 +54,7 @@ import {
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -630,16 +631,18 @@ const MediaSearchItem = (props: {
 						setIsLoading(true);
 						const id = await basicCommit(e);
 						const form = new FormData();
-						form.append("intent", "addEntityToCollection");
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
 						const collectionName = "Watchlist";
 						form.append("collectionName", collectionName);
-						await fetch($path("/actions"), {
-							body: form,
-							method: "POST",
-							credentials: "include",
-						});
+						await fetch(
+							withQuery($path("/actions"), { intent: "addEntityToCollection" }),
+							{
+								body: form,
+								method: "POST",
+								credentials: "include",
+							},
+						);
 						events.addToCollection(EntityLot.Media);
 						setIsLoading(false);
 						revalidator.revalidate();

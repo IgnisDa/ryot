@@ -25,40 +25,57 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useNavigate,
+	useSubmit,
+} from "@remix-run/react";
 import {
 	EntityLot,
 	MetadataLot,
 	MetadataSource,
 	type PartialMetadata,
 	type ReviewItem,
+	UserMediaReminderPartFragment,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/ts-utils";
+import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
+	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconCheck,
 	IconDropletHalf2Filled,
 	IconEdit,
+	IconEyeCheck,
 	IconPercentage,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactNode, useRef, useState } from "react";
+import { ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import events from "~/lib/events";
-import { dayjsLib, getFallbackImageUrl } from "~/lib/generals";
+import {
+	dayjsLib,
+	getFallbackImageUrl,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/common.module.css";
+import { HiddenLocationInput } from "./common";
 import { confirmWrapper } from "./confirmation";
 
 export const commitMedia = async (
@@ -67,10 +84,14 @@ export const commitMedia = async (
 	source: MetadataSource,
 ) => {
 	const data = new FormData();
+	// TODO: https://github.com/unjs/ufo/issues/211
+	const location =
+		window.location.pathname + window.location.search + window.location.hash;
 	data.append("identifier", identifier);
 	data.append("lot", lot);
 	data.append("source", source);
-	const resp = await fetch("/actions?intent=commitMedia", {
+	data.append(redirectToQueryParam, location);
+	const resp = await fetch(withQuery("/actions", { intent: "commitMedia" }), {
 		method: "POST",
 		body: data,
 	});
@@ -146,13 +167,9 @@ export const ReviewItemDisplay = (props: {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
-	const createReviewCommentFetcher = useFetcher();
-	const deleteReviewCommentFormRef = useRef<HTMLFormElement>(null);
-	const deleteReviewCommentFetcher = useFetcher();
-	const changeScoreFormRef = useRef<HTMLFormElement>(null);
-	const changeScoreFetcher = useFetcher();
 	const deleteReviewFetcher = useFetcher();
+
+	const submit = useSubmit();
 
 	return (
 		<>
@@ -216,7 +233,9 @@ export const ReviewItemDisplay = (props: {
 											} as any,
 											{
 												method: "post",
-												action: "/actions?intent=performReviewAction",
+												action: withQuery("/actions", {
+													intent: "performReviewAction",
+												}),
 											},
 										);
 								}}
@@ -289,31 +308,24 @@ export const ReviewItemDisplay = (props: {
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<createReviewCommentFetcher.Form
+						<Form
 							action="/actions?intent=createReviewComment"
 							method="post"
-							ref={createReviewCommentFormRef}
+							onSubmit={() => toggleLeaveComment()}
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
+							<HiddenLocationInput />
 							<Group>
 								<TextInput
 									name="text"
 									placeholder="Enter comment"
 									style={{ flex: 1 }}
 								/>
-								<ActionIcon
-									color="green"
-									onClick={() => {
-										createReviewCommentFetcher.submit(
-											createReviewCommentFormRef.current,
-										);
-										toggleLeaveComment();
-									}}
-								>
+								<ActionIcon color="green" type="submit">
 									<IconCheck />
 								</ActionIcon>
 							</Group>
-						</createReviewCommentFetcher.Form>
+						</Form>
 					) : null}
 					{!openedLeaveComment ? (
 						<Button
@@ -342,10 +354,9 @@ export const ReviewItemDisplay = (props: {
 														) : null}
 													</Box>
 													{props.user.id === c?.user?.id ? (
-														<deleteReviewCommentFetcher.Form
+														<Form
 															action="/actions?intent=createReviewComment"
 															method="post"
-															ref={deleteReviewCommentFormRef}
 														>
 															<input
 																hidden
@@ -362,28 +373,29 @@ export const ReviewItemDisplay = (props: {
 																name="shouldDelete"
 																defaultValue="true"
 															/>
+															<HiddenLocationInput />
 															<ActionIcon
 																color="red"
-																onClick={async () => {
+																type="submit"
+																onClick={async (e) => {
+																	const form = e.currentTarget.form;
+																	e.preventDefault();
 																	const conf = await confirmWrapper({
 																		confirmation:
 																			"Are you sure you want to delete this comment?",
 																	});
-																	if (conf)
-																		deleteReviewCommentFetcher.submit(
-																			deleteReviewCommentFormRef.current,
-																		);
+																	if (conf) submit(form);
 																}}
 															>
 																<IconTrash size={16} />
 															</ActionIcon>
-														</deleteReviewCommentFetcher.Form>
+														</Form>
 													) : null}
-													<changeScoreFetcher.Form
+													<Form
 														action="/actions?intent=createReviewComment"
 														method="post"
-														ref={changeScoreFormRef}
 													>
+														<HiddenLocationInput />
 														<input
 															hidden
 															name="reviewId"
@@ -397,28 +409,24 @@ export const ReviewItemDisplay = (props: {
 														<input
 															hidden
 															name="incrementLikes"
-															defaultValue={String(
+															value={String(
 																!c?.likedBy?.includes(props.user.id),
 															)}
+															readOnly
 														/>
 														<input
 															hidden
 															name="decrementLikes"
-															defaultValue={String(
+															value={String(
 																c?.likedBy?.includes(props.user.id),
 															)}
+															readOnly
 														/>
-														<ActionIcon
-															onClick={() => {
-																changeScoreFetcher.submit(
-																	changeScoreFormRef.current,
-																);
-															}}
-														>
+														<ActionIcon type="submit">
 															<IconArrowBigUp size={16} />
 															<Text>{c?.likedBy?.length}</Text>
 														</ActionIcon>
-													</changeScoreFetcher.Form>
+													</Form>
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
@@ -659,16 +667,11 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const removeEntityFromCollectionFormRef = useRef<HTMLFormElement>(null);
-	const removeEntityFromCollection = useFetcher();
+	const submit = useSubmit();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<removeEntityFromCollection.Form
-				action="/actions?intent=removeEntityFromCollection"
-				method="post"
-				ref={removeEntityFromCollectionFormRef}
-			>
+			<Form action="/actions?intent=removeEntityFromCollection" method="post">
 				<Flex gap={2}>
 					<Anchor
 						component={Link}
@@ -683,23 +686,23 @@ export const DisplayCollection = (props: {
 					<input hidden name="entityId" defaultValue={props.entityId} />
 					<input hidden name="entityLot" defaultValue={props.entityLot} />
 					<input hidden name="collectionName" defaultValue={props.col.name} />
+					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
-						onClick={async () => {
+						onClick={async (e) => {
+							const form = e.currentTarget.form;
+							e.preventDefault();
 							const conf = await confirmWrapper({
 								confirmation:
 									"Are you sure you want to remove this media from this collection?",
 							});
-							if (conf)
-								removeEntityFromCollection.submit(
-									removeEntityFromCollectionFormRef.current,
-								);
+							if (conf) submit(form);
 						}}
 					>
 						<IconX />
 					</ActionIcon>
 				</Flex>
-			</removeEntityFromCollection.Form>
+			</Form>
 		</Badge>
 	);
 };
@@ -725,9 +728,6 @@ export const PostReviewModal = (props: {
 	data?: PostReview;
 	lot?: MetadataLot;
 }) => {
-	const fetcher = useFetcher();
-	const formRef = useRef<HTMLFormElement>(null);
-
 	if (!props.data) return <></>;
 	return (
 		<Modal
@@ -738,13 +738,10 @@ export const PostReviewModal = (props: {
 		>
 			<Form
 				method="post"
-				ref={formRef}
 				action="/actions?intent=performReviewAction"
 				replace
-				onSubmit={(e) => {
-					e.preventDefault();
+				onSubmit={() => {
 					events.postReview(props.title);
-					fetcher.submit(formRef.current);
 					props.onClose();
 				}}
 			>
@@ -764,6 +761,7 @@ export const PostReviewModal = (props: {
 					value={props.objectId}
 					readOnly
 				/>
+				<HiddenLocationInput />
 				{props.data.existingReview?.id ? (
 					<input hidden name="reviewId" value={props.data.existingReview.id} />
 				) : null}
@@ -925,6 +923,96 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 		<Flex align="center" gap={2}>
 			<IconDropletHalf2Filled size={20} />
 			<Text size="xs">This {props.mediaType} is partially downloaded</Text>
+		</Flex>
+	);
+};
+
+export const CreateReminderModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	defaultText: string;
+	metadataId?: number;
+	personId?: number;
+}) => {
+	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form method="post" action="/actions?intent=createMediaReminder">
+				<input
+					hidden
+					name="remindOn"
+					value={formatDateToNaiveDate(remindOn)}
+					readOnly
+				/>
+				<HiddenLocationInput />
+				<Stack>
+					<Title order={3}>Create a reminder</Title>
+					<Text>
+						A notification will be sent to all your configured{" "}
+						<Anchor to={$path("/settings/notifications")} component={Link}>
+							platforms
+						</Anchor>
+						.
+					</Text>
+					<TextInput
+						name="message"
+						label="Message"
+						required
+						defaultValue={props.defaultText}
+					/>
+					<DateInput
+						label="Remind on"
+						popoverProps={{ withinPortal: true }}
+						required
+						onChange={(v) => {
+							if (v) setRemindOn(v);
+						}}
+						value={remindOn}
+					/>
+					<input
+						hidden
+						name={props.metadataId ? "metadataId" : "personId"}
+						value={props.metadataId || props.personId}
+						readOnly
+					/>
+					<Button
+						data-autofocus
+						variant="outline"
+						onClick={() => props.onClose()}
+						type="submit"
+					>
+						Submit
+					</Button>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+export const DisplayMediaReminder = (props: {
+	d: UserMediaReminderPartFragment;
+}) => {
+	return (
+		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
+			Reminder for {props.d.remindOn}
+			<Text c="green">{props.d.message}</Text>
+		</Alert>
+	);
+};
+
+export const DisplayMediaMonitored = (props: { entityLot?: string }) => {
+	return (
+		<Flex align="center" gap={2}>
+			<IconEyeCheck size={20} />
+			<Text size="xs">
+				This {props.entityLot || "media"} is being monitored
+			</Text>
 		</Flex>
 	);
 };

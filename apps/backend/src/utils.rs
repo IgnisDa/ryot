@@ -16,7 +16,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
-use sea_query::{BinOper, Expr, Func, SimpleExpr, Value};
+use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -35,7 +35,7 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::{ChangeCollectionToEntityInput, EntityLot, StoredUrl},
+    models::{ChangeCollectionToEntityInput, StoredUrl},
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -119,9 +119,10 @@ pub async fn create_app_services(
     }
 }
 
-pub async fn get_user_and_metadata_association<C>(
+pub async fn get_user_to_entity_association<C>(
     user_id: &i32,
-    metadata_id: &i32,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
     db: &C,
 ) -> Option<user_to_entity::Model>
 where
@@ -129,58 +130,38 @@ where
 {
     UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-        .filter(user_to_entity::Column::MetadataId.eq(metadata_id.to_owned()))
+        .filter(
+            user_to_entity::Column::MetadataId
+                .eq(metadata_id.to_owned())
+                .or(user_to_entity::Column::PersonId.eq(person_id.to_owned())),
+        )
         .one(db)
         .await
         .ok()
         .flatten()
 }
 
-pub async fn associate_user_with_metadata<C>(
+pub async fn associate_user_with_entity<C>(
     user_id: &i32,
-    metadata_id: &i32,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
     db: &C,
 ) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
-    let user_to_meta = get_user_and_metadata_association(user_id, metadata_id, db).await;
+    let user_to_meta = get_user_to_entity_association(user_id, metadata_id, person_id, db).await;
     Ok(match user_to_meta {
         None => {
             let user_to_meta = user_to_entity::ActiveModel {
                 user_id: ActiveValue::Set(*user_id),
-                metadata_id: ActiveValue::Set(Some(*metadata_id)),
+                metadata_id: ActiveValue::Set(metadata_id),
+                person_id: ActiveValue::Set(person_id),
+                last_updated_on: ActiveValue::Set(Utc::now()),
+                needs_to_be_updated: ActiveValue::Set(Some(true)),
                 ..Default::default()
             };
             user_to_meta.insert(db).await.unwrap()
-        }
-        Some(u) => u,
-    })
-}
-
-pub async fn associate_user_with_person<C>(
-    user_id: &i32,
-    person_id: &i32,
-    db: &C,
-) -> Result<user_to_entity::Model>
-where
-    C: ConnectionTrait,
-{
-    let user_to_person = UserToEntity::find()
-        .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-        .filter(user_to_entity::Column::PersonId.eq(person_id.to_owned()))
-        .one(db)
-        .await
-        .ok()
-        .flatten();
-    Ok(match user_to_person {
-        None => {
-            let user_to_person = user_to_entity::ActiveModel {
-                user_id: ActiveValue::Set(*user_id),
-                person_id: ActiveValue::Set(Some(*person_id)),
-                ..Default::default()
-            };
-            user_to_person.insert(db).await.unwrap()
         }
         Some(u) => u,
     })
@@ -229,43 +210,37 @@ pub async fn get_stored_asset(
     }
 }
 
+type CteCol = collection_to_entity::Column;
+
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: i32,
-    entity_id: String,
-    entity_lot: EntityLot,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+    media_group_id: Option<i32>,
+    exercise_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
         .filter(collection::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
-    let target_column = match entity_lot {
-        EntityLot::Media => collection_to_entity::Column::MetadataId,
-        EntityLot::Person => collection_to_entity::Column::PersonId,
-        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
-        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
-        EntityLot::Collection => unreachable!(),
-    };
     let mtc = CollectionToEntity::find()
         .filter(
-            collection_to_entity::Column::CollectionId
-                .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
+            CteCol::CollectionId.is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(target_column.eq(match entity_id.parse::<i32>() {
-            Ok(id) => Value::Int(Some(id)),
-            Err(_) => Value::String(Some(Box::new(entity_id))),
-        }))
+        .filter(
+            CteCol::MetadataId
+                .eq(metadata_id)
+                .or(CteCol::PersonId.eq(person_id))
+                .or(CteCol::MetadataGroupId.eq(media_group_id))
+                .or(CteCol::ExerciseId.eq(exercise_id)),
+        )
         .find_also_related(Collection)
         .all(db)
         .await
         .unwrap();
-    let mut resp = vec![];
-    mtc.into_iter().for_each(|(_, b)| {
-        if let Some(m) = b {
-            resp.push(m);
-        }
-    });
+    let resp = mtc.into_iter().flat_map(|(_, b)| b).collect_vec();
     Ok(resp)
 }
 
@@ -274,13 +249,6 @@ pub async fn add_entity_to_collection(
     user_id: i32,
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
-    let target_column = match input.entity_lot {
-        EntityLot::Media => collection_to_entity::Column::MetadataId,
-        EntityLot::Person => collection_to_entity::Column::PersonId,
-        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
-        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
-        EntityLot::Collection => unreachable!(),
-    };
     let collection = Collection::find()
         .filter(collection::Column::UserId.eq(user_id.to_owned()))
         .filter(collection::Column::Name.eq(input.collection_name))
@@ -292,12 +260,13 @@ pub async fn add_entity_to_collection(
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(db).await.unwrap();
     let resp = if let Some(etc) = CollectionToEntity::find()
-        .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+        .filter(CteCol::CollectionId.eq(collection.id))
         .filter(
-            target_column.eq(match input.entity_id.clone().parse::<i32>() {
-                Ok(id) => Value::Int(Some(id)),
-                Err(_) => Value::String(Some(Box::new(input.entity_id.clone()))),
-            }),
+            CteCol::MetadataId
+                .eq(input.metadata_id)
+                .or(CteCol::PersonId.eq(input.person_id))
+                .or(CteCol::MetadataGroupId.eq(input.media_group_id))
+                .or(CteCol::ExerciseId.eq(input.exercise_id.clone())),
         )
         .one(db)
         .await?
@@ -310,24 +279,10 @@ pub async fn add_entity_to_collection(
             collection_id: ActiveValue::Set(collection.id),
             ..Default::default()
         };
-        match input.entity_lot {
-            EntityLot::Media => {
-                created_collection.metadata_id =
-                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
-            }
-            EntityLot::Person => {
-                created_collection.person_id =
-                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
-            }
-            EntityLot::MediaGroup => {
-                created_collection.metadata_group_id =
-                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
-            }
-            EntityLot::Exercise => {
-                created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
-            }
-            EntityLot::Collection => unreachable!(),
-        };
+        created_collection.metadata_id = ActiveValue::Set(input.metadata_id);
+        created_collection.person_id = ActiveValue::Set(input.person_id);
+        created_collection.metadata_group_id = ActiveValue::Set(input.media_group_id);
+        created_collection.exercise_id = ActiveValue::Set(input.exercise_id);
         created_collection.insert(db).await.is_ok()
     };
     Ok(resp)

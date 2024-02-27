@@ -2,19 +2,17 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use chrono::{NaiveDate, Utc};
+use chrono::NaiveDate;
 use database::SeenState;
 use sea_orm::{entity::prelude::*, ActiveValue};
-use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{prelude::UserToEntity, user_to_entity},
     models::media::{
         SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
         SeenShowExtraInformation,
     },
-    utils::associate_user_with_metadata,
+    utils::associate_user_with_entity,
 };
 
 // When updating a media item's progress, here are the things that should happen:
@@ -95,19 +93,10 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if insert {
-            associate_user_with_metadata(&model.user_id, &model.metadata_id, db)
+            associate_user_with_entity(&model.user_id, Some(model.metadata_id), None, db)
                 .await
                 .ok();
         }
-        UserToEntity::update_many()
-            .filter(user_to_entity::Column::UserId.eq(model.user_id))
-            .filter(user_to_entity::Column::MetadataId.eq(model.metadata_id))
-            .col_expr(
-                user_to_entity::Column::LastUpdatedOn,
-                Expr::value(Utc::now()),
-            )
-            .exec(db)
-            .await?;
         Ok(model)
     }
 }

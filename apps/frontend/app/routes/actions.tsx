@@ -3,21 +3,25 @@ import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
 	CommitMediaDocument,
+	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
+	DeleteMediaReminderDocument,
 	DeleteReviewDocument,
 	EntityLot,
 	MetadataLot,
 	MetadataSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
+	ToggleMediaMonitorDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
+import { redirectToQueryParam } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import {
 	MetadataSpecificsSchema,
@@ -29,90 +33,79 @@ export const loader = async () => redirect($path("/"));
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		commitMedia: async () => {
+	const url = new URL(request.url);
+	const intent = url.searchParams.get("intent") as string;
+	invariant(intent, "No intent provided");
+	let redirectTo = (formData.get(redirectToQueryParam) as string) || "/";
+	let headers = {};
+	let returnData = {};
+	await match(intent)
+		.with("commitMedia", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
 			const { commitMedia } = await gqlClient.request(
 				CommitMediaDocument,
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission, commitMedia } as const);
-		},
-		toggleColorScheme: async () => {
+			returnData = { commitMedia };
+		})
+		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
 				request.headers.get("Cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
-			return json(
-				{},
-				{
-					headers: {
-						"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
-					},
-				},
-			);
-		},
-		logout: async () => {
-			return redirect($path("/auth/login"), {
-				headers: {
-					"Set-Cookie": await getLogoutCookies(),
-				},
-			});
-		},
-		createReviewComment: async () => {
+			headers = {
+				"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
+			};
+		})
+		.with("logout", async () => {
+			redirectTo = $path("/auth/login");
+			headers = { "Set-Cookie": await getLogoutCookies() };
+		})
+		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
 			await gqlClient.request(
 				CreateReviewCommentDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					message:
-						submission.incrementLikes || submission.decrementLikes
-							? "Score changed successfully"
-							: `Comment ${
-									submission.shouldDelete ? "deleted" : "posted"
-							  } successfully`,
-					type: "success",
-				}),
+			headers = await createToastHeaders({
+				message:
+					submission.incrementLikes || submission.decrementLikes
+						? "Score changed successfully"
+						: `Comment ${
+								submission.shouldDelete ? "deleted" : "posted"
+						  } successfully`,
+				type: "success",
 			});
-		},
-		addEntityToCollection: async () => {
-			const submission = processSubmission(
-				formData,
-				changeCollectionToEntitySchema,
-			);
+		})
+		.with("addEntityToCollection", async () => {
+			const [submission, input] =
+				getChangeCollectionToEntityVariables(formData);
 			for (const collectionName of submission.collectionName) {
 				await gqlClient.request(
 					AddEntityToCollectionDocument,
-					{ input: { ...submission, collectionName } },
+					{ input: { ...input, collectionName } },
 					await getAuthorizationHeader(request),
 				);
 			}
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					message: "Media added to collection successfully",
-					type: "success",
-				}),
+			headers = await createToastHeaders({
+				message: "Media added to collection successfully",
+				type: "success",
 			});
-		},
-		removeEntityFromCollection: async () => {
-			const submission = processSubmission(
-				formData,
-				changeCollectionToEntitySchema,
-			);
+		})
+		.with("removeEntityFromCollection", async () => {
+			const [submission, input] =
+				getChangeCollectionToEntityVariables(formData);
 			for (const collectionName of submission.collectionName) {
 				await gqlClient.request(
 					RemoveEntityFromCollectionDocument,
-					{ input: { ...submission, collectionName } },
+					{ input: { ...input, collectionName } },
 					await getAuthorizationHeader(request),
 				);
 			}
-			return json({ status: "success", submission } as const);
-		},
-		performReviewAction: async () => {
+		})
+		.with("performReviewAction", async () => {
 			const submission = processSubmission(formData, reviewSchema);
 			if (submission.shouldDelete) {
 				invariant(submission.reviewId, "No reviewId provided");
@@ -121,11 +114,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ reviewId: submission.reviewId },
 					await getAuthorizationHeader(request),
 				);
-				return json({ status: "success", submission } as const, {
-					headers: await createToastHeaders({
-						message: "Review deleted successfully",
-						type: "success",
-					}),
+				headers = await createToastHeaders({
+					message: "Review deleted successfully",
+					type: "success",
 				});
 			}
 			await gqlClient.request(
@@ -133,14 +124,52 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					message: "Review submitted successfully",
-					type: "success",
-				}),
+			headers = await createToastHeaders({
+				message: "Review submitted successfully",
+				type: "success",
 			});
-		},
-	});
+		})
+		.with("createMediaReminder", async () => {
+			const submission = processSubmission(formData, createMediaReminderSchema);
+			const { createMediaReminder } = await gqlClient.request(
+				CreateMediaReminderDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			headers = await createToastHeaders({
+				type: !createMediaReminder ? "error" : undefined,
+				message: !createMediaReminder
+					? "Reminder was not created"
+					: "Reminder created successfully",
+			});
+		})
+		.with("deleteMediaReminder", async () => {
+			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			await gqlClient.request(
+				DeleteMediaReminderDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			headers = await createToastHeaders({
+				type: "success",
+				message: "Reminder deleted successfully",
+			});
+		})
+		.with("toggleMediaMonitor", async () => {
+			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			await gqlClient.request(
+				ToggleMediaMonitorDocument,
+				submission,
+				await getAuthorizationHeader(request),
+			);
+			headers = await createToastHeaders({
+				type: "success",
+				message: "Monitor toggled successfully",
+			});
+		})
+		.run();
+	if (Object.keys(returnData).length > 0) return json(returnData, { headers });
+	return redirect(redirectTo, { headers });
 };
 
 const commitMediaSchema = z.object({
@@ -178,3 +207,39 @@ const reviewSchema = z
 		reviewId: zx.IntAsString.optional(),
 	})
 	.merge(MetadataSpecificsSchema);
+
+const metadataOrPersonIdSchema = z.object({
+	metadataId: zx.IntAsString.optional(),
+	personId: zx.IntAsString.optional(),
+});
+
+const createMediaReminderSchema = z
+	.object({ message: z.string(), remindOn: z.string() })
+	.merge(metadataOrPersonIdSchema);
+
+const getChangeCollectionToEntityVariables = (formData: FormData) => {
+	const submission = processSubmission(
+		formData,
+		changeCollectionToEntitySchema,
+	);
+	const metadataId =
+		submission.entityLot === EntityLot.Media
+			? Number(submission.entityId)
+			: undefined;
+	const mediaGroupId =
+		submission.entityLot === EntityLot.MediaGroup
+			? Number(submission.entityId)
+			: undefined;
+	const personId =
+		submission.entityLot === EntityLot.Person
+			? Number(submission.entityId)
+			: undefined;
+	const exerciseId =
+		submission.entityLot === EntityLot.Exercise
+			? submission.entityId
+			: undefined;
+	return [
+		submission,
+		{ metadataId, mediaGroupId, exerciseId, personId },
+	] as const;
+};

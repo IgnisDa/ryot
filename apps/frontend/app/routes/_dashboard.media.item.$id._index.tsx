@@ -26,7 +26,6 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
@@ -43,8 +42,6 @@ import {
 } from "@remix-run/node";
 import { Await, Form, Link, useLoaderData } from "@remix-run/react";
 import {
-	CreateMediaReminderDocument,
-	DeleteMediaReminderDocument,
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
 	DeployUpdateMetadataJobDocument,
@@ -57,7 +54,6 @@ import {
 	MetadataSource,
 	MetadataVideoSource,
 	SeenState,
-	ToggleMediaMonitorDocument,
 	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
 	UserMediaDetailsDocument,
@@ -78,7 +74,6 @@ import {
 	IconClock,
 	IconDeviceTv,
 	IconEdit,
-	IconEyeCheck,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconPercentage,
@@ -97,10 +92,14 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaMonitored,
+	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
@@ -205,34 +204,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
-		deleteMediaReminder: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
-				DeleteMediaReminderDocument,
-				submission,
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Reminder deleted successfully",
-				}),
-			});
-		},
-		toggleMediaMonitor: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
-				ToggleMediaMonitorDocument,
-				submission,
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Monitor toggled successfully",
-				}),
-			});
-		},
 		toggleMediaOwnership: async () => {
 			const submission = processSubmission(formData, metadataIdSchema);
 			await gqlClient.request(
@@ -287,22 +258,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ type: "success", message: "Metadata merged successfully" },
 			);
 		},
-		createMediaReminder: async () => {
-			const submission = processSubmission(formData, createMediaReminderSchema);
-			const { createMediaReminder } = await gqlClient.request(
-				CreateMediaReminderDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: !createMediaReminder ? "error" : undefined,
-					message: !createMediaReminder
-						? "Reminder was not created"
-						: "Reminder created successfully",
-				}),
-			});
-		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
 			await gqlClient.request(
@@ -323,8 +278,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				metadataId: submission.metadataId,
 				progress: 100,
 				date: submission.date,
-				showEpisodeNumber: submission.showEpisodeNumber,
 				showSeasonNumber: submission.showSeasonNumber,
+				showEpisodeNumber: submission.showEpisodeNumber,
 				podcastEpisodeNumber: submission.podcastEpisodeNumber,
 				animeEpisodeNumber: submission.animeEpisodeNumber,
 				mangaChapterNumber: submission.mangaChapterNumber,
@@ -374,14 +329,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							});
 						}
 					}
-					needsFinalUpdate = true;
+					needsFinalUpdate = false;
 				}
 				if (submission.onlySeason) {
 					const selectedSeason = showSpecifics.find(
 						(s) => s.seasonNumber === submission.showSeasonNumber,
 					);
 					invariant(selectedSeason, "No season selected");
-					needsFinalUpdate = true;
+					needsFinalUpdate = false;
 					if (submission.showAllSeasonsBefore) {
 						for (const season of showSpecifics) {
 							if (season.seasonNumber > selectedSeason.seasonNumber) break;
@@ -411,7 +366,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							podcastEpisodeNumber: episode.episodeNumber,
 						});
 					}
-					needsFinalUpdate = true;
+					needsFinalUpdate = false;
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
@@ -448,13 +403,6 @@ const bulkUpdateSchema = z
 	.merge(metadataIdSchema);
 
 const seenIdSchema = z.object({ seenId: zx.IntAsString });
-
-const createMediaReminderSchema = z
-	.object({
-		message: z.string(),
-		remindOn: z.string(),
-	})
-	.merge(metadataIdSchema);
 
 const mergeMetadataSchema = z.object({
 	mergeFrom: zx.IntAsString,
@@ -577,8 +525,8 @@ export default function Page() {
 			<CreateReminderModal
 				onClose={createMediaReminderModalClose}
 				opened={createMediaReminderModalOpened}
+				defaultText={`Complete '${loaderData.mediaMainDetails.title}'`}
 				metadataId={loaderData.metadataId}
-				title={loaderData.mediaMainDetails.title}
 			/>
 			<CreateOwnershipModal
 				onClose={mediaOwnershipModalClose}
@@ -649,10 +597,7 @@ export default function Page() {
 										  ))
 										: null}
 									{userMediaDetails.isMonitored ? (
-										<Flex align="center" gap={2}>
-											<IconEyeCheck size={20} />
-											<Text size="xs">This media is being monitored</Text>
-										</Flex>
+										<DisplayMediaMonitored />
 									) : null}
 									{userMediaDetails.ownership ? (
 										<Flex align="center" gap={2}>
@@ -834,14 +779,7 @@ export default function Page() {
 										</Group>
 									) : null}
 									{userMediaDetails?.reminder ? (
-										<Alert
-											icon={<IconAlertCircle />}
-											variant="outline"
-											color="violet"
-										>
-											Reminder for {userMediaDetails.reminder.remindOn}
-											<Text c="green">{userMediaDetails.reminder.message}</Text>
-										</Alert>
+										<DisplayMediaReminder d={userMediaDetails.reminder} />
 									) : null}
 									{userMediaDetails?.inProgress ? (
 										<Alert icon={<IconAlertCircle />} variant="outline">
@@ -973,7 +911,7 @@ export default function Page() {
 															>
 																<Flex gap="md">
 																	{c.items.map((creator) => (
-																		<Box key={creator.id}>
+																		<Box key={`${creator.id}-${creator.name}`}>
 																			{creator.id ? (
 																				<Anchor
 																					component={Link}
@@ -1286,10 +1224,11 @@ export default function Page() {
 													</Menu.Target>
 													<Menu.Dropdown>
 														<Form
-															action="?intent=toggleMediaMonitor"
+															action="/actions?intent=toggleMediaMonitor"
 															method="post"
 															replace
 														>
+															<HiddenLocationInput />
 															<Menu.Item
 																type="submit"
 																color={
@@ -1330,19 +1269,20 @@ export default function Page() {
 														</Form>
 														{userMediaDetails.reminder ? (
 															<Form
-																action="?intent=deleteMediaReminder"
+																action="/actions?intent=deleteMediaReminder"
 																method="post"
 																replace
 															>
-																<Menu.Item
-																	type="submit"
-																	color={
-																		userMediaDetails.reminder
-																			? "red"
-																			: undefined
-																	}
+																<input
+																	hidden
 																	name="metadataId"
 																	value={loaderData.metadataId}
+																	readOnly
+																/>
+																<HiddenLocationInput />
+																<Menu.Item
+																	type="submit"
+																	color="red"
 																	onClick={(e) => {
 																		if (
 																			!confirm(
@@ -2180,68 +2120,6 @@ const AdjustSeenTimesModal = (props: {
 						type="submit"
 						name="seenId"
 						value={props.seenId}
-					>
-						Submit
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-const CreateReminderModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	title: string;
-	metadataId: number;
-}) => {
-	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form method="post" action="?intent=createMediaReminder" replace>
-				<input
-					hidden
-					name="remindOn"
-					value={formatDateToNaiveDate(remindOn)}
-					readOnly
-				/>
-				<Stack>
-					<Title order={3}>Create a reminder</Title>
-					<Text>
-						A notification will be sent to all your configured{" "}
-						<Anchor to={$path("/settings/notifications")} component={Link}>
-							platforms
-						</Anchor>
-						.
-					</Text>
-					<TextInput
-						name="message"
-						label="Message"
-						required
-						defaultValue={`Complete '${props.title}'`}
-					/>
-					<DateInput
-						label="Remind on"
-						popoverProps={{ withinPortal: true }}
-						required
-						onChange={(v) => {
-							if (v) setRemindOn(v);
-						}}
-						value={remindOn}
-					/>
-					<Button
-						data-autofocus
-						variant="outline"
-						type="submit"
-						onClick={props.onClose}
-						name="metadataId"
-						value={props.metadataId}
 					>
 						Submit
 					</Button>

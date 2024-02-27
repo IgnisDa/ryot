@@ -6,6 +6,7 @@ import {
 	Button,
 	Container,
 	Group,
+	Menu,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -40,10 +41,14 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaMonitored,
+	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	PostReview,
@@ -146,9 +151,22 @@ export default function Page() {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
+	const [
+		createMediaReminderModalOpened,
+		{
+			open: createMediaReminderModalOpen,
+			close: createMediaReminderModalClose,
+		},
+	] = useDisclosure(false);
 
 	return (
 		<>
+			<CreateReminderModal
+				onClose={createMediaReminderModalClose}
+				opened={createMediaReminderModalOpened}
+				defaultText={`Check out new releases by '${loaderData.personDetails.details.name}'`}
+				personId={loaderData.personId}
+			/>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -197,7 +215,7 @@ export default function Page() {
 							</>
 						) : null}
 					</Text>
-					<Group id="entity-collections">
+					<Group>
 						{loaderData.userPersonDetails.collections.length > 0
 							? loaderData.userPersonDetails.collections.map((col) => (
 									<DisplayCollection
@@ -211,7 +229,13 @@ export default function Page() {
 						{loaderData.personDetails.details.isPartial ? (
 							<MediaIsPartial mediaType="person" />
 						) : null}
+						{loaderData.userPersonDetails.isMonitored ? (
+							<DisplayMediaMonitored entityLot="person" />
+						) : null}
 					</Group>
+					{loaderData.userPersonDetails.reminder ? (
+						<DisplayMediaReminder d={loaderData.userPersonDetails.reminder} />
+					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
@@ -316,21 +340,90 @@ export default function Page() {
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
-									<Form
-										action="?intent=deployUpdatePersonJob"
-										method="post"
-										replace
-									>
-										<Button
-											variant="outline"
-											type="submit"
-											w="100%"
-											name="personId"
-											value={loaderData.personId}
-										>
-											Update person
-										</Button>
-									</Form>
+									<Menu shadow="md">
+										<Menu.Target>
+											<Button variant="outline">More actions</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											<Form
+												action="/actions?intent=toggleMediaMonitor"
+												method="post"
+												replace
+											>
+												<HiddenLocationInput />
+												<Menu.Item
+													type="submit"
+													color={
+														loaderData.userPersonDetails.isMonitored
+															? "red"
+															: undefined
+													}
+													name="personId"
+													value={loaderData.personId}
+													onClick={(e) => {
+														if (loaderData.userPersonDetails.isMonitored)
+															if (
+																!confirm(
+																	"Are you sure you want to stop monitoring this person?",
+																)
+															)
+																e.preventDefault();
+													}}
+												>
+													{loaderData.userPersonDetails.isMonitored
+														? "Stop"
+														: "Start"}{" "}
+													monitoring
+												</Menu.Item>
+											</Form>
+											{loaderData.userPersonDetails.reminder ? (
+												<Form
+													action="/actions?intent=deleteMediaReminder"
+													method="post"
+													replace
+												>
+													<input
+														hidden
+														name="personId"
+														value={loaderData.personId}
+														readOnly
+													/>
+													<HiddenLocationInput />
+													<Menu.Item
+														type="submit"
+														color="red"
+														onClick={(e) => {
+															if (
+																!confirm(
+																	"Are you sure you want to delete this reminder?",
+																)
+															)
+																e.preventDefault();
+														}}
+													>
+														Remove reminder
+													</Menu.Item>
+												</Form>
+											) : (
+												<Menu.Item onClick={createMediaReminderModalOpen}>
+													Create reminder
+												</Menu.Item>
+											)}
+											<Form
+												action="?intent=deployUpdatePersonJob"
+												method="post"
+												replace
+											>
+												<Menu.Item
+													type="submit"
+													name="personId"
+													value={loaderData.personId}
+												>
+													Update person
+												</Menu.Item>
+											</Form>
+										</Menu.Dropdown>
+									</Menu>
 									<AddEntityToCollectionModal
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}

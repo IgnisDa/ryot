@@ -25,7 +25,7 @@ use crate::{
             CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
             PostReviewInput, ProgressUpdateInput,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot,
+        BackgroundJob, ChangeCollectionToEntityInput,
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -235,7 +235,10 @@ impl ImporterService {
             .media_service
             .perform_application_job
             .clone()
-            .push(ApplicationJob::ImportFromExternalSource(user_id, input))
+            .push(ApplicationJob::ImportFromExternalSource(
+                user_id,
+                Box::new(input),
+            ))
             .await
             .unwrap();
         Ok(job.to_string())
@@ -267,7 +270,11 @@ impl ImporterService {
         Ok(reports)
     }
 
-    pub async fn start_importing(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
+    pub async fn start_importing(
+        &self,
+        user_id: i32,
+        input: Box<DeployImportJobInput>,
+    ) -> Result<()> {
         match input.source {
             ImportSource::StrongApp => self.import_exercises(user_id, input).await,
             _ => self.import_media(user_id, input).await,
@@ -275,7 +282,7 @@ impl ImporterService {
     }
 
     #[instrument(skip(self, input))]
-    async fn import_exercises(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
+    async fn import_exercises(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
             ImportSource::StrongApp => {
@@ -302,7 +309,7 @@ impl ImporterService {
     }
 
     #[instrument(skip(self, input))]
-    async fn import_media(&self, user_id: i32, input: DeployImportJobInput) -> Result<()> {
+    async fn import_media(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let mut import = match input.source {
             ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
@@ -469,8 +476,8 @@ impl ImporterService {
                         user_id,
                         ChangeCollectionToEntityInput {
                             collection_name: col.to_string(),
-                            entity_id: metadata.id.to_string(),
-                            entity_lot: EntityLot::Media,
+                            metadata_id: Some(metadata.id),
+                            ..Default::default()
                         },
                     )
                     .await

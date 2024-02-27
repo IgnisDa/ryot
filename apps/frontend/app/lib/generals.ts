@@ -42,6 +42,7 @@ export const ApplicationKey = {
 	SavedOpenedLinkGroups: getApplicationKeyAccessor(4),
 	DefaultExerciseRestTimer: getApplicationKeyAccessor(5),
 	CurrentWorkout: getApplicationKeyAccessor(6),
+	Toast: getApplicationKeyAccessor(7),
 };
 
 export const gqlClientSide = new GraphQLClient("/backend/graphql", {

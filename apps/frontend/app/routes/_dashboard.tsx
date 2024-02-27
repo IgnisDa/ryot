@@ -20,12 +20,15 @@ import {
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
-	CoreDetails,
-	UpgradeType,
-	UserLot,
-} from "@ryot/generated/graphql/backend/graphql";
+	Form,
+	Link,
+	NavLink,
+	Outlet,
+	ShouldRevalidateFunction,
+	useLoaderData,
+} from "@remix-run/react";
+import { CoreDetails, UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
@@ -41,8 +44,8 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { match } from "ts-pattern";
 import { joinURL } from "ufo";
+import { HiddenLocationInput } from "~/components/common";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
 import { ApplicationKey, getLot } from "~/lib/generals";
@@ -146,9 +149,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userPreferences: {
 			media: userPreferences.featuresEnabled.media,
 			fitness: userPreferences.featuresEnabled.fitness,
+			disableNavigationAnimation:
+				userPreferences.general.disableNavigationAnimation,
 		},
 	});
 };
+
+export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -276,6 +283,7 @@ export default function Layout() {
 					<Stack gap="xs">
 						<Flex direction="column" justify="center" gap="md">
 							<Form method="post" action="/actions?intent=toggleColorScheme">
+								<HiddenLocationInput />
 								<Group justify="center">
 									<UnstyledButton
 										aria-label="Toggle theme"
@@ -345,7 +353,17 @@ export default function Layout() {
 						/>
 					</Flex>
 					<AppShell.Main py={{ sm: "xl" }}>
-						<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%" ref={parent}>
+						<Box
+							mt="md"
+							style={{ flexGrow: 1 }}
+							pb={40}
+							mih="90%"
+							ref={
+								loaderData.userPreferences.disableNavigationAnimation
+									? undefined
+									: parent
+							}
+						>
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
@@ -444,38 +462,8 @@ function LinksGroup({
 }
 
 const Footer = (props: { coreDetails: CoreDetails }) => {
-	const [color, text] = match(props.coreDetails.upgrade)
-		.with(undefined, null, () => [undefined, undefined])
-		.with(
-			UpgradeType.Minor,
-			() => ["blue", "There is an update available."] as const,
-		)
-		.with(
-			UpgradeType.Major,
-			() =>
-				[
-					"red",
-					<>
-						There is a major upgrade, please follow the{" "}
-						<Anchor
-							href="https://ignisda.github.io/ryot/migration.html"
-							target="_blank"
-						>
-							migration
-						</Anchor>{" "}
-						docs.
-					</>,
-				] as const,
-		)
-		.exhaustive();
-
 	return (
 		<Stack>
-			{props.coreDetails.upgrade ? (
-				<Text ta="center" c={color}>
-					{text}
-				</Text>
-			) : undefined}
 			<Flex gap={80} justify="center">
 				<Anchor
 					href={`${props.coreDetails.repositoryLink}/releases/v${props.coreDetails.version}`}

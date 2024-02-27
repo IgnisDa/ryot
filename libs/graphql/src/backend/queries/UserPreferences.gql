@@ -3,12 +3,13 @@ query UserPreferences {
     general {
       reviewScale
       displayNsfw
-      disableYankIntegrations
       dashboard {
         section
         hidden
         numElements
       }
+      disableYankIntegrations
+      disableNavigationAnimation
     }
     fitness {
       measurements {
@@ -58,6 +59,7 @@ query UserPreferences {
       numberOfSeasonsChanged
       numberOfChaptersOrEpisodesChanged
       newReviewPosted
+      newMediaAssociated
     }
     featuresEnabled {
       fitness {
