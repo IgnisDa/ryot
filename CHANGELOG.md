@@ -1,5 +1,13 @@
 
 
+# Version 4.2.11 (2024-02-27)
+
+## Documentation
+
+- update info about hosted version
+  
+  
+
 # Version 4.2.10 (2024-02-24)
 
 
