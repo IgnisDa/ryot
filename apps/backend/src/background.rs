@@ -47,7 +47,7 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     if env::var("DISABLE_UPDATE_WATCHLIST_MEDIA").is_err() {
         tracing::trace!("Checking for updates for media in Watchlist");
         service
-            .update_watchlist_media_and_send_notifications()
+            .update_watchlist_metadata_and_send_notifications()
             .await
             .unwrap();
     }

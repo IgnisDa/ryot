@@ -5996,15 +5996,14 @@ GROUP BY
             .collect())
     }
 
-    pub async fn update_watchlist_media_and_send_notifications(&self) -> Result<()> {
-        if !self.config.server.update_monitored_media {
-            tracing::debug!("Monitored media updating has been disabled.");
-            return Ok(());
-        }
+    pub async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
         let meta_map = self
             .users_to_be_notified_for_metadata_state_changes()
             .await?;
-        tracing::debug!("Users to be notified for state changes: {:?}", meta_map);
+        tracing::debug!(
+            "Users to be notified for metadata state changes: {:?}",
+            meta_map
+        );
         for (metadata_id, to_notify) in meta_map {
             let notifications = self.update_metadata(metadata_id).await?;
             for user in to_notify {
