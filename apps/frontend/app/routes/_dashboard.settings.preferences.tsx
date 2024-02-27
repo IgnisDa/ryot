@@ -377,6 +377,10 @@ export default function Page() {
 													"newReviewPosted",
 													() => "A new public review is posted",
 												)
+												.with(
+													"newMediaReleased",
+													() => "A new media is released by a person",
+												)
 												.otherwise(() => undefined)}
 											defaultChecked={isEnabled}
 											disabled={!!loaderData.userDetails.isDemo}
