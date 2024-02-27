@@ -378,8 +378,8 @@ export default function Page() {
 													() => "A new public review is posted",
 												)
 												.with(
-													"newMediaReleased",
-													() => "A new media is released by a person",
+													"newMediaAssociated",
+													() => "New media is associated with a person",
 												)
 												.otherwise(() => undefined)}
 											defaultChecked={isEnabled}

@@ -25,7 +25,7 @@ pub struct UserNotificationsPreferences {
     pub new_review_posted: bool,
     // People
     #[serde(default)] // FIXME: remove in the next major release
-    pub new_media_released: bool,
+    pub new_media_associated: bool,
 }
 
 impl Default for UserNotificationsPreferences {
@@ -40,7 +40,7 @@ impl Default for UserNotificationsPreferences {
             number_of_seasons_changed: true,
             number_of_chapters_or_episodes_changed: true,
             new_review_posted: true,
-            new_media_released: true,
+            new_media_associated: true,
         }
     }
 }

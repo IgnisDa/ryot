@@ -134,7 +134,7 @@ pub enum MediaStateChanged {
     MetadataEpisodeNameChanged,
     MetadataChaptersOrEpisodesChanged,
     MetadataEpisodeImagesChanged,
-    PersonMediaReleased,
+    PersonMediaAssociated,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -5250,8 +5250,8 @@ impl MiscellaneousService {
                                 .notifications
                                 .number_of_chapters_or_episodes_changed = value_bool.unwrap()
                         }
-                        "new_media_released" => {
-                            preferences.notifications.new_media_released = value_bool.unwrap()
+                        "new_media_associated" => {
+                            preferences.notifications.new_media_associated = value_bool.unwrap()
                         }
                         _ => return Err(err()),
                     },
@@ -6057,7 +6057,6 @@ GROUP BY
         );
         for (person_id, to_notify) in meta_map {
             let notifications = self.update_person(person_id).await?;
-            dbg!(&notifications);
             for user in to_notify {
                 for notification in notifications.iter() {
                     self.send_media_state_changed_notification_for_user(user, notification)
@@ -6126,8 +6125,8 @@ GROUP BY
                 .await
                 .ok();
         }
-        if matches!(change, MediaStateChanged::PersonMediaReleased)
-            && preferences.notifications.new_media_released
+        if matches!(change, MediaStateChanged::PersonMediaAssociated)
+            && preferences.notifications.new_media_associated
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
@@ -7036,6 +7035,8 @@ GROUP BY
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.update_monitored_people_and_send_notifications()
+            .await?;
         Ok(true)
     }
 }
