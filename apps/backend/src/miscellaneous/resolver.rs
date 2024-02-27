@@ -1346,6 +1346,14 @@ impl MiscellaneousMutation {
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.deploy_background_job(job_name, user_id).await
     }
+
+    /// Use this mutation to call a function that needs to be tested for implementation.
+    /// It is only available in development mode.
+    #[cfg(debug_assertions)]
+    async fn development_mutation(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.development_mutation().await
+    }
 }
 
 pub struct MiscellaneousService {
@@ -7005,6 +7013,11 @@ GROUP BY
             url = format!("{}?defaultTab={}", url, tab);
         }
         url
+    }
+
+    #[cfg(debug_assertions)]
+    async fn development_mutation(&self) -> Result<bool> {
+        Ok(true)
     }
 }
 
