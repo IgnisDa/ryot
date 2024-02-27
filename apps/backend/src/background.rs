@@ -50,6 +50,13 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
             .await
             .unwrap();
     }
+    if env::var("DISABLE_UPDATE_MONITORED_PEOPLE").is_err() {
+        tracing::trace!("Checking for updates for monitored people");
+        service
+            .update_monitored_people_and_send_notifications()
+            .await
+            .unwrap();
+    }
     if env::var("DISABLE_SEND_PENDING_REMINDERS").is_err() {
         tracing::trace!("Checking and sending any pending reminders");
         service.send_pending_media_reminders().await.unwrap();

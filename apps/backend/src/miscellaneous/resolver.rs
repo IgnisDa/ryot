@@ -6049,6 +6049,25 @@ GROUP BY
         Ok(())
     }
 
+    pub async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
+        let meta_map = self.users_to_be_notified_for_person_state_changes().await?;
+        tracing::debug!(
+            "Users to be notified for people state changes: {:?}",
+            meta_map
+        );
+        for (person_id, to_notify) in meta_map {
+            let notifications = self.update_person(person_id).await?;
+            dbg!(&notifications);
+            for user in to_notify {
+                for notification in notifications.iter() {
+                    self.send_media_state_changed_notification_for_user(user, notification)
+                        .await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub async fn send_media_state_changed_notification_for_user(
         &self,
         user_id: i32,
