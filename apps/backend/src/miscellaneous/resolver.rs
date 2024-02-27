@@ -4418,10 +4418,7 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn update_metadata(
-        &self,
-        metadata_id: i32,
-    ) -> Result<Vec<(String, MediaStateChanged)>> {
+    async fn update_metadata(&self, metadata_id: i32) -> Result<Vec<(String, MediaStateChanged)>> {
         tracing::debug!("Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
@@ -6907,10 +6904,8 @@ GROUP BY
         Ok(())
     }
 
-    pub async fn update_person(
-        &self,
-        person_id: i32,
-    ) -> Result<Vec<(String, PartialMetadataWithoutId)>> {
+    async fn update_person(&self, person_id: i32) -> Result<Vec<(String, MediaStateChanged)>> {
+        let mut notifications = vec![];
         let person = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
         let provider = self.get_non_media_provider(person.source).await?;
         let provider_person = provider.person_details(&person.identifier).await?;
@@ -6944,7 +6939,31 @@ GROUP BY
             };
             intermediate.insert(&self.db).await.ok();
         }
-        Ok(provider_person.related)
+        Ok(notifications)
+    }
+
+    pub async fn update_person_and_notify_users(&self, person_id: i32) -> Result<()> {
+        let notifications = self.update_person(person_id).await.unwrap();
+        if !notifications.is_empty() {
+            let users_to_notify = self
+                .users_to_be_notified_for_person_state_changes()
+                .await
+                .unwrap()
+                .get(&person_id)
+                .cloned()
+                .unwrap_or_default();
+            for notification in notifications {
+                for user_id in users_to_notify.iter() {
+                    self.send_media_state_changed_notification_for_user(
+                        user_id.to_owned(),
+                        &notification,
+                    )
+                    .await
+                    .ok();
+                }
+            }
+        }
+        Ok(())
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {

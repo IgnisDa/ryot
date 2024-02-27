@@ -184,9 +184,10 @@ pub async fn perform_application_job(
             .update_metadata_and_notify_users(metadata_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdatePerson(person_id) => {
-            misc_service.update_person(person_id).await.is_ok()
-        }
+        ApplicationJob::UpdatePerson(person_id) => misc_service
+            .update_person_and_notify_users(person_id)
+            .await
+            .is_ok(),
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
         }
