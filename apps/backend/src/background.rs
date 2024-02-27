@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use crate::{
-    entities::person,
     exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
@@ -138,14 +137,14 @@ pub async fn perform_core_application_job(
     Ok(())
 }
 
-// The background jobs which can be throttled.
+// The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
     ImportFromExternalSource(i32, DeployImportJobInput),
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(i32),
     UpdateExerciseJob(Exercise),
-    UpdatePerson(person::Model),
+    UpdatePerson(i32),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
     ReviewPosted(ReviewPostedEvent),
@@ -185,7 +184,9 @@ pub async fn perform_application_job(
             .update_metadata_and_notify_users(metadata_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdatePerson(person) => misc_service.update_person(person.id).await.is_ok(),
+        ApplicationJob::UpdatePerson(person_id) => {
+            misc_service.update_person(person_id).await.is_ok()
+        }
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
         }

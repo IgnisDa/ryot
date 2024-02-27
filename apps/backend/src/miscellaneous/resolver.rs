@@ -3338,7 +3338,7 @@ impl MiscellaneousService {
         let job_id = self
             .perform_application_job
             .clone()
-            .push(ApplicationJob::UpdatePerson(person))
+            .push(ApplicationJob::UpdatePerson(person.id))
             .await?;
         Ok(job_id.to_string())
     }
