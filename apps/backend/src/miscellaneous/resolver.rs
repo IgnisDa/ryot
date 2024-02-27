@@ -134,6 +134,7 @@ pub enum MediaStateChanged {
     MetadataEpisodeNameChanged,
     MetadataChaptersOrEpisodesChanged,
     MetadataEpisodeImagesChanged,
+    PersonMediaReleased,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -6072,6 +6073,13 @@ GROUP BY
         }
         if matches!(change, MediaStateChanged::MetadataNumberOfSeasonsChanged)
             && preferences.notifications.number_of_seasons_changed
+        {
+            self.send_notifications_to_user_platforms(user_id, notification)
+                .await
+                .ok();
+        }
+        if matches!(change, MediaStateChanged::PersonMediaReleased)
+            && preferences.notifications.new_media_released
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
