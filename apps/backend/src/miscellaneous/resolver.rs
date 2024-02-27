@@ -3324,7 +3324,7 @@ impl MiscellaneousService {
         let job_id = self
             .perform_application_job
             .clone()
-            .push(ApplicationJob::UpdateMetadata(metadata))
+            .push(ApplicationJob::UpdateMetadata(metadata.id))
             .await?;
         Ok(job_id.to_string())
     }
@@ -4440,6 +4440,30 @@ impl MiscellaneousService {
         };
         tracing::debug!("Updated metadata for {:?}", metadata_id);
         Ok(notifications)
+    }
+
+    pub async fn update_metadata_and_notify_users(&self, metadata_id: i32) -> Result<()> {
+        let notifications = self.update_metadata(metadata_id).await.unwrap();
+        if !notifications.is_empty() {
+            let users_to_notify = self
+                .users_to_be_notified_for_metadata_state_changes()
+                .await
+                .unwrap()
+                .get(&metadata_id)
+                .cloned()
+                .unwrap_or_default();
+            for notification in notifications {
+                for user_id in users_to_notify.iter() {
+                    self.send_media_state_changed_notification_for_user(
+                        user_id.to_owned(),
+                        &notification,
+                    )
+                    .await
+                    .ok();
+                }
+            }
+        }
+        Ok(())
     }
 
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {

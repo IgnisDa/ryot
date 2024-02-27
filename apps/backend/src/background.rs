@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use crate::{
-    entities::{metadata, person},
+    entities::person,
     exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
@@ -143,7 +143,7 @@ pub async fn perform_core_application_job(
 pub enum ApplicationJob {
     ImportFromExternalSource(i32, DeployImportJobInput),
     ReEvaluateUserWorkouts(i32),
-    UpdateMetadata(metadata::Model),
+    UpdateMetadata(i32),
     UpdateExerciseJob(Exercise),
     UpdatePerson(person::Model),
     RecalculateCalendarEvents,
@@ -181,30 +181,10 @@ pub async fn perform_application_job(
             .re_evaluate_user_workouts(user_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdateMetadata(metadata) => {
-            let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
-            if !notifications.is_empty() {
-                let users_to_notify = misc_service
-                    .users_to_be_notified_for_metadata_state_changes()
-                    .await
-                    .unwrap()
-                    .get(&metadata.id)
-                    .cloned()
-                    .unwrap_or_default();
-                for notification in notifications {
-                    for user_id in users_to_notify.iter() {
-                        misc_service
-                            .send_media_state_changed_notification_for_user(
-                                user_id.to_owned(),
-                                &notification,
-                            )
-                            .await
-                            .ok();
-                    }
-                }
-            }
-            true
-        }
+        ApplicationJob::UpdateMetadata(metadata_id) => misc_service
+            .update_metadata_and_notify_users(metadata_id)
+            .await
+            .is_ok(),
         ApplicationJob::UpdatePerson(person) => misc_service.update_person(person.id).await.is_ok(),
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
