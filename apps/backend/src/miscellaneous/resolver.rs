@@ -6956,14 +6956,30 @@ GROUP BY
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.update(&self.db).await.ok();
         for (role, media) in provider_person.related.clone() {
+            let title = media.title.clone();
             let pm = self.create_partial_metadata(media).await?;
-            let intermediate = metadata_to_person::ActiveModel {
-                person_id: ActiveValue::Set(person.id),
-                metadata_id: ActiveValue::Set(pm.id),
-                role: ActiveValue::Set(role),
-                ..Default::default()
-            };
-            intermediate.insert(&self.db).await.ok();
+            let already_intermediate = MetadataToPerson::find()
+                .filter(metadata_to_person::Column::MetadataId.eq(pm.id))
+                .filter(metadata_to_person::Column::PersonId.eq(person_id))
+                .filter(metadata_to_person::Column::Role.eq(&role))
+                .one(&self.db)
+                .await?;
+            if already_intermediate.is_none() {
+                notifications.push((
+                    format!(
+                        "{} has been associated with {} ({}).",
+                        title, person.name, role
+                    ),
+                    MediaStateChanged::PersonMediaAssociated,
+                ));
+                let intermediate = metadata_to_person::ActiveModel {
+                    person_id: ActiveValue::Set(person.id),
+                    metadata_id: ActiveValue::Set(pm.id),
+                    role: ActiveValue::Set(role),
+                    ..Default::default()
+                };
+                intermediate.insert(&self.db).await.unwrap();
+            }
         }
         Ok(notifications)
     }
