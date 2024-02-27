@@ -346,6 +346,9 @@ pub struct ServerConfig {
     /// Whether the graphql playground will be enabled.
     #[setting(default = true)]
     pub graphql_playground_enabled: bool,
+    /// Disable all background jobs.
+    #[setting(default = false)]
+    pub disable_background_jobs: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

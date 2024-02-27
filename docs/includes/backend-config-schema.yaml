@@ -196,6 +196,10 @@ server:
   # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
   graphql_playground_enabled: true
 
+  # Disable all background jobs.
+  # @envvar SERVER_DISABLE_BACKGROUND_JOBS
+  disable_background_jobs: false
+
 # Settings related to users.
 users:
   # The secret used for generating JWT tokens.
