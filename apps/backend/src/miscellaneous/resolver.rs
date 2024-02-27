@@ -5220,6 +5220,9 @@ impl MiscellaneousService {
                                 .notifications
                                 .number_of_chapters_or_episodes_changed = value_bool.unwrap()
                         }
+                        "new_media_released" => {
+                            preferences.notifications.new_media_released = value_bool.unwrap()
+                        }
                         _ => return Err(err()),
                     },
                     "general" => match right {

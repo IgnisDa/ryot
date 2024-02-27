@@ -59,6 +59,7 @@ query UserPreferences {
       numberOfSeasonsChanged
       numberOfChaptersOrEpisodesChanged
       newReviewPosted
+      newMediaReleased
     }
     featuresEnabled {
       fitness {

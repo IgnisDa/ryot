@@ -23,6 +23,9 @@ pub struct UserNotificationsPreferences {
     // Anime and Manga
     pub number_of_chapters_or_episodes_changed: bool,
     pub new_review_posted: bool,
+    // People
+    #[serde(default)] // FIXME: remove in the next major release
+    pub new_media_released: bool,
 }
 
 impl Default for UserNotificationsPreferences {
@@ -37,6 +40,7 @@ impl Default for UserNotificationsPreferences {
             number_of_seasons_changed: true,
             number_of_chapters_or_episodes_changed: true,
             new_review_posted: true,
+            new_media_released: true,
         }
     }
 }
