@@ -219,22 +219,20 @@ impl MediaProvider for NonMediaTmdbService {
         for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
             if let Some(title) = media.title.or(media.name) {
                 if let Some(job) = media.job {
-                    if POSSIBLE_ROLES.contains(&job.as_str()) {
-                        related.push((
-                            job,
-                            PartialMetadataWithoutId {
-                                identifier: media.id.unwrap().to_string(),
-                                title,
-                                image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
-                                lot: match media.media_type.unwrap().as_ref() {
-                                    "movie" => MetadataLot::Movie,
-                                    "tv" => MetadataLot::Show,
-                                    _ => continue,
-                                },
-                                source: MetadataSource::Tmdb,
+                    related.push((
+                        job,
+                        PartialMetadataWithoutId {
+                            identifier: media.id.unwrap().to_string(),
+                            title,
+                            image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                            lot: match media.media_type.unwrap().as_ref() {
+                                "movie" => MetadataLot::Movie,
+                                "tv" => MetadataLot::Show,
+                                _ => continue,
                             },
-                        ));
-                    }
+                            source: MetadataSource::Tmdb,
+                        },
+                    ));
                 }
             }
         }
