@@ -7045,7 +7045,7 @@ GROUP BY
         };
         url = format!("{}/{}", self.config.frontend.url, url);
         if let Some(tab) = default_tab {
-            url = format!("{}?defaultTab={}", url, tab);
+            url += format!("?defaultTab={}", tab).as_str()
         }
         url
     }
