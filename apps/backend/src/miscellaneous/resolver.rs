@@ -126,14 +126,14 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 #[derive(Debug)]
 pub enum MediaStateChanged {
-    MediaPublished,
-    StatusChanged,
-    ReleaseDateChanged,
-    NumberOfSeasonsChanged,
-    EpisodeReleased,
-    EpisodeNameChanged,
-    ChaptersOrEpisodesChanged,
-    EpisodeImagesChanged,
+    MetadataPublished,
+    MetadataStatusChanged,
+    MetadataReleaseDateChanged,
+    MetadataNumberOfSeasonsChanged,
+    MetadataEpisodeReleased,
+    MetadataEpisodeNameChanged,
+    MetadataChaptersOrEpisodesChanged,
+    MetadataEpisodeImagesChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2819,7 +2819,7 @@ impl MiscellaneousService {
             if p1 != p2 {
                 notifications.push((
                     format!("Status changed from {:#?} to {:#?}", p1, p2),
-                    MediaStateChanged::StatusChanged,
+                    MediaStateChanged::MetadataStatusChanged,
                 ));
             }
         }
@@ -2827,7 +2827,7 @@ impl MiscellaneousService {
             if p1 != p2 {
                 notifications.push((
                     format!("Publish year from {:#?} to {:#?}", p1, p2),
-                    MediaStateChanged::ReleaseDateChanged,
+                    MediaStateChanged::MetadataReleaseDateChanged,
                 ));
             }
         }
@@ -2839,7 +2839,7 @@ impl MiscellaneousService {
                         s1.seasons.len(),
                         s2.seasons.len()
                     ),
-                    MediaStateChanged::NumberOfSeasonsChanged,
+                    MediaStateChanged::MetadataNumberOfSeasonsChanged,
                 ));
             } else {
                 for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
@@ -2851,7 +2851,7 @@ impl MiscellaneousService {
                                 s2.episodes.len(),
                                 s1.season_number
                             ),
-                            MediaStateChanged::EpisodeReleased,
+                            MediaStateChanged::MetadataEpisodeReleased,
                         ));
                     } else {
                         for (before_episode, after_episode) in
@@ -2866,7 +2866,7 @@ impl MiscellaneousService {
                                         s1.season_number,
                                         before_episode.episode_number
                                     ),
-                                    MediaStateChanged::EpisodeNameChanged,
+                                    MediaStateChanged::MetadataEpisodeNameChanged,
                                 ));
                             }
                             if before_episode.poster_images != after_episode.poster_images {
@@ -2875,7 +2875,7 @@ impl MiscellaneousService {
                                         "Episode image changed for S{}E{}",
                                         s1.season_number, before_episode.episode_number
                                     ),
-                                    MediaStateChanged::EpisodeImagesChanged,
+                                    MediaStateChanged::MetadataEpisodeImagesChanged,
                                 ));
                             }
                             if let (Some(pd1), Some(pd2)) =
@@ -2890,7 +2890,7 @@ impl MiscellaneousService {
                                                 s1.season_number,
                                                 before_episode.episode_number
                                             ),
-                                            MediaStateChanged::ReleaseDateChanged,
+                                            MediaStateChanged::MetadataReleaseDateChanged,
                                         ));
                                 }
                             }
@@ -2904,7 +2904,7 @@ impl MiscellaneousService {
                 if e1 != e2 {
                     notifications.push((
                         format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
-                        MediaStateChanged::ChaptersOrEpisodesChanged,
+                        MediaStateChanged::MetadataChaptersOrEpisodesChanged,
                     ));
                 }
             }
@@ -2914,7 +2914,7 @@ impl MiscellaneousService {
                 if c1 != c2 {
                     notifications.push((
                         format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
-                        MediaStateChanged::ChaptersOrEpisodesChanged,
+                        MediaStateChanged::MetadataChaptersOrEpisodesChanged,
                     ));
                 }
             }
@@ -2927,7 +2927,7 @@ impl MiscellaneousService {
                         p1.episodes.len(),
                         p2.episodes.len()
                     ),
-                    MediaStateChanged::EpisodeReleased,
+                    MediaStateChanged::MetadataEpisodeReleased,
                 ));
             } else {
                 for (before_episode, after_episode) in zip(p1.episodes.iter(), p2.episodes.iter()) {
@@ -2937,13 +2937,13 @@ impl MiscellaneousService {
                                 "Episode name changed from {:#?} to {:#?} (EP{})",
                                 before_episode.title, after_episode.title, before_episode.number
                             ),
-                            MediaStateChanged::EpisodeNameChanged,
+                            MediaStateChanged::MetadataEpisodeNameChanged,
                         ));
                     }
                     if before_episode.thumbnail != after_episode.thumbnail {
                         notifications.push((
                             format!("Episode image changed for EP{}", before_episode.number),
-                            MediaStateChanged::EpisodeImagesChanged,
+                            MediaStateChanged::MetadataEpisodeImagesChanged,
                         ));
                     }
                 }
@@ -6023,35 +6023,35 @@ GROUP BY
     ) -> Result<()> {
         let (notification, change) = notification;
         let preferences = self.user_preferences(user_id).await?;
-        if matches!(change, MediaStateChanged::StatusChanged)
+        if matches!(change, MediaStateChanged::MetadataStatusChanged)
             && preferences.notifications.status_changed
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
         }
-        if matches!(change, MediaStateChanged::EpisodeReleased)
+        if matches!(change, MediaStateChanged::MetadataEpisodeReleased)
             && preferences.notifications.episode_released
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
         }
-        if matches!(change, MediaStateChanged::MediaPublished)
+        if matches!(change, MediaStateChanged::MetadataPublished)
             && preferences.notifications.media_published
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
         }
-        if matches!(change, MediaStateChanged::EpisodeNameChanged)
+        if matches!(change, MediaStateChanged::MetadataEpisodeNameChanged)
             && preferences.notifications.episode_name_changed
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
         }
-        if matches!(change, MediaStateChanged::ChaptersOrEpisodesChanged)
+        if matches!(change, MediaStateChanged::MetadataChaptersOrEpisodesChanged)
             && preferences
                 .notifications
                 .number_of_chapters_or_episodes_changed
@@ -6060,14 +6060,14 @@ GROUP BY
                 .await
                 .ok();
         }
-        if matches!(change, MediaStateChanged::ReleaseDateChanged)
+        if matches!(change, MediaStateChanged::MetadataReleaseDateChanged)
             && preferences.notifications.release_date_changed
         {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
         }
-        if matches!(change, MediaStateChanged::NumberOfSeasonsChanged)
+        if matches!(change, MediaStateChanged::MetadataNumberOfSeasonsChanged)
             && preferences.notifications.number_of_seasons_changed
         {
             self.send_notifications_to_user_platforms(user_id, notification)
@@ -6853,7 +6853,10 @@ GROUP BY
                 } else {
                     format!("{} ({}) has been released today.", meta.title, url)
                 };
-                (meta.id, (notification, MediaStateChanged::MediaPublished))
+                (
+                    meta.id,
+                    (notification, MediaStateChanged::MetadataPublished),
+                )
             })
             .collect_vec();
         let meta_map = self
