@@ -140,7 +140,7 @@ pub async fn perform_core_application_job(
 // The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
-    ImportFromExternalSource(i32, DeployImportJobInput),
+    ImportFromExternalSource(i32, Box<DeployImportJobInput>),
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(i32),
     UpdateExerciseJob(Exercise),
