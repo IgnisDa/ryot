@@ -66,7 +66,6 @@ enum TimeSpan {
 const searchParamsSchema = z.object({
 	timeSpan: z.nativeEnum(TimeSpan).optional(),
 	openModal: zx.BoolAsString.optional(),
-	associatedWithWorkout: z.string().optional(),
 	[redirectToQueryParam]: z.string().optional(),
 });
 
@@ -199,15 +198,6 @@ export default function Page() {
 							type="hidden"
 							name={redirectToQueryParam}
 							value={redirectToFormEntry}
-							readOnly
-						/>
-					) : null}
-					{loaderData.query.associatedWithWorkout ? (
-						<input
-							type="hidden"
-							name="associatedWithWorkout"
-							value={loaderData.query.associatedWithWorkout}
-							readOnly
 						/>
 					) : null}
 					<Stack>
