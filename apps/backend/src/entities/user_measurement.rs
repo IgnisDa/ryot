@@ -39,8 +39,6 @@ pub struct Model {
     pub comment: Option<String>,
     /// The contents of the actual measurement.
     pub stats: UserMeasurementStats,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub associated_with_workout: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -53,25 +51,11 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
-    #[sea_orm(
-        belongs_to = "super::workout::Entity",
-        from = "Column::AssociatedWithWorkout",
-        to = "super::workout::Column::Id",
-        on_update = "Cascade",
-        on_delete = "SetNull"
-    )]
-    Workout,
 }
 
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
-    }
-}
-
-impl Related<super::workout::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Workout.def()
     }
 }
 
