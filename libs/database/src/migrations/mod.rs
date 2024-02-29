@@ -56,6 +56,7 @@ mod m20240225_0_change_metadata_monitored_to_media_monitored;
 mod m20240225_1_change_metadata_reminder_to_media_reminder;
 mod m20240226_add_needs_to_be_updated_field;
 mod m20240227_add_user_to_entity_constraint;
+mod m20240229_add_associated_with_workout_to_workout;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -84,8 +85,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230505_create_review::Migration),
             Box::new(m20230509_create_import_report::Migration),
             Box::new(m20230622_create_exercise::Migration),
-            Box::new(m20230804_create_user_measurement::Migration),
             Box::new(m20230819_create_workout::Migration),
+            Box::new(m20230804_create_user_measurement::Migration),
             Box::new(m20230901_create_partial_metadata::Migration),
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20231003_create_partial_metadata_to_person::Migration),
@@ -129,6 +130,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240225_1_change_metadata_reminder_to_media_reminder::Migration),
             Box::new(m20240226_add_needs_to_be_updated_field::Migration),
             Box::new(m20240227_add_user_to_entity_constraint::Migration),
+            Box::new(m20240229_add_associated_with_workout_to_workout::Migration),
         ]
     }
 }

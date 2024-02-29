@@ -1,11 +1,14 @@
+// FIXME: Rename this to `m20230621_create_user_measurement`
+
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use super::{m20230417_create_user::User, m20230819_create_workout::Workout};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static USER_MEASUREMENT_PRIMARY_KEY: &str = "pk-user_measurement";
+pub static USER_MEASUREMENT_TO_WORKOUT_FK: &str = "user_measurement-associated_with_workout-fk";
 
 #[derive(Iden)]
 pub enum UserMeasurement {
@@ -15,6 +18,7 @@ pub enum UserMeasurement {
     Name,
     Comment,
     Stats,
+    AssociatedWithWorkout,
 }
 
 #[async_trait::async_trait]
@@ -43,12 +47,30 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(UserMeasurement::AssociatedWithWorkout).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_measurement-user_id")
                             .from(UserMeasurement::Table, UserMeasurement::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .alter_table(
+                TableAlterStatement::new()
+                    .table(UserMeasurement::Table)
+                    .add_foreign_key(
+                        TableForeignKey::new()
+                            .name(USER_MEASUREMENT_TO_WORKOUT_FK)
+                            .from_tbl(UserMeasurement::Table)
+                            .from_col(UserMeasurement::AssociatedWithWorkout)
+                            .to_tbl(Workout::Table)
+                            .to_col(Workout::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
