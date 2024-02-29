@@ -32,6 +32,7 @@ export interface UserMeasurementStats {
 
 /** An export of a measurement taken at a point in time. */
 export interface UserMeasurement {
+	associatedWithWorkout: string | null;
 	/** Any comment associated entered by the user. */
 	comment: string | null;
 	/** The name given to this measurement by the user. */

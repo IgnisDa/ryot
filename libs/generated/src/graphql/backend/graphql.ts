@@ -1862,6 +1862,7 @@ export enum UserLot {
 
 /** An export of a measurement taken at a point in time. */
 export type UserMeasurement = {
+  associatedWithWorkout?: Maybe<Scalars['String']['output']>;
   /** Any comment associated entered by the user. */
   comment?: Maybe<Scalars['String']['output']>;
   /** The name given to this measurement by the user. */
@@ -1902,6 +1903,7 @@ export type UserMeasurementDataInput = {
 
 /** An export of a measurement taken at a point in time. */
 export type UserMeasurementInput = {
+  associatedWithWorkout?: InputMaybe<Scalars['String']['input']>;
   /** Any comment associated entered by the user. */
   comment?: InputMaybe<Scalars['String']['input']>;
   /** The name given to this measurement by the user. */

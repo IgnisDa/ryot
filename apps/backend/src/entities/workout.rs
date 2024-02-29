@@ -69,6 +69,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(has_many = "super::user_measurement::Entity")]
+    UserMeasurement,
     #[sea_orm(
         belongs_to = "Entity",
         from = "Column::RepeatedFrom",
@@ -79,9 +81,18 @@ pub enum Relation {
     RepeatedFrom,
 }
 
+impl Related<super::user_measurement::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserMeasurement.def()
+    }
+}
+
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::User.def()
+        super::user_measurement::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_measurement::Relation::Workout.def().rev())
     }
 }
 
