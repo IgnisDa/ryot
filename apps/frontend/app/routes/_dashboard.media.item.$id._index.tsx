@@ -2373,7 +2373,7 @@ const SeenItem = (props: {
 					</ActionIcon>
 				</Flex>
 				<Flex direction="column">
-					<Flex gap="xl">
+					<Flex gap="lg">
 						<Text fw="bold">
 							{changeCase(props.history.state)}{" "}
 							{props.history.progress !== 100
