@@ -153,6 +153,19 @@ pub enum ExportItem {
     Measurements,
 }
 
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
+pub enum MediaStateChanged {
+    MetadataPublished,
+    MetadataStatusChanged,
+    MetadataReleaseDateChanged,
+    MetadataNumberOfSeasonsChanged,
+    MetadataEpisodeReleased,
+    MetadataEpisodeNameChanged,
+    MetadataChaptersOrEpisodesChanged,
+    MetadataEpisodeImagesChanged,
+    PersonMediaAssociated,
+}
+
 pub mod media {
     use super::*;
 

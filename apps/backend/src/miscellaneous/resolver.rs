@@ -88,7 +88,7 @@ use crate::{
             VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
-        SearchDetails, SearchInput, SearchResults, StoredUrl,
+        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
@@ -123,19 +123,6 @@ use crate::{
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
-
-#[derive(Debug)]
-pub enum MediaStateChanged {
-    MetadataPublished,
-    MetadataStatusChanged,
-    MetadataReleaseDateChanged,
-    MetadataNumberOfSeasonsChanged,
-    MetadataEpisodeReleased,
-    MetadataEpisodeNameChanged,
-    MetadataChaptersOrEpisodesChanged,
-    MetadataEpisodeImagesChanged,
-    PersonMediaAssociated,
-}
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateCustomMediaInput {
@@ -5220,38 +5207,9 @@ impl MiscellaneousService {
                         }
                     }
                     "notifications" => match right {
-                        "episode_released" => {
-                            preferences.notifications.episode_released = value_bool.unwrap()
-                        }
-                        "episode_name_changed" => {
-                            preferences.notifications.episode_name_changed = value_bool.unwrap()
-                        }
-                        "episode_images_changed" => {
-                            preferences.notifications.episode_images_changed = value_bool.unwrap()
-                        }
-                        "media_published" => {
-                            preferences.notifications.media_published = value_bool.unwrap()
-                        }
-                        "status_changed" => {
-                            preferences.notifications.status_changed = value_bool.unwrap()
-                        }
-                        "new_review_posted" => {
-                            preferences.notifications.new_review_posted = value_bool.unwrap()
-                        }
-                        "release_date_changed" => {
-                            preferences.notifications.release_date_changed = value_bool.unwrap()
-                        }
-                        "number_of_seasons_changed" => {
-                            preferences.notifications.number_of_seasons_changed =
-                                value_bool.unwrap()
-                        }
-                        "number_of_chapters_or_episodes_changed" => {
-                            preferences
-                                .notifications
-                                .number_of_chapters_or_episodes_changed = value_bool.unwrap()
-                        }
-                        "new_media_associated" => {
-                            preferences.notifications.new_media_associated = value_bool.unwrap()
+                        "to_send" => {
+                            preferences.notifications.to_send =
+                                serde_json::from_str(&input.value).unwrap();
                         }
                         _ => return Err(err()),
                     },
@@ -6074,61 +6032,8 @@ GROUP BY
         notification: &(String, MediaStateChanged),
     ) -> Result<()> {
         let (notification, change) = notification;
-        let preferences = self.user_preferences(user_id).await?;
-        if matches!(change, MediaStateChanged::MetadataStatusChanged)
-            && preferences.notifications.status_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataEpisodeReleased)
-            && preferences.notifications.episode_released
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataPublished)
-            && preferences.notifications.media_published
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataEpisodeNameChanged)
-            && preferences.notifications.episode_name_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataChaptersOrEpisodesChanged)
-            && preferences
-                .notifications
-                .number_of_chapters_or_episodes_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataReleaseDateChanged)
-            && preferences.notifications.release_date_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataNumberOfSeasonsChanged)
-            && preferences.notifications.number_of_seasons_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::PersonMediaAssociated)
-            && preferences.notifications.new_media_associated
-        {
+        let notif_prefs = self.user_preferences(user_id).await?.notifications.to_send;
+        if notif_prefs.contains(change) {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
