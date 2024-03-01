@@ -31,11 +31,12 @@ import {
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DashboardElementLot,
+	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import { camelCase, changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconCheckbox } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
@@ -340,59 +341,73 @@ export default function Page() {
 								providers.
 							</Text>
 							<SimpleGrid cols={2}>
-								{Object.entries(loaderData.userPreferences.notifications).map(
-									([name, isEnabled]) => (
-										<Switch
-											key={name}
-											size="xs"
-											label={match(name)
-												.with(
-													"episodeNameChanged",
-													() => "Name of an episode changes",
-												)
-												.with(
-													"episodeImagesChanged",
-													() => "Images for an episode changes",
-												)
-												.with(
-													"episodeReleased",
-													() => "Number of episodes changes",
-												)
-												.with("mediaPublished", () => "A media is published")
-												.with("statusChanged", () => "Status changes")
-												.with(
-													"releaseDateChanged",
-													() => "Release date changes",
-												)
-												.with(
-													"numberOfSeasonsChanged",
-													() => "Number of seasons changes",
-												)
-												.with(
-													"numberOfChaptersOrEpisodesChanged",
-													() =>
-														"Number of chapters/episodes changes for manga/anime",
-												)
-												.with(
-													"newReviewPosted",
-													() => "A new public review is posted",
-												)
-												.with(
-													"newMediaAssociated",
-													() => "New media is associated with a person",
-												)
-												.otherwise(() => undefined)}
-											defaultChecked={isEnabled}
-											disabled={!!loaderData.userDetails.isDemo}
-											onChange={(ev) => {
-												appendPref(
-													`notifications.${snakeCase(name)}`,
-													String(ev.currentTarget.checked),
-												);
-											}}
-										/>
-									),
-								)}
+								{Object.values(MediaStateChanged).map((name) => (
+									<Switch
+										key={name}
+										size="xs"
+										label={match(name)
+											.with(
+												MediaStateChanged.MetadataEpisodeNameChanged,
+												() => "Name of an episode changes",
+											)
+											.with(
+												MediaStateChanged.MetadataEpisodeImagesChanged,
+												() => "Images for an episode changes",
+											)
+											.with(
+												MediaStateChanged.MetadataEpisodeReleased,
+												() => "Number of episodes changes",
+											)
+											.with(
+												MediaStateChanged.MetadataPublished,
+
+												() => "A media is published",
+											)
+											.with(
+												MediaStateChanged.MetadataStatusChanged,
+												() => "Status changes",
+											)
+											.with(
+												MediaStateChanged.MetadataReleaseDateChanged,
+												() => "Release date changes",
+											)
+											.with(
+												MediaStateChanged.MetadataNumberOfSeasonsChanged,
+												() => "Number of seasons changes",
+											)
+											.with(
+												MediaStateChanged.MetadataChaptersOrEpisodesChanged,
+												() =>
+													"Number of chapters/episodes changes for manga/anime",
+											)
+											.with(
+												MediaStateChanged.ReviewPosted,
+												() => "A new public review is posted",
+											)
+											.with(
+												MediaStateChanged.PersonMediaAssociated,
+												() => "New media is associated with a person",
+											)
+											.exhaustive()}
+										defaultChecked={loaderData.userPreferences.notifications.toSend.includes(
+											name,
+										)}
+										disabled={!!loaderData.userDetails.isDemo}
+										onChange={() => {
+											const alreadyToSend = new Set(
+												loaderData.userPreferences.notifications.toSend,
+											);
+											const alreadyHas = alreadyToSend.has(name);
+											if (!alreadyHas) alreadyToSend.add(name);
+											else alreadyToSend.delete(name);
+											const val = Array.from(alreadyToSend).map((v) => {
+												const n = camelCase(v.toLowerCase());
+												return n[0].toUpperCase() + n.slice(1);
+											});
+											appendPref("notifications.to_send", JSON.stringify(val));
+										}}
+									/>
+								))}
 							</SimpleGrid>
 						</Stack>
 					</Tabs.Panel>
