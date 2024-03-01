@@ -13,7 +13,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
+import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
@@ -29,9 +29,8 @@ import {
 	IconSearch,
 	IconTrophy,
 	IconWeight,
-	IconX,
 } from "@tabler/icons-react";
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
@@ -81,10 +80,13 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const startWorkout = getWorkoutStarter();
+	const [deQuery, setDeQuery] = useDebouncedState(
+		loaderData.query.query || "",
+		1000,
+	);
 
-	useDidUpdate(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<Container size="xs">
@@ -105,15 +107,8 @@ export default function Page() {
 					name="query"
 					placeholder="Search for workouts"
 					leftSection={<IconSearch />}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-					value={query}
-					rightSection={
-						query ? (
-							<ActionIcon onClick={() => setQuery("")}>
-								<IconX size={16} />
-							</ActionIcon>
-						) : null
-					}
+					onChange={(e) => setDeQuery(e.currentTarget.value)}
+					defaultValue={deQuery}
 					style={{ flexGrow: 1 }}
 					autoCapitalize="none"
 					autoComplete="off"

@@ -22,7 +22,12 @@ import {
 	Title,
 	rem,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure, useListState } from "@mantine/hooks";
+import {
+	useDebouncedState,
+	useDidUpdate,
+	useDisclosure,
+	useListState,
+} from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -45,10 +50,8 @@ import {
 	IconFilterOff,
 	IconPlus,
 	IconSearch,
-	IconX,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationPagination } from "~/components/common";
@@ -157,7 +160,6 @@ export default function Page() {
 		name: string;
 		lot: ExerciseLot;
 	}>([]);
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -165,14 +167,19 @@ export default function Page() {
 
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 
-	useDidUpdate(() => setP("query", query), [query]);
-
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
 		);
+
+	const [deQuery, setDeQuery] = useDebouncedState(
+		loaderData.query.query || "",
+		1000,
+	);
+
+	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<Container size="md">
@@ -207,15 +214,8 @@ export default function Page() {
 								name="query"
 								placeholder="Search for exercises by name or instructions"
 								leftSection={<IconSearch />}
-								onChange={(e) => setQuery(e.currentTarget.value)}
-								value={query}
-								rightSection={
-									query ? (
-										<ActionIcon onClick={() => setQuery("")}>
-											<IconX size={16} />
-										</ActionIcon>
-									) : null
-								}
+								onChange={(e) => setDeQuery(e.currentTarget.value)}
+								defaultValue={deQuery}
 								style={{ flexGrow: 1 }}
 								autoCapitalize="none"
 								autoComplete="off"

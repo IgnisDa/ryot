@@ -13,7 +13,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDebouncedState, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -28,9 +28,7 @@ import {
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
-	IconX,
 } from "@tabler/icons-react";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
@@ -79,13 +77,16 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [deQuery, setDeQuery] = useDebouncedState(
+		loaderData.query.query || "",
+		1000,
+	);
 
-	useDidUpdate(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<Container>
@@ -98,15 +99,8 @@ export default function Page() {
 						name="query"
 						placeholder="Search for people"
 						leftSection={<IconSearch />}
-						onChange={(e) => setQuery(e.currentTarget.value)}
-						value={query}
-						rightSection={
-							query ? (
-								<ActionIcon onClick={() => setQuery("")}>
-									<IconX size={16} />
-								</ActionIcon>
-							) : null
-						}
+						onChange={(e) => setDeQuery(e.currentTarget.value)}
+						defaultValue={deQuery}
 						style={{ flexGrow: 1 }}
 						autoCapitalize="none"
 						autoComplete="off"

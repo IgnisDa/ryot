@@ -16,7 +16,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDebouncedState, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import {
 	Link,
@@ -49,7 +49,6 @@ import {
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
-	IconX,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
@@ -213,9 +212,9 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
-	const [query, setQuery] = useState(loaderData.query || "");
+	const [deQuery, setDeQuery] = useDebouncedState(loaderData.query || "", 1000);
 
-	useDidUpdate(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -225,21 +224,14 @@ export default function Page() {
 		loaderData.mediaList?.url.collectionFilter !==
 			defaultFilters.mineCollectionFilter;
 
-	const ClearButton = () => (
-		<ActionIcon onClick={() => setQuery("")} disabled={query === ""}>
-			<IconX size={16} />
-		</ActionIcon>
-	);
-
 	const SearchInput = (props: { placeholder: string }) => {
 		return (
 			<TextInput
 				name="query"
 				placeholder={props.placeholder}
 				leftSection={<IconSearch />}
-				onChange={(e) => setQuery(e.currentTarget.value)}
-				value={query}
-				rightSection={<ClearButton />}
+				onChange={(e) => setDeQuery(e.currentTarget.value)}
+				defaultValue={deQuery}
 				style={{ flexGrow: 1 }}
 				autoCapitalize="none"
 				autoComplete="off"
@@ -474,7 +466,7 @@ export default function Page() {
 											}}
 											maybeItemId={b.databaseId ?? undefined}
 											hasInteracted={b.hasInteracted}
-											query={query || ""}
+											query={deQuery || ""}
 											lot={loaderData.lot}
 											source={
 												loaderData.mediaSearch?.url.source ||

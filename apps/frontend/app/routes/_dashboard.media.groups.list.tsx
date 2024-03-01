@@ -1,6 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	ActionIcon,
 	Box,
 	Center,
 	Container,
@@ -10,13 +9,12 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
+import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { MetadataGroupsListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
-import { IconSearch, IconX } from "@tabler/icons-react";
-import { useState } from "react";
+import { IconSearch } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
@@ -54,9 +52,12 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
+	const [deQuery, setDeQuery] = useDebouncedState(
+		loaderData.query.query || "",
+		1000,
+	);
 
-	useDidUpdate(() => setP("query", query), [query]);
+	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<Container>
@@ -68,15 +69,8 @@ export default function Page() {
 					name="query"
 					placeholder="Search for groups"
 					leftSection={<IconSearch />}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-					value={query}
-					rightSection={
-						query ? (
-							<ActionIcon onClick={() => setQuery("")}>
-								<IconX size={16} />
-							</ActionIcon>
-						) : null
-					}
+					onChange={(e) => setDeQuery(e.currentTarget.value)}
+					defaultValue={deQuery}
 					style={{ flexGrow: 1 }}
 					autoCapitalize="none"
 					autoComplete="off"
