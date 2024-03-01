@@ -6929,11 +6929,11 @@ GROUP BY
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        // FIXME: handle this correctly please
         let users = User::find()
-            .filter(Expr::cust(
-                "(preferences -> 'notifications' -> 'new_review_posted') = 'true'::jsonb",
-            ))
+            .filter(Expr::cust(format!(
+                "(preferences -> 'notifications' -> 'to_send' ? '{}')",
+                MediaStateChanged::ReviewPosted
+            )))
             .all(&self.db)
             .await?;
         for user in users {
