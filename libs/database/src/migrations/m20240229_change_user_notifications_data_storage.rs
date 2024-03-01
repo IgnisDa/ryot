@@ -23,7 +23,8 @@ FROM (
             (CASE WHEN (preferences -> 'notifications' ->> 'episode_name_changed')::boolean THEN 'MetadataEpisodeNameChanged' END),
             (CASE WHEN (preferences -> 'notifications' ->> 'number_of_chapters_or_episodes_changed')::boolean THEN 'MetadataChaptersOrEpisodesChanged' END),
             (CASE WHEN (preferences -> 'notifications' ->> 'episode_images_changed')::boolean THEN 'MetadataEpisodeImagesChanged' END),
-            (CASE WHEN (preferences -> 'notifications' ->> 'new_review_posted')::boolean THEN 'PersonMediaAssociated' END)
+            (CASE WHEN (preferences -> 'notifications' ->> 'new_media_associated')::boolean THEN 'PersonMediaAssociated' END),
+            (CASE WHEN (preferences -> 'notifications' ->> 'new_review_posted')::boolean THEN 'ReviewPosted' END)
     ) AS sub(elem)
     GROUP BY id
 ) AS v

@@ -164,6 +164,7 @@ pub enum MediaStateChanged {
     MetadataChaptersOrEpisodesChanged,
     MetadataEpisodeImagesChanged,
     PersonMediaAssociated,
+    ReviewPosted,
 }
 
 pub mod media {

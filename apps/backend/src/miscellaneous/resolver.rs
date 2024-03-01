@@ -6915,6 +6915,7 @@ GROUP BY
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
+        // FIXME: handle this correctly
         let users = User::find()
             .filter(Expr::cust(
                 "(preferences -> 'notifications' -> 'new_review_posted') = 'true'::jsonb",
