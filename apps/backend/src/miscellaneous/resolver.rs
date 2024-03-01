@@ -4287,31 +4287,30 @@ impl MiscellaneousService {
             .one(&self.db)
             .await
             .unwrap();
+        let mut new_name = input.name.clone();
         match meta {
             Some(m) if input.update_id.is_none() => Ok(IdObject { id: m.id }),
             _ => {
                 let col = collection::ActiveModel {
                     id: match input.update_id {
                         Some(i) => {
-                            let already_collection = Collection::find_by_id(i)
+                            let already = Collection::find_by_id(i)
                                 .one(&self.db)
                                 .await
                                 .unwrap()
                                 .unwrap();
                             if DefaultCollection::iter()
                                 .map(|s| s.to_string())
-                                .contains(&already_collection.name)
+                                .contains(&already.name)
                             {
-                                return Err(Error::new(
-                                    "Can not update a default collection".to_owned(),
-                                ));
+                                new_name = already.name;
                             }
                             ActiveValue::Unchanged(i)
                         }
                         None => ActiveValue::NotSet,
                     },
                     last_updated_on: ActiveValue::Set(Utc::now()),
-                    name: ActiveValue::Set(input.name),
+                    name: ActiveValue::Set(new_name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
                     visibility: match input.visibility {
