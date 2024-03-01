@@ -38,6 +38,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
+import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
@@ -67,22 +68,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
-			await gqlClient.request(
-				CreateOrUpdateCollectionDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			return json(
-				{},
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: submission.updateId
-							? "Collection updated"
-							: "Collection created",
-					}),
-				},
-			);
+			try {
+				await gqlClient.request(
+					CreateOrUpdateCollectionDocument,
+					{ input: submission },
+					await getAuthorizationHeader(request),
+				);
+				return json(
+					{},
+					{
+						headers: await createToastHeaders({
+							type: "success",
+							message: submission.updateId
+								? "Collection updated"
+								: "Collection created",
+						}),
+					},
+				);
+			} catch (e) {
+				let message = "An error occurred";
+				if (e instanceof ClientError) {
+					const err = e.response.errors?.[0].message;
+					if (err) message = err;
+				}
+				return json(
+					{},
+					{
+						status: 400,
+						headers: await createToastHeaders({ type: "error", message }),
+					},
+				);
+			}
 		},
 		delete: async () => {
 			const submission = processSubmission(

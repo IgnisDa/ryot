@@ -4292,7 +4292,22 @@ impl MiscellaneousService {
             _ => {
                 let col = collection::ActiveModel {
                     id: match input.update_id {
-                        Some(i) => ActiveValue::Unchanged(i),
+                        Some(i) => {
+                            let already_collection = Collection::find_by_id(i)
+                                .one(&self.db)
+                                .await
+                                .unwrap()
+                                .unwrap();
+                            if DefaultCollection::iter()
+                                .map(|s| s.to_string())
+                                .contains(&already_collection.name)
+                            {
+                                return Err(Error::new(
+                                    "Can not update a default collection".to_owned(),
+                                ));
+                            }
+                            ActiveValue::Unchanged(i)
+                        }
                         None => ActiveValue::NotSet,
                     },
                     last_updated_on: ActiveValue::Set(Utc::now()),
@@ -6915,7 +6930,7 @@ GROUP BY
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        // FIXME: handle this correctly
+        // FIXME: handle this correctly please
         let users = User::find()
             .filter(Expr::cust(
                 "(preferences -> 'notifications' -> 'new_review_posted') = 'true'::jsonb",
