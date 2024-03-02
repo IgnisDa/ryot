@@ -6827,7 +6827,7 @@ GROUP BY
             .into_iter()
             .map(|(cal_event, meta)| {
                 let meta = meta.unwrap();
-                let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
+                let url = self.get_entity_details_frontend_url(meta.id, EntityLot::Media, None);
                 let notification = if let Some(show) = cal_event.metadata_show_extra_information {
                     format!(
                         "S{}E{} of {} ({}) has been released today.",
@@ -6947,7 +6947,11 @@ GROUP BY
             .all(&self.db)
             .await?;
         for user in users {
-            let url = self.get_frontend_url(event.obj_id, event.entity_lot, Some("reviews"));
+            let url = self.get_entity_details_frontend_url(
+                event.obj_id,
+                event.entity_lot,
+                Some("reviews"),
+            );
             self.send_notifications_to_user_platforms(
                 user.id,
                 &format!(
@@ -6960,7 +6964,7 @@ GROUP BY
         Ok(())
     }
 
-    fn get_frontend_url(
+    fn get_entity_details_frontend_url(
         &self,
         id: i32,
         entity_lot: EntityLot,
