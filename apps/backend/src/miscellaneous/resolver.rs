@@ -5229,6 +5229,9 @@ impl MiscellaneousService {
                             preferences.notifications.to_send =
                                 serde_json::from_str(&input.value).unwrap();
                         }
+                        "enabled" => {
+                            preferences.notifications.enabled = value_bool.unwrap();
+                        }
                         _ => return Err(err()),
                     },
                     "general" => match right {

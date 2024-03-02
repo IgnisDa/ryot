@@ -12,12 +12,14 @@ use crate::models::{fitness::UserUnitSystem, MediaStateChanged};
 )]
 pub struct UserNotificationsPreferences {
     pub to_send: Vec<MediaStateChanged>,
+    pub enabled: bool,
 }
 
 impl Default for UserNotificationsPreferences {
     fn default() -> Self {
         Self {
             to_send: MediaStateChanged::iter().collect(),
+            enabled: true,
         }
     }
 }

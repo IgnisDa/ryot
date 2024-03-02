@@ -51,6 +51,7 @@ query UserPreferences {
     }
     notifications {
       toSend
+      enabled
     }
     featuresEnabled {
       fitness {
