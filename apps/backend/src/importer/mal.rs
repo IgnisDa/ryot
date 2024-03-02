@@ -65,7 +65,7 @@ fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
         source_id: item.title.clone(),
         lot,
         source: MetadataSource::Mal,
-        identifier: "".to_string(),
+        identifier: item.title.clone(),
         internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
             identifier: item.identifier.to_string(),
             title: item.title,
