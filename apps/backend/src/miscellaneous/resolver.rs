@@ -5919,14 +5919,14 @@ impl MiscellaneousService {
         user_id: i32,
         msg: &str,
     ) -> Result<bool> {
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
+        let user_details = user_by_id(&self.db, user_id).await?;
         tracing::debug!("Sending notification to user: {:?}", msg);
         let mut success = true;
-        for notification in user.notifications {
-            if notification.settings.send_message(msg).await.is_err() {
-                success = false;
+        if user_details.preferences.notifications.enabled {
+            for notification in user_details.notifications {
+                if notification.settings.send_message(msg).await.is_err() {
+                    success = false;
+                }
             }
         }
         Ok(success)
