@@ -3119,7 +3119,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn create_partial_metadata(
+    pub async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
     ) -> Result<PartialMetadata> {

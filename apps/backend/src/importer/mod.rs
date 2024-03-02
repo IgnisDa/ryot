@@ -23,9 +23,9 @@ use crate::{
         fitness::UserWorkoutInput,
         media::{
             CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
-            PostReviewInput, ProgressUpdateInput,
+            PartialMetadataWithoutId, PostReviewInput, ProgressUpdateInput,
         },
-        BackgroundJob, ChangeCollectionToEntityInput,
+        BackgroundJob, ChangeCollectionToEntityInput, IdObject,
     },
     traits::AuthProvider,
     users::UserReviewScale,
@@ -358,14 +358,22 @@ impl ImporterService {
         for (idx, item) in import.media.iter().enumerate() {
             tracing::debug!(
                 "Importing media with identifier = {iden}",
-                iden = item.source_id
+                iden = &item.source_id
             );
             let identifier = item.internal_identifier.clone().unwrap();
             let data = match identifier {
                 ImportOrExportItemIdentifier::NeedsDetails(i) => {
-                    self.media_service
-                        .commit_media(item.lot, item.source, &i)
-                        .await
+                    let resp = self
+                        .media_service
+                        .create_partial_metadata(PartialMetadataWithoutId {
+                            identifier: i,
+                            title: item.source_id.clone(),
+                            image: None,
+                            lot: item.lot,
+                            source: item.source,
+                        })
+                        .await;
+                    resp.map(|r| IdObject { id: r.id })
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service
