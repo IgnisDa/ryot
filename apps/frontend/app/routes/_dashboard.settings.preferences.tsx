@@ -423,6 +423,7 @@ export default function Page() {
 											});
 											appendPref("notifications.to_send", JSON.stringify(val));
 										}}
+										styles={{ track: { flex: "none" } }}
 									/>
 								))}
 							</SimpleGrid>
