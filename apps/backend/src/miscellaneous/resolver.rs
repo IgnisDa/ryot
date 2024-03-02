@@ -2482,17 +2482,21 @@ impl MiscellaneousService {
                 tracing::debug!("Progress update meta = {:?}", meta.title);
 
                 let show_ei = if matches!(meta.lot, MetadataLot::Show) {
-                    Some(SeenShowExtraInformation {
-                        season: input.show_season_number.unwrap(),
-                        episode: input.show_episode_number.unwrap(),
-                    })
+                    let season = input.show_season_number.ok_or_else(|| {
+                        Error::new("Season number is required for show progress update")
+                    })?;
+                    let episode = input.show_episode_number.ok_or_else(|| {
+                        Error::new("Episode number is required for show progress update")
+                    })?;
+                    Some(SeenShowExtraInformation { season, episode })
                 } else {
                     None
                 };
                 let podcast_ei = if matches!(meta.lot, MetadataLot::Podcast) {
-                    Some(SeenPodcastExtraInformation {
-                        episode: input.podcast_episode_number.unwrap(),
-                    })
+                    let episode = input.podcast_episode_number.ok_or_else(|| {
+                        Error::new("Episode number is required for podcast progress update")
+                    })?;
+                    Some(SeenPodcastExtraInformation { episode })
                 } else {
                     None
                 };
