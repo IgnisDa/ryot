@@ -5914,20 +5914,23 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, msg))]
     pub async fn send_notifications_to_user_platforms(
         &self,
         user_id: i32,
         msg: &str,
     ) -> Result<bool> {
         let user_details = user_by_id(&self.db, user_id).await?;
-        tracing::debug!("Sending notification to user: {:?}", msg);
         let mut success = true;
         if user_details.preferences.notifications.enabled {
+            tracing::debug!("Sending notification to user: {:?}", msg);
             for notification in user_details.notifications {
                 if notification.settings.send_message(msg).await.is_err() {
                     success = false;
                 }
             }
+        } else {
+            tracing::debug!("User has disabled notifications");
         }
         Ok(success)
     }
