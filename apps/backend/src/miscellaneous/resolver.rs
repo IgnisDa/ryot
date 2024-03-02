@@ -5491,7 +5491,7 @@ impl MiscellaneousService {
                 },
                 UserNotificationSettingKind::PushOver => UserNotificationSetting::PushOver {
                     key: input.api_token.unwrap(),
-                    app_key: input.base_url,
+                    app_key: input.auth_header,
                 },
                 UserNotificationSettingKind::PushSafer => UserNotificationSetting::PushSafer {
                     key: input.api_token.unwrap(),

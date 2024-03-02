@@ -300,7 +300,7 @@ export default function Page() {
 														required
 														name="apiToken"
 													/>
-													<TextInput label="App Key" name="baseUrl" />
+													<TextInput label="App Key" name="authHeader" />
 												</>
 											))
 											.with(UserNotificationSettingKind.PushSafer, () => (
