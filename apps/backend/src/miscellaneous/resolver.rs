@@ -2526,7 +2526,7 @@ impl MiscellaneousService {
                 } else {
                     (100, None)
                 };
-                tracing::debug!("Progress update progress = {:?}", progress);
+                tracing::debug!("Progress update percentage = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
