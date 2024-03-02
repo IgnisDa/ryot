@@ -6939,21 +6939,37 @@ GROUP BY
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        let users = User::find()
-            .filter(Expr::cust(format!(
-                "(preferences -> 'notifications' -> 'to_send' ? '{}')",
-                MediaStateChanged::ReviewPosted
-            )))
+        let monitored_by = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::UserId)
+            .filter(
+                user_to_entity::Column::MetadataId
+                    .eq(event.obj_id)
+                    .or(user_to_entity::Column::PersonId.eq(event.obj_id)),
+            )
+            .filter(user_to_entity::Column::MediaMonitored.eq(true))
+            .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        for user in users {
+        let users = User::find()
+            .select_only()
+            .column(user::Column::Id)
+            .filter(user::Column::Id.is_in(monitored_by))
+            .filter(Expr::cust(format!(
+                "(preferences -> 'notifications' -> 'to_send' ? '{}') = true",
+                MediaStateChanged::ReviewPosted
+            )))
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await?;
+        for user_id in users {
             let url = self.get_entity_details_frontend_url(
                 event.obj_id,
                 event.entity_lot,
                 Some("reviews"),
             );
             self.send_notifications_to_user_platforms(
-                user.id,
+                user_id,
                 &format!(
                     "New review posted for {} ({}, {}) by {}.",
                     event.obj_title, event.entity_lot, url, event.username
