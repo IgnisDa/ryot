@@ -10,10 +10,9 @@ import {
 	Select,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDebouncedState, useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -25,13 +24,16 @@ import { getInitials, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
 	IconFilterOff,
-	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
 import { gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
@@ -81,12 +83,6 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const [deQuery, setDeQuery] = useDebouncedState(
-		loaderData.query.query || "",
-		1000,
-	);
-
-	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<Container>
@@ -95,15 +91,9 @@ export default function Page() {
 					<Title>People</Title>
 				</Flex>
 				<Group wrap="nowrap">
-					<TextInput
-						name="query"
+					<DebouncedSearchInput
 						placeholder="Search for people"
-						leftSection={<IconSearch />}
-						onChange={(e) => setDeQuery(e.currentTarget.value)}
-						defaultValue={deQuery}
-						style={{ flexGrow: 1 }}
-						autoCapitalize="none"
-						autoComplete="off"
+						initialValue={loaderData.query.query}
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}

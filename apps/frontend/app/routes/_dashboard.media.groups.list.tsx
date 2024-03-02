@@ -6,18 +6,19 @@ import {
 	Flex,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { MetadataGroupsListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
-import { IconSearch } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
 import { gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
@@ -52,12 +53,6 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
-	const [deQuery, setDeQuery] = useDebouncedState(
-		loaderData.query.query || "",
-		1000,
-	);
-
-	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<Container>
@@ -65,15 +60,9 @@ export default function Page() {
 				<Flex align="center" gap="md">
 					<Title>Groups</Title>
 				</Flex>
-				<TextInput
-					name="query"
+				<DebouncedSearchInput
 					placeholder="Search for groups"
-					leftSection={<IconSearch />}
-					onChange={(e) => setDeQuery(e.currentTarget.value)}
-					defaultValue={deQuery}
-					style={{ flexGrow: 1 }}
-					autoCapitalize="none"
-					autoComplete="off"
+					initialValue={loaderData.query.query}
 				/>
 				{loaderData.metadataGroupsList.details.total > 0 ? (
 					<>

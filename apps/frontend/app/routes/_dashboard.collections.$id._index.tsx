@@ -12,10 +12,9 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDebouncedState, useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -31,7 +30,6 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconMessageCircle2,
-	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 	IconUser,
@@ -40,7 +38,11 @@ import { useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	PostReview,
@@ -140,12 +142,6 @@ export default function Page() {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-	const [deQuery, setDeQuery] = useDebouncedState(
-		loaderData.query.query || "",
-		1000,
-	);
-
-	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<>
@@ -195,15 +191,9 @@ export default function Page() {
 						<Tabs.Panel value="contents">
 							<Stack>
 								<Group wrap="nowrap">
-									<TextInput
-										name="query"
+									<DebouncedSearchInput
 										placeholder="Search in the collection"
-										leftSection={<IconSearch />}
-										onChange={(e) => setDeQuery(e.currentTarget.value)}
-										defaultValue={deQuery}
-										style={{ flexGrow: 1 }}
-										autoCapitalize="none"
-										autoComplete="off"
+										initialValue={loaderData.query.query}
 									/>
 									<ActionIcon
 										onClick={openFiltersModal}

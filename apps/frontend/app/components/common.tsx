@@ -197,12 +197,12 @@ export const HiddenLocationInput = () => {
 };
 
 export const DebouncedSearchInput = (props: {
-	initialValue: string;
+	initialValue?: string;
 	queryParam?: string;
 	placeholder?: string;
 }) => {
 	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(
-		props.initialValue,
+		props.initialValue || "",
 		1000,
 	);
 	const [_, { setP }] = useSearchParam();

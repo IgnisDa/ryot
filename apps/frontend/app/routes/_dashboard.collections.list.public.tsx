@@ -7,17 +7,18 @@ import {
 	Group,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { PublicCollectionsListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { IconSearch } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
@@ -50,27 +51,15 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
 	const getMantineColor = useGetMantineColor();
-	const [deQuery, setDeQuery] = useDebouncedState(
-		loaderData.query.query || "",
-		1000,
-	);
-
-	useDidUpdate(() => setP("query", deQuery), [deQuery]);
 
 	return (
 		<>
 			<Container>
 				<Stack>
 					<Title>Public collections</Title>
-					<TextInput
-						name="query"
-						placeholder="Search for collections"
-						leftSection={<IconSearch />}
-						onChange={(e) => setDeQuery(e.currentTarget.value)}
-						defaultValue={deQuery}
-						style={{ flexGrow: 1 }}
-						autoCapitalize="none"
-						autoComplete="off"
+					<DebouncedSearchInput
+						placeholder="Search in the collection"
+						initialValue={loaderData.query.query}
 					/>
 					{loaderData.publicCollectionsList.details.total > 0 ? (
 						<>

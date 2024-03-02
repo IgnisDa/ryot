@@ -18,16 +18,10 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 	rem,
 } from "@mantine/core";
-import {
-	useDebouncedState,
-	useDidUpdate,
-	useDisclosure,
-	useListState,
-} from "@mantine/hooks";
+import { useDisclosure, useListState } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -49,12 +43,14 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconPlus,
-	IconSearch,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationPagination } from "~/components/common";
+import {
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import {
@@ -174,13 +170,6 @@ export default function Page() {
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
 		);
 
-	const [deQuery, setDeQuery] = useDebouncedState(
-		loaderData.query.query || "",
-		1000,
-	);
-
-	useDidUpdate(() => setP("query", deQuery), [deQuery]);
-
 	return (
 		<Container size="md">
 			<Stack gap="xl">
@@ -210,15 +199,9 @@ export default function Page() {
 				) : (
 					<>
 						<Group wrap="nowrap">
-							<TextInput
-								name="query"
+							<DebouncedSearchInput
 								placeholder="Search for exercises by name or instructions"
-								leftSection={<IconSearch />}
-								onChange={(e) => setDeQuery(e.currentTarget.value)}
-								defaultValue={deQuery}
-								style={{ flexGrow: 1 }}
-								autoCapitalize="none"
-								autoComplete="off"
+								initialValue={loaderData.query.query}
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}
