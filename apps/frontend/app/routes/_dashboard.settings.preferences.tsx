@@ -397,7 +397,8 @@ export default function Page() {
 											)
 											.with(
 												MediaStateChanged.ReviewPosted,
-												() => "A new public review is posted",
+												() =>
+													"A new public review is posted for media/people you monitor",
 											)
 											.with(
 												MediaStateChanged.PersonMediaAssociated,
