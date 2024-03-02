@@ -336,25 +336,26 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications" mt="md">
 						<Stack>
+							<Switch
+								size="xs"
+								label="Whether notifications will be sent"
+								defaultChecked={
+									loaderData.userPreferences.notifications.enabled
+								}
+								disabled={!!loaderData.userDetails.isDemo}
+								onChange={(ev) => {
+									appendPref(
+										"notifications.enabled",
+										String(ev.currentTarget.checked),
+									);
+								}}
+							/>
+							<Divider />
 							<Text>
 								The notifications you want to receive in your configured
 								providers.
 							</Text>
 							<SimpleGrid cols={2}>
-								<Switch
-									size="xs"
-									label="Whether notifications will be sent"
-									defaultChecked={
-										loaderData.userPreferences.notifications.enabled
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"notifications.enabled",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
 								{Object.values(MediaStateChanged).map((name) => (
 									<Switch
 										key={name}
