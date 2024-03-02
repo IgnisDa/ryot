@@ -9,7 +9,7 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(r#"
 UPDATE "user"
-SET preferences = jsonb_set(preferences, '{notifications}', jsonb_build_object('to_send', v.new_notifications))
+SET preferences = jsonb_set(preferences, '{notifications}', jsonb_build_object('to_send', v.new_notifications, 'enabled', true))
 FROM (
     SELECT id, jsonb_agg(elem) FILTER (WHERE elem IS NOT NULL) AS new_notifications
     FROM "user",
