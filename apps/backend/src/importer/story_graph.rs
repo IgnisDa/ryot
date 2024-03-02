@@ -109,13 +109,14 @@ pub async fn import(
                     collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
                 }
                 media.push(ImportOrExportMediaItem {
-                    source_id: record.title,
+                    source_id: record.title.clone(),
                     lot,
                     source,
                     identifier: "".to_string(),
-                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
                         identifier,
-                    )),
+                        title: record.title,
+                    }),
                     seen_history,
                     reviews: vec![ImportOrExportItemRating {
                         rating: record

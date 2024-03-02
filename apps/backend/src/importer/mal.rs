@@ -66,9 +66,10 @@ fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
         lot,
         source: MetadataSource::Mal,
         identifier: "".to_string(),
-        internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-            item.identifier.to_string(),
-        )),
+        internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+            identifier: item.identifier.to_string(),
+            title: item.title.clone(),
+        }),
         seen_history: vec![seen_item],
         reviews: vec![review_item],
         collections: vec![],

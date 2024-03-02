@@ -362,12 +362,12 @@ impl ImporterService {
             );
             let identifier = item.internal_identifier.clone().unwrap();
             let data = match identifier {
-                ImportOrExportItemIdentifier::NeedsDetails(i) => {
+                ImportOrExportItemIdentifier::NeedsDetails { identifier, title } => {
                     let resp = self
                         .media_service
                         .create_partial_metadata(PartialMetadataWithoutId {
-                            identifier: i,
-                            title: item.source_id.clone(),
+                            identifier,
+                            title,
                             image: None,
                             lot: item.lot,
                             source: item.source,

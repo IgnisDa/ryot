@@ -131,11 +131,14 @@ pub async fn import(
                 });
             }
             media.push(ImportOrExportMediaItem {
-                source_id: record.title,
+                source_id: record.title.clone(),
                 lot,
                 source,
                 identifier: record.id,
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(identifier)),
+                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                    identifier,
+                    title: record.title,
+                }),
                 seen_history,
                 reviews,
                 collections,

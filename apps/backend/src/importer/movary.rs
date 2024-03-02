@@ -67,12 +67,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             }
         };
         media.push(ImportOrExportMediaItem {
-            source_id: record.common.title,
+            source_id: record.common.title.clone(),
             lot,
             source,
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                record.common.tmdb_id.to_string(),
-            )),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                identifier: record.common.tmdb_id.to_string(),
+                title: record.common.title,
+            }),
             identifier: "".to_string(),
             seen_history: vec![],
             reviews: vec![ImportOrExportItemRating {
@@ -98,12 +99,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             }
         };
         media.push(ImportOrExportMediaItem {
-            source_id: record.title,
+            source_id: record.title.clone(),
             lot,
             source,
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                record.tmdb_id.to_string(),
-            )),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                identifier: record.tmdb_id.to_string(),
+                title: record.title,
+            }),
             identifier: "".to_string(),
             seen_history: vec![],
             reviews: vec![],
@@ -160,13 +162,14 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 })
             }
             media.push(ImportOrExportMediaItem {
-                source_id: record.common.title,
+                source_id: record.common.title.clone(),
                 lot,
                 source,
                 identifier: "".to_string(),
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                    record.common.tmdb_id.to_string(),
-                )),
+                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                    identifier: record.common.tmdb_id.to_string(),
+                    title: record.common.title,
+                }),
                 seen_history: vec![seen_item],
                 reviews,
                 collections: vec![],
