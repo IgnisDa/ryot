@@ -227,6 +227,11 @@ export const ReviewItemDisplay = (props: {
 									if (conf)
 										deleteReviewFetcher.submit(
 											{
+												// TODO: https://github.com/unjs/ufo/issues/211
+												[redirectToQueryParam]:
+													window.location.pathname +
+													window.location.search +
+													window.location.hash,
 												shouldDelete: "true",
 												reviewId: props.review.id?.toString(),
 												// biome-ignore lint/suspicious/noExplicitAny: otherwise an error here

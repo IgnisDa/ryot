@@ -118,16 +118,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Review deleted successfully",
 					type: "success",
 				});
+			} else {
+				await gqlClient.request(
+					PostReviewDocument,
+					{ input: submission },
+					await getAuthorizationHeader(request),
+				);
+				headers = await createToastHeaders({
+					message: "Review submitted successfully",
+					type: "success",
+				});
 			}
-			await gqlClient.request(
-				PostReviewDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				message: "Review submitted successfully",
-				type: "success",
-			});
 		})
 		.with("createMediaReminder", async () => {
 			const submission = processSubmission(formData, createMediaReminderSchema);
