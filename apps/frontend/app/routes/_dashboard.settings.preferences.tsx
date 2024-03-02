@@ -341,6 +341,20 @@ export default function Page() {
 								providers.
 							</Text>
 							<SimpleGrid cols={2}>
+								<Switch
+									size="xs"
+									label="Whether notifications will be sent"
+									defaultChecked={
+										loaderData.userPreferences.notifications.enabled
+									}
+									disabled={!!loaderData.userDetails.isDemo}
+									onChange={(ev) => {
+										appendPref(
+											"notifications.enabled",
+											String(ev.currentTarget.checked),
+										);
+									}}
+								/>
 								{Object.values(MediaStateChanged).map((name) => (
 									<Switch
 										key={name}
@@ -392,7 +406,10 @@ export default function Page() {
 										defaultChecked={loaderData.userPreferences.notifications.toSend.includes(
 											name,
 										)}
-										disabled={!!loaderData.userDetails.isDemo}
+										disabled={
+											!!loaderData.userDetails.isDemo ||
+											!loaderData.userPreferences.notifications.enabled
+										}
 										onChange={() => {
 											const alreadyToSend = new Set(
 												loaderData.userPreferences.notifications.toSend,
