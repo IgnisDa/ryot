@@ -88,7 +88,7 @@ use crate::{
             VideoGameSpecifics, VisualNovelSpecifics,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
-        SearchDetails, SearchInput, SearchResults, StoredUrl,
+        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     providers::{
         anilist::{
@@ -123,19 +123,6 @@ use crate::{
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
-
-#[derive(Debug)]
-pub enum MediaStateChanged {
-    MetadataPublished,
-    MetadataStatusChanged,
-    MetadataReleaseDateChanged,
-    MetadataNumberOfSeasonsChanged,
-    MetadataEpisodeReleased,
-    MetadataEpisodeNameChanged,
-    MetadataChaptersOrEpisodesChanged,
-    MetadataEpisodeImagesChanged,
-    PersonMediaAssociated,
-}
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateCustomMediaInput {
@@ -2283,7 +2270,7 @@ impl MiscellaneousService {
             id: i32,
             title: String,
             publish_year: Option<i32>,
-            images: serde_json::Value,
+            images: Option<serde_json::Value>,
         }
 
         let count_select = Query::select()
@@ -2341,7 +2328,7 @@ impl MiscellaneousService {
                 .await?
                 .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
                 .unwrap();
-            let images = serde_json::from_value(met.images).unwrap();
+            let images = met.images.and_then(|i| serde_json::from_value(i).ok());
             let assets = self
                 .metadata_assets(&metadata::Model {
                     images,
@@ -2495,17 +2482,21 @@ impl MiscellaneousService {
                 tracing::debug!("Progress update meta = {:?}", meta.title);
 
                 let show_ei = if matches!(meta.lot, MetadataLot::Show) {
-                    Some(SeenShowExtraInformation {
-                        season: input.show_season_number.unwrap(),
-                        episode: input.show_episode_number.unwrap(),
-                    })
+                    let season = input.show_season_number.ok_or_else(|| {
+                        Error::new("Season number is required for show progress update")
+                    })?;
+                    let episode = input.show_episode_number.ok_or_else(|| {
+                        Error::new("Episode number is required for show progress update")
+                    })?;
+                    Some(SeenShowExtraInformation { season, episode })
                 } else {
                     None
                 };
                 let podcast_ei = if matches!(meta.lot, MetadataLot::Podcast) {
-                    Some(SeenPodcastExtraInformation {
-                        episode: input.podcast_episode_number.unwrap(),
-                    })
+                    let episode = input.podcast_episode_number.ok_or_else(|| {
+                        Error::new("Episode number is required for podcast progress update")
+                    })?;
+                    Some(SeenPodcastExtraInformation { episode })
                 } else {
                     None
                 };
@@ -2535,7 +2526,7 @@ impl MiscellaneousService {
                 } else {
                     (100, None)
                 };
-                tracing::debug!("Progress update progress = {:?}", progress);
+                tracing::debug!("Progress update percentage = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id),
@@ -3128,7 +3119,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn create_partial_metadata(
+    pub async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
     ) -> Result<PartialMetadata> {
@@ -4300,16 +4291,30 @@ impl MiscellaneousService {
             .one(&self.db)
             .await
             .unwrap();
+        let mut new_name = input.name.clone();
         match meta {
             Some(m) if input.update_id.is_none() => Ok(IdObject { id: m.id }),
             _ => {
                 let col = collection::ActiveModel {
                     id: match input.update_id {
-                        Some(i) => ActiveValue::Unchanged(i),
+                        Some(i) => {
+                            let already = Collection::find_by_id(i)
+                                .one(&self.db)
+                                .await
+                                .unwrap()
+                                .unwrap();
+                            if DefaultCollection::iter()
+                                .map(|s| s.to_string())
+                                .contains(&already.name)
+                            {
+                                new_name = already.name;
+                            }
+                            ActiveValue::Unchanged(i)
+                        }
                         None => ActiveValue::NotSet,
                     },
                     last_updated_on: ActiveValue::Set(Utc::now()),
-                    name: ActiveValue::Set(input.name),
+                    name: ActiveValue::Set(new_name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
                     visibility: match input.visibility {
@@ -5220,38 +5225,12 @@ impl MiscellaneousService {
                         }
                     }
                     "notifications" => match right {
-                        "episode_released" => {
-                            preferences.notifications.episode_released = value_bool.unwrap()
+                        "to_send" => {
+                            preferences.notifications.to_send =
+                                serde_json::from_str(&input.value).unwrap();
                         }
-                        "episode_name_changed" => {
-                            preferences.notifications.episode_name_changed = value_bool.unwrap()
-                        }
-                        "episode_images_changed" => {
-                            preferences.notifications.episode_images_changed = value_bool.unwrap()
-                        }
-                        "media_published" => {
-                            preferences.notifications.media_published = value_bool.unwrap()
-                        }
-                        "status_changed" => {
-                            preferences.notifications.status_changed = value_bool.unwrap()
-                        }
-                        "new_review_posted" => {
-                            preferences.notifications.new_review_posted = value_bool.unwrap()
-                        }
-                        "release_date_changed" => {
-                            preferences.notifications.release_date_changed = value_bool.unwrap()
-                        }
-                        "number_of_seasons_changed" => {
-                            preferences.notifications.number_of_seasons_changed =
-                                value_bool.unwrap()
-                        }
-                        "number_of_chapters_or_episodes_changed" => {
-                            preferences
-                                .notifications
-                                .number_of_chapters_or_episodes_changed = value_bool.unwrap()
-                        }
-                        "new_media_associated" => {
-                            preferences.notifications.new_media_associated = value_bool.unwrap()
+                        "enabled" => {
+                            preferences.notifications.enabled = value_bool.unwrap();
                         }
                         _ => return Err(err()),
                     },
@@ -5935,20 +5914,23 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, msg))]
     pub async fn send_notifications_to_user_platforms(
         &self,
         user_id: i32,
         msg: &str,
     ) -> Result<bool> {
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
-        tracing::debug!("Sending notification to user: {:?}", msg);
+        let user_details = user_by_id(&self.db, user_id).await?;
         let mut success = true;
-        for notification in user.notifications {
-            if notification.settings.send_message(msg).await.is_err() {
-                success = false;
+        if user_details.preferences.notifications.enabled {
+            tracing::debug!("Sending notification to user: {:?}", msg);
+            for notification in user_details.notifications {
+                if notification.settings.send_message(msg).await.is_err() {
+                    success = false;
+                }
             }
+        } else {
+            tracing::debug!("User has disabled notifications");
         }
         Ok(success)
     }
@@ -6074,61 +6056,8 @@ GROUP BY
         notification: &(String, MediaStateChanged),
     ) -> Result<()> {
         let (notification, change) = notification;
-        let preferences = self.user_preferences(user_id).await?;
-        if matches!(change, MediaStateChanged::MetadataStatusChanged)
-            && preferences.notifications.status_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataEpisodeReleased)
-            && preferences.notifications.episode_released
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataPublished)
-            && preferences.notifications.media_published
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataEpisodeNameChanged)
-            && preferences.notifications.episode_name_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataChaptersOrEpisodesChanged)
-            && preferences
-                .notifications
-                .number_of_chapters_or_episodes_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataReleaseDateChanged)
-            && preferences.notifications.release_date_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::MetadataNumberOfSeasonsChanged)
-            && preferences.notifications.number_of_seasons_changed
-        {
-            self.send_notifications_to_user_platforms(user_id, notification)
-                .await
-                .ok();
-        }
-        if matches!(change, MediaStateChanged::PersonMediaAssociated)
-            && preferences.notifications.new_media_associated
-        {
+        let notif_prefs = self.user_preferences(user_id).await?.notifications.to_send;
+        if notif_prefs.contains(change) {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
@@ -6898,7 +6827,7 @@ GROUP BY
             .into_iter()
             .map(|(cal_event, meta)| {
                 let meta = meta.unwrap();
-                let url = self.get_frontend_url(meta.id, EntityLot::Media, None);
+                let url = self.get_entity_details_frontend_url(meta.id, EntityLot::Media, None);
                 let notification = if let Some(show) = cal_event.metadata_show_extra_information {
                     format!(
                         "S{}E{} of {} ({}) has been released today.",
@@ -7010,16 +6939,37 @@ GROUP BY
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        let users = User::find()
-            .filter(Expr::cust(
-                "(preferences -> 'notifications' -> 'new_review_posted') = 'true'::jsonb",
-            ))
+        let monitored_by = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::UserId)
+            .filter(
+                user_to_entity::Column::MetadataId
+                    .eq(event.obj_id)
+                    .or(user_to_entity::Column::PersonId.eq(event.obj_id)),
+            )
+            .filter(user_to_entity::Column::MediaMonitored.eq(true))
+            .into_tuple::<i32>()
             .all(&self.db)
             .await?;
-        for user in users {
-            let url = self.get_frontend_url(event.obj_id, event.entity_lot, Some("reviews"));
+        let users = User::find()
+            .select_only()
+            .column(user::Column::Id)
+            .filter(user::Column::Id.is_in(monitored_by))
+            .filter(Expr::cust(format!(
+                "(preferences -> 'notifications' -> 'to_send' ? '{}') = true",
+                MediaStateChanged::ReviewPosted
+            )))
+            .into_tuple::<i32>()
+            .all(&self.db)
+            .await?;
+        for user_id in users {
+            let url = self.get_entity_details_frontend_url(
+                event.obj_id,
+                event.entity_lot,
+                Some("reviews"),
+            );
             self.send_notifications_to_user_platforms(
-                user.id,
+                user_id,
                 &format!(
                     "New review posted for {} ({}, {}) by {}.",
                     event.obj_title, event.entity_lot, url, event.username
@@ -7030,7 +6980,7 @@ GROUP BY
         Ok(())
     }
 
-    fn get_frontend_url(
+    fn get_entity_details_frontend_url(
         &self,
         id: i32,
         entity_lot: EntityLot,

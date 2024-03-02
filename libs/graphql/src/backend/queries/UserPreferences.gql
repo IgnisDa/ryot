@@ -50,16 +50,8 @@ query UserPreferences {
       }
     }
     notifications {
-      mediaPublished
-      episodeReleased
-      episodeNameChanged
-      episodeImagesChanged
-      statusChanged
-      releaseDateChanged
-      numberOfSeasonsChanged
-      numberOfChaptersOrEpisodesChanged
-      newReviewPosted
-      newMediaAssociated
+      toSend
+      enabled
     }
     featuresEnabled {
       fitness {

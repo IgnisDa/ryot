@@ -1,6 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	ActionIcon,
 	Anchor,
 	Box,
 	Center,
@@ -8,18 +7,18 @@ import {
 	Group,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { PublicCollectionsListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { IconSearch, IconX } from "@tabler/icons-react";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
@@ -51,32 +50,16 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const getMantineColor = useGetMantineColor();
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<>
 			<Container>
 				<Stack>
 					<Title>Public collections</Title>
-					<TextInput
-						name="query"
-						placeholder="Search for collections"
-						leftSection={<IconSearch />}
-						onChange={(e) => setQuery(e.currentTarget.value)}
-						value={query}
-						rightSection={
-							query ? (
-								<ActionIcon onClick={() => setQuery("")}>
-									<IconX size={16} />
-								</ActionIcon>
-							) : null
-						}
-						style={{ flexGrow: 1 }}
-						autoCapitalize="none"
-						autoComplete="off"
+					<DebouncedSearchInput
+						placeholder="Search in the collection"
+						initialValue={loaderData.query.query}
 					/>
 					{loaderData.publicCollectionsList.details.total > 0 ? (
 						<>

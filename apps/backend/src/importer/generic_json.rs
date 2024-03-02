@@ -14,9 +14,10 @@ pub async fn import(input: DeployGenericJsonImportInput) -> Result<ImportResult>
         .media
         .unwrap();
     media.iter_mut().for_each(|m| {
-        m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails(
-            m.identifier.clone(),
-        ))
+        m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails {
+            identifier: m.identifier.clone(),
+            title: m.source_id.clone(),
+        })
     });
     Ok(ImportResult {
         collections: vec![],

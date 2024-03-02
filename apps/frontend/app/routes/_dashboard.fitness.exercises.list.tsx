@@ -18,11 +18,10 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 	rem,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure, useListState } from "@mantine/hooks";
+import { useDisclosure, useListState } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -44,14 +43,14 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconPlus,
-	IconSearch,
-	IconX,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationPagination } from "~/components/common";
+import {
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import {
@@ -157,15 +156,12 @@ export default function Page() {
 		name: string;
 		lot: ExerciseLot;
 	}>([]);
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
@@ -203,22 +199,9 @@ export default function Page() {
 				) : (
 					<>
 						<Group wrap="nowrap">
-							<TextInput
-								name="query"
+							<DebouncedSearchInput
 								placeholder="Search for exercises by name or instructions"
-								leftSection={<IconSearch />}
-								onChange={(e) => setQuery(e.currentTarget.value)}
-								value={query}
-								rightSection={
-									query ? (
-										<ActionIcon onClick={() => setQuery("")}>
-											<IconX size={16} />
-										</ActionIcon>
-									) : null
-								}
-								style={{ flexGrow: 1 }}
-								autoCapitalize="none"
-								autoComplete="off"
+								initialValue={loaderData.query.query}
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}

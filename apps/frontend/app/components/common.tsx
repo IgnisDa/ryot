@@ -1,6 +1,7 @@
 import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
 import {
+	ActionIcon,
 	Anchor,
 	Badge,
 	Box,
@@ -14,9 +15,11 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
+	TextInput,
 	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
+import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { Form, useLocation } from "@remix-run/react";
 import type {
 	EntityLot,
@@ -24,11 +27,12 @@ import type {
 	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
-import { IconExternalLink } from "@tabler/icons-react";
-import { ReactNode, forwardRef } from "react";
+import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
+import { ReactNode, forwardRef, useRef } from "react";
 import { useState } from "react";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
+import { useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -189,5 +193,52 @@ export const HiddenLocationInput = () => {
 
 	return (
 		<input type="hidden" name={redirectToQueryParam} value={value} readOnly />
+	);
+};
+
+export const DebouncedSearchInput = (props: {
+	initialValue?: string;
+	queryParam?: string;
+	placeholder?: string;
+}) => {
+	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(
+		props.initialValue || "",
+		1000,
+	);
+	const [_, { setP }] = useSearchParam();
+
+	useDidUpdate(
+		() => setP(props.queryParam || "query", debouncedQuery),
+		[debouncedQuery],
+	);
+
+	const ref = useRef<HTMLInputElement>(null);
+
+	return (
+		<TextInput
+			ref={ref}
+			name="query"
+			placeholder={props.placeholder || "Search..."}
+			leftSection={<IconSearch />}
+			onChange={(e) => setDebouncedQuery(e.currentTarget.value)}
+			defaultValue={debouncedQuery}
+			style={{ flexGrow: 1 }}
+			autoCapitalize="none"
+			autoComplete="off"
+			rightSection={
+				debouncedQuery ? (
+					<ActionIcon
+						onClick={() => {
+							if (ref.current) {
+								ref.current.value = "";
+								setDebouncedQuery("");
+							}
+						}}
+					>
+						<IconX size={16} />
+					</ActionIcon>
+				) : null
+			}
+		/>
 	);
 };

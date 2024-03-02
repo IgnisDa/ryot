@@ -54,7 +54,7 @@ import {
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconCheck,
-	IconDropletHalf2Filled,
+	IconCloudDownload,
 	IconEdit,
 	IconEyeCheck,
 	IconPercentage,
@@ -227,6 +227,11 @@ export const ReviewItemDisplay = (props: {
 									if (conf)
 										deleteReviewFetcher.submit(
 											{
+												// TODO: https://github.com/unjs/ufo/issues/211
+												[redirectToQueryParam]:
+													window.location.pathname +
+													window.location.search +
+													window.location.hash,
 												shouldDelete: "true",
 												reviewId: props.review.id?.toString(),
 												// biome-ignore lint/suspicious/noExplicitAny: otherwise an error here
@@ -920,9 +925,11 @@ export const NewUserGuideAlert = () => {
 
 export const MediaIsPartial = (props: { mediaType: string }) => {
 	return (
-		<Flex align="center" gap={2}>
-			<IconDropletHalf2Filled size={20} />
-			<Text size="xs">This {props.mediaType} is partially downloaded</Text>
+		<Flex align="center" gap={4}>
+			<IconCloudDownload size={20} />
+			<Text size="xs">
+				Details of this {props.mediaType} are being downloaded
+			</Text>
 		</Flex>
 	);
 };

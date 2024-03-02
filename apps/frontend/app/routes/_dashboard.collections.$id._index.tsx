@@ -12,10 +12,9 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -31,17 +30,19 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconMessageCircle2,
-	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 	IconUser,
-	IconX,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	PostReview,
@@ -134,7 +135,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -142,8 +142,6 @@ export default function Page() {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<>
@@ -193,22 +191,9 @@ export default function Page() {
 						<Tabs.Panel value="contents">
 							<Stack>
 								<Group wrap="nowrap">
-									<TextInput
-										name="query"
+									<DebouncedSearchInput
 										placeholder="Search in the collection"
-										leftSection={<IconSearch />}
-										onChange={(e) => setQuery(e.currentTarget.value)}
-										value={query}
-										rightSection={
-											query ? (
-												<ActionIcon onClick={() => setQuery("")}>
-													<IconX size={16} />
-												</ActionIcon>
-											) : null
-										}
-										style={{ flexGrow: 1 }}
-										autoCapitalize="none"
-										autoComplete="off"
+										initialValue={loaderData.query.query}
 									/>
 									<ActionIcon
 										onClick={openFiltersModal}

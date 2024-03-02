@@ -48,6 +48,7 @@ import {
 	EditSeenItemDocument,
 	EntityLot,
 	MediaAdditionalDetailsDocument,
+	MediaAdditionalDetailsQuery,
 	MediaMainDetailsDocument,
 	MergeMetadataDocument,
 	MetadataLot,
@@ -1341,81 +1342,101 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Suspense fallback={<FallbackForDefer />}>
-							<Await resolve={loaderData.userMediaDetails}>
-								{({ userMediaDetails }) => (
-									<>
-										<Tabs.Panel value="history">
-											{userMediaDetails.seenBy > 0 ||
-											userMediaDetails.history.length > 0 ||
-											userMediaDetails.unitsConsumed ||
-											userMediaDetails.ownership ? (
-												<MediaScrollArea
-													itemDetailsHeight={
-														loaderData.coreDetails.itemDetailsHeight
-													}
-												>
-													<Stack>
-														<Box>
-															<Text fz={{ base: "sm", md: "md" }}>
-																Seen by all users {userMediaDetails.seenBy} time
-																{userMediaDetails.seenBy > 1 ? "s" : ""} and{" "}
-																{userMediaDetails.history.length} time
-																{userMediaDetails &&
-																userMediaDetails.history.length > 1
-																	? "s"
-																	: ""}{" "}
-																by you.
-															</Text>
+							<Await resolve={loaderData.mediaAdditionalDetails}>
+								{({ mediaDetails }) => (
+									<Suspense fallback={<FallbackForDefer />}>
+										<Await resolve={loaderData.userMediaDetails}>
+											{({ userMediaDetails }) => (
+												<>
+													<Tabs.Panel value="history">
+														{userMediaDetails.seenBy > 0 ||
+														userMediaDetails.history.length > 0 ||
+														userMediaDetails.unitsConsumed ||
+														userMediaDetails.ownership ? (
+															<MediaScrollArea
+																itemDetailsHeight={
+																	loaderData.coreDetails.itemDetailsHeight
+																}
+															>
+																<Stack>
+																	<Box>
+																		<Text fz={{ base: "sm", md: "md" }}>
+																			Seen by all users{" "}
+																			{userMediaDetails.seenBy} time
+																			{userMediaDetails.seenBy > 1 ? "s" : ""}{" "}
+																			and {userMediaDetails.history.length} time
+																			{userMediaDetails &&
+																			userMediaDetails.history.length > 1
+																				? "s"
+																				: ""}{" "}
+																			by you.
+																		</Text>
 
-															{userMediaDetails.unitsConsumed ? (
-																<Text fz={{ base: "sm", md: "md" }}>
-																	Consumed{" "}
-																	{match(loaderData.mediaMainDetails.lot)
-																		.with(
-																			MetadataLot.AudioBook,
-																			MetadataLot.Movie,
-																			MetadataLot.Show,
-																			MetadataLot.Podcast,
-																			MetadataLot.VisualNovel,
-																			() =>
-																				humanizeDuration(
-																					(userMediaDetails.unitsConsumed ||
-																						0) *
-																						1000 *
-																						60,
-																				),
-																		)
-																		.otherwise(
-																			(v) =>
-																				`${
-																					userMediaDetails.unitsConsumed
-																				} ${match(v)
-																					.with(MetadataLot.VideoGame, () => "")
-																					.with(MetadataLot.Book, () => "pages")
+																		{userMediaDetails.unitsConsumed ? (
+																			<Text fz={{ base: "sm", md: "md" }}>
+																				Consumed{" "}
+																				{match(loaderData.mediaMainDetails.lot)
 																					.with(
-																						MetadataLot.Anime,
-																						() => "episodes",
+																						MetadataLot.AudioBook,
+																						MetadataLot.Movie,
+																						MetadataLot.Show,
+																						MetadataLot.Podcast,
+																						MetadataLot.VisualNovel,
+																						() =>
+																							humanizeDuration(
+																								(userMediaDetails.unitsConsumed ||
+																									0) *
+																									1000 *
+																									60,
+																							),
 																					)
-																					.with(
-																						MetadataLot.Manga,
-																						() => "chapters",
-																					)
-																					.exhaustive()}`,
-																		)}
-																	.
-																</Text>
-															) : null}
-														</Box>
-														{userMediaDetails.history.map((h) => (
-															<SeenItem history={h} key={h.id} />
-														))}
-													</Stack>
-												</MediaScrollArea>
-											) : (
-												<Text>No history</Text>
+																					.otherwise(
+																						(v) =>
+																							`${
+																								userMediaDetails.unitsConsumed
+																							} ${match(v)
+																								.with(
+																									MetadataLot.VideoGame,
+																									() => "",
+																								)
+																								.with(
+																									MetadataLot.Book,
+																									() => "pages",
+																								)
+																								.with(
+																									MetadataLot.Anime,
+																									() => "episodes",
+																								)
+																								.with(
+																									MetadataLot.Manga,
+																									() => "chapters",
+																								)
+																								.exhaustive()}`,
+																					)}
+																				.
+																			</Text>
+																		) : null}
+																	</Box>
+																	{userMediaDetails.history.map((h) => (
+																		<SeenItem
+																			history={h}
+																			key={h.id}
+																			showSpecifics={mediaDetails.showSpecifics}
+																			podcastSpecifics={
+																				mediaDetails.podcastSpecifics
+																			}
+																		/>
+																	))}
+																</Stack>
+															</MediaScrollArea>
+														) : (
+															<Text>No history</Text>
+														)}
+													</Tabs.Panel>
+												</>
 											)}
-										</Tabs.Panel>
-									</>
+										</Await>
+									</Suspense>
 								)}
 							</Await>
 						</Suspense>
@@ -2278,11 +2299,38 @@ const AccordionLabel = (props: {
 };
 
 type History = UserMediaDetailsQuery["userMediaDetails"]["history"][number];
+type ShowSpecifics =
+	MediaAdditionalDetailsQuery["mediaDetails"]["showSpecifics"];
+type PodcastSpecifics =
+	MediaAdditionalDetailsQuery["mediaDetails"]["podcastSpecifics"];
 
 const SeenItem = (props: {
 	history: History;
+	showSpecifics?: ShowSpecifics;
+	podcastSpecifics?: PodcastSpecifics;
 }) => {
 	const [opened, { open, close }] = useDisclosure(false);
+	const showExtraInformation = props.history.showExtraInformation
+		? props.showSpecifics?.seasons
+				.find(
+					(s) => s.seasonNumber === props.history.showExtraInformation?.season,
+				)
+				?.episodes.find(
+					(e) =>
+						e.episodeNumber === props.history.showExtraInformation?.episode,
+				)
+		: null;
+	const displayShowExtraInformation = showExtraInformation
+		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
+		: null;
+	const podcastExtraInformation = props.history.podcastExtraInformation
+		? props.podcastSpecifics?.episodes.find(
+				(e) => e.number === props.history.podcastExtraInformation?.episode,
+		  )
+		: null;
+	const displayPodcastExtraInformation = podcastExtraInformation
+		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
+		: null;
 
 	return (
 		<>
@@ -2325,22 +2373,21 @@ const SeenItem = (props: {
 					</ActionIcon>
 				</Flex>
 				<Flex direction="column">
-					<Flex gap="xl">
+					<Flex gap="lg">
 						<Text fw="bold">
 							{changeCase(props.history.state)}{" "}
 							{props.history.progress !== 100
 								? `(${props.history.progress}%)`
 								: null}
 						</Text>
-						{props.history.showExtraInformation ? (
-							<Text c="dimmed">
-								S{props.history.showExtraInformation.season}-E
-								{props.history.showExtraInformation.episode}
+						{displayShowExtraInformation ? (
+							<Text c="dimmed" lineClamp={1}>
+								{displayShowExtraInformation}
 							</Text>
 						) : null}
-						{props.history.podcastExtraInformation ? (
-							<Text c="dimmed">
-								EP-{props.history.podcastExtraInformation.episode}
+						{displayPodcastExtraInformation ? (
+							<Text c="dimmed" lineClamp={1}>
+								{displayPodcastExtraInformation}
 							</Text>
 						) : null}
 						{props.history.animeExtraInformation?.episode ? (

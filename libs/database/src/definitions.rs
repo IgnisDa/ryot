@@ -5,6 +5,46 @@ use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
+/// The different types of media that can be stored.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Enum,
+    Default,
+    Hash,
+    ConfigEnum,
+)]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[config(rename_all = "PascalCase")]
+pub enum MetadataLot {
+    #[sea_orm(string_value = "AB")]
+    AudioBook,
+    #[sea_orm(string_value = "AN")]
+    Anime,
+    #[default]
+    #[sea_orm(string_value = "BO")]
+    Book,
+    #[sea_orm(string_value = "PO")]
+    Podcast,
+    #[sea_orm(string_value = "MA")]
+    Manga,
+    #[sea_orm(string_value = "MO")]
+    Movie,
+    #[sea_orm(string_value = "SH")]
+    Show,
+    #[sea_orm(string_value = "VG")]
+    VideoGame,
+    #[sea_orm(string_value = "VN")]
+    VisualNovel,
+}
+
 /// The different sources (or providers) from which data can be obtained from.
 #[derive(
     Debug,
@@ -49,46 +89,6 @@ pub enum MetadataSource {
     Tmdb,
     #[sea_orm(string_value = "VN")]
     Vndb,
-}
-
-/// The different types of media that can be stored.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
-    Default,
-    Hash,
-    ConfigEnum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-#[config(rename_all = "PascalCase")]
-pub enum MetadataLot {
-    #[sea_orm(string_value = "AB")]
-    AudioBook,
-    #[sea_orm(string_value = "AN")]
-    Anime,
-    #[default]
-    #[sea_orm(string_value = "BO")]
-    Book,
-    #[sea_orm(string_value = "PO")]
-    Podcast,
-    #[sea_orm(string_value = "MA")]
-    Manga,
-    #[sea_orm(string_value = "MO")]
-    Movie,
-    #[sea_orm(string_value = "SH")]
-    Show,
-    #[sea_orm(string_value = "VG")]
-    VideoGame,
-    #[sea_orm(string_value = "VN")]
-    VisualNovel,
 }
 
 #[derive(

@@ -153,6 +153,20 @@ pub enum ExportItem {
     Measurements,
 }
 
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
+pub enum MediaStateChanged {
+    MetadataPublished,
+    MetadataStatusChanged,
+    MetadataReleaseDateChanged,
+    MetadataNumberOfSeasonsChanged,
+    MetadataEpisodeReleased,
+    MetadataEpisodeNameChanged,
+    MetadataChaptersOrEpisodesChanged,
+    MetadataEpisodeImagesChanged,
+    PersonMediaAssociated,
+    ReviewPosted,
+}
+
 pub mod media {
     use super::*;
 
@@ -939,7 +953,7 @@ pub mod media {
     #[serde(untagged)]
     pub enum ImportOrExportItemIdentifier {
         // the identifier in case we need to fetch details
-        NeedsDetails(String),
+        NeedsDetails { identifier: String, title: String },
         // details are already filled and just need to be committed to database
         AlreadyFilled(Box<MediaDetails>),
     }

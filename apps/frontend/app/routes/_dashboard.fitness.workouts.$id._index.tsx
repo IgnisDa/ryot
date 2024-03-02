@@ -176,7 +176,12 @@ export default function Page() {
 				withCloseButton={false}
 				centered
 			>
-				<Form replace action="?intent=edit" method="post">
+				<Form
+					replace
+					action="?intent=edit"
+					method="post"
+					onSubmit={() => adjustTimeModalClose()}
+				>
 					<Stack>
 						<Title order={3}>Adjust times</Title>
 						<DateTimePicker

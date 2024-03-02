@@ -1,6 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	ActionIcon,
 	Anchor,
 	Box,
 	Center,
@@ -10,18 +9,18 @@ import {
 	Paper,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { IconSearch, IconX } from "@tabler/icons-react";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
@@ -52,9 +51,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container>
@@ -62,22 +58,9 @@ export default function Page() {
 				<Flex align="center" gap="md">
 					<Title>Genres</Title>
 				</Flex>
-				<TextInput
-					name="query"
+				<DebouncedSearchInput
 					placeholder="Search for genres"
-					leftSection={<IconSearch />}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-					value={query}
-					rightSection={
-						query ? (
-							<ActionIcon onClick={() => setQuery("")}>
-								<IconX size={16} />
-							</ActionIcon>
-						) : null
-					}
-					style={{ flexGrow: 1 }}
-					autoCapitalize="none"
-					autoComplete="off"
+					initialValue={loaderData.query.query}
 				/>
 				{loaderData.listGenres.details.total > 0 ? (
 					<>

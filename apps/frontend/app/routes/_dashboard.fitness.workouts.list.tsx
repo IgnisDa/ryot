@@ -10,10 +10,8 @@ import {
 	Group,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
@@ -26,15 +24,16 @@ import {
 	IconClock,
 	IconLink,
 	IconPlus,
-	IconSearch,
 	IconTrophy,
 	IconWeight,
-	IconX,
 } from "@tabler/icons-react";
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationPagination } from "~/components/common";
+import {
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
@@ -81,10 +80,7 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const startWorkout = getWorkoutStarter();
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container size="xs">
@@ -101,22 +97,9 @@ export default function Page() {
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
-				<TextInput
-					name="query"
+				<DebouncedSearchInput
 					placeholder="Search for workouts"
-					leftSection={<IconSearch />}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-					value={query}
-					rightSection={
-						query ? (
-							<ActionIcon onClick={() => setQuery("")}>
-								<IconX size={16} />
-							</ActionIcon>
-						) : null
-					}
-					style={{ flexGrow: 1 }}
-					autoCapitalize="none"
-					autoComplete="off"
+					initialValue={loaderData.query.query}
 				/>
 				{loaderData.userWorkoutList.items.length > 0 ? (
 					<>

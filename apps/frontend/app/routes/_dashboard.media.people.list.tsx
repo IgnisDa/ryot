@@ -10,10 +10,9 @@ import {
 	Select,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -25,15 +24,16 @@ import { getInitials, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
 	IconFilterOff,
-	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
-	IconX,
 } from "@tabler/icons-react";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import {
+	ApplicationGrid,
+	ApplicationPagination,
+	DebouncedSearchInput,
+} from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
 import { gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
@@ -79,13 +79,10 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container>
@@ -94,22 +91,9 @@ export default function Page() {
 					<Title>People</Title>
 				</Flex>
 				<Group wrap="nowrap">
-					<TextInput
-						name="query"
+					<DebouncedSearchInput
 						placeholder="Search for people"
-						leftSection={<IconSearch />}
-						onChange={(e) => setQuery(e.currentTarget.value)}
-						value={query}
-						rightSection={
-							query ? (
-								<ActionIcon onClick={() => setQuery("")}>
-									<IconX size={16} />
-								</ActionIcon>
-							) : null
-						}
-						style={{ flexGrow: 1 }}
-						autoCapitalize="none"
-						autoComplete="off"
+						initialValue={loaderData.query.query}
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}

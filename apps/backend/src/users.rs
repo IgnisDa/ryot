@@ -3,44 +3,23 @@ use kinded::Kinded;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::EnumString;
+use strum::{EnumString, IntoEnumIterator};
 
-use crate::models::fitness::UserUnitSystem;
+use crate::models::{fitness::UserUnitSystem, MediaStateChanged};
 
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserNotificationsPreferences {
-    #[serde(default)] // FIXME: remove in the next major release
-    pub media_published: bool,
-    pub status_changed: bool,
-    pub episode_released: bool,
-    pub release_date_changed: bool,
-    pub episode_images_changed: bool,
-    // Show
-    pub episode_name_changed: bool,
-    pub number_of_seasons_changed: bool,
-    // Anime and Manga
-    pub number_of_chapters_or_episodes_changed: bool,
-    pub new_review_posted: bool,
-    // People
-    #[serde(default)] // FIXME: remove in the next major release
-    pub new_media_associated: bool,
+    pub to_send: Vec<MediaStateChanged>,
+    pub enabled: bool,
 }
 
 impl Default for UserNotificationsPreferences {
     fn default() -> Self {
         Self {
-            media_published: true,
-            status_changed: true,
-            episode_released: true,
-            episode_name_changed: true,
-            episode_images_changed: true,
-            release_date_changed: true,
-            number_of_seasons_changed: true,
-            number_of_chapters_or_episodes_changed: true,
-            new_review_posted: true,
-            new_media_associated: true,
+            to_send: MediaStateChanged::iter().collect(),
+            enabled: true,
         }
     }
 }

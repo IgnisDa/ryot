@@ -13,10 +13,9 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import {
 	Link,
@@ -49,7 +48,6 @@ import {
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
-	IconX,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
@@ -61,6 +59,7 @@ import {
 	AddEntityToCollectionModal,
 	ApplicationGrid,
 	ApplicationPagination,
+	DebouncedSearchInput,
 } from "~/components/common";
 import {
 	Item,
@@ -213,9 +212,6 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
-	const [query, setQuery] = useState(loaderData.query || "");
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -224,28 +220,6 @@ export default function Page() {
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
 		loaderData.mediaList?.url.collectionFilter !==
 			defaultFilters.mineCollectionFilter;
-
-	const ClearButton = () => (
-		<ActionIcon onClick={() => setQuery("")} disabled={query === ""}>
-			<IconX size={16} />
-		</ActionIcon>
-	);
-
-	const SearchInput = (props: { placeholder: string }) => {
-		return (
-			<TextInput
-				name="query"
-				placeholder={props.placeholder}
-				leftSection={<IconSearch />}
-				onChange={(e) => setQuery(e.currentTarget.value)}
-				value={query}
-				rightSection={<ClearButton />}
-				style={{ flexGrow: 1 }}
-				autoCapitalize="none"
-				autoComplete="off"
-			/>
-		);
-	};
 
 	return (
 		<Container>
@@ -289,11 +263,12 @@ export default function Page() {
 				{loaderData.mediaList ? (
 					<>
 						<Group wrap="nowrap">
-							{SearchInput({
-								placeholder: `Sift through your ${changeCase(
+							<DebouncedSearchInput
+								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
-								).toLowerCase()}s`,
-							})}
+								).toLowerCase()}s`}
+								initialValue={loaderData.query}
+							/>
 							<ActionIcon
 								onClick={openFiltersModal}
 								color={isFilterChanged ? "blue" : "gray"}
@@ -435,11 +410,12 @@ export default function Page() {
 				{loaderData.mediaSearch ? (
 					<>
 						<Flex gap="xs">
-							{SearchInput({
-								placeholder: `Search for ${changeCase(
+							<DebouncedSearchInput
+								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
-								).toLowerCase()}s`,
-							})}
+								).toLowerCase()}s`}
+								initialValue={loaderData.query}
+							/>
 							{loaderData.mediaSearch.mediaSources.length > 1 ? (
 								<Select
 									w="37%"
@@ -474,7 +450,6 @@ export default function Page() {
 											}}
 											maybeItemId={b.databaseId ?? undefined}
 											hasInteracted={b.hasInteracted}
-											query={query || ""}
 											lot={loaderData.lot}
 											source={
 												loaderData.mediaSearch?.url.source ||
@@ -511,7 +486,6 @@ export default function Page() {
 const MediaSearchItem = (props: {
 	item: Item;
 	idx: number;
-	query: string;
 	lot: MetadataLot;
 	source: MetadataSource;
 	action: "search" | "list";
