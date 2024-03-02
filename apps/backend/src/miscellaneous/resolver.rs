@@ -2270,7 +2270,7 @@ impl MiscellaneousService {
             id: i32,
             title: String,
             publish_year: Option<i32>,
-            images: serde_json::Value,
+            images: Option<serde_json::Value>,
         }
 
         let count_select = Query::select()
@@ -2328,7 +2328,7 @@ impl MiscellaneousService {
                 .await?
                 .map(|qr| qr.try_get_by_index::<Decimal>(0).ok())
                 .unwrap();
-            let images = serde_json::from_value(met.images).unwrap();
+            let images = met.images.and_then(|i| serde_json::from_value(i).ok());
             let assets = self
                 .metadata_assets(&metadata::Model {
                     images,
