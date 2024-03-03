@@ -690,6 +690,7 @@ struct PresignedPutUrlInput {
 struct ToggleMediaMonitorInput {
     metadata_id: Option<i32>,
     person_id: Option<i32>,
+    force_value: Option<bool>,
 }
 
 fn get_password_hasher() -> Argon2<'static> {
@@ -5892,19 +5893,15 @@ impl MiscellaneousService {
                         )
                         .await
                         .ok();
-                        let is_monitored = self
-                            .get_metadata_monitored_status(seen.user_id, seen.metadata_id)
-                            .await?;
-                        if !is_monitored {
-                            self.toggle_media_monitor(
-                                seen.user_id,
-                                ToggleMediaMonitorInput {
-                                    metadata_id: Some(seen.metadata_id),
-                                    person_id: None,
-                                },
-                            )
-                            .await?;
-                        }
+                        self.toggle_media_monitor(
+                            seen.user_id,
+                            ToggleMediaMonitorInput {
+                                metadata_id: Some(seen.metadata_id),
+                                person_id: None,
+                                force_value: Some(true),
+                            },
+                        )
+                        .await?;
                     }
                 } else {
                     self.remove_entity_from_collection(
@@ -6082,7 +6079,10 @@ GROUP BY
         let metadata =
             associate_user_with_entity(&user_id, input.metadata_id, input.person_id, &self.db)
                 .await?;
-        let new_monitored_value = !metadata.media_monitored.unwrap_or_default();
+        let mut new_monitored_value = !metadata.media_monitored.unwrap_or_default();
+        if let Some(force_value) = input.force_value {
+            new_monitored_value = force_value;
+        }
         let mut metadata: user_to_entity::ActiveModel = metadata.into();
         metadata.media_monitored = ActiveValue::Set(Some(new_monitored_value));
         metadata.save(&self.db).await?;

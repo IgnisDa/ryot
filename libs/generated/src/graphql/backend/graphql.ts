@@ -1734,6 +1734,7 @@ export type StrongAppImportMapping = {
 };
 
 export type ToggleMediaMonitorInput = {
+  forceValue?: InputMaybe<Scalars['Boolean']['input']>;
   metadataId?: InputMaybe<Scalars['Int']['input']>;
   personId?: InputMaybe<Scalars['Int']['input']>;
 };
