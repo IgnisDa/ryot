@@ -1,3 +1,3 @@
-mutation ToggleMediaMonitor($metadataId: Int, $personId: Int) {
-  toggleMediaMonitor(metadataId: $metadataId, personId: $personId)
+mutation ToggleMediaMonitor($input: ToggleMediaMonitorInput!) {
+  toggleMediaMonitor(input: $input)
 }

@@ -686,6 +686,12 @@ struct PresignedPutUrlInput {
     prefix: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct ToggleMediaMonitorInput {
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+}
+
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
 }
@@ -1224,14 +1230,11 @@ impl MiscellaneousMutation {
     async fn toggle_media_monitor(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: ToggleMediaMonitorInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .toggle_media_monitor(user_id, metadata_id, person_id)
-            .await
+        service.toggle_media_monitor(user_id, input).await
     }
 
     /// Create or update a reminder on a media for a user.
@@ -5893,8 +5896,14 @@ impl MiscellaneousService {
                             .get_metadata_monitored_status(seen.user_id, seen.metadata_id)
                             .await?;
                         if !is_monitored {
-                            self.toggle_media_monitor(seen.user_id, Some(seen.metadata_id), None)
-                                .await?;
+                            self.toggle_media_monitor(
+                                seen.user_id,
+                                ToggleMediaMonitorInput {
+                                    metadata_id: Some(seen.metadata_id),
+                                    person_id: None,
+                                },
+                            )
+                            .await?;
                         }
                     }
                 } else {
@@ -6068,11 +6077,11 @@ GROUP BY
     async fn toggle_media_monitor(
         &self,
         user_id: i32,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: ToggleMediaMonitorInput,
     ) -> Result<bool> {
         let metadata =
-            associate_user_with_entity(&user_id, metadata_id, person_id, &self.db).await?;
+            associate_user_with_entity(&user_id, input.metadata_id, input.person_id, &self.db)
+                .await?;
         let new_monitored_value = !metadata.media_monitored.unwrap_or_default();
         let mut metadata: user_to_entity::ActiveModel = metadata.into();
         metadata.media_monitored = ActiveValue::Set(Some(new_monitored_value));
