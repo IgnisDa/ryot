@@ -5962,11 +5962,8 @@ FROM
     metadata m
 LEFT JOIN user_to_entity ute ON m.id = ute.metadata_id
 LEFT JOIN "user" u ON ute.user_id = u.id
-LEFT JOIN collection_to_entity cte ON m.id = cte.metadata_id
-LEFT JOIN collection c ON cte.collection_id = c.id
-LEFT JOIN "user" uc ON c.user_id = uc.id
 WHERE
-    ((ute.media_monitored = true) OR (c.name IN ('Watchlist', 'In Progress')))
+    ute.media_monitored = true
 GROUP BY
     m.id;
         "#,
