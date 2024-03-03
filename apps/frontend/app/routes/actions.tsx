@@ -160,7 +160,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, metadataOrPersonIdSchema);
 			await gqlClient.request(
 				ToggleMediaMonitorDocument,
-				submission,
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
 			headers = await createToastHeaders({
