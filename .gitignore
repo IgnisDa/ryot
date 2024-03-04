@@ -29,6 +29,7 @@ tmp
 **/public/workbox-*.js.map
 **/public/sw.js
 **/public/sw.js.map
+**/public/entry.worker.js
 **/public/worker-*.js
 **/public/worker-*.js.map
 **/kodi/LICENSE
