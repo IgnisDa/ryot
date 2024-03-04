@@ -9,7 +9,6 @@ import {
 } from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
-import { useSWEffect } from "@remix-pwa/sw";
 import {
 	LinksFunction,
 	LoaderFunctionArgs,
@@ -97,7 +96,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 const queryClient = new QueryClient();
 
 export default function App() {
-	useSWEffect();
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
 
@@ -109,7 +107,7 @@ export default function App() {
 					name="viewport"
 					content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
 				/>
-				<link rel="manifest" href="/manifest.webmanifest" />
+				<link rel="manifest" href="/manifest.json" />
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
