@@ -321,8 +321,23 @@ pub struct SchedulerConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "SERVER_SMTP_")]
+pub struct SmtpConfig {
+    pub host: String,
+    #[setting(default = 587)]
+    pub port: u16,
+    pub user: String,
+    pub password: String,
+    #[setting(default = "Ryot <no-reply@mailer.io>")]
+    pub mailbox: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
+    /// The mailer related settings.
+    #[setting(nested)]
+    pub smtp: SmtpConfig,
     /// The path where the config file will be written once the server boots up.
     #[setting(default = format!("tmp/{}-config.json", PROJECT_NAME))]
     pub config_dump_path: String,
