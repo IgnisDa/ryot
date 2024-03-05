@@ -5377,6 +5377,9 @@ impl MiscellaneousService {
                 UserNotificationSetting::PushSafer { key } => {
                     format!("PushSafer Key: {}", key)
                 }
+                UserNotificationSetting::Email { email } => {
+                    format!("Email: {}", email)
+                }
             };
             all_notifications.push(GraphqlUserNotificationPlatform {
                 id: n.id,
@@ -5527,6 +5530,9 @@ impl MiscellaneousService {
                 },
                 UserNotificationSettingKind::PushSafer => UserNotificationSetting::PushSafer {
                     key: input.api_token.unwrap(),
+                },
+                UserNotificationSettingKind::Email => UserNotificationSetting::Email {
+                    email: input.api_token.unwrap(),
                 },
             },
         };

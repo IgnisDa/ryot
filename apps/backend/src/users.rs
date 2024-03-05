@@ -362,6 +362,9 @@ pub enum UserNotificationSetting {
     PushSafer {
         key: String,
     },
+    Email {
+        email: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]

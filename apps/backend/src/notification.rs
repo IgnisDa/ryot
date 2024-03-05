@@ -122,6 +122,9 @@ impl UserNotificationSetting {
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
+            Self::Email { email } => {
+                todo!()
+            }
         }
         Ok(())
     }
