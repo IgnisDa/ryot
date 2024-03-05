@@ -19,7 +19,7 @@ use database::{
     MetadataToMetadataRelation, SeenState, UserLot, Visibility,
 };
 use enum_meta::Meta;
-use futures::TryStreamExt;
+use futures::{FutureExt, TryStreamExt};
 use harsh::Harsh;
 use itertools::Itertools;
 use markdown::{
@@ -686,7 +686,7 @@ struct PresignedPutUrlInput {
     prefix: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 struct ToggleMediaMonitorInput {
     metadata_id: Option<i32>,
     person_id: Option<i32>,
@@ -5825,6 +5825,16 @@ impl MiscellaneousService {
         )
         .await
         .ok();
+        let monitor_promise = self
+            .toggle_media_monitor(
+                seen.user_id,
+                ToggleMediaMonitorInput {
+                    metadata_id: Some(seen.metadata_id),
+                    force_value: Some(true),
+                    ..Default::default()
+                },
+            )
+            .shared();
         match seen.state {
             SeenState::InProgress => {
                 self.add_entity_to_collection(
@@ -5837,6 +5847,7 @@ impl MiscellaneousService {
                 )
                 .await
                 .ok();
+                monitor_promise.clone().await?;
             }
             SeenState::Dropped | SeenState::OnAHold => {
                 self.remove_entity_from_collection(
@@ -5921,15 +5932,7 @@ impl MiscellaneousService {
                         )
                         .await
                         .ok();
-                        self.toggle_media_monitor(
-                            seen.user_id,
-                            ToggleMediaMonitorInput {
-                                metadata_id: Some(seen.metadata_id),
-                                person_id: None,
-                                force_value: Some(true),
-                            },
-                        )
-                        .await?;
+                        monitor_promise.clone().await?;
                     }
                 } else {
                     self.remove_entity_from_collection(
