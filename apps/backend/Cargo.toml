@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "4.2.14"
+version = "4.2.15"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-3.0"
@@ -47,9 +47,9 @@ itertools = "0.12.1"
 jsonwebtoken = { version = "9.2.0", default-features = false }
 kinded = "0.3.0"
 lettre = { version = "0.11.4", features = [
-  "rustls-tls",
-  "smtp-transport",
-  "builder",
+    "rustls-tls",
+    "smtp-transport",
+    "builder",
 ], default-features = false }
 markdown = "1.0.0-alpha.15"
 nanoid = "0.4.0"
