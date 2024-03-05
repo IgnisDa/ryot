@@ -686,6 +686,13 @@ struct PresignedPutUrlInput {
     prefix: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+struct ToggleMediaMonitorInput {
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+    force_value: Option<bool>,
+}
+
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
 }
@@ -1224,14 +1231,11 @@ impl MiscellaneousMutation {
     async fn toggle_media_monitor(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: ToggleMediaMonitorInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .toggle_media_monitor(user_id, metadata_id, person_id)
-            .await
+        service.toggle_media_monitor(user_id, input).await
     }
 
     /// Create or update a reminder on a media for a user.
@@ -1382,6 +1386,34 @@ impl MiscellaneousService {
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
         }
+    }
+}
+
+fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
+    let (show_season_number, show_episode_number) = match rev.show_extra_information {
+        Some(d) => (Some(d.season), Some(d.episode)),
+        None => (None, None),
+    };
+    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
+    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
+    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
+    ImportOrExportItemRating {
+        review: Some(ImportOrExportItemReview {
+            visibility: Some(rev.visibility),
+            date: Some(rev.posted_on),
+            spoiler: Some(rev.spoiler),
+            text: rev.text_original,
+        }),
+        rating: rev.rating,
+        show_season_number,
+        show_episode_number,
+        podcast_episode_number,
+        anime_episode_number,
+        manga_chapter_number,
+        comments: match rev.comments.is_empty() {
+            true => None,
+            false => Some(rev.comments),
+        },
     }
 }
 
@@ -5805,6 +5837,15 @@ impl MiscellaneousService {
                 )
                 .await
                 .ok();
+                self.toggle_media_monitor(
+                    seen.user_id,
+                    ToggleMediaMonitorInput {
+                        metadata_id: Some(seen.metadata_id),
+                        force_value: Some(true),
+                        ..Default::default()
+                    },
+                )
+                .await?;
             }
             SeenState::Dropped | SeenState::OnAHold => {
                 self.remove_entity_from_collection(
@@ -5889,13 +5930,15 @@ impl MiscellaneousService {
                         )
                         .await
                         .ok();
-                        let is_monitored = self
-                            .get_metadata_monitored_status(seen.user_id, seen.metadata_id)
-                            .await?;
-                        if !is_monitored {
-                            self.toggle_media_monitor(seen.user_id, Some(seen.metadata_id), None)
-                                .await?;
-                        }
+                        self.toggle_media_monitor(
+                            seen.user_id,
+                            ToggleMediaMonitorInput {
+                                metadata_id: Some(seen.metadata_id),
+                                force_value: Some(true),
+                                ..Default::default()
+                            },
+                        )
+                        .await?;
                     }
                 } else {
                     self.remove_entity_from_collection(
@@ -5908,6 +5951,15 @@ impl MiscellaneousService {
                     )
                     .await
                     .ok();
+                    self.toggle_media_monitor(
+                        seen.user_id,
+                        ToggleMediaMonitorInput {
+                            metadata_id: Some(seen.metadata_id),
+                            force_value: Some(false),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
                 };
             }
         };
@@ -5956,11 +6008,8 @@ FROM
     metadata m
 LEFT JOIN user_to_entity ute ON m.id = ute.metadata_id
 LEFT JOIN "user" u ON ute.user_id = u.id
-LEFT JOIN collection_to_entity cte ON m.id = cte.metadata_id
-LEFT JOIN collection c ON cte.collection_id = c.id
-LEFT JOIN "user" uc ON c.user_id = uc.id
 WHERE
-    ((ute.media_monitored = true) OR (c.name IN ('Watchlist', 'In Progress')))
+    ute.media_monitored = true
 GROUP BY
     m.id;
         "#,
@@ -6068,12 +6117,15 @@ GROUP BY
     async fn toggle_media_monitor(
         &self,
         user_id: i32,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: ToggleMediaMonitorInput,
     ) -> Result<bool> {
         let metadata =
-            associate_user_with_entity(&user_id, metadata_id, person_id, &self.db).await?;
-        let new_monitored_value = !metadata.media_monitored.unwrap_or_default();
+            associate_user_with_entity(&user_id, input.metadata_id, input.person_id, &self.db)
+                .await?;
+        let mut new_monitored_value = !metadata.media_monitored.unwrap_or_default();
+        if let Some(force_value) = input.force_value {
+            new_monitored_value = force_value;
+        }
         let mut metadata: user_to_entity::ActiveModel = metadata.into();
         metadata.media_monitored = ActiveValue::Set(Some(new_monitored_value));
         metadata.save(&self.db).await?;
@@ -7002,36 +7054,6 @@ GROUP BY
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        self.update_monitored_people_and_send_notifications()
-            .await?;
         Ok(true)
-    }
-}
-
-fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
-    let (show_season_number, show_episode_number) = match rev.show_extra_information {
-        Some(d) => (Some(d.season), Some(d.episode)),
-        None => (None, None),
-    };
-    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
-    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
-    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
-    ImportOrExportItemRating {
-        review: Some(ImportOrExportItemReview {
-            visibility: Some(rev.visibility),
-            date: Some(rev.posted_on),
-            spoiler: Some(rev.spoiler),
-            text: rev.text_original,
-        }),
-        rating: rev.rating,
-        show_season_number,
-        show_episode_number,
-        podcast_episode_number,
-        anime_episode_number,
-        manga_chapter_number,
-        comments: match rev.comments.is_empty() {
-            true => None,
-            false => Some(rev.comments),
-        },
     }
 }

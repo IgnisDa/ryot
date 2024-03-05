@@ -83,6 +83,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
 			for (const collectionName of submission.collectionName) {
+				if (collectionName === "Watchlist") {
+					await gqlClient.request(
+						ToggleMediaMonitorDocument,
+						{
+							input: {
+								forceValue: true,
+								metadataId: input.metadataId,
+								personId: input.personId,
+							},
+						},
+						await getAuthorizationHeader(request),
+					);
+				}
 				await gqlClient.request(
 					AddEntityToCollectionDocument,
 					{ input: { ...input, collectionName } },
@@ -160,7 +173,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, metadataOrPersonIdSchema);
 			await gqlClient.request(
 				ToggleMediaMonitorDocument,
-				submission,
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
 			headers = await createToastHeaders({

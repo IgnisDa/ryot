@@ -71,10 +71,12 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
+const defaultTimeSpan = TimeSpan.Last30Days;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
-	const [startTime, endTime] = match(query.timeSpan || TimeSpan.Last30Days)
+	const [startTime, endTime] = match(query.timeSpan || defaultTimeSpan)
 		.with(TimeSpan.Last7Days, () => [now, now.subtract(7, "days")])
 		.with(TimeSpan.Last30Days, () => [now, now.subtract(30, "days")])
 		.with(TimeSpan.Last90Days, () => [now, now.subtract(90, "days")])
@@ -252,7 +254,7 @@ export default function Page() {
 				<SimpleGrid cols={{ base: 1, md: 2 }}>
 					<Select
 						label="Time span"
-						defaultValue={loaderData.query.timeSpan}
+						defaultValue={loaderData.query.timeSpan || defaultTimeSpan}
 						data={Object.values(TimeSpan)}
 						onChange={(v) => {
 							if (v) setP("timeSpan", v);

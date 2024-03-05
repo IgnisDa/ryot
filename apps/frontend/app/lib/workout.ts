@@ -160,9 +160,10 @@ export const addExerciseToWorkout = async (
 					// biome-ignore lint/suspicious/noExplicitAny: required here
 					statistic: s.statistic as any,
 				})) || [],
-			restTimer: defaultTimer
-				? { duration: defaultTimer, enabled: true }
-				: null,
+			restTimer:
+				typeof defaultTimer === "number"
+					? { duration: defaultTimer, enabled: true }
+					: null,
 			notes: [],
 			images: [],
 			videos: [],

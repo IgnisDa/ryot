@@ -45,6 +45,7 @@ COPY . .
 RUN ./apps/backend/ci/build-app.sh
 
 FROM $NODE_BASE_IMAGE
+LABEL org.opencontainers.image.source="https://github.com/IgnisDa/ryot"
 COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install --global concurrently@8.2.2 && concurrently --version
