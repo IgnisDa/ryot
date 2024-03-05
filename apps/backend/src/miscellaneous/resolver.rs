@@ -7008,8 +7008,6 @@ GROUP BY
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        self.update_monitored_people_and_send_notifications()
-            .await?;
         Ok(true)
     }
 }
