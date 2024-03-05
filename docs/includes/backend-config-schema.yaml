@@ -172,7 +172,7 @@ server:
     host: ""
 
     # @envvar SERVER_SMTP_PORT
-    port: 587
+    port: 0
 
     # @envvar SERVER_SMTP_USER
     user: ""
