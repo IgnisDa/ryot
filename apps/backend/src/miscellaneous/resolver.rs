@@ -5983,7 +5983,12 @@ impl MiscellaneousService {
         if user_details.preferences.notifications.enabled {
             tracing::debug!("Sending notification to user: {:?}", msg);
             for notification in user_details.notifications {
-                if notification.settings.send_message(msg).await.is_err() {
+                if notification
+                    .settings
+                    .send_message(&self.config, msg)
+                    .await
+                    .is_err()
+                {
                     success = false;
                 }
             }

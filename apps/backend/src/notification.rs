@@ -1,8 +1,10 @@
-use std::env;
+use std::{env, sync::Arc};
 
 use anyhow::{anyhow, Result};
+use config::AppConfig;
 use convert_case::{Case, Casing};
 use http_types::mime;
+use lettre::{transport::smtp::authentication::Credentials, Message, SmtpTransport, Transport};
 use rs_utils::PROJECT_NAME;
 use surf::http::headers::AUTHORIZATION;
 
@@ -10,7 +12,7 @@ use crate::{users::UserNotificationSetting, utils::AVATAR_URL};
 
 impl UserNotificationSetting {
     // TODO: Allow formatting messages
-    pub async fn send_message(&self, msg: &str) -> Result<()> {
+    pub async fn send_message(&self, config: &Arc<AppConfig>, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);
         if env::var("DISABLE_NOTIFICATIONS").is_ok() {
             tracing::warn!("Notifications not sent, body was: {}", msg);
@@ -123,7 +125,32 @@ impl UserNotificationSetting {
                     .map_err(|e| anyhow!(e))?;
             }
             Self::Email { email } => {
-                todo!()
+                let credentials = Credentials::new(
+                    config.server.smtp.user.to_owned(),
+                    config.server.smtp.password.to_owned(),
+                );
+
+                let server = config.server.smtp.host.to_owned();
+                let mailer = if cfg!(debug_assertions) {
+                    SmtpTransport::builder_dangerous(server)
+                        .port(config.server.smtp.port)
+                        .credentials(credentials)
+                        .build()
+                } else {
+                    SmtpTransport::relay(&server)
+                        .unwrap()
+                        .credentials(credentials)
+                        .build()
+                };
+
+                let mailbox = config.server.smtp.mailbox.parse().unwrap();
+                let email = Message::builder()
+                    .from(mailbox)
+                    .to(email.parse().unwrap())
+                    .subject(format!("{} notification", project_name))
+                    .body(msg.to_owned())
+                    .unwrap();
+                mailer.send(&email).map_err(|e| anyhow!(e))?;
             }
         }
         Ok(())
