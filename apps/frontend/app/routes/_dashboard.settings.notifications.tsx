@@ -308,6 +308,16 @@ export default function Page() {
 													<TextInput label="Key" required name="apiToken" />
 												</>
 											))
+											.with(UserNotificationSettingKind.Email, () => (
+												<>
+													<TextInput
+														type="email"
+														label="Email ID"
+														required
+														name="apiToken"
+													/>
+												</>
+											))
 											.exhaustive()
 									: null}
 								<Button type="submit">Submit</Button>
