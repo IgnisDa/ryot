@@ -10,6 +10,7 @@ query UserPreferences {
       }
       disableYankIntegrations
       disableNavigationAnimation
+      disableVideos
     }
     fitness {
       measurements {

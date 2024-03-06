@@ -5282,6 +5282,9 @@ impl MiscellaneousService {
                         "disable_navigation_animation" => {
                             preferences.general.disable_navigation_animation = value_bool.unwrap();
                         }
+                        "disable_videos" => {
+                            preferences.general.disable_videos = value_bool.unwrap();
+                        }
                         _ => return Err(err()),
                     },
                     _ => return Err(err()),
