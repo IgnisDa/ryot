@@ -238,22 +238,18 @@ export default function Page() {
 					<Tabs.Panel value="general" mt="md">
 						<Stack>
 							<Text>Features that you want to use.</Text>
-							{["media", "fitness"].map((facet) => (
+							{(["media", "fitness"] as const).map((facet) => (
 								<Fragment key={facet}>
 									<Title order={4}>{startCase(facet)}</Title>
 									<SimpleGrid cols={2}>
 										{Object.entries(
-											// biome-ignore lint/suspicious/noExplicitAny: required here
-											(loaderData.userPreferences.featuresEnabled as any)[
-												facet
-											],
+											loaderData.userPreferences.featuresEnabled[facet],
 										).map(([name, isEnabled]) => (
 											<Switch
 												key={name}
 												size="xs"
 												label={changeCase(snakeCase(name))}
-												// biome-ignore lint/suspicious/noExplicitAny: required here
-												defaultChecked={isEnabled as any}
+												defaultChecked={isEnabled}
 												disabled={!!loaderData.userDetails.isDemo}
 												onChange={(ev) => {
 													const lot = snakeCase(name);
