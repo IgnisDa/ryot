@@ -52,7 +52,11 @@ import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { dayjsLib, uploadFileToServiceAndGetPath } from "~/lib/generals";
+import {
+	dayjsLib,
+	documentationBase,
+	uploadFileToServiceAndGetPath,
+} from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
@@ -242,7 +246,7 @@ export default function Page() {
 									<Anchor
 										size="xs"
 										href={withFragment(
-											"https://ignisda.github.io/ryot/importing.html",
+											`${documentationBase}/importing.html`,
 											match(deployImportSource)
 												.with(ImportSource.Goodreads, () => "goodreads")
 												.with(ImportSource.Mal, () => "myanimelist")

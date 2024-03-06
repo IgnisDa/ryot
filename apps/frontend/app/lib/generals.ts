@@ -278,3 +278,5 @@ export const serializeLocalStorage = (value: string | undefined) => {
 export { dayjs as dayjsLib };
 
 export const redirectToQueryParam = "redirectTo";
+
+export const documentationBase = "https://ignisda.github.io/ryot";
