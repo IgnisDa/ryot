@@ -272,67 +272,42 @@ export default function Page() {
 								General
 							</Title>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Whether NSFW will be displayed"
-									defaultChecked={
-										loaderData.userPreferences.general.displayNsfw
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"general.display_nsfw",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Disable yank integrations"
-									defaultChecked={
-										loaderData.userPreferences.general.disableYankIntegrations
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"general.disable_yank_integrations",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Disable navigation animation"
-									defaultChecked={
-										loaderData.userPreferences.general
-											.disableNavigationAnimation
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"general.disable_navigation_animation",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Do not display videos"
-									defaultChecked={
-										loaderData.userPreferences.general.disableVideos
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"general.disable_videos",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
+								{(
+									[
+										"displayNsfw",
+										"disableYankIntegrations",
+										"disableNavigationAnimation",
+										"disableVideos",
+									] as const
+								).map((name) => (
+									<Switch
+										key={name}
+										size="xs"
+										label={match(name)
+											.with(
+												"displayNsfw",
+												() => "Whether NSFW will be displayed",
+											)
+											.with(
+												"disableYankIntegrations",
+												() => "Disable yank integrations",
+											)
+											.with(
+												"disableNavigationAnimation",
+												() => "Disable navigation animation",
+											)
+											.with("disableVideos", () => "Do not display videos")
+											.exhaustive()}
+										defaultChecked={loaderData.userPreferences.general[name]}
+										disabled={!!loaderData.userDetails.isDemo}
+										onChange={(ev) => {
+											appendPref(
+												`general.${snakeCase(name)}`,
+												String(ev.currentTarget.checked),
+											);
+										}}
+									/>
+								))}
 								<Select
 									size="xs"
 									label="Scale used for rating in reviews"
