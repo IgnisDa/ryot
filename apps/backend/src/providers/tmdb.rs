@@ -190,6 +190,8 @@ impl MediaProvider for NonMediaTmdbService {
         let details: TmdbNonMediaEntity = self
             .client
             .get(format!("{}/{}", typ, identity))
+            .query(&json!({ "language": self.base.language }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?
             .body_json()
