@@ -281,7 +281,7 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
-    async fn media_group_details(
+    async fn metadata_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
@@ -347,7 +347,7 @@ impl MediaProvider for TmdbMovieService {
         ))
     }
 
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(format!("movie/{}", &identifier))
@@ -511,7 +511,7 @@ impl MediaProvider for TmdbMovieService {
         })
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -578,7 +578,7 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
@@ -827,7 +827,7 @@ impl MediaProvider for TmdbShowService {
         })
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,

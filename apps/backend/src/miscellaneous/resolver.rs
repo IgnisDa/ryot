@@ -3107,7 +3107,7 @@ impl MiscellaneousService {
             .await?;
         let provider = self.get_media_provider(lot, source).await?;
         let (group_details, associated_items) =
-            provider.media_group_details(&group_identifier).await?;
+            provider.metadata_group_details(&group_identifier).await?;
         let group_id = match existing_group {
             Some(eg) => eg.id,
             None => {
@@ -3519,7 +3519,7 @@ impl MiscellaneousService {
                 .preferences;
             let provider = self.get_media_provider(lot, source).await?;
             let results = provider
-                .media_search(&q, input.page, preferences.general.display_nsfw)
+                .metadata_search(&q, input.page, preferences.general.display_nsfw)
                 .await?;
             let all_identifiers = results
                 .items
@@ -3762,7 +3762,7 @@ impl MiscellaneousService {
         identifier: &str,
     ) -> Result<MediaDetails> {
         let provider = self.get_media_provider(lot, source).await?;
-        let results = provider.media_details(identifier).await?;
+        let results = provider.metadata_details(identifier).await?;
         Ok(results)
     }
 

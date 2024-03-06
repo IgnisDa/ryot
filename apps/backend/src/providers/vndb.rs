@@ -116,7 +116,7 @@ impl MediaProvider for VndbService {
         })
     }
 
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .post("vn")
@@ -134,7 +134,7 @@ impl MediaProvider for VndbService {
         Ok(d)
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,

@@ -84,7 +84,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for ITunesService {
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get("lookup")
@@ -181,7 +181,7 @@ impl MediaProvider for ITunesService {
         })
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,
