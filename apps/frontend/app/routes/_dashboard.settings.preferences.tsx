@@ -318,6 +318,21 @@ export default function Page() {
 										);
 									}}
 								/>
+								<Switch
+									size="xs"
+									mt="md"
+									label="Do not display videos"
+									defaultChecked={
+										loaderData.userPreferences.general.disableVideos
+									}
+									disabled={!!loaderData.userDetails.isDemo}
+									onChange={(ev) => {
+										appendPref(
+											"general.disable_videos",
+											String(ev.currentTarget.checked),
+										);
+									}}
+								/>
 								<Select
 									size="xs"
 									label="Scale used for rating in reviews"
