@@ -40,7 +40,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, documentationBase } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
@@ -315,6 +315,20 @@ export default function Page() {
 														label="Email ID"
 														required
 														name="apiToken"
+														description={
+															<>
+																Make sure
+																<Anchor
+																	size="xs"
+																	href={`${documentationBase}/configuration.html?h=smtp#all-parameters`}
+																	target="_blank"
+																>
+																	{" "}
+																	the correct{" "}
+																</Anchor>
+																configuration parameters are set
+															</>
+														}
 													/>
 												</>
 											))
