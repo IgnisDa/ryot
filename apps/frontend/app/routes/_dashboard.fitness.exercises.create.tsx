@@ -85,8 +85,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		return redirect(
 			$path("/fitness/exercises/:id", { id: createCustomExercise }),
 		);
-		// biome-ignore lint/suspicious/noExplicitAny: no other way to catch ClientError
-	} catch (e: any) {
+	} catch (e) {
 		if (e instanceof ClientError && e.response.errors) {
 			const message = e.response.errors[0].message;
 			return json(
