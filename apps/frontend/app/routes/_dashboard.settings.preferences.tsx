@@ -272,19 +272,6 @@ export default function Page() {
 								General
 							</Title>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
-								<Select
-									size="xs"
-									label="Scale used for rating in reviews"
-									data={Object.values(UserReviewScale).map((c) => ({
-										label: startCase(snakeCase(c)),
-										value: c,
-									}))}
-									defaultValue={loaderData.userPreferences.general.reviewScale}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(val) => {
-										if (val) appendPref("general.review_scale", val);
-									}}
-								/>
 								<Switch
 									size="xs"
 									mt="md"
@@ -329,6 +316,19 @@ export default function Page() {
 											"general.disable_navigation_animation",
 											String(ev.currentTarget.checked),
 										);
+									}}
+								/>
+								<Select
+									size="xs"
+									label="Scale used for rating in reviews"
+									data={Object.values(UserReviewScale).map((c) => ({
+										label: startCase(snakeCase(c)),
+										value: c,
+									}))}
+									defaultValue={loaderData.userPreferences.general.reviewScale}
+									disabled={!!loaderData.userDetails.isDemo}
+									onChange={(val) => {
+										if (val) appendPref("general.review_scale", val);
 									}}
 								/>
 							</SimpleGrid>
