@@ -130,18 +130,10 @@ impl UserNotificationSetting {
                     config.server.smtp.password.to_owned(),
                 );
 
-                let server = config.server.smtp.host.to_owned();
-                let mailer = if cfg!(debug_assertions) {
-                    SmtpTransport::builder_dangerous(server)
-                        .port(config.server.smtp.port)
-                        .credentials(credentials)
-                        .build()
-                } else {
-                    SmtpTransport::relay(&server)
-                        .unwrap()
-                        .credentials(credentials)
-                        .build()
-                };
+                let mailer = SmtpTransport::builder_dangerous(config.server.smtp.server.to_owned())
+                    .port(config.server.smtp.port)
+                    .credentials(credentials)
+                    .build();
 
                 let mailbox = config.server.smtp.mailbox.parse().unwrap();
                 let email = Message::builder()
