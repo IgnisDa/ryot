@@ -52,18 +52,15 @@ import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import {
-	dayjsLib,
-	documentationBase,
-	uploadFileToServiceAndGetPath,
-} from "~/lib/generals";
-import { getCoreEnabledFeatures } from "~/lib/graphql.server";
+import { dayjsLib, uploadFileToServiceAndGetPath } from "~/lib/generals";
+import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [coreEnabledFeatures, { importReports }, { userExports }] =
+	const [coreDetails, coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
+			getCoreDetails(),
 			getCoreEnabledFeatures(),
 			gqlClient.request(
 				ImportReportsDocument,
@@ -76,7 +73,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			),
 		]);
-	return json({ coreEnabledFeatures, importReports, userExports });
+	return json({
+		coreEnabledFeatures,
+		importReports,
+		userExports,
+		coreDetails: { docsLink: coreDetails.docsLink },
+	});
 };
 
 export const meta: MetaFunction = () => {
@@ -246,7 +248,7 @@ export default function Page() {
 									<Anchor
 										size="xs"
 										href={withFragment(
-											`${documentationBase}/importing.html`,
+											`${loaderData.coreDetails.docsLink}/importing.html`,
 											match(deployImportSource)
 												.with(ImportSource.Goodreads, () => "goodreads")
 												.with(ImportSource.Mal, () => "myanimelist")
