@@ -553,7 +553,6 @@ struct CoreDetails {
     repository_link: String,
     item_details_height: u32,
     reviews_disabled: bool,
-    videos_disabled: bool,
     page_limit: i32,
     timezone: String,
 }
@@ -1426,7 +1425,6 @@ impl MiscellaneousService {
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             page_limit: self.config.frontend.page_size,
-            videos_disabled: self.config.server.videos_disabled,
             reviews_disabled: self.config.users.reviews_disabled,
             item_details_height: self.config.frontend.item_details_height,
         })

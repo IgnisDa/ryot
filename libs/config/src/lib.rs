@@ -355,9 +355,6 @@ pub struct ServerConfig {
     /// The maximum file size in MB for user uploads.
     #[setting(default = 70)]
     pub max_file_size: usize,
-    /// Whether videos will be displayed in the media details.
-    #[setting(default = false)]
-    pub videos_disabled: bool,
     /// Whether the graphql playground will be enabled.
     #[setting(default = true)]
     pub graphql_playground_enabled: bool,

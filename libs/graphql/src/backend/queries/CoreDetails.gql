@@ -7,7 +7,6 @@ query CoreDetails {
     docsLink
     itemDetailsHeight
     reviewsDisabled
-    videosDisabled
     pageLimit
   }
 }
