@@ -168,8 +168,8 @@ scheduler:
 server:
   # The mailer related settings.
   smtp:
-    # @envvar SERVER_SMTP_HOST
-    host: ""
+    # @envvar SERVER_SMTP_SERVER
+    server: ""
 
     # @envvar SERVER_SMTP_PORT
     port: 0

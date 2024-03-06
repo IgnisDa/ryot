@@ -323,7 +323,7 @@ pub struct SchedulerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_SMTP_")]
 pub struct SmtpConfig {
-    pub host: String,
+    pub server: String,
     pub port: u16,
     pub user: String,
     pub password: String,
