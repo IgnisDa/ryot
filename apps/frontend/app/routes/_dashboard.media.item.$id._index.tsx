@@ -164,11 +164,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	);
 	return defer({
 		query,
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		userPreferences: {
+			reviewScale: userPreferences.general.reviewScale,
+			videosDisabled: userPreferences.general.disableVideos,
+		},
 		coreDetails: {
 			itemDetailsHeight: coreDetails.itemDetailsHeight,
 			reviewsDisabled: coreDetails.reviewsDisabled,
-			videosDisabled: coreDetails.videosDisabled,
 		},
 		userDetails,
 		metadataId,
@@ -846,7 +848,7 @@ export default function Page() {
 							>
 								Suggestions
 							</Tabs.Tab>
-							{!loaderData.coreDetails.videosDisabled &&
+							{!loaderData.userPreferences.videosDisabled &&
 							(loaderData.mediaMainDetails.assets.videos.length || 0) > 0 ? (
 								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
@@ -1690,7 +1692,7 @@ export default function Page() {
 								</Await>
 							</Suspense>
 						</Tabs.Panel>
-						{!loaderData.coreDetails.videosDisabled ? (
+						{!loaderData.userPreferences.videosDisabled ? (
 							<Tabs.Panel value="videos">
 								<MediaScrollArea
 									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
