@@ -436,7 +436,8 @@ impl MediaProvider for TmdbMovieService {
             .await?;
         let suggestions = self
             .base
-            .save_all_suggestions(&self.client, "movie", identifier)
+            .get_all_suggestions(&self.client, "movie", identifier)
+            .await?;
             .await?;
 
         Ok(MediaDetails {
@@ -606,7 +607,7 @@ impl MediaProvider for TmdbShowService {
             .await?;
         let suggestions = self
             .base
-            .save_all_suggestions(&self.client, "tv", identifier)
+            .get_all_suggestions(&self.client, "tv", identifier)
             .await?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -953,7 +954,7 @@ impl TmdbService {
         Ok(())
     }
 
-    async fn save_all_suggestions(
+    async fn get_all_suggestions(
         &self,
         client: &Client,
         typ: &str,
