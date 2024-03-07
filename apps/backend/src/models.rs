@@ -917,7 +917,18 @@ pub mod media {
         pub lot: MetadataImageLot,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        FromJsonQueryResult,
+        Eq,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Default,
+        Hash,
+    )]
     pub struct WatchProvider {
         pub name: String,
         pub image: Option<String>,

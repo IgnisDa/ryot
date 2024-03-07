@@ -2999,6 +2999,11 @@ impl MiscellaneousService {
         } else {
             Some(input.creators)
         };
+        let watch_providers = if input.watch_providers.is_empty() {
+            None
+        } else {
+            Some(input.watch_providers)
+        };
 
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
@@ -3014,6 +3019,7 @@ impl MiscellaneousService {
         meta.publish_year = ActiveValue::Set(input.publish_year);
         meta.publish_date = ActiveValue::Set(input.publish_date);
         meta.free_creators = ActiveValue::Set(free_creators);
+        meta.watch_providers = ActiveValue::Set(watch_providers);
         meta.anime_specifics = ActiveValue::Set(input.anime_specifics);
         meta.audio_book_specifics = ActiveValue::Set(input.audio_book_specifics);
         meta.manga_specifics = ActiveValue::Set(input.manga_specifics);
@@ -3279,6 +3285,11 @@ impl MiscellaneousService {
                 None
             } else {
                 Some(details.creators)
+            }),
+            watch_providers: ActiveValue::Set(if details.watch_providers.is_empty() {
+                None
+            } else {
+                Some(details.watch_providers)
             }),
             ..Default::default()
         };

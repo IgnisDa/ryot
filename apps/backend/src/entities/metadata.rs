@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::models::media::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataFreeCreator,
     MetadataImage, MetadataVideo, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
-    VideoGameSpecifics, VisualNovelSpecifics,
+    VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
@@ -29,14 +29,16 @@ pub struct Model {
     pub original_language: Option<String>,
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
+    pub production_status: Option<String>,
+    pub provider_rating: Option<Decimal>,
     #[sea_orm(column_type = "Json")]
     pub images: Option<Vec<MetadataImage>>,
     #[sea_orm(column_type = "Json")]
     pub videos: Option<Vec<MetadataVideo>>,
-    pub production_status: Option<String>,
-    pub provider_rating: Option<Decimal>,
     #[sea_orm(column_type = "Json")]
     pub free_creators: Option<Vec<MetadataFreeCreator>>,
+    #[sea_orm(column_type = "Json")]
+    pub watch_providers: Option<Vec<WatchProvider>>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
