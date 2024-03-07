@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -1042,42 +1046,45 @@ impl TmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut watch_providers = Vec::<WatchProvider>::new();
         for (country, lang_providers) in watch_providers_with_langs.results {
-            append_to_watch_provider(&mut watch_providers, lang_providers.rent, country.clone());
-            append_to_watch_provider(&mut watch_providers, lang_providers.buy, country.clone());
-            append_to_watch_provider(
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.rent,
+                country.clone(),
+            );
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.buy,
+                country.clone(),
+            );
+            self.append_to_watch_provider(
                 &mut watch_providers,
                 lang_providers.flatrate,
                 country.clone(),
             );
         }
-        Ok(watch_providers
-            .into_iter()
-            .map(|p| WatchProvider {
-                image: p.image.map(|i| self.get_image_url(i)),
-                ..p
-            })
-            .collect())
+        Ok(watch_providers)
     }
-}
 
-fn append_to_watch_provider(
-    watch_providers: &mut Vec<WatchProvider>,
-    maybe_provider: Option<Vec<TmdbWatchProviderDetails>>,
-    country: String,
-) {
-    if let Some(provider) = maybe_provider {
-        for provider in provider {
-            let posn = watch_providers
-                .iter()
-                .position(|p| p.name == provider.provider_name);
-            if let Some(posn) = posn {
-                watch_providers[posn].languages.push(country.clone());
-            } else {
-                watch_providers.push(WatchProvider {
-                    name: provider.provider_name,
-                    image: provider.logo_path,
-                    languages: vec![country.clone()],
-                });
+    fn append_to_watch_provider(
+        &self,
+        watch_providers: &mut Vec<WatchProvider>,
+        maybe_provider: Option<Vec<TmdbWatchProviderDetails>>,
+        country: String,
+    ) {
+        if let Some(provider) = maybe_provider {
+            for provider in provider {
+                let posn = watch_providers
+                    .iter()
+                    .position(|p| p.name == provider.provider_name);
+                if let Some(posn) = posn {
+                    watch_providers[posn].languages.insert(country.clone());
+                } else {
+                    watch_providers.push(WatchProvider {
+                        name: provider.provider_name,
+                        image: provider.logo_path.map(|i| self.get_image_url(i)),
+                        languages: HashSet::from_iter(vec![country.clone()]),
+                    });
+                }
             }
         }
     }

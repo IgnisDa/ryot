@@ -927,12 +927,11 @@ pub mod media {
         Deserialize,
         SimpleObject,
         Default,
-        Hash,
     )]
     pub struct WatchProvider {
         pub name: String,
         pub image: Option<String>,
-        pub languages: Vec<String>,
+        pub languages: HashSet<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Default)]
