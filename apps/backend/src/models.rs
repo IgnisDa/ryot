@@ -917,6 +917,13 @@ pub mod media {
         pub lot: MetadataImageLot,
     }
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+    pub struct WatchProvider {
+        pub name: String,
+        pub image: Option<String>,
+        pub language: Option<String>,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -938,6 +945,7 @@ pub mod media {
         pub suggestions: Vec<PartialMetadataWithoutId>,
         pub group_identifiers: Vec<String>,
         pub provider_rating: Option<Decimal>,
+        pub watch_providers: Vec<WatchProvider>,
         pub audio_book_specifics: Option<AudioBookSpecifics>,
         pub book_specifics: Option<BookSpecifics>,
         pub movie_specifics: Option<MovieSpecifics>,

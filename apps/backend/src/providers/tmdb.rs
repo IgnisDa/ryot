@@ -1,4 +1,8 @@
-use std::{fs, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -20,7 +24,7 @@ use crate::{
             MediaDetails, MediaSearchItem, MetadataImage, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, MetadataVideo, MetadataVideoSource, MovieSpecifics,
             PartialMetadataPerson, PartialMetadataWithoutId, ShowEpisode, ShowSeason,
-            ShowSpecifics,
+            ShowSpecifics, WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -131,6 +135,25 @@ struct TmdbMediaEntry {
     genres: Option<Vec<NamedObject>>,
     belongs_to_collection: Option<IdObject>,
     videos: Option<TmdbVideoResults>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbWatchProviderDetails {
+    provider_id: i32,
+    provider_name: String,
+    logo_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbWatchProviderList {
+    rent: Option<Vec<TmdbWatchProviderDetails>>,
+    buy: Option<Vec<TmdbWatchProviderDetails>>,
+    flatrate: Option<Vec<TmdbWatchProviderDetails>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbWatchProviderResponse {
+    results: HashMap<String, TmdbWatchProviderList>,
 }
 
 #[derive(Debug, Clone)]
@@ -438,8 +461,10 @@ impl MediaProvider for TmdbMovieService {
             .base
             .get_all_suggestions(&self.client, "movie", identifier)
             .await?;
+        let watch_providers = self
+            .base
+            .get_all_watch_providers(&self.client, "movie", identifier)
             .await?;
-
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
@@ -487,6 +512,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .map(|c| c.id.to_string())
                 .collect(),
+            watch_providers,
             ..Default::default()
         })
     }
@@ -728,6 +754,10 @@ impl MediaProvider for TmdbShowService {
             .sum();
         let total_seasons = seasons.len();
         let total_episodes = seasons.iter().flat_map(|s| s.episodes.iter()).count();
+        let watch_providers = self
+            .base
+            .get_all_watch_providers(&self.client, "tv", identifier)
+            .await?;
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
@@ -815,6 +845,7 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
+            watch_providers,
             provider_rating: if let Some(av) = show_data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))
@@ -997,6 +1028,58 @@ impl TmdbService {
             }
         }
         Ok(suggestions)
+    }
+
+    async fn get_all_watch_providers(
+        &self,
+        client: &Client,
+        typ: &str,
+        identifier: &str,
+    ) -> Result<Vec<WatchProvider>> {
+        let language = "US";
+        let watch_providers_with_langs: TmdbWatchProviderResponse = client
+            .get(format!("{}/{}/watch/providers", typ, identifier))
+            .query(&json!({ "language": self.language }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut watch_providers = HashSet::new();
+        let lang_providers = watch_providers_with_langs
+            .results
+            .get(language)
+            .cloned()
+            .unwrap_or_default();
+        if let Some(rent) = lang_providers.rent {
+            for provider in rent {
+                watch_providers.insert(WatchProvider {
+                    name: provider.provider_name.clone(),
+                    image: provider.logo_path.map(|p| self.get_cover_image_url(p)),
+                    language: None,
+                });
+            }
+        }
+        if let Some(buy) = lang_providers.buy {
+            for provider in buy {
+                watch_providers.insert(WatchProvider {
+                    name: provider.provider_name.clone(),
+                    image: provider.logo_path.map(|p| self.get_cover_image_url(p)),
+                    language: None,
+                });
+            }
+        }
+        if let Some(flatrate) = lang_providers.flatrate {
+            for provider in flatrate {
+                watch_providers.insert(WatchProvider {
+                    name: provider.provider_name.clone(),
+                    image: provider.logo_path.map(|p| self.get_cover_image_url(p)),
+                    language: None,
+                });
+            }
+        }
+        Ok(watch_providers.into_iter().collect_vec())
     }
 }
 
