@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-    path::PathBuf,
-};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -163,7 +159,7 @@ pub struct TmdbService {
 }
 
 impl TmdbService {
-    fn get_cover_image_url(&self, c: String) -> String {
+    fn get_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.settings.image_url, "original", c)
     }
 
@@ -227,7 +223,7 @@ impl MediaProvider for NonMediaTmdbService {
         let images = images
             .into_iter()
             .unique()
-            .map(|p| self.base.get_cover_image_url(p))
+            .map(|p| self.base.get_image_url(p))
             .collect();
         let description = details.description.or(details.biography);
         let mut related = vec![];
@@ -249,7 +245,7 @@ impl MediaProvider for NonMediaTmdbService {
                         PartialMetadataWithoutId {
                             identifier: media.id.unwrap().to_string(),
                             title,
-                            image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                            image: media.poster_path.map(|p| self.base.get_image_url(p)),
                             lot: match media.media_type.unwrap().as_ref() {
                                 "movie" => MetadataLot::Movie,
                                 "tv" => MetadataLot::Show,
@@ -332,7 +328,7 @@ impl MediaProvider for TmdbMovieService {
                 identifier: d.id.to_string(),
                 title: d.title.unwrap(),
                 publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
-                image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
         let next_page = if page < search.total_pages {
@@ -484,7 +480,7 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImageForMediaDetails {
-                    image: self.base.get_cover_image_url(p),
+                    image: self.base.get_image_url(p),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -558,7 +554,7 @@ impl MediaProvider for TmdbMovieService {
                 identifier: p.id.to_string(),
                 source: MetadataSource::Tmdb,
                 lot: MetadataLot::Movie,
-                image: p.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                image: p.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
         Ok((
@@ -572,7 +568,7 @@ impl MediaProvider for TmdbMovieService {
                     .into_iter()
                     .unique()
                     .map(|p| MetadataImage {
-                        url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                        url: StoredUrl::Url(self.base.get_image_url(p)),
                         lot: MetadataImageLot::Poster,
                     })
                     .collect(),
@@ -782,7 +778,7 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImageForMediaDetails {
-                    image: self.base.get_cover_image_url(p),
+                    image: self.base.get_image_url(p),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
@@ -808,10 +804,9 @@ impl MediaProvider for TmdbShowService {
                     .into_iter()
                     .map(|s| {
                         let poster_images =
-                            Vec::from_iter(s.poster_path.map(|p| self.base.get_cover_image_url(p)));
-                        let backdrop_images = Vec::from_iter(
-                            s.backdrop_path.map(|p| self.base.get_cover_image_url(p)),
-                        );
+                            Vec::from_iter(s.poster_path.map(|p| self.base.get_image_url(p)));
+                        let backdrop_images =
+                            Vec::from_iter(s.backdrop_path.map(|p| self.base.get_image_url(p)));
                         ShowSeason {
                             id: s.id,
                             name: s.name,
@@ -825,7 +820,7 @@ impl MediaProvider for TmdbShowService {
                                 .into_iter()
                                 .map(|e| {
                                     let poster_images = Vec::from_iter(
-                                        e.still_path.map(|p| self.base.get_cover_image_url(p)),
+                                        e.still_path.map(|p| self.base.get_image_url(p)),
                                     );
                                     ShowEpisode {
                                         id: e.id,
@@ -886,7 +881,7 @@ impl MediaProvider for TmdbShowService {
                 identifier: d.id.to_string(),
                 title: d.name.unwrap(),
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
-                image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
         let next_page = if page < search.total_pages {
@@ -1017,7 +1012,7 @@ impl TmdbService {
                 };
                 suggestions.push(PartialMetadataWithoutId {
                     title: name,
-                    image: entry.poster_path.map(|p| self.get_cover_image_url(p)),
+                    image: entry.poster_path.map(|p| self.get_image_url(p)),
                     identifier: entry.id.to_string(),
                     source: MetadataSource::Tmdb,
                     lot,
@@ -1036,7 +1031,6 @@ impl TmdbService {
         typ: &str,
         identifier: &str,
     ) -> Result<Vec<WatchProvider>> {
-        let language = "US";
         let watch_providers_with_langs: TmdbWatchProviderResponse = client
             .get(format!("{}/{}/watch/providers", typ, identifier))
             .query(&json!({ "language": self.language }))
@@ -1046,40 +1040,46 @@ impl TmdbService {
             .body_json()
             .await
             .map_err(|e| anyhow!(e))?;
-        let mut watch_providers = HashSet::new();
-        let lang_providers = watch_providers_with_langs
-            .results
-            .get(language)
-            .cloned()
-            .unwrap_or_default();
-        if let Some(rent) = lang_providers.rent {
-            for provider in rent {
-                watch_providers.insert(WatchProvider {
-                    name: provider.provider_name.clone(),
-                    image: provider.logo_path.map(|p| self.get_cover_image_url(p)),
-                    language: None,
+        let mut watch_providers = Vec::<WatchProvider>::new();
+        for (country, lang_providers) in watch_providers_with_langs.results {
+            append_to_watch_provider(&mut watch_providers, lang_providers.rent, country.clone());
+            append_to_watch_provider(&mut watch_providers, lang_providers.buy, country.clone());
+            append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.flatrate,
+                country.clone(),
+            );
+        }
+        Ok(watch_providers
+            .into_iter()
+            .map(|p| WatchProvider {
+                image: p.image.map(|i| self.get_image_url(i)),
+                ..p
+            })
+            .collect())
+    }
+}
+
+fn append_to_watch_provider(
+    watch_providers: &mut Vec<WatchProvider>,
+    maybe_provider: Option<Vec<TmdbWatchProviderDetails>>,
+    country: String,
+) {
+    if let Some(provider) = maybe_provider {
+        for provider in provider {
+            let posn = watch_providers
+                .iter()
+                .position(|p| p.name == provider.provider_name);
+            if let Some(posn) = posn {
+                watch_providers[posn].languages.push(country.clone());
+            } else {
+                watch_providers.push(WatchProvider {
+                    name: provider.provider_name,
+                    image: provider.logo_path,
+                    languages: vec![country.clone()],
                 });
             }
         }
-        if let Some(buy) = lang_providers.buy {
-            for provider in buy {
-                watch_providers.insert(WatchProvider {
-                    name: provider.provider_name.clone(),
-                    image: provider.logo_path.map(|p| self.get_cover_image_url(p)),
-                    language: None,
-                });
-            }
-        }
-        if let Some(flatrate) = lang_providers.flatrate {
-            for provider in flatrate {
-                watch_providers.insert(WatchProvider {
-                    name: provider.provider_name.clone(),
-                    image: provider.logo_path.map(|p| self.get_cover_image_url(p)),
-                    language: None,
-                });
-            }
-        }
-        Ok(watch_providers.into_iter().collect_vec())
     }
 }
 

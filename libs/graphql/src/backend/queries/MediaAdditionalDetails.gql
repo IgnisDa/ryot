@@ -16,7 +16,7 @@ query MediaAdditionalDetails($metadataId: Int!) {
     watchProviders {
       name
       image
-      language
+      languages
     }
     animeSpecifics {
       episodes

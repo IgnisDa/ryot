@@ -932,7 +932,7 @@ pub mod media {
     pub struct WatchProvider {
         pub name: String,
         pub image: Option<String>,
-        pub language: Option<String>,
+        pub languages: Vec<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Default)]
