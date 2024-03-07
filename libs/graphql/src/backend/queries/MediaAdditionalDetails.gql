@@ -13,6 +13,11 @@ query MediaAdditionalDetails($metadataId: Int!) {
     suggestions {
       ...PartialMetadataPart
     }
+    watchProviders {
+      name
+      image
+      language
+    }
     animeSpecifics {
       episodes
     }

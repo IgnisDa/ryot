@@ -85,7 +85,7 @@ use crate::{
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
             UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
-            VideoGameSpecifics, VisualNovelSpecifics,
+            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -443,6 +443,7 @@ struct GraphqlMediaDetails {
     lot: MetadataLot,
     source: MetadataSource,
     creators: Vec<MetadataCreatorGroupedByRole>,
+    watch_providers: Vec<WatchProvider>,
     genres: Vec<GenreListItem>,
     assets: GraphqlMediaAssets,
     publish_year: Option<i32>,
@@ -1656,6 +1657,7 @@ impl MiscellaneousService {
                 }
             }
         };
+        let watch_providers = model.watch_providers.unwrap_or_default();
 
         let resp = GraphqlMediaDetails {
             id: model.id,
@@ -1686,6 +1688,7 @@ impl MiscellaneousService {
             creators,
             source_url,
             suggestions,
+            watch_providers,
         };
         Ok(resp)
     }
