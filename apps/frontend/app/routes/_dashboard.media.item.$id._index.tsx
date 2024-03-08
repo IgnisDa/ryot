@@ -1755,7 +1755,7 @@ export default function Page() {
 													</Text>
 													<Text>
 														The following is a list of all available watch
-														providers for this media along with the languages
+														providers for this media along with the countries
 														they are available in.
 													</Text>
 													{mediaAdditionalDetails.watchProviders.map(
