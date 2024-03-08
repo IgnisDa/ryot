@@ -5754,6 +5754,7 @@ impl MiscellaneousService {
             "kodi" => UserSinkIntegrationSettingKind::Kodi,
             _ => return Err(anyhow!("Incorrect integration requested").into()),
         };
+        tracing::debug!("Processing integration webhook for {}", integration);
         let (user_hash, _) = user_hash_id
             .split_once("--")
             .ok_or(anyhow!("Unexpected format"))?;
