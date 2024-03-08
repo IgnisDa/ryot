@@ -274,6 +274,7 @@ export default function Page() {
 										"disableYankIntegrations",
 										"disableNavigationAnimation",
 										"disableVideos",
+										"disableWatchProviders",
 									] as const
 								).map((name) => (
 									<Switch
@@ -293,6 +294,10 @@ export default function Page() {
 												() => "Disable navigation animation",
 											)
 											.with("disableVideos", () => "Do not display videos")
+											.with(
+												"disableWatchProviders",
+												() => "Do not display watch providers",
+											)
 											.exhaustive()}
 										defaultChecked={loaderData.userPreferences.general[name]}
 										disabled={!!loaderData.userDetails.isDemo}
