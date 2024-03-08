@@ -166,6 +166,23 @@ scheduler:
 
 # Settings related to server.
 server:
+  # The mailer related settings.
+  smtp:
+    # @envvar SERVER_SMTP_SERVER
+    server: ""
+
+    # @envvar SERVER_SMTP_PORT
+    port: 587
+
+    # @envvar SERVER_SMTP_USER
+    user: ""
+
+    # @envvar SERVER_SMTP_PASSWORD
+    password: ""
+
+    # @envvar SERVER_SMTP_MAILBOX
+    mailbox: "Ryot <no-reply@mailer.io>"
+
   # The path where the config file will be written once the server boots up.
   # @envvar SERVER_CONFIG_DUMP_PATH
   config_dump_path: ""
@@ -187,10 +204,6 @@ server:
   # The maximum file size in MB for user uploads.
   # @envvar SERVER_MAX_FILE_SIZE
   max_file_size: 70
-
-  # Whether videos will be displayed in the media details.
-  # @envvar SERVER_VIDEOS_DISABLED
-  videos_disabled: false
 
   # Whether the graphql playground will be enabled.
   # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED

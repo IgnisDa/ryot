@@ -67,12 +67,12 @@ impl MalAnimeService {
 
 #[async_trait]
 impl MediaProvider for MalAnimeService {
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, "anime", identifier).await?;
         Ok(details)
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -105,12 +105,12 @@ impl MalMangaService {
 
 #[async_trait]
 impl MediaProvider for MalMangaService {
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, "manga", identifier).await?;
         Ok(details)
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,

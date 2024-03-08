@@ -77,6 +77,7 @@ import {
 	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
+	IconMovie,
 	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
@@ -123,6 +124,8 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
+const JUSTWATCH_URL = "https://www.justwatch.com";
+
 const searchParamsSchema = z
 	.object({
 		defaultTab: z.string().optional(),
@@ -164,11 +167,14 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	);
 	return defer({
 		query,
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		userPreferences: {
+			reviewScale: userPreferences.general.reviewScale,
+			videosDisabled: userPreferences.general.disableVideos,
+			watchProvidersDisabled: userPreferences.general.disableWatchProviders,
+		},
 		coreDetails: {
 			itemDetailsHeight: coreDetails.itemDetailsHeight,
 			reviewsDisabled: coreDetails.reviewsDisabled,
-			videosDisabled: coreDetails.videosDisabled,
 		},
 		userDetails,
 		metadataId,
@@ -846,10 +852,18 @@ export default function Page() {
 							>
 								Suggestions
 							</Tabs.Tab>
-							{!loaderData.coreDetails.videosDisabled &&
+							{!loaderData.userPreferences.videosDisabled &&
 							(loaderData.mediaMainDetails.assets.videos.length || 0) > 0 ? (
 								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
+								</Tabs.Tab>
+							) : null}
+							{!loaderData.userPreferences.watchProvidersDisabled ? (
+								<Tabs.Tab
+									value="watchProviders"
+									leftSection={<IconMovie size={16} />}
+								>
+									Watch Providers
 								</Tabs.Tab>
 							) : null}
 						</Tabs.List>
@@ -1690,7 +1704,7 @@ export default function Page() {
 								</Await>
 							</Suspense>
 						</Tabs.Panel>
-						{!loaderData.coreDetails.videosDisabled ? (
+						{!loaderData.userPreferences.videosDisabled ? (
 							<Tabs.Panel value="videos">
 								<MediaScrollArea
 									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
@@ -1722,6 +1736,62 @@ export default function Page() {
 										))}
 									</Stack>
 								</MediaScrollArea>
+							</Tabs.Panel>
+						) : null}
+						{!loaderData.userPreferences.watchProvidersDisabled ? (
+							<Tabs.Panel value="watchProviders">
+								<Suspense fallback={<FallbackForDefer />}>
+									<Await resolve={loaderData.mediaAdditionalDetails}>
+										{({ mediaDetails: mediaAdditionalDetails }) =>
+											mediaAdditionalDetails.watchProviders.length > 0 ? (
+												<MediaScrollArea
+													itemDetailsHeight={
+														loaderData.coreDetails.itemDetailsHeight
+													}
+												>
+													<Stack gap="sm">
+														<Text>
+															JustWatch makes it easy to find out where you can
+															legally watch your favorite movies & TV shows
+															online. Visit{" "}
+															<Anchor href={JUSTWATCH_URL}>JustWatch</Anchor>{" "}
+															for more information.
+														</Text>
+														<Text>
+															The following is a list of all available watch
+															providers for this media along with the countries
+															they are available in.
+														</Text>
+														{mediaAdditionalDetails.watchProviders.map(
+															(provider) => (
+																<Flex
+																	key={provider.name}
+																	align="center"
+																	gap="md"
+																>
+																	<Image
+																		src={provider.image}
+																		h={80}
+																		w={80}
+																		radius="md"
+																	/>
+																	<Text lineClamp={3}>
+																		{provider.name}:{" "}
+																		<Text size="xs" span>
+																			{provider.languages.join(", ")}
+																		</Text>
+																	</Text>
+																</Flex>
+															),
+														)}
+													</Stack>
+												</MediaScrollArea>
+											) : (
+												<Text>No watch providers</Text>
+											)
+										}
+									</Await>
+								</Suspense>
 							</Tabs.Panel>
 						) : null}
 					</Tabs>

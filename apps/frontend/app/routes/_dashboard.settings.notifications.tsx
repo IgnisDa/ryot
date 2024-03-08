@@ -41,18 +41,23 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
+import { getCoreDetails } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [{ userNotificationPlatforms }] = await Promise.all([
+	const [coreDetails, { userNotificationPlatforms }] = await Promise.all([
+		getCoreDetails(),
 		gqlClient.request(
 			UserNotificationPlatformsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({ userNotificationPlatforms });
+	return json({
+		userNotificationPlatforms,
+		coreDetails: { docsLink: coreDetails.docsLink },
+	});
 };
 
 export const meta: MetaFunction = () => {
@@ -306,6 +311,30 @@ export default function Page() {
 											.with(UserNotificationSettingKind.PushSafer, () => (
 												<>
 													<TextInput label="Key" required name="apiToken" />
+												</>
+											))
+											.with(UserNotificationSettingKind.Email, () => (
+												<>
+													<TextInput
+														type="email"
+														label="Email ID"
+														required
+														name="apiToken"
+														description={
+															<>
+																Make sure
+																<Anchor
+																	size="xs"
+																	href={`${loaderData.coreDetails.docsLink}/configuration.html?h=smtp#all-parameters`}
+																	target="_blank"
+																>
+																	{" "}
+																	the correct{" "}
+																</Anchor>
+																configuration parameters are set
+															</>
+														}
+													/>
 												</>
 											))
 											.exhaustive()

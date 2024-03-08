@@ -216,7 +216,7 @@ impl MediaProvider for AudibleService {
         })
     }
 
-    async fn media_group_details(
+    async fn metadata_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
@@ -271,7 +271,7 @@ impl MediaProvider for AudibleService {
         ))
     }
 
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(identifier)
@@ -315,7 +315,7 @@ impl MediaProvider for AudibleService {
         Ok(item)
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,

@@ -258,6 +258,10 @@ pub struct UserGeneralPreferences {
     pub disable_yank_integrations: bool,
     #[serde(default)] // FIXME: remove in the next major release
     pub disable_navigation_animation: bool,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub disable_videos: bool,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub disable_watch_providers: bool,
 }
 
 impl Default for UserGeneralPreferences {
@@ -284,6 +288,8 @@ impl Default for UserGeneralPreferences {
             ],
             disable_yank_integrations: false,
             disable_navigation_animation: false,
+            disable_videos: false,
+            disable_watch_providers: false,
         }
     }
 }
@@ -361,6 +367,9 @@ pub enum UserNotificationSetting {
     },
     PushSafer {
         key: String,
+    },
+    Email {
+        email: String,
     },
 }
 

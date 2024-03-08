@@ -178,18 +178,18 @@ export default function Page() {
 								</Flex>
 							</ScrollArea>
 							<SimpleGrid py="xs" cols={4}>
-								{["level", "force", "mechanic", "equipment"].map((f) => (
-									<Fragment key={f}>
-										{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
-										{(loaderData.exerciseDetails as any)[f] ? (
-											<DisplayData
-												name={f}
-												// biome-ignore lint/suspicious/noExplicitAny: required here
-												data={(loaderData.exerciseDetails as any)[f]}
-											/>
-										) : null}
-									</Fragment>
-								))}
+								{(["level", "force", "mechanic", "equipment"] as const).map(
+									(f) => (
+										<Fragment key={f}>
+											{loaderData.exerciseDetails[f] ? (
+												<DisplayData
+													name={f}
+													data={loaderData.exerciseDetails[f]}
+												/>
+											) : null}
+										</Fragment>
+									),
+								)}
 								{loaderData.exerciseDetails.lot ? (
 									<DisplayData
 										name="Type"
@@ -467,7 +467,7 @@ export default function Page() {
 
 const DisplayData = (props: {
 	name: string;
-	data: string;
+	data?: string | null;
 	noCasing?: boolean;
 }) => {
 	return (
@@ -476,7 +476,7 @@ const DisplayData = (props: {
 				{startCase(props.name)}
 			</Text>
 			<Text ta="center" fz={{ base: "sm", md: "md" }}>
-				{props.noCasing ? props.data : startCase(props.data.toLowerCase())}
+				{props.noCasing ? props.data : startCase(props.data?.toLowerCase())}
 			</Text>
 		</Box>
 	);

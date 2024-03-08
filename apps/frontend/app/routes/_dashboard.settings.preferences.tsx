@@ -238,22 +238,18 @@ export default function Page() {
 					<Tabs.Panel value="general" mt="md">
 						<Stack>
 							<Text>Features that you want to use.</Text>
-							{["media", "fitness"].map((facet) => (
+							{(["media", "fitness"] as const).map((facet) => (
 								<Fragment key={facet}>
 									<Title order={4}>{startCase(facet)}</Title>
 									<SimpleGrid cols={2}>
 										{Object.entries(
-											// biome-ignore lint/suspicious/noExplicitAny: required here
-											(loaderData.userPreferences.featuresEnabled as any)[
-												facet
-											],
+											loaderData.userPreferences.featuresEnabled[facet],
 										).map(([name, isEnabled]) => (
 											<Switch
 												key={name}
 												size="xs"
 												label={changeCase(snakeCase(name))}
-												// biome-ignore lint/suspicious/noExplicitAny: required here
-												defaultChecked={isEnabled as any}
+												defaultChecked={isEnabled}
 												disabled={!!loaderData.userDetails.isDemo}
 												onChange={(ev) => {
 													const lot = snakeCase(name);
@@ -272,6 +268,47 @@ export default function Page() {
 								General
 							</Title>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
+								{(
+									[
+										"displayNsfw",
+										"disableYankIntegrations",
+										"disableNavigationAnimation",
+										"disableVideos",
+										"disableWatchProviders",
+									] as const
+								).map((name) => (
+									<Switch
+										key={name}
+										size="xs"
+										label={match(name)
+											.with(
+												"displayNsfw",
+												() => "Whether NSFW will be displayed",
+											)
+											.with(
+												"disableYankIntegrations",
+												() => "Disable yank integrations",
+											)
+											.with(
+												"disableNavigationAnimation",
+												() => "Disable navigation animation",
+											)
+											.with("disableVideos", () => "Do not display videos")
+											.with(
+												"disableWatchProviders",
+												() => "Do not display watch providers",
+											)
+											.exhaustive()}
+										defaultChecked={loaderData.userPreferences.general[name]}
+										disabled={!!loaderData.userDetails.isDemo}
+										onChange={(ev) => {
+											appendPref(
+												`general.${snakeCase(name)}`,
+												String(ev.currentTarget.checked),
+											);
+										}}
+									/>
+								))}
 								<Select
 									size="xs"
 									label="Scale used for rating in reviews"
@@ -283,52 +320,6 @@ export default function Page() {
 									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(val) => {
 										if (val) appendPref("general.review_scale", val);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Whether NSFW will be displayed"
-									defaultChecked={
-										loaderData.userPreferences.general.displayNsfw
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"general.display_nsfw",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Disable yank integrations"
-									defaultChecked={
-										loaderData.userPreferences.general.disableYankIntegrations
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"general.disable_yank_integrations",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Disable navigation animation"
-									defaultChecked={
-										loaderData.userPreferences.general
-											.disableNavigationAnimation
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(ev) => {
-										appendPref(
-											"general.disable_navigation_animation",
-											String(ev.currentTarget.checked),
-										);
 									}}
 								/>
 							</SimpleGrid>

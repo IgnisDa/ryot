@@ -111,12 +111,12 @@ impl AnilistAnimeService {
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,
@@ -160,12 +160,12 @@ impl AnilistMangaService {
 
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
-    async fn media_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,

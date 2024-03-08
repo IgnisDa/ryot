@@ -85,7 +85,7 @@ use crate::{
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
             UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
-            VideoGameSpecifics, VisualNovelSpecifics,
+            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -443,6 +443,7 @@ struct GraphqlMediaDetails {
     lot: MetadataLot,
     source: MetadataSource,
     creators: Vec<MetadataCreatorGroupedByRole>,
+    watch_providers: Vec<WatchProvider>,
     genres: Vec<GenreListItem>,
     assets: GraphqlMediaAssets,
     publish_year: Option<i32>,
@@ -553,7 +554,6 @@ struct CoreDetails {
     repository_link: String,
     item_details_height: u32,
     reviews_disabled: bool,
-    videos_disabled: bool,
     page_limit: i32,
     timezone: String,
 }
@@ -1426,7 +1426,6 @@ impl MiscellaneousService {
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             page_limit: self.config.frontend.page_size,
-            videos_disabled: self.config.server.videos_disabled,
             reviews_disabled: self.config.users.reviews_disabled,
             item_details_height: self.config.frontend.item_details_height,
         })
@@ -1658,6 +1657,7 @@ impl MiscellaneousService {
                 }
             }
         };
+        let watch_providers = model.watch_providers.unwrap_or_default();
 
         let resp = GraphqlMediaDetails {
             id: model.id,
@@ -1688,6 +1688,7 @@ impl MiscellaneousService {
             creators,
             source_url,
             suggestions,
+            watch_providers,
         };
         Ok(resp)
     }
@@ -3001,6 +3002,11 @@ impl MiscellaneousService {
         } else {
             Some(input.creators)
         };
+        let watch_providers = if input.watch_providers.is_empty() {
+            None
+        } else {
+            Some(input.watch_providers)
+        };
 
         let mut meta: metadata::ActiveModel = meta.into();
         meta.last_updated_on = ActiveValue::Set(Utc::now());
@@ -3016,6 +3022,7 @@ impl MiscellaneousService {
         meta.publish_year = ActiveValue::Set(input.publish_year);
         meta.publish_date = ActiveValue::Set(input.publish_date);
         meta.free_creators = ActiveValue::Set(free_creators);
+        meta.watch_providers = ActiveValue::Set(watch_providers);
         meta.anime_specifics = ActiveValue::Set(input.anime_specifics);
         meta.audio_book_specifics = ActiveValue::Set(input.audio_book_specifics);
         meta.manga_specifics = ActiveValue::Set(input.manga_specifics);
@@ -3107,7 +3114,7 @@ impl MiscellaneousService {
             .await?;
         let provider = self.get_media_provider(lot, source).await?;
         let (group_details, associated_items) =
-            provider.media_group_details(&group_identifier).await?;
+            provider.metadata_group_details(&group_identifier).await?;
         let group_id = match existing_group {
             Some(eg) => eg.id,
             None => {
@@ -3281,6 +3288,11 @@ impl MiscellaneousService {
                 None
             } else {
                 Some(details.creators)
+            }),
+            watch_providers: ActiveValue::Set(if details.watch_providers.is_empty() {
+                None
+            } else {
+                Some(details.watch_providers)
             }),
             ..Default::default()
         };
@@ -3519,7 +3531,7 @@ impl MiscellaneousService {
                 .preferences;
             let provider = self.get_media_provider(lot, source).await?;
             let results = provider
-                .media_search(&q, input.page, preferences.general.display_nsfw)
+                .metadata_search(&q, input.page, preferences.general.display_nsfw)
                 .await?;
             let all_identifiers = results
                 .items
@@ -3762,7 +3774,7 @@ impl MiscellaneousService {
         identifier: &str,
     ) -> Result<MediaDetails> {
         let provider = self.get_media_provider(lot, source).await?;
-        let results = provider.media_details(identifier).await?;
+        let results = provider.metadata_details(identifier).await?;
         Ok(results)
     }
 
@@ -5284,6 +5296,12 @@ impl MiscellaneousService {
                         "disable_navigation_animation" => {
                             preferences.general.disable_navigation_animation = value_bool.unwrap();
                         }
+                        "disable_videos" => {
+                            preferences.general.disable_videos = value_bool.unwrap();
+                        }
+                        "disable_watch_providers" => {
+                            preferences.general.disable_watch_providers = value_bool.unwrap();
+                        }
                         _ => return Err(err()),
                     },
                     _ => return Err(err()),
@@ -5376,6 +5394,9 @@ impl MiscellaneousService {
                 }
                 UserNotificationSetting::PushSafer { key } => {
                     format!("PushSafer Key: {}", key)
+                }
+                UserNotificationSetting::Email { email } => {
+                    format!("Email: {}", email)
                 }
             };
             all_notifications.push(GraphqlUserNotificationPlatform {
@@ -5527,6 +5548,9 @@ impl MiscellaneousService {
                 },
                 UserNotificationSettingKind::PushSafer => UserNotificationSetting::PushSafer {
                     key: input.api_token.unwrap(),
+                },
+                UserNotificationSettingKind::Email => UserNotificationSetting::Email {
+                    email: input.api_token.unwrap(),
                 },
             },
         };
@@ -5733,6 +5757,7 @@ impl MiscellaneousService {
             "kodi" => UserSinkIntegrationSettingKind::Kodi,
             _ => return Err(anyhow!("Incorrect integration requested").into()),
         };
+        tracing::debug!("Processing integration webhook for {}", integration);
         let (user_hash, _) = user_hash_id
             .split_once("--")
             .ok_or(anyhow!("Unexpected format"))?;
@@ -5977,7 +6002,12 @@ impl MiscellaneousService {
         if user_details.preferences.notifications.enabled {
             tracing::debug!("Sending notification to user: {:?}", msg);
             for notification in user_details.notifications {
-                if notification.settings.send_message(msg).await.is_err() {
+                if notification
+                    .settings
+                    .send_message(&self.config, msg)
+                    .await
+                    .is_err()
+                {
                     success = false;
                 }
             }
