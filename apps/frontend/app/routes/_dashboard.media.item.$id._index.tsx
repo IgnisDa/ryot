@@ -1767,14 +1767,12 @@ export default function Page() {
 																	w={80}
 																	radius="md"
 																/>
-																<Box>
-																	<Text lineClamp={3}>
-																		{provider.name}:{" "}
-																		<Text size="xs" span>
-																			{provider.languages.join(", ")}
-																		</Text>
+																<Text lineClamp={3}>
+																	{provider.name}:{" "}
+																	<Text size="xs" span>
+																		{provider.languages.join(", ")}
 																	</Text>
-																</Box>
+																</Text>
 															</Flex>
 														),
 													)}
