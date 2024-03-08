@@ -1768,9 +1768,11 @@ export default function Page() {
 																	radius="md"
 																/>
 																<Box>
-																	<Text>{provider.name}</Text>
-																	<Text lineClamp={2} size="xs">
-																		{provider.languages.join(", ")}
+																	<Text lineClamp={3}>
+																		{provider.name}:{" "}
+																		<Text size="xs" span>
+																			{provider.languages.join(", ")}
+																		</Text>
 																	</Text>
 																</Box>
 															</Flex>
