@@ -5299,6 +5299,9 @@ impl MiscellaneousService {
                         "disable_videos" => {
                             preferences.general.disable_videos = value_bool.unwrap();
                         }
+                        "disable_watch_providers" => {
+                            preferences.general.disable_watch_providers = value_bool.unwrap();
+                        }
                         _ => return Err(err()),
                     },
                     _ => return Err(err()),
