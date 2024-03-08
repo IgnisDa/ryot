@@ -170,6 +170,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
 			videosDisabled: userPreferences.general.disableVideos,
+			watchProvidersDisabled: userPreferences.general.disableWatchProviders,
 		},
 		coreDetails: {
 			itemDetailsHeight: coreDetails.itemDetailsHeight,
@@ -857,12 +858,14 @@ export default function Page() {
 									Videos
 								</Tabs.Tab>
 							) : null}
-							<Tabs.Tab
-								value="watchProviders"
-								leftSection={<IconMovie size={16} />}
-							>
-								Watch Providers
-							</Tabs.Tab>
+							{!loaderData.userPreferences.watchProvidersDisabled ? (
+								<Tabs.Tab
+									value="watchProviders"
+									leftSection={<IconMovie size={16} />}
+								>
+									Watch Providers
+								</Tabs.Tab>
+							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="overview">
 							<MediaScrollArea
@@ -1735,56 +1738,62 @@ export default function Page() {
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}
-						<Tabs.Panel value="watchProviders">
-							<Suspense fallback={<FallbackForDefer />}>
-								<Await resolve={loaderData.mediaAdditionalDetails}>
-									{({ mediaDetails: mediaAdditionalDetails }) =>
-										mediaAdditionalDetails.watchProviders.length > 0 ? (
-											<MediaScrollArea
-												itemDetailsHeight={
-													loaderData.coreDetails.itemDetailsHeight
-												}
-											>
-												<Stack gap="sm">
-													<Text>
-														JustWatch makes it easy to find out where you can
-														legally watch your favorite movies & TV shows
-														online. Visit{" "}
-														<Anchor href={JUSTWATCH_URL}>JustWatch</Anchor> for
-														more information.
-													</Text>
-													<Text>
-														The following is a list of all available watch
-														providers for this media along with the countries
-														they are available in.
-													</Text>
-													{mediaAdditionalDetails.watchProviders.map(
-														(provider) => (
-															<Flex key={provider.name} align="center" gap="md">
-																<Image
-																	src={provider.image}
-																	h={80}
-																	w={80}
-																	radius="md"
-																/>
-																<Text lineClamp={3}>
-																	{provider.name}:{" "}
-																	<Text size="xs" span>
-																		{provider.languages.join(", ")}
+						{!loaderData.userPreferences.watchProvidersDisabled ? (
+							<Tabs.Panel value="watchProviders">
+								<Suspense fallback={<FallbackForDefer />}>
+									<Await resolve={loaderData.mediaAdditionalDetails}>
+										{({ mediaDetails: mediaAdditionalDetails }) =>
+											mediaAdditionalDetails.watchProviders.length > 0 ? (
+												<MediaScrollArea
+													itemDetailsHeight={
+														loaderData.coreDetails.itemDetailsHeight
+													}
+												>
+													<Stack gap="sm">
+														<Text>
+															JustWatch makes it easy to find out where you can
+															legally watch your favorite movies & TV shows
+															online. Visit{" "}
+															<Anchor href={JUSTWATCH_URL}>JustWatch</Anchor>{" "}
+															for more information.
+														</Text>
+														<Text>
+															The following is a list of all available watch
+															providers for this media along with the countries
+															they are available in.
+														</Text>
+														{mediaAdditionalDetails.watchProviders.map(
+															(provider) => (
+																<Flex
+																	key={provider.name}
+																	align="center"
+																	gap="md"
+																>
+																	<Image
+																		src={provider.image}
+																		h={80}
+																		w={80}
+																		radius="md"
+																	/>
+																	<Text lineClamp={3}>
+																		{provider.name}:{" "}
+																		<Text size="xs" span>
+																			{provider.languages.join(", ")}
+																		</Text>
 																	</Text>
-																</Text>
-															</Flex>
-														),
-													)}
-												</Stack>
-											</MediaScrollArea>
-										) : (
-											<Text>No watch providers</Text>
-										)
-									}
-								</Await>
-							</Suspense>
-						</Tabs.Panel>
+																</Flex>
+															),
+														)}
+													</Stack>
+												</MediaScrollArea>
+											) : (
+												<Text>No watch providers</Text>
+											)
+										}
+									</Await>
+								</Suspense>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>
