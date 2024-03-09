@@ -2066,9 +2066,11 @@ impl MiscellaneousService {
             .from_as(AliasedMetadata::Table, metadata_alias.clone())
             .and_where_option(match preferences.general.display_nsfw {
                 true => None,
-                false => {
-                    Some(Expr::col((metadata_alias.clone(), AliasedMetadata::IsNsfw)).eq(false))
-                }
+                false => Some(
+                    Expr::col((metadata_alias.clone(), AliasedMetadata::IsNsfw))
+                        .eq(false)
+                        .or(Expr::col((metadata_alias.clone(), AliasedMetadata::IsNsfw)).is_null()),
+                ),
             })
             .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Lot)).eq(input.lot))
             .and_where(
