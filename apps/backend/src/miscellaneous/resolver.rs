@@ -6682,37 +6682,46 @@ GROUP BY
         user_id: i32,
         writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
-        let mut people: Vec<ImportOrExportPersonItem> = vec![];
-        let all_reviews = Review::find()
-            .filter(review::Column::PersonId.is_not_null())
-            .filter(review::Column::UserId.eq(user_id))
-            .find_also_related(Person)
+        let related_people = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::PersonId.is_not_null())
             .all(&self.db)
-            .await?;
-        for (review, creator) in all_reviews {
-            let creator = creator.unwrap();
-            let review_item =
-                get_review_export_item(self.review_by_id(review.id, user_id, false).await.unwrap());
-            if let Some(entry) = people.iter_mut().find(|c| c.name == creator.name) {
-                entry.reviews.push(review_item);
-            } else {
-                let collections =
-                    entity_in_collections(&self.db, user_id, None, Some(creator.id), None, None)
-                        .await?
-                        .into_iter()
-                        .map(|c| c.name)
-                        .collect();
-                people.push(ImportOrExportPersonItem {
-                    name: creator.name,
-                    identifier: creator.identifier,
-                    source: creator.source,
-                    reviews: vec![review_item],
-                    collections,
-                });
+            .await
+            .unwrap();
+        for rm in related_people.iter() {
+            let p = rm
+                .find_related(Person)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let db_reviews = p
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item = get_review_export_item(
+                    self.review_by_id(review.id, user_id, false).await.unwrap(),
+                );
+                reviews.push(review_item);
             }
-        }
-        for person in people {
-            writer.serialize_value(&person).unwrap();
+            let collections =
+                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportPersonItem {
+                name: p.name,
+                identifier: p.identifier,
+                source: p.source,
+                reviews,
+                collections,
+            };
+            writer.serialize_value(&exp).unwrap();
         }
         Ok(true)
     }
