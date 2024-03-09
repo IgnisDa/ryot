@@ -1056,6 +1056,8 @@ pub mod media {
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
+        /// Whether the media is being monitored.
+        pub monitored: Option<bool>,
     }
 
     /// Details about a specific creator item that needs to be exported.
@@ -1255,6 +1257,13 @@ pub mod media {
         pub image: Option<String>,
         pub lot: MetadataLot,
         pub source: MetadataSource,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+    pub struct ToggleMediaMonitorInput {
+        pub metadata_id: Option<i32>,
+        pub person_id: Option<i32>,
+        pub force_value: Option<bool>,
     }
 }
 

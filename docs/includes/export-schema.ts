@@ -131,6 +131,8 @@ export interface ImportOrExportMediaItem {
 	 * @default 'Book'
 	 */
 	lot: MetadataLot;
+	/** Whether the media is being monitored. */
+	monitored: boolean | null;
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
 	/** The seen history for the user. */

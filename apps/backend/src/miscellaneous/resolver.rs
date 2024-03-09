@@ -84,8 +84,8 @@ use crate::{
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
             SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
-            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            ToggleMediaMonitorInput, UserMediaOwnership, UserMediaReminder, UserSummary,
+            UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -684,13 +684,6 @@ enum UserUpcomingCalendarEventInput {
 struct PresignedPutUrlInput {
     file_name: String,
     prefix: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-struct ToggleMediaMonitorInput {
-    metadata_id: Option<i32>,
-    person_id: Option<i32>,
-    force_value: Option<bool>,
 }
 
 fn get_password_hasher() -> Argon2<'static> {
@@ -6146,7 +6139,7 @@ GROUP BY
         Ok(())
     }
 
-    async fn toggle_media_monitor(
+    pub async fn toggle_media_monitor(
         &self,
         user_id: i32,
         input: ToggleMediaMonitorInput,
@@ -6613,16 +6606,13 @@ GROUP BY
             .all(&self.db)
             .await
             .unwrap();
-        let distinct_meta_ids = related_metadata
-            .into_iter()
-            .map(|m| m.metadata_id)
-            .collect_vec();
-        let all_meta = Metadata::find()
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
-            .order_by(metadata::Column::Id, Order::Asc)
-            .all(&self.db)
-            .await?;
-        for m in all_meta.iter() {
+        for rm in related_metadata.iter() {
+            let m = rm
+                .find_related(Metadata)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
             let seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
@@ -6679,6 +6669,7 @@ GROUP BY
                 seen_history,
                 reviews,
                 collections,
+                monitored: rm.media_monitored,
             };
             writer.serialize_value(&exp).unwrap();
         }

@@ -24,6 +24,7 @@ use crate::{
         media::{
             CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
             PartialMetadataWithoutId, PostReviewInput, ProgressUpdateInput,
+            ToggleMediaMonitorInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput, IdObject,
     },
@@ -491,6 +492,16 @@ impl ImporterService {
                     .await
                     .ok();
             }
+            self.media_service
+                .toggle_media_monitor(
+                    user_id,
+                    ToggleMediaMonitorInput {
+                        metadata_id: Some(metadata.id),
+                        force_value: item.monitored,
+                        ..Default::default()
+                    },
+                )
+                .await?;
             tracing::debug!(
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx + 1,

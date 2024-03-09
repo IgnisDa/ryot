@@ -361,6 +361,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     }
                 })
                 .collect(),
+            monitored: None,
         };
         final_data.push(item);
     }
