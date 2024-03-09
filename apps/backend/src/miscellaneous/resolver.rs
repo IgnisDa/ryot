@@ -6603,6 +6603,7 @@ GROUP BY
     ) -> Result<bool> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
             .all(&self.db)
             .await
             .unwrap();
