@@ -1074,6 +1074,8 @@ pub mod media {
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
+        /// Whether the person is being monitored.
+        pub monitored: Option<bool>,
     }
 
     #[derive(

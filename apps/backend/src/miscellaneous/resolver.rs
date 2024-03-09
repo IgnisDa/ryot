@@ -6720,6 +6720,7 @@ GROUP BY
                 source: p.source,
                 reviews,
                 collections,
+                monitored: rm.media_monitored,
             };
             writer.serialize_value(&exp).unwrap();
         }
