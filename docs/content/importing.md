@@ -46,9 +46,9 @@ the following caveats:
 - Copy the token that was just generated.
 - Enter the details in the inputs.
 
-## Generic JSON
+## MediaJSON
 
-This can be used to import data from a generic JSON file. The import format
+This can be used to import media from a generic JSON file. The import format
 required is described in the [exporting](guides/exporting.md#type-definition)
 documentation.
 

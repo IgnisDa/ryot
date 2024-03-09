@@ -59,6 +59,7 @@ mod m20240227_add_user_to_entity_constraint;
 mod m20240229_change_user_notifications_data_storage;
 mod m20240302_monitor_media_in_progress_or_watchlist;
 mod m20240307_add_column_to_metadata_for_watch_providers;
+mod m20240309_change_generic_to_media_json;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -135,6 +136,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240229_change_user_notifications_data_storage::Migration),
             Box::new(m20240302_monitor_media_in_progress_or_watchlist::Migration),
             Box::new(m20240307_add_column_to_metadata_for_watch_providers::Migration),
+            Box::new(m20240309_change_generic_to_media_json::Migration),
         ]
     }
 }

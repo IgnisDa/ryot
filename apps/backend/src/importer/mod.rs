@@ -34,9 +34,9 @@ use crate::{
 };
 
 mod audiobookshelf;
-mod generic_json;
 mod goodreads;
 mod mal;
+mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
@@ -102,7 +102,7 @@ pub struct DeployStrongAppImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployGenericJsonImportInput {
+pub struct DeployMediaJsonImportInput {
     // The file path of the uploaded JSON export.
     export: String,
 }
@@ -123,7 +123,7 @@ pub struct DeployImportJobInput {
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
-    pub generic_json: Option<DeployGenericJsonImportInput>,
+    pub media_json: Option<DeployMediaJsonImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
 }
 
@@ -316,9 +316,7 @@ impl ImporterService {
             ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
                 .await
                 .unwrap(),
-            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap())
-                .await
-                .unwrap(),
+            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await.unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.goodreads.unwrap(),

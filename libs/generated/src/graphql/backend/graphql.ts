@@ -225,19 +225,15 @@ export type DeployAudiobookshelfImportInput = {
   apiUrl: Scalars['String']['input'];
 };
 
-export type DeployGenericJsonImportInput = {
-  export: Scalars['String']['input'];
-};
-
 export type DeployGoodreadsImportInput = {
   csvPath: Scalars['String']['input'];
 };
 
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
-  genericJson?: InputMaybe<DeployGenericJsonImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
+  mediaJson?: InputMaybe<DeployMediaJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
@@ -251,6 +247,10 @@ export type DeployMalImportInput = {
   animePath: Scalars['String']['input'];
   /** The manga export file path (uploaded via temporary upload). */
   mangaPath: Scalars['String']['input'];
+};
+
+export type DeployMediaJsonImportInput = {
+  export: Scalars['String']['input'];
 };
 
 export type DeployMediaTrackerImportInput = {
@@ -657,9 +657,9 @@ export type ImportResultResponse = {
 
 export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
-  GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
   Mal = 'MAL',
+  MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
   StoryGraph = 'STORY_GRAPH',

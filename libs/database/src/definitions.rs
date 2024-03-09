@@ -162,8 +162,8 @@ pub enum ImportSource {
     MediaTracker,
     #[sea_orm(string_value = "GO")]
     Goodreads,
-    #[sea_orm(string_value = "GJ")]
-    GenericJson,
+    #[sea_orm(string_value = "MJ")]
+    MediaJson,
     #[sea_orm(string_value = "TR")]
     Trakt,
     #[sea_orm(string_value = "MO")]
