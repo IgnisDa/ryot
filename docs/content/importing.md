@@ -46,12 +46,6 @@ the following caveats:
 - Copy the token that was just generated.
 - Enter the details in the inputs.
 
-## MediaJSON
-
-This can be used to import media from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#type-definition)
-documentation.
-
 ## Movary
 
 The Watchlist and all movies can be imported from [Movary](https://movary.org)
@@ -162,3 +156,27 @@ their ratings, history, comments and lists. A few points to note.
 
 All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
 tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
+
+## MediaJSON
+
+This can be used to import media from a generic JSON file. The import format
+required is described in the [exporting](guides/exporting.md#type-definition)
+documentation.
+
+## PersonJSON
+
+This can be used to import people from a generic JSON file. The import format
+required is described in the [exporting](guides/exporting.md#type-definition)
+documentation.
+
+## MeasurementsJSON
+
+This can be used to import measurements from a generic JSON file. The import format
+required is described in the [exporting](guides/exporting.md#type-definition)
+documentation.
+
+## ExercisesJSON
+
+This can be used to import exercises from a generic JSON file. The import format
+required is described in the [exporting](guides/exporting.md#type-definition)
+documentation.
