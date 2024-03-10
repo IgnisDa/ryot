@@ -236,6 +236,7 @@ export type DeployImportJobInput = {
   mediaJson?: InputMaybe<DeployJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
+  personJson?: InputMaybe<DeployJsonImportInput>;
   source: ImportSource;
   storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
@@ -662,6 +663,7 @@ export enum ImportSource {
   MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
+  PersonJson = 'PERSON_JSON',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT'

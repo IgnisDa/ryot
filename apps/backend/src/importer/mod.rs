@@ -125,6 +125,7 @@ pub struct DeployImportJobInput {
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub media_json: Option<DeployJsonImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
+    pub person_json: Option<DeployJsonImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -278,8 +279,15 @@ impl ImporterService {
     ) -> Result<()> {
         match input.source {
             ImportSource::StrongApp => self.import_exercises(user_id, input).await,
+            ImportSource::PersonJson => self.import_people(user_id, input).await,
             _ => self.import_media(user_id, input).await,
         }
+    }
+
+    #[instrument(skip(self, input))]
+    async fn import_people(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
+        dbg!(&input);
+        Ok(())
     }
 
     #[instrument(skip(self, input))]
