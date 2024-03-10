@@ -232,8 +232,8 @@ export type DeployGoodreadsImportInput = {
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
+  json?: InputMaybe<DeployJsonImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
-  mediaJson?: InputMaybe<DeployJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   personJson?: InputMaybe<DeployJsonImportInput>;
@@ -660,13 +660,15 @@ export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   Goodreads = 'GOODREADS',
   Mal = 'MAL',
+  MeasurementsJson = 'MEASUREMENTS_JSON',
   MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
   PersonJson = 'PERSON_JSON',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
-  Trakt = 'TRAKT'
+  Trakt = 'TRAKT',
+  WorkoutsJson = 'WORKOUTS_JSON'
 }
 
 export type LoginError = {

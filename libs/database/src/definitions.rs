@@ -156,16 +156,20 @@ pub enum Visibility {
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum ImportSource {
-    #[sea_orm(string_value = "MA")]
-    Mal,
-    #[sea_orm(string_value = "MT")]
-    MediaTracker,
+    #[sea_orm(string_value = "AB")]
+    Audiobookshelf,
     #[sea_orm(string_value = "GO")]
     Goodreads,
-    #[sea_orm(string_value = "PJ")]
-    PersonJson,
+    #[sea_orm(string_value = "MA")]
+    Mal,
+    #[sea_orm(string_value = "MEJ")]
+    MeasurementsJson,
+    #[sea_orm(string_value = "MT")]
+    MediaTracker,
     #[sea_orm(string_value = "MJ")]
     MediaJson,
+    #[sea_orm(string_value = "PJ")]
+    PersonJson,
     #[sea_orm(string_value = "TR")]
     Trakt,
     #[sea_orm(string_value = "MO")]
@@ -174,8 +178,8 @@ pub enum ImportSource {
     StoryGraph,
     #[sea_orm(string_value = "SA")]
     StrongApp,
-    #[sea_orm(string_value = "AB")]
-    Audiobookshelf,
+    #[sea_orm(string_value = "WJ")]
+    WorkoutsJson,
 }
 
 #[derive(

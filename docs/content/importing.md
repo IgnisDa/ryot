@@ -175,8 +175,8 @@ This can be used to import measurements from a generic JSON file. The import for
 required is described in the [exporting](guides/exporting.md#type-definition)
 documentation.
 
-## ExercisesJSON
+## WorkoutsJSON
 
-This can be used to import exercises from a generic JSON file. The import format
+This can be used to import workouts from a generic JSON file. The import format
 required is described in the [exporting](guides/exporting.md#type-definition)
 documentation.

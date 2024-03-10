@@ -123,7 +123,7 @@ pub struct DeployImportJobInput {
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
-    pub media_json: Option<DeployJsonImportInput>,
+    pub json: Option<DeployJsonImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
     pub person_json: Option<DeployJsonImportInput>,
 }
@@ -278,8 +278,11 @@ impl ImporterService {
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
         match input.source {
-            ImportSource::StrongApp => self.import_exercises(user_id, input).await,
+            ImportSource::StrongApp | ImportSource::WorkoutsJson => {
+                self.import_workouts(user_id, input).await
+            }
             ImportSource::PersonJson => self.import_people(user_id, input).await,
+            ImportSource::MeasurementsJson => self.import_measurements(user_id, input).await,
             _ => self.import_media(user_id, input).await,
         }
     }
@@ -287,11 +290,23 @@ impl ImporterService {
     #[instrument(skip(self, input))]
     async fn import_people(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
         dbg!(&input);
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
         Ok(())
     }
 
     #[instrument(skip(self, input))]
-    async fn import_exercises(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
+    async fn import_measurements(
+        &self,
+        user_id: i32,
+        input: Box<DeployImportJobInput>,
+    ) -> Result<()> {
+        dbg!(&input);
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        Ok(())
+    }
+
+    #[instrument(skip(self, input))]
+    async fn import_workouts(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
             ImportSource::StrongApp => {
@@ -324,7 +339,7 @@ impl ImporterService {
             ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
                 .await
                 .unwrap(),
-            ImportSource::MediaJson => media_json::import(input.media_json.unwrap()).await.unwrap(),
+            ImportSource::MediaJson => media_json::import(input.json.unwrap()).await.unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.goodreads.unwrap(),
