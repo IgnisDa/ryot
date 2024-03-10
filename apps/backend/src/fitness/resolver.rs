@@ -680,7 +680,7 @@ impl ExerciseService {
         Ok(resp)
     }
 
-    async fn create_user_measurement(
+    pub async fn create_user_measurement(
         &self,
         user_id: i32,
         mut input: user_measurement::Model,

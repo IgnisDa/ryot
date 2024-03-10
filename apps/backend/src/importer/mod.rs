@@ -38,6 +38,7 @@ use crate::{
 mod audiobookshelf;
 mod goodreads;
 mod mal;
+mod measurements_json;
 mod media_json;
 mod media_tracker;
 mod movary;
@@ -307,8 +308,26 @@ impl ImporterService {
         user_id: i32,
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
-        dbg!(&input);
         let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let import = match input.source {
+            ImportSource::MeasurementsJson => measurements_json::import(input.json.unwrap())
+                .await
+                .unwrap(),
+            _ => unreachable!(),
+        };
+        let details = ImportResultResponse {
+            import: ImportDetails {
+                total: import.measurements.len(),
+            },
+            failed_items: vec![],
+        };
+        for measurement in import.measurements {
+            self.exercise_service
+                .create_user_measurement(user_id, measurement)
+                .await
+                .ok();
+        }
+        self.finish_import_job(db_import_job, details).await?;
         Ok(())
     }
 
