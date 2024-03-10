@@ -278,12 +278,17 @@ impl ImporterService {
     ) -> Result<()> {
         match input.source {
             ImportSource::StrongApp | ImportSource::WorkoutsJson => {
-                self.import_workouts(user_id, input).await
+                self.import_workouts(user_id, input).await?
             }
-            ImportSource::PersonJson => self.import_people(user_id, input).await,
-            ImportSource::MeasurementsJson => self.import_measurements(user_id, input).await,
-            _ => self.import_media(user_id, input).await,
-        }
+            ImportSource::PersonJson => self.import_people(user_id, input).await?,
+            ImportSource::MeasurementsJson => self.import_measurements(user_id, input).await?,
+            _ => self.import_media(user_id, input).await?,
+        };
+        self.media_service
+            .deploy_background_job(BackgroundJob::CalculateSummary, user_id)
+            .await
+            .ok();
+        Ok(())
     }
 
     #[instrument(skip(self, input))]
@@ -532,10 +537,6 @@ impl ImporterService {
                 col = item.collections.len(),
             );
         }
-        self.media_service
-            .deploy_background_job(BackgroundJob::CalculateSummary, user_id)
-            .await
-            .ok();
         tracing::debug!(
             "Imported {total} media items from {source}",
             total = import.media.len(),
