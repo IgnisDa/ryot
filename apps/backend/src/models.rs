@@ -1256,6 +1256,11 @@ pub mod media {
         pub lot: MetadataLot,
         pub source: MetadataSource,
     }
+
+    #[derive(Debug, Clone, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
+    pub enum PersonSourceSpecifics {
+        Tmdb { is_company: bool },
+    }
 }
 
 pub mod fitness {
