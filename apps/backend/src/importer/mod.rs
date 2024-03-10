@@ -37,9 +37,8 @@ use crate::{
 
 mod audiobookshelf;
 mod goodreads;
+mod json;
 mod mal;
-mod measurements_json;
-mod media_json;
 mod media_tracker;
 mod movary;
 mod story_graph;
@@ -310,7 +309,7 @@ impl ImporterService {
     ) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
-            ImportSource::MeasurementsJson => measurements_json::import(input.json.unwrap())
+            ImportSource::MeasurementsJson => json::measurements_import(input.json.unwrap())
                 .await
                 .unwrap(),
             _ => unreachable!(),
@@ -365,7 +364,7 @@ impl ImporterService {
             ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
                 .await
                 .unwrap(),
-            ImportSource::MediaJson => media_json::import(input.json.unwrap()).await.unwrap(),
+            ImportSource::MediaJson => json::media_import(input.json.unwrap()).await.unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.goodreads.unwrap(),

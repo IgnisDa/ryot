@@ -7,7 +7,7 @@ use crate::{
     models::{media::ImportOrExportItemIdentifier, CompleteExport},
 };
 
-pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
+pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
     let mut media = serde_json::from_str::<CompleteExport>(&export)
         .unwrap()
@@ -25,5 +25,20 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         failed_items: vec![],
         workouts: vec![],
         measurements: vec![],
+    })
+}
+
+pub async fn measurements_import(input: DeployJsonImportInput) -> Result<ImportResult> {
+    let export = fs::read_to_string(input.export)?;
+    let measurements = serde_json::from_str::<CompleteExport>(&export)
+        .unwrap()
+        .measurements
+        .unwrap();
+    Ok(ImportResult {
+        measurements,
+        media: vec![],
+        workouts: vec![],
+        collections: vec![],
+        failed_items: vec![],
     })
 }
