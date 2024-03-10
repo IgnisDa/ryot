@@ -102,7 +102,7 @@ pub struct DeployStrongAppImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployMediaJsonImportInput {
+pub struct DeployJsonImportInput {
     // The file path of the uploaded JSON export.
     export: String,
 }
@@ -123,7 +123,7 @@ pub struct DeployImportJobInput {
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
-    pub media_json: Option<DeployMediaJsonImportInput>,
+    pub media_json: Option<DeployJsonImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
 }
 

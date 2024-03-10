@@ -233,7 +233,7 @@ export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
-  mediaJson?: InputMaybe<DeployMediaJsonImportInput>;
+  mediaJson?: InputMaybe<DeployJsonImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
@@ -242,15 +242,15 @@ export type DeployImportJobInput = {
   trakt?: InputMaybe<DeployTraktImportInput>;
 };
 
+export type DeployJsonImportInput = {
+  export: Scalars['String']['input'];
+};
+
 export type DeployMalImportInput = {
   /** The anime export file path (uploaded via temporary upload). */
   animePath: Scalars['String']['input'];
   /** The manga export file path (uploaded via temporary upload). */
   mangaPath: Scalars['String']['input'];
-};
-
-export type DeployMediaJsonImportInput = {
-  export: Scalars['String']['input'];
 };
 
 export type DeployMediaTrackerImportInput = {

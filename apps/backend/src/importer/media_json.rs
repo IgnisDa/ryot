@@ -3,11 +3,11 @@ use std::fs;
 use async_graphql::Result;
 
 use crate::{
-    importer::{DeployMediaJsonImportInput, ImportResult},
+    importer::{DeployJsonImportInput, ImportResult},
     models::{media::ImportOrExportItemIdentifier, CompleteExport},
 };
 
-pub async fn import(input: DeployMediaJsonImportInput) -> Result<ImportResult> {
+pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
     let mut media = serde_json::from_str::<CompleteExport>(&export)
         .unwrap()
