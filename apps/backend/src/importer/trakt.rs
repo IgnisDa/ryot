@@ -221,6 +221,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         media: media_items,
         failed_items,
         workouts: vec![],
+        measurements: vec![],
     })
 }
 

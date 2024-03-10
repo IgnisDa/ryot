@@ -20,9 +20,10 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         })
     });
     Ok(ImportResult {
-        collections: vec![],
         media,
+        collections: vec![],
         failed_items: vec![],
         workouts: vec![],
+        measurements: vec![],
     })
 }

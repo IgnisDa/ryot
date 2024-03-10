@@ -88,10 +88,11 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         media.push(convert_to_format(item, MetadataLot::Manga));
     }
     Ok(ImportResult {
-        collections: vec![],
-        failed_items: vec![],
         media,
         workouts: vec![],
+        collections: vec![],
+        failed_items: vec![],
+        measurements: vec![],
     })
 }
 

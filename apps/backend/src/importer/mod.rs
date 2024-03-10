@@ -16,7 +16,9 @@ use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
-    entities::{import_report, prelude::ImportReport, user::UserWithOnlyPreferences},
+    entities::{
+        import_report, prelude::ImportReport, user::UserWithOnlyPreferences, user_measurement,
+    },
     fitness::resolver::ExerciseService,
     miscellaneous::resolver::MiscellaneousService,
     models::{
@@ -163,6 +165,7 @@ pub struct ImportResult {
     media: Vec<ImportOrExportMediaItem>,
     failed_items: Vec<ImportFailedItem>,
     workouts: Vec<UserWorkoutInput>,
+    measurements: Vec<user_measurement::Model>,
 }
 
 #[derive(

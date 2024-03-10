@@ -370,5 +370,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         failed_items,
         collections: all_collections,
         workouts: vec![],
+        measurements: vec![],
     })
 }
