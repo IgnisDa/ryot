@@ -821,7 +821,7 @@ impl ExerciseService {
         let total = workouts.len();
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
-            let workout_input = self.user_workout_to_workout_input(workout);
+            let workout_input = self.db_workout_to_workout_input(workout);
             self.create_user_workout(user_id, workout_input).await?;
             tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
         }
@@ -852,7 +852,7 @@ impl ExerciseService {
         Ok(())
     }
 
-    pub fn user_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
+    pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
         UserWorkoutInput {
             id: Some(user_workout.id),
             name: user_workout.name,

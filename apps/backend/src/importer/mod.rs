@@ -339,6 +339,11 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
+            ImportSource::WorkoutsJson => {
+                json::workouts_import(input.json.unwrap(), &self.exercise_service)
+                    .await
+                    .unwrap()
+            }
             _ => unreachable!(),
         };
         let details = ImportResultResponse {
