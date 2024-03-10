@@ -3,17 +3,15 @@ use std::{fs, sync::Arc};
 use async_graphql::Result;
 
 use crate::{
+    entities::{user_measurement, workout},
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
-    models::{media::ImportOrExportItemIdentifier, CompleteExport},
+    models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
 };
 
 pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
-    let mut media = serde_json::from_str::<CompleteExport>(&export)
-        .unwrap()
-        .media
-        .unwrap();
+    let mut media = serde_json::from_str::<Vec<ImportOrExportMediaItem>>(&export).unwrap();
     media.iter_mut().for_each(|m| {
         m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails {
             identifier: m.identifier.clone(),
@@ -22,19 +20,16 @@ pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> 
     });
     Ok(ImportResult {
         media,
+        workouts: vec![],
         collections: vec![],
         failed_items: vec![],
-        workouts: vec![],
         measurements: vec![],
     })
 }
 
 pub async fn measurements_import(input: DeployJsonImportInput) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
-    let measurements = serde_json::from_str::<CompleteExport>(&export)
-        .unwrap()
-        .measurements
-        .unwrap();
+    let measurements = serde_json::from_str::<Vec<user_measurement::Model>>(&export).unwrap();
     Ok(ImportResult {
         measurements,
         media: vec![],
@@ -49,10 +44,7 @@ pub async fn workouts_import(
     exercises_service: &Arc<ExerciseService>,
 ) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
-    let db_workouts = serde_json::from_str::<CompleteExport>(&export)
-        .unwrap()
-        .workouts
-        .unwrap();
+    let db_workouts = serde_json::from_str::<Vec<workout::Model>>(&export).unwrap();
     let workouts = db_workouts
         .into_iter()
         .map(|w| exercises_service.db_workout_to_workout_input(w))
