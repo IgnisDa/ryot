@@ -123,9 +123,8 @@ pub struct DeployImportJobInput {
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
-    pub json: Option<DeployJsonImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
-    pub person_json: Option<DeployJsonImportInput>,
+    pub json: Option<DeployJsonImportInput>,
 }
 
 /// The various steps in which media importing can fail

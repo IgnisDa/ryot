@@ -236,7 +236,6 @@ export type DeployImportJobInput = {
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
-  personJson?: InputMaybe<DeployJsonImportInput>;
   source: ImportSource;
   storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
