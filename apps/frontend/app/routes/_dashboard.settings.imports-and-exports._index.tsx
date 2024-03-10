@@ -267,12 +267,12 @@ export default function Page() {
 													ImportSource.Audiobookshelf,
 													() => "audiobookshelf",
 												)
-												.with(ImportSource.MediaJson, () => "media-json")
-												.with(ImportSource.PersonJson, () => "person-json")
-												.with(ImportSource.WorkoutsJson, () => "workouts-json")
 												.with(
+													ImportSource.MediaJson,
+													ImportSource.PersonJson,
+													ImportSource.WorkoutsJson,
 													ImportSource.MeasurementsJson,
-													() => "measurements-json",
+													() => "json-files",
 												)
 												.with(undefined, () => "")
 												.exhaustive(),
