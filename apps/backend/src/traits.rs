@@ -8,7 +8,10 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     file_storage::FileStorageService,
     models::{
-        media::{MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataWithoutId},
+        media::{
+            MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataWithoutId,
+            PersonSourceSpecifics,
+        },
         SearchResults,
     },
     utils::AuthContext,
@@ -33,9 +36,14 @@ pub trait MediaProvider {
         bail!("This provider does not support getting media details")
     }
 
+
     /// Get details about a person.
     #[allow(unused_variables)]
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identity: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
     }
 

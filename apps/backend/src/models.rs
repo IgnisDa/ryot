@@ -887,6 +887,11 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
+    #[derive(Debug, Clone, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Hash)]
+    pub enum PersonSourceSpecifics {
+        Tmdb { is_company: bool },
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct PartialMetadataPerson {
         pub name: String,
@@ -894,6 +899,8 @@ pub mod media {
         pub source: MetadataSource,
         pub role: String,
         pub character: Option<String>,
+        #[graphql(skip)]
+        pub source_specifics: Option<PersonSourceSpecifics>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
@@ -909,6 +916,7 @@ pub mod media {
         pub place: Option<String>,
         pub website: Option<String>,
         pub related: Vec<(String, PartialMetadataWithoutId)>,
+        pub source_specifics: Option<PersonSourceSpecifics>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
@@ -1255,11 +1263,6 @@ pub mod media {
         pub image: Option<String>,
         pub lot: MetadataLot,
         pub source: MetadataSource,
-    }
-
-    #[derive(Debug, Clone, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq)]
-    pub enum PersonSourceSpecifics {
-        Tmdb { is_company: bool },
     }
 }
 

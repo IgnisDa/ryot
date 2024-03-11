@@ -19,7 +19,7 @@ use crate::{
         media::{
             MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataPerson, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-            PartialMetadataWithoutId, VideoGameSpecifics,
+            PartialMetadataWithoutId, PersonSourceSpecifics, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -211,7 +211,11 @@ where id = {id};
         ))
     }
 
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identity: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
@@ -295,6 +299,7 @@ where id = {id};
             birth_date: None,
             death_date: None,
             gender: None,
+            source_specifics: None,
         })
     }
 
@@ -421,6 +426,7 @@ impl IgdbService {
                     source: MetadataSource::Igdb,
                     role: role.to_owned(),
                     character: None,
+                    source_specifics: None,
                 }
             })
             .unique()

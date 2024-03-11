@@ -13,6 +13,7 @@ use crate::{
         media::{
             MangaSpecifics, MediaDetails, MediaSearchItem, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, PartialMetadataPerson, PartialMetadataWithoutId,
+            PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -137,7 +138,11 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identity: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         let data: ItemAuthor = self
             .client
             .get(format!("authors/{}", identity))
@@ -190,6 +195,7 @@ impl MediaProvider for MangaUpdatesService {
             death_date: None,
             description: None,
             website: None,
+            source_specifics: None,
         };
         Ok(resp)
     }
@@ -213,6 +219,7 @@ impl MediaProvider for MangaUpdatesService {
                 role: a.lot.unwrap(),
                 source: MetadataSource::MangaUpdates,
                 character: None,
+                source_specifics: None,
             })
             .collect_vec();
         let mut suggestions = vec![];

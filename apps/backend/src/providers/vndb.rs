@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, PartialMetadataPerson, VisualNovelSpecifics,
+            MetadataPerson, PartialMetadataPerson, PersonSourceSpecifics, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -87,7 +87,11 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
-    async fn person_details(&self, identifier: &str) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identifier: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         let mut rsp = self
             .client
             .post("producer")
@@ -113,6 +117,7 @@ impl MediaProvider for VndbService {
             birth_date: None,
             place: None,
             website: None,
+            source_specifics: None,
         })
     }
 
@@ -210,6 +215,7 @@ impl VndbService {
                 role: "Developer".to_owned(),
                 source: MetadataSource::Vndb,
                 character: None,
+                source_specifics: None,
             })
             .collect_vec();
         let genres = item

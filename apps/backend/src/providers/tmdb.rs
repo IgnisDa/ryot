@@ -23,8 +23,8 @@ use crate::{
         media::{
             MediaDetails, MediaSearchItem, MetadataImage, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadataPerson, PartialMetadataWithoutId, ShowEpisode, ShowSeason,
-            ShowSpecifics, WatchProvider,
+            PartialMetadataPerson, PartialMetadataWithoutId, PersonSourceSpecifics, ShowEpisode,
+            ShowSeason, ShowSpecifics, WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -207,7 +207,11 @@ impl NonMediaTmdbService {
 
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identity: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         let typ = "person".to_owned();
         let details: TmdbNonMediaEntity = self
             .client
@@ -276,6 +280,7 @@ impl MediaProvider for NonMediaTmdbService {
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
+            source_specifics: source_specifics.to_owned(),
             related,
         };
         Ok(resp)
@@ -392,6 +397,7 @@ impl MediaProvider for TmdbMovieService {
                                 role: r,
                                 source: MetadataSource::Tmdb,
                                 character: g.character,
+                                source_specifics: None,
                             })
                         } else {
                             None
@@ -417,6 +423,7 @@ impl MediaProvider for TmdbMovieService {
                                 role: r,
                                 source: MetadataSource::Tmdb,
                                 character: g.character,
+                                source_specifics: None,
                             })
                         } else {
                             None
@@ -435,9 +442,10 @@ impl MediaProvider for TmdbMovieService {
                 .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
                     name: p.name,
-                    role: "Production".to_owned(),
+                    role: "Production Company".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,
+                    source_specifics: Some(PersonSourceSpecifics::Tmdb { is_company: true }),
                 })
                 .collect_vec(),
         );
@@ -705,6 +713,7 @@ impl MediaProvider for TmdbShowService {
                                         role: r,
                                         source: MetadataSource::Tmdb,
                                         character: g.character,
+                                        source_specifics: None,
                                     })
                                 } else {
                                     None
@@ -723,9 +732,10 @@ impl MediaProvider for TmdbShowService {
                 .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
                     name: p.name,
-                    role: "Production".to_owned(),
+                    role: "Production Company".to_owned(),
                     source: MetadataSource::Tmdb,
                     character: None,
+                    source_specifics: Some(PersonSourceSpecifics::Tmdb { is_company: true }),
                 })
                 .collect_vec(),
         );

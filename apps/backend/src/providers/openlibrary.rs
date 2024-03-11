@@ -16,6 +16,7 @@ use crate::{
         media::{
             BookSpecifics, MediaDetails, MediaSearchItem, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, PartialMetadataPerson, PartialMetadataWithoutId,
+            PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -107,7 +108,11 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identity: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct OpenlibraryLink {
             url: Option<String>,
@@ -189,6 +194,7 @@ impl MediaProvider for OpenlibraryService {
             related,
             gender: None,
             place: None,
+            source_specifics: None,
         })
     }
 
@@ -267,6 +273,7 @@ impl MediaProvider for OpenlibraryService {
                 role,
                 source: MetadataSource::Openlibrary,
                 character: None,
+                source_specifics: None,
             });
         }
         let description = data.description.map(|d| match d {

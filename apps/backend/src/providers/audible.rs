@@ -17,7 +17,7 @@ use crate::{
         media::{
             AudioBookSpecifics, MediaDetails, MediaSearchItem, MetadataFreeCreator,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
-            PartialMetadataWithoutId,
+            PartialMetadataWithoutId, PersonSourceSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -192,7 +192,11 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identity: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         let data: AudnexResponse = surf::get(format!("{}/authors/{}", AUDNEX_URL, identity))
             .query(&json!({ "region": self.locale }))
             .unwrap()
@@ -213,6 +217,7 @@ impl MediaProvider for AudibleService {
             place: None,
             website: None,
             related: vec![],
+            source_specifics: None,
         })
     }
 
@@ -389,6 +394,7 @@ impl AudibleService {
                     role: "Author".to_owned(),
                     name: a.name,
                     character: None,
+                    source_specifics: None,
                 })
             })
             .collect_vec();

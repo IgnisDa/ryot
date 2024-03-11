@@ -6946,7 +6946,9 @@ GROUP BY
         let mut notifications = vec![];
         let person = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
         let provider = self.get_non_media_provider(person.source).await?;
-        let provider_person = provider.person_details(&person.identifier).await?;
+        let provider_person = provider
+            .person_details(&person.identifier, &person.source_specifics)
+            .await?;
         let images = provider_person.images.map(|images| {
             images
                 .into_iter()
@@ -6966,6 +6968,7 @@ GROUP BY
         to_update_person.website = ActiveValue::Set(provider_person.website);
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
+        to_update_person.source_specifics = ActiveValue::Set(provider_person.source_specifics);
         to_update_person.update(&self.db).await.ok();
         for (role, media) in provider_person.related.clone() {
             let title = media.title.clone();

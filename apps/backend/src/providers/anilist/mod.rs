@@ -14,6 +14,7 @@ use crate::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
             MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
+            PersonSourceSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
     },
@@ -85,8 +86,12 @@ impl NonMediaAnilistService {
 
 #[async_trait]
 impl MediaProvider for NonMediaAnilistService {
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
-        person_details(&self.base.client, identity).await
+    async fn person_details(
+        &self,
+        identity: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
+        person_details(&self.base.client, identity, source_specifics).await
     }
 }
 
@@ -192,7 +197,11 @@ async fn get_client_config(url: &str) -> Client {
     get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
 }
 
-async fn person_details(client: &Client, identity: &str) -> Result<MetadataPerson> {
+async fn person_details(
+    client: &Client,
+    identity: &str,
+    _source_specifics: &Option<PersonSourceSpecifics>,
+) -> Result<MetadataPerson> {
     let variables = staff_query::Variables {
         id: identity.parse::<i64>().unwrap(),
     };
@@ -296,6 +305,7 @@ async fn person_details(client: &Client, identity: &str) -> Result<MetadataPerso
         birth_date,
         related,
         website: None,
+        source_specifics: None,
     };
 
     Ok(data)
@@ -358,6 +368,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
                 source: MetadataSource::Anilist,
                 role: s.role.unwrap(),
                 character: None,
+                source_specifics: None,
             }
         })
         .collect_vec();
