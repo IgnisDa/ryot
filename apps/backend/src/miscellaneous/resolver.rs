@@ -3068,6 +3068,7 @@ impl MiscellaneousService {
                 source: ActiveValue::Set(person.source),
                 name: ActiveValue::Set(person.name),
                 is_partial: ActiveValue::Set(Some(true)),
+                source_specifics: ActiveValue::Set(person.source_specifics),
                 ..Default::default()
             };
             person.insert(&self.db).await?
