@@ -237,35 +237,38 @@ impl MediaProvider for NonMediaTmdbService {
             .collect();
         let description = details.description.or(details.biography);
         let mut related = vec![];
-        let cred_det: TmdbCreditsResponse = self
-            .client
-            .get(format!("{}/{}/combined_credits", typ, identity))
-            .query(&json!({ "language": self.base.language }))
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
-            if let Some(title) = media.title.or(media.name) {
-                if let Some(job) = media.job {
-                    related.push((
-                        job,
-                        PartialMetadataWithoutId {
-                            identifier: media.id.unwrap().to_string(),
-                            title,
-                            image: media.poster_path.map(|p| self.base.get_image_url(p)),
-                            lot: match media.media_type.unwrap().as_ref() {
-                                "movie" => MetadataLot::Movie,
-                                "tv" => MetadataLot::Show,
-                                _ => continue,
+        if typ == "person" {
+            let cred_det: TmdbCreditsResponse = self
+                .client
+                .get(format!("{}/{}/combined_credits", typ, identity))
+                .query(&json!({ "language": self.base.language }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
+                if let Some(title) = media.title.or(media.name) {
+                    if let Some(job) = media.job {
+                        related.push((
+                            job,
+                            PartialMetadataWithoutId {
+                                identifier: media.id.unwrap().to_string(),
+                                title,
+                                image: media.poster_path.map(|p| self.base.get_image_url(p)),
+                                lot: match media.media_type.unwrap().as_ref() {
+                                    "movie" => MetadataLot::Movie,
+                                    "tv" => MetadataLot::Show,
+                                    _ => continue,
+                                },
+                                source: MetadataSource::Tmdb,
                             },
-                            source: MetadataSource::Tmdb,
-                        },
-                    ));
+                        ));
+                    }
                 }
             }
+        } else {
         }
         let resp = MetadataPerson {
             name: details.name,
