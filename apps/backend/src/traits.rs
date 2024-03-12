@@ -38,7 +38,11 @@ pub trait MediaProvider {
 
     /// Search for a person via a query.
     #[allow(unused_variables)]
-    async fn person_search(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn person_search(
+        &self,
+        identity: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
     }
 
