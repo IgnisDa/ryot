@@ -34,9 +34,8 @@ BEGIN
         FROM information_schema.table_constraints
         WHERE constraint_name = 'media_import_report_pkey'
         AND table_name = 'import_report'
-        AND table_schema = 'public'
     ) THEN
-        EXECUTE 'ALTER TABLE public.import_report RENAME CONSTRAINT media_import_report_pkey TO import_report_pkey;';
+        EXECUTE 'ALTER TABLE import_report RENAME CONSTRAINT media_import_report_pkey TO import_report_pkey;';
     END IF;
 END
 $$;
