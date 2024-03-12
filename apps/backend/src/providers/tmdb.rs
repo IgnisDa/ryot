@@ -34,6 +34,7 @@ use crate::{
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";
+static POSSIBLE_ROLES: [&str; 5] = ["Acting", "Directing", "Director", "Production", "Writer"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -397,14 +398,18 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let Some(id) = g.id {
                         if let Some(r) = g.known_for_department {
-                            Some(PartialMetadataPerson {
-                                identifier: id.to_string(),
-                                name: g.name.unwrap_or_default(),
-                                role: r,
-                                source: MetadataSource::Tmdb,
-                                character: g.character,
-                                source_specifics: None,
-                            })
+                            if POSSIBLE_ROLES.contains(&r.as_str()) {
+                                Some(PartialMetadataPerson {
+                                    identifier: id.to_string(),
+                                    name: g.name.unwrap_or_default(),
+                                    role: r,
+                                    source: MetadataSource::Tmdb,
+                                    character: g.character,
+                                    source_specifics: None,
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -423,14 +428,18 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     if let Some(id) = g.id {
                         if let Some(r) = g.known_for_department {
-                            Some(PartialMetadataPerson {
-                                identifier: id.to_string(),
-                                name: g.name.unwrap_or_default(),
-                                role: r,
-                                source: MetadataSource::Tmdb,
-                                character: g.character,
-                                source_specifics: None,
-                            })
+                            if POSSIBLE_ROLES.contains(&r.as_str()) {
+                                Some(PartialMetadataPerson {
+                                    identifier: id.to_string(),
+                                    name: g.name.unwrap_or_default(),
+                                    role: r,
+                                    source: MetadataSource::Tmdb,
+                                    character: g.character,
+                                    source_specifics: None,
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -751,6 +760,7 @@ impl MediaProvider for TmdbShowService {
             .sorted_by_key(|c| c.1)
             .rev()
             .map(|c| c.0)
+            .filter(|c| POSSIBLE_ROLES.contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
         let total_runtime = seasons
