@@ -89,6 +89,8 @@ impl MigrationTrait for Migration {
                     .table(Person::Table)
                     .col(Person::Identifier)
                     .col(Person::Source)
+                    .col(Person::SourceSpecifics)
+                    .nulls_not_distinct()
                     .to_owned(),
             )
             .await?;
