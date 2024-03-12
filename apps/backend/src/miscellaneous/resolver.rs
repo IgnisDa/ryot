@@ -3058,7 +3058,9 @@ impl MiscellaneousService {
         let db_person = if let Some(db_person) = Person::find()
             .filter(person::Column::Identifier.eq(&person.identifier))
             .filter(person::Column::Source.eq(person.source))
-            .filter(person::Column::SourceSpecifics.eq(person.source_specifics.clone()))
+            .apply_if(person.source_specifics.clone(), |query, v| {
+                query.filter(person::Column::SourceSpecifics.eq(v))
+            })
             .one(&self.db)
             .await
             .unwrap()
