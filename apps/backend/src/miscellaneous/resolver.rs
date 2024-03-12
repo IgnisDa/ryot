@@ -2634,7 +2634,6 @@ impl MiscellaneousService {
                 let many_metadata = Metadata::find()
                     .select_only()
                     .column(metadata::Column::Id)
-                    .filter(metadata::Column::IsPartial.eq(false))
                     .order_by_asc(metadata::Column::LastUpdatedOn)
                     .into_tuple::<i32>()
                     .all(&self.db)
