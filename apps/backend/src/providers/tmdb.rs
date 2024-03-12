@@ -396,26 +396,18 @@ impl MediaProvider for TmdbMovieService {
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let Some(id) = g.id {
-                        if let Some(r) = g.known_for_department {
-                            if POSSIBLE_ROLES.contains(&r.as_str()) {
-                                Some(PartialMetadataPerson {
-                                    identifier: id.to_string(),
-                                    name: g.name.unwrap_or_default(),
-                                    role: r,
-                                    source: MetadataSource::Tmdb,
-                                    character: g.character,
-                                    source_specifics: None,
-                                })
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
+                    g.id.and_then(|id| {
+                        g.known_for_department
+                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
+                            .map(|r| PartialMetadataPerson {
+                                identifier: id.to_string(),
+                                name: g.name.unwrap_or_default(),
+                                role: r,
+                                source: MetadataSource::Tmdb,
+                                character: g.character,
+                                source_specifics: None,
+                            })
+                    })
                 })
                 .unique()
                 .collect_vec(),
@@ -426,26 +418,18 @@ impl MediaProvider for TmdbMovieService {
                 .clone()
                 .into_iter()
                 .flat_map(|g| {
-                    if let Some(id) = g.id {
-                        if let Some(r) = g.known_for_department {
-                            if POSSIBLE_ROLES.contains(&r.as_str()) {
-                                Some(PartialMetadataPerson {
-                                    identifier: id.to_string(),
-                                    name: g.name.unwrap_or_default(),
-                                    role: r,
-                                    source: MetadataSource::Tmdb,
-                                    character: g.character,
-                                    source_specifics: None,
-                                })
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
+                    g.id.and_then(|id| {
+                        g.known_for_department
+                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
+                            .map(|r| PartialMetadataPerson {
+                                identifier: id.to_string(),
+                                name: g.name.unwrap_or_default(),
+                                role: r,
+                                source: MetadataSource::Tmdb,
+                                character: g.character,
+                                source_specifics: None,
+                            })
+                    })
                 })
                 .unique()
                 .collect_vec(),
@@ -721,7 +705,7 @@ impl MediaProvider for TmdbShowService {
                             .clone()
                             .into_iter()
                             .flat_map(|g| {
-                                if let Some(id) = g.id {
+                                g.id.and_then(|id| {
                                     g.known_for_department.map(|r| PartialMetadataPerson {
                                         identifier: id.to_string(),
                                         name: g.name.unwrap_or_default(),
@@ -730,9 +714,7 @@ impl MediaProvider for TmdbShowService {
                                         character: g.character,
                                         source_specifics: None,
                                     })
-                                } else {
-                                    None
-                                }
+                                })
                             })
                             .collect_vec()
                     })
