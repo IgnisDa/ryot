@@ -212,7 +212,10 @@ impl MediaProvider for NonMediaTmdbService {
         identity: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        let typ = "person".to_owned();
+        let typ = match source_specifics {
+            Some(PersonSourceSpecifics::Tmdb { is_company: true }) => "company",
+            _ => "person",
+        };
         let details: TmdbNonMediaEntity = self
             .client
             .get(format!("{}/{}", typ, identity))
@@ -225,7 +228,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         self.base
-            .save_all_images(&self.client, &typ, identity, &mut images)
+            .save_all_images(&self.client, typ, identity, &mut images)
             .await?;
         let images = images
             .into_iter()
