@@ -291,6 +291,10 @@ impl ImporterService {
             .deploy_background_job(BackgroundJob::CalculateSummary, user_id)
             .await
             .ok();
+        self.media_service
+            .deploy_background_job(BackgroundJob::UpdateAllMetadata, user_id)
+            .await
+            .ok();
         Ok(())
     }
 
