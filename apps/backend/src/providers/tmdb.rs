@@ -270,6 +270,41 @@ impl MediaProvider for NonMediaTmdbService {
                 }
             }
         } else {
+            for m_typ in ["movie", "tv"] {
+                for i in 1.. {
+                    let cred_det: TmdbListResponse = self
+                        .client
+                        .get(format!("discover/{}", m_typ))
+                        .query(
+                            &json!({ "with_companies": identity, "page": i, "language": self.base.language }),
+                        )
+                        .unwrap()
+                        .await
+                        .map_err(|e| anyhow!(e))?
+                        .body_json()
+                        .await
+                        .map_err(|e| anyhow!(e))?;
+                    related.extend(cred_det.results.into_iter().map(|m| {
+                        (
+                            "Production Company".to_owned(),
+                            PartialMetadataWithoutId {
+                                identifier: m.id.to_string(),
+                                title: m.title.or(m.name).unwrap_or_default(),
+                                image: m.poster_path.map(|p| self.base.get_image_url(p)),
+                                lot: match m_typ {
+                                    "movie" => MetadataLot::Movie,
+                                    "tv" => MetadataLot::Show,
+                                    _ => unreachable!(),
+                                },
+                                source: MetadataSource::Tmdb,
+                            },
+                        )
+                    }));
+                    if cred_det.page == cred_det.total_pages {
+                        break;
+                    }
+                }
+            }
         }
         let resp = MetadataPerson {
             name: details.name,
