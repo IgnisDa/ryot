@@ -968,7 +968,8 @@ impl MiscellaneousQuery {
         input: PeopleListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.people_list(input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.people_list(user_id, input).await
     }
 }
 
@@ -6273,6 +6274,7 @@ GROUP BY
 
     async fn people_list(
         &self,
+        user_id: i32,
         input: PeopleListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         #[derive(Debug, FromQueryResult)]
@@ -6301,13 +6303,16 @@ GROUP BY
                     Condition::all().add(get_ilike_query(Expr::col(person::Column::Name), &v)),
                 )
             })
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .column_as(
-                Expr::expr(Func::count(Expr::col(
+                Expr::expr(Func::count(Expr::col((
+                    Alias::new("metadata_to_person"),
                     metadata_to_person::Column::MetadataId,
-                ))),
+                )))),
                 alias,
             )
             .join(JoinType::LeftJoin, person::Relation::MetadataToPerson.def())
+            .join(JoinType::Join, person::Relation::UserToEntity.def())
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
             .order_by(order_by, sort_order);
