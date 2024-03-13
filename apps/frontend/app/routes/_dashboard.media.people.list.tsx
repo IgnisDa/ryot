@@ -35,7 +35,7 @@ import {
 	DebouncedSearchInput,
 } from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
-import { gqlClient } from "~/lib/api.server";
+import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
@@ -57,12 +57,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { peopleList }] = await Promise.all([
 		getCoreDetails(),
-		gqlClient.request(PeopleListDocument, {
-			input: {
-				search: { page: query.page, query: query.query },
-				sort: { by: query.sortBy, order: query.orderBy },
+		gqlClient.request(
+			PeopleListDocument,
+			{
+				input: {
+					search: { page: query.page, query: query.query },
+					sort: { by: query.sortBy, order: query.orderBy },
+				},
 			},
-		}),
+			await getAuthorizationHeader(request),
+		),
 	]);
 	return json({
 		query,
