@@ -1455,20 +1455,6 @@ impl MiscellaneousService {
         })
     }
 
-    async fn people_search(
-        &self,
-        user_id: i32,
-        input: PeopleSearchInput,
-    ) -> Result<SearchResults<MediaSearchItemResponse>> {
-        dbg!(input);
-        Ok(SearchResults {
-            items: vec![],
-            details: SearchDetails {
-                ..Default::default()
-            },
-        })
-    }
-
     fn get_integration_service(&self) -> IntegrationService {
         IntegrationService::new()
     }
@@ -7122,6 +7108,20 @@ GROUP BY
             url += format!("?defaultTab={}", tab).as_str()
         }
         url
+    }
+
+    async fn people_search(
+        &self,
+        user_id: i32,
+        input: PeopleSearchInput,
+    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+        dbg!(input);
+        Ok(SearchResults {
+            items: vec![],
+            details: SearchDetails {
+                ..Default::default()
+            },
+        })
     }
 
     #[cfg(debug_assertions)]
