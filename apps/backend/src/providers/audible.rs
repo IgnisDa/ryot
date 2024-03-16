@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -210,7 +210,7 @@ impl MediaProvider for AudibleService {
             name: data.name,
             description: data.description,
             images: Some(Vec::from_iter(data.image)),
-            source: MetadataSource::Audible,
+            source: MediaSource::Audible,
             gender: None,
             death_date: None,
             birth_date: None,
@@ -257,7 +257,7 @@ impl MediaProvider for AudibleService {
                 title: data.product.title,
                 image: data.product.product_images.and_then(|i| i.image_2400),
                 identifier: i,
-                source: MetadataSource::Audible,
+                source: MediaSource::Audible,
                 lot: MetadataLot::AudioBook,
             })
         }
@@ -270,7 +270,7 @@ impl MediaProvider for AudibleService {
                 description: None,
                 images: vec![],
                 lot: MetadataLot::AudioBook,
-                source: MetadataSource::Audible,
+                source: MediaSource::Audible,
             },
             collection_contents,
         ))
@@ -310,7 +310,7 @@ impl MediaProvider for AudibleService {
                     title: sim.title,
                     image: sim.product_images.and_then(|i| i.image_500),
                     identifier: sim.asin,
-                    source: MetadataSource::Audible,
+                    source: MediaSource::Audible,
                     lot: MetadataLot::AudioBook,
                 });
             }
@@ -390,7 +390,7 @@ impl AudibleService {
             .filter_map(|a| {
                 a.asin.map(|au| PartialMetadataPerson {
                     identifier: au,
-                    source: MetadataSource::Audible,
+                    source: MediaSource::Audible,
                     role: "Author".to_owned(),
                     name: a.name,
                     character: None,
@@ -421,7 +421,7 @@ impl AudibleService {
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
-            source: MetadataSource::Audible,
+            source: MediaSource::Audible,
             is_nsfw: item.is_adult_product,
             title: item.title,
             description,

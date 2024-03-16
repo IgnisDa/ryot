@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
@@ -190,7 +190,7 @@ where id = {id};
                         identifier: g.id.to_string(),
                         title: g.name.unwrap(),
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                        source: MetadataSource::Igdb,
+                        source: MediaSource::Igdb,
                         lot: MetadataLot::VideoGame,
                     })
                 }
@@ -205,7 +205,7 @@ where id = {id};
                 description: None,
                 images: vec![],
                 lot: MetadataLot::VideoGame,
-                source: MetadataSource::Igdb,
+                source: MediaSource::Igdb,
             },
             items,
         ))
@@ -258,7 +258,7 @@ where id = {id};
                     PartialMetadataWithoutId {
                         title: r.name.unwrap(),
                         identifier: r.id.to_string(),
-                        source: MetadataSource::Igdb,
+                        source: MediaSource::Igdb,
                         lot: MetadataLot::VideoGame,
                         image,
                     },
@@ -272,7 +272,7 @@ where id = {id};
                 PartialMetadataWithoutId {
                     title: r.name.unwrap(),
                     identifier: r.id.to_string(),
-                    source: MetadataSource::Igdb,
+                    source: MediaSource::Igdb,
                     lot: MetadataLot::VideoGame,
                     image,
                 },
@@ -284,7 +284,7 @@ where id = {id};
             images: Some(Vec::from_iter(
                 detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
             )),
-            source: MetadataSource::Igdb,
+            source: MediaSource::Igdb,
             description: detail.description,
             place: detail
                 .country
@@ -423,7 +423,7 @@ impl IgdbService {
                 PartialMetadataPerson {
                     identifier: ic.id.to_string(),
                     name: ic.company.name,
-                    source: MetadataSource::Igdb,
+                    source: MediaSource::Igdb,
                     role: role.to_owned(),
                     character: None,
                     source_specifics: None,
@@ -443,7 +443,7 @@ impl IgdbService {
         MediaDetails {
             identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,
-            source: MetadataSource::Igdb,
+            source: MediaSource::Igdb,
             title: item.name.unwrap(),
             description: item.summary,
             people,
@@ -475,7 +475,7 @@ impl IgdbService {
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),
                     lot: MetadataLot::VideoGame,
-                    source: MetadataSource::Igdb,
+                    source: MediaSource::Igdb,
                 })
                 .collect(),
             provider_rating: item.rating,

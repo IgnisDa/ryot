@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use graphql_client::{GraphQLQuery, Response};
 use http_types::mime;
 use itertools::Itertools;
@@ -256,7 +256,7 @@ async fn person_details(
                 PartialMetadataWithoutId {
                     title: data.title.unwrap().user_preferred.unwrap(),
                     identifier: data.id.to_string(),
-                    source: MetadataSource::Anilist,
+                    source: MediaSource::Anilist,
                     lot: match data.type_.unwrap() {
                         staff_query::MediaType::ANIME => MetadataLot::Anime,
                         staff_query::MediaType::MANGA => MetadataLot::Manga,
@@ -282,7 +282,7 @@ async fn person_details(
                     PartialMetadataWithoutId {
                         title: data.title.unwrap().user_preferred.unwrap(),
                         identifier: data.id.to_string(),
-                        source: MetadataSource::Anilist,
+                        source: MediaSource::Anilist,
                         lot: match data.type_.unwrap() {
                             staff_query::MediaType::ANIME => MetadataLot::Anime,
                             staff_query::MediaType::MANGA => MetadataLot::Manga,
@@ -295,7 +295,7 @@ async fn person_details(
     );
     let data = MetadataPerson {
         identifier: details.id.to_string(),
-        source: MetadataSource::Anilist,
+        source: MediaSource::Anilist,
         name: details.name.unwrap().full.unwrap(),
         description: details.description,
         gender: details.gender,
@@ -365,7 +365,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             PartialMetadataPerson {
                 name: node.name.unwrap().full.unwrap(),
                 identifier: node.id.to_string(),
-                source: MetadataSource::Anilist,
+                source: MediaSource::Anilist,
                 role: s.role.unwrap(),
                 character: None,
                 source_specifics: None,
@@ -406,7 +406,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             PartialMetadataWithoutId {
                 title: data.title.unwrap().user_preferred.unwrap(),
                 identifier: data.id.to_string(),
-                source: MetadataSource::Anilist,
+                source: MediaSource::Anilist,
                 lot: match data.type_.unwrap() {
                     details_query::MediaType::ANIME => MetadataLot::Anime,
                     details_query::MediaType::MANGA => MetadataLot::Manga,
@@ -435,7 +435,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
         title,
         identifier: details.id.to_string(),
         is_nsfw: details.is_adult,
-        source: MetadataSource::Anilist,
+        source: MediaSource::Anilist,
         description: details.description,
         lot,
         people,

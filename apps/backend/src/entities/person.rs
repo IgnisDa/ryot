@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use chrono::NaiveDate;
-use database::MetadataSource;
+use database::MediaSource;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub identifier: String,
-    pub source: MetadataSource,
+    pub source: MediaSource,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub name: String,

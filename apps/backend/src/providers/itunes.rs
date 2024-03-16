@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use sea_orm::prelude::ChronoDateTimeUtc;
@@ -167,7 +167,7 @@ impl MediaProvider for ITunesService {
             title: details.title,
             publish_date,
             publish_year: publish_date.map(|d| d.year()),
-            source: MetadataSource::Itunes,
+            source: MediaSource::Itunes,
             lot: MetadataLot::Podcast,
             description,
             url_images,

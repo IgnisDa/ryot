@@ -117,7 +117,7 @@ export interface ImportOrExportMediaItemSeen {
 	startedOn: string | null;
 }
 
-export type MetadataSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
+export type MediaSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMediaItem {
@@ -140,7 +140,7 @@ export interface ImportOrExportMediaItem {
 	 *
 	 * @default 'Audible'
 	 */
-	source: MetadataSource;
+	source: MediaSource;
 	/** An string to help identify it in the original source. */
 	sourceId: string;
 }
@@ -160,7 +160,7 @@ export interface ImportOrExportPersonItem {
 	 *
 	 * @default 'Audible'
 	 */
-	source: MetadataSource;
+	source: MediaSource;
 }
 
 /** The assets that were uploaded for an entity. */

@@ -15,7 +15,7 @@ use async_graphql::{
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
-    AliasedReview, AliasedSeen, AliasedUserToEntity, MetadataLot, MetadataSource,
+    AliasedReview, AliasedSeen, AliasedUserToEntity, MediaSource, MetadataLot,
     MetadataToMetadataRelation, SeenState, UserLot, Visibility,
 };
 use enum_meta::Meta;
@@ -200,7 +200,7 @@ enum CreateCustomMediaErrorVariant {
 
 #[derive(Debug, SimpleObject)]
 struct ProviderLanguageInformation {
-    source: MetadataSource,
+    source: MediaSource,
     supported: Vec<String>,
     default: String,
 }
@@ -441,7 +441,7 @@ struct GraphqlMediaDetails {
     provider_rating: Option<Decimal>,
     production_status: Option<String>,
     lot: MetadataLot,
-    source: MetadataSource,
+    source: MediaSource,
     creators: Vec<MetadataCreatorGroupedByRole>,
     watch_providers: Vec<WatchProvider>,
     genres: Vec<GenreListItem>,
@@ -696,7 +696,7 @@ struct ToggleMediaMonitorInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct PeopleSearchInput {
     input: SearchInput,
-    source: MetadataSource,
+    source: MediaSource,
     is_tmdb_company: Option<bool>,
 }
 
@@ -815,7 +815,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         input: SearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
@@ -828,7 +828,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
-    ) -> Vec<MetadataSource> {
+    ) -> Vec<MediaSource> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.media_sources_for_lot(lot).await
     }
@@ -1123,7 +1123,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         identifier: String,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
@@ -1625,22 +1625,20 @@ impl MiscellaneousService {
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
         let source_url = match model.source {
-            MetadataSource::Custom => None,
+            MediaSource::Custom => None,
             // DEV: This is updated by the specifics
-            MetadataSource::MangaUpdates => None,
-            MetadataSource::Itunes => Some(format!(
+            MediaSource::MangaUpdates => None,
+            MediaSource::Itunes => Some(format!(
                 "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
             )),
-            MetadataSource::GoogleBooks => Some(format!(
+            MediaSource::GoogleBooks => Some(format!(
                 "https://www.google.co.in/books/edition/{slug}/{identifier}"
             )),
-            MetadataSource::Audible => {
-                Some(format!("https://www.audible.com/pd/{slug}/{identifier}"))
-            }
-            MetadataSource::Openlibrary => {
+            MediaSource::Audible => Some(format!("https://www.audible.com/pd/{slug}/{identifier}")),
+            MediaSource::Openlibrary => {
                 Some(format!("https://openlibrary.org/works/{identifier}/{slug}"))
             }
-            MetadataSource::Tmdb => {
+            MediaSource::Tmdb => {
                 let bw = match model.lot {
                     MetadataLot::Movie => "movie",
                     MetadataLot::Show => "tv",
@@ -1650,11 +1648,11 @@ impl MiscellaneousService {
                     "https://www.themoviedb.org/{bw}/{identifier}-{slug}"
                 ))
             }
-            MetadataSource::Listennotes => Some(format!(
+            MediaSource::Listennotes => Some(format!(
                 "https://www.listennotes.com/podcasts/{slug}-{identifier}"
             )),
-            MetadataSource::Igdb => Some(format!("https://www.igdb.com/games/{slug}")),
-            MetadataSource::Anilist => {
+            MediaSource::Igdb => Some(format!("https://www.igdb.com/games/{slug}")),
+            MediaSource::Anilist => {
                 let bw = match model.lot {
                     MetadataLot::Anime => "anime",
                     MetadataLot::Manga => "manga",
@@ -1662,7 +1660,7 @@ impl MiscellaneousService {
                 };
                 Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
             }
-            MetadataSource::Mal => {
+            MediaSource::Mal => {
                 let bw = match model.lot {
                     MetadataLot::Anime => "anime",
                     MetadataLot::Manga => "manga",
@@ -1670,7 +1668,7 @@ impl MiscellaneousService {
                 };
                 Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
             }
-            MetadataSource::Vndb => Some(format!("https://vndb.org/{identifier}")),
+            MediaSource::Vndb => Some(format!("https://vndb.org/{identifier}")),
         };
 
         let group = {
@@ -3124,7 +3122,7 @@ impl MiscellaneousService {
     async fn deploy_associate_group_with_metadata_job(
         &self,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         group_identifier: String,
     ) -> Result<()> {
         self.perform_application_job
@@ -3141,7 +3139,7 @@ impl MiscellaneousService {
     pub async fn associate_group_with_metadata(
         &self,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         group_identifier: String,
     ) -> Result<()> {
         let existing_group = MetadataGroup::find()
@@ -3354,7 +3352,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: i32,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         genres: Vec<String>,
         suggestions: Vec<PartialMetadataWithoutId>,
         groups: Vec<String>,
@@ -3551,7 +3549,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         input: SearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         if let Some(q) = input.query {
@@ -3659,34 +3657,30 @@ impl MiscellaneousService {
         .await)
     }
 
-    async fn get_media_provider(
-        &self,
-        lot: MetadataLot,
-        source: MetadataSource,
-    ) -> Result<Provider> {
+    async fn get_media_provider(&self, lot: MetadataLot, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
-            MetadataSource::Vndb => Box::new(
+            MediaSource::Vndb => Box::new(
                 VndbService::new(&self.config.visual_novels, self.config.frontend.page_size).await,
             ),
-            MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
-            MetadataSource::Itunes => Box::new(
+            MediaSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
+            MediaSource::Itunes => Box::new(
                 ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
                     .await,
             ),
-            MetadataSource::GoogleBooks => Box::new(self.get_isbn_service().await?),
-            MetadataSource::Audible => Box::new(
+            MediaSource::GoogleBooks => Box::new(self.get_isbn_service().await?),
+            MediaSource::Audible => Box::new(
                 AudibleService::new(
                     &self.config.audio_books.audible,
                     self.config.frontend.page_size,
                 )
                 .await,
             ),
-            MetadataSource::Listennotes => Box::new(
+            MediaSource::Listennotes => Box::new(
                 ListennotesService::new(&self.config.podcasts, self.config.frontend.page_size)
                     .await,
             ),
-            MetadataSource::Tmdb => match lot {
+            MediaSource::Tmdb => match lot {
                 MetadataLot::Show => Box::new(
                     TmdbShowService::new(
                         &self.config.movies_and_shows.tmdb,
@@ -3703,7 +3697,7 @@ impl MiscellaneousService {
                 ),
                 _ => return err(),
             },
-            MetadataSource::Anilist => match lot {
+            MediaSource::Anilist => match lot {
                 MetadataLot::Anime => Box::new(
                     AnilistAnimeService::new(
                         &self.config.anime_and_manga.anilist,
@@ -3720,7 +3714,7 @@ impl MiscellaneousService {
                 ),
                 _ => return err(),
             },
-            MetadataSource::Mal => match lot {
+            MediaSource::Mal => match lot {
                 MetadataLot::Anime => Box::new(
                     MalAnimeService::new(
                         &self.config.anime_and_manga.mal,
@@ -3737,70 +3731,70 @@ impl MiscellaneousService {
                 ),
                 _ => return err(),
             },
-            MetadataSource::Igdb => Box::new(
+            MediaSource::Igdb => Box::new(
                 IgdbService::new(&self.config.video_games, self.config.frontend.page_size).await,
             ),
-            MetadataSource::MangaUpdates => Box::new(
+            MediaSource::MangaUpdates => Box::new(
                 MangaUpdatesService::new(
                     &self.config.anime_and_manga.manga_updates,
                     self.config.frontend.page_size,
                 )
                 .await,
             ),
-            MetadataSource::Custom => return err(),
+            MediaSource::Custom => return err(),
         };
         Ok(service)
     }
 
-    async fn get_non_media_provider(&self, source: MetadataSource) -> Result<Provider> {
+    async fn get_non_media_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
-            MetadataSource::Vndb => Box::new(
+            MediaSource::Vndb => Box::new(
                 VndbService::new(&self.config.visual_novels, self.config.frontend.page_size).await,
             ),
-            MetadataSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
-            MetadataSource::Itunes => Box::new(
+            MediaSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
+            MediaSource::Itunes => Box::new(
                 ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
                     .await,
             ),
-            MetadataSource::GoogleBooks => Box::new(
+            MediaSource::GoogleBooks => Box::new(
                 GoogleBooksService::new(
                     &self.config.books.google_books,
                     self.config.frontend.page_size,
                 )
                 .await,
             ),
-            MetadataSource::Audible => Box::new(
+            MediaSource::Audible => Box::new(
                 AudibleService::new(
                     &self.config.audio_books.audible,
                     self.config.frontend.page_size,
                 )
                 .await,
             ),
-            MetadataSource::Listennotes => Box::new(
+            MediaSource::Listennotes => Box::new(
                 ListennotesService::new(&self.config.podcasts, self.config.frontend.page_size)
                     .await,
             ),
-            MetadataSource::Igdb => Box::new(
+            MediaSource::Igdb => Box::new(
                 IgdbService::new(&self.config.video_games, self.config.frontend.page_size).await,
             ),
-            MetadataSource::MangaUpdates => Box::new(
+            MediaSource::MangaUpdates => Box::new(
                 MangaUpdatesService::new(
                     &self.config.anime_and_manga.manga_updates,
                     self.config.frontend.page_size,
                 )
                 .await,
             ),
-            MetadataSource::Tmdb => Box::new(
+            MediaSource::Tmdb => Box::new(
                 NonMediaTmdbService::new(
                     self.config.movies_and_shows.tmdb.access_token.clone(),
                     self.config.movies_and_shows.tmdb.locale.clone(),
                 )
                 .await,
             ),
-            MetadataSource::Anilist => Box::new(NonMediaAnilistService::new().await),
-            MetadataSource::Mal => Box::new(NonMediaMalService::new().await),
-            MetadataSource::Custom => return err(),
+            MediaSource::Anilist => Box::new(NonMediaAnilistService::new().await),
+            MediaSource::Mal => Box::new(NonMediaMalService::new().await),
+            MediaSource::Custom => return err(),
         };
         Ok(service)
     }
@@ -3808,7 +3802,7 @@ impl MiscellaneousService {
     async fn details_from_provider(
         &self,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         identifier: &str,
     ) -> Result<MediaDetails> {
         let provider = self.get_media_provider(lot, source).await?;
@@ -3819,7 +3813,7 @@ impl MiscellaneousService {
     pub async fn commit_media(
         &self,
         lot: MetadataLot,
-        source: MetadataSource,
+        source: MediaSource,
         identifier: &str,
     ) -> Result<IdObject> {
         if let Some(m) = Metadata::find()
@@ -5008,7 +5002,7 @@ impl MiscellaneousService {
             title: input.title,
             description: input.description,
             lot: input.lot,
-            source: MetadataSource::Custom,
+            source: MediaSource::Custom,
             creators,
             genres: input.genres.unwrap_or_default(),
             s3_images: images,
@@ -5618,72 +5612,72 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MetadataSource> {
+    async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MediaSource> {
         match lot {
-            MetadataLot::AudioBook => vec![MetadataSource::Audible],
-            MetadataLot::Book => vec![MetadataSource::Openlibrary, MetadataSource::GoogleBooks],
-            MetadataLot::Podcast => vec![MetadataSource::Itunes, MetadataSource::Listennotes],
-            MetadataLot::VideoGame => vec![MetadataSource::Igdb],
-            MetadataLot::Anime => vec![MetadataSource::Anilist, MetadataSource::Mal],
+            MetadataLot::AudioBook => vec![MediaSource::Audible],
+            MetadataLot::Book => vec![MediaSource::Openlibrary, MediaSource::GoogleBooks],
+            MetadataLot::Podcast => vec![MediaSource::Itunes, MediaSource::Listennotes],
+            MetadataLot::VideoGame => vec![MediaSource::Igdb],
+            MetadataLot::Anime => vec![MediaSource::Anilist, MediaSource::Mal],
             MetadataLot::Manga => vec![
-                MetadataSource::Anilist,
-                MetadataSource::MangaUpdates,
-                MetadataSource::Mal,
+                MediaSource::Anilist,
+                MediaSource::MangaUpdates,
+                MediaSource::Mal,
             ],
-            MetadataLot::Movie | MetadataLot::Show => vec![MetadataSource::Tmdb],
-            MetadataLot::VisualNovel => vec![MetadataSource::Vndb],
+            MetadataLot::Movie | MetadataLot::Show => vec![MediaSource::Tmdb],
+            MetadataLot::VisualNovel => vec![MediaSource::Vndb],
         }
     }
 
     fn providers_language_information(&self) -> Vec<ProviderLanguageInformation> {
-        MetadataSource::iter()
+        MediaSource::iter()
             .map(|source| {
                 let (supported, default) = match source {
-                    MetadataSource::Itunes => (
+                    MediaSource::Itunes => (
                         ITunesService::supported_languages(),
                         ITunesService::default_language(),
                     ),
-                    MetadataSource::Audible => (
+                    MediaSource::Audible => (
                         AudibleService::supported_languages(),
                         AudibleService::default_language(),
                     ),
-                    MetadataSource::Openlibrary => (
+                    MediaSource::Openlibrary => (
                         OpenlibraryService::supported_languages(),
                         OpenlibraryService::default_language(),
                     ),
-                    MetadataSource::Tmdb => (
+                    MediaSource::Tmdb => (
                         TmdbService::supported_languages(),
                         TmdbService::default_language(),
                     ),
-                    MetadataSource::Listennotes => (
+                    MediaSource::Listennotes => (
                         ListennotesService::supported_languages(),
                         ListennotesService::default_language(),
                     ),
-                    MetadataSource::GoogleBooks => (
+                    MediaSource::GoogleBooks => (
                         GoogleBooksService::supported_languages(),
                         GoogleBooksService::default_language(),
                     ),
-                    MetadataSource::Igdb => (
+                    MediaSource::Igdb => (
                         IgdbService::supported_languages(),
                         IgdbService::default_language(),
                     ),
-                    MetadataSource::MangaUpdates => (
+                    MediaSource::MangaUpdates => (
                         MangaUpdatesService::supported_languages(),
                         MangaUpdatesService::default_language(),
                     ),
-                    MetadataSource::Anilist => (
+                    MediaSource::Anilist => (
                         AnilistService::supported_languages(),
                         AnilistService::default_language(),
                     ),
-                    MetadataSource::Mal => (
+                    MediaSource::Mal => (
                         MalService::supported_languages(),
                         MalService::default_language(),
                     ),
-                    MetadataSource::Custom => (
+                    MediaSource::Custom => (
                         CustomService::supported_languages(),
                         CustomService::default_language(),
                     ),
-                    MetadataSource::Vndb => (
+                    MediaSource::Vndb => (
                         VndbService::supported_languages(),
                         VndbService::default_language(),
                     ),
@@ -6422,24 +6416,24 @@ GROUP BY
         let slug = slug::slugify(&details.name);
         let identifier = &details.identifier;
         let source_url = match details.source {
-            MetadataSource::Custom
-            | MetadataSource::Anilist
-            | MetadataSource::Listennotes
-            | MetadataSource::Itunes
-            | MetadataSource::MangaUpdates
-            | MetadataSource::Mal
-            | MetadataSource::Vndb
-            | MetadataSource::GoogleBooks => None,
-            MetadataSource::Audible => Some(format!(
+            MediaSource::Custom
+            | MediaSource::Anilist
+            | MediaSource::Listennotes
+            | MediaSource::Itunes
+            | MediaSource::MangaUpdates
+            | MediaSource::Mal
+            | MediaSource::Vndb
+            | MediaSource::GoogleBooks => None,
+            MediaSource::Audible => Some(format!(
                 "https://www.audible.com/author/{slug}/{identifier}"
             )),
-            MetadataSource::Openlibrary => Some(format!(
+            MediaSource::Openlibrary => Some(format!(
                 "https://openlibrary.org/authors/{identifier}/{slug}"
             )),
-            MetadataSource::Tmdb => Some(format!(
+            MediaSource::Tmdb => Some(format!(
                 "https://www.themoviedb.org/person/{identifier}-{slug}"
             )),
-            MetadataSource::Igdb => Some(format!("https://www.igdb.com/company/{slug}")),
+            MediaSource::Igdb => Some(format!("https://www.igdb.com/company/{slug}")),
         };
         Ok(PersonDetails {
             details,
@@ -6515,22 +6509,22 @@ GROUP BY
         let identifier = &group.identifier;
 
         let source_url = match group.source {
-            MetadataSource::Custom
-            | MetadataSource::Anilist
-            | MetadataSource::Listennotes
-            | MetadataSource::Itunes
-            | MetadataSource::MangaUpdates
-            | MetadataSource::Mal
-            | MetadataSource::Openlibrary
-            | MetadataSource::Vndb
-            | MetadataSource::GoogleBooks => None,
-            MetadataSource::Audible => Some(format!(
+            MediaSource::Custom
+            | MediaSource::Anilist
+            | MediaSource::Listennotes
+            | MediaSource::Itunes
+            | MediaSource::MangaUpdates
+            | MediaSource::Mal
+            | MediaSource::Openlibrary
+            | MediaSource::Vndb
+            | MediaSource::GoogleBooks => None,
+            MediaSource::Audible => Some(format!(
                 "https://www.audible.com/series/{slug}/{identifier}"
             )),
-            MetadataSource::Tmdb => Some(format!(
+            MediaSource::Tmdb => Some(format!(
                 "https://www.themoviedb.org/collections/{identifier}-{slug}"
             )),
-            MetadataSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
+            MediaSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
         };
 
         let associations = MetadataToMetadataGroup::find()

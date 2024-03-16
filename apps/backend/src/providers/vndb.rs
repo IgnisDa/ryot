@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -107,7 +107,7 @@ impl MediaProvider for VndbService {
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(MetadataPerson {
             identifier: item.id,
-            source: MetadataSource::Vndb,
+            source: MediaSource::Vndb,
             name: item.title.unwrap(),
             description: item.description,
             related: vec![],
@@ -213,7 +213,7 @@ impl VndbService {
                 identifier: a.id,
                 name: a.name,
                 role: "Developer".to_owned(),
-                source: MetadataSource::Vndb,
+                source: MediaSource::Vndb,
                 character: None,
                 source_specifics: None,
             })
@@ -227,7 +227,7 @@ impl VndbService {
         MediaDetails {
             identifier: item.id,
             lot: MetadataLot::VisualNovel,
-            source: MetadataSource::Vndb,
+            source: MediaSource::Vndb,
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),
                 1 => "In development".to_owned(),

@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use scraper::{Html, Selector};
@@ -174,7 +174,7 @@ impl MediaProvider for OpenlibraryService {
                         identifier: get_key(&entry.key),
                         title,
                         lot: MetadataLot::Book,
-                        source: MetadataSource::Openlibrary,
+                        source: MediaSource::Openlibrary,
                         image,
                     },
                 ))
@@ -182,7 +182,7 @@ impl MediaProvider for OpenlibraryService {
         }
         Ok(MetadataPerson {
             identifier,
-            source: MetadataSource::Openlibrary,
+            source: MediaSource::Openlibrary,
             name: data.name,
             description,
             images: Some(images),
@@ -271,7 +271,7 @@ impl MediaProvider for OpenlibraryService {
                 identifier: get_key(&key),
                 name: "".to_owned(),
                 role,
-                source: MetadataSource::Openlibrary,
+                source: MediaSource::Openlibrary,
                 character: None,
                 source_specifics: None,
             });
@@ -367,7 +367,7 @@ impl MediaProvider for OpenlibraryService {
                     image,
                     identifier,
                     lot: MetadataLot::Book,
-                    source: MetadataSource::Openlibrary,
+                    source: MediaSource::Openlibrary,
                 });
             }
         }
@@ -377,7 +377,7 @@ impl MediaProvider for OpenlibraryService {
             title: data.title,
             description,
             lot: MetadataLot::Book,
-            source: MetadataSource::Openlibrary,
+            source: MediaSource::Openlibrary,
             people,
             genres,
             url_images: images,

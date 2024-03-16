@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -170,7 +170,7 @@ impl MediaProvider for MangaUpdatesService {
                     PartialMetadataWithoutId {
                         title: r.title,
                         identifier: r.series_id.to_string(),
-                        source: MetadataSource::MangaUpdates,
+                        source: MediaSource::MangaUpdates,
                         lot: MetadataLot::Manga,
                         image: None,
                     },
@@ -179,7 +179,7 @@ impl MediaProvider for MangaUpdatesService {
             .collect_vec();
         let resp = MetadataPerson {
             identifier: identity.to_owned(),
-            source: MetadataSource::MangaUpdates,
+            source: MediaSource::MangaUpdates,
             name: data.name.unwrap(),
             gender: data.gender,
             place: data.birthplace,
@@ -217,7 +217,7 @@ impl MediaProvider for MangaUpdatesService {
                 identifier: a.author_id.unwrap().to_string(),
                 name: a.name.unwrap_or_default(),
                 role: a.lot.unwrap(),
-                source: MetadataSource::MangaUpdates,
+                source: MediaSource::MangaUpdates,
                 character: None,
                 source_specifics: None,
             })
@@ -247,7 +247,7 @@ impl MediaProvider for MangaUpdatesService {
                     title: data.title.unwrap(),
                     image: data.image.unwrap().url.original,
                     identifier: data.series_id.unwrap().to_string(),
-                    source: MetadataSource::MangaUpdates,
+                    source: MediaSource::MangaUpdates,
                     lot: MetadataLot::Manga,
                 });
             }
@@ -256,7 +256,7 @@ impl MediaProvider for MangaUpdatesService {
             identifier: data.series_id.unwrap().to_string(),
             title: data.title.unwrap(),
             description: data.description,
-            source: MetadataSource::MangaUpdates,
+            source: MediaSource::MangaUpdates,
             lot: MetadataLot::Manga,
             people,
             production_status: data.status,

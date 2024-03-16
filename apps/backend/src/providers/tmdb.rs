@@ -7,7 +7,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use hashbag::HashBag;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -262,7 +262,7 @@ impl MediaProvider for NonMediaTmdbService {
                                 "tv" => MetadataLot::Show,
                                 _ => continue,
                             },
-                            source: MetadataSource::Tmdb,
+                            source: MediaSource::Tmdb,
                         },
                     ));
                 }
@@ -294,7 +294,7 @@ impl MediaProvider for NonMediaTmdbService {
                                     "tv" => MetadataLot::Show,
                                     _ => unreachable!(),
                                 },
-                                source: MetadataSource::Tmdb,
+                                source: MediaSource::Tmdb,
                             },
                         )
                     }));
@@ -309,7 +309,7 @@ impl MediaProvider for NonMediaTmdbService {
             images: Some(images),
             identifier: details.id.to_string(),
             description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             place: details.origin_country.or(details.place_of_birth),
             website: details.homepage,
             birth_date: details.birthday,
@@ -436,7 +436,7 @@ impl MediaProvider for TmdbMovieService {
                                 identifier: id.to_string(),
                                 name: g.name.unwrap_or_default(),
                                 role: r,
-                                source: MetadataSource::Tmdb,
+                                source: MediaSource::Tmdb,
                                 character: g.character,
                                 source_specifics: None,
                             })
@@ -458,7 +458,7 @@ impl MediaProvider for TmdbMovieService {
                                 identifier: id.to_string(),
                                 name: g.name.unwrap_or_default(),
                                 role: r,
-                                source: MetadataSource::Tmdb,
+                                source: MediaSource::Tmdb,
                                 character: g.character,
                                 source_specifics: None,
                             })
@@ -475,7 +475,7 @@ impl MediaProvider for TmdbMovieService {
                     identifier: p.id.to_string(),
                     name: p.name,
                     role: "Production Company".to_owned(),
-                    source: MetadataSource::Tmdb,
+                    source: MediaSource::Tmdb,
                     character: None,
                     source_specifics: Some(PersonSourceSpecifics::Tmdb { is_company: true }),
                 })
@@ -501,7 +501,7 @@ impl MediaProvider for TmdbMovieService {
             is_nsfw: data.adult,
             original_language: self.base.get_language_name(data.original_language),
             lot: MetadataLot::Movie,
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             production_status: data.status,
             title: data.title.unwrap(),
             genres: data
@@ -587,7 +587,7 @@ impl MediaProvider for TmdbMovieService {
             .map(|p| PartialMetadataWithoutId {
                 title: p.title.unwrap(),
                 identifier: p.id.to_string(),
-                source: MetadataSource::Tmdb,
+                source: MediaSource::Tmdb,
                 lot: MetadataLot::Movie,
                 image: p.poster_path.map(|p| self.base.get_image_url(p)),
             })
@@ -608,7 +608,7 @@ impl MediaProvider for TmdbMovieService {
                     })
                     .collect(),
                 lot: MetadataLot::Movie,
-                source: MetadataSource::Tmdb,
+                source: MediaSource::Tmdb,
             },
             parts,
         ))
@@ -743,7 +743,7 @@ impl MediaProvider for TmdbShowService {
                                         identifier: id.to_string(),
                                         name: g.name.unwrap_or_default(),
                                         role: r,
-                                        source: MetadataSource::Tmdb,
+                                        source: MediaSource::Tmdb,
                                         character: g.character,
                                         source_specifics: None,
                                     })
@@ -763,7 +763,7 @@ impl MediaProvider for TmdbShowService {
                     identifier: p.id.to_string(),
                     name: p.name,
                     role: "Production Company".to_owned(),
-                    source: MetadataSource::Tmdb,
+                    source: MediaSource::Tmdb,
                     character: None,
                     source_specifics: Some(PersonSourceSpecifics::Tmdb { is_company: true }),
                 })
@@ -796,7 +796,7 @@ impl MediaProvider for TmdbShowService {
             original_language: self.base.get_language_name(show_data.original_language),
             lot: MetadataLot::Show,
             production_status: show_data.status,
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             description: show_data.overview,
             people,
             genres: show_data
@@ -1046,7 +1046,7 @@ impl TmdbService {
                     title: name,
                     image: entry.poster_path.map(|p| self.get_image_url(p)),
                     identifier: entry.id.to_string(),
-                    source: MetadataSource::Tmdb,
+                    source: MediaSource::Tmdb,
                     lot,
                 });
             }

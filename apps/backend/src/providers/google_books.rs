@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rs_utils::convert_date_to_year;
@@ -220,7 +220,7 @@ impl GoogleBooksService {
         MediaDetails {
             identifier: id,
             lot: MetadataLot::Book,
-            source: MetadataSource::GoogleBooks,
+            source: MediaSource::GoogleBooks,
             title: item.title,
             description: item.description,
             creators: creators.into_iter().unique().collect(),

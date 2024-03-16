@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use rand::{seq::SliceRandom, thread_rng};
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
@@ -232,7 +232,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
-            source: MetadataSource::Mal,
+            source: MediaSource::Mal,
             lot: MetadataLot::Anime,
         });
     }
@@ -241,7 +241,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
-            source: MetadataSource::Mal,
+            source: MediaSource::Mal,
             lot: MetadataLot::Manga,
         });
     }
@@ -250,7 +250,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             identifier: rel.node.id.to_string(),
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
-            source: MetadataSource::Mal,
+            source: MediaSource::Mal,
             lot,
         });
     }
@@ -259,7 +259,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
     let data = MediaDetails {
         identifier: details.id.to_string(),
         title: details.title,
-        source: MetadataSource::Mal,
+        source: MediaSource::Mal,
         description: details.synopsis,
         lot,
         is_nsfw,
