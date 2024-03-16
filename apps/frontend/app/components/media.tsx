@@ -40,8 +40,8 @@ import {
 } from "@remix-run/react";
 import {
 	EntityLot,
+	MediaSource,
 	MetadataLot,
-	MetadataSource,
 	type PartialMetadata,
 	type ReviewItem,
 	UserMediaReminderPartFragment,
@@ -81,7 +81,7 @@ import { confirmWrapper } from "./confirmation";
 export const commitMedia = async (
 	identifier: string,
 	lot: MetadataLot,
-	source: MetadataSource,
+	source: MediaSource,
 ) => {
 	const data = new FormData();
 	const location = withoutHost(window.location.href);

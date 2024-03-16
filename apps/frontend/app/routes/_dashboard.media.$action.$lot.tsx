@@ -31,9 +31,9 @@ import {
 	MediaListDocument,
 	MediaSearchDocument,
 	MediaSortBy,
+	MediaSource,
 	MediaSourcesForLotDocument,
 	MetadataLot,
-	MetadataSource,
 	UserCollectionsListDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -156,7 +156,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{ lot },
 			);
 			const urlParse = zx.parseQuery(request, {
-				source: z.nativeEnum(MetadataSource).default(mediaSourcesForLot[0]),
+				source: z.nativeEnum(MediaSource).default(mediaSourcesForLot[0]),
 			});
 			const { mediaSearch } = await gqlClient.request(
 				MediaSearchDocument,
@@ -452,7 +452,7 @@ export default function Page() {
 											lot={loaderData.lot}
 											source={
 												loaderData.mediaSearch?.url.source ||
-												MetadataSource.Anilist
+												MediaSource.Anilist
 											}
 											reviewScale={loaderData.userPreferences.reviewScale}
 										/>
@@ -486,7 +486,7 @@ const MediaSearchItem = (props: {
 	item: Item;
 	idx: number;
 	lot: MetadataLot;
-	source: MetadataSource;
+	source: MediaSource;
 	action: "search" | "list";
 	hasInteracted: boolean;
 	reviewScale: UserReviewScale;

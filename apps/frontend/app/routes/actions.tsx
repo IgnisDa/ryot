@@ -8,8 +8,8 @@ import {
 	DeleteMediaReminderDocument,
 	DeleteReviewDocument,
 	EntityLot,
+	MediaSource,
 	MetadataLot,
-	MetadataSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
@@ -189,7 +189,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const commitMediaSchema = z.object({
 	identifier: z.string(),
 	lot: z.nativeEnum(MetadataLot),
-	source: z.nativeEnum(MetadataSource),
+	source: z.nativeEnum(MediaSource),
 });
 
 const reviewCommentSchema = z.object({

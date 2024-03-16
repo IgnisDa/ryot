@@ -28,8 +28,8 @@ import {
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomMediaDocument,
+	MediaSource,
 	MetadataLot,
-	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
@@ -124,7 +124,7 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={imageUrls.map((i) => i.url)}
-				externalLink={{ source: MetadataSource.Custom }}
+				externalLink={{ source: MediaSource.Custom }}
 			>
 				<ScrollArea.Autosize mah={400}>
 					<Form method="post">

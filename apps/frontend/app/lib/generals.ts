@@ -1,8 +1,8 @@
 import type { MantineColorScheme } from "@mantine/core";
 import {
 	GetPresignedS3UrlDocument,
+	MediaSource,
 	MetadataLot,
-	MetadataSource,
 	PresignedPutS3UrlDocument,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -139,13 +139,13 @@ export const getSource = (source: unknown) => {
 	if (!source) return undefined;
 	const newLot = (source as string).toLowerCase();
 	return match(newLot)
-		.with("anilist", () => MetadataSource.Anilist)
-		.with("audible", () => MetadataSource.Audible)
-		.with("custom", () => MetadataSource.Custom)
-		.with("igdb", () => MetadataSource.Igdb)
-		.with("listennotes", () => MetadataSource.Listennotes)
-		.with("openlibrary", () => MetadataSource.Openlibrary)
-		.with("tmdb", () => MetadataSource.Tmdb)
+		.with("anilist", () => MediaSource.Anilist)
+		.with("audible", () => MediaSource.Audible)
+		.with("custom", () => MediaSource.Custom)
+		.with("igdb", () => MediaSource.Igdb)
+		.with("listennotes", () => MediaSource.Listennotes)
+		.with("openlibrary", () => MediaSource.Openlibrary)
+		.with("tmdb", () => MediaSource.Tmdb)
 		.otherwise(() => undefined);
 };
 

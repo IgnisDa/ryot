@@ -50,9 +50,9 @@ import {
 	MediaAdditionalDetailsDocument,
 	MediaAdditionalDetailsQuery,
 	MediaMainDetailsDocument,
+	MediaSource,
 	MergeMetadataDocument,
 	MetadataLot,
-	MetadataSource,
 	MetadataVideoSource,
 	SeenState,
 	ToggleMediaOwnershipDocument,
@@ -701,30 +701,30 @@ export default function Page() {
 														src={`/provider-logos/${match(
 															loaderData.mediaMainDetails.source,
 														)
-															.with(MetadataSource.Anilist, () => "anilist.svg")
-															.with(MetadataSource.Audible, () => "audible.svg")
+															.with(MediaSource.Anilist, () => "anilist.svg")
+															.with(MediaSource.Audible, () => "audible.svg")
 															.with(
-																MetadataSource.GoogleBooks,
+																MediaSource.GoogleBooks,
 																() => "google-books.svg",
 															)
-															.with(MetadataSource.Igdb, () => "igdb.svg")
-															.with(MetadataSource.Itunes, () => "itunes.svg")
+															.with(MediaSource.Igdb, () => "igdb.svg")
+															.with(MediaSource.Itunes, () => "itunes.svg")
 															.with(
-																MetadataSource.Listennotes,
+																MediaSource.Listennotes,
 																() => "listennotes.webp",
 															)
-															.with(MetadataSource.Mal, () => "mal.svg")
+															.with(MediaSource.Mal, () => "mal.svg")
 															.with(
-																MetadataSource.MangaUpdates,
+																MediaSource.MangaUpdates,
 																() => "manga-updates.svg",
 															)
 															.with(
-																MetadataSource.Openlibrary,
+																MediaSource.Openlibrary,
 																() => "openlibrary.svg",
 															)
-															.with(MetadataSource.Tmdb, () => "tmdb.svg")
-															.with(MetadataSource.Vndb, () => "vndb.ico")
-															.with(MetadataSource.Custom, () => undefined)
+															.with(MediaSource.Tmdb, () => "tmdb.svg")
+															.with(MediaSource.Vndb, () => "vndb.ico")
+															.with(MediaSource.Custom, () => undefined)
 															.exhaustive()}`}
 													/>
 													<Text fz="sm">
@@ -733,27 +733,27 @@ export default function Page() {
 														).toFixed(1)}
 														{match(loaderData.mediaMainDetails.source)
 															.with(
-																MetadataSource.Anilist,
-																MetadataSource.Igdb,
-																MetadataSource.Listennotes,
-																MetadataSource.Tmdb,
-																MetadataSource.Vndb,
+																MediaSource.Anilist,
+																MediaSource.Igdb,
+																MediaSource.Listennotes,
+																MediaSource.Tmdb,
+																MediaSource.Vndb,
 																() => "%",
 															)
 															.with(
-																MetadataSource.Audible,
-																MetadataSource.GoogleBooks,
+																MediaSource.Audible,
+																MediaSource.GoogleBooks,
 																() => "/5",
 															)
 															.with(
-																MetadataSource.Mal,
-																MetadataSource.MangaUpdates,
+																MediaSource.Mal,
+																MediaSource.MangaUpdates,
 																() => "/10",
 															)
 															.with(
-																MetadataSource.Custom,
-																MetadataSource.Itunes,
-																MetadataSource.Openlibrary,
+																MediaSource.Custom,
+																MediaSource.Itunes,
+																MediaSource.Openlibrary,
 																() => undefined,
 															)
 															.exhaustive()}
