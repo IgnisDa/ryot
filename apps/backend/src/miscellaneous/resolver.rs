@@ -80,11 +80,11 @@ use crate::{
             MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
-            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
+            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            PublicCollectionItem, ReviewPostedEvent, SeenAnimeExtraInformation,
+            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
             VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
@@ -693,6 +693,13 @@ struct ToggleMediaMonitorInput {
     force_value: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct PeopleSearchInput {
+    input: SearchInput,
+    source: MetadataSource,
+    is_tmdb_company: Option<bool>,
+}
+
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
 }
@@ -970,6 +977,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_list(user_id, input).await
+    }
+
+    /// Search for a list of people from a given source.
+    async fn people_search(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: PeopleSearchInput,
+    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.people_search(user_id, input).await
     }
 }
 
@@ -1429,6 +1447,20 @@ impl MiscellaneousService {
             page_limit: self.config.frontend.page_size,
             reviews_disabled: self.config.users.reviews_disabled,
             item_details_height: self.config.frontend.item_details_height,
+        })
+    }
+
+    async fn people_search(
+        &self,
+        user_id: i32,
+        input: PeopleSearchInput,
+    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+        dbg!(input);
+        Ok(SearchResults {
+            items: vec![],
+            details: SearchDetails {
+                ..Default::default()
+            },
         })
     }
 
