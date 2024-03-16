@@ -80,11 +80,11 @@ use crate::{
             MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            PublicCollectionItem, ReviewPostedEvent, SeenAnimeExtraInformation,
-            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
+            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
             VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
@@ -695,9 +695,16 @@ struct ToggleMediaMonitorInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct PeopleSearchInput {
-    input: SearchInput,
+    search: SearchInput,
     source: MediaSource,
     is_tmdb_company: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MediaSearchInput {
+    search: SearchInput,
+    lot: MetadataLot,
+    source: MediaSource,
 }
 
 fn get_password_hasher() -> Argon2<'static> {
@@ -814,13 +821,11 @@ impl MiscellaneousQuery {
     async fn media_search(
         &self,
         gql_ctx: &Context<'_>,
-        lot: MetadataLot,
-        source: MediaSource,
-        input: SearchInput,
+        input: MediaSearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_search(user_id, lot, source, input).await
+        service.media_search(user_id, input).await
     }
 
     /// Get all the metadata sources possible for a lot.
@@ -3548,11 +3553,9 @@ impl MiscellaneousService {
     async fn media_search(
         &self,
         user_id: i32,
-        lot: MetadataLot,
-        source: MediaSource,
-        input: SearchInput,
+        input: MediaSearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
-        if let Some(q) = input.query {
+        if let Some(q) = input.search.query {
             if q.is_empty() {
                 return Ok(SearchResults {
                     details: SearchDetails {
@@ -3565,9 +3568,9 @@ impl MiscellaneousService {
             let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
                 .await?
                 .preferences;
-            let provider = self.get_media_provider(lot, source).await?;
+            let provider = self.get_media_provider(input.lot, input.source).await?;
             let results = provider
-                .metadata_search(&q, input.page, preferences.general.display_nsfw)
+                .metadata_search(&q, input.search.page, preferences.general.display_nsfw)
                 .await?;
             let all_identifiers = results
                 .items
@@ -3595,8 +3598,8 @@ impl MiscellaneousService {
                         .is_not_null(),
                     "has_interacted",
                 )
-                .filter(metadata::Column::Lot.eq(lot))
-                .filter(metadata::Column::Source.eq(source))
+                .filter(metadata::Column::Lot.eq(input.lot))
+                .filter(metadata::Column::Source.eq(input.source))
                 .filter(metadata::Column::Identifier.is_in(&all_identifiers))
                 .into_tuple::<(String, i32, bool)>()
                 .all(&self.db)

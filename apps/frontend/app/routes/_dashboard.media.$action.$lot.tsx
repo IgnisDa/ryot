@@ -161,9 +161,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			const { mediaSearch } = await gqlClient.request(
 				MediaSearchDocument,
 				{
-					lot,
-					input: { page, query: query || "" },
-					source: urlParse.source,
+					input: {
+						lot,
+						search: { page, query: query || "" },
+						source: urlParse.source,
+					},
 				},
 				await getAuthorizationHeader(request),
 			);
