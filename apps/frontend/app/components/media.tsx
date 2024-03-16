@@ -65,7 +65,7 @@ import {
 import { ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { withQuery, withoutHost } from "ufo";
 import events from "~/lib/events";
 import {
 	dayjsLib,
@@ -84,9 +84,7 @@ export const commitMedia = async (
 	source: MetadataSource,
 ) => {
 	const data = new FormData();
-	// TODO: https://github.com/unjs/ufo/issues/211
-	const location =
-		window.location.pathname + window.location.search + window.location.hash;
+	const location = withoutHost(window.location.href);
 	data.append("identifier", identifier);
 	data.append("lot", lot);
 	data.append("source", source);
@@ -227,11 +225,9 @@ export const ReviewItemDisplay = (props: {
 									if (conf)
 										deleteReviewFetcher.submit(
 											{
-												// TODO: https://github.com/unjs/ufo/issues/211
-												[redirectToQueryParam]:
-													window.location.pathname +
-													window.location.search +
-													window.location.hash,
+												[redirectToQueryParam]: withoutHost(
+													window.location.href,
+												),
 												shouldDelete: "true",
 												reviewId: props.review.id?.toString(),
 												// biome-ignore lint/suspicious/noExplicitAny: otherwise an error here

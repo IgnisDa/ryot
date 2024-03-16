@@ -52,7 +52,7 @@ import {
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -185,8 +185,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		numPage,
 		mediaList,
 		mediaSearch,
-		// TODO: https://github.com/unjs/ufo/issues/211
-		url: url.pathname + url.search,
+		url: withoutHost(url.href),
 		collections: userCollectionsList,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
