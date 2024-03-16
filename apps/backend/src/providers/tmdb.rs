@@ -86,8 +86,8 @@ struct TmdbEntry {
     poster_path: Option<String>,
     backdrop_path: Option<String>,
     overview: Option<String>,
+    #[serde(alias = "name")]
     title: Option<String>,
-    name: Option<String>,
     release_date: Option<String>,
     first_air_date: Option<String>,
 }
@@ -287,7 +287,7 @@ impl MediaProvider for NonMediaTmdbService {
                             "Production Company".to_owned(),
                             PartialMetadataWithoutId {
                                 identifier: m.id.to_string(),
-                                title: m.title.or(m.name).unwrap_or_default(),
+                                title: m.title.unwrap_or_default(),
                                 image: m.poster_path.map(|p| self.base.get_image_url(p)),
                                 lot: match m_typ {
                                     "movie" => MetadataLot::Movie,
@@ -914,7 +914,7 @@ impl MediaProvider for TmdbShowService {
             .into_iter()
             .map(|d| MediaSearchItem {
                 identifier: d.id.to_string(),
-                title: d.name.unwrap(),
+                title: d.title.unwrap_or_default(),
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
                 image: d.poster_path.map(|p| self.base.get_image_url(p)),
             })
@@ -1038,12 +1038,9 @@ impl TmdbService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for entry in new_recs.results.into_iter() {
-                let name = if let Some(n) = entry.name {
-                    n
-                } else if let Some(n) = entry.title {
-                    n
-                } else {
-                    continue;
+                let name = match entry.title {
+                    Some(n) => n,
+                    _ => continue,
                 };
                 suggestions.push(PartialMetadataWithoutId {
                     title: name,
