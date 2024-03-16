@@ -163,7 +163,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{
 					input: {
 						lot,
-						search: { page, query: query || "" },
+						search: { page, query },
 						source: urlParse.source,
 					},
 				},
