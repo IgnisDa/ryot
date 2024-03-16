@@ -502,7 +502,7 @@ impl ImporterService {
             );
         }
         self.media_service
-            .deploy_background_job(BackgroundJob::CalculateSummary, user_id)
+            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
             .await
             .ok();
         tracing::debug!(

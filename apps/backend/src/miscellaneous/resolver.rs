@@ -820,7 +820,7 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_search(lot, source, input, user_id).await
+        service.media_search(user_id, lot, source, input).await
     }
 
     /// Get all the metadata sources possible for a lot.
@@ -1058,7 +1058,7 @@ impl MiscellaneousMutation {
     async fn delete_seen_item(&self, gql_ctx: &Context<'_>, seen_id: i32) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_seen_item(seen_id, user_id).await
+        service.delete_seen_item(user_id, seen_id).await
     }
 
     /// Create a custom media item.
@@ -1069,7 +1069,7 @@ impl MiscellaneousMutation {
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_media(input, user_id).await
+        service.create_custom_media(user_id, input).await
     }
 
     /// Deploy job to update progress of media items in bulk.
@@ -1114,7 +1114,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .merge_metadata(merge_from, merge_into, user_id)
+            .merge_metadata(user_id, merge_from, merge_into)
             .await
     }
 
@@ -1164,7 +1164,7 @@ impl MiscellaneousMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_preference(input, user_id).await
+        service.update_user_preference(user_id, input).await
     }
 
     /// Create a sink based integrations for the currently logged in user.
@@ -1343,7 +1343,7 @@ impl MiscellaneousMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.edit_seen_item(input, user_id).await
+        service.edit_seen_item(user_id, input).await
     }
 
     /// Start a background job.
@@ -1354,7 +1354,7 @@ impl MiscellaneousMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_background_job(job_name, user_id).await
+        service.deploy_background_job(user_id, job_name).await
     }
 
     /// Use this mutation to call a function that needs to be tested for implementation.
@@ -2653,8 +2653,8 @@ impl MiscellaneousService {
 
     pub async fn deploy_background_job(
         &self,
-        job_name: BackgroundJob,
         user_id: i32,
+        job_name: BackgroundJob,
     ) -> Result<bool> {
         let core_sqlite_storage = &mut self.perform_core_application_job.clone();
         let sqlite_storage = &mut self.perform_application_job.clone();
@@ -3261,7 +3261,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn edit_seen_item(&self, input: EditSeenItemInput, user_id: i32) -> Result<bool> {
+    async fn edit_seen_item(&self, user_id: i32, input: EditSeenItemInput) -> Result<bool> {
         let seen = match Seen::find_by_id(input.seen_id).one(&self.db).await.unwrap() {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),
@@ -3426,9 +3426,9 @@ impl MiscellaneousService {
 
     pub async fn merge_metadata(
         &self,
+        user_id: i32,
         merge_from: i32,
         merge_into: i32,
-        user_id: i32,
     ) -> Result<bool> {
         for old_seen in Seen::find()
             .filter(seen::Column::MetadataId.eq(merge_from))
@@ -3549,10 +3549,10 @@ impl MiscellaneousService {
 
     async fn media_search(
         &self,
+        user_id: i32,
         lot: MetadataLot,
         source: MetadataSource,
         input: SearchInput,
-        user_id: i32,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         if let Some(q) = input.query {
             if q.is_empty() {
@@ -4466,7 +4466,7 @@ impl MiscellaneousService {
         Ok(IdObject { id: collect.id })
     }
 
-    pub async fn delete_seen_item(&self, seen_id: i32, user_id: i32) -> Result<IdObject> {
+    pub async fn delete_seen_item(&self, user_id: i32, seen_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
             let (ssn, sen) = match &si.show_extra_information {
@@ -4960,8 +4960,8 @@ impl MiscellaneousService {
 
     async fn create_custom_media(
         &self,
-        input: CreateCustomMediaInput,
         user_id: i32,
+        input: CreateCustomMediaInput,
     ) -> Result<IdObject> {
         let identifier = Uuid::new_v4().to_string();
         let images = input
@@ -5047,8 +5047,8 @@ impl MiscellaneousService {
 
     async fn update_user_preference(
         &self,
-        input: UpdateUserPreferenceInput,
         user_id: i32,
+        input: UpdateUserPreferenceInput,
     ) -> Result<bool> {
         let err = || Error::new("Incorrect property value encountered");
         let user_model = user_by_id(&self.db, user_id).await?;
