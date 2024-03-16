@@ -1,5 +1,0 @@
-mutation CommitMedia($lot: MetadataLot!, $source: MediaSource!, $identifier: String!) {
-  commitMedia(lot: $lot, source: $source, identifier: $identifier) {
-    id
-  }
-}

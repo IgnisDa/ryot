@@ -125,7 +125,7 @@ use crate::{
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateCustomMediaInput {
+struct CreateCustomMetadataInput {
     title: String,
     lot: MetadataLot,
     description: Option<String>,
@@ -226,6 +226,13 @@ struct UserInput {
     username: String,
     #[graphql(secret)]
     password: String,
+}
+
+#[derive(Debug, InputObject)]
+struct CommitMetadataInput {
+    lot: MetadataLot,
+    source: MediaSource,
+    identifier: String,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -527,7 +534,7 @@ struct MediaFilter {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct MediaListInput {
+struct MetadataListInput {
     search: SearchInput,
     lot: MetadataLot,
     filter: Option<MediaFilter>,
@@ -701,7 +708,7 @@ struct PeopleSearchInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct MediaSearchInput {
+struct MetadataSearchInput {
     search: SearchInput,
     lot: MetadataLot,
     source: MediaSource,
@@ -759,13 +766,13 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about a media present in the database.
-    async fn media_details(
+    async fn metadata_details(
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<GraphqlMediaDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.media_details(metadata_id).await
+        service.metadata_details(metadata_id).await
     }
 
     /// Get details about a creator present in the database.
@@ -795,14 +802,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the media items related to a user for a specific media type.
-    async fn media_list(
+    async fn metadata_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: MediaListInput,
+        input: MetadataListInput,
     ) -> Result<SearchResults<MediaListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_list(user_id, input).await
+        service.metadata_list(user_id, input).await
     }
 
     /// Get a presigned URL (valid for 90 minutes) for a given key.
@@ -818,24 +825,24 @@ impl MiscellaneousQuery {
     }
 
     /// Search for a list of media for a given type.
-    async fn media_search(
+    async fn metadata_search(
         &self,
         gql_ctx: &Context<'_>,
-        input: MediaSearchInput,
+        input: MetadataSearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.media_search(user_id, input).await
+        service.metadata_search(user_id, input).await
     }
 
     /// Get all the metadata sources possible for a lot.
-    async fn media_sources_for_lot(
+    async fn metadata_sources_for_lot(
         &self,
         gql_ctx: &Context<'_>,
         lot: MetadataLot,
     ) -> Vec<MediaSource> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.media_sources_for_lot(lot).await
+        service.metadata_sources_for_lot(lot).await
     }
 
     /// Get paginated list of genres.
@@ -930,14 +937,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get details that can be displayed to a user for a media.
-    async fn user_media_details(
+    async fn user_metadata_details(
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
     ) -> Result<UserMediaDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_media_details(user_id, metadata_id).await
+        service.user_metadata_details(user_id, metadata_id).await
     }
 
     /// Get details that can be displayed to a user for a creator.
@@ -1067,14 +1074,14 @@ impl MiscellaneousMutation {
     }
 
     /// Create a custom media item.
-    async fn create_custom_media(
+    async fn create_custom_metadata(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateCustomMediaInput,
+        input: CreateCustomMetadataInput,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_media(user_id, input).await
+        service.create_custom_metadata(user_id, input).await
     }
 
     /// Deploy job to update progress of media items in bulk.
@@ -1124,15 +1131,13 @@ impl MiscellaneousMutation {
     }
 
     /// Fetch details about a media and create a media item in the database.
-    async fn commit_media(
+    async fn commit_metadata(
         &self,
         gql_ctx: &Context<'_>,
-        lot: MetadataLot,
-        source: MediaSource,
-        identifier: String,
+        input: CommitMetadataInput,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.commit_media(lot, source, &identifier).await
+        service.commit_metadata(input).await
     }
 
     /// Create a new user for the service. Also set their `lot` as admin if
@@ -1602,7 +1607,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn media_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
+    async fn metadata_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
         let MediaBaseData {
             model,
             creators,
@@ -1715,8 +1720,12 @@ impl MiscellaneousService {
         Ok(resp)
     }
 
-    async fn user_media_details(&self, user_id: i32, metadata_id: i32) -> Result<UserMediaDetails> {
-        let media_details = self.media_details(metadata_id).await?;
+    async fn user_metadata_details(
+        &self,
+        user_id: i32,
+        metadata_id: i32,
+    ) -> Result<UserMediaDetails> {
+        let media_details = self.metadata_details(metadata_id).await?;
         let collections =
             entity_in_collections(&self.db, user_id, Some(metadata_id), None, None, None).await?;
         let reviews = self
@@ -2047,10 +2056,10 @@ impl MiscellaneousService {
         Ok(seen_items)
     }
 
-    async fn media_list(
+    async fn metadata_list(
         &self,
         user_id: i32,
-        input: MediaListInput,
+        input: MetadataListInput,
     ) -> Result<SearchResults<MediaListItem>> {
         let metadata_alias = Alias::new("m");
         let seen_alias = Alias::new("s");
@@ -3139,7 +3148,7 @@ impl MiscellaneousService {
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
-        let provider = self.get_media_provider(lot, source).await?;
+        let provider = self.get_metadata_provider(lot, source).await?;
         let (group_details, associated_items) =
             provider.metadata_group_details(&group_identifier).await?;
         let group_id = match existing_group {
@@ -3536,10 +3545,10 @@ impl MiscellaneousService {
         Ok(general)
     }
 
-    async fn media_search(
+    async fn metadata_search(
         &self,
         user_id: i32,
-        input: MediaSearchInput,
+        input: MetadataSearchInput,
     ) -> Result<SearchResults<MediaSearchItemResponse>> {
         if let Some(q) = input.search.query {
             if q.is_empty() {
@@ -3554,7 +3563,7 @@ impl MiscellaneousService {
             let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
                 .await?
                 .preferences;
-            let provider = self.get_media_provider(input.lot, input.source).await?;
+            let provider = self.get_metadata_provider(input.lot, input.source).await?;
             let results = provider
                 .metadata_search(&q, input.search.page, preferences.general.display_nsfw)
                 .await?;
@@ -3646,7 +3655,11 @@ impl MiscellaneousService {
         .await)
     }
 
-    async fn get_media_provider(&self, lot: MetadataLot, source: MediaSource) -> Result<Provider> {
+    async fn get_metadata_provider(
+        &self,
+        lot: MetadataLot,
+        source: MediaSource,
+    ) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
@@ -3735,7 +3748,7 @@ impl MiscellaneousService {
         Ok(service)
     }
 
-    async fn get_non_media_provider(&self, source: MediaSource) -> Result<Provider> {
+    async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
@@ -3794,28 +3807,25 @@ impl MiscellaneousService {
         source: MediaSource,
         identifier: &str,
     ) -> Result<MediaDetails> {
-        let provider = self.get_media_provider(lot, source).await?;
+        let provider = self.get_metadata_provider(lot, source).await?;
         let results = provider.metadata_details(identifier).await?;
         Ok(results)
     }
 
-    pub async fn commit_media(
-        &self,
-        lot: MetadataLot,
-        source: MediaSource,
-        identifier: &str,
-    ) -> Result<IdObject> {
+    async fn commit_metadata(&self, input: CommitMetadataInput) -> Result<IdObject> {
         if let Some(m) = Metadata::find()
-            .filter(metadata::Column::Lot.eq(lot))
-            .filter(metadata::Column::Source.eq(source))
-            .filter(metadata::Column::Identifier.eq(identifier))
+            .filter(metadata::Column::Lot.eq(input.lot))
+            .filter(metadata::Column::Source.eq(input.source))
+            .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
             .one(&self.db)
             .await?
             .map(|m| IdObject { id: m.id })
         {
             Ok(m)
         } else {
-            let details = self.details_from_provider(lot, source, identifier).await?;
+            let details = self
+                .details_from_provider(input.lot, input.source, &input.identifier)
+                .await?;
             let media_id = self.commit_media_internal(details, None).await?;
             Ok(media_id)
         }
@@ -4941,10 +4951,10 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn create_custom_media(
+    async fn create_custom_metadata(
         &self,
         user_id: i32,
-        input: CreateCustomMediaInput,
+        input: CreateCustomMetadataInput,
     ) -> Result<IdObject> {
         let identifier = Uuid::new_v4().to_string();
         let images = input
@@ -5601,7 +5611,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn media_sources_for_lot(&self, lot: MetadataLot) -> Vec<MediaSource> {
+    async fn metadata_sources_for_lot(&self, lot: MetadataLot) -> Vec<MediaSource> {
         match lot {
             MetadataLot::AudioBook => vec![MediaSource::Audible],
             MetadataLot::Book => vec![MediaSource::Openlibrary, MediaSource::GoogleBooks],
@@ -5839,7 +5849,13 @@ impl MiscellaneousService {
         } else {
             pu.progress
         };
-        let IdObject { id } = self.commit_media(pu.lot, pu.source, &pu.identifier).await?;
+        let IdObject { id } = self
+            .commit_metadata(CommitMetadataInput {
+                lot: pu.lot,
+                source: pu.source,
+                identifier: pu.identifier,
+            })
+            .await?;
         self.progress_update(
             ProgressUpdateInput {
                 metadata_id: id,
@@ -6970,7 +6986,7 @@ GROUP BY
     async fn update_person(&self, person_id: i32) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
         let person = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
-        let provider = self.get_non_media_provider(person.source).await?;
+        let provider = self.get_non_metadata_provider(person.source).await?;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
             .await?;

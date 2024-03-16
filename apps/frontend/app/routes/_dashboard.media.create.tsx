@@ -27,7 +27,7 @@ import {
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
-	CreateCustomMediaDocument,
+	CreateCustomMetadataDocument,
 	MediaSource,
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -66,12 +66,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
 	input.creators = input.creators?.split(", ");
-	const { createCustomMedia } = await gqlClient.request(
-		CreateCustomMediaDocument,
+	const { createCustomMetadata } = await gqlClient.request(
+		CreateCustomMetadataDocument,
 		{ input },
 		await getAuthorizationHeader(request),
 	);
-	return redirect($path("/media/item/:id", { id: createCustomMedia.id }));
+	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
 };
 
 const optionalString = z.string().optional();

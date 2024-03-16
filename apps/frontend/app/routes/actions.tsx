@@ -2,7 +2,7 @@ import { $path } from "@ignisda/remix-routes";
 import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
-	CommitMediaDocument,
+	CommitMetadataDocument,
 	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
 	DeleteMediaReminderDocument,
@@ -42,12 +42,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	await match(intent)
 		.with("commitMedia", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMedia } = await gqlClient.request(
-				CommitMediaDocument,
-				submission,
+			const { commitMetadata } = await gqlClient.request(
+				CommitMetadataDocument,
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			returnData = { commitMedia };
+			returnData = { commitMedia: commitMetadata };
 		})
 		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(

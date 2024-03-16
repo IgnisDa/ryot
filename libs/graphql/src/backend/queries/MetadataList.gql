@@ -1,5 +1,5 @@
-query MediaList($input: MediaListInput!) {
-  mediaList(input: $input) {
+query MetadataList($input: MetadataListInput!) {
+  metadataList(input: $input) {
     details {
       total
       nextPage

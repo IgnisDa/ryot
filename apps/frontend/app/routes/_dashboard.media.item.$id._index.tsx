@@ -47,18 +47,18 @@ import {
 	DeployUpdateMetadataJobDocument,
 	EditSeenItemDocument,
 	EntityLot,
-	MediaAdditionalDetailsDocument,
-	MediaAdditionalDetailsQuery,
-	MediaMainDetailsDocument,
 	MediaSource,
 	MergeMetadataDocument,
+	MetadataAdditionalDetailsDocument,
+	MetadataAdditionalDetailsQuery,
 	MetadataLot,
+	MetadataMainDetailsDocument,
 	MetadataVideoSource,
 	SeenState,
 	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
-	UserMediaDetailsDocument,
-	UserMediaDetailsQuery,
+	UserMetadataDetailsDocument,
+	UserMetadataDetailsQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -147,21 +147,21 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		coreDetails,
 		userPreferences,
 		userDetails,
-		{ mediaDetails: mediaMainDetails },
+		{ metadataDetails: mediaMainDetails },
 		{ userCollectionsList: collections },
 	] = await Promise.all([
 		getCoreDetails(),
 		getUserPreferences(request),
 		getUserDetails(request),
-		gqlClient.request(MediaMainDetailsDocument, { metadataId }),
+		gqlClient.request(MetadataMainDetailsDocument, { metadataId }),
 		gqlClient.request(UserCollectionsListDocument, {}, headers),
 	]);
 	const mediaAdditionalDetails = gqlClient.request(
-		MediaAdditionalDetailsDocument,
+		MetadataAdditionalDetailsDocument,
 		{ metadataId },
 	);
 	const userMediaDetails = gqlClient.request(
-		UserMediaDetailsDocument,
+		UserMetadataDetailsDocument,
 		{ metadataId },
 		headers,
 	);
@@ -591,10 +591,10 @@ export default function Page() {
 					</Box>
 					<Suspense fallback={<FallbackForDefer />}>
 						<Await resolve={loaderData.userMediaDetails}>
-							{({ userMediaDetails }) => (
+							{({ userMetadataDetails }) => (
 								<Group>
-									{userMediaDetails.collections.length > 0
-										? userMediaDetails.collections.map((col) => (
+									{userMetadataDetails.collections.length > 0
+										? userMetadataDetails.collections.map((col) => (
 												<DisplayCollection
 													col={col}
 													entityId={loaderData.metadataId.toString()}
@@ -603,10 +603,10 @@ export default function Page() {
 												/>
 										  ))
 										: null}
-									{userMediaDetails.isMonitored ? (
+									{userMetadataDetails.isMonitored ? (
 										<DisplayMediaMonitored />
 									) : null}
-									{userMediaDetails.ownership ? (
+									{userMetadataDetails.ownership ? (
 										<Flex align="center" gap={2}>
 											<IconBackpack size={20} />
 											<Text size="xs">You own this media</Text>
@@ -621,7 +621,7 @@ export default function Page() {
 					</Suspense>
 					<Suspense fallback={<FallbackForDefer />}>
 						<Await resolve={loaderData.mediaAdditionalDetails}>
-							{({ mediaDetails: mediaAdditionalDetails }) => (
+							{({ metadataDetails: mediaAdditionalDetails }) => (
 								<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 									{[
 										loaderData.mediaMainDetails.publishDate
@@ -679,10 +679,10 @@ export default function Page() {
 					</Suspense>
 					<Suspense fallback={<FallbackForDefer />}>
 						<Await resolve={loaderData.userMediaDetails}>
-							{({ userMediaDetails }) => (
+							{({ userMetadataDetails }) => (
 								<>
 									{loaderData.mediaMainDetails.providerRating ||
-									userMediaDetails.averageRating ? (
+									userMetadataDetails.averageRating ? (
 										<Group>
 											{loaderData.mediaMainDetails.providerRating ? (
 												<Paper
@@ -760,7 +760,7 @@ export default function Page() {
 													</Text>
 												</Paper>
 											) : null}
-											{userMediaDetails.averageRating ? (
+											{userMetadataDetails.averageRating ? (
 												<Paper
 													p={4}
 													display="flex"
@@ -775,7 +775,9 @@ export default function Page() {
 														style={{ color: "#EBE600FF" }}
 													/>
 													<Text fz="sm">
-														{Number(userMediaDetails.averageRating).toFixed(1)}
+														{Number(userMetadataDetails.averageRating).toFixed(
+															1,
+														)}
 														{loaderData.userPreferences.reviewScale ===
 														UserReviewScale.OutOfFive
 															? undefined
@@ -785,14 +787,14 @@ export default function Page() {
 											) : null}
 										</Group>
 									) : null}
-									{userMediaDetails?.reminder ? (
-										<DisplayMediaReminder d={userMediaDetails.reminder} />
+									{userMetadataDetails?.reminder ? (
+										<DisplayMediaReminder d={userMetadataDetails.reminder} />
 									) : null}
-									{userMediaDetails?.inProgress ? (
+									{userMetadataDetails?.inProgress ? (
 										<Alert icon={<IconAlertCircle />} variant="outline">
 											You are currently{" "}
 											{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
-											ing this ({userMediaDetails.inProgress.progress}%)
+											ing this ({userMetadataDetails.inProgress.progress}%)
 										</Alert>
 									) : null}
 								</>
@@ -910,7 +912,7 @@ export default function Page() {
 									<Stack>
 										<Suspense fallback={<FallbackForDefer />}>
 											<Await resolve={loaderData.mediaAdditionalDetails}>
-												{({ mediaDetails: mediaAdditionalDetails }) =>
+												{({ metadataDetails: mediaAdditionalDetails }) =>
 													mediaAdditionalDetails.creators.map((c) => (
 														<Box key={c.name}>
 															<Text fw="bold">{c.name}</Text>
@@ -967,17 +969,17 @@ export default function Page() {
 							>
 								<Suspense fallback={<FallbackForDefer />}>
 									<Await resolve={loaderData.userMediaDetails}>
-										{({ userMediaDetails }) => (
+										{({ userMetadataDetails }) => (
 											<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 												<Suspense fallback={<FallbackForDefer />}>
 													<Await resolve={loaderData.mediaAdditionalDetails}>
-														{({ mediaDetails: mediaAdditionalDetails }) => (
+														{({ metadataDetails: mediaAdditionalDetails }) => (
 															<>
-																{userMediaDetails.inProgress ? (
+																{userMetadataDetails.inProgress ? (
 																	<IndividualProgressModal
 																		title={loaderData.mediaMainDetails.title}
 																		progress={
-																			userMediaDetails.inProgress.progress
+																			userMetadataDetails.inProgress.progress
 																		}
 																		metadataId={loaderData.metadataId}
 																		onClose={progressModalClose}
@@ -1012,7 +1014,7 @@ export default function Page() {
 														MetadataLot.Show ? (
 															<>
 																<Menu.Label>Shows</Menu.Label>
-																{userMediaDetails.nextEntry ? (
+																{userMetadataDetails.nextEntry ? (
 																	<>
 																		<Menu.Item
 																			onClick={() => {
@@ -1020,27 +1022,27 @@ export default function Page() {
 																					showSeasonNumber:
 																						loaderData.mediaMainDetails.lot ===
 																						MetadataLot.Show
-																							? userMediaDetails.nextEntry
+																							? userMetadataDetails.nextEntry
 																									?.season
 																							: undefined,
 																					showEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
 																						MetadataLot.Show
-																							? userMediaDetails.nextEntry
+																							? userMetadataDetails.nextEntry
 																									?.episode
 																							: undefined,
 																				});
 																			}}
 																		>
 																			Mark{" "}
-																			{`S${userMediaDetails.nextEntry?.season}-E${userMediaDetails.nextEntry?.episode}`}{" "}
+																			{`S${userMetadataDetails.nextEntry?.season}-E${userMetadataDetails.nextEntry?.episode}`}{" "}
 																			as seen
 																		</Menu.Item>
 																		<PutOnHoldBtn />
 																	</>
 																) : null}
-																{userMediaDetails &&
-																userMediaDetails.history.length !== 0 ? (
+																{userMetadataDetails &&
+																userMetadataDetails.history.length !== 0 ? (
 																	<DropBtn />
 																) : (
 																	<Menu.Item disabled>
@@ -1053,7 +1055,7 @@ export default function Page() {
 														MetadataLot.Podcast ? (
 															<>
 																<Menu.Label>Podcasts</Menu.Label>
-																{userMediaDetails.nextEntry ? (
+																{userMetadataDetails.nextEntry ? (
 																	<>
 																		<Menu.Item
 																			onClick={() => {
@@ -1061,21 +1063,21 @@ export default function Page() {
 																					podcastEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
 																						MetadataLot.Podcast
-																							? userMediaDetails.nextEntry
+																							? userMetadataDetails.nextEntry
 																									?.episode
 																							: undefined,
 																				});
 																			}}
 																		>
 																			Mark EP-
-																			{userMediaDetails.nextEntry?.episode} as
-																			listened
+																			{userMetadataDetails.nextEntry?.episode}{" "}
+																			as listened
 																		</Menu.Item>
 																		<PutOnHoldBtn />
 																	</>
 																) : null}
-																{userMediaDetails &&
-																userMediaDetails.history.length !== 0 ? (
+																{userMetadataDetails &&
+																userMetadataDetails.history.length !== 0 ? (
 																	<DropBtn />
 																) : (
 																	<Menu.Item disabled>
@@ -1084,7 +1086,7 @@ export default function Page() {
 																)}
 															</>
 														) : null}
-														{userMediaDetails?.inProgress ? (
+														{userMetadataDetails?.inProgress ? (
 															<>
 																<Menu.Label>In progress</Menu.Label>
 																<Form
@@ -1196,18 +1198,18 @@ export default function Page() {
 														onClick={() => {
 															setPostReviewModalData({
 																showSeasonNumber:
-																	userMediaDetails?.nextEntry?.season ??
+																	userMetadataDetails?.nextEntry?.season ??
 																	undefined,
 																showEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
 																	MetadataLot.Show
-																		? userMediaDetails?.nextEntry?.episode ??
+																		? userMetadataDetails?.nextEntry?.episode ??
 																		  undefined
 																		: null,
 																podcastEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
 																	MetadataLot.Podcast
-																		? userMediaDetails?.nextEntry?.episode ??
+																		? userMetadataDetails?.nextEntry?.episode ??
 																		  undefined
 																		: null,
 															});
@@ -1247,14 +1249,14 @@ export default function Page() {
 															<Menu.Item
 																type="submit"
 																color={
-																	userMediaDetails.isMonitored
+																	userMetadataDetails.isMonitored
 																		? "red"
 																		: undefined
 																}
 																name="metadataId"
 																value={loaderData.metadataId}
 																onClick={(e) => {
-																	if (userMediaDetails.isMonitored)
+																	if (userMetadataDetails.isMonitored)
 																		if (
 																			!confirm(
 																				"Are you sure you want to stop monitoring this media?",
@@ -1263,7 +1265,7 @@ export default function Page() {
 																			e.preventDefault();
 																}}
 															>
-																{userMediaDetails.isMonitored
+																{userMetadataDetails.isMonitored
 																	? "Stop"
 																	: "Start"}{" "}
 																monitoring
@@ -1282,7 +1284,7 @@ export default function Page() {
 																Update metadata
 															</Menu.Item>
 														</Form>
-														{userMediaDetails.reminder ? (
+														{userMetadataDetails.reminder ? (
 															<Form
 																action="/actions?intent=deleteMediaReminder"
 																method="post"
@@ -1315,7 +1317,7 @@ export default function Page() {
 																Create reminder
 															</Menu.Item>
 														)}
-														{userMediaDetails.ownership ? (
+														{userMetadataDetails.ownership ? (
 															<Form
 																action="?intent=toggleMediaOwnership"
 																method="post"
@@ -1327,7 +1329,7 @@ export default function Page() {
 																	name="metadataId"
 																	value={loaderData.metadataId}
 																	onClick={(e) => {
-																		if (userMediaDetails.ownership)
+																		if (userMetadataDetails.ownership)
 																			if (
 																				!confirm(
 																					"Are you sure you want to remove ownership of this media?",
@@ -1357,16 +1359,16 @@ export default function Page() {
 						</Tabs.Panel>
 						<Suspense fallback={<FallbackForDefer />}>
 							<Await resolve={loaderData.mediaAdditionalDetails}>
-								{({ mediaDetails }) => (
+								{({ metadataDetails }) => (
 									<Suspense fallback={<FallbackForDefer />}>
 										<Await resolve={loaderData.userMediaDetails}>
-											{({ userMediaDetails }) => (
+											{({ userMetadataDetails }) => (
 												<>
 													<Tabs.Panel value="history">
-														{userMediaDetails.seenBy > 0 ||
-														userMediaDetails.history.length > 0 ||
-														userMediaDetails.unitsConsumed ||
-														userMediaDetails.ownership ? (
+														{userMetadataDetails.seenBy > 0 ||
+														userMetadataDetails.history.length > 0 ||
+														userMetadataDetails.unitsConsumed ||
+														userMetadataDetails.ownership ? (
 															<MediaScrollArea
 																itemDetailsHeight={
 																	loaderData.coreDetails.itemDetailsHeight
@@ -1376,17 +1378,20 @@ export default function Page() {
 																	<Box>
 																		<Text fz={{ base: "sm", md: "md" }}>
 																			Seen by all users{" "}
-																			{userMediaDetails.seenBy} time
-																			{userMediaDetails.seenBy > 1 ? "s" : ""}{" "}
-																			and {userMediaDetails.history.length} time
-																			{userMediaDetails &&
-																			userMediaDetails.history.length > 1
+																			{userMetadataDetails.seenBy} time
+																			{userMetadataDetails.seenBy > 1
+																				? "s"
+																				: ""}{" "}
+																			and {userMetadataDetails.history.length}{" "}
+																			time
+																			{userMetadataDetails &&
+																			userMetadataDetails.history.length > 1
 																				? "s"
 																				: ""}{" "}
 																			by you.
 																		</Text>
 
-																		{userMediaDetails.unitsConsumed ? (
+																		{userMetadataDetails.unitsConsumed ? (
 																			<Text fz={{ base: "sm", md: "md" }}>
 																				Consumed{" "}
 																				{match(loaderData.mediaMainDetails.lot)
@@ -1398,7 +1403,7 @@ export default function Page() {
 																						MetadataLot.VisualNovel,
 																						() =>
 																							humanizeDuration(
-																								(userMediaDetails.unitsConsumed ||
+																								(userMetadataDetails.unitsConsumed ||
 																									0) *
 																									1000 *
 																									60,
@@ -1407,7 +1412,7 @@ export default function Page() {
 																					.otherwise(
 																						(v) =>
 																							`${
-																								userMediaDetails.unitsConsumed
+																								userMetadataDetails.unitsConsumed
 																							} ${match(v)
 																								.with(
 																									MetadataLot.VideoGame,
@@ -1431,13 +1436,15 @@ export default function Page() {
 																			</Text>
 																		) : null}
 																	</Box>
-																	{userMediaDetails.history.map((h) => (
+																	{userMetadataDetails.history.map((h) => (
 																		<SeenItem
 																			history={h}
 																			key={h.id}
-																			showSpecifics={mediaDetails.showSpecifics}
+																			showSpecifics={
+																				metadataDetails.showSpecifics
+																			}
 																			podcastSpecifics={
-																				mediaDetails.podcastSpecifics
+																				metadataDetails.podcastSpecifics
 																			}
 																		/>
 																	))}
@@ -1456,10 +1463,10 @@ export default function Page() {
 						</Suspense>
 						<Suspense fallback={<FallbackForDefer />}>
 							<Await resolve={loaderData.userMediaDetails}>
-								{({ userMediaDetails }) => (
+								{({ userMetadataDetails }) => (
 									<Suspense fallback={<FallbackForDefer />}>
 										<Await resolve={loaderData.mediaAdditionalDetails}>
-											{({ mediaDetails: mediaAdditionalDetails }) => (
+											{({ metadataDetails: mediaAdditionalDetails }) => (
 												<>
 													{mediaAdditionalDetails.showSpecifics ? (
 														<Tabs.Panel value="seasons">
@@ -1487,7 +1494,7 @@ export default function Page() {
 																						displayIndicator={
 																							s.episodes.length > 0 &&
 																							s.episodes.every((e) =>
-																								userMediaDetails.history.some(
+																								userMetadataDetails.history.some(
 																									(h) =>
 																										h.progress === 100 &&
 																										h.showExtraInformation &&
@@ -1534,7 +1541,7 @@ export default function Page() {
 																									name={`${e.episodeNumber}. ${e.name}`}
 																									publishDate={e.publishDate}
 																									displayIndicator={
-																										userMediaDetails.history.filter(
+																										userMetadataDetails.history.filter(
 																											(h) =>
 																												h.progress === 100 &&
 																												h.showExtraInformation &&
@@ -1587,10 +1594,10 @@ export default function Page() {
 						</Suspense>
 						<Suspense fallback={<FallbackForDefer />}>
 							<Await resolve={loaderData.userMediaDetails}>
-								{({ userMediaDetails }) => (
+								{({ userMetadataDetails }) => (
 									<Suspense fallback={<FallbackForDefer />}>
 										<Await resolve={loaderData.mediaAdditionalDetails}>
-											{({ mediaDetails: mediaAdditionalDetails }) => (
+											{({ metadataDetails: mediaAdditionalDetails }) => (
 												<>
 													{mediaAdditionalDetails.podcastSpecifics ? (
 														<Tabs.Panel value="episodes">
@@ -1609,7 +1616,7 @@ export default function Page() {
 																				key={e.number}
 																				publishDate={e.publishDate}
 																				displayIndicator={
-																					userMediaDetails.history.filter(
+																					userMetadataDetails.history.filter(
 																						(h) =>
 																							h.podcastExtraInformation
 																								?.episode === e.number,
@@ -1642,18 +1649,18 @@ export default function Page() {
 						</Suspense>
 						<Suspense fallback={<FallbackForDefer />}>
 							<Await resolve={loaderData.userMediaDetails}>
-								{({ userMediaDetails }) => (
+								{({ userMetadataDetails }) => (
 									<>
 										{!loaderData.coreDetails.reviewsDisabled ? (
 											<Tabs.Panel value="reviews">
-												{userMediaDetails.reviews.length > 0 ? (
+												{userMetadataDetails.reviews.length > 0 ? (
 													<MediaScrollArea
 														itemDetailsHeight={
 															loaderData.coreDetails.itemDetailsHeight
 														}
 													>
 														<Stack>
-															{userMediaDetails.reviews.map((r) => (
+															{userMetadataDetails.reviews.map((r) => (
 																<ReviewItemDisplay
 																	entityType="metadata"
 																	review={r}
@@ -1681,7 +1688,7 @@ export default function Page() {
 						<Tabs.Panel value="suggestions">
 							<Suspense fallback={<FallbackForDefer />}>
 								<Await resolve={loaderData.mediaAdditionalDetails}>
-									{({ mediaDetails: mediaAdditionalDetails }) =>
+									{({ metadataDetails: mediaAdditionalDetails }) =>
 										mediaAdditionalDetails.suggestions.length > 0 ? (
 											<MediaScrollArea
 												itemDetailsHeight={
@@ -1742,7 +1749,7 @@ export default function Page() {
 							<Tabs.Panel value="watchProviders">
 								<Suspense fallback={<FallbackForDefer />}>
 									<Await resolve={loaderData.mediaAdditionalDetails}>
-										{({ mediaDetails: mediaAdditionalDetails }) =>
+										{({ metadataDetails: mediaAdditionalDetails }) =>
 											mediaAdditionalDetails.watchProviders.length > 0 ? (
 												<MediaScrollArea
 													itemDetailsHeight={
@@ -1898,7 +1905,7 @@ const ProgressUpdateModal = (props: {
 					) : null}
 					<Suspense fallback={<FallbackForDefer />}>
 						<Await resolve={loaderData.mediaAdditionalDetails}>
-							{({ mediaDetails: mediaAdditionalDetails }) => (
+							{({ metadataDetails: mediaAdditionalDetails }) => (
 								<>
 									{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
 										<>
@@ -2368,11 +2375,12 @@ const AccordionLabel = (props: {
 	);
 };
 
-type History = UserMediaDetailsQuery["userMediaDetails"]["history"][number];
+type History =
+	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 type ShowSpecifics =
-	MediaAdditionalDetailsQuery["mediaDetails"]["showSpecifics"];
+	MetadataAdditionalDetailsQuery["metadataDetails"]["showSpecifics"];
 type PodcastSpecifics =
-	MediaAdditionalDetailsQuery["mediaDetails"]["podcastSpecifics"];
+	MetadataAdditionalDetailsQuery["metadataDetails"]["podcastSpecifics"];
 
 const SeenItem = (props: {
 	history: History;

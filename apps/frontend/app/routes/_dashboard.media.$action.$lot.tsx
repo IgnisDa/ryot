@@ -28,12 +28,12 @@ import {
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaGeneralFilter,
-	MediaListDocument,
-	MediaSearchDocument,
 	MediaSortBy,
 	MediaSource,
-	MediaSourcesForLotDocument,
+	MetadataListDocument,
 	MetadataLot,
+	MetadataSearchDocument,
+	MetadataSourcesForLotDocument,
 	UserCollectionsListDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -133,8 +133,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.mineGeneralFilter),
 				collectionFilter: zx.IntAsString.optional(),
 			});
-			const { mediaList } = await gqlClient.request(
-				MediaListDocument,
+			const { metadataList } = await gqlClient.request(
+				MetadataListDocument,
 				{
 					input: {
 						lot,
@@ -148,18 +148,18 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 				await getAuthorizationHeader(request),
 			);
-			return [{ list: mediaList, url: urlParse }, undefined] as const;
+			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
-			const { mediaSourcesForLot } = await gqlClient.request(
-				MediaSourcesForLotDocument,
+			const { metadataSourcesForLot } = await gqlClient.request(
+				MetadataSourcesForLotDocument,
 				{ lot },
 			);
 			const urlParse = zx.parseQuery(request, {
-				source: z.nativeEnum(MediaSource).default(mediaSourcesForLot[0]),
+				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { mediaSearch } = await gqlClient.request(
-				MediaSearchDocument,
+			const { metadataSearch } = await gqlClient.request(
+				MetadataSearchDocument,
 				{
 					input: {
 						lot,
@@ -172,9 +172,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			return [
 				undefined,
 				{
-					search: mediaSearch,
+					search: metadataSearch,
 					url: urlParse,
-					mediaSources: mediaSourcesForLot,
+					mediaSources: metadataSourcesForLot,
 				},
 			] as const;
 		})
