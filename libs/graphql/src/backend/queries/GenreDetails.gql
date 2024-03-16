@@ -12,7 +12,7 @@ query GenreDetails($input: GenreDetailsInput!) {
       }
       items {
         details {
-          ...MediaSearchItemPart
+          ...MetadataSearchItemPart
         }
         metadataLot
       }

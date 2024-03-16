@@ -17,8 +17,8 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+            MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
+            MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
             PartialMetadataWithoutId, PersonSourceSpecifics, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -331,7 +331,7 @@ where id = {id};
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let client = get_client(&self.config).await;
         let count_req_body =
@@ -370,7 +370,7 @@ offset: {offset};
             .into_iter()
             .map(|r| {
                 let a = self.igdb_response_to_search_response(r);
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier: a.identifier,
                     title: a.title,
                     image: a.url_images.first().map(|i| i.image.clone()),

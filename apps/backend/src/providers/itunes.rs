@@ -11,8 +11,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataImageLot, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -186,7 +186,7 @@ impl MediaProvider for ITunesService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
@@ -230,7 +230,7 @@ impl MediaProvider for ITunesService {
     }
 }
 
-fn get_search_response(item: ITunesItem) -> MediaSearchItem {
+fn get_search_response(item: ITunesItem) -> MetadataSearchItem {
     let mut images = vec![];
     if let Some(a) = item.artwork_url_600 {
         images.push(a);
@@ -246,7 +246,7 @@ fn get_search_response(item: ITunesItem) -> MediaSearchItem {
     }
     let date = item.release_date.map(|d| d.date_naive());
     let publish_year = date.map(|d| d.year());
-    MediaSearchItem {
+    MetadataSearchItem {
         identifier: item.collection_id.to_string(),
         title: item.collection_name,
         image: images.first().cloned(),

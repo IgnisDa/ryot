@@ -21,8 +21,8 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataImage, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            MediaDetails, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
             PartialMetadataPerson, PartialMetadataWithoutId, PersonSourceSpecifics, ShowEpisode,
             ShowSeason, ShowSpecifics, WatchProvider,
         },
@@ -353,7 +353,7 @@ impl MediaProvider for TmdbMovieService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
@@ -372,7 +372,7 @@ impl MediaProvider for TmdbMovieService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| MediaSearchItem {
+            .map(|d| MetadataSearchItem {
                 identifier: d.id.to_string(),
                 title: d.title.unwrap(),
                 publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
@@ -894,7 +894,7 @@ impl MediaProvider for TmdbShowService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
@@ -912,7 +912,7 @@ impl MediaProvider for TmdbShowService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| MediaSearchItem {
+            .map(|d| MetadataSearchItem {
                 identifier: d.id.to_string(),
                 title: d.title.unwrap_or_default(),
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),

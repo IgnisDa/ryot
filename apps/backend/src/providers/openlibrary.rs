@@ -14,8 +14,8 @@ use tracing::instrument;
 use crate::{
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, PartialMetadataPerson, PartialMetadataWithoutId,
+            BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
             PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
@@ -395,7 +395,7 @@ impl MediaProvider for OpenlibraryService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize)]
         pub struct OpenlibraryBook {
@@ -471,7 +471,7 @@ impl MediaProvider for OpenlibraryService {
             items: data
                 .items
                 .into_iter()
-                .map(|b| MediaSearchItem {
+                .map(|b| MetadataSearchItem {
                     identifier: b.identifier,
                     title: b.title,
                     image: b.images.first().cloned(),

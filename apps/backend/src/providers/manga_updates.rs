@@ -11,8 +11,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            MangaSpecifics, MediaDetails, MediaSearchItem, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, PartialMetadataPerson, PartialMetadataWithoutId,
+            MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
             PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
@@ -296,7 +296,7 @@ impl MediaProvider for MangaUpdatesService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let search: SearchResponse = self
             .client
@@ -315,7 +315,7 @@ impl MediaProvider for MangaUpdatesService {
         let items = search
             .results
             .into_iter()
-            .map(|s| MediaSearchItem {
+            .map(|s| MetadataSearchItem {
                 identifier: s.record.series_id.unwrap().to_string(),
                 title: s.hit_title,
                 image: s.record.image.unwrap().url.original,

@@ -179,14 +179,14 @@ pub mod media {
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MediaSearchItemWithLot {
-        pub details: MediaSearchItem,
+        pub details: MetadataSearchItem,
         pub metadata_lot: Option<MetadataLot>,
         pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaSearchItemResponse {
-        pub item: MediaSearchItem,
+        pub item: MetadataSearchItem,
         /// Whether the user has interacted with this media item.
         pub has_interacted: bool,
         pub database_id: Option<i32>,
@@ -246,7 +246,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaListItem {
-        pub data: MediaSearchItem,
+        pub data: MetadataSearchItem,
         pub average_rating: Option<Decimal>,
     }
 
@@ -563,7 +563,7 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct MediaSearchItem {
+    pub struct MetadataSearchItem {
         pub identifier: String,
         pub title: String,
         pub image: Option<String>,

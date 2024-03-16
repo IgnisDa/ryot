@@ -11,8 +11,8 @@ use surf::Client;
 use crate::{
     models::{
         media::{
-            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem,
-            MetadataImageForMediaDetails, MetadataImageLot, PartialMetadataWithoutId,
+            AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataSearchItem, PartialMetadataWithoutId,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -77,7 +77,7 @@ impl MediaProvider for MalAnimeService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) =
             search(&self.base.client, "anime", query, page, self.page_limit).await?;
         Ok(SearchResults {
@@ -115,7 +115,7 @@ impl MediaProvider for MalMangaService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) =
             search(&self.base.client, "manga", query, page, self.page_limit).await?;
         Ok(SearchResults {
@@ -135,7 +135,7 @@ async fn search(
     q: &str,
     page: Option<i32>,
     limit: i32,
-) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
+) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
     let offset = (page - 1) * limit;
     #[derive(Serialize, Deserialize, Debug)]
@@ -159,7 +159,7 @@ async fn search(
     let items = search
         .data
         .into_iter()
-        .map(|d| MediaSearchItem {
+        .map(|d| MetadataSearchItem {
             identifier: d.node.id.to_string(),
             title: d.node.title,
             publish_year: d.node.start_date.and_then(|d| convert_date_to_year(&d)),

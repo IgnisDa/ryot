@@ -9,7 +9,7 @@ use crate::{
     file_storage::FileStorageService,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataWithoutId,
+            MediaDetails, MetadataPerson, MetadataSearchItem, PartialMetadataWithoutId,
             PersonSourceSpecifics,
         },
         SearchResults,
@@ -26,7 +26,7 @@ pub trait MediaProvider {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         bail!("This provider does not support searching media")
     }
 

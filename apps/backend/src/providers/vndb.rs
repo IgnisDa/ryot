@@ -11,8 +11,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, PartialMetadataPerson, PersonSourceSpecifics, VisualNovelSpecifics,
+            MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
+            MetadataSearchItem, PartialMetadataPerson, PersonSourceSpecifics, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -144,7 +144,7 @@ impl MediaProvider for VndbService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
@@ -173,7 +173,7 @@ impl MediaProvider for VndbService {
                     ..
                 } = self.vndb_response_to_search_response(b);
                 let image = url_images.first().map(|i| i.image.clone());
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier,
                     title,
                     image,

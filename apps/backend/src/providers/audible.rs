@@ -15,8 +15,8 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
+            AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataSearchItem, PartialMetadataPerson,
             PartialMetadataWithoutId, PersonSourceSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
@@ -325,7 +325,7 @@ impl MediaProvider for AudibleService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
@@ -351,7 +351,7 @@ impl MediaProvider for AudibleService {
             .into_iter()
             .map(|d| {
                 let a = self.audible_response_to_search_response(d);
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier: a.identifier,
                     title: a.title,
                     image: a.url_images.first().map(|i| i.image.clone()),

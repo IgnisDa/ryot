@@ -16,8 +16,8 @@ use surf::Client;
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataImageLot, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataSearchItem, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
         },
         IdAndNamedObject, SearchDetails, SearchResults,
     },
@@ -132,7 +132,7 @@ impl MediaProvider for ListennotesService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
@@ -169,7 +169,7 @@ impl MediaProvider for ListennotesService {
         let resp = search
             .results
             .into_iter()
-            .map(|r| MediaSearchItem {
+            .map(|r| MetadataSearchItem {
                 identifier: r.id,
                 title: r.title_original,
                 image: r.image,

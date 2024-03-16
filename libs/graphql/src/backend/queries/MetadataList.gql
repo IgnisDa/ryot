@@ -7,7 +7,7 @@ query MetadataList($input: MetadataListInput!) {
     items {
       averageRating
       data {
-        ...MediaSearchItemPart
+        ...MetadataSearchItemPart
       }
     }
   }

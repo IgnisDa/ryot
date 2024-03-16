@@ -76,16 +76,16 @@ use crate::{
             GenreListItem, ImportOrExportItemRating, ImportOrExportItemReview,
             ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MediaSearchItem, MediaSearchItemResponse, MediaSearchItemWithLot,
-            MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataVideo, MetadataVideoSource,
-            MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
-            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
-            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            MediaListItem, MediaSearchItemResponse, MediaSearchItemWithLot, MetadataFreeCreator,
+            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
+            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
+            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
+            WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -2402,7 +2402,7 @@ impl MiscellaneousService {
                 })
                 .await?;
             let m_small = MediaListItem {
-                data: MediaSearchItem {
+                data: MetadataSearchItem {
                     identifier: met.id.to_string(),
                     title: met.title,
                     image: assets.images.first().cloned(),
@@ -4121,7 +4121,7 @@ impl MiscellaneousService {
                 let item = if let Some(id) = cte.metadata_id {
                     let m = Metadata::find_by_id(id).one(&self.db).await?.unwrap();
                     MediaSearchItemWithLot {
-                        details: MediaSearchItem {
+                        details: MetadataSearchItem {
                             identifier: m.id.to_string(),
                             title: m.title,
                             image: m.images.first_as_url(&self.file_storage_service).await,
@@ -4133,7 +4133,7 @@ impl MiscellaneousService {
                 } else if let Some(id) = cte.person_id {
                     let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
                     MediaSearchItemWithLot {
-                        details: MediaSearchItem {
+                        details: MetadataSearchItem {
                             identifier: p.id.to_string(),
                             title: p.name,
                             image: p.images.first_as_url(&self.file_storage_service).await,
@@ -4145,7 +4145,7 @@ impl MiscellaneousService {
                 } else if let Some(id) = cte.metadata_group_id {
                     let g = MetadataGroup::find_by_id(id).one(&self.db).await?.unwrap();
                     MediaSearchItemWithLot {
-                        details: MediaSearchItem {
+                        details: MetadataSearchItem {
                             identifier: g.id.to_string(),
                             title: g.title,
                             image: Some(g.images)
@@ -4164,7 +4164,7 @@ impl MiscellaneousService {
                         None
                     };
                     MediaSearchItemWithLot {
-                        details: MediaSearchItem {
+                        details: MetadataSearchItem {
                             identifier: e.id.to_string(),
                             title: e.id,
                             image,
@@ -6471,7 +6471,7 @@ GROUP BY
                 .unwrap();
             let image = m.images.first_as_url(&self.file_storage_service).await;
             let metadata = MediaSearchItemWithLot {
-                details: MediaSearchItem {
+                details: MetadataSearchItem {
                     image,
                     title: m.title,
                     publish_year: m.publish_year,

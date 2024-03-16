@@ -11,8 +11,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            AnimeSpecifics, MangaSpecifics, MediaDetails, MediaSearchItem,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
+            AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
             MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
             PersonSourceSpecifics,
         },
@@ -126,7 +126,7 @@ impl MediaProvider for AnilistAnimeService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
             search_query::MediaType::ANIME,
@@ -175,7 +175,7 @@ impl MediaProvider for AnilistMangaService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
             search_query::MediaType::MANGA,
@@ -465,7 +465,7 @@ async fn search(
     page_limit: i32,
     _is_adult: bool,
     prefer_english: bool,
-) -> Result<(Vec<MediaSearchItem>, i32, Option<i32>)> {
+) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
     let variables = search_query::Variables {
         page: page.into(),
@@ -506,7 +506,7 @@ async fn search(
             } else {
                 title.user_preferred.unwrap()
             };
-            MediaSearchItem {
+            MetadataSearchItem {
                 identifier: b.id.to_string(),
                 title,
                 image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
