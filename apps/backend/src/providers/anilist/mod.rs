@@ -32,7 +32,7 @@ static STUDIO_ROLE: &str = "Production Studio";
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
-struct SearchQuery;
+struct MediaSearchQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -140,7 +140,7 @@ impl MediaProvider for AnilistAnimeService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
-            search_query::MediaType::ANIME,
+            media_search_query::MediaType::ANIME,
             query,
             page,
             self.page_limit,
@@ -190,7 +190,7 @@ impl MediaProvider for AnilistMangaService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
-            search_query::MediaType::MANGA,
+            media_search_query::MediaType::MANGA,
             query,
             page,
             self.page_limit,
@@ -549,7 +549,7 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
 
 async fn search(
     client: &Client,
-    media_type: search_query::MediaType,
+    media_type: media_search_query::MediaType,
     query: &str,
     page: Option<i32>,
     page_limit: i32,
@@ -557,13 +557,13 @@ async fn search(
     prefer_english: bool,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
-    let variables = search_query::Variables {
+    let variables = media_search_query::Variables {
         page: page.into(),
         search: query.to_owned(),
         type_: media_type,
         per_page: page_limit.into(),
     };
-    let body = SearchQuery::build_query(variables);
+    let body = MediaSearchQuery::build_query(variables);
     let search = client
         .post("")
         .body_json(&body)
@@ -571,7 +571,7 @@ async fn search(
         .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json::<Response<search_query::ResponseData>>()
+        .body_json::<Response<media_search_query::ResponseData>>()
         .await
         .map_err(|e| anyhow!(e))?
         .data
