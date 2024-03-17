@@ -56,7 +56,7 @@ import { DisplayExerciseStats } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import { getUserPreferences } from "~/lib/graphql.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const searchParamsSchema = z.object({
@@ -71,13 +71,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	invariant(typeof exerciseId === "string", "id must be a string");
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [
-		coreDetails,
 		userPreferences,
 		{ exerciseDetails },
 		{ userExerciseDetails },
 		{ userCollectionsList: collections },
 	] = await Promise.all([
-		getCoreDetails(),
 		getUserPreferences(request),
 		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
 		gqlClient.request(
@@ -95,7 +93,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		query,
 		exerciseDetails,
 		userExerciseDetails,
-		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
@@ -125,7 +122,7 @@ export default function Page() {
 	const navigate = useNavigate();
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}} px="lg">
+		<Container fluid style={{ margin: "1rem 3rem" }} px="lg">
 			<Stack>
 				<Title id="exercise-title">{loaderData.exerciseDetails.id}</Title>
 				{loaderData.userExerciseDetails.collections.length > 0 ? (
@@ -417,9 +414,7 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					<Tabs.Panel value="actions">
-						<MediaScrollArea
-							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-						>
+						<MediaScrollArea>
 							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 								<Button variant="outline" onClick={collectionModalOpen}>
 									Add to collection

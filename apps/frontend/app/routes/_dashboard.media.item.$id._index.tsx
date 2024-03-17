@@ -172,10 +172,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			videosDisabled: userPreferences.general.disableVideos,
 			watchProvidersDisabled: userPreferences.general.disableWatchProviders,
 		},
-		coreDetails: {
-			itemDetailsHeight: coreDetails.itemDetailsHeight,
-			reviewsDisabled: coreDetails.reviewsDisabled,
-		},
+		coreDetails: { reviewsDisabled: coreDetails.reviewsDisabled },
 		userDetails,
 		metadataId,
 		mediaMainDetails,
@@ -560,7 +557,7 @@ export default function Page() {
 				title={loaderData.mediaMainDetails.title}
 				lot={loaderData.mediaMainDetails.lot}
 			/>
-			<Container fluid style={{margin: '1rem 3rem'}}>
+			<Container fluid style={{ margin: "1rem 3rem" }}>
 				<MediaDetailsLayout
 					images={loaderData.mediaMainDetails.assets.images}
 					externalLink={{
@@ -868,9 +865,7 @@ export default function Page() {
 							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="overview">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
+							<MediaScrollArea>
 								<Stack gap="sm">
 									<SimpleGrid
 										cols={{ base: 3, xl: 4 }}
@@ -962,9 +957,7 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
+							<MediaScrollArea>
 								<Suspense fallback={<FallbackForDefer />}>
 									<Await resolve={loaderData.userMediaDetails}>
 										{({ userMediaDetails }) => (
@@ -1367,11 +1360,7 @@ export default function Page() {
 														userMediaDetails.history.length > 0 ||
 														userMediaDetails.unitsConsumed ||
 														userMediaDetails.ownership ? (
-															<MediaScrollArea
-																itemDetailsHeight={
-																	loaderData.coreDetails.itemDetailsHeight
-																}
-															>
+															<MediaScrollArea>
 																<Stack>
 																	<Box>
 																		<Text fz={{ base: "sm", md: "md" }}>
@@ -1463,11 +1452,7 @@ export default function Page() {
 												<>
 													{mediaAdditionalDetails.showSpecifics ? (
 														<Tabs.Panel value="seasons">
-															<MediaScrollArea
-																itemDetailsHeight={
-																	loaderData.coreDetails.itemDetailsHeight
-																}
-															>
+															<MediaScrollArea>
 																<Accordion
 																	chevronPosition="right"
 																	variant="contained"
@@ -1594,11 +1579,7 @@ export default function Page() {
 												<>
 													{mediaAdditionalDetails.podcastSpecifics ? (
 														<Tabs.Panel value="episodes">
-															<MediaScrollArea
-																itemDetailsHeight={
-																	loaderData.coreDetails.itemDetailsHeight
-																}
-															>
+															<MediaScrollArea>
 																<Stack ml="md">
 																	{mediaAdditionalDetails.podcastSpecifics.episodes.map(
 																		(e) => (
@@ -1647,11 +1628,7 @@ export default function Page() {
 										{!loaderData.coreDetails.reviewsDisabled ? (
 											<Tabs.Panel value="reviews">
 												{userMediaDetails.reviews.length > 0 ? (
-													<MediaScrollArea
-														itemDetailsHeight={
-															loaderData.coreDetails.itemDetailsHeight
-														}
-													>
+													<MediaScrollArea>
 														<Stack>
 															{userMediaDetails.reviews.map((r) => (
 																<ReviewItemDisplay
@@ -1683,11 +1660,7 @@ export default function Page() {
 								<Await resolve={loaderData.mediaAdditionalDetails}>
 									{({ mediaDetails: mediaAdditionalDetails }) =>
 										mediaAdditionalDetails.suggestions.length > 0 ? (
-											<MediaScrollArea
-												itemDetailsHeight={
-													loaderData.coreDetails.itemDetailsHeight
-												}
-											>
+											<MediaScrollArea>
 												<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 													{mediaAdditionalDetails.suggestions.map((sug) => (
 														<PartialMetadataDisplay
@@ -1706,9 +1679,7 @@ export default function Page() {
 						</Tabs.Panel>
 						{!loaderData.userPreferences.videosDisabled ? (
 							<Tabs.Panel value="videos">
-								<MediaScrollArea
-									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-								>
+								<MediaScrollArea>
 									<Stack>
 										{loaderData.mediaMainDetails.assets.videos.map((v) => (
 											<Box key={v.videoId}>
@@ -1744,11 +1715,7 @@ export default function Page() {
 									<Await resolve={loaderData.mediaAdditionalDetails}>
 										{({ mediaDetails: mediaAdditionalDetails }) =>
 											mediaAdditionalDetails.watchProviders.length > 0 ? (
-												<MediaScrollArea
-													itemDetailsHeight={
-														loaderData.coreDetails.itemDetailsHeight
-													}
-												>
+												<MediaScrollArea>
 													<Stack gap="sm">
 														<Text>
 															JustWatch makes it easy to find out where you can
