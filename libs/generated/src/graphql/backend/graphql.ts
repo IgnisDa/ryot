@@ -1270,9 +1270,16 @@ export type PersonSearchItem = {
   name: Scalars['String']['output'];
 };
 
+export type PersonSearchItemResponse = {
+  databaseId?: Maybe<Scalars['Int']['output']>;
+  /** Whether the user has interacted with this person. */
+  hasInteracted: Scalars['Boolean']['output'];
+  item: PersonSearchItem;
+};
+
 export type PersonSearchResults = {
   details: SearchDetails;
-  items: Array<PersonSearchItem>;
+  items: Array<PersonSearchItemResponse>;
 };
 
 export enum PersonSortBy {

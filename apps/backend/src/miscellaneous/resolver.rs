@@ -80,8 +80,8 @@ use crate::{
             MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSearchItem, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            PartialMetadataWithoutId, PersonSearchItem, PersonSearchItemResponse, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
             SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
@@ -997,7 +997,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PersonSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_search(user_id, input).await
@@ -7133,7 +7133,7 @@ GROUP BY
         &self,
         user_id: i32,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PersonSearchItemResponse>> {
         todo!()
     }
 
