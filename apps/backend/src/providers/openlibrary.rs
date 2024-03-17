@@ -16,7 +16,7 @@ use crate::{
         media::{
             BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-            PersonSourceSpecifics,
+            PersonSearchItem, PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -84,6 +84,13 @@ pub struct OpenlibraryService {
     page_limit: i32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct OpenLibrarySearchResponse<T> {
+    #[serde(alias = "numFound")]
+    num_found: i32,
+    docs: Vec<T>,
+}
+
 impl MediaProviderLanguages for OpenlibraryService {
     fn supported_languages() -> Vec<String> {
         ["us"].into_iter().map(String::from).collect()
@@ -108,6 +115,56 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
+    async fn person_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PersonSearchItem>> {
+        let page = page.unwrap_or(1);
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct OpenlibraryAuthor {
+            key: String,
+            name: String,
+            birth_date: Option<String>,
+        }
+        let mut rsp = self
+            .client
+            .get("search/authors.json")
+            .query(&json!({
+                "q": query.to_owned(),
+                "offset": (page - 1) * self.page_limit,
+                "limit": self.page_limit,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: OpenLibrarySearchResponse<OpenlibraryAuthor> =
+            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = search
+            .docs
+            .into_iter()
+            .map(|d| PersonSearchItem {
+                identifier: get_key(&d.key),
+                name: d.name,
+                image: None,
+                birth_year: d.birth_date.and_then(|b| parse_date(&b)).map(|d| d.year()),
+            })
+            .collect_vec();
+        let data = SearchResults {
+            details: SearchDetails {
+                total: search.num_found,
+                next_page: if search.num_found - ((page) * self.page_limit) > 0 {
+                    Some(page + 1)
+                } else {
+                    None
+                },
+            },
+            items: resp,
+        };
+        Ok(data)
+    }
+
     async fn person_details(
         &self,
         identity: &str,
@@ -407,11 +464,6 @@ impl MediaProvider for OpenlibraryService {
             first_publish_year: Option<i32>,
             number_of_pages_median: Option<i32>,
         }
-        #[derive(Serialize, Deserialize, Debug)]
-        struct OpenLibrarySearchResponse {
-            num_found: i32,
-            docs: Vec<OpenlibraryBook>,
-        }
         let fields = [
             "key",
             "title",
@@ -433,7 +485,8 @@ impl MediaProvider for OpenlibraryService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenLibrarySearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: OpenLibrarySearchResponse<OpenlibraryBook> =
+            rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .docs
             .into_iter()
