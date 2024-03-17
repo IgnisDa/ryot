@@ -13,7 +13,7 @@ use crate::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
-            MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
+            MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PersonSearchItem,
             PersonSourceSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
@@ -83,6 +83,7 @@ struct StudioQuery;
 pub struct AnilistService {
     client: Client,
     prefer_english: bool,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -101,12 +102,13 @@ pub struct NonMediaAnilistService {
 }
 
 impl NonMediaAnilistService {
-    pub async fn new() -> Self {
+    pub async fn new(page_limit: i32) -> Self {
         let client = get_client_config(URL).await;
         Self {
             base: AnilistService {
                 client,
                 prefer_english: false,
+                page_limit,
             },
         }
     }
@@ -114,6 +116,113 @@ impl NonMediaAnilistService {
 
 #[async_trait]
 impl MediaProvider for NonMediaAnilistService {
+    async fn person_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PersonSearchItem>> {
+        let is_studio = matches!(
+            source_specifics,
+            Some(PersonSourceSpecifics::Anilist { is_studio: true })
+        );
+        let (items, total, next_page) = if is_studio {
+            let variables = studios_search_query::Variables {
+                page: page.unwrap_or(1).into(),
+                search: query.to_owned(),
+                per_page: self.base.page_limit.into(),
+            };
+            let body = StudiosSearchQuery::build_query(variables);
+            let search = self
+                .base
+                .client
+                .post("")
+                .body_json(&body)
+                .unwrap()
+                .send()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json::<Response<studios_search_query::ResponseData>>()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .data
+                .unwrap()
+                .page
+                .unwrap();
+            let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+            let next_page = if total - (page.unwrap_or(1) * 10) > 0 {
+                Some(page.unwrap_or(1) + 1)
+            } else {
+                None
+            };
+            let items = search
+                .studios
+                .unwrap()
+                .into_iter()
+                .map(|s| {
+                    let data = s.unwrap();
+                    PersonSearchItem {
+                        identifier: data.id.to_string(),
+                        name: data.name,
+                        image: None,
+                        birth_year: None,
+                    }
+                })
+                .collect();
+            (items, total, next_page)
+        } else {
+            let variables = staff_search_query::Variables {
+                page: page.unwrap_or(1).into(),
+                search: query.to_owned(),
+                per_page: self.base.page_limit.into(),
+            };
+            let body = StaffSearchQuery::build_query(variables);
+            let search = self
+                .base
+                .client
+                .post("")
+                .body_json(&body)
+                .unwrap()
+                .send()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json::<Response<staff_search_query::ResponseData>>()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .data
+                .unwrap()
+                .page
+                .unwrap();
+            let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+            let next_page = if total - (page.unwrap_or(1) * 10) > 0 {
+                Some(page.unwrap_or(1) + 1)
+            } else {
+                None
+            };
+            let items = search
+                .staff
+                .unwrap()
+                .into_iter()
+                .map(|s| {
+                    let data = s.unwrap();
+                    PersonSearchItem {
+                        identifier: data.id.to_string(),
+                        name: data.name.unwrap().full.unwrap(),
+                        image: data.image.and_then(|i| i.medium),
+                        birth_year: data
+                            .date_of_birth
+                            .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+                    }
+                })
+                .collect();
+            (items, total, next_page)
+        };
+        Ok(SearchResults {
+            details: SearchDetails { total, next_page },
+            items,
+        })
+    }
+
     async fn person_details(
         &self,
         identity: &str,
@@ -297,7 +406,6 @@ impl MediaProvider for NonMediaAnilistService {
 #[derive(Debug, Clone)]
 pub struct AnilistAnimeService {
     base: AnilistService,
-    page_limit: i32,
 }
 
 impl AnilistAnimeService {
@@ -307,8 +415,8 @@ impl AnilistAnimeService {
             base: AnilistService {
                 client,
                 prefer_english: config.prefer_english,
+                page_limit,
             },
-            page_limit,
         }
     }
 }
@@ -332,7 +440,7 @@ impl MediaProvider for AnilistAnimeService {
             media_search_query::MediaType::ANIME,
             query,
             page,
-            self.page_limit,
+            self.base.page_limit,
             display_nsfw,
             self.base.prefer_english,
         )
@@ -347,7 +455,6 @@ impl MediaProvider for AnilistAnimeService {
 #[derive(Debug, Clone)]
 pub struct AnilistMangaService {
     base: AnilistService,
-    page_limit: i32,
 }
 
 impl AnilistMangaService {
@@ -357,8 +464,8 @@ impl AnilistMangaService {
             base: AnilistService {
                 client,
                 prefer_english: config.prefer_english,
+                page_limit,
             },
-            page_limit,
         }
     }
 }
@@ -382,7 +489,7 @@ impl MediaProvider for AnilistMangaService {
             media_search_query::MediaType::MANGA,
             query,
             page,
-            self.page_limit,
+            self.base.page_limit,
             display_nsfw,
             self.base.prefer_english,
         )

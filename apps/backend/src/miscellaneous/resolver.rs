@@ -3877,7 +3877,9 @@ impl MiscellaneousService {
                 )
                 .await,
             ),
-            MediaSource::Anilist => Box::new(NonMediaAnilistService::new().await),
+            MediaSource::Anilist => {
+                Box::new(NonMediaAnilistService::new(self.config.frontend.page_size).await)
+            }
             MediaSource::Mal => Box::new(NonMediaMalService::new().await),
             MediaSource::Custom => return err(),
         };
