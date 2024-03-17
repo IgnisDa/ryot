@@ -648,14 +648,7 @@ export default function Page() {
 													60,
 											),
 										mediaAdditionalDetails.showSpecifics?.totalSeasons &&
-											`${
-												mediaAdditionalDetails.showSpecifics.totalSeasons
-											} season${
-												mediaAdditionalDetails.showSpecifics.seasons.length ===
-												1
-													? ""
-													: "s"
-											}`,
+											`${mediaAdditionalDetails.showSpecifics.totalSeasons} seasons`,
 										mediaAdditionalDetails.showSpecifics?.totalEpisodes &&
 											`${mediaAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
 										mediaAdditionalDetails.showSpecifics?.runtime &&
