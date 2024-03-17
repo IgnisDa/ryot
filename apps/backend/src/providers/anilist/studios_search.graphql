@@ -1,0 +1,15 @@
+query StudiosSearchQuery(
+  $search: String!
+  $page: Int!
+  $perPage: Int!
+) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+    }
+    studios(search: $search) {
+      id
+      name
+    }
+  }
+}

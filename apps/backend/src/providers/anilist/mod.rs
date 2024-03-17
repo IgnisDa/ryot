@@ -37,6 +37,24 @@ struct MediaSearchQuery;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/staff_search.graphql",
+    response_derives = "Debug,Clone",
+    variables_derives = "Debug"
+)]
+struct StaffSearchQuery;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/providers/anilist/schema.json",
+    query_path = "src/providers/anilist/studios_search.graphql",
+    response_derives = "Debug,Clone",
+    variables_derives = "Debug"
+)]
+struct StudiosSearchQuery;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/providers/anilist/schema.json",
     query_path = "src/providers/anilist/media_details.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
