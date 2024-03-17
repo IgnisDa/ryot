@@ -419,7 +419,6 @@ export default function Page() {
 							/>
 							{loaderData.mediaSearch.mediaSources.length > 1 ? (
 								<Select
-									w="37%"
 									value={loaderData.mediaSearch.url.source}
 									data={loaderData.mediaSearch.mediaSources.map((o) => ({
 										value: o.toString(),
