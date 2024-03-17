@@ -751,6 +751,13 @@ export type MediaListResults = {
   items: Array<MediaListItem>;
 };
 
+export type MediaSearchItemResponse = {
+  databaseId?: Maybe<Scalars['Int']['output']>;
+  /** Whether the user has interacted with this media item. */
+  hasInteracted: Scalars['Boolean']['output'];
+  item: MetadataSearchItem;
+};
+
 export enum MediaSortBy {
   LastSeen = 'LAST_SEEN',
   LastUpdated = 'LAST_UPDATED',
@@ -869,13 +876,6 @@ export type MetadataSearchItem = {
   title: Scalars['String']['output'];
 };
 
-export type MetadataSearchItemResponse = {
-  databaseId?: Maybe<Scalars['Int']['output']>;
-  /** Whether the user has interacted with this media item. */
-  hasInteracted: Scalars['Boolean']['output'];
-  item: MetadataSearchItem;
-};
-
 export type MetadataSearchItemWithLot = {
   details: MetadataSearchItem;
   entityLot: EntityLot;
@@ -884,7 +884,7 @@ export type MetadataSearchItemWithLot = {
 
 export type MetadataSearchResults = {
   details: SearchDetails;
-  items: Array<MetadataSearchItemResponse>;
+  items: Array<MediaSearchItemResponse>;
 };
 
 export enum MetadataVideoSource {

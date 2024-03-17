@@ -90,11 +90,6 @@ pub struct SearchDetails {
     params(media::MetadataSearchItemWithLot)
 ))]
 #[graphql(concrete(
-    name = "MetadataSearchResults",
-    params(media::MetadataSearchItemResponse)
-))]
-#[graphql(concrete(name = "PersonSearchResults", params(media::PersonSearchItem)))]
-#[graphql(concrete(
     name = "PublicCollectionsListResults",
     params(media::PublicCollectionItem)
 ))]
@@ -109,6 +104,11 @@ pub struct SearchDetails {
     params(media::MetadataGroupListItem)
 ))]
 #[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
+#[graphql(concrete(
+    name = "MetadataSearchResults",
+    params(media::MetadataSearchItemResponse)
+))]
+#[graphql(concrete(name = "PersonSearchResults", params(media::PersonSearchItemResponse)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
@@ -189,11 +189,23 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct MetadataSearchItemResponse {
-        pub item: MetadataSearchItem,
+    pub struct MediaSearchItemResponse<T: OutputType> {
+        pub item: T,
         /// Whether the user has interacted with this media item.
         pub has_interacted: bool,
         pub database_id: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct MetadataSearchItemResponse {
+        #[graphql(flatten)]
+        pub data: MediaSearchItemResponse<MetadataSearchItem>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct PersonSearchItemResponse {
+        #[graphql(flatten)]
+        pub data: MediaSearchItemResponse<PersonSearchItem>,
     }
 
     #[derive(
