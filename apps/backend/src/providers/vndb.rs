@@ -12,7 +12,8 @@ use crate::{
     models::{
         media::{
             MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
-            MetadataSearchItem, PartialMetadataPerson, PersonSourceSpecifics, VisualNovelSpecifics,
+            MetadataSearchItem, PartialMetadataPerson, PersonSearchItem, PersonSourceSpecifics,
+            VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -87,6 +88,51 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
+    async fn person_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PersonSearchItem>> {
+        let mut rsp = self
+            .client
+            .post("producer")
+            .body_json(&serde_json::json!({
+                "filters": format!(r#"["search", "=", "{}"]"#, query),
+                "count": true,
+                "fields": "id,name",
+                "results": self.page_limit,
+                "page": page
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = data
+            .results
+            .unwrap_or_default()
+            .into_iter()
+            .map(|b| PersonSearchItem {
+                identifier: b.id,
+                name: b.title.unwrap(),
+                image: None,
+                birth_year: None,
+            })
+            .collect();
+        let next_page = if data.more {
+            Some(page.unwrap_or(1) + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: data.count,
+                next_page,
+            },
+            items: resp,
+        })
+    }
+
     async fn person_details(
         &self,
         identifier: &str,
