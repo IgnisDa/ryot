@@ -23,8 +23,8 @@ use crate::{
         media::{
             MediaDetails, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadataPerson, PartialMetadataWithoutId, PersonSourceSpecifics, ShowEpisode,
-            ShowSeason, ShowSpecifics, WatchProvider,
+            PartialMetadataPerson, PartialMetadataWithoutId, PersonSearchItem,
+            PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -83,8 +83,8 @@ struct TmdbImagesResponse {
 #[derive(Debug, Serialize, Deserialize)]
 struct TmdbEntry {
     id: i32,
+    #[serde(alias = "logo_path", alias = "profile_path")]
     poster_path: Option<String>,
-    backdrop_path: Option<String>,
     overview: Option<String>,
     #[serde(alias = "name")]
     title: Option<String>,
@@ -93,10 +93,10 @@ struct TmdbEntry {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct TmdbListResponse<T = TmdbEntry> {
+struct TmdbListResponse {
     page: i32,
     total_results: i32,
-    results: Vec<T>,
+    results: Vec<TmdbEntry>,
     total_pages: i32,
 }
 
@@ -208,6 +208,53 @@ impl NonMediaTmdbService {
 
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
+    async fn person_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PersonSearchItem>> {
+        let typ = match source_specifics {
+            Some(PersonSourceSpecifics::Tmdb { is_company: true }) => "company",
+            _ => "person",
+        };
+        let page = page.unwrap_or(1);
+        let mut rsp = self
+            .client
+            .get(format!("search/{}", typ))
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": self.base.language,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = search
+            .results
+            .into_iter()
+            .map(|d| PersonSearchItem {
+                identifier: d.id.to_string(),
+                name: d.title.unwrap(),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                birth_year: None,
+            })
+            .collect_vec();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
+            items: resp.to_vec(),
+        })
+    }
+
     async fn person_details(
         &self,
         identity: &str,
