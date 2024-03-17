@@ -708,7 +708,7 @@ export type MangaSummary = {
 
 export type MediaCollectionContentsResults = {
   details: SearchDetails;
-  items: Array<MediaSearchItemWithLot>;
+  items: Array<MetadataSearchItemWithLot>;
 };
 
 export type MediaCreatorSearchItem = {
@@ -749,24 +749,6 @@ export type MediaListItem = {
 export type MediaListResults = {
   details: SearchDetails;
   items: Array<MediaListItem>;
-};
-
-export type MediaSearchItemResponse = {
-  databaseId?: Maybe<Scalars['Int']['output']>;
-  /** Whether the user has interacted with this media item. */
-  hasInteracted: Scalars['Boolean']['output'];
-  item: MetadataSearchItem;
-};
-
-export type MediaSearchItemWithLot = {
-  details: MetadataSearchItem;
-  entityLot: EntityLot;
-  metadataLot?: Maybe<MetadataLot>;
-};
-
-export type MediaSearchResults = {
-  details: SearchDetails;
-  items: Array<MediaSearchItemResponse>;
 };
 
 export enum MediaSortBy {
@@ -885,6 +867,24 @@ export type MetadataSearchItem = {
   image?: Maybe<Scalars['String']['output']>;
   publishYear?: Maybe<Scalars['Int']['output']>;
   title: Scalars['String']['output'];
+};
+
+export type MetadataSearchItemResponse = {
+  databaseId?: Maybe<Scalars['Int']['output']>;
+  /** Whether the user has interacted with this media item. */
+  hasInteracted: Scalars['Boolean']['output'];
+  item: MetadataSearchItem;
+};
+
+export type MetadataSearchItemWithLot = {
+  details: MetadataSearchItem;
+  entityLot: EntityLot;
+  metadataLot?: Maybe<MetadataLot>;
+};
+
+export type MetadataSearchResults = {
+  details: SearchDetails;
+  items: Array<MetadataSearchItemResponse>;
 };
 
 export enum MetadataVideoSource {
@@ -1263,6 +1263,18 @@ export type PersonDetailsItemWithCharacter = {
   media: PartialMetadata;
 };
 
+export type PersonSearchItem = {
+  birthYear?: Maybe<Scalars['Int']['output']>;
+  identifier: Scalars['String']['output'];
+  image?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type PersonSearchResults = {
+  details: SearchDetails;
+  items: Array<PersonSearchItem>;
+};
+
 export enum PersonSortBy {
   MediaItems = 'MEDIA_ITEMS',
   Name = 'NAME'
@@ -1412,13 +1424,13 @@ export type QueryRoot = {
   /** Get all the media items related to a user for a specific media type. */
   metadataList: MediaListResults;
   /** Search for a list of media for a given type. */
-  metadataSearch: MediaSearchResults;
+  metadataSearch: MetadataSearchResults;
   /** Get all the metadata sources possible for a lot. */
   metadataSourcesForLot: Array<MediaSource>;
   /** Get paginated list of people. */
   peopleList: MediaCreatorSearchResults;
   /** Search for a list of people from a given source. */
-  peopleSearch: MediaSearchResults;
+  peopleSearch: PersonSearchResults;
   /** Get details about a creator present in the database. */
   personDetails: PersonDetails;
   /** Get all languages supported by all the providers. */

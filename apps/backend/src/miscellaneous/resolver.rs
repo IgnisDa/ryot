@@ -76,16 +76,17 @@ use crate::{
             GenreListItem, ImportOrExportItemRating, ImportOrExportItemReview,
             ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MediaSearchItemResponse, MediaSearchItemWithLot, MetadataFreeCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PersonSearchItem,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
-            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
-            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            MediaListItem, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
+            PartialMetadataWithoutId, PersonSearchItem, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
+            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
+            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
+            WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -323,7 +324,7 @@ struct CollectionContentsInput {
 #[derive(Debug, SimpleObject)]
 struct CollectionContents {
     details: collection::Model,
-    results: SearchResults<MediaSearchItemWithLot>,
+    results: SearchResults<MetadataSearchItemWithLot>,
     reviews: Vec<ReviewItem>,
     user: user::Model,
 }
@@ -391,7 +392,7 @@ struct MetadataGroupDetails {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GenreDetails {
     details: GenreListItem,
-    contents: SearchResults<MediaSearchItemWithLot>,
+    contents: SearchResults<MetadataSearchItemWithLot>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -829,7 +830,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataSearchInput,
-    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+    ) -> Result<SearchResults<MetadataSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.metadata_search(user_id, input).await
@@ -3549,7 +3550,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         input: MetadataSearchInput,
-    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+    ) -> Result<SearchResults<MetadataSearchItemResponse>> {
         match input.search.query {
             Some(q) => {
                 if q.is_empty() {
@@ -3609,7 +3610,7 @@ impl MiscellaneousService {
                     .into_iter()
                     .map(|i| {
                         let interaction = interactions.get(&i.identifier).cloned();
-                        MediaSearchItemResponse {
+                        MetadataSearchItemResponse {
                             has_interacted: interaction.unwrap_or_default().1,
                             database_id: interaction.map(|i| i.0),
                             item: i,
@@ -4120,7 +4121,7 @@ impl MiscellaneousService {
             for cte in paginator.fetch_page(page - 1).await? {
                 let item = if let Some(id) = cte.metadata_id {
                     let m = Metadata::find_by_id(id).one(&self.db).await?.unwrap();
-                    MediaSearchItemWithLot {
+                    MetadataSearchItemWithLot {
                         details: MetadataSearchItem {
                             identifier: m.id.to_string(),
                             title: m.title,
@@ -4132,7 +4133,7 @@ impl MiscellaneousService {
                     }
                 } else if let Some(id) = cte.person_id {
                     let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
-                    MediaSearchItemWithLot {
+                    MetadataSearchItemWithLot {
                         details: MetadataSearchItem {
                             identifier: p.id.to_string(),
                             title: p.name,
@@ -4144,7 +4145,7 @@ impl MiscellaneousService {
                     }
                 } else if let Some(id) = cte.metadata_group_id {
                     let g = MetadataGroup::find_by_id(id).one(&self.db).await?.unwrap();
-                    MediaSearchItemWithLot {
+                    MetadataSearchItemWithLot {
                         details: MetadataSearchItem {
                             identifier: g.id.to_string(),
                             title: g.title,
@@ -4163,7 +4164,7 @@ impl MiscellaneousService {
                     } else {
                         None
                     };
-                    MediaSearchItemWithLot {
+                    MetadataSearchItemWithLot {
                         details: MetadataSearchItem {
                             identifier: e.id.to_string(),
                             title: e.id,
@@ -6470,7 +6471,7 @@ GROUP BY
                 .await?
                 .unwrap();
             let image = m.images.first_as_url(&self.file_storage_service).await;
-            let metadata = MediaSearchItemWithLot {
+            let metadata = MetadataSearchItemWithLot {
                 details: MetadataSearchItem {
                     image,
                     title: m.title,

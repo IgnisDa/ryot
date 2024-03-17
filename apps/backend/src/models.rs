@@ -87,9 +87,13 @@ pub struct SearchDetails {
 #[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
-    params(media::MediaSearchItemWithLot)
+    params(media::MetadataSearchItemWithLot)
 ))]
-#[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItemResponse)))]
+#[graphql(concrete(
+    name = "MetadataSearchResults",
+    params(media::MetadataSearchItemResponse)
+))]
+#[graphql(concrete(name = "PersonSearchResults", params(media::PersonSearchItem)))]
 #[graphql(concrete(
     name = "PublicCollectionsListResults",
     params(media::PublicCollectionItem)
@@ -178,14 +182,14 @@ pub mod media {
     }
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
-    pub struct MediaSearchItemWithLot {
+    pub struct MetadataSearchItemWithLot {
         pub details: MetadataSearchItem,
         pub metadata_lot: Option<MetadataLot>,
         pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct MediaSearchItemResponse {
+    pub struct MetadataSearchItemResponse {
         pub item: MetadataSearchItem,
         /// Whether the user has interacted with this media item.
         pub has_interacted: bool,
