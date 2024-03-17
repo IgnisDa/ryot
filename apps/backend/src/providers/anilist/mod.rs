@@ -356,7 +356,7 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             .flatten()
             .map(|t| t.name),
     );
-    let people = Vec::from_iter(details.staff)
+    let mut people = Vec::from_iter(details.staff)
         .into_iter()
         .flat_map(|s| s.edges.unwrap())
         .flatten()
@@ -372,6 +372,23 @@ async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<Medi
             }
         })
         .collect_vec();
+    people.extend(
+        Vec::from_iter(details.studios)
+            .into_iter()
+            .flat_map(|s| s.edges.unwrap())
+            .flatten()
+            .map(|s| {
+                let node = s.node.unwrap();
+                PartialMetadataPerson {
+                    name: node.name,
+                    identifier: node.id.to_string(),
+                    source: MediaSource::Anilist,
+                    role: "Production Studio".to_owned(),
+                    character: None,
+                    source_specifics: Some(PersonSourceSpecifics::Anilist { is_studio: true }),
+                }
+            }),
+    );
     let people = people.into_iter().unique().collect_vec();
     let lot = match details.type_.unwrap() {
         details_query::MediaType::ANIME => MetadataLot::Anime,

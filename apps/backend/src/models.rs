@@ -909,6 +909,7 @@ pub mod media {
 
     #[derive(Debug, Clone, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Hash)]
     pub enum PersonSourceSpecifics {
+        Anilist { is_studio: bool },
         Tmdb { is_company: bool },
     }
 
