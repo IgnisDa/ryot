@@ -267,7 +267,7 @@ async fn person_details(
             name: details.name,
             related,
             source_specifics: source_specifics.to_owned(),
-            website: None,
+            website: details.site_url,
             description: None,
             gender: None,
             place: None,
