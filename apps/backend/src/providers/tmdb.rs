@@ -783,8 +783,15 @@ impl MediaProvider for TmdbShowService {
             .flat_map(|s| s.episodes.iter())
             .map(|e| e.runtime.unwrap_or_default())
             .sum();
-        let total_seasons = seasons.len();
-        let total_episodes = seasons.iter().flat_map(|s| s.episodes.iter()).count();
+        let seasons_without_specials = seasons
+            .iter()
+            .filter(|s| s.name != "Specials")
+            .collect_vec();
+        let total_seasons = seasons_without_specials.len();
+        let total_episodes = seasons_without_specials
+            .iter()
+            .flat_map(|s| s.episodes.iter())
+            .count();
         let watch_providers = self
             .base
             .get_all_watch_providers(&self.client, "tv", identifier)
