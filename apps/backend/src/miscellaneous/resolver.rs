@@ -80,13 +80,13 @@ use crate::{
             MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSearchItem, PersonSearchItemResponse, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
-            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
-            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
-            WatchProvider,
+            PartialMetadataWithoutId, PersonSearchItemResponse, PersonSourceSpecifics,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
+            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
+            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -3627,6 +3627,88 @@ impl MiscellaneousService {
         }
     }
 
+    async fn people_search(
+        &self,
+        user_id: i32,
+        input: PeopleSearchInput,
+    ) -> Result<SearchResults<PersonSearchItemResponse>> {
+        match input.search.query {
+            Some(q) => {
+                if q.is_empty() {
+                    return Ok(SearchResults {
+                        details: SearchDetails {
+                            total: 0,
+                            next_page: None,
+                        },
+                        items: vec![],
+                    });
+                }
+                let provider = self.get_non_metadata_provider(input.source).await?;
+                let source_specifics = if input.is_tmdb_company.unwrap_or_default() {
+                    Some(PersonSourceSpecifics::Tmdb { is_company: true })
+                } else {
+                    None
+                };
+                let results = provider
+                    .person_search(&q, input.search.page, source_specifics)
+                    .await?;
+                let all_identifiers = results
+                    .items
+                    .iter()
+                    .map(|i| i.identifier.to_owned())
+                    .collect_vec();
+                let interactions = Person::find()
+                    .join(
+                        JoinType::LeftJoin,
+                        person::Relation::UserToEntity
+                            .def()
+                            .on_condition(move |_left, right| {
+                                Condition::all().add(
+                                    Expr::col((right, user_to_entity::Column::UserId)).eq(user_id),
+                                )
+                            }),
+                    )
+                    .select_only()
+                    .column(person::Column::Identifier)
+                    .column_as(
+                        Expr::col((Alias::new("person"), person::Column::Id)),
+                        "database_id",
+                    )
+                    .column_as(
+                        Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id))
+                            .is_not_null(),
+                        "has_interacted",
+                    )
+                    .filter(person::Column::Source.eq(input.source))
+                    .filter(person::Column::Identifier.is_in(&all_identifiers))
+                    .into_tuple::<(String, i32, bool)>()
+                    .all(&self.db)
+                    .await?
+                    .into_iter()
+                    .map(|(key, value1, value2)| (key, (value1, value2)));
+                let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
+                let data = results
+                    .items
+                    .into_iter()
+                    .map(|i| {
+                        let interaction = interactions.get(&i.identifier).cloned();
+                        PersonSearchItemResponse {
+                            has_interacted: interaction.unwrap_or_default().1,
+                            database_id: interaction.map(|i| i.0),
+                            item: i,
+                        }
+                    })
+                    .collect();
+                let results = SearchResults {
+                    details: results.details,
+                    items: data,
+                };
+                Ok(results)
+            }
+            _ => Err(Error::new("Can not search without a query")),
+        }
+    }
+
     async fn details_from_provider_for_existing_media(
         &self,
         metadata_id: i32,
@@ -7127,14 +7209,6 @@ GROUP BY
             url += format!("?defaultTab={}", tab).as_str()
         }
         url
-    }
-
-    async fn people_search(
-        &self,
-        user_id: i32,
-        input: PeopleSearchInput,
-    ) -> Result<SearchResults<PersonSearchItemResponse>> {
-        todo!()
     }
 
     #[cfg(debug_assertions)]
