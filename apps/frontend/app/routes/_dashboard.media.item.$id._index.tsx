@@ -560,7 +560,7 @@ export default function Page() {
 				title={loaderData.mediaMainDetails.title}
 				lot={loaderData.mediaMainDetails.lot}
 			/>
-			<Container>
+			<Container fluid style={{margin: '1rem 3rem'}}>
 				<MediaDetailsLayout
 					images={loaderData.mediaMainDetails.assets.images}
 					externalLink={{

@@ -85,7 +85,7 @@ export default function Page() {
 	] = useDisclosure(false);
 
 	return (
-		<Container>
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>People</Title>

@@ -83,7 +83,7 @@ export default function Page() {
 	const startWorkout = getWorkoutStarter();
 
 	return (
-		<Container size="xs">
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Workouts</Title>

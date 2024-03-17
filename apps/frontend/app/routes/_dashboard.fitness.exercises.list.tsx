@@ -171,7 +171,7 @@ export default function Page() {
 		);
 
 	return (
-		<Container size="md">
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Stack gap="xl">
 				<Flex align="center" gap="md">
 					<Title>Exercises</Title>

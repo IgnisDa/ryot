@@ -118,7 +118,7 @@ export default function Page() {
 	const theme = useMantineTheme();
 
 	return (
-		<Container>
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Stack gap={32}>
 				{loaderData.workoutInProgress ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="yellow">

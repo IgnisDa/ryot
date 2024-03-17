@@ -54,7 +54,7 @@ export default function Page() {
 
 	return (
 		<>
-			<Container>
+			<Container fluid style={{margin: '1rem 3rem'}}>
 				<Stack>
 					<Title>Public collections</Title>
 					<DebouncedSearchInput

@@ -225,7 +225,7 @@ export default function Page() {
 	const formRef = useRef<HTMLFormElement>(null);
 
 	return (
-		<Container size="xs">
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Tabs defaultValue="import">
 				<Tabs.List>
 					<Tabs.Tab value="import">Import</Tabs.Tab>

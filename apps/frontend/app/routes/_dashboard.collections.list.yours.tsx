@@ -159,7 +159,7 @@ export default function Page() {
 
 	return (
 		<>
-			<Container>
+			<Container fluid style={{margin: '1rem 3rem'}}>
 				<Stack>
 					<Flex align="center" gap="md">
 						<Title>Your collections</Title>

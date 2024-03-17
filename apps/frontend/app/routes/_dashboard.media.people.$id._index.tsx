@@ -176,7 +176,7 @@ export default function Page() {
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.personDetails.details.name}
 			/>
-			<Container>
+			<Container fluid style={{margin: '1rem 3rem'}}>
 				<MediaDetailsLayout
 					images={loaderData.personDetails.details.displayImages}
 					externalLink={{

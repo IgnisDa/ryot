@@ -223,7 +223,7 @@ export default function Page() {
 	}, []);
 
 	return (
-		<Container size="sm">
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			{currentWorkout ? (
 				<ClientOnly fallback={<Text>Loading workout...</Text>}>
 					{() => (

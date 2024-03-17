@@ -222,7 +222,7 @@ export default function Page() {
 			defaultFilters.mineCollectionFilter;
 
 	return (
-		<Container>
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			{loaderData.mediaInteractedWith === 0 ? <NewUserGuideAlert /> : null}
 			<Tabs
 				variant="default"

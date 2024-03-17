@@ -124,7 +124,7 @@ export default function Page() {
 	};
 
 	return (
-		<Container size="xs">
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			{toUpdatePreferences.length > 0 ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<Form

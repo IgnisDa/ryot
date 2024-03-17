@@ -39,9 +39,14 @@ export const ApplicationGrid = (props: {
 	children: ReactNode[];
 }) => {
 	return (
-		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
+		<Flex
+			justify="flex-start"
+			align="flex-start"
+			direction="row"
+			wrap="wrap"
+			gap="lg">
 			{props.children}
-		</SimpleGrid>
+		</Flex>
 	);
 };
 

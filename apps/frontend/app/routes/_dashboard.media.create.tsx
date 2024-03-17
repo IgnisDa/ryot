@@ -121,12 +121,12 @@ export default function Page() {
 	};
 
 	return (
-		<Container>
+		<Container fluid style={{ margin: '1rem 3rem' }}>
 			<MediaDetailsLayout
 				images={imageUrls.map((i) => i.url)}
 				externalLink={{ source: MetadataSource.Custom }}
 			>
-				<ScrollArea.Autosize mah={400}>
+				<ScrollArea.Autosize style={{ maxHeight: '75vh' }}>
 					<Form method="post">
 						<Stack>
 							<Title>Create Media</Title>

@@ -154,7 +154,7 @@ export default function Page() {
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.info.details.name}
 			/>
-			<Container>
+			<Container fluid style={{margin: '1rem 3rem'}}>
 				<Stack>
 					<Box>
 						<Text c="dimmed" size="xs" mb={-10}>

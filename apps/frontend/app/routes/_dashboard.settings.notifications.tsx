@@ -141,7 +141,7 @@ export default function Page() {
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
-		<Container size="xs">
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Stack>
 				<Title>Notification settings</Title>
 				{loaderData.userNotificationPlatforms.length > 0 ? (

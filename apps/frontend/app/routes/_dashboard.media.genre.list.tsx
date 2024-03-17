@@ -53,7 +53,7 @@ export default function Page() {
 	const [_, { setP }] = useSearchParam();
 
 	return (
-		<Container>
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Genres</Title>

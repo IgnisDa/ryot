@@ -157,7 +157,7 @@ export default function Page() {
 		useState<UserSinkIntegrationSettingKind>();
 
 	return (
-		<Container size="xs">
+		<Container fluid style={{margin: '1rem 3rem'}}>
 			<Stack>
 				<Title>Integration settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (

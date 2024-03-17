@@ -143,7 +143,7 @@ export const MediaScrollArea = (props: {
 	itemDetailsHeight: number;
 }) => {
 	return (
-		<ScrollArea.Autosize mah={props.itemDetailsHeight}>
+		<ScrollArea.Autosize style={{ maxHeight: '55vh' }}>
 			{props.children}
 		</ScrollArea.Autosize>
 	);
@@ -347,60 +347,22 @@ export const ReviewItemDisplay = (props: {
 							<Stack>
 								{props.review.comments
 									? props.review.comments.map((c) => (
-											<Stack key={c?.id}>
-												<Flex align="center" gap="sm">
-													<Avatar color="cyan" radius="xl">
-														{getInitials(c?.user?.name || "")}{" "}
-													</Avatar>
-													<Box>
-														<Text>{c?.user?.name}</Text>
-														{c?.createdOn ? (
-															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
-														) : null}
-													</Box>
-													{props.user.id === c?.user?.id ? (
-														<Form
-															action="/actions?intent=createReviewComment"
-															method="post"
-														>
-															<input
-																hidden
-																name="reviewId"
-																defaultValue={props.review.id}
-															/>
-															<input
-																hidden
-																name="commentId"
-																defaultValue={c?.id}
-															/>
-															<input
-																hidden
-																name="shouldDelete"
-																defaultValue="true"
-															/>
-															<HiddenLocationInput />
-															<ActionIcon
-																color="red"
-																type="submit"
-																onClick={async (e) => {
-																	const form = e.currentTarget.form;
-																	e.preventDefault();
-																	const conf = await confirmWrapper({
-																		confirmation:
-																			"Are you sure you want to delete this comment?",
-																	});
-																	if (conf) submit(form);
-																}}
-															>
-																<IconTrash size={16} />
-															</ActionIcon>
-														</Form>
+										<Stack key={c?.id}>
+											<Flex align="center" gap="sm">
+												<Avatar color="cyan" radius="xl">
+													{getInitials(c?.user?.name || "")}{" "}
+												</Avatar>
+												<Box>
+													<Text>{c?.user?.name}</Text>
+													{c?.createdOn ? (
+														<Text>{dayjsLib(c.createdOn).format("L")}</Text>
 													) : null}
+												</Box>
+												{props.user.id === c?.user?.id ? (
 													<Form
 														action="/actions?intent=createReviewComment"
 														method="post"
 													>
-														<HiddenLocationInput />
 														<input
 															hidden
 															name="reviewId"
@@ -413,29 +375,67 @@ export const ReviewItemDisplay = (props: {
 														/>
 														<input
 															hidden
-															name="incrementLikes"
-															value={String(
-																!c?.likedBy?.includes(props.user.id),
-															)}
-															readOnly
+															name="shouldDelete"
+															defaultValue="true"
 														/>
-														<input
-															hidden
-															name="decrementLikes"
-															value={String(
-																c?.likedBy?.includes(props.user.id),
-															)}
-															readOnly
-														/>
-														<ActionIcon type="submit">
-															<IconArrowBigUp size={16} />
-															<Text>{c?.likedBy?.length}</Text>
+														<HiddenLocationInput />
+														<ActionIcon
+															color="red"
+															type="submit"
+															onClick={async (e) => {
+																const form = e.currentTarget.form;
+																e.preventDefault();
+																const conf = await confirmWrapper({
+																	confirmation:
+																		"Are you sure you want to delete this comment?",
+																});
+																if (conf) submit(form);
+															}}
+														>
+															<IconTrash size={16} />
 														</ActionIcon>
 													</Form>
-												</Flex>
-												<Text ml="xs">{c?.text}</Text>
-											</Stack>
-									  ))
+												) : null}
+												<Form
+													action="/actions?intent=createReviewComment"
+													method="post"
+												>
+													<HiddenLocationInput />
+													<input
+														hidden
+														name="reviewId"
+														defaultValue={props.review.id}
+													/>
+													<input
+														hidden
+														name="commentId"
+														defaultValue={c?.id}
+													/>
+													<input
+														hidden
+														name="incrementLikes"
+														value={String(
+															!c?.likedBy?.includes(props.user.id),
+														)}
+														readOnly
+													/>
+													<input
+														hidden
+														name="decrementLikes"
+														value={String(
+															c?.likedBy?.includes(props.user.id),
+														)}
+														readOnly
+													/>
+													<ActionIcon type="submit">
+														<IconArrowBigUp size={16} />
+														<Text>{c?.likedBy?.length}</Text>
+													</ActionIcon>
+												</Form>
+											</Flex>
+											<Text ml="xs">{c?.text}</Text>
+										</Stack>
+									))
 									: null}
 							</Stack>
 						</Paper>
@@ -470,6 +470,7 @@ export const BaseDisplayItem = (props: {
 			justify="center"
 			direction="column"
 			pos="relative"
+			w={170}
 		>
 			{props.topLeft}
 			<Anchor
@@ -492,12 +493,12 @@ export const BaseDisplayItem = (props: {
 							transitionDuration: "150ms",
 						},
 					}}
-					h={260}
-					w={170}
 					fallbackSrc={getFallbackImageUrl(
 						colorScheme,
 						getInitials(props.name),
 					)}
+					h={260}
+					w={170}
 				/>
 				{props.topRight}
 			</Anchor>
@@ -561,22 +562,22 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.href
 					? props.href
 					: match(props.entityLot)
-							.with(EntityLot.Media, undefined, null, () =>
-								$path("/media/item/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.MediaGroup, () =>
-								$path("/media/groups/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Person, () =>
-								$path("/media/people/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Exercise, () =>
-								$path("/fitness/exercises/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Collection, () =>
-								$path("/collections/:id", { id: props.item.identifier }),
-							)
-							.exhaustive()
+						.with(EntityLot.Media, undefined, null, () =>
+							$path("/media/item/:id", { id: props.item.identifier }),
+						)
+						.with(EntityLot.MediaGroup, () =>
+							$path("/media/groups/:id", { id: props.item.identifier }),
+						)
+						.with(EntityLot.Person, () =>
+							$path("/media/people/:id", { id: props.item.identifier }),
+						)
+						.with(EntityLot.Exercise, () =>
+							$path("/fitness/exercises/:id", { id: props.item.identifier }),
+						)
+						.with(EntityLot.Collection, () =>
+							$path("/collections/:id", { id: props.item.identifier }),
+						)
+						.exhaustive()
 			}
 			imageLink={props.item.image}
 			imagePlaceholder={getInitials(props.item?.title || "")}
@@ -653,8 +654,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.noBottomRight
 					? undefined
 					: changeCase(
-							props.lot ? props.lot : props.entityLot ? props.entityLot : "",
-					  )
+						props.lot ? props.lot : props.entityLot ? props.entityLot : "",
+					)
 			}
 			highlightRightText={
 				props.hasInteracted ? "This media exists in the database" : undefined
@@ -756,12 +757,12 @@ export const PostReviewModal = (props: {
 						props.entityType === "metadata"
 							? "metadataId"
 							: props.entityType === "metadataGroup"
-							  ? "metadataGroupId"
-							  : props.entityType === "collection"
-								  ? "collectionId"
-								  : props.entityType === "person"
-									  ? "personId"
-									  : undefined
+								? "metadataGroupId"
+								: props.entityType === "collection"
+									? "collectionId"
+									: props.entityType === "person"
+										? "personId"
+										: undefined
 					}
 					value={props.objectId}
 					readOnly
@@ -818,8 +819,8 @@ export const PostReviewModal = (props: {
 										?.season === "number"
 										? props.data.existingReview.showExtraInformation?.season
 										: typeof props.data.showSeasonNumber === "number"
-										  ? props.data.showSeasonNumber
-										  : undefined
+											? props.data.showSeasonNumber
+											: undefined
 								}
 							/>
 							<NumberInput

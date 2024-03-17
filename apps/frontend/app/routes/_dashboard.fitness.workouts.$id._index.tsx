@@ -207,7 +207,7 @@ export default function Page() {
 					</Stack>
 				</Form>
 			</Modal>
-			<Container size="xs">
+			<Container fluid style={{margin: '1rem 3rem'}}>
 				<Stack>
 					<Group justify="space-between">
 						<Title>{loaderData.workoutDetails.name}</Title>
