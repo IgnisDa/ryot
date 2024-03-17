@@ -552,7 +552,6 @@ struct CoreDetails {
     version: String,
     author_name: String,
     repository_link: String,
-    item_details_height: u32,
     reviews_disabled: bool,
     page_limit: i32,
     timezone: String,
@@ -1427,7 +1426,6 @@ impl MiscellaneousService {
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             page_limit: self.config.frontend.page_size,
             reviews_disabled: self.config.users.reviews_disabled,
-            item_details_height: self.config.frontend.item_details_height,
         })
     }
 
