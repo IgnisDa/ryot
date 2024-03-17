@@ -6523,7 +6523,7 @@ GROUP BY
             MediaSource::Tmdb => Some(format!(
                 "https://www.themoviedb.org/person/{identifier}-{slug}"
             )),
-            MediaSource::Igdb => Some(format!("https://www.igdb.com/company/{slug}")),
+            MediaSource::Igdb => Some(format!("https://www.igdb.com/companies/{slug}")),
         };
         Ok(PersonDetails {
             details,
