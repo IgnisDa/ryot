@@ -46,11 +46,11 @@ struct StaffSearchQuery;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/studios_search.graphql",
+    query_path = "src/providers/anilist/studio_search.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
-struct StudiosSearchQuery;
+struct StudioSearchQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -127,12 +127,12 @@ impl MediaProvider for NonMediaAnilistService {
             Some(PersonSourceSpecifics::Anilist { is_studio: true })
         );
         let (items, total, next_page) = if is_studio {
-            let variables = studios_search_query::Variables {
+            let variables = studio_search_query::Variables {
                 page: page.unwrap_or(1).into(),
                 search: query.to_owned(),
                 per_page: self.base.page_limit.into(),
             };
-            let body = StudiosSearchQuery::build_query(variables);
+            let body = StudioSearchQuery::build_query(variables);
             let search = self
                 .base
                 .client
@@ -142,7 +142,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<Response<studios_search_query::ResponseData>>()
+                .body_json::<Response<studio_search_query::ResponseData>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
@@ -150,7 +150,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * 10) > 0 {
+            let next_page = if total - (page.unwrap_or(1) * self.base.page_limit) > 0 {
                 Some(page.unwrap_or(1) + 1)
             } else {
                 None
@@ -194,7 +194,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * 10) > 0 {
+            let next_page = if total - (page.unwrap_or(1) * self.base.page_limit) > 0 {
                 Some(page.unwrap_or(1) + 1)
             } else {
                 None

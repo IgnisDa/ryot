@@ -1,4 +1,4 @@
-query StudiosSearchQuery(
+query StudioSearchQuery(
   $search: String!
   $page: Int!
   $perPage: Int!
