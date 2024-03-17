@@ -570,6 +570,14 @@ pub mod media {
         pub publish_year: Option<i32>,
     }
 
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct PersonSearchItem {
+        pub identifier: String,
+        pub name: String,
+        pub image: Option<String>,
+        pub birth_year: Option<i32>,
+    }
+
     #[derive(
         SimpleObject,
         Debug,

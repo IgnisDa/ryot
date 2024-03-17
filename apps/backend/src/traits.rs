@@ -10,7 +10,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MetadataPerson, MetadataSearchItem, PartialMetadataWithoutId,
-            PersonSourceSpecifics,
+            PersonSearchItem, PersonSourceSpecifics,
         },
         SearchResults,
     },
@@ -40,9 +40,10 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn person_search(
         &self,
-        identity: &str,
+        query: &str,
+        page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonSearchItem> {
         bail!("This provider does not support getting person details")
     }
 

@@ -79,13 +79,13 @@ use crate::{
             MediaListItem, MediaSearchItemResponse, MediaSearchItemWithLot, MetadataFreeCreator,
             MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
-            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
-            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
-            WatchProvider,
+            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PersonSearchItem,
+            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
+            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
+            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -996,7 +996,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+    ) -> Result<SearchResults<PersonSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_search(user_id, input).await
@@ -7132,7 +7132,7 @@ GROUP BY
         &self,
         user_id: i32,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<MediaSearchItemResponse>> {
+    ) -> Result<SearchResults<PersonSearchItem>> {
         todo!()
     }
 
