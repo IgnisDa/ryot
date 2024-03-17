@@ -23,6 +23,7 @@ use crate::{
 };
 
 static URL: &str = "https://graphql.anilist.co";
+static STUDIO_ROLE: &str = "Production Studio";
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -245,7 +246,7 @@ async fn person_details(
             .map(|r| {
                 let data = r.unwrap().node.unwrap();
                 (
-                    "Development".to_owned(),
+                    STUDIO_ROLE.to_owned(),
                     PartialMetadataWithoutId {
                         title: data.title.unwrap().user_preferred.unwrap(),
                         identifier: data.id.to_string(),
@@ -455,7 +456,7 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
                     name: node.name,
                     identifier: node.id.to_string(),
                     source: MediaSource::Anilist,
-                    role: "Production Studio".to_owned(),
+                    role: STUDIO_ROLE.to_owned(),
                     character: None,
                     source_specifics: Some(PersonSourceSpecifics::Anilist { is_studio: true }),
                 }
