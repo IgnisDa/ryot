@@ -905,7 +905,8 @@ export default function Page() {
 											<Await resolve={loaderData.mediaAdditionalDetails}>
 												{({ mediaDetails: mediaAdditionalDetails }) =>
 													mediaAdditionalDetails.creators.map((c) => (
-														<Box key={c.name}>
+														<Box key={c.name}
+															display='grid'>
 															<Text fw="bold">{c.name}</Text>
 															<ScrollArea
 																mt="xs"
