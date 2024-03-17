@@ -46,7 +46,6 @@ import {
 } from "@tabler/icons-react";
 import clsx from "clsx";
 import { Fragment, useState } from "react";
-import { flushSync } from "react-dom";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -107,7 +106,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [dashboardElements, dashboardElementsHandlers] = useListState(
+	const [dashboardElements, setDashboardElements] = useState(
 		loaderData.userPreferences.general.dashboard,
 	);
 	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
@@ -204,17 +203,12 @@ export default function Page() {
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
 								if (!loaderData.userDetails.isDemo) {
-									flushSync(() => {
-										dashboardElementsHandlers.reorder({
-											from: source.index,
-											to: destination?.index || 0,
-										});
+									const newOrder = reorder(dashboardElements, {
+										from: source.index,
+										to: destination?.index || 0,
 									});
-									// FIXME: https://github.com/mantinedev/mantine/issues/5362
-									appendPref(
-										"general.dashboard",
-										JSON.stringify(dashboardElements),
-									);
+									setDashboardElements(newOrder);
+									appendPref("general.dashboard", JSON.stringify(newOrder));
 								} else notifications.show(notificationContent);
 							}}
 						>
@@ -614,3 +608,11 @@ const EditDashboardElement = (props: {
 		</Draggable>
 	);
 };
+
+function reorder<T>(array: T[], { from, to }: { from: number; to: number }) {
+	const cloned = [...array];
+	const item = array[from];
+	cloned.splice(from, 1);
+	cloned.splice(to, 0, item);
+	return cloned;
+}
