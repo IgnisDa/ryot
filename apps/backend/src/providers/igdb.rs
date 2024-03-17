@@ -58,7 +58,7 @@ fields
     genres.*;
 where version_parent = null;
 ";
-static COMPANY_FIELDS: &str = "
+static INVOLVED_COMPANY_FIELDS: &str = "
 fields
     *,
     company.id,
@@ -76,17 +76,27 @@ fields
     company.published.name,
     company.published.cover.image_id;
 ";
+static COMPANY_FIELDS: &str = "
+fields
+    id,
+    name,
+    logo.*,
+    start_date;
+";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbWebsite {
     url: String,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbCompany {
     id: i32,
     name: String,
     logo: Option<IgdbImage>,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    start_date: Option<DateTimeUtc>,
     country: Option<i32>,
     description: Option<String>,
     websites: Option<Vec<IgdbWebsite>>,
@@ -229,6 +239,52 @@ where id = {id};
         ))
     }
 
+    async fn person_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PersonSearchItem>> {
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r#"
+{fields}
+search "{query}";
+limit {limit};
+offset: {offset};
+            "#,
+            fields = COMPANY_FIELDS,
+            query = query,
+            limit = self.page_limit,
+            offset = (page.unwrap_or(1) - 1) * self.page_limit
+        );
+        let mut rsp = client
+            .post("companies")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let details: Vec<IgdbCompany> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = details
+            .into_iter()
+            .map(|ic| {
+                let image = ic.logo.map(|a| self.get_cover_image_url(a.image_id));
+                PersonSearchItem {
+                    identifier: ic.id.to_string(),
+                    name: ic.name,
+                    image,
+                    birth_year: None,
+                }
+            })
+            .collect_vec();
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: resp.len().try_into().unwrap(),
+                next_page: Some(page.unwrap_or(1) + 1),
+            },
+            items: resp,
+        })
+    }
+
     async fn person_details(
         &self,
         identity: &str,
@@ -240,7 +296,7 @@ where id = {id};
 {fields}
 where id = {id};
             "#,
-            fields = COMPANY_FIELDS,
+            fields = INVOLVED_COMPANY_FIELDS,
             id = identity
         );
         let mut rsp = client
