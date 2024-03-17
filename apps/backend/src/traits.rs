@@ -42,7 +42,7 @@ pub trait MediaProvider {
         &self,
         query: &str,
         page: Option<i32>,
-        source_specifics: Option<PersonSourceSpecifics>,
+        source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PersonSearchItem>> {
         bail!("This provider does not support getting person details")
     }

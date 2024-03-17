@@ -3660,7 +3660,7 @@ impl MiscellaneousService {
                     _ => None,
                 };
                 let results = provider
-                    .person_search(&q, input.search.page, source_specifics)
+                    .person_search(&q, input.search.page, &source_specifics)
                     .await?;
                 let all_identifiers = results
                     .items
