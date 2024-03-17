@@ -911,17 +911,12 @@ export default function Page() {
 															<Text fw="bold">{c.name}</Text>
 															<ScrollArea
 																mt="xs"
-																w={{
-																	base: 380,
-																	xs: 440,
-																	sm: 480,
-																	md: 520,
-																	lg: 580,
-																}}
 															>
 																<Flex gap="md">
 																	{c.items.map((creator) => (
-																		<Box key={`${creator.id}-${creator.name}`}>
+																		<Box 
+																			key={`${creator.id}-${creator.name}`}
+																			w={85}>
 																			{creator.id ? (
 																				<Anchor
 																					component={Link}
