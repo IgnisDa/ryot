@@ -3665,7 +3665,7 @@ impl MiscellaneousService {
                 let all_identifiers = results
                     .items
                     .iter()
-                    .map(|i| i.item.identifier.to_owned())
+                    .map(|i| i.identifier.to_owned())
                     .collect_vec();
                 let interactions = Person::find()
                     .join(
@@ -3701,11 +3701,11 @@ impl MiscellaneousService {
                     .items
                     .into_iter()
                     .map(|i| {
-                        let interaction = interactions.get(&i.item.identifier).cloned();
+                        let interaction = interactions.get(&i.identifier).cloned();
                         PersonSearchItemResponse {
                             has_interacted: interaction.unwrap_or_default().1,
                             database_id: interaction.map(|i| i.0),
-                            item: i.item,
+                            item: i,
                         }
                     })
                     .collect();
