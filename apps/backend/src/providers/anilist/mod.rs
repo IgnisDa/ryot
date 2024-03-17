@@ -119,7 +119,178 @@ impl MediaProvider for NonMediaAnilistService {
         identity: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        person_details(&self.base.client, identity, source_specifics).await
+        let is_studio = matches!(
+            source_specifics,
+            Some(PersonSourceSpecifics::Anilist { is_studio: true })
+        );
+        let data = if is_studio {
+            let variables = studio_query::Variables {
+                id: identity.parse::<i64>().unwrap(),
+            };
+            let body = StudioQuery::build_query(variables);
+            let details = self
+                .base
+                .client
+                .post("")
+                .body_json(&body)
+                .unwrap()
+                .send()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json::<Response<studio_query::ResponseData>>()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .data
+                .unwrap()
+                .studio
+                .unwrap();
+            let related = details
+                .media
+                .unwrap()
+                .edges
+                .unwrap()
+                .into_iter()
+                .map(|r| {
+                    let data = r.unwrap().node.unwrap();
+                    (
+                        STUDIO_ROLE.to_owned(),
+                        PartialMetadataWithoutId {
+                            title: data.title.unwrap().user_preferred.unwrap(),
+                            identifier: data.id.to_string(),
+                            source: MediaSource::Anilist,
+                            lot: match data.type_.unwrap() {
+                                studio_query::MediaType::ANIME => MetadataLot::Anime,
+                                studio_query::MediaType::MANGA => MetadataLot::Manga,
+                                studio_query::MediaType::Other(_) => unreachable!(),
+                            },
+                            image: data.cover_image.unwrap().extra_large,
+                        },
+                    )
+                })
+                .collect();
+            MetadataPerson {
+                identifier: details.id.to_string(),
+                source: MediaSource::Anilist,
+                name: details.name,
+                related,
+                source_specifics: source_specifics.to_owned(),
+                website: details.site_url,
+                description: None,
+                gender: None,
+                place: None,
+                images: None,
+                death_date: None,
+                birth_date: None,
+            }
+        } else {
+            let variables = staff_query::Variables {
+                id: identity.parse::<i64>().unwrap(),
+            };
+            let body = StaffQuery::build_query(variables);
+            let details = self
+                .base
+                .client
+                .post("")
+                .body_json(&body)
+                .unwrap()
+                .send()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json::<Response<staff_query::ResponseData>>()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .data
+                .unwrap()
+                .staff
+                .unwrap();
+            let images = Vec::from_iter(details.image.and_then(|i| i.large));
+            let birth_date = details.date_of_birth.and_then(|d| {
+                if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+                    NaiveDate::from_ymd_opt(
+                        y.try_into().unwrap(),
+                        m.try_into().unwrap(),
+                        d.try_into().unwrap(),
+                    )
+                } else {
+                    None
+                }
+            });
+            let death_date = details.date_of_death.and_then(|d| {
+                if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
+                    NaiveDate::from_ymd_opt(
+                        y.try_into().unwrap(),
+                        m.try_into().unwrap(),
+                        d.try_into().unwrap(),
+                    )
+                } else {
+                    None
+                }
+            });
+            let mut related = details
+                .character_media
+                .unwrap()
+                .edges
+                .unwrap()
+                .into_iter()
+                .map(|r| {
+                    let data = r.unwrap().node.unwrap();
+                    (
+                        "Voicing".to_owned(),
+                        PartialMetadataWithoutId {
+                            title: data.title.unwrap().user_preferred.unwrap(),
+                            identifier: data.id.to_string(),
+                            source: MediaSource::Anilist,
+                            lot: match data.type_.unwrap() {
+                                staff_query::MediaType::ANIME => MetadataLot::Anime,
+                                staff_query::MediaType::MANGA => MetadataLot::Manga,
+                                staff_query::MediaType::Other(_) => unreachable!(),
+                            },
+                            image: data.cover_image.unwrap().extra_large,
+                        },
+                    )
+                })
+                .collect_vec();
+            related.extend(
+                details
+                    .staff_media
+                    .unwrap()
+                    .edges
+                    .unwrap()
+                    .into_iter()
+                    .map(|r| {
+                        let data = r.unwrap().node.unwrap();
+                        (
+                            "Production".to_owned(),
+                            PartialMetadataWithoutId {
+                                title: data.title.unwrap().user_preferred.unwrap(),
+                                identifier: data.id.to_string(),
+                                source: MediaSource::Anilist,
+                                lot: match data.type_.unwrap() {
+                                    staff_query::MediaType::ANIME => MetadataLot::Anime,
+                                    staff_query::MediaType::MANGA => MetadataLot::Manga,
+                                    staff_query::MediaType::Other(_) => unreachable!(),
+                                },
+                                image: data.cover_image.unwrap().extra_large,
+                            },
+                        )
+                    }),
+            );
+            MetadataPerson {
+                identifier: details.id.to_string(),
+                source: MediaSource::Anilist,
+                name: details.name.unwrap().full.unwrap(),
+                description: details.description,
+                gender: details.gender,
+                place: details.home_town,
+                images: Some(images),
+                death_date,
+                birth_date,
+                related,
+                source_specifics: source_specifics.to_owned(),
+                website: None,
+            }
+        };
+        Ok(data)
     }
 }
 
@@ -225,181 +396,6 @@ impl MediaProvider for AnilistMangaService {
 
 async fn get_client_config(url: &str) -> Client {
     get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
-}
-
-async fn person_details(
-    client: &Client,
-    identity: &str,
-    source_specifics: &Option<PersonSourceSpecifics>,
-) -> Result<MetadataPerson> {
-    let is_studio = matches!(
-        source_specifics,
-        Some(PersonSourceSpecifics::Anilist { is_studio: true })
-    );
-    let data = if is_studio {
-        let variables = studio_query::Variables {
-            id: identity.parse::<i64>().unwrap(),
-        };
-        let body = StudioQuery::build_query(variables);
-        let details = client
-            .post("")
-            .body_json(&body)
-            .unwrap()
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Response<studio_query::ResponseData>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .data
-            .unwrap()
-            .studio
-            .unwrap();
-        let related = details
-            .media
-            .unwrap()
-            .edges
-            .unwrap()
-            .into_iter()
-            .map(|r| {
-                let data = r.unwrap().node.unwrap();
-                (
-                    STUDIO_ROLE.to_owned(),
-                    PartialMetadataWithoutId {
-                        title: data.title.unwrap().user_preferred.unwrap(),
-                        identifier: data.id.to_string(),
-                        source: MediaSource::Anilist,
-                        lot: match data.type_.unwrap() {
-                            studio_query::MediaType::ANIME => MetadataLot::Anime,
-                            studio_query::MediaType::MANGA => MetadataLot::Manga,
-                            studio_query::MediaType::Other(_) => unreachable!(),
-                        },
-                        image: data.cover_image.unwrap().extra_large,
-                    },
-                )
-            })
-            .collect();
-        MetadataPerson {
-            identifier: details.id.to_string(),
-            source: MediaSource::Anilist,
-            name: details.name,
-            related,
-            source_specifics: source_specifics.to_owned(),
-            website: details.site_url,
-            description: None,
-            gender: None,
-            place: None,
-            images: None,
-            death_date: None,
-            birth_date: None,
-        }
-    } else {
-        let variables = staff_query::Variables {
-            id: identity.parse::<i64>().unwrap(),
-        };
-        let body = StaffQuery::build_query(variables);
-        let details = client
-            .post("")
-            .body_json(&body)
-            .unwrap()
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<Response<staff_query::ResponseData>>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .data
-            .unwrap()
-            .staff
-            .unwrap();
-        let images = Vec::from_iter(details.image.and_then(|i| i.large));
-        let birth_date = details.date_of_birth.and_then(|d| {
-            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                NaiveDate::from_ymd_opt(
-                    y.try_into().unwrap(),
-                    m.try_into().unwrap(),
-                    d.try_into().unwrap(),
-                )
-            } else {
-                None
-            }
-        });
-        let death_date = details.date_of_death.and_then(|d| {
-            if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                NaiveDate::from_ymd_opt(
-                    y.try_into().unwrap(),
-                    m.try_into().unwrap(),
-                    d.try_into().unwrap(),
-                )
-            } else {
-                None
-            }
-        });
-        let mut related = details
-            .character_media
-            .unwrap()
-            .edges
-            .unwrap()
-            .into_iter()
-            .map(|r| {
-                let data = r.unwrap().node.unwrap();
-                (
-                    "Voicing".to_owned(),
-                    PartialMetadataWithoutId {
-                        title: data.title.unwrap().user_preferred.unwrap(),
-                        identifier: data.id.to_string(),
-                        source: MediaSource::Anilist,
-                        lot: match data.type_.unwrap() {
-                            staff_query::MediaType::ANIME => MetadataLot::Anime,
-                            staff_query::MediaType::MANGA => MetadataLot::Manga,
-                            staff_query::MediaType::Other(_) => unreachable!(),
-                        },
-                        image: data.cover_image.unwrap().extra_large,
-                    },
-                )
-            })
-            .collect_vec();
-        related.extend(
-            details
-                .staff_media
-                .unwrap()
-                .edges
-                .unwrap()
-                .into_iter()
-                .map(|r| {
-                    let data = r.unwrap().node.unwrap();
-                    (
-                        "Production".to_owned(),
-                        PartialMetadataWithoutId {
-                            title: data.title.unwrap().user_preferred.unwrap(),
-                            identifier: data.id.to_string(),
-                            source: MediaSource::Anilist,
-                            lot: match data.type_.unwrap() {
-                                staff_query::MediaType::ANIME => MetadataLot::Anime,
-                                staff_query::MediaType::MANGA => MetadataLot::Manga,
-                                staff_query::MediaType::Other(_) => unreachable!(),
-                            },
-                            image: data.cover_image.unwrap().extra_large,
-                        },
-                    )
-                }),
-        );
-        MetadataPerson {
-            identifier: details.id.to_string(),
-            source: MediaSource::Anilist,
-            name: details.name.unwrap().full.unwrap(),
-            description: details.description,
-            gender: details.gender,
-            place: details.home_town,
-            images: Some(images),
-            death_date,
-            birth_date,
-            related,
-            source_specifics: source_specifics.to_owned(),
-            website: None,
-        }
-    };
-    Ok(data)
 }
 
 async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {
