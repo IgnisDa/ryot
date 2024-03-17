@@ -13,7 +13,7 @@ use crate::{
         media::{
             MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-            PersonSourceSpecifics,
+            PersonSearchItem, PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -105,7 +105,7 @@ struct ItemPersonRelatedSeries {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ItemRecord {
+struct MetadataItemRecord {
     series_id: Option<i128>,
     related_series_id: Option<i128>,
     title: Option<String>,
@@ -118,26 +118,80 @@ struct ItemRecord {
     genres: Option<Vec<ItemGenre>>,
     categories: Option<Vec<ItemCategory>>,
     bayesian_rating: Option<Decimal>,
-    recommendations: Option<Vec<ItemRecord>>,
-    related_series: Option<Vec<ItemRecord>>,
+    recommendations: Option<Vec<MetadataItemRecord>>,
+    related_series: Option<Vec<MetadataItemRecord>>,
     latest_chapter: Option<i32>,
     year: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ItemResponse {
+struct MetadataItemResponse {
     hit_title: String,
-    record: ItemRecord,
+    record: MetadataItemRecord,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct SearchResponse {
+struct PersonItemRecord {
+    id: i128,
+    name: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct PersonItemResponse {
+    hit_name: String,
+    record: PersonItemRecord,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MetadataSearchResponse<T> {
     total_hits: i32,
-    results: Vec<ItemResponse>,
+    results: Vec<T>,
 }
 
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
+    async fn person_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PersonSearchItem>> {
+        let data: MetadataSearchResponse<PersonItemResponse> = self
+            .client
+            .post("authors/search")
+            .body_json(&serde_json::json!({
+                "search": query,
+                "perpage": self.page_limit,
+                "page": page.unwrap_or(1)
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let items = data
+            .results
+            .into_iter()
+            .map(|s| PersonSearchItem {
+                identifier: s.record.id.to_string(),
+                name: s.hit_name,
+                image: None,
+                birth_year: None,
+            })
+            .collect();
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: data.total_hits,
+                next_page: if data.total_hits - ((page.unwrap_or(1)) * self.page_limit) > 0 {
+                    Some(page.unwrap_or(1) + 1)
+                } else {
+                    None
+                },
+            },
+            items,
+        })
+    }
+
     async fn person_details(
         &self,
         identity: &str,
@@ -201,7 +255,7 @@ impl MediaProvider for MangaUpdatesService {
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let data: ItemRecord = self
+        let data: MetadataItemRecord = self
             .client
             .get(format!("series/{}", identifier))
             .await
@@ -240,7 +294,7 @@ impl MediaProvider for MangaUpdatesService {
                 .get(format!("series/{}", series_id))
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<ItemRecord>()
+                .body_json::<MetadataItemRecord>()
                 .await
             {
                 suggestions.push(PartialMetadataWithoutId {
@@ -298,7 +352,7 @@ impl MediaProvider for MangaUpdatesService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let search: SearchResponse = self
+        let search: MetadataSearchResponse<MetadataItemResponse> = self
             .client
             .post("series/search")
             .body_json(&serde_json::json!({
