@@ -41,7 +41,7 @@ struct SearchQuery;
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
-struct DetailsQuery;
+struct MediaDetailsQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -56,7 +56,7 @@ struct StaffQuery;
 #[graphql(
     schema_path = "src/providers/anilist/schema.json",
     query_path = "src/providers/anilist/studio_details.graphql",
-    response_derives = "Debug",
+    response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
 struct StudioQuery;
@@ -385,10 +385,10 @@ async fn person_details(
 }
 
 async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {
-    let variables = details_query::Variables {
+    let variables = media_details_query::Variables {
         id: id.parse::<i64>().unwrap(),
     };
-    let body = DetailsQuery::build_query(variables);
+    let body = MediaDetailsQuery::build_query(variables);
     let details = client
         .post("")
         .body_json(&body)
@@ -396,7 +396,7 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json::<Response<details_query::ResponseData>>()
+        .body_json::<Response<media_details_query::ResponseData>>()
         .await
         .map_err(|e| anyhow!(e))?
         .data
@@ -464,9 +464,9 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
     );
     let people = people.into_iter().unique().collect_vec();
     let lot = match details.type_.unwrap() {
-        details_query::MediaType::ANIME => MetadataLot::Anime,
-        details_query::MediaType::MANGA => MetadataLot::Manga,
-        details_query::MediaType::Other(_) => unreachable!(),
+        media_details_query::MediaType::ANIME => MetadataLot::Anime,
+        media_details_query::MediaType::MANGA => MetadataLot::Manga,
+        media_details_query::MediaType::Other(_) => unreachable!(),
     };
 
     let anime_specifics = details.episodes.map(|c| AnimeSpecifics {
@@ -498,9 +498,9 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
                 identifier: data.id.to_string(),
                 source: MediaSource::Anilist,
                 lot: match data.type_.unwrap() {
-                    details_query::MediaType::ANIME => MetadataLot::Anime,
-                    details_query::MediaType::MANGA => MetadataLot::Manga,
-                    details_query::MediaType::Other(_) => unreachable!(),
+                    media_details_query::MediaType::ANIME => MetadataLot::Anime,
+                    media_details_query::MediaType::MANGA => MetadataLot::Manga,
+                    media_details_query::MediaType::Other(_) => unreachable!(),
                 },
                 image: data.cover_image.unwrap().extra_large,
             }
