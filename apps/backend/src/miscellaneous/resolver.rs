@@ -702,10 +702,16 @@ struct ToggleMediaMonitorInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct PeopleSearchSourceSpecificsInput {
+    is_tmdb_company: Option<bool>,
+    is_anilist_studio: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct PeopleSearchInput {
     search: SearchInput,
     source: MediaSource,
-    is_tmdb_company: Option<bool>,
+    source_specifics: Option<PeopleSearchSourceSpecificsInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -3644,10 +3650,14 @@ impl MiscellaneousService {
                     });
                 }
                 let provider = self.get_non_metadata_provider(input.source).await?;
-                let source_specifics = if input.is_tmdb_company.unwrap_or_default() {
-                    Some(PersonSourceSpecifics::Tmdb { is_company: true })
-                } else {
-                    None
+                let source_specifics = match input.source_specifics {
+                    Some(f) if f.is_tmdb_company.unwrap_or_default() => {
+                        Some(PersonSourceSpecifics::Tmdb { is_company: true })
+                    }
+                    Some(f) if f.is_anilist_studio.unwrap_or_default() => {
+                        Some(PersonSourceSpecifics::Anilist { is_studio: true })
+                    }
+                    _ => None,
                 };
                 let results = provider
                     .person_search(&q, input.search.page, source_specifics)

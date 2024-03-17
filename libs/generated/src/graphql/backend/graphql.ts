@@ -1223,9 +1223,14 @@ export type PeopleListInput = {
 };
 
 export type PeopleSearchInput = {
-  isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
   search: SearchInput;
   source: MediaSource;
+  sourceSpecifics?: InputMaybe<PeopleSearchSourceSpecificsInput>;
+};
+
+export type PeopleSearchSourceSpecificsInput = {
+  isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
+  isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type Person = {
