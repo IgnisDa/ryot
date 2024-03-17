@@ -138,12 +138,9 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 	);
 };
 
-export const MediaScrollArea = (props: {
-	children: ReactNode;
-	itemDetailsHeight: number;
-}) => {
+export const MediaScrollArea = (props: { children: ReactNode }) => {
 	return (
-		<ScrollArea.Autosize mah={props.itemDetailsHeight}>
+		<ScrollArea.Autosize style={{ maxHeight: '55vh' }}>
 			{props.children}
 		</ScrollArea.Autosize>
 	);
@@ -470,6 +467,7 @@ export const BaseDisplayItem = (props: {
 			justify="center"
 			direction="column"
 			pos="relative"
+			w={170}
 		>
 			{props.topLeft}
 			<Anchor
@@ -492,12 +490,12 @@ export const BaseDisplayItem = (props: {
 							transitionDuration: "150ms",
 						},
 					}}
-					h={260}
-					w={170}
 					fallbackSrc={getFallbackImageUrl(
 						colorScheme,
 						getInitials(props.name),
 					)}
+					h={260}
+					w={170}
 				/>
 				{props.topRight}
 			</Anchor>

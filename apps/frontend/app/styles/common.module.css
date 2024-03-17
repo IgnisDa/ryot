@@ -1,5 +1,6 @@
 .starIcon {
   color: #9ca3af;
+
   &:hover {
     color: #ebe600ff;
   }
@@ -12,11 +13,7 @@
 }
 
 .imagesContainer {
-  width: 100%;
-  flex: none;
-  @media (min-width: $mantine-breakpoint-md) {
-    width: 35%;
-  }
+  margin-right: 2rem;
 }
 
 .mediaImage {

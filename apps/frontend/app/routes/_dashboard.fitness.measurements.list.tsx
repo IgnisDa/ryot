@@ -184,7 +184,7 @@ export default function Page() {
 
 	const redirectToFormEntry = searchParams.get(redirectToQueryParam);
 	return (
-		<Container>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
 				<Form
 					replace

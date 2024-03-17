@@ -5,7 +5,6 @@ query CoreDetails {
     authorName
     repositoryLink
     docsLink
-    itemDetailsHeight
     reviewsDisabled
     pageLimit
   }
