@@ -21,9 +21,9 @@ use crate::{
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
-const MEDIA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
-const MEDIA_FIELDS: &str = const_str::concat!(
-    MEDIA_FIELDS_SMALL,
+const METADATA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
+const METADATA_FIELDS: &str = const_str::concat!(
+    METADATA_FIELDS_SMALL,
     ",",
     "length_minutes,tags.name,developers.id,devstatus,description,rating"
 );
@@ -128,7 +128,7 @@ impl MediaProvider for VndbService {
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
-                "fields": MEDIA_FIELDS
+                "fields": METADATA_FIELDS
             }))
             .unwrap()
             .await
@@ -151,7 +151,7 @@ impl MediaProvider for VndbService {
             .post("vn")
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
-                "fields": MEDIA_FIELDS_SMALL,
+                "fields": METADATA_FIELDS_SMALL,
                 "count": true,
                 "results": self.page_limit,
                 "page": page
