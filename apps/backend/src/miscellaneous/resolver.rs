@@ -3557,80 +3557,74 @@ impl MiscellaneousService {
         user_id: i32,
         input: MetadataSearchInput,
     ) -> Result<SearchResults<MetadataSearchItemResponse>> {
-        match input.search.query {
-            Some(q) => {
-                if q.is_empty() {
-                    return Ok(SearchResults {
-                        details: SearchDetails {
-                            total: 0,
-                            next_page: None,
-                        },
-                        items: vec![],
-                    });
-                }
-                let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-                    .await?
-                    .preferences;
-                let provider = self.get_metadata_provider(input.lot, input.source).await?;
-                let results = provider
-                    .metadata_search(&q, input.search.page, preferences.general.display_nsfw)
-                    .await?;
-                let all_identifiers = results
-                    .items
-                    .iter()
-                    .map(|i| i.identifier.to_owned())
-                    .collect_vec();
-                let interactions = Metadata::find()
-                    .join(
-                        JoinType::LeftJoin,
-                        metadata::Relation::UserToEntity
-                            .def()
-                            .on_condition(move |_left, right| {
-                                Condition::all().add(
-                                    Expr::col((right, user_to_entity::Column::UserId)).eq(user_id),
-                                )
-                            }),
-                    )
-                    .select_only()
-                    .column(metadata::Column::Identifier)
-                    .column_as(
-                        Expr::col((Alias::new("metadata"), metadata::Column::Id)),
-                        "database_id",
-                    )
-                    .column_as(
-                        Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id))
-                            .is_not_null(),
-                        "has_interacted",
-                    )
-                    .filter(metadata::Column::Lot.eq(input.lot))
-                    .filter(metadata::Column::Source.eq(input.source))
-                    .filter(metadata::Column::Identifier.is_in(&all_identifiers))
-                    .into_tuple::<(String, i32, bool)>()
-                    .all(&self.db)
-                    .await?
-                    .into_iter()
-                    .map(|(key, value1, value2)| (key, (value1, value2)));
-                let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
-                let data = results
-                    .items
-                    .into_iter()
-                    .map(|i| {
-                        let interaction = interactions.get(&i.identifier).cloned();
-                        MetadataSearchItemResponse {
-                            has_interacted: interaction.unwrap_or_default().1,
-                            database_id: interaction.map(|i| i.0),
-                            item: i,
-                        }
-                    })
-                    .collect();
-                let results = SearchResults {
-                    details: results.details,
-                    items: data,
-                };
-                Ok(results)
-            }
-            _ => Err(Error::new("Can not search without a query")),
+        let query = input.search.query.unwrap_or_default();
+        if query.is_empty() {
+            return Ok(SearchResults {
+                details: SearchDetails {
+                    total: 0,
+                    next_page: None,
+                },
+                items: vec![],
+            });
         }
+        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+            .await?
+            .preferences;
+        let provider = self.get_metadata_provider(input.lot, input.source).await?;
+        let results = provider
+            .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
+            .await?;
+        let all_identifiers = results
+            .items
+            .iter()
+            .map(|i| i.identifier.to_owned())
+            .collect_vec();
+        let interactions = Metadata::find()
+            .join(
+                JoinType::LeftJoin,
+                metadata::Relation::UserToEntity
+                    .def()
+                    .on_condition(move |_left, right| {
+                        Condition::all()
+                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(user_id))
+                    }),
+            )
+            .select_only()
+            .column(metadata::Column::Identifier)
+            .column_as(
+                Expr::col((Alias::new("metadata"), metadata::Column::Id)),
+                "database_id",
+            )
+            .column_as(
+                Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id)).is_not_null(),
+                "has_interacted",
+            )
+            .filter(metadata::Column::Lot.eq(input.lot))
+            .filter(metadata::Column::Source.eq(input.source))
+            .filter(metadata::Column::Identifier.is_in(&all_identifiers))
+            .into_tuple::<(String, i32, bool)>()
+            .all(&self.db)
+            .await?
+            .into_iter()
+            .map(|(key, value1, value2)| (key, (value1, value2)));
+        let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
+        let data = results
+            .items
+            .into_iter()
+            .map(|i| {
+                let interaction = interactions.get(&i.identifier).cloned();
+                MetadataSearchItemResponse {
+                    has_interacted: interaction.unwrap_or_default().1,
+                    database_id: interaction.map(|i| i.0),
+                    item: i,
+                }
+            })
+            .collect();
+        let results = SearchResults {
+            details: results.details,
+            items: data,
+        };
+        Ok(results)
     }
 
     async fn people_search(
@@ -3638,85 +3632,79 @@ impl MiscellaneousService {
         user_id: i32,
         input: PeopleSearchInput,
     ) -> Result<SearchResults<PersonSearchItemResponse>> {
-        match input.search.query {
-            Some(q) => {
-                if q.is_empty() {
-                    return Ok(SearchResults {
-                        details: SearchDetails {
-                            total: 0,
-                            next_page: None,
-                        },
-                        items: vec![],
-                    });
-                }
-                let provider = self.get_non_metadata_provider(input.source).await?;
-                let source_specifics = match input.source_specifics {
-                    Some(f) if f.is_tmdb_company.unwrap_or_default() => {
-                        Some(PersonSourceSpecifics::Tmdb { is_company: true })
-                    }
-                    Some(f) if f.is_anilist_studio.unwrap_or_default() => {
-                        Some(PersonSourceSpecifics::Anilist { is_studio: true })
-                    }
-                    _ => None,
-                };
-                let results = provider
-                    .person_search(&q, input.search.page, &source_specifics)
-                    .await?;
-                let all_identifiers = results
-                    .items
-                    .iter()
-                    .map(|i| i.identifier.to_owned())
-                    .collect_vec();
-                let interactions = Person::find()
-                    .join(
-                        JoinType::LeftJoin,
-                        person::Relation::UserToEntity
-                            .def()
-                            .on_condition(move |_left, right| {
-                                Condition::all().add(
-                                    Expr::col((right, user_to_entity::Column::UserId)).eq(user_id),
-                                )
-                            }),
-                    )
-                    .select_only()
-                    .column(person::Column::Identifier)
-                    .column_as(
-                        Expr::col((Alias::new("person"), person::Column::Id)),
-                        "database_id",
-                    )
-                    .column_as(
-                        Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id))
-                            .is_not_null(),
-                        "has_interacted",
-                    )
-                    .filter(person::Column::Source.eq(input.source))
-                    .filter(person::Column::Identifier.is_in(&all_identifiers))
-                    .into_tuple::<(String, i32, bool)>()
-                    .all(&self.db)
-                    .await?
-                    .into_iter()
-                    .map(|(key, value1, value2)| (key, (value1, value2)));
-                let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
-                let data = results
-                    .items
-                    .into_iter()
-                    .map(|i| {
-                        let interaction = interactions.get(&i.identifier).cloned();
-                        PersonSearchItemResponse {
-                            has_interacted: interaction.unwrap_or_default().1,
-                            database_id: interaction.map(|i| i.0),
-                            item: i,
-                        }
-                    })
-                    .collect();
-                let results = SearchResults {
-                    details: results.details,
-                    items: data,
-                };
-                Ok(results)
-            }
-            _ => Err(Error::new("Can not search without a query")),
+        let query = input.search.query.unwrap_or_default();
+        if query.is_empty() {
+            return Ok(SearchResults {
+                details: SearchDetails {
+                    total: 0,
+                    next_page: None,
+                },
+                items: vec![],
+            });
         }
+        let provider = self.get_non_metadata_provider(input.source).await?;
+        let source_specifics = match input.source_specifics {
+            Some(f) if f.is_tmdb_company.unwrap_or_default() => {
+                Some(PersonSourceSpecifics::Tmdb { is_company: true })
+            }
+            Some(f) if f.is_anilist_studio.unwrap_or_default() => {
+                Some(PersonSourceSpecifics::Anilist { is_studio: true })
+            }
+            _ => None,
+        };
+        let results = provider
+            .person_search(&query, input.search.page, &source_specifics)
+            .await?;
+        let all_identifiers = results
+            .items
+            .iter()
+            .map(|i| i.identifier.to_owned())
+            .collect_vec();
+        let interactions = Person::find()
+            .join(
+                JoinType::LeftJoin,
+                person::Relation::UserToEntity
+                    .def()
+                    .on_condition(move |_left, right| {
+                        Condition::all()
+                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(user_id))
+                    }),
+            )
+            .select_only()
+            .column(person::Column::Identifier)
+            .column_as(
+                Expr::col((Alias::new("person"), person::Column::Id)),
+                "database_id",
+            )
+            .column_as(
+                Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id)).is_not_null(),
+                "has_interacted",
+            )
+            .filter(person::Column::Source.eq(input.source))
+            .filter(person::Column::Identifier.is_in(&all_identifiers))
+            .into_tuple::<(String, i32, bool)>()
+            .all(&self.db)
+            .await?
+            .into_iter()
+            .map(|(key, value1, value2)| (key, (value1, value2)));
+        let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
+        let data = results
+            .items
+            .into_iter()
+            .map(|i| {
+                let interaction = interactions.get(&i.identifier).cloned();
+                PersonSearchItemResponse {
+                    has_interacted: interaction.unwrap_or_default().1,
+                    database_id: interaction.map(|i| i.0),
+                    item: i,
+                }
+            })
+            .collect();
+        let results = SearchResults {
+            details: results.details,
+            items: data,
+        };
+        Ok(results)
     }
 
     async fn details_from_provider_for_existing_media(
