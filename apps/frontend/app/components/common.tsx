@@ -40,7 +40,7 @@ export const ApplicationGrid = (props: {
 }) => {
 	return (
 		<Flex
-			justify="flex-start"
+			justify="space-around"
 			align="flex-start"
 			direction="row"
 			wrap="wrap"
