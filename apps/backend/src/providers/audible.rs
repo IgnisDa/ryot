@@ -199,8 +199,8 @@ impl MediaProvider for AudibleService {
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PersonSearchItem>> {
-        let page: usize = page.unwrap_or(1).try_into().unwrap();
-        let page = page - 1;
+        let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
+        let req_internal_page = internal_page - 1;
         let data: Vec<AudibleAuthor> = surf::get(format!("{}/authors", AUDNEX_URL))
             .query(&json!({ "region": self.locale, "name": query }))
             .unwrap()
@@ -220,13 +220,13 @@ impl MediaProvider for AudibleService {
             .collect_vec();
         let total_items = data.len();
         let pages = Pages::new(total_items, self.page_limit.try_into().unwrap());
-        let selected_page = pages.with_offset(page);
+        let selected_page = pages.with_offset(req_internal_page);
         let items = data[selected_page.start..selected_page.end + 1].to_vec();
-        let has_next_page = pages.page_count() > page + 1;
+        let has_next_page = pages.page_count() > internal_page;
         Ok(SearchResults {
             details: SearchDetails {
                 next_page: if has_next_page {
-                    Some((page + 1).try_into().unwrap())
+                    Some((internal_page + 1).try_into().unwrap())
                 } else {
                     None
                 },
