@@ -19,7 +19,7 @@ use crate::{
         media::{
             MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
             MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSourceSpecifics, VideoGameSpecifics,
+            PartialMetadataWithoutId, PersonSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -57,6 +57,24 @@ fields
     videos.*,
     genres.*;
 where version_parent = null;
+";
+static COMPANY_FIELDS: &str = "
+fields
+    *,
+    company.id,
+    company.name,
+    company.country,
+    company.description,
+    company.logo.*,
+    company.websites.url,
+    company.start_date,
+    company.url,
+    company.developed.id,
+    company.developed.name,
+    company.developed.cover.image_id,
+    company.published.id,
+    company.published.name,
+    company.published.cover.image_id;
 ";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -219,24 +237,10 @@ where id = {id};
         let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
-fields
-    *,
-    company.id,
-    company.name,
-    company.country,
-    company.description,
-    company.logo.*,
-    company.websites.url,
-    company.start_date,
-    company.url,
-    company.developed.id,
-    company.developed.name,
-    company.developed.cover.image_id,
-    company.published.id,
-    company.published.name,
-    company.published.cover.image_id;
+{fields}
 where id = {id};
             "#,
+            fields = COMPANY_FIELDS,
             id = identity
         );
         let mut rsp = client
