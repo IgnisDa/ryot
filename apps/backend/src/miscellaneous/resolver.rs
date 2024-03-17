@@ -76,12 +76,12 @@ use crate::{
             GenreListItem, ImportOrExportItemRating, ImportOrExportItemReview,
             ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MediaSearchItemResponse, MetadataFreeCreator, MetadataGroupListItem,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            MediaListItem, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSearchItem, PersonSearchItemResponse, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            PartialMetadataWithoutId, PersonSearchItem, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
             SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
             SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
@@ -997,7 +997,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PersonSearchItemResponse>> {
+    ) -> Result<SearchResults<PersonSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_search(user_id, input).await
@@ -3611,11 +3611,9 @@ impl MiscellaneousService {
                     .map(|i| {
                         let interaction = interactions.get(&i.identifier).cloned();
                         MetadataSearchItemResponse {
-                            data: MediaSearchItemResponse {
-                                has_interacted: interaction.unwrap_or_default().1,
-                                database_id: interaction.map(|i| i.0),
-                                item: i,
-                            },
+                            has_interacted: interaction.unwrap_or_default().1,
+                            database_id: interaction.map(|i| i.0),
+                            item: i,
                         }
                     })
                     .collect();
@@ -7135,7 +7133,7 @@ GROUP BY
         &self,
         user_id: i32,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PersonSearchItemResponse>> {
+    ) -> Result<SearchResults<PersonSearchItem>> {
         todo!()
     }
 
