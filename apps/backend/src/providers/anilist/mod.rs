@@ -117,7 +117,8 @@ impl AnilistAnimeService {
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
+        let details =
+            media_details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
@@ -166,7 +167,8 @@ impl AnilistMangaService {
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let details = details(&self.base.client, identifier, self.base.prefer_english).await?;
+        let details =
+            media_details(&self.base.client, identifier, self.base.prefer_english).await?;
         Ok(details)
     }
 
@@ -311,7 +313,7 @@ async fn person_details(
     Ok(data)
 }
 
-async fn details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {
+async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {
     let variables = details_query::Variables {
         id: id.parse::<i64>().unwrap(),
     };
