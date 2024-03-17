@@ -4,6 +4,7 @@ use convert_case::{Case, Casing};
 use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
+use paginate::Pages;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,7 @@ use crate::{
         media::{
             AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, MetadataSearchItem, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSourceSpecifics,
+            PartialMetadataWithoutId, PersonSearchItem, PersonSourceSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -192,6 +193,49 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
+    async fn person_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PersonSearchItem>> {
+        let page: usize = page.unwrap_or(1).try_into().unwrap();
+        let page = page - 1;
+        let data: Vec<AudibleAuthor> = surf::get(format!("{}/authors", AUDNEX_URL))
+            .query(&json!({ "region": self.locale, "name": query }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data = data
+            .into_iter()
+            .map(|a| PersonSearchItem {
+                identifier: a.asin.unwrap_or_default(),
+                name: a.name,
+                image: None,
+                birth_year: None,
+            })
+            .collect_vec();
+        let total_items = data.len();
+        let pages = Pages::new(total_items, self.page_limit.try_into().unwrap());
+        let selected_page = pages.with_offset(page);
+        let items = data[selected_page.start..selected_page.end + 1].to_vec();
+        let has_next_page = pages.page_count() > page + 1;
+        Ok(SearchResults {
+            details: SearchDetails {
+                next_page: if has_next_page {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+                total: total_items.try_into().unwrap(),
+            },
+            items,
+        })
+    }
+
     async fn person_details(
         &self,
         identity: &str,
