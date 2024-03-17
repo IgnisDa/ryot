@@ -557,7 +557,7 @@ export default function Page() {
 				title={loaderData.mediaMainDetails.title}
 				lot={loaderData.mediaMainDetails.lot}
 			/>
-			<Container fluid style={{ margin: "1rem 3rem" }}>
+			<Container fluid style={{ margin: "1vh 2vw" }}>
 				<MediaDetailsLayout
 					images={loaderData.mediaMainDetails.assets.images}
 					externalLink={{
@@ -592,13 +592,13 @@ export default function Page() {
 								<Group>
 									{userMediaDetails.collections.length > 0
 										? userMediaDetails.collections.map((col) => (
-												<DisplayCollection
-													col={col}
-													entityId={loaderData.metadataId.toString()}
-													entityLot={EntityLot.Media}
-													key={col.id}
-												/>
-										  ))
+											<DisplayCollection
+												col={col}
+												entityId={loaderData.metadataId.toString()}
+												entityLot={EntityLot.Media}
+												key={col.id}
+											/>
+										))
 										: null}
 									{userMediaDetails.isMonitored ? (
 										<DisplayMediaMonitored />
@@ -623,50 +623,48 @@ export default function Page() {
 									{[
 										loaderData.mediaMainDetails.publishDate
 											? dayjsLib(
-													loaderData.mediaMainDetails.publishDate,
-											  ).format("LL")
+												loaderData.mediaMainDetails.publishDate,
+											).format("LL")
 											: loaderData.mediaMainDetails.publishYear,
 										loaderData.mediaMainDetails.originalLanguage,
 										loaderData.mediaMainDetails.productionStatus,
 										mediaAdditionalDetails.bookSpecifics?.pages &&
-											`${mediaAdditionalDetails.bookSpecifics.pages} pages`,
+										`${mediaAdditionalDetails.bookSpecifics.pages} pages`,
 										mediaAdditionalDetails.podcastSpecifics?.totalEpisodes &&
-											`${mediaAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
+										`${mediaAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
 										mediaAdditionalDetails.animeSpecifics?.episodes &&
-											`${mediaAdditionalDetails.animeSpecifics.episodes} episodes`,
+										`${mediaAdditionalDetails.animeSpecifics.episodes} episodes`,
 										mediaAdditionalDetails.mangaSpecifics?.chapters &&
-											`${mediaAdditionalDetails.mangaSpecifics.chapters} chapters`,
+										`${mediaAdditionalDetails.mangaSpecifics.chapters} chapters`,
 										mediaAdditionalDetails.mangaSpecifics?.volumes &&
-											`${mediaAdditionalDetails.mangaSpecifics.volumes} volumes`,
+										`${mediaAdditionalDetails.mangaSpecifics.volumes} volumes`,
 										mediaAdditionalDetails.movieSpecifics?.runtime &&
-											humanizeDuration(
-												mediaAdditionalDetails.movieSpecifics.runtime *
-													1000 *
-													60,
-											),
+										humanizeDuration(
+											mediaAdditionalDetails.movieSpecifics.runtime *
+											1000 *
+											60,
+										),
 										mediaAdditionalDetails.showSpecifics?.totalSeasons &&
-											`${
-												mediaAdditionalDetails.showSpecifics.totalSeasons
-											} season${
-												mediaAdditionalDetails.showSpecifics.seasons.length ===
-												1
-													? ""
-													: "s"
-											}`,
+										`${mediaAdditionalDetails.showSpecifics.totalSeasons
+										} season${mediaAdditionalDetails.showSpecifics.seasons.length ===
+											1
+											? ""
+											: "s"
+										}`,
 										mediaAdditionalDetails.showSpecifics?.totalEpisodes &&
-											`${mediaAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
+										`${mediaAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
 										mediaAdditionalDetails.showSpecifics?.runtime &&
-											humanizeDuration(
-												mediaAdditionalDetails.showSpecifics.runtime *
-													1000 *
-													60,
-											),
+										humanizeDuration(
+											mediaAdditionalDetails.showSpecifics.runtime *
+											1000 *
+											60,
+										),
 										mediaAdditionalDetails.audioBookSpecifics?.runtime &&
-											humanizeDuration(
-												mediaAdditionalDetails.audioBookSpecifics.runtime *
-													1000 *
-													60,
-											),
+										humanizeDuration(
+											mediaAdditionalDetails.audioBookSpecifics.runtime *
+											1000 *
+											60,
+										),
 									]
 										.filter(Boolean)
 										.join(" • ")}
@@ -679,7 +677,7 @@ export default function Page() {
 							{({ userMediaDetails }) => (
 								<>
 									{loaderData.mediaMainDetails.providerRating ||
-									userMediaDetails.averageRating ? (
+										userMediaDetails.averageRating ? (
 										<Group>
 											{loaderData.mediaMainDetails.providerRating ? (
 												<Paper
@@ -774,7 +772,7 @@ export default function Page() {
 													<Text fz="sm">
 														{Number(userMediaDetails.averageRating).toFixed(1)}
 														{loaderData.userPreferences.reviewScale ===
-														UserReviewScale.OutOfFive
+															UserReviewScale.OutOfFive
 															? undefined
 															: "%"}
 													</Text>
@@ -802,7 +800,7 @@ export default function Page() {
 					>
 						<Tabs.List mb="xs">
 							{loaderData.mediaMainDetails.description ||
-							loaderData.mediaMainDetails.genres.length > 0 ? (
+								loaderData.mediaMainDetails.genres.length > 0 ? (
 								<Tabs.Tab
 									value="overview"
 									leftSection={<IconInfoCircle size={16} />}
@@ -850,7 +848,7 @@ export default function Page() {
 								Suggestions
 							</Tabs.Tab>
 							{!loaderData.userPreferences.videosDisabled &&
-							(loaderData.mediaMainDetails.assets.videos.length || 0) > 0 ? (
+								(loaderData.mediaMainDetails.assets.videos.length || 0) > 0 ? (
 								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
 								</Tabs.Tab>
@@ -914,7 +912,7 @@ export default function Page() {
 															>
 																<Flex gap="md">
 																	{c.items.map((creator) => (
-																		<Box 
+																		<Box
 																			key={`${creator.id}-${creator.name}`}
 																			w={85}>
 																			{creator.id ? (
@@ -997,7 +995,7 @@ export default function Page() {
 													</Menu.Target>
 													<Menu.Dropdown>
 														{loaderData.mediaMainDetails.lot ===
-														MetadataLot.Show ? (
+															MetadataLot.Show ? (
 															<>
 																<Menu.Label>Shows</Menu.Label>
 																{userMediaDetails.nextEntry ? (
@@ -1007,15 +1005,15 @@ export default function Page() {
 																				setUpdateProgressModalData({
 																					showSeasonNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show
+																							MetadataLot.Show
 																							? userMediaDetails.nextEntry
-																									?.season
+																								?.season
 																							: undefined,
 																					showEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show
+																							MetadataLot.Show
 																							? userMediaDetails.nextEntry
-																									?.episode
+																								?.episode
 																							: undefined,
 																				});
 																			}}
@@ -1028,7 +1026,7 @@ export default function Page() {
 																	</>
 																) : null}
 																{userMediaDetails &&
-																userMediaDetails.history.length !== 0 ? (
+																	userMediaDetails.history.length !== 0 ? (
 																	<DropBtn />
 																) : (
 																	<Menu.Item disabled>
@@ -1038,7 +1036,7 @@ export default function Page() {
 															</>
 														) : null}
 														{loaderData.mediaMainDetails.lot ===
-														MetadataLot.Podcast ? (
+															MetadataLot.Podcast ? (
 															<>
 																<Menu.Label>Podcasts</Menu.Label>
 																{userMediaDetails.nextEntry ? (
@@ -1048,9 +1046,9 @@ export default function Page() {
 																				setUpdateProgressModalData({
 																					podcastEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Podcast
+																							MetadataLot.Podcast
 																							? userMediaDetails.nextEntry
-																									?.episode
+																								?.episode
 																							: undefined,
 																				});
 																			}}
@@ -1063,7 +1061,7 @@ export default function Page() {
 																	</>
 																) : null}
 																{userMediaDetails &&
-																userMediaDetails.history.length !== 0 ? (
+																	userMediaDetails.history.length !== 0 ? (
 																	<DropBtn />
 																) : (
 																	<Menu.Item disabled>
@@ -1115,15 +1113,15 @@ export default function Page() {
 																</Menu.Item>
 																{loaderData.mediaMainDetails.lot !==
 																	MetadataLot.Show &&
-																loaderData.mediaMainDetails.lot !==
+																	loaderData.mediaMainDetails.lot !==
 																	MetadataLot.Podcast ? (
 																	<StateChangeButtons />
 																) : null}
 															</>
 														) : loaderData.mediaMainDetails.lot !==
-																MetadataLot.Show &&
-														  loaderData.mediaMainDetails.lot !==
-																MetadataLot.Podcast ? (
+															MetadataLot.Show &&
+															loaderData.mediaMainDetails.lot !==
+															MetadataLot.Podcast ? (
 															<>
 																<Menu.Label>Not in progress</Menu.Label>
 																<Form
@@ -1188,15 +1186,15 @@ export default function Page() {
 																	undefined,
 																showEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Show
+																		MetadataLot.Show
 																		? userMediaDetails?.nextEntry?.episode ??
-																		  undefined
+																		undefined
 																		: null,
 																podcastEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast
+																		MetadataLot.Podcast
 																		? userMediaDetails?.nextEntry?.episode ??
-																		  undefined
+																		undefined
 																		: null,
 															});
 														}}
@@ -1352,9 +1350,9 @@ export default function Page() {
 												<>
 													<Tabs.Panel value="history">
 														{userMediaDetails.seenBy > 0 ||
-														userMediaDetails.history.length > 0 ||
-														userMediaDetails.unitsConsumed ||
-														userMediaDetails.ownership ? (
+															userMediaDetails.history.length > 0 ||
+															userMediaDetails.unitsConsumed ||
+															userMediaDetails.ownership ? (
 															<MediaScrollArea>
 																<Stack>
 																	<Box>
@@ -1364,7 +1362,7 @@ export default function Page() {
 																			{userMediaDetails.seenBy > 1 ? "s" : ""}{" "}
 																			and {userMediaDetails.history.length} time
 																			{userMediaDetails &&
-																			userMediaDetails.history.length > 1
+																				userMediaDetails.history.length > 1
 																				? "s"
 																				: ""}{" "}
 																			by you.
@@ -1384,14 +1382,13 @@ export default function Page() {
 																							humanizeDuration(
 																								(userMediaDetails.unitsConsumed ||
 																									0) *
-																									1000 *
-																									60,
+																								1000 *
+																								60,
 																							),
 																					)
 																					.otherwise(
 																						(v) =>
-																							`${
-																								userMediaDetails.unitsConsumed
+																							`${userMediaDetails.unitsConsumed
 																							} ${match(v)
 																								.with(
 																									MetadataLot.VideoGame,
@@ -1466,19 +1463,19 @@ export default function Page() {
 																						numEpisodes={s.episodes.length}
 																						displayIndicator={
 																							s.episodes.length > 0 &&
-																							s.episodes.every((e) =>
-																								userMediaDetails.history.some(
-																									(h) =>
-																										h.progress === 100 &&
-																										h.showExtraInformation &&
-																										h.showExtraInformation
-																											.episode ===
+																								s.episodes.every((e) =>
+																									userMediaDetails.history.some(
+																										(h) =>
+																											h.progress === 100 &&
+																											h.showExtraInformation &&
+																											h.showExtraInformation
+																												.episode ===
 																											e.episodeNumber &&
-																										h.showExtraInformation
-																											.season ===
+																											h.showExtraInformation
+																												.season ===
 																											s.seasonNumber,
-																								),
-																							)
+																									),
+																								)
 																								? 1
 																								: 0
 																						}
@@ -1520,10 +1517,10 @@ export default function Page() {
 																												h.showExtraInformation &&
 																												h.showExtraInformation
 																													.episode ===
-																													e.episodeNumber &&
+																												e.episodeNumber &&
 																												h.showExtraInformation
 																													.season ===
-																													s.seasonNumber,
+																												s.seasonNumber,
 																										).length || 0
 																									}
 																								>
@@ -1881,8 +1878,8 @@ const ProgressUpdateModal = (props: {
 													{props.data.onlySeason
 														? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
 														: props.data.completeShow
-														  ? "This will mark all episodes for this show as seen"
-														  : null}
+															? "This will mark all episodes for this show as seen"
+															: null}
 												</Alert>
 											) : null}
 											{!props.data?.completeShow ? (
@@ -1904,7 +1901,7 @@ const ProgressUpdateModal = (props: {
 												/>
 											) : null}
 											{!props.data?.onlySeason &&
-											typeof props.data?.showSeasonNumber !== "undefined" ? (
+												typeof props.data?.showSeasonNumber !== "undefined" ? (
 												<Select
 													label="Episode"
 													data={
@@ -1915,9 +1912,8 @@ const ProgressUpdateModal = (props: {
 																	Number(props.data?.showSeasonNumber),
 															)
 															?.episodes.map((e) => ({
-																label: `${
-																	e.episodeNumber
-																}. ${e.name.toString()}`,
+																label: `${e.episodeNumber
+																	}. ${e.name.toString()}`,
 																value: e.episodeNumber.toString(),
 															})) || []
 													}
@@ -2344,21 +2340,21 @@ const SeenItem = (props: {
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
 		? props.showSpecifics?.seasons
-				.find(
-					(s) => s.seasonNumber === props.history.showExtraInformation?.season,
-				)
-				?.episodes.find(
-					(e) =>
-						e.episodeNumber === props.history.showExtraInformation?.episode,
-				)
+			.find(
+				(s) => s.seasonNumber === props.history.showExtraInformation?.season,
+			)
+			?.episodes.find(
+				(e) =>
+					e.episodeNumber === props.history.showExtraInformation?.episode,
+			)
 		: null;
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
 	const podcastExtraInformation = props.history.podcastExtraInformation
 		? props.podcastSpecifics?.episodes.find(
-				(e) => e.number === props.history.podcastExtraInformation?.episode,
-		  )
+			(e) => e.number === props.history.podcastExtraInformation?.episode,
+		)
 		: null;
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`

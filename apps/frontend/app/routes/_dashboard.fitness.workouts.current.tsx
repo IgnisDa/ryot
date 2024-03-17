@@ -223,7 +223,7 @@ export default function Page() {
 	}, []);
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			{currentWorkout ? (
 				<ClientOnly fallback={<Text>Loading workout...</Text>}>
 					{() => (
@@ -274,11 +274,10 @@ export default function Page() {
 									<DurationTimer startTime={currentWorkout.startTime} />
 									<StatDisplay
 										name="Exercises"
-										value={`${
-											currentWorkout.exercises
-												.map((e) => e.sets.every((s) => s.confirmed))
-												.filter(Boolean).length
-										}/${currentWorkout.exercises.length}`}
+										value={`${currentWorkout.exercises
+											.map((e) => e.sets.every((s) => s.confirmed))
+											.filter(Boolean).length
+											}/${currentWorkout.exercises.length}`}
 									/>
 									<StatDisplay
 										name="Weight"
@@ -290,7 +289,7 @@ export default function Page() {
 													.flatMap((s) =>
 														s.confirmed
 															? Number(s.statistic.reps || 0) *
-															  Number(s.statistic.weight || 0)
+															Number(s.statistic.weight || 0)
 															: 0,
 													),
 											).toFixed(),
@@ -322,8 +321,8 @@ export default function Page() {
 									>
 										{currentTimer
 											? dayjsLib
-													.duration(currentTimer.endAt.diff(dayjsLib()))
-													.format("m:ss")
+												.duration(currentTimer.endAt.diff(dayjsLib()))
+												.format("m:ss")
 											: "Timer"}
 									</Button>
 									{currentWorkout.exercises.length > 1 ? (
@@ -492,7 +491,7 @@ const StatInput = (props: {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [value, setValue] = useDebouncedState(
 		currentWorkout?.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
-			props.stat
+		props.stat
 		] ?? undefined,
 		500,
 	);
@@ -876,7 +875,7 @@ const ExerciseDisplay = (props: {
 									</ActionIcon>
 								</Menu.Target>
 								{currentTimer?.triggeredBy?.exerciseIdentifier ===
-								props.exercise.identifier ? (
+									props.exercise.identifier ? (
 									<Progress
 										pos="absolute"
 										color="violet"
@@ -896,9 +895,8 @@ const ExerciseDisplay = (props: {
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
 								(note, idx) => (
 									<NoteInput
-										key={`${
-											currentWorkout.exercises[props.exerciseIdx].identifier
-										}-${idx}`}
+										key={`${currentWorkout.exercises[props.exerciseIdx].identifier
+											}-${idx}`}
 										exerciseIdx={props.exerciseIdx}
 										noteIdx={idx}
 										note={note}
@@ -942,7 +940,7 @@ const ExerciseDisplay = (props: {
 									currentWorkout.exercises[props.exerciseIdx].supersetWith
 										.length > 0
 										? currentWorkout.exercises[props.exerciseIdx].supersetWith
-												.length
+											.length
 										: "Off"
 								}
 							>
@@ -1229,7 +1227,7 @@ const ExerciseDisplay = (props: {
 													if (
 														!newConfirmed &&
 														currentTimer?.triggeredBy?.exerciseIdentifier ===
-															props.exercise.identifier &&
+														props.exercise.identifier &&
 														currentTimer?.triggeredBy?.setIdx === idx
 													)
 														props.stopTimer();

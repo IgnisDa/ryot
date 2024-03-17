@@ -215,14 +215,14 @@ export default function Page() {
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
-			defaultFilters.mineGeneralFilter ||
+		defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
 		loaderData.mediaList?.url.collectionFilter !==
-			defaultFilters.mineCollectionFilter;
+		defaultFilters.mineCollectionFilter;
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			{loaderData.mediaInteractedWith === 0 ? <NewUserGuideAlert /> : null}
 			<Tabs
 				variant="default"
@@ -336,7 +336,7 @@ export default function Page() {
 											}}
 										>
 											{loaderData.mediaList.url.sortOrder ===
-											GraphqlSortOrder.Asc ? (
+												GraphqlSortOrder.Asc ? (
 												<IconSortAscending />
 											) : (
 												<IconSortDescending />
@@ -400,7 +400,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaList.list.details.total /
-											loaderData.coreDetails.pageLimit,
+										loaderData.coreDetails.pageLimit,
 									)}
 								/>
 							</Center>
@@ -471,7 +471,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaSearch.search.details.total /
-											loaderData.coreDetails.pageLimit,
+										loaderData.coreDetails.pageLimit,
 									)}
 								/>
 							</Center>
@@ -583,10 +583,10 @@ const MediaSearchItem = (props: {
 								{ id },
 								!isShowOrPodcast
 									? {
-											defaultTab: "actions",
-											openProgressModal: true,
-											[redirectToQueryParam]: loaderData.url,
-									  }
+										defaultTab: "actions",
+										openProgressModal: true,
+										[redirectToQueryParam]: loaderData.url,
+									}
 									: { defaultTab: "seasons" },
 							),
 						);

@@ -142,7 +142,7 @@ export default function Page() {
 	};
 
 	return (
-		<Container fluid style={{ margin: '1rem 3rem' }}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<MediaDetailsLayout
 				images={imageUrls.map((i) => i.url)}
 				externalLink={{ source: MetadataSource.Custom }}

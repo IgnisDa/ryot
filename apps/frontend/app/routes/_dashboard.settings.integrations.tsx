@@ -157,7 +157,7 @@ export default function Page() {
 		useState<UserSinkIntegrationSettingKind>();
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack>
 				<Title>Integration settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (
@@ -257,7 +257,7 @@ export default function Page() {
 									</>
 								) : null}
 								{createUserSinkIntegrationLot ===
-								UserSinkIntegrationSettingKind.Plex ? (
+									UserSinkIntegrationSettingKind.Plex ? (
 									<>
 										<TextInput label="Username" name="username" />
 									</>
@@ -312,12 +312,11 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 
 	const integrationUrl =
 		typeof window !== "undefined"
-			? `${
-					window.location.origin
-			  }/backend/webhooks/integrations/${props.integration.description
-					.toLowerCase()
-					.split(" ")
-					.at(0)}/${props.integration.slug}`
+			? `${window.location.origin
+			}/backend/webhooks/integrations/${props.integration.description
+				.toLowerCase()
+				.split(" ")
+				.at(0)}/${props.integration.slug}`
 			: "";
 
 	return (

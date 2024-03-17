@@ -108,7 +108,7 @@ export const meta: MetaFunction = ({ data }) => {
 			title: `${
 				// biome-ignore lint/suspicious/noExplicitAny:
 				(data as any).personDetails.details.name
-			} | Ryot`,
+				} | Ryot`,
 		},
 	];
 };
@@ -169,7 +169,7 @@ export default function Page() {
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.personDetails.details.name}
 			/>
-			<Container fluid style={{ margin: "1rem 3rem" }}>
+			<Container fluid style={{ margin: "1vh 2vw" }}>
 				<MediaDetailsLayout
 					images={loaderData.personDetails.details.displayImages}
 					externalLink={{
@@ -182,15 +182,14 @@ export default function Page() {
 					</Title>
 					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 						{[
-							`${
-								loaderData.personDetails.contents.flatMap((c) => c.items).length
+							`${loaderData.personDetails.contents.flatMap((c) => c.items).length
 							} media items`,
 							loaderData.personDetails.details.birthDate &&
-								`Birth: ${loaderData.personDetails.details.birthDate}`,
+							`Birth: ${loaderData.personDetails.details.birthDate}`,
 							loaderData.personDetails.details.deathDate &&
-								`Death: ${loaderData.personDetails.details.deathDate}`,
+							`Death: ${loaderData.personDetails.details.deathDate}`,
 							loaderData.personDetails.details.place &&
-								loaderData.personDetails.details.place,
+							loaderData.personDetails.details.place,
 							loaderData.personDetails.details.gender,
 						]
 							.filter(Boolean)
@@ -211,13 +210,13 @@ export default function Page() {
 					<Group>
 						{loaderData.userPersonDetails.collections.length > 0
 							? loaderData.userPersonDetails.collections.map((col) => (
-									<DisplayCollection
-										col={col}
-										entityId={loaderData.personId.toString()}
-										entityLot={EntityLot.Person}
-										key={col.id}
-									/>
-							  ))
+								<DisplayCollection
+									col={col}
+									entityId={loaderData.personId.toString()}
+									entityLot={EntityLot.Person}
+									key={col.id}
+								/>
+							))
 							: null}
 						{loaderData.personDetails.details.isPartial ? (
 							<MediaIsPartial mediaType="person" />

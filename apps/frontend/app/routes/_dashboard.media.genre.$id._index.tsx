@@ -42,7 +42,7 @@ export const meta: MetaFunction = ({ data }) => {
 			title: `${
 				// biome-ignore lint/suspicious/noExplicitAny:
 				(data as any).genreDetails.details.name
-			} | Ryot`,
+				} | Ryot`,
 		},
 	];
 };
@@ -52,7 +52,7 @@ export default function Page() {
 	const [_, { setP }] = useSearchParam();
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack>
 				<Box>
 					<Title id="genre-title">{loaderData.genreDetails.details.name}</Title>
@@ -78,7 +78,7 @@ export default function Page() {
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
 							loaderData.genreDetails.contents.details.total /
-								loaderData.coreDetails.pageLimit,
+							loaderData.coreDetails.pageLimit,
 						)}
 					/>
 				</Center>

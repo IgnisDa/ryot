@@ -58,7 +58,7 @@ export default function Page() {
 	const formRef = useRef<HTMLFormElement>(null);
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack>
 				<Title>Profile settings</Title>
 				<fetcher.Form ref={formRef} method="post">

@@ -115,7 +115,7 @@ export const meta: MetaFunction = ({ data }) => {
 			title: `${
 				// biome-ignore lint/suspicious/noExplicitAny:
 				(data as any).workoutDetails.name
-			} | Ryot`,
+				} | Ryot`,
 		},
 	];
 };
@@ -207,7 +207,7 @@ export default function Page() {
 					</Stack>
 				</Form>
 			</Modal>
-			<Container fluid style={{margin: '1rem 3rem'}}>
+			<Container fluid style={{ margin: '1vh 2vw' }}>
 				<Stack>
 					<Group justify="space-between">
 						<Title>{loaderData.workoutDetails.name}</Title>
@@ -288,7 +288,7 @@ export default function Page() {
 								icon={<IconClock size={16} />}
 								data={humanizeDuration(
 									new Date(loaderData.workoutDetails.endTime).valueOf() -
-										new Date(loaderData.workoutDetails.startTime).valueOf(),
+									new Date(loaderData.workoutDetails.startTime).valueOf(),
 									{ round: true, units: ["h", "m"] },
 								)}
 							/>
@@ -381,23 +381,23 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const supersetLinks =
 		props.exercise.supersetWith.length > 0
 			? props.exercise.supersetWith
-					.map<ReactNode>((otherExerciseIdx) => (
-						<Anchor
-							key={otherExerciseIdx}
-							fz="xs"
-							href={withFragment(
-								"",
-								`${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
-							)}
-						>
-							{
-								loaderData.workoutDetails.information.exercises[
-									otherExerciseIdx
-								].name
-							}
-						</Anchor>
-					))
-					.reduce((prev, curr) => [prev, ", ", curr])
+				.map<ReactNode>((otherExerciseIdx) => (
+					<Anchor
+						key={otherExerciseIdx}
+						fz="xs"
+						href={withFragment(
+							"",
+							`${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
+						)}
+					>
+						{
+							loaderData.workoutDetails.information.exercises[
+								otherExerciseIdx
+							].name
+						}
+					</Anchor>
+				))
+				.reduce((prev, curr) => [prev, ", ", curr])
 			: null;
 
 	return (

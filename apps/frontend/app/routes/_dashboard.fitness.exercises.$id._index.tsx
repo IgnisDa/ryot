@@ -107,7 +107,7 @@ export const meta: MetaFunction = ({ data }) => {
 			title: `${
 				// biome-ignore lint/suspicious/noExplicitAny:
 				(data as any).exerciseDetails.id
-			} | Ryot`,
+				} | Ryot`,
 		},
 	];
 };
@@ -122,7 +122,7 @@ export default function Page() {
 	const navigate = useNavigate();
 
 	return (
-		<Container fluid style={{ margin: "1rem 3rem" }} px="lg">
+		<Container fluid style={{ margin: "1vh 2vw" }} px="lg">
 			<Stack>
 				<Title id="exercise-title">{loaderData.exerciseDetails.id}</Title>
 				{loaderData.userExerciseDetails.collections.length > 0 ? (

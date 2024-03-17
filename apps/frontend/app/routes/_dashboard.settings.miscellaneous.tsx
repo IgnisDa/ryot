@@ -58,7 +58,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Form replace method="post">
 				<Stack>
 					<Title>Miscellaneous settings</Title>

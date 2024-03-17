@@ -85,7 +85,7 @@ export default function Page() {
 	] = useDisclosure(false);
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>People</Title>
@@ -99,7 +99,7 @@ export default function Page() {
 						onClick={openFiltersModal}
 						color={
 							loaderData.query.orderBy !== defaultFilters.orderBy ||
-							loaderData.query.sortBy !== defaultFilters.sortBy
+								loaderData.query.sortBy !== defaultFilters.sortBy
 								? "blue"
 								: "gray"
 						}
@@ -183,7 +183,7 @@ export default function Page() {
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(
 								loaderData.peopleList.details.total /
-									loaderData.coreDetails.pageLimit,
+								loaderData.coreDetails.pageLimit,
 							)}
 						/>
 					</Center>

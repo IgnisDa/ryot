@@ -90,7 +90,7 @@ export const meta: MetaFunction = ({ data }) => {
 			title: `${
 				// biome-ignore lint/suspicious/noExplicitAny:
 				(data as any).metadataGroupDetails.details.title
-			} | Ryot`,
+				} | Ryot`,
 		},
 	];
 };
@@ -116,7 +116,7 @@ export default function Page() {
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
 			/>
-			<Container fluid style={{ margin: "1rem 3rem" }}>
+			<Container fluid style={{ margin: "1vh 2vw" }}>
 				<MediaDetailsLayout
 					images={loaderData.metadataGroupDetails.details.displayImages}
 					externalLink={{

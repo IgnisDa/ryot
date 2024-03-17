@@ -118,7 +118,7 @@ export default function Page() {
 	const theme = useMantineTheme();
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack gap={32}>
 				{loaderData.workoutInProgress ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="yellow">
@@ -381,7 +381,7 @@ export default function Page() {
 										/>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
-									loaderData.latestUserSummary.fitness.workouts.duration +
+										loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
 										0 ? (
 										<UnstyledLink to={$path("/fitness/workouts/list")}>
@@ -419,7 +419,7 @@ export default function Page() {
 										</UnstyledLink>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
-									loaderData.latestUserSummary.fitness.measurementsRecorded +
+										loaderData.latestUserSummary.fitness.measurementsRecorded +
 										loaderData.latestUserSummary.fitness
 											.exercisesInteractedWith >
 										0 ? (
@@ -478,13 +478,11 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 						MetadataLot.Podcast,
 						() => `EP-${um.podcastExtraInformation?.episode}`,
 					)
-					.otherwise(() => "")} ${
-					numDaysLeft === 0
+					.otherwise(() => "")} ${numDaysLeft === 0
 						? "Today"
-						: `in ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
-								numDaysLeft === 1 ? "" : "s"
-						  }`
-				}`,
+						: `in ${numDaysLeft === 1 ? "a" : numDaysLeft} day${numDaysLeft === 1 ? "" : "s"
+						}`
+					}`,
 			}}
 			lot={um.metadataLot}
 			noBottomRight

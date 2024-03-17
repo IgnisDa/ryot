@@ -141,7 +141,7 @@ export default function Page() {
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack>
 				<Title>Notification settings</Title>
 				{loaderData.userNotificationPlatforms.length > 0 ? (
@@ -244,100 +244,100 @@ export default function Page() {
 								/>
 								{createUserNotificationPlatformLot
 									? match(createUserNotificationPlatformLot)
-											.with(UserNotificationSettingKind.Apprise, () => (
-												<>
-													<TextInput label="Base Url" required name="baseUrl" />
-													<TextInput label="Key" required name="apiToken" />
-												</>
-											))
-											.with(UserNotificationSettingKind.Discord, () => (
-												<>
-													<TextInput
-														label="Webhook Url"
-														required
-														name="baseUrl"
-													/>
-												</>
-											))
-											.with(UserNotificationSettingKind.Gotify, () => (
-												<>
-													<TextInput
-														label="Server Url"
-														required
-														name="baseUrl"
-													/>
-													<TextInput label="Token" required name="apiToken" />
-													<NumberInput label="Priority" name="priority" />
-												</>
-											))
-											.with(UserNotificationSettingKind.Ntfy, () => (
-												<>
-													<TextInput label="Topic" required name="apiToken" />
-													<TextInput label="Server Url" name="baseUrl" />
-													<TextInput
-														label="Access token"
-														description={
-															<>
-																If you want to publish to a{" "}
-																<Anchor
-																	size="xs"
-																	href="https://docs.ntfy.sh/publish/#access-tokens"
-																	target="_blank"
-																>
-																	protected topic
-																</Anchor>
-															</>
-														}
-														name="authHeader"
-													/>
-													<NumberInput label="Priority" name="priority" />
-												</>
-											))
-											.with(UserNotificationSettingKind.PushBullet, () => (
-												<>
-													<TextInput label="Token" required name="apiToken" />
-												</>
-											))
-											.with(UserNotificationSettingKind.PushOver, () => (
-												<>
-													<TextInput
-														label="User Key"
-														required
-														name="apiToken"
-													/>
-													<TextInput label="App Key" name="authHeader" />
-												</>
-											))
-											.with(UserNotificationSettingKind.PushSafer, () => (
-												<>
-													<TextInput label="Key" required name="apiToken" />
-												</>
-											))
-											.with(UserNotificationSettingKind.Email, () => (
-												<>
-													<TextInput
-														type="email"
-														label="Email ID"
-														required
-														name="apiToken"
-														description={
-															<>
-																Make sure
-																<Anchor
-																	size="xs"
-																	href={`${loaderData.coreDetails.docsLink}/configuration.html?h=smtp#all-parameters`}
-																	target="_blank"
-																>
-																	{" "}
-																	the correct{" "}
-																</Anchor>
-																configuration parameters are set
-															</>
-														}
-													/>
-												</>
-											))
-											.exhaustive()
+										.with(UserNotificationSettingKind.Apprise, () => (
+											<>
+												<TextInput label="Base Url" required name="baseUrl" />
+												<TextInput label="Key" required name="apiToken" />
+											</>
+										))
+										.with(UserNotificationSettingKind.Discord, () => (
+											<>
+												<TextInput
+													label="Webhook Url"
+													required
+													name="baseUrl"
+												/>
+											</>
+										))
+										.with(UserNotificationSettingKind.Gotify, () => (
+											<>
+												<TextInput
+													label="Server Url"
+													required
+													name="baseUrl"
+												/>
+												<TextInput label="Token" required name="apiToken" />
+												<NumberInput label="Priority" name="priority" />
+											</>
+										))
+										.with(UserNotificationSettingKind.Ntfy, () => (
+											<>
+												<TextInput label="Topic" required name="apiToken" />
+												<TextInput label="Server Url" name="baseUrl" />
+												<TextInput
+													label="Access token"
+													description={
+														<>
+															If you want to publish to a{" "}
+															<Anchor
+																size="xs"
+																href="https://docs.ntfy.sh/publish/#access-tokens"
+																target="_blank"
+															>
+																protected topic
+															</Anchor>
+														</>
+													}
+													name="authHeader"
+												/>
+												<NumberInput label="Priority" name="priority" />
+											</>
+										))
+										.with(UserNotificationSettingKind.PushBullet, () => (
+											<>
+												<TextInput label="Token" required name="apiToken" />
+											</>
+										))
+										.with(UserNotificationSettingKind.PushOver, () => (
+											<>
+												<TextInput
+													label="User Key"
+													required
+													name="apiToken"
+												/>
+												<TextInput label="App Key" name="authHeader" />
+											</>
+										))
+										.with(UserNotificationSettingKind.PushSafer, () => (
+											<>
+												<TextInput label="Key" required name="apiToken" />
+											</>
+										))
+										.with(UserNotificationSettingKind.Email, () => (
+											<>
+												<TextInput
+													type="email"
+													label="Email ID"
+													required
+													name="apiToken"
+													description={
+														<>
+															Make sure
+															<Anchor
+																size="xs"
+																href={`${loaderData.coreDetails.docsLink}/configuration.html?h=smtp#all-parameters`}
+																target="_blank"
+															>
+																{" "}
+																the correct{" "}
+															</Anchor>
+															configuration parameters are set
+														</>
+													}
+												/>
+											</>
+										))
+										.exhaustive()
 									: null}
 								<Button type="submit">Submit</Button>
 							</Stack>

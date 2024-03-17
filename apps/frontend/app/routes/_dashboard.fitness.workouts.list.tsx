@@ -83,7 +83,7 @@ export default function Page() {
 	const startWorkout = getWorkoutStarter();
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Workouts</Title>
@@ -125,7 +125,7 @@ export default function Page() {
 													icon={<IconClock size={16} />}
 													data={humanizeDuration(
 														new Date(workout.endTime).valueOf() -
-															new Date(workout.startTime).valueOf(),
+														new Date(workout.startTime).valueOf(),
 														{ round: true, units: ["h", "m"] },
 													)}
 												/>
@@ -194,7 +194,7 @@ export default function Page() {
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
 							loaderData.userWorkoutList.details.total /
-								loaderData.coreDetails.pageLimit,
+							loaderData.coreDetails.pageLimit,
 						)}
 					/>
 				</Center>

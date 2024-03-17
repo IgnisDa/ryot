@@ -171,7 +171,7 @@ export default function Page() {
 		);
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack gap="xl">
 				<Flex align="center" gap="md">
 					<Title>Exercises</Title>
@@ -389,7 +389,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.exercisesList.details.total /
-											loaderData.coreDetails.pageLimit,
+										loaderData.coreDetails.pageLimit,
 									)}
 								/>
 							</Center>

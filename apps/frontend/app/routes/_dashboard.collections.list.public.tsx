@@ -54,7 +54,7 @@ export default function Page() {
 
 	return (
 		<>
-			<Container fluid style={{margin: '1rem 3rem'}}>
+			<Container fluid style={{ margin: '1vh 2vw' }}>
 				<Stack>
 					<Title>Public collections</Title>
 					<DebouncedSearchInput
@@ -104,7 +104,7 @@ export default function Page() {
 								onChange={(v) => setP("page", v.toString())}
 								total={Math.ceil(
 									loaderData.publicCollectionsList.details.total /
-										loaderData.coreDetails.pageLimit,
+									loaderData.coreDetails.pageLimit,
 								)}
 							/>
 						</Center>

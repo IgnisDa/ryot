@@ -62,7 +62,7 @@ export default function Page() {
 	const date = dayjsLib(loaderData.query.date);
 
 	return (
-		<Container fluid style={{margin: '1rem 3rem'}}>
+		<Container fluid style={{ margin: '1vh 2vw' }}>
 			<Stack>
 				<Group justify="space-between">
 					<Title order={3} td="underline">

@@ -126,7 +126,7 @@ export const meta: MetaFunction = ({ data }) => {
 			title: `${
 				// biome-ignore lint/suspicious/noExplicitAny:
 				(data as any).info.details.name
-			} | Ryot`,
+				} | Ryot`,
 		},
 	];
 };
@@ -154,7 +154,7 @@ export default function Page() {
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.info.details.name}
 			/>
-			<Container fluid style={{margin: '1rem 3rem'}}>
+			<Container fluid style={{ margin: '1vh 2vw' }}>
 				<Stack>
 					<Box>
 						<Text c="dimmed" size="xs" mb={-10}>
@@ -199,9 +199,9 @@ export default function Page() {
 										onClick={openFiltersModal}
 										color={
 											loaderData.query.entityLot !== undefined ||
-											loaderData.query.metadataLot !== undefined ||
-											loaderData.query.sortBy !== defaultFiltersValue.sort ||
-											loaderData.query.orderBy !== defaultFiltersValue.order
+												loaderData.query.metadataLot !== undefined ||
+												loaderData.query.sortBy !== defaultFiltersValue.sort ||
+												loaderData.query.orderBy !== defaultFiltersValue.order
 												? "blue"
 												: "gray"
 										}
@@ -270,7 +270,7 @@ export default function Page() {
 												clearable
 											/>
 											{loaderData.query.entityLot === EntityLot.Media ||
-											loaderData.query.entityLot === EntityLot.MediaGroup ? (
+												loaderData.query.entityLot === EntityLot.MediaGroup ? (
 												<Select
 													placeholder="Select a media type"
 													defaultValue={loaderData.query.metadataLot}
@@ -312,7 +312,7 @@ export default function Page() {
 											onChange={(v) => setP("page", v.toString())}
 											total={Math.ceil(
 												loaderData.contents.details.total /
-													loaderData.coreDetails.pageLimit,
+												loaderData.coreDetails.pageLimit,
 											)}
 										/>
 									</Center>
