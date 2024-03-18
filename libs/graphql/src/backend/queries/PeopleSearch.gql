@@ -1,0 +1,18 @@
+query PeopleSearch($input: PeopleSearchInput!) {
+  peopleSearch(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items {
+      item {
+        identifier
+        name
+        image
+        birthYear
+      }
+      hasInteracted
+      databaseId
+    }
+  }
+}

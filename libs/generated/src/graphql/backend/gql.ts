@@ -73,6 +73,7 @@ const documents = {
     "query MetadataMainDetails($metadataId: Int!) {\n  metadataDetails(metadataId: $metadataId) {\n    title\n    lot\n    source\n    isNsfw\n    isPartial\n    sourceUrl\n    identifier\n    description\n    publishYear\n    publishDate\n    providerRating\n    productionStatus\n    originalLanguage\n    genres {\n      id\n      name\n    }\n    group {\n      id\n      name\n      part\n    }\n    assets {\n      images\n      videos {\n        videoId\n        source\n      }\n    }\n  }\n}": types.MetadataMainDetailsDocument,
     "query MetadataSearch($input: MetadataSearchInput!) {\n  metadataSearch(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      databaseId\n      hasInteracted\n      item {\n        identifier\n        title\n        image\n        publishYear\n      }\n    }\n  }\n}": types.MetadataSearchDocument,
     "query MetadataSourcesForLot($lot: MetadataLot!) {\n  metadataSourcesForLot(lot: $lot)\n}": types.MetadataSourcesForLotDocument,
+    "query PeopleSearch($input: PeopleSearchInput!) {\n  peopleSearch(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      item {\n        identifier\n        name\n        image\n        birthYear\n      }\n      hasInteracted\n      databaseId\n    }\n  }\n}": types.PeopleSearchDocument,
     "query PersonDetails($personId: Int!) {\n  personDetails(personId: $personId) {\n    sourceUrl\n    details {\n      id\n      name\n      source\n      isPartial\n      description\n      birthDate\n      deathDate\n      place\n      website\n      gender\n      displayImages\n    }\n    contents {\n      name\n      items {\n        character\n        media {\n          id\n          title\n          image\n        }\n      }\n    }\n  }\n}": types.PersonDetailsDocument,
     "query PeopleList($input: PeopleListInput!) {\n  peopleList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      image\n      mediaCount\n    }\n  }\n}": types.PeopleListDocument,
     "query ProvidersLanguageInformation {\n  providersLanguageInformation {\n    supported\n    default\n    source\n  }\n}": types.ProvidersLanguageInformationDocument,
@@ -350,6 +351,10 @@ export function graphql(source: "query MetadataSearch($input: MetadataSearchInpu
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query MetadataSourcesForLot($lot: MetadataLot!) {\n  metadataSourcesForLot(lot: $lot)\n}"): (typeof documents)["query MetadataSourcesForLot($lot: MetadataLot!) {\n  metadataSourcesForLot(lot: $lot)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query PeopleSearch($input: PeopleSearchInput!) {\n  peopleSearch(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      item {\n        identifier\n        name\n        image\n        birthYear\n      }\n      hasInteracted\n      databaseId\n    }\n  }\n}"): (typeof documents)["query PeopleSearch($input: PeopleSearchInput!) {\n  peopleSearch(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      item {\n        identifier\n        name\n        image\n        birthYear\n      }\n      hasInteracted\n      databaseId\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
