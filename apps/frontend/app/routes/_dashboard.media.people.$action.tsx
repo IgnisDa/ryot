@@ -84,7 +84,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			const query = zx.parseQuery(
 				request,
 				z.object({
-					source: z.nativeEnum(MediaSource),
+					source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
 					page: zx.IntAsString.default("1"),
 					query: z.string().optional(),
 					isTmdbCompany: zx.BoolAsString.optional(),
@@ -109,6 +109,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		})
 		.exhaustive();
 	return json({
+		action,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		peopleList,
 		peopleSearch,
@@ -137,67 +138,75 @@ export default function Page() {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for people"
-						initialValue={loaderData.peopleList?.url.query}
-					/>
-					<ActionIcon
-						onClick={openFiltersModal}
-						color={
-							loaderData.peopleList?.url.orderBy !== defaultFilters.orderBy ||
-							loaderData.peopleList?.url.sortBy !== defaultFilters.sortBy
-								? "blue"
-								: "gray"
+						initialValue={
+							loaderData.peopleList?.url.query ||
+							loaderData.peopleSearch?.url.query
 						}
-					>
-						<IconFilter size={24} />
-					</ActionIcon>
-					<Modal
-						opened={filtersModalOpened}
-						onClose={closeFiltersModal}
-						centered
-						withCloseButton={false}
-					>
-						<Stack>
-							<Group>
-								<Title order={3}>Sort by</Title>
-								<ActionIcon
-									onClick={() => {
-										navigate(".");
-										closeFiltersModal();
-									}}
-								>
-									<IconFilterOff size={24} />
-								</ActionIcon>
-							</Group>
-							<Flex gap="xs" align="center">
-								<Select
-									w="100%"
-									data={Object.values(PersonSortBy).map((o) => ({
-										value: o.toString(),
-										label: startCase(o.toLowerCase()),
-									}))}
-									defaultValue={loaderData.peopleList?.url.sortBy}
-									onChange={(v) => setP("sortBy", v)}
-								/>
-								<ActionIcon
-									onClick={() => {
-										if (
-											loaderData.peopleList?.url.orderBy ===
-											GraphqlSortOrder.Asc
-										)
-											setP("orderBy", GraphqlSortOrder.Desc);
-										else setP("orderBy", GraphqlSortOrder.Asc);
-									}}
-								>
-									{loaderData.peopleList?.url.orderBy ===
-									GraphqlSortOrder.Asc ? (
-										<IconSortAscending />
-									) : (
-										<IconSortDescending />
-									)}
-								</ActionIcon>
-							</Flex>
-						</Stack>
-					</Modal>
+					/>
+					{loaderData.action === Action.List ? (
+						<>
+							<ActionIcon
+								onClick={openFiltersModal}
+								color={
+									loaderData.peopleList?.url.orderBy !==
+										defaultFilters.orderBy ||
+									loaderData.peopleList?.url.sortBy !== defaultFilters.sortBy
+										? "blue"
+										: "gray"
+								}
+							>
+								<IconFilter size={24} />
+							</ActionIcon>
+							<Modal
+								opened={filtersModalOpened}
+								onClose={closeFiltersModal}
+								centered
+								withCloseButton={false}
+							>
+								<Stack>
+									<Group>
+										<Title order={3}>Sort by</Title>
+										<ActionIcon
+											onClick={() => {
+												navigate(".");
+												closeFiltersModal();
+											}}
+										>
+											<IconFilterOff size={24} />
+										</ActionIcon>
+									</Group>
+									<Flex gap="xs" align="center">
+										<Select
+											w="100%"
+											data={Object.values(PersonSortBy).map((o) => ({
+												value: o.toString(),
+												label: startCase(o.toLowerCase()),
+											}))}
+											defaultValue={loaderData.peopleList?.url.sortBy}
+											onChange={(v) => setP("sortBy", v)}
+										/>
+										<ActionIcon
+											onClick={() => {
+												if (
+													loaderData.peopleList?.url.orderBy ===
+													GraphqlSortOrder.Asc
+												)
+													setP("orderBy", GraphqlSortOrder.Desc);
+												else setP("orderBy", GraphqlSortOrder.Asc);
+											}}
+										>
+											{loaderData.peopleList?.url.orderBy ===
+											GraphqlSortOrder.Asc ? (
+												<IconSortAscending />
+											) : (
+												<IconSortDescending />
+											)}
+										</ActionIcon>
+									</Flex>
+								</Stack>
+							</Modal>
+						</>
+					) : null}
 				</Group>
 				{(loaderData.peopleList?.list.details.total || 0) > 0 ? (
 					<>
