@@ -210,7 +210,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 export const meta: MetaFunction = ({ params }) => {
 	return [
 		{
-			title: `${params.action === "list" ? "List" : "Search"} ${changeCase(
+			title: `${changeCase(params.action || "")} ${changeCase(
 				params.lot?.toLowerCase() || "",
 			)}s | Ryot`,
 		},

@@ -22,7 +22,7 @@ import {
 	PeopleSearchDocument,
 	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials, startCase } from "@ryot/ts-utils";
+import { changeCase, getInitials, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
 	IconFilterOff,
@@ -116,8 +116,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = () => {
-	return [{ title: "People | Ryot" }];
+export const meta: MetaFunction = ({ params }) => {
+	return [
+		{
+			title: `${changeCase(params.action || "")} People | Ryot`,
+		},
+	];
 };
 
 export default function Page() {
