@@ -33,7 +33,6 @@ import {
 	MetadataListDocument,
 	MetadataLot,
 	MetadataSearchDocument,
-	MetadataSourcesForLotDocument,
 	UserCollectionsListDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -88,6 +87,22 @@ enum Action {
 	Search = "search",
 	List = "list",
 }
+
+const metadataMapping = {
+	[MetadataLot.AudioBook]: [MediaSource.Audible],
+	[MetadataLot.Book]: [MediaSource.Openlibrary, MediaSource.GoogleBooks],
+	[MetadataLot.Podcast]: [MediaSource.Itunes, MediaSource.Listennotes],
+	[MetadataLot.VideoGame]: [MediaSource.Igdb],
+	[MetadataLot.Anime]: [MediaSource.Anilist, MediaSource.Mal],
+	[MetadataLot.Manga]: [
+		MediaSource.Anilist,
+		MediaSource.MangaUpdates,
+		MediaSource.Mal,
+	],
+	[MetadataLot.Movie]: [MediaSource.Tmdb],
+	[MetadataLot.Show]: [MediaSource.Tmdb],
+	[MetadataLot.VisualNovel]: [MediaSource.Vndb],
+} as const;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [
@@ -151,10 +166,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
-			const { metadataSourcesForLot } = await gqlClient.request(
-				MetadataSourcesForLotDocument,
-				{ lot },
-			);
+			const metadataSourcesForLot = metadataMapping[lot];
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});

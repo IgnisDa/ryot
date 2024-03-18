@@ -1,3 +1,0 @@
-query MetadataSourcesForLot($lot: MetadataLot!) {
-  metadataSourcesForLot(lot: $lot)
-}

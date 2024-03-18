@@ -842,16 +842,6 @@ impl MiscellaneousQuery {
         service.metadata_search(user_id, input).await
     }
 
-    /// Get all the metadata sources possible for a lot.
-    async fn metadata_sources_for_lot(
-        &self,
-        gql_ctx: &Context<'_>,
-        lot: MetadataLot,
-    ) -> Vec<MediaSource> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_sources_for_lot(lot).await
-    }
-
     /// Get paginated list of genres.
     async fn genres_list(
         &self,
@@ -5694,23 +5684,6 @@ impl MiscellaneousService {
         user_db.notifications = ActiveValue::Set(update_value);
         user_db.update(&self.db).await?;
         Ok(true)
-    }
-
-    async fn metadata_sources_for_lot(&self, lot: MetadataLot) -> Vec<MediaSource> {
-        match lot {
-            MetadataLot::AudioBook => vec![MediaSource::Audible],
-            MetadataLot::Book => vec![MediaSource::Openlibrary, MediaSource::GoogleBooks],
-            MetadataLot::Podcast => vec![MediaSource::Itunes, MediaSource::Listennotes],
-            MetadataLot::VideoGame => vec![MediaSource::Igdb],
-            MetadataLot::Anime => vec![MediaSource::Anilist, MediaSource::Mal],
-            MetadataLot::Manga => vec![
-                MediaSource::Anilist,
-                MediaSource::MangaUpdates,
-                MediaSource::Mal,
-            ],
-            MetadataLot::Movie | MetadataLot::Show => vec![MediaSource::Tmdb],
-            MetadataLot::VisualNovel => vec![MediaSource::Vndb],
-        }
     }
 
     fn providers_language_information(&self) -> Vec<ProviderLanguageInformation> {
