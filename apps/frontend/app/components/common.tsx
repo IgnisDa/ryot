@@ -37,7 +37,7 @@ import { useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
-	children: ReactNode[];
+	children: ReactNode | ReactNode[];
 }) => {
 	return (
 		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">

@@ -19,6 +19,7 @@ import {
 	GraphqlSortOrder,
 	MediaSource,
 	PeopleListDocument,
+	PeopleSearchDocument,
 	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials, startCase } from "@ryot/ts-utils";
@@ -28,6 +29,7 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -40,49 +42,76 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
-const SOURCES_THAT_ALLOW_SEARCH = [
-	MediaSource.Anilist,
-	MediaSource.Audible,
-	MediaSource.Igdb,
-	MediaSource.MangaUpdates,
-	MediaSource.Openlibrary,
-	MediaSource.Tmdb,
-	MediaSource.Vndb,
-];
-
 const defaultFilters = {
 	sortBy: PersonSortBy.MediaItems,
 	orderBy: GraphqlSortOrder.Desc,
 };
 
-const searchParamsSchema = z.object({
-	page: zx.IntAsString.default("1"),
-	query: z.string().optional(),
-	sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
-	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
-});
+enum Action {
+	Search = "search",
+	List = "list",
+}
 
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
-	const [coreDetails, { peopleList }] = await Promise.all([
-		getCoreDetails(),
-		gqlClient.request(
-			PeopleListDocument,
-			{
-				input: {
-					search: { page: query.page, query: query.query },
-					sort: { by: query.sortBy, order: query.orderBy },
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+	const action = params.action as Action;
+	const coreDetails = await getCoreDetails();
+	const [peopleList, peopleSearch] = await match(action)
+		.with(Action.List, async () => {
+			const query = zx.parseQuery(
+				request,
+				z.object({
+					page: zx.IntAsString.default("1"),
+					query: z.string().optional(),
+					sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
+					orderBy: z
+						.nativeEnum(GraphqlSortOrder)
+						.default(defaultFilters.orderBy),
+				}),
+			);
+			const { peopleList } = await gqlClient.request(
+				PeopleListDocument,
+				{
+					input: {
+						search: { page: query.page, query: query.query },
+						sort: { by: query.sortBy, order: query.orderBy },
+					},
 				},
-			},
-			await getAuthorizationHeader(request),
-		),
-	]);
+				await getAuthorizationHeader(request),
+			);
+			return [{ list: peopleList, url: query }, undefined] as const;
+		})
+		.with(Action.Search, async () => {
+			const query = zx.parseQuery(
+				request,
+				z.object({
+					source: z.nativeEnum(MediaSource),
+					page: zx.IntAsString.default("1"),
+					query: z.string().optional(),
+					isTmdbCompany: zx.BoolAsString.optional(),
+					isAnilistStudio: zx.BoolAsString.optional(),
+				}),
+			);
+			const { peopleSearch } = await gqlClient.request(
+				PeopleSearchDocument,
+				{
+					input: {
+						source: query.source,
+						search: { page: query.page, query: query.query },
+						sourceSpecifics: {
+							isAnilistStudio: query.isAnilistStudio,
+							isTmdbCompany: query.isTmdbCompany,
+						},
+					},
+				},
+				await getAuthorizationHeader(request),
+			);
+			return [undefined, { search: peopleSearch, url: query }] as const;
+		})
+		.exhaustive();
 	return json({
-		query,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		peopleList,
+		peopleSearch,
 	});
 };
 
@@ -108,13 +137,13 @@ export default function Page() {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for people"
-						initialValue={loaderData.query.query}
+						initialValue={loaderData.peopleList?.url.query}
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
 						color={
-							loaderData.query.orderBy !== defaultFilters.orderBy ||
-							loaderData.query.sortBy !== defaultFilters.sortBy
+							loaderData.peopleList?.url.orderBy !== defaultFilters.orderBy ||
+							loaderData.peopleList?.url.sortBy !== defaultFilters.sortBy
 								? "blue"
 								: "gray"
 						}
@@ -146,17 +175,21 @@ export default function Page() {
 										value: o.toString(),
 										label: startCase(o.toLowerCase()),
 									}))}
-									defaultValue={loaderData.query.sortBy}
+									defaultValue={loaderData.peopleList?.url.sortBy}
 									onChange={(v) => setP("sortBy", v)}
 								/>
 								<ActionIcon
 									onClick={() => {
-										if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
+										if (
+											loaderData.peopleList?.url.orderBy ===
+											GraphqlSortOrder.Asc
+										)
 											setP("orderBy", GraphqlSortOrder.Desc);
 										else setP("orderBy", GraphqlSortOrder.Asc);
 									}}
 								>
-									{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
+									{loaderData.peopleList?.url.orderBy ===
+									GraphqlSortOrder.Asc ? (
 										<IconSortAscending />
 									) : (
 										<IconSortDescending />
@@ -166,16 +199,16 @@ export default function Page() {
 						</Stack>
 					</Modal>
 				</Group>
-				{loaderData.peopleList.details.total > 0 ? (
+				{(loaderData.peopleList?.list.details.total || 0) > 0 ? (
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
-								{loaderData.peopleList.details.total}
+								{loaderData.peopleList?.list.details.total}
 							</Text>{" "}
 							items found
 						</Box>
 						<ApplicationGrid>
-							{loaderData.peopleList.items.map((creator) => (
+							{loaderData.peopleList?.list.items.map((creator) => (
 								<BaseDisplayItem
 									name={creator.name}
 									bottomLeft={`${creator.mediaCount} items`}
@@ -194,10 +227,10 @@ export default function Page() {
 					<Center>
 						<ApplicationPagination
 							size="sm"
-							defaultValue={loaderData.query.page}
+							defaultValue={loaderData.peopleList.url.page}
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(
-								loaderData.peopleList.details.total /
+								loaderData.peopleList.list.details.total /
 									loaderData.coreDetails.pageLimit,
 							)}
 						/>
