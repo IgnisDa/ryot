@@ -17,6 +17,7 @@ import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
+	MediaSource,
 	PeopleListDocument,
 	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -38,6 +39,16 @@ import { BaseDisplayItem } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+
+const SOURCES_THAT_ALLOW_SEARCH = [
+	MediaSource.Anilist,
+	MediaSource.Audible,
+	MediaSource.Igdb,
+	MediaSource.MangaUpdates,
+	MediaSource.Openlibrary,
+	MediaSource.Tmdb,
+	MediaSource.Vndb,
+];
 
 const defaultFilters = {
 	sortBy: PersonSortBy.MediaItems,
@@ -171,7 +182,7 @@ export default function Page() {
 									imageLink={creator.image}
 									imagePlaceholder={getInitials(creator.name)}
 									key={creator.id}
-									href={$path("/media/people/:id", { id: creator.id })}
+									href={$path("/media/people/item/:id", { id: creator.id })}
 								/>
 							))}
 						</ApplicationGrid>

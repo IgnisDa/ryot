@@ -926,7 +926,7 @@ export default function Page() {
 																				<Anchor
 																					component={Link}
 																					data-creator-id={creator.id}
-																					to={$path("/media/people/:id", {
+																					to={$path("/media/people/item/:id", {
 																						id: creator.id,
 																					})}
 																				>
