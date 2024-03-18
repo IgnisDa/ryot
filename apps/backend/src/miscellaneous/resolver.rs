@@ -7199,7 +7199,7 @@ GROUP BY
     ) -> String {
         let mut url = match entity_lot {
             EntityLot::Media => format!("media/item/{}", id),
-            EntityLot::Person => format!("media/people/{}", id),
+            EntityLot::Person => format!("media/people/item/{}", id),
             EntityLot::MediaGroup => format!("media/groups/{}", id),
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
