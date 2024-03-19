@@ -238,6 +238,7 @@ struct CommitMetadataInput {
 
 #[derive(Debug, InputObject)]
 struct CommitPersonInput {
+    name: String,
     source: MediaSource,
     identifier: String,
     source_specifics: Option<PersonSourceSpecifics>,
@@ -3099,6 +3100,7 @@ impl MiscellaneousService {
                 identifier: person.identifier.clone(),
                 source: person.source,
                 source_specifics: person.source_specifics,
+                name: person.name,
             })
             .await?;
         let intermediate = metadata_to_person::ActiveModel {
@@ -3861,7 +3863,7 @@ impl MiscellaneousService {
                 identifier: ActiveValue::Set(input.identifier),
                 source: ActiveValue::Set(input.source),
                 source_specifics: ActiveValue::Set(input.source_specifics),
-                name: ActiveValue::Set("Downloading...".to_owned()),
+                name: ActiveValue::Set(input.name),
                 is_partial: ActiveValue::Set(Some(true)),
                 ..Default::default()
             };

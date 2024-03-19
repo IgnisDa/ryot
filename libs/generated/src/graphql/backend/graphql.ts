@@ -147,6 +147,7 @@ export type CommitMetadataInput = {
 
 export type CommitPersonInput = {
   identifier: Scalars['String']['input'];
+  name: Scalars['String']['input'];
   source: MediaSource;
   sourceSpecifics?: InputMaybe<PeopleSourceSpecificsInput>;
 };
