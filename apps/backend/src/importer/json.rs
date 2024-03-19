@@ -20,6 +20,7 @@ pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> 
     });
     Ok(ImportResult {
         media,
+        people: vec![],
         workouts: vec![],
         collections: vec![],
         failed_items: vec![],
@@ -32,6 +33,7 @@ pub async fn measurements_import(input: DeployJsonImportInput) -> Result<ImportR
     let measurements = serde_json::from_str::<Vec<user_measurement::Model>>(&export).unwrap();
     Ok(ImportResult {
         measurements,
+        people: vec![],
         media: vec![],
         workouts: vec![],
         collections: vec![],
@@ -51,6 +53,7 @@ pub async fn workouts_import(
         .collect();
     Ok(ImportResult {
         workouts,
+        people: vec![],
         media: vec![],
         collections: vec![],
         measurements: vec![],

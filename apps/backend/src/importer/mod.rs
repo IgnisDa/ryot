@@ -25,8 +25,8 @@ use crate::{
         fitness::UserWorkoutInput,
         media::{
             CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
-            PartialMetadataWithoutId, PostReviewInput, ProgressUpdateInput,
-            ToggleMediaMonitorInput,
+            ImportOrExportPersonItem, PartialMetadataWithoutId, PostReviewInput,
+            ProgressUpdateInput, ToggleMediaMonitorInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput, IdObject,
     },
@@ -164,6 +164,7 @@ pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
     media: Vec<ImportOrExportMediaItem>,
     failed_items: Vec<ImportFailedItem>,
+    people: Vec<ImportOrExportPersonItem>,
     workouts: Vec<UserWorkoutInput>,
     measurements: Vec<user_measurement::Model>,
 }

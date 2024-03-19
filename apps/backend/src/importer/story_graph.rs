@@ -157,6 +157,7 @@ pub async fn import(
     Ok(ImportResult {
         media,
         failed_items,
+        people: vec![],
         workouts: vec![],
         collections: vec![],
         measurements: vec![],
