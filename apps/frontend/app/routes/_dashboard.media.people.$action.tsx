@@ -34,6 +34,7 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -41,9 +42,13 @@ import {
 	ApplicationPagination,
 	DebouncedSearchInput,
 } from "~/components/common";
-import { BaseDisplayItem } from "~/components/media";
+import {
+	BaseDisplayItem,
+	MediaItemWithoutUpdateModal,
+} from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
+import { redirectToQueryParam } from "~/lib/generals";
+import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
 export type SearchParams = {
@@ -72,7 +77,10 @@ const SEARCH_SOURCES_ALLOWED = [
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const action = params.action as Action;
-	const coreDetails = await getCoreDetails();
+	const [coreDetails, userPreferences] = await Promise.all([
+		getCoreDetails(),
+		getUserPreferences(request),
+	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
@@ -131,6 +139,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		query,
 		page,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		peopleList,
 		peopleSearch,
 	});
@@ -331,9 +340,30 @@ export default function Page() {
 						{loaderData.peopleSearch.search.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.peopleSearch.search.items.map((person) => (
-									<Box key={person.item.identifier}>
-										{JSON.stringify(person, null, 4)}
-									</Box>
+									<MediaItemWithoutUpdateModal
+										item={{
+											...person.item,
+											title: person.item.name,
+											publishYear: person.item.birthYear?.toString(),
+										}}
+										noRatingLink
+										noHref
+										key={person.item.identifier}
+										reviewScale={loaderData.userPreferences.reviewScale}
+										onClick={async (_) => {
+											if (loaderData.peopleSearch) {
+												const id = await commitPerson(
+													person.item.identifier,
+													loaderData.peopleSearch.url.source,
+													loaderData.peopleSearch.url.isTmdbCompany,
+													loaderData.peopleSearch.url.isAnilistStudio,
+												);
+												return navigate(
+													$path("/media/people/item/:id", { id }),
+												);
+											}
+										}}
+									/>
 								))}
 							</ApplicationGrid>
 						) : (
@@ -356,3 +386,24 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const commitPerson = async (
+	identifier: string,
+	source: MediaSource,
+	isTmdbCompany?: boolean,
+	isAnilistStudio?: boolean,
+) => {
+	const data = new FormData();
+	const location = withoutHost(window.location.href);
+	data.append("identifier", identifier);
+	data.append("source", source);
+	if (isTmdbCompany) data.append("isTmdbCompany", String(isTmdbCompany));
+	if (isAnilistStudio) data.append("isAnilistStudio", String(isAnilistStudio));
+	data.append(redirectToQueryParam, location);
+	const resp = await fetch(withQuery("/actions", { intent: "commitPerson" }), {
+		method: "POST",
+		body: data,
+	});
+	const json = await resp.json();
+	return json.commitPerson.id;
+};

@@ -3,6 +3,7 @@ import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
 	CommitMetadataDocument,
+	CommitPersonDocument,
 	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
 	DeleteMediaReminderDocument,
@@ -48,6 +49,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			returnData = { commitMedia: commitMetadata };
+		})
+		.with("commitPerson", async () => {
+			const submission = processSubmission(formData, commitPersonSchema);
+			const { commitPerson } = await gqlClient.request(
+				CommitPersonDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			returnData = { commitPerson };
 		})
 		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
@@ -190,6 +200,13 @@ const commitMediaSchema = z.object({
 	identifier: z.string(),
 	lot: z.nativeEnum(MetadataLot),
 	source: z.nativeEnum(MediaSource),
+});
+
+const commitPersonSchema = z.object({
+	identifier: z.string(),
+	source: z.nativeEnum(MediaSource),
+	isTmdbCompany: zx.BoolAsString.optional(),
+	isAnilistStudio: zx.BoolAsString.optional(),
 });
 
 const reviewCommentSchema = z.object({
