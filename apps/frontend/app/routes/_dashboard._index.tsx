@@ -32,6 +32,7 @@ import {
 	IconBarbell,
 	IconFriends,
 	IconScaleOutline,
+	IconServer,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
 import { ReactNode } from "react";
@@ -131,7 +132,8 @@ export default function Page() {
 						</Text>
 					</Alert>
 				) : null}
-				{loaderData.latestUserSummary.media.mediaInteractedWith === 0 ? (
+				{loaderData.latestUserSummary.media.metadataOverall.interactedWith ===
+				0 ? (
 					<NewUserGuideAlert />
 				) : null}
 				{loaderData.userPreferences.dashboard.map((de) =>
@@ -359,27 +361,50 @@ export default function Page() {
 									/>
 									{loaderData.userPreferences.media.enabled ? (
 										<ActualDisplayStat
-											icon={<IconFriends />}
-											lot="General stats"
+											icon={<IconServer />}
+											lot="Metadata stats"
 											color={theme.colors.grape[8]}
 											data={[
 												{
 													label: "Media",
 													value:
-														loaderData.latestUserSummary.media
-															.mediaInteractedWith,
+														loaderData.latestUserSummary.media.metadataOverall
+															.interactedWith,
 													type: "number",
 												},
 												{
 													label: "Reviews",
 													value:
-														loaderData.latestUserSummary.media.reviewsPosted,
+														loaderData.latestUserSummary.media.metadataOverall
+															.reviewed,
 													type: "number",
 													hideIfZero: true,
 												},
 											]}
 										/>
 									) : null}
+									<ActualDisplayStat
+										icon={<IconFriends />}
+										lot="People stats"
+										color={theme.colors.red[9]}
+										data={[
+											{
+												label: "People",
+												value:
+													loaderData.latestUserSummary.media.peopleOverall
+														.interactedWith,
+												type: "number",
+											},
+											{
+												label: "Reviews",
+												value:
+													loaderData.latestUserSummary.media.peopleOverall
+														.reviewed,
+												type: "number",
+												hideIfZero: true,
+											},
+										]}
+									/>
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >

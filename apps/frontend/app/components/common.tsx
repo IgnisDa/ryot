@@ -20,23 +20,24 @@ import {
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
-import { Form, useLocation } from "@remix-run/react";
+import { Form } from "@remix-run/react";
 import type {
 	EntityLot,
+	MediaSource,
 	MetadataLot,
-	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
 import { ReactNode, forwardRef, useRef } from "react";
 import { useState } from "react";
+import { withoutHost } from "ufo";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
-	children: ReactNode[];
+	children: ReactNode | ReactNode[];
 }) => {
 	return (
 		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
@@ -65,7 +66,7 @@ export const MediaDetailsLayout = (props: {
 	children: ReactNode | (ReactNode | undefined)[];
 	images: (string | null | undefined)[];
 	externalLink?: {
-		source: MetadataSource;
+		source: MediaSource;
 		lot?: MetadataLot;
 		href?: string | null;
 	};
@@ -186,10 +187,9 @@ export const AddEntityToCollectionModal = (props: {
 };
 
 export const HiddenLocationInput = () => {
-	const location = useLocation();
-
-	// TODO: https://github.com/unjs/ufo/issues/211
-	const value = location.pathname + location.search + location.hash;
+	const value = withoutHost(
+		typeof window !== "undefined" ? window.location.href : "",
+	);
 
 	return (
 		<input type="hidden" name={redirectToQueryParam} value={value} readOnly />

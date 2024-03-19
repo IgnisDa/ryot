@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -11,8 +11,9 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, PartialMetadataPerson, VisualNovelSpecifics,
+            MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
+            MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics,
+            VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -21,9 +22,9 @@ use crate::{
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
-const MEDIA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
-const MEDIA_FIELDS: &str = const_str::concat!(
-    MEDIA_FIELDS_SMALL,
+const METADATA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
+const METADATA_FIELDS: &str = const_str::concat!(
+    METADATA_FIELDS_SMALL,
     ",",
     "length_minutes,tags.name,developers.id,devstatus,description,rating"
 );
@@ -87,7 +88,56 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for VndbService {
-    async fn person_details(&self, identifier: &str) -> Result<MetadataPerson> {
+    async fn people_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PeopleSearchItem>> {
+        let mut rsp = self
+            .client
+            .post("producer")
+            .body_json(&serde_json::json!({
+                "filters": format!(r#"["search", "=", "{}"]"#, query),
+                "count": true,
+                "fields": "id,name",
+                "results": self.page_limit,
+                "page": page
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = data
+            .results
+            .unwrap_or_default()
+            .into_iter()
+            .map(|b| PeopleSearchItem {
+                identifier: b.id,
+                name: b.title.unwrap(),
+                image: None,
+                birth_year: None,
+            })
+            .collect();
+        let next_page = if data.more {
+            Some(page.unwrap_or(1) + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: data.count,
+                next_page,
+            },
+            items: resp,
+        })
+    }
+
+    async fn person_details(
+        &self,
+        identifier: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         let mut rsp = self
             .client
             .post("producer")
@@ -103,7 +153,7 @@ impl MediaProvider for VndbService {
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(MetadataPerson {
             identifier: item.id,
-            source: MetadataSource::Vndb,
+            source: MediaSource::Vndb,
             name: item.title.unwrap(),
             description: item.description,
             related: vec![],
@@ -113,6 +163,7 @@ impl MediaProvider for VndbService {
             birth_date: None,
             place: None,
             website: None,
+            source_specifics: None,
         })
     }
 
@@ -123,7 +174,7 @@ impl MediaProvider for VndbService {
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
-                "fields": MEDIA_FIELDS
+                "fields": METADATA_FIELDS
             }))
             .unwrap()
             .await
@@ -139,14 +190,14 @@ impl MediaProvider for VndbService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
             .post("vn")
             .body_json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
-                "fields": MEDIA_FIELDS_SMALL,
+                "fields": METADATA_FIELDS_SMALL,
                 "count": true,
                 "results": self.page_limit,
                 "page": page
@@ -168,7 +219,7 @@ impl MediaProvider for VndbService {
                     ..
                 } = self.vndb_response_to_search_response(b);
                 let image = url_images.first().map(|i| i.image.clone());
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier,
                     title,
                     image,
@@ -208,8 +259,9 @@ impl VndbService {
                 identifier: a.id,
                 name: a.name,
                 role: "Developer".to_owned(),
-                source: MetadataSource::Vndb,
+                source: MediaSource::Vndb,
                 character: None,
+                source_specifics: None,
             })
             .collect_vec();
         let genres = item
@@ -221,7 +273,7 @@ impl VndbService {
         MediaDetails {
             identifier: item.id,
             lot: MetadataLot::VisualNovel,
-            source: MetadataSource::Vndb,
+            source: MediaSource::Vndb,
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),
                 1 => "In development".to_owned(),

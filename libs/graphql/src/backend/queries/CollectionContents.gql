@@ -15,7 +15,7 @@ query CollectionContents($input: CollectionContentsInput!) {
         metadataLot
         entityLot
         details {
-          ...MediaSearchItemPart
+          ...MetadataSearchItemPart
         }
       }
     }

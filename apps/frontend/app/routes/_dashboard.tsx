@@ -75,7 +75,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				};
 			}) || []),
 		{ label: "Groups", href: $path("/media/groups/list") },
-		{ label: "People", href: $path("/media/people/list") },
+		{
+			label: "People",
+			href: $path("/media/people/:action", { action: "list" }),
+		},
 		{ label: "Genres", href: $path("/media/genre/list") },
 	].map((link, _index) => ({
 		label: link.label,

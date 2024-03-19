@@ -28,12 +28,11 @@ import {
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaGeneralFilter,
-	MediaListDocument,
-	MediaSearchDocument,
 	MediaSortBy,
-	MediaSourcesForLotDocument,
+	MediaSource,
+	MetadataListDocument,
 	MetadataLot,
-	MetadataSource,
+	MetadataSearchDocument,
 	UserCollectionsListDocument,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -52,7 +51,7 @@ import {
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -88,6 +87,22 @@ enum Action {
 	Search = "search",
 	List = "list",
 }
+
+const metadataMapping = {
+	[MetadataLot.AudioBook]: [MediaSource.Audible],
+	[MetadataLot.Book]: [MediaSource.Openlibrary, MediaSource.GoogleBooks],
+	[MetadataLot.Podcast]: [MediaSource.Itunes, MediaSource.Listennotes],
+	[MetadataLot.VideoGame]: [MediaSource.Igdb],
+	[MetadataLot.Anime]: [MediaSource.Anilist, MediaSource.Mal],
+	[MetadataLot.Manga]: [
+		MediaSource.Anilist,
+		MediaSource.MangaUpdates,
+		MediaSource.Mal,
+	],
+	[MetadataLot.Movie]: [MediaSource.Tmdb],
+	[MetadataLot.Show]: [MediaSource.Tmdb],
+	[MetadataLot.VisualNovel]: [MediaSource.Vndb],
+} as const;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [
@@ -133,8 +148,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.mineGeneralFilter),
 				collectionFilter: zx.IntAsString.optional(),
 			});
-			const { mediaList } = await gqlClient.request(
-				MediaListDocument,
+			const { metadataList } = await gqlClient.request(
+				MetadataListDocument,
 				{
 					input: {
 						lot,
@@ -148,31 +163,30 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 				await getAuthorizationHeader(request),
 			);
-			return [{ list: mediaList, url: urlParse }, undefined] as const;
+			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
-			const { mediaSourcesForLot } = await gqlClient.request(
-				MediaSourcesForLotDocument,
-				{ lot },
-			);
+			const metadataSourcesForLot = metadataMapping[lot];
 			const urlParse = zx.parseQuery(request, {
-				source: z.nativeEnum(MetadataSource).default(mediaSourcesForLot[0]),
+				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { mediaSearch } = await gqlClient.request(
-				MediaSearchDocument,
+			const { metadataSearch } = await gqlClient.request(
+				MetadataSearchDocument,
 				{
-					lot,
-					input: { page, query: query || "" },
-					source: urlParse.source,
+					input: {
+						lot,
+						search: { page, query },
+						source: urlParse.source,
+					},
 				},
 				await getAuthorizationHeader(request),
 			);
 			return [
 				undefined,
 				{
-					search: mediaSearch,
+					search: metadataSearch,
 					url: urlParse,
-					mediaSources: mediaSourcesForLot,
+					mediaSources: metadataSourcesForLot,
 				},
 			] as const;
 		})
@@ -185,8 +199,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		numPage,
 		mediaList,
 		mediaSearch,
-		// TODO: https://github.com/unjs/ufo/issues/211
-		url: url.pathname + url.search,
+		url: withoutHost(url.href),
 		collections: userCollectionsList,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
@@ -197,7 +210,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 export const meta: MetaFunction = ({ params }) => {
 	return [
 		{
-			title: `${params.action === "list" ? "List" : "Search"} ${changeCase(
+			title: `${changeCase(params.action || "")} ${changeCase(
 				params.lot?.toLowerCase() || "",
 			)}s | Ryot`,
 		},
@@ -418,7 +431,6 @@ export default function Page() {
 							/>
 							{loaderData.mediaSearch.mediaSources.length > 1 ? (
 								<Select
-									w="37%"
 									value={loaderData.mediaSearch.url.source}
 									data={loaderData.mediaSearch.mediaSources.map((o) => ({
 										value: o.toString(),
@@ -453,7 +465,7 @@ export default function Page() {
 											lot={loaderData.lot}
 											source={
 												loaderData.mediaSearch?.url.source ||
-												MetadataSource.Anilist
+												MediaSource.Anilist
 											}
 											reviewScale={loaderData.userPreferences.reviewScale}
 										/>
@@ -487,7 +499,7 @@ const MediaSearchItem = (props: {
 	item: Item;
 	idx: number;
 	lot: MetadataLot;
-	source: MetadataSource;
+	source: MediaSource;
 	action: "search" | "list";
 	hasInteracted: boolean;
 	reviewScale: UserReviewScale;
@@ -529,6 +541,7 @@ const MediaSearchItem = (props: {
 			hasInteracted={props.hasInteracted}
 			imageOverlayForLoadingIndicator={isLoading}
 			noRatingLink
+			noHref
 			onClick={async (e) => {
 				setIsLoading(true);
 				const id = await basicCommit(e);
@@ -607,8 +620,7 @@ const MediaSearchItem = (props: {
 						const form = new FormData();
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
-						const collectionName = "Watchlist";
-						form.append("collectionName", collectionName);
+						form.append("collectionName", "Watchlist");
 						await fetch(
 							withQuery($path("/actions"), { intent: "addEntityToCollection" }),
 							{

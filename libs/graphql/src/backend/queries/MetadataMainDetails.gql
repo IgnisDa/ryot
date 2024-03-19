@@ -1,5 +1,5 @@
-query MediaMainDetails($metadataId: Int!) {
-  mediaDetails(metadataId: $metadataId) {
+query MetadataMainDetails($metadataId: Int!) {
+  metadataDetails(metadataId: $metadataId) {
     title
     lot
     source

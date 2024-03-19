@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -220,7 +220,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         collections: all_collections,
         media: media_items,
         failed_items,
+        people: vec![],
         workouts: vec![],
+        measurements: vec![],
     })
 }
 
@@ -249,10 +251,11 @@ fn process_item(
                 identifier: i.to_string(),
                 title,
             }),
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],
             collections: vec![],
+            monitored: None,
         }),
         None => Err(ImportFailedItem {
             lot: None,

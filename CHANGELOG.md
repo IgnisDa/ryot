@@ -1,5 +1,17 @@
 
 
+# Version 4.3.1 (2024-03-19)
+
+## Bug Fixes
+
+- **frontend:** upload files directly in action
+  
+  
+
+# Version 4.3.0 (2024-03-19)
+
+
+
 # Version 4.2.16 (2024-03-12)
 
 

@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_graphql::Result;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use flate2::bufread::GzDecoder;
 use rs_utils::{convert_naive_to_utc, convert_string_to_date};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -64,7 +64,7 @@ fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
     ImportOrExportMediaItem {
         source_id: item.title.clone(),
         lot,
-        source: MetadataSource::Mal,
+        source: MediaSource::Mal,
         identifier: item.title.clone(),
         internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
             identifier: item.identifier.to_string(),
@@ -73,6 +73,7 @@ fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
         seen_history: vec![seen_item],
         reviews: vec![review_item],
         collections: vec![],
+        monitored: None,
     }
 }
 
@@ -87,10 +88,12 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         media.push(convert_to_format(item, MetadataLot::Manga));
     }
     Ok(ImportResult {
+        media,
+        people: vec![],
+        workouts: vec![],
         collections: vec![],
         failed_items: vec![],
-        media,
-        workouts: vec![],
+        measurements: vec![],
     })
 }
 

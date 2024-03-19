@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use itertools::Itertools;
 use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
@@ -16,8 +16,8 @@ use surf::Client;
 use crate::{
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataImageLot, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataSearchItem, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
         },
         IdAndNamedObject, SearchDetails, SearchResults,
     },
@@ -99,7 +99,7 @@ impl MediaProvider for ListennotesService {
                 image: r.thumbnail,
                 identifier: r.id,
                 lot: MetadataLot::Podcast,
-                source: MetadataSource::Listennotes,
+                source: MediaSource::Listennotes,
             })
             .collect();
 
@@ -132,7 +132,7 @@ impl MediaProvider for ListennotesService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
@@ -169,7 +169,7 @@ impl MediaProvider for ListennotesService {
         let resp = search
             .results
             .into_iter()
-            .map(|r| MediaSearchItem {
+            .map(|r| MetadataSearchItem {
                 identifier: r.id,
                 title: r.title_original,
                 image: r.image,
@@ -227,7 +227,7 @@ impl ListennotesService {
             is_nsfw: podcast_data.explicit_content,
             description: podcast_data.description,
             lot: MetadataLot::Podcast,
-            source: MetadataSource::Listennotes,
+            source: MediaSource::Listennotes,
             creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,
                 role: "Publishing".to_owned(),

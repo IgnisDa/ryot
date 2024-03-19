@@ -149,7 +149,7 @@ impl ExerciseQuery {
     ) -> Result<SearchResults<ExerciseListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.exercises_list(input, user_id).await
+        service.exercises_list(user_id, input).await
     }
 
     /// Get a paginated list of workouts done by the user.
@@ -181,7 +181,7 @@ impl ExerciseQuery {
     ) -> Result<workout::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.workout_details(workout_id, user_id).await
+        service.workout_details(user_id, workout_id).await
     }
 
     /// Get information about an exercise for a user.
@@ -349,7 +349,7 @@ impl ExerciseService {
         }
     }
 
-    async fn workout_details(&self, workout_id: String, user_id: i32) -> Result<workout::Model> {
+    async fn workout_details(&self, user_id: i32, workout_id: String) -> Result<workout::Model> {
         let maybe_workout = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(user_id))
             .one(&self.db)
@@ -456,8 +456,8 @@ impl ExerciseService {
 
     async fn exercises_list(
         &self,
-        input: ExercisesListInput,
         user_id: i32,
+        input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
         let ex = Alias::new("exercise");
         let etu = Alias::new("user_to_entity");
@@ -680,7 +680,7 @@ impl ExerciseService {
         Ok(resp)
     }
 
-    async fn create_user_measurement(
+    pub async fn create_user_measurement(
         &self,
         user_id: i32,
         mut input: user_measurement::Model,
@@ -787,7 +787,7 @@ impl ExerciseService {
             .all(&self.db)
             .await?;
         for workout_id in workout_ids {
-            let details = self.workout_details(workout_id, user_id).await?;
+            let details = self.workout_details(user_id, workout_id).await?;
             writer.serialize_value(&details).unwrap();
         }
         Ok(true)
@@ -821,36 +821,7 @@ impl ExerciseService {
         let total = workouts.len();
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
-            let workout_input = UserWorkoutInput {
-                id: Some(workout.id),
-                name: workout.name,
-                comment: workout.comment,
-                start_time: workout.start_time,
-                repeated_from: workout.repeated_from,
-                end_time: workout.end_time,
-                exercises: workout
-                    .information
-                    .exercises
-                    .into_iter()
-                    .map(|e| UserExerciseInput {
-                        exercise_id: e.name,
-                        sets: e
-                            .sets
-                            .into_iter()
-                            .map(|s| UserWorkoutSetRecord {
-                                statistic: s.statistic,
-                                lot: s.lot,
-                                confirmed_at: s.confirmed_at,
-                            })
-                            .collect(),
-                        notes: e.notes,
-                        rest_time: e.rest_time,
-                        assets: e.assets,
-                        superset_with: e.superset_with,
-                    })
-                    .collect(),
-                assets: workout.information.assets,
-            };
+            let workout_input = self.db_workout_to_workout_input(workout);
             self.create_user_workout(user_id, workout_input).await?;
             tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
         }
@@ -879,5 +850,38 @@ impl ExerciseService {
             association.update(&self.db).await?;
         }
         Ok(())
+    }
+
+    pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
+        UserWorkoutInput {
+            id: Some(user_workout.id),
+            name: user_workout.name,
+            comment: user_workout.comment,
+            start_time: user_workout.start_time,
+            repeated_from: user_workout.repeated_from,
+            end_time: user_workout.end_time,
+            exercises: user_workout
+                .information
+                .exercises
+                .into_iter()
+                .map(|e| UserExerciseInput {
+                    exercise_id: e.name,
+                    sets: e
+                        .sets
+                        .into_iter()
+                        .map(|s| UserWorkoutSetRecord {
+                            statistic: s.statistic,
+                            lot: s.lot,
+                            confirmed_at: s.confirmed_at,
+                        })
+                        .collect(),
+                    notes: e.notes,
+                    rest_time: e.rest_time,
+                    assets: e.assets,
+                    superset_with: e.superset_with,
+                })
+                .collect(),
+            assets: user_workout.information.assets,
+        }
     }
 }

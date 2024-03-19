@@ -12,7 +12,6 @@ import {
 	JsonInput,
 	MultiSelect,
 	PasswordInput,
-	Progress,
 	Select,
 	Stack,
 	Tabs,
@@ -27,6 +26,9 @@ import {
 	LoaderFunctionArgs,
 	MetaFunction,
 	json,
+	unstable_composeUploadHandlers,
+	unstable_createMemoryUploadHandler,
+	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
 	FetcherWithComponents,
@@ -50,9 +52,9 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { API_URL, getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { dayjsLib, uploadFileToServiceAndGetPath } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
@@ -85,8 +87,28 @@ export const meta: MetaFunction = () => {
 	return [{ title: "Imports and Exports | Ryot" }];
 };
 
+const uploadHandler = unstable_composeUploadHandlers(async (params) => {
+	if (params.filename && params.data) {
+		const formData = new FormData();
+		const blob = [];
+		for await (const chunk of params.data) blob.push(chunk);
+		const file = new File(blob, params.filename);
+		formData.append("files[]", file, params.filename);
+		const resp = await fetch(`${API_URL}/upload`, {
+			method: "POST",
+			body: formData,
+		});
+		const data = await resp.json();
+		return data[0];
+	}
+	return undefined;
+}, unstable_createMemoryUploadHandler());
+
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await request.clone().formData();
+	const formData = await unstable_parseMultipartFormData(
+		request,
+		uploadHandler,
+	);
 	return namedAction(request, {
 		deployImport: async () => {
 			const source = formData.get("source") as ImportSource;
@@ -115,9 +137,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.StoryGraph, async () => ({
 					storyGraph: processSubmission(formData, storyGraphImportFormSchema),
 				}))
-				.with(ImportSource.GenericJson, async () => ({
-					genericJson: processSubmission(formData, genericJsonImportFormSchema),
-				}))
 				.with(ImportSource.Mal, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
@@ -130,6 +149,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						strongApp: { ...newLocal, mapping: JSON.parse(newLocal.mapping) },
 					};
 				})
+				.with(
+					ImportSource.MediaJson,
+					ImportSource.PeopleJson,
+					ImportSource.WorkoutsJson,
+					ImportSource.MeasurementsJson,
+					async () => ({
+						json: processSubmission(formData, jsonImportFormSchema),
+					}),
+				)
 				.exhaustive();
 			await gqlClient.request(
 				DeployImportJobDocument,
@@ -187,7 +215,7 @@ const strongAppImportFormSchema = z.object({
 	mapping: z.string(),
 });
 
-const genericJsonImportFormSchema = z.object({ export: z.string() });
+const jsonImportFormSchema = z.object({ export: z.string() });
 
 const malImportFormSchema = z.object({
 	animePath: z.string(),
@@ -201,26 +229,7 @@ const deployExportForm = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
-	const [progress, setProgress] = useState<number | null>(null);
 
-	const [movaryRatingPath, setMovaryRatingPath] = useState("");
-	const [movaryHistoryPath, setMovaryHistoryPath] = useState("");
-	const [movaryWatchlistPath, setMovaryWatchlistPath] = useState("");
-
-	const [goodreadsCsvPath, setGoodreadsCsvPath] = useState("");
-
-	const [storyGraphExportPath, setStoryGraphExportPath] = useState("");
-
-	const [genericJsonExportPath, setGenericJsonExportPath] = useState("");
-
-	const [malAnimePath, setMalAnimePath] = useState("");
-	const [malMangaPath, setMalMangaPath] = useState("");
-
-	const [strongAppExportPath, setStrongAppExportPath] = useState("");
-
-	const onProgress = (event: ProgressEvent<XMLHttpRequestEventTarget>) =>
-		setProgress((event.loaded / event.total) * 100);
-	const onLoad = () => setProgress(null);
 	const fetcher = useFetcher();
 	const formRef = useRef<HTMLFormElement>(null);
 
@@ -236,6 +245,7 @@ export default function Page() {
 						<fetcher.Form
 							method="post"
 							action="?intent=deployImport"
+							encType="multipart/form-data"
 							ref={formRef}
 							onSubmit={() => {
 								if (deployImportSource) events.deployImport(deployImportSource);
@@ -252,7 +262,6 @@ export default function Page() {
 											match(deployImportSource)
 												.with(ImportSource.Goodreads, () => "goodreads")
 												.with(ImportSource.Mal, () => "myanimelist")
-												.with(ImportSource.GenericJson, () => "generic-json")
 												.with(ImportSource.MediaTracker, () => "mediatracker")
 												.with(ImportSource.Movary, () => "movary")
 												.with(ImportSource.StoryGraph, () => "storygraph")
@@ -262,6 +271,13 @@ export default function Page() {
 													ImportSource.Audiobookshelf,
 													() => "audiobookshelf",
 												)
+												.with(
+													ImportSource.MediaJson,
+													ImportSource.PeopleJson,
+													ImportSource.WorkoutsJson,
+													ImportSource.MeasurementsJson,
+													() => "json-files",
+												)
 												.with(undefined, () => "")
 												.exhaustive(),
 										)}
@@ -270,9 +286,6 @@ export default function Page() {
 										Docs
 									</Anchor>
 								</Flex>
-								{progress ? (
-									<Progress value={progress} striped size="sm" color="orange" />
-								) : null}
 								<Select
 									id="import-source"
 									label="Select a source"
@@ -320,27 +333,11 @@ export default function Page() {
 											))
 											.with(ImportSource.Goodreads, () => (
 												<>
-													<input
-														hidden
-														name="csvPath"
-														value={goodreadsCsvPath}
-														readOnly
-													/>
 													<FileInput
 														label="CSV file"
 														accept=".csv"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setGoodreadsCsvPath(path);
-															}
-														}}
+														name="csvPath"
 													/>
 												</>
 											))
@@ -355,195 +352,58 @@ export default function Page() {
 											))
 											.with(ImportSource.Movary, () => (
 												<>
-													<input
-														hidden
-														name="history"
-														value={movaryHistoryPath}
-														readOnly
-													/>
-													<input
-														hidden
-														name="ratings"
-														value={movaryRatingPath}
-														readOnly
-													/>
-													<input
-														hidden
-														name="watchlist"
-														value={movaryWatchlistPath}
-														readOnly
-													/>
 													<FileInput
 														label="History CSV file"
 														accept=".csv"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setMovaryHistoryPath(path);
-															}
-														}}
+														name="history"
 													/>
 													<FileInput
 														label="Ratings CSV file"
 														accept=".csv"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setMovaryRatingPath(path);
-															}
-														}}
+														name="ratings"
 													/>
 													<FileInput
 														label="Watchlist CSV file"
 														accept=".csv"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setMovaryWatchlistPath(path);
-															}
-														}}
+														name="watchlist"
 													/>
 												</>
 											))
 											.with(ImportSource.StoryGraph, () => (
 												<>
-													<input
-														hidden
-														name="export"
-														value={storyGraphExportPath}
-														readOnly
-													/>
 													<FileInput
 														label="CSV export file"
 														accept=".csv"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setStoryGraphExportPath(path);
-															}
-														}}
-													/>
-												</>
-											))
-											.with(ImportSource.GenericJson, () => (
-												<>
-													<input
-														hidden
 														name="export"
-														value={genericJsonExportPath}
-														readOnly
-													/>
-													<FileInput
-														label="JSON export file"
-														accept=".json"
-														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setGenericJsonExportPath(path);
-															}
-														}}
 													/>
 												</>
 											))
+
 											.with(ImportSource.Mal, () => (
 												<>
-													<input
-														hidden
-														name="animePath"
-														value={malAnimePath}
-														readOnly
-													/>
-													<input
-														hidden
-														name="mangaPath"
-														value={malMangaPath}
-														readOnly
-													/>
 													<FileInput
 														label="Anime export file"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setMalAnimePath(path);
-															}
-														}}
+														name="animePath"
 													/>
 													<FileInput
 														label="Manga export file"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setMalMangaPath(path);
-															}
-														}}
+														name="mangaPath"
 													/>
 												</>
 											))
 											.with(ImportSource.StrongApp, () => (
 												<>
-													<input
-														hidden
-														name="exportPath"
-														value={strongAppExportPath}
-														readOnly
-													/>
 													<FileInput
 														label="CSV export file"
 														accept=".csv"
 														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setStrongAppExportPath(path);
-															}
-														}}
+														name="exportPath"
 													/>
 													<JsonInput
 														label="Mappings"
@@ -570,6 +430,22 @@ export default function Page() {
 													/>
 												</>
 											))
+											.with(
+												ImportSource.MediaJson,
+												ImportSource.PeopleJson,
+												ImportSource.WorkoutsJson,
+												ImportSource.MeasurementsJson,
+												() => (
+													<>
+														<FileInput
+															label="JSON export file"
+															accept=".json"
+															required
+															name="export"
+														/>
+													</>
+												),
+											)
 											.exhaustive()}
 									</ImportSourceElement>
 								) : null}

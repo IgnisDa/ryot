@@ -1,0 +1,21 @@
+query StudioQuery($id: Int!) {
+  Studio(id: $id) {
+    id
+    name
+    siteUrl
+    media {
+      edges {
+        node {
+          id
+          type
+          title {
+            userPreferred
+          }
+          coverImage {
+            extraLarge
+          }
+        }
+      }
+    }
+  }
+}

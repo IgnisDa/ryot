@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::Display;
@@ -88,7 +88,7 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                                 title: metadata.title.clone().unwrap_or_default(),
                             }),
                             lot,
-                            source: MetadataSource::Audible,
+                            source: MediaSource::Audible,
                             source_id: metadata.title.unwrap_or_default(),
                             identifier: item.id,
                             seen_history: vec![ImportOrExportMediaItemSeen {
@@ -96,6 +96,7 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                             }],
                             collections: vec![],
                             reviews: vec![],
+                            monitored: None,
                         })
                     } else {
                         failed_items.push(ImportFailedItem {
@@ -120,7 +121,9 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
     Ok(ImportResult {
         media,
         failed_items,
+        people: vec![],
         workouts: vec![],
         collections: vec![],
+        measurements: vec![],
     })
 }

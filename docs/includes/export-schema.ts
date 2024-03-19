@@ -117,7 +117,7 @@ export interface ImportOrExportMediaItemSeen {
 	startedOn: string | null;
 }
 
-export type MetadataSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
+export type MediaSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMediaItem {
@@ -131,6 +131,8 @@ export interface ImportOrExportMediaItem {
 	 * @default 'Book'
 	 */
 	lot: MetadataLot;
+	/** Whether the media is being monitored. */
+	monitored: boolean | null;
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
 	/** The seen history for the user. */
@@ -140,9 +142,14 @@ export interface ImportOrExportMediaItem {
 	 *
 	 * @default 'Audible'
 	 */
-	source: MetadataSource;
+	source: MediaSource;
 	/** An string to help identify it in the original source. */
 	sourceId: string;
+}
+
+export interface PersonSourceSpecifics {
+	isAnilistStudio: boolean | null;
+	isTmdbCompany: boolean | null;
 }
 
 /** Details about a specific creator item that needs to be exported. */
@@ -151,6 +158,8 @@ export interface ImportOrExportPersonItem {
 	collections: string[];
 	/** The provider identifier. */
 	identifier: string;
+	/** Whether the person is being monitored. */
+	monitored: boolean | null;
 	/** The name of the creator. */
 	name: string;
 	/** The review history for the user. */
@@ -160,7 +169,9 @@ export interface ImportOrExportPersonItem {
 	 *
 	 * @default 'Audible'
 	 */
-	source: MetadataSource;
+	source: MediaSource;
+	/** The source specific data. */
+	sourceSpecifics: PersonSourceSpecifics | null;
 }
 
 /** The assets that were uploaded for an entity. */
