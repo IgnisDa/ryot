@@ -3,6 +3,7 @@ import {
 	ActionIcon,
 	Box,
 	Center,
+	Checkbox,
 	Container,
 	Flex,
 	Group,
@@ -252,14 +253,34 @@ export default function Page() {
 						</>
 					) : null}
 					{loaderData.action === Action.Search ? (
-						<Select
-							data={SEARCH_SOURCES_ALLOWED.map((o) => ({
-								value: o.toString(),
-								label: startCase(o.toLowerCase()),
-							}))}
-							defaultValue={loaderData.peopleSearch?.url.source}
-							onChange={(v) => setP("source", v)}
-						/>
+						<>
+							<Select
+								data={SEARCH_SOURCES_ALLOWED.map((o) => ({
+									value: o.toString(),
+									label: startCase(o.toLowerCase()),
+								}))}
+								defaultValue={loaderData.peopleSearch?.url.source}
+								onChange={(v) => setP("source", v)}
+							/>
+							{loaderData.peopleSearch?.url.source === MediaSource.Tmdb ? (
+								<Checkbox
+									checked={loaderData.peopleSearch?.url.isTmdbCompany}
+									onChange={(e) =>
+										setP("isTmdbCompany", String(e.target.checked))
+									}
+									label="Company"
+								/>
+							) : null}
+							{loaderData.peopleSearch?.url.source === MediaSource.Anilist ? (
+								<Checkbox
+									checked={loaderData.peopleSearch?.url.isAnilistStudio}
+									onChange={(e) =>
+										setP("isAnilistStudio", String(e.target.checked))
+									}
+									label="Studio"
+								/>
+							) : null}
+						</>
 					) : null}
 				</Group>
 				{(loaderData.peopleList?.list.details.total || 0) > 0 ? (
