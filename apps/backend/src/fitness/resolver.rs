@@ -149,7 +149,7 @@ impl ExerciseQuery {
     ) -> Result<SearchResults<ExerciseListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.exercises_list(input, user_id).await
+        service.exercises_list(user_id, input).await
     }
 
     /// Get a paginated list of workouts done by the user.
@@ -181,7 +181,7 @@ impl ExerciseQuery {
     ) -> Result<workout::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.workout_details(workout_id, user_id).await
+        service.workout_details(user_id, workout_id).await
     }
 
     /// Get information about an exercise for a user.
@@ -349,7 +349,7 @@ impl ExerciseService {
         }
     }
 
-    async fn workout_details(&self, workout_id: String, user_id: i32) -> Result<workout::Model> {
+    async fn workout_details(&self, user_id: i32, workout_id: String) -> Result<workout::Model> {
         let maybe_workout = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(user_id))
             .one(&self.db)
@@ -456,8 +456,8 @@ impl ExerciseService {
 
     async fn exercises_list(
         &self,
-        input: ExercisesListInput,
         user_id: i32,
+        input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
         let ex = Alias::new("exercise");
         let etu = Alias::new("user_to_entity");
@@ -787,7 +787,7 @@ impl ExerciseService {
             .all(&self.db)
             .await?;
         for workout_id in workout_ids {
-            let details = self.workout_details(workout_id, user_id).await?;
+            let details = self.workout_details(user_id, workout_id).await?;
             writer.serialize_value(&details).unwrap();
         }
         Ok(true)

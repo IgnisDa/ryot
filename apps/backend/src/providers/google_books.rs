@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rs_utils::convert_date_to_year;
@@ -12,8 +12,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot,
+            BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataSearchItem,
         },
         SearchDetails, SearchResults,
     },
@@ -105,7 +105,7 @@ impl MediaProvider for GoogleBooksService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * self.page_limit;
         let mut rsp = self
@@ -137,7 +137,7 @@ impl MediaProvider for GoogleBooksService {
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
                 let image = url_images.first().map(|i| i.image.clone());
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier,
                     title,
                     image,
@@ -220,7 +220,7 @@ impl GoogleBooksService {
         MediaDetails {
             identifier: id,
             lot: MetadataLot::Book,
-            source: MetadataSource::GoogleBooks,
+            source: MediaSource::GoogleBooks,
             title: item.title,
             description: item.description,
             creators: creators.into_iter().unique().collect(),

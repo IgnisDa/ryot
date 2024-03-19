@@ -1,4 +1,4 @@
-query SearchQuery(
+query MediaSearchQuery(
   $search: String!
   $page: Int!
   $type: MediaType!

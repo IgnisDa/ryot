@@ -63,7 +63,7 @@ pub enum MetadataLot {
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 #[config(rename_all = "PascalCase")]
-pub enum MetadataSource {
+pub enum MediaSource {
     #[sea_orm(string_value = "AN")]
     Anilist,
     #[default]

@@ -128,6 +128,7 @@ export default function App() {
 								top={10}
 								size="sm"
 								color="yellow"
+								style={{ zIndex: 10 }}
 							/>
 						) : null}
 						<Toaster toast={loaderData.toast} />

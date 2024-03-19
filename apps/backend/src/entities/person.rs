@@ -2,11 +2,11 @@
 
 use async_graphql::SimpleObject;
 use chrono::NaiveDate;
-use database::MetadataSource;
+use database::MediaSource;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::media::MetadataImage;
+use crate::models::media::{MetadataImage, PersonSourceSpecifics};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Person")]
@@ -15,7 +15,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub identifier: String,
-    pub source: MetadataSource,
+    pub source: MediaSource,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub name: String,
@@ -31,6 +31,8 @@ pub struct Model {
     pub death_date: Option<NaiveDate>,
     pub place: Option<String>,
     pub website: Option<String>,
+    #[graphql(skip)]
+    pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

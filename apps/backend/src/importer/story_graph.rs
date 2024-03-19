@@ -4,7 +4,7 @@ use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -56,7 +56,7 @@ pub async fn import(
     isbn_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MetadataLot::Book;
-    let source = MetadataSource::GoogleBooks;
+    let source = MediaSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
     let export = fs::read_to_string(&input.export)?;

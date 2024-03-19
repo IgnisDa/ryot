@@ -52,7 +52,7 @@ fragment SeenPart on Seen {
   }
 }
 
-fragment MediaSearchItemPart on MediaSearchItem {
+fragment MetadataSearchItemPart on MetadataSearchItem {
   identifier
   title
   image

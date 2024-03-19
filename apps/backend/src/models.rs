@@ -10,7 +10,7 @@ use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MetadataLot, MetadataSource, SeenState, Visibility,
+    MediaSource, MetadataLot, SeenState, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
@@ -87,9 +87,13 @@ pub struct SearchDetails {
 #[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
-    params(media::MediaSearchItemWithLot)
+    params(media::MetadataSearchItemWithLot)
 ))]
-#[graphql(concrete(name = "MediaSearchResults", params(media::MediaSearchItemResponse)))]
+#[graphql(concrete(
+    name = "MetadataSearchResults",
+    params(media::MetadataSearchItemResponse)
+))]
+#[graphql(concrete(name = "PeopleSearchResults", params(media::PeopleSearchItem)))]
 #[graphql(concrete(
     name = "PublicCollectionsListResults",
     params(media::PublicCollectionItem)
@@ -178,15 +182,15 @@ pub mod media {
     }
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
-    pub struct MediaSearchItemWithLot {
-        pub details: MediaSearchItem,
+    pub struct MetadataSearchItemWithLot {
+        pub details: MetadataSearchItem,
         pub metadata_lot: Option<MetadataLot>,
         pub entity_lot: EntityLot,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct MediaSearchItemResponse {
-        pub item: MediaSearchItem,
+    pub struct MetadataSearchItemResponse {
+        pub item: MetadataSearchItem,
         /// Whether the user has interacted with this media item.
         pub has_interacted: bool,
         pub database_id: Option<i32>,
@@ -246,7 +250,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
     pub struct MediaListItem {
-        pub data: MediaSearchItem,
+        pub data: MetadataSearchItem,
         pub average_rating: Option<Decimal>,
     }
 
@@ -563,11 +567,19 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct MediaSearchItem {
+    pub struct MetadataSearchItem {
         pub identifier: String,
         pub title: String,
         pub image: Option<String>,
         pub publish_year: Option<i32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct PeopleSearchItem {
+        pub identifier: String,
+        pub name: String,
+        pub image: Option<String>,
+        pub birth_year: Option<i32>,
     }
 
     #[derive(
@@ -887,19 +899,40 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        InputObject,
+        Clone,
+        SimpleObject,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Hash,
+        Default,
+    )]
+    #[graphql(input_name = "PeopleSourceSpecificsInput")]
+    pub struct PersonSourceSpecifics {
+        pub is_tmdb_company: Option<bool>,
+        pub is_anilist_studio: Option<bool>,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct PartialMetadataPerson {
         pub name: String,
         pub identifier: String,
-        pub source: MetadataSource,
+        pub source: MediaSource,
         pub role: String,
         pub character: Option<String>,
+        #[graphql(skip)]
+        pub source_specifics: Option<PersonSourceSpecifics>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
     pub struct MetadataPerson {
         pub identifier: String,
-        pub source: MetadataSource,
+        pub source: MediaSource,
         pub name: String,
         pub description: Option<String>,
         pub images: Option<Vec<String>>,
@@ -909,6 +942,7 @@ pub mod media {
         pub place: Option<String>,
         pub website: Option<String>,
         pub related: Vec<(String, PartialMetadataWithoutId)>,
+        pub source_specifics: Option<PersonSourceSpecifics>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
@@ -939,7 +973,7 @@ pub mod media {
         pub identifier: String,
         pub is_nsfw: Option<bool>,
         pub title: String,
-        pub source: MetadataSource,
+        pub source: MediaSource,
         pub description: Option<String>,
         pub original_language: Option<String>,
         pub lot: MetadataLot,
@@ -1043,7 +1077,7 @@ pub mod media {
         /// The type of media.
         pub lot: MetadataLot,
         /// The source of media.
-        pub source: MetadataSource,
+        pub source: MediaSource,
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
         pub identifier: String,
         // DEV: Only to be used internally.
@@ -1067,7 +1101,7 @@ pub mod media {
         /// The provider identifier.
         pub identifier: String,
         /// The source of data.
-        pub source: MetadataSource,
+        pub source: MediaSource,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
@@ -1254,7 +1288,7 @@ pub mod media {
         pub title: String,
         pub image: Option<String>,
         pub lot: MetadataLot,
-        pub source: MetadataSource,
+        pub source: MediaSource,
     }
 }
 

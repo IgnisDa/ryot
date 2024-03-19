@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -249,7 +249,7 @@ fn process_item(
                 identifier: i.to_string(),
                 title,
             }),
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],
             collections: vec![],

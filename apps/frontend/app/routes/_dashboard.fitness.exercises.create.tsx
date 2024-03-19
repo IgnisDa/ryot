@@ -31,7 +31,7 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 	ExerciseSource,
-	MetadataSource,
+	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
@@ -145,7 +145,7 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={imageUrls.map((i) => i.url)}
-				externalLink={{ source: MetadataSource.Custom }}
+				externalLink={{ source: MediaSource.Custom }}
 			>
 				<ScrollArea.Autosize mah={400}>
 					<Form method="post" replace>

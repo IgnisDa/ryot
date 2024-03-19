@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Result};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -19,7 +19,7 @@ pub struct IntegrationMedia {
     pub identifier: String,
     pub lot: MetadataLot,
     #[serde(default)]
-    pub source: MetadataSource,
+    pub source: MediaSource,
     pub progress: i32,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
@@ -106,7 +106,7 @@ impl IntegrationService {
         Ok(IntegrationMedia {
             identifier,
             lot,
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             progress: (position / runtime * dec!(100)).to_i32().unwrap(),
             podcast_episode_number: None,
             show_season_number: payload.item.season_number,
@@ -204,7 +204,7 @@ impl IntegrationService {
                 // in the media specifics we have in DB.
                 let db_show = Metadata::find()
                     .filter(metadata::Column::Lot.eq(MetadataLot::Show))
-                    .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
+                    .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
                     .filter(get_ilike_query(
                         Func::cast_as(
                             Expr::col(metadata::Column::ShowSpecifics),
@@ -234,7 +234,7 @@ impl IntegrationService {
         Ok(IntegrationMedia {
             identifier,
             lot,
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             progress,
             podcast_episode_number: None,
             show_season_number: payload.metadata.season_number,
@@ -249,7 +249,7 @@ impl IntegrationService {
             Result::Ok(val) => val,
             Result::Err(err) => bail!(err),
         };
-        payload.source = MetadataSource::Tmdb;
+        payload.source = MediaSource::Tmdb;
         Ok(payload)
     }
 
@@ -312,7 +312,7 @@ impl IntegrationService {
                 media_items.push(IntegrationMedia {
                     identifier: asin,
                     lot: MetadataLot::AudioBook,
-                    source: MetadataSource::Audible,
+                    source: MediaSource::Audible,
                     progress: (resp.progress * dec!(100)).to_i32().unwrap(),
                     show_season_number: None,
                     show_episode_number: None,

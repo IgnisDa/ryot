@@ -1,5 +1,5 @@
-query MediaSearch($lot: MetadataLot!, $source: MetadataSource!, $input: SearchInput!) {
-  mediaSearch(lot: $lot, source: $source, input: $input) {
+query MetadataSearch($input: MetadataSearchInput!) {
+  metadataSearch(input: $input) {
     details {
       total
       nextPage
