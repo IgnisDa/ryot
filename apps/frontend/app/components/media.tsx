@@ -22,6 +22,7 @@ import {
 	ScrollArea,
 	SegmentedControl,
 	Stack,
+	StyleProp,
 	Text,
 	TextInput,
 	Textarea,
@@ -452,12 +453,32 @@ export const BaseDisplayItem = (props: {
 	topLeft?: ReactNode;
 	bottomLeft?: string | number | null;
 	bottomRight?: string | number | null;
-	href: string;
+	href?: string;
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
+
+	const SurroundingElement = (iProps: {
+		children: ReactNode;
+		style: React.CSSProperties;
+		pos: StyleProp<React.CSSProperties["position"]>;
+	}) =>
+		props.href ? (
+			<Anchor
+				component={Link}
+				to={props.href}
+				style={iProps.style}
+				pos={iProps.pos}
+			>
+				{iProps.children}
+			</Anchor>
+		) : (
+			<Box onClick={props.onClick} style={iProps.style} pos={iProps.pos}>
+				{iProps.children}
+			</Box>
+		);
 
 	return (
 		<Flex
@@ -468,13 +489,7 @@ export const BaseDisplayItem = (props: {
 			pos="relative"
 		>
 			{props.topLeft}
-			<Anchor
-				component={Link}
-				to={props.href}
-				style={{ flex: "none" }}
-				pos="relative"
-				onClick={props.onClick}
-			>
+			<SurroundingElement style={{ flex: "none" }} pos="relative">
 				<Image
 					src={props.imageLink}
 					radius="md"
@@ -496,7 +511,7 @@ export const BaseDisplayItem = (props: {
 					)}
 				/>
 				{props.topRight}
-			</Anchor>
+			</SurroundingElement>
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				<Flex justify="space-between" direction="row" w="100%">
 					<Text c="dimmed" size="sm">
@@ -545,6 +560,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	averageRating?: string;
 	noRatingLink?: boolean;
 	noBottomRight?: boolean;
+	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
 }) => {
@@ -554,25 +570,31 @@ export const MediaItemWithoutUpdateModal = (props: {
 		<BaseDisplayItem
 			onClick={props.onClick}
 			href={
-				props.href
+				!props.noHref
 					? props.href
-					: match(props.entityLot)
-							.with(EntityLot.Media, undefined, null, () =>
-								$path("/media/item/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.MediaGroup, () =>
-								$path("/media/groups/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Person, () =>
-								$path("/media/people/item/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Exercise, () =>
-								$path("/fitness/exercises/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Collection, () =>
-								$path("/collections/:id", { id: props.item.identifier }),
-							)
-							.exhaustive()
+						? props.href
+						: match(props.entityLot)
+								.with(EntityLot.Media, undefined, null, () =>
+									$path("/media/item/:id", { id: props.item.identifier }),
+								)
+								.with(EntityLot.MediaGroup, () =>
+									$path("/media/groups/:id", { id: props.item.identifier }),
+								)
+								.with(EntityLot.Person, () =>
+									$path("/media/people/item/:id", {
+										id: props.item.identifier,
+									}),
+								)
+								.with(EntityLot.Exercise, () =>
+									$path("/fitness/exercises/:id", {
+										id: props.item.identifier,
+									}),
+								)
+								.with(EntityLot.Collection, () =>
+									$path("/collections/:id", { id: props.item.identifier }),
+								)
+								.exhaustive()
+					: undefined
 			}
 			imageLink={props.item.image}
 			imagePlaceholder={getInitials(props.item?.title || "")}

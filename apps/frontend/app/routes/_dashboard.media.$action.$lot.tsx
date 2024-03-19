@@ -541,6 +541,7 @@ const MediaSearchItem = (props: {
 			hasInteracted={props.hasInteracted}
 			imageOverlayForLoadingIndicator={isLoading}
 			noRatingLink
+			noHref
 			onClick={async (e) => {
 				setIsLoading(true);
 				const id = await basicCommit(e);
