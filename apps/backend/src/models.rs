@@ -911,6 +911,7 @@ pub mod media {
         PartialEq,
         Hash,
         Default,
+        Schematic,
     )]
     #[graphql(input_name = "PeopleSourceSpecificsInput")]
     pub struct PersonSourceSpecifics {
@@ -1098,12 +1099,14 @@ pub mod media {
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
     pub struct ImportOrExportPersonItem {
-        /// The name of the creator.
-        pub name: String,
         /// The provider identifier.
         pub identifier: String,
         /// The source of data.
         pub source: MediaSource,
+        /// The source specific data.
+        pub source_specifics: Option<PersonSourceSpecifics>,
+        /// The name of the creator.
+        pub name: String,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.

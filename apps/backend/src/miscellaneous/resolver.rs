@@ -6778,9 +6778,10 @@ GROUP BY
                     .map(|c| c.name)
                     .collect();
             let exp = ImportOrExportPersonItem {
-                name: p.name,
                 identifier: p.identifier,
                 source: p.source,
+                source_specifics: p.source_specifics,
+                name: p.name,
                 reviews,
                 collections,
                 monitored: rm.media_monitored,

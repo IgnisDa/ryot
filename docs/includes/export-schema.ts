@@ -147,6 +147,11 @@ export interface ImportOrExportMediaItem {
 	sourceId: string;
 }
 
+export interface PersonSourceSpecifics {
+	isAnilistStudio: boolean | null;
+	isTmdbCompany: boolean | null;
+}
+
 /** Details about a specific creator item that needs to be exported. */
 export interface ImportOrExportPersonItem {
 	/** The collections this entity was added to. */
@@ -165,6 +170,8 @@ export interface ImportOrExportPersonItem {
 	 * @default 'Audible'
 	 */
 	source: MediaSource;
+	/** The source specific data. */
+	sourceSpecifics: PersonSourceSpecifics | null;
 }
 
 /** The assets that were uploaded for an entity. */
