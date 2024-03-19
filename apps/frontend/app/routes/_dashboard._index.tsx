@@ -386,7 +386,7 @@ export default function Page() {
 									<ActualDisplayStat
 										icon={<IconFriends />}
 										lot="People stats"
-										color={theme.colors.green[8]}
+										color={theme.colors.red[9]}
 										data={[
 											{
 												label: "People",
