@@ -9,6 +9,7 @@ import {
 	Modal,
 	Select,
 	Stack,
+	Tabs,
 	Text,
 	Title,
 } from "@mantine/core";
@@ -26,6 +27,8 @@ import { changeCase, getInitials, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
 	IconFilterOff,
+	IconListCheck,
+	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
@@ -139,6 +142,30 @@ export default function Page() {
 				<Flex align="center" gap="md">
 					<Title>People</Title>
 				</Flex>
+				<Tabs
+					variant="default"
+					value={loaderData.action}
+					onChange={(v) => {
+						if (v)
+							navigate(
+								$path(
+									"/media/people/:action",
+									{ action: v },
+									{ query: loaderData.query },
+								),
+							);
+					}}
+				>
+					<Tabs.List style={{ alignItems: "center" }}>
+						<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
+							<Text>My People</Text>
+						</Tabs.Tab>
+						<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
+							<Text>Search</Text>
+						</Tabs.Tab>
+					</Tabs.List>
+				</Tabs>
+
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for people"
