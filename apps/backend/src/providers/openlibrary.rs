@@ -115,7 +115,7 @@ impl OpenlibraryService {
 
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
-    async fn person_search(
+    async fn people_search(
         &self,
         query: &str,
         page: Option<i32>,

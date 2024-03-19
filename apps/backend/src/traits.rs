@@ -38,7 +38,7 @@ pub trait MediaProvider {
 
     /// Search for a person via a query.
     #[allow(unused_variables)]
-    async fn person_search(
+    async fn people_search(
         &self,
         query: &str,
         page: Option<i32>,

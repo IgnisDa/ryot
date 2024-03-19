@@ -116,7 +116,7 @@ impl NonMediaAnilistService {
 
 #[async_trait]
 impl MediaProvider for NonMediaAnilistService {
-    async fn person_search(
+    async fn people_search(
         &self,
         query: &str,
         page: Option<i32>,

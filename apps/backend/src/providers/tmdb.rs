@@ -208,7 +208,7 @@ impl NonMediaTmdbService {
 
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
-    async fn person_search(
+    async fn people_search(
         &self,
         query: &str,
         page: Option<i32>,

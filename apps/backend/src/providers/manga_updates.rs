@@ -149,7 +149,7 @@ struct MetadataSearchResponse<T> {
 
 #[async_trait]
 impl MediaProvider for MangaUpdatesService {
-    async fn person_search(
+    async fn people_search(
         &self,
         query: &str,
         page: Option<i32>,

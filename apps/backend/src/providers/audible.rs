@@ -193,7 +193,7 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
-    async fn person_search(
+    async fn people_search(
         &self,
         query: &str,
         page: Option<i32>,

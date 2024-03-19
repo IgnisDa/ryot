@@ -3630,7 +3630,7 @@ impl MiscellaneousService {
         }
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
-            .person_search(&query, input.search.page, &input.source_specifics)
+            .people_search(&query, input.search.page, &input.source_specifics)
             .await?;
         let all_identifiers = results
             .items
