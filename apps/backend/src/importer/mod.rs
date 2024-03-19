@@ -24,9 +24,9 @@ use crate::{
     models::{
         fitness::UserWorkoutInput,
         media::{
-            CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
-            ImportOrExportPersonItem, PartialMetadataWithoutId, PostReviewInput,
-            ProgressUpdateInput, ToggleMediaMonitorInput,
+            CommitPersonInput, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+            ImportOrExportMediaItem, ImportOrExportPersonItem, PartialMetadataWithoutId,
+            PostReviewInput, ProgressUpdateInput, ToggleMediaMonitorInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput, IdObject,
     },
@@ -301,8 +301,67 @@ impl ImporterService {
 
     #[instrument(skip(self, input))]
     async fn import_people(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
-        dbg!(&input);
         let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let import = match input.source {
+            ImportSource::PersonJson => json::people_import(input.json.unwrap()).await.unwrap(),
+            _ => unreachable!(),
+        };
+        let details = ImportResultResponse {
+            import: ImportDetails {
+                total: import.people.len(),
+            },
+            failed_items: vec![],
+        };
+        for (idx, item) in import.people.iter().enumerate() {
+            let person = self
+                .media_service
+                .commit_person(CommitPersonInput {
+                    identifier: item.identifier.clone(),
+                    name: item.name.clone(),
+                    source: item.source,
+                    source_specifics: item.source_specifics.clone(),
+                })
+                .await?;
+            for col in item.collections.iter() {
+                self.media_service
+                    .create_or_update_collection(
+                        user_id,
+                        CreateOrUpdateCollectionInput {
+                            name: col.to_string(),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                self.media_service
+                    .add_entity_to_collection(
+                        user_id,
+                        ChangeCollectionToEntityInput {
+                            collection_name: col.to_string(),
+                            person_id: Some(person.id),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .ok();
+            }
+            self.media_service
+                .toggle_media_monitor(
+                    user_id,
+                    ToggleMediaMonitorInput {
+                        person_id: Some(person.id),
+                        force_value: item.monitored,
+                        ..Default::default()
+                    },
+                )
+                .await?;
+            tracing::debug!(
+                "Imported person: {idx}/{total}, name: {name}",
+                idx = idx + 1,
+                total = import.people.len(),
+                name = item.name,
+            );
+        }
+        self.finish_import_job(db_import_job, details).await?;
         Ok(())
     }
 
