@@ -739,7 +739,7 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
-    pub struct MetadataOverallSummary {
+    pub struct MediaOverallSummary {
         pub reviewed: u64,
         pub interacted_with: u64,
     }
@@ -766,7 +766,9 @@ pub mod media {
         pub anime: AnimeSummary,
         pub manga: MangaSummary,
         #[serde(default)] // FIXME: Remove in the next major release
-        pub metadata_overall: MetadataOverallSummary,
+        pub metadata_overall: MediaOverallSummary,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub people_overall: MediaOverallSummary,
     }
     #[derive(
         SimpleObject,

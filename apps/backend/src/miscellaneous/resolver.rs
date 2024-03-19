@@ -4638,6 +4638,20 @@ impl MiscellaneousService {
             metadata_num_reviews
         );
 
+        let person_num_reviews = Review::find()
+            .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .filter(review::Column::PersonId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(review::Column::PostedOn.gt(v))
+            })
+            .count(&self.db)
+            .await?;
+
+        tracing::debug!(
+            "Calculated number of person reviews for user {:?}",
+            person_num_reviews
+        );
+
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
             .apply_if(start_from, |query, v| {
@@ -4673,6 +4687,20 @@ impl MiscellaneousService {
         tracing::debug!(
             "Calculated number metadata interacted with for user {:?}",
             num_metadata_interacted_with
+        );
+
+        let num_people_interacted_with = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::PersonId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
+            .count(&self.db)
+            .await?;
+
+        tracing::debug!(
+            "Calculated number people interacted with for user {:?}",
+            num_people_interacted_with
         );
 
         let num_exercises_interacted_with = UserToEntity::find()
@@ -4715,6 +4743,8 @@ impl MiscellaneousService {
 
         ls.media.metadata_overall.reviewed += metadata_num_reviews;
         ls.media.metadata_overall.interacted_with += num_metadata_interacted_with;
+        ls.media.people_overall.reviewed += person_num_reviews;
+        ls.media.people_overall.interacted_with += num_people_interacted_with;
         ls.fitness.measurements_recorded += num_measurements;
         ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
         ls.fitness.workouts.recorded += num_workouts;

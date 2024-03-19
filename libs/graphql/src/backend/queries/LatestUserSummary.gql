@@ -15,6 +15,10 @@ query LatestUserSummary {
         reviewed
         interactedWith
       }
+      peopleOverall {
+        reviewed
+        interactedWith
+      }
       manga {
         chapters
         read
