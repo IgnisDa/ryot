@@ -33,6 +33,7 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
+import { useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
@@ -44,6 +45,7 @@ import {
 } from "~/components/common";
 import {
 	BaseDisplayItem,
+	Item,
 	MediaItemWithoutUpdateModal,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -340,29 +342,14 @@ export default function Page() {
 						{loaderData.peopleSearch.search.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.peopleSearch.search.items.map((person) => (
-									<MediaItemWithoutUpdateModal
+									<PersonSearchItem
 										item={{
 											...person.item,
 											title: person.item.name,
 											publishYear: person.item.birthYear?.toString(),
 										}}
-										noRatingLink
-										noHref
+										databaseId={person.databaseId}
 										key={person.item.identifier}
-										reviewScale={loaderData.userPreferences.reviewScale}
-										onClick={async (_) => {
-											if (loaderData.peopleSearch) {
-												const id = await commitPerson(
-													person.item.identifier,
-													loaderData.peopleSearch.url.source,
-													loaderData.peopleSearch.url.isTmdbCompany,
-													loaderData.peopleSearch.url.isAnilistStudio,
-												);
-												return navigate(
-													$path("/media/people/item/:id", { id }),
-												);
-											}
-										}}
 									/>
 								))}
 							</ApplicationGrid>
@@ -386,6 +373,42 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const PersonSearchItem = (props: {
+	item: Item;
+	databaseId?: number | null;
+}) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const navigate = useNavigate();
+	const [isLoading, setIsLoading] = useState(false);
+
+	return (
+		<MediaItemWithoutUpdateModal
+			item={props.item}
+			noRatingLink
+			noHref
+			reviewScale={loaderData.userPreferences.reviewScale}
+			imageOverlayForLoadingIndicator={isLoading}
+			onClick={async (_) => {
+				if (loaderData.peopleSearch) {
+					let id: number;
+					if (props.databaseId) id = props.databaseId;
+					else {
+						setIsLoading(true);
+						id = await commitPerson(
+							props.item.identifier,
+							loaderData.peopleSearch.url.source,
+							loaderData.peopleSearch.url.isTmdbCompany,
+							loaderData.peopleSearch.url.isAnilistStudio,
+						);
+						setIsLoading(false);
+					}
+					return navigate($path("/media/people/item/:id", { id }));
+				}
+			}}
+		/>
+	);
+};
 
 const commitPerson = async (
 	identifier: string,
