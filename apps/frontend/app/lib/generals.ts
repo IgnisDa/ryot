@@ -242,29 +242,6 @@ export const getPresignedGetUrl = async (key: string) => {
 	return getPresignedS3Url;
 };
 
-export const uploadFileToServiceAndGetPath = async (
-	file: File,
-	onProgress: (event: ProgressEvent<XMLHttpRequestEventTarget>) => void,
-	onLoad: () => void,
-) => {
-	const formData = new FormData();
-	formData.append("files[]", file, file.name);
-	const data: string = await new Promise((resolve) => {
-		const xhr = new XMLHttpRequest();
-		xhr.upload.addEventListener("progress", (event) => {
-			if (event.lengthComputable) onProgress(event);
-		});
-		xhr.addEventListener("load", () => {
-			onLoad();
-			const data: string[] = JSON.parse(xhr.responseText);
-			resolve(data[0]);
-		});
-		xhr.open("POST", "/backend/upload", true);
-		xhr.send(formData);
-	});
-	return data;
-};
-
 export { dayjs as dayjsLib };
 
 export const redirectToQueryParam = "redirectTo";
