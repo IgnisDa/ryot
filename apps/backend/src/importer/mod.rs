@@ -457,7 +457,7 @@ impl ImporterService {
                 } else {
                     Some(100)
                 };
-                match self
+                if let Err(e) = self
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
@@ -476,13 +476,12 @@ impl ImporterService {
                     )
                     .await
                 {
-                    Ok(_) => {}
-                    Err(e) => import.failed_items.push(ImportFailedItem {
+                    import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::SeenHistoryConversion,
                         identifier: item.source_id.to_owned(),
                         error: Some(e.message),
-                    }),
+                    });
                 };
             }
             for review in item.reviews.iter() {
@@ -497,33 +496,26 @@ impl ImporterService {
                 let text = review.review.clone().and_then(|r| r.text);
                 let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
                 let date = review.review.clone().map(|r| r.date);
-                match self
-                    .media_service
-                    .post_review(
-                        user_id,
-                        PostReviewInput {
-                            rating,
-                            text,
-                            spoiler,
-                            visibility: review.review.clone().and_then(|r| r.visibility),
-                            date: date.flatten(),
-                            metadata_id: Some(metadata.id),
-                            show_season_number: review.show_season_number,
-                            show_episode_number: review.show_episode_number,
-                            podcast_episode_number: review.podcast_episode_number,
-                            manga_chapter_number: review.manga_chapter_number,
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                {
-                    Ok(_) => {}
-                    Err(e) => import.failed_items.push(ImportFailedItem {
+                let input = PostReviewInput {
+                    rating,
+                    text,
+                    spoiler,
+                    visibility: review.review.clone().and_then(|r| r.visibility),
+                    date: date.flatten(),
+                    metadata_id: Some(metadata.id),
+                    show_season_number: review.show_season_number,
+                    show_episode_number: review.show_episode_number,
+                    podcast_episode_number: review.podcast_episode_number,
+                    manga_chapter_number: review.manga_chapter_number,
+                    ..Default::default()
+                };
+                if let Err(e) = self.media_service.post_review(user_id, input).await {
+                    import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::ReviewConversion,
                         identifier: item.source_id.to_owned(),
                         error: Some(e.message),
-                    }),
+                    });
                 };
             }
             for col in item.collections.iter() {
