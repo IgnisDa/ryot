@@ -54,7 +54,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, commitPersonSchema);
 			const { commitPerson } = await gqlClient.request(
 				CommitPersonDocument,
-				{ input: submission },
+				{
+					input: {
+						identifier: submission.identifier,
+						source: submission.source,
+						sourceSpecifics: {
+							isAnilistStudio: submission.isAnilistStudio,
+							isTmdbCompany: submission.isTmdbCompany,
+						},
+					},
+				},
 				await getAuthorizationHeader(request),
 			);
 			returnData = { commitPerson };
