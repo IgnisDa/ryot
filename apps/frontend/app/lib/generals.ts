@@ -265,16 +265,6 @@ export const uploadFileToServiceAndGetPath = async (
 	return data;
 };
 
-export const deserializeLocalStorage = (value: string | undefined) => {
-	if (value === "__undefined") return undefined;
-	return value;
-};
-
-export const serializeLocalStorage = (value: string | undefined) => {
-	if (typeof value === "undefined") return "__undefined";
-	return value;
-};
-
 export { dayjs as dayjsLib };
 
 export const redirectToQueryParam = "redirectTo";
