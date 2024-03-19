@@ -283,7 +283,7 @@ export default function Page() {
 						</>
 					) : null}
 				</Group>
-				{(loaderData.peopleList?.list.details.total || 0) > 0 ? (
+				{loaderData.peopleList ? (
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
@@ -291,34 +291,34 @@ export default function Page() {
 							</Text>{" "}
 							items found
 						</Box>
-						<ApplicationGrid>
-							{loaderData.peopleList?.list.items.map((creator) => (
-								<BaseDisplayItem
-									name={creator.name}
-									bottomLeft={`${creator.mediaCount} items`}
-									imageLink={creator.image}
-									imagePlaceholder={getInitials(creator.name)}
-									key={creator.id}
-									href={$path("/media/people/item/:id", { id: creator.id })}
-								/>
-							))}
-						</ApplicationGrid>
+						{loaderData.peopleList.list.details.total > 0 ? (
+							<ApplicationGrid>
+								{loaderData.peopleList?.list.items.map((creator) => (
+									<BaseDisplayItem
+										name={creator.name}
+										bottomLeft={`${creator.mediaCount} items`}
+										imageLink={creator.image}
+										imagePlaceholder={getInitials(creator.name)}
+										key={creator.id}
+										href={$path("/media/people/item/:id", { id: creator.id })}
+									/>
+								))}
+							</ApplicationGrid>
+						) : (
+							<Text>No information to display</Text>
+						)}
+						<Center>
+							<ApplicationPagination
+								size="sm"
+								defaultValue={loaderData.page}
+								onChange={(v) => setP("page", v.toString())}
+								total={Math.ceil(
+									loaderData.peopleList.list.details.total /
+										loaderData.coreDetails.pageLimit,
+								)}
+							/>
+						</Center>
 					</>
-				) : (
-					<Text>No information to display</Text>
-				)}
-				{loaderData.peopleList ? (
-					<Center>
-						<ApplicationPagination
-							size="sm"
-							defaultValue={loaderData.page}
-							onChange={(v) => setP("page", v.toString())}
-							total={Math.ceil(
-								loaderData.peopleList.list.details.total /
-									loaderData.coreDetails.pageLimit,
-							)}
-						/>
-					</Center>
 				) : null}
 			</Stack>
 		</Container>
