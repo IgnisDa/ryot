@@ -115,9 +115,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.StoryGraph, async () => ({
 					storyGraph: processSubmission(formData, storyGraphImportFormSchema),
 				}))
-				.with(ImportSource.GenericJson, async () => ({
-					genericJson: processSubmission(formData, genericJsonImportFormSchema),
-				}))
 				.with(ImportSource.Mal, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
@@ -130,6 +127,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						strongApp: { ...newLocal, mapping: JSON.parse(newLocal.mapping) },
 					};
 				})
+				.with(
+					ImportSource.MediaJson,
+					ImportSource.PeopleJson,
+					ImportSource.WorkoutsJson,
+					ImportSource.MeasurementsJson,
+					async () => ({
+						json: processSubmission(formData, jsonImportFormSchema),
+					}),
+				)
 				.exhaustive();
 			await gqlClient.request(
 				DeployImportJobDocument,
@@ -187,7 +193,7 @@ const strongAppImportFormSchema = z.object({
 	mapping: z.string(),
 });
 
-const genericJsonImportFormSchema = z.object({ export: z.string() });
+const jsonImportFormSchema = z.object({ export: z.string() });
 
 const malImportFormSchema = z.object({
 	animePath: z.string(),
@@ -211,7 +217,7 @@ export default function Page() {
 
 	const [storyGraphExportPath, setStoryGraphExportPath] = useState("");
 
-	const [genericJsonExportPath, setGenericJsonExportPath] = useState("");
+	const [jsonExportPath, setJsonExportPath] = useState("");
 
 	const [malAnimePath, setMalAnimePath] = useState("");
 	const [malMangaPath, setMalMangaPath] = useState("");
@@ -252,7 +258,6 @@ export default function Page() {
 											match(deployImportSource)
 												.with(ImportSource.Goodreads, () => "goodreads")
 												.with(ImportSource.Mal, () => "myanimelist")
-												.with(ImportSource.GenericJson, () => "generic-json")
 												.with(ImportSource.MediaTracker, () => "mediatracker")
 												.with(ImportSource.Movary, () => "movary")
 												.with(ImportSource.StoryGraph, () => "storygraph")
@@ -261,6 +266,13 @@ export default function Page() {
 												.with(
 													ImportSource.Audiobookshelf,
 													() => "audiobookshelf",
+												)
+												.with(
+													ImportSource.MediaJson,
+													ImportSource.PeopleJson,
+													ImportSource.WorkoutsJson,
+													ImportSource.MeasurementsJson,
+													() => "json-files",
 												)
 												.with(undefined, () => "")
 												.exhaustive(),
@@ -449,32 +461,7 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.GenericJson, () => (
-												<>
-													<input
-														hidden
-														name="export"
-														value={genericJsonExportPath}
-														readOnly
-													/>
-													<FileInput
-														label="JSON export file"
-														accept=".json"
-														required
-														onChange={async (file) => {
-															if (file) {
-																const path =
-																	await uploadFileToServiceAndGetPath(
-																		file,
-																		onProgress,
-																		onLoad,
-																	);
-																setGenericJsonExportPath(path);
-															}
-														}}
-													/>
-												</>
-											))
+
 											.with(ImportSource.Mal, () => (
 												<>
 													<input
@@ -570,6 +557,38 @@ export default function Page() {
 													/>
 												</>
 											))
+											.with(
+												ImportSource.MediaJson,
+												ImportSource.PeopleJson,
+												ImportSource.WorkoutsJson,
+												ImportSource.MeasurementsJson,
+												() => (
+													<>
+														<input
+															hidden
+															name="export"
+															value={jsonExportPath}
+															readOnly
+														/>
+														<FileInput
+															label="JSON export file"
+															accept=".json"
+															required
+															onChange={async (file) => {
+																if (file) {
+																	const path =
+																		await uploadFileToServiceAndGetPath(
+																			file,
+																			onProgress,
+																			onLoad,
+																		);
+																	setJsonExportPath(path);
+																}
+															}}
+														/>
+													</>
+												),
+											)
 											.exhaustive()}
 									</ImportSourceElement>
 								) : null}

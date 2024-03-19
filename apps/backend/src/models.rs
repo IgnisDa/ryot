@@ -739,6 +739,22 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    pub struct MediaOverallSummary {
+        pub reviewed: u64,
+        pub interacted_with: u64,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
     pub struct UserMediaSummary {
         pub books: BooksSummary,
         pub movies: MoviesSummary,
@@ -749,8 +765,10 @@ pub mod media {
         pub audio_books: AudioBooksSummary,
         pub anime: AnimeSummary,
         pub manga: MangaSummary,
-        pub reviews_posted: u64,
-        pub media_interacted_with: u64,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub metadata_overall: MediaOverallSummary,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub people_overall: MediaOverallSummary,
     }
     #[derive(
         SimpleObject,
@@ -899,6 +917,7 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
+    #[skip_serializing_none]
     #[derive(
         Debug,
         Serialize,
@@ -911,8 +930,9 @@ pub mod media {
         PartialEq,
         Hash,
         Default,
+        Schematic,
     )]
-    #[graphql(input_name = "PeopleSourceSpecificsInput")]
+    #[graphql(input_name = "PersonSourceSpecificsInput")]
     pub struct PersonSourceSpecifics {
         pub is_tmdb_company: Option<bool>,
         pub is_anilist_studio: Option<bool>,
@@ -1090,22 +1110,28 @@ pub mod media {
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
+        /// Whether the media is being monitored.
+        pub monitored: Option<bool>,
     }
 
     /// Details about a specific creator item that needs to be exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
     pub struct ImportOrExportPersonItem {
-        /// The name of the creator.
-        pub name: String,
         /// The provider identifier.
         pub identifier: String,
         /// The source of data.
         pub source: MediaSource,
+        /// The source specific data.
+        pub source_specifics: Option<PersonSourceSpecifics>,
+        /// The name of the creator.
+        pub name: String,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
+        /// Whether the person is being monitored.
+        pub monitored: Option<bool>,
     }
 
     #[derive(
@@ -1289,6 +1315,21 @@ pub mod media {
         pub image: Option<String>,
         pub lot: MetadataLot,
         pub source: MediaSource,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+    pub struct ToggleMediaMonitorInput {
+        pub metadata_id: Option<i32>,
+        pub person_id: Option<i32>,
+        pub force_value: Option<bool>,
+    }
+
+    #[derive(Debug, InputObject)]
+    pub struct CommitPersonInput {
+        pub name: String,
+        pub source: MediaSource,
+        pub identifier: String,
+        pub source_specifics: Option<PersonSourceSpecifics>,
     }
 }
 

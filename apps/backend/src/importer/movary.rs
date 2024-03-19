@@ -82,6 +82,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 ..Default::default()
             }],
             collections: vec![],
+            monitored: None,
         })
     }
     let mut watchlist_reader = Reader::from_reader(watchlist.as_bytes());
@@ -110,6 +111,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             seen_history: vec![],
             reviews: vec![],
             collections: vec![DefaultCollection::Watchlist.to_string()],
+            monitored: None,
         })
     }
     let mut history_reader = Reader::from_reader(history.as_bytes());
@@ -173,13 +175,16 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 seen_history: vec![seen_item],
                 reviews,
                 collections: vec![],
+                monitored: None,
             })
         }
     }
     Ok(ImportResult {
-        collections: vec![],
         media,
         failed_items,
+        people: vec![],
         workouts: vec![],
+        collections: vec![],
+        measurements: vec![],
     })
 }

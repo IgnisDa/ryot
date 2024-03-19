@@ -72,19 +72,20 @@ use crate::{
     models::{
         fitness::UserUnitSystem,
         media::{
-            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CreateOrUpdateCollectionInput,
-            GenreListItem, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
-            MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
-            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
+            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitPersonInput,
+            CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
+            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
+            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataSearchItem, MetadataSearchItemResponse, MetadataSearchItemWithLot,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            PublicCollectionItem, ReviewPostedEvent, SeenAnimeExtraInformation,
+            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, ToggleMediaMonitorInput, UserMediaOwnership, UserMediaReminder,
             UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
             WatchProvider,
         },
@@ -234,14 +235,6 @@ struct CommitMetadataInput {
     lot: MetadataLot,
     source: MediaSource,
     identifier: String,
-}
-
-#[derive(Debug, InputObject)]
-struct CommitPersonInput {
-    name: String,
-    source: MediaSource,
-    identifier: String,
-    source_specifics: Option<PersonSourceSpecifics>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -700,13 +693,6 @@ enum UserUpcomingCalendarEventInput {
 struct PresignedPutUrlInput {
     file_name: String,
     prefix: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-struct ToggleMediaMonitorInput {
-    metadata_id: Option<i32>,
-    person_id: Option<i32>,
-    force_value: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -3846,7 +3832,7 @@ impl MiscellaneousService {
         }
     }
 
-    async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
+    pub async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
         if let Some(p) = Person::find()
             .filter(person::Column::Source.eq(input.source))
             .filter(person::Column::Identifier.eq(input.identifier.clone()))
@@ -4638,15 +4624,33 @@ impl MiscellaneousService {
 
         tracing::debug!("Calculating numbers summary for user {:?}", ls);
 
-        let num_reviews = Review::find()
+        let metadata_num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .filter(review::Column::MetadataId.is_not_null())
             .apply_if(start_from, |query, v| {
                 query.filter(review::Column::PostedOn.gt(v))
             })
             .count(&self.db)
             .await?;
 
-        tracing::debug!("Calculated number reviews for user {:?}", num_reviews);
+        tracing::debug!(
+            "Calculated number of metadata reviews for user {:?}",
+            metadata_num_reviews
+        );
+
+        let person_num_reviews = Review::find()
+            .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .filter(review::Column::PersonId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(review::Column::PostedOn.gt(v))
+            })
+            .count(&self.db)
+            .await?;
+
+        tracing::debug!(
+            "Calculated number of person reviews for user {:?}",
+            person_num_reviews
+        );
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
@@ -4671,7 +4675,7 @@ impl MiscellaneousService {
 
         tracing::debug!("Calculated number workouts for user {:?}", num_workouts);
 
-        let num_media_interacted_with = UserToEntity::find()
+        let num_metadata_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
             .apply_if(start_from, |query, v| {
@@ -4681,8 +4685,22 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number media interacted with for user {:?}",
-            num_media_interacted_with
+            "Calculated number metadata interacted with for user {:?}",
+            num_metadata_interacted_with
+        );
+
+        let num_people_interacted_with = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::PersonId.is_not_null())
+            .apply_if(start_from, |query, v| {
+                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
+            })
+            .count(&self.db)
+            .await?;
+
+        tracing::debug!(
+            "Calculated number people interacted with for user {:?}",
+            num_people_interacted_with
         );
 
         let num_exercises_interacted_with = UserToEntity::find()
@@ -4723,8 +4741,10 @@ impl MiscellaneousService {
             total_workout_time
         );
 
-        ls.media.reviews_posted += num_reviews;
-        ls.media.media_interacted_with += num_media_interacted_with;
+        ls.media.metadata_overall.reviewed += metadata_num_reviews;
+        ls.media.metadata_overall.interacted_with += num_metadata_interacted_with;
+        ls.media.people_overall.reviewed += person_num_reviews;
+        ls.media.people_overall.interacted_with += num_people_interacted_with;
         ls.fitness.measurements_recorded += num_measurements;
         ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
         ls.fitness.workouts.recorded += num_workouts;
@@ -6205,7 +6225,7 @@ GROUP BY
         Ok(())
     }
 
-    async fn toggle_media_monitor(
+    pub async fn toggle_media_monitor(
         &self,
         user_id: i32,
         input: ToggleMediaMonitorInput,
@@ -6673,19 +6693,17 @@ GROUP BY
     ) -> Result<bool> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
             .all(&self.db)
             .await
             .unwrap();
-        let distinct_meta_ids = related_metadata
-            .into_iter()
-            .map(|m| m.metadata_id)
-            .collect_vec();
-        let all_meta = Metadata::find()
-            .filter(metadata::Column::Id.is_in(distinct_meta_ids))
-            .order_by(metadata::Column::Id, Order::Asc)
-            .all(&self.db)
-            .await?;
-        for m in all_meta.iter() {
+        for rm in related_metadata.iter() {
+            let m = rm
+                .find_related(Metadata)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
             let seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
@@ -6742,6 +6760,7 @@ GROUP BY
                 seen_history,
                 reviews,
                 collections,
+                monitored: rm.media_monitored,
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -6753,37 +6772,48 @@ GROUP BY
         user_id: i32,
         writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
-        let mut people: Vec<ImportOrExportPersonItem> = vec![];
-        let all_reviews = Review::find()
-            .filter(review::Column::PersonId.is_not_null())
-            .filter(review::Column::UserId.eq(user_id))
-            .find_also_related(Person)
+        let related_people = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::PersonId.is_not_null())
             .all(&self.db)
-            .await?;
-        for (review, creator) in all_reviews {
-            let creator = creator.unwrap();
-            let review_item =
-                get_review_export_item(self.review_by_id(review.id, user_id, false).await.unwrap());
-            if let Some(entry) = people.iter_mut().find(|c| c.name == creator.name) {
-                entry.reviews.push(review_item);
-            } else {
-                let collections =
-                    entity_in_collections(&self.db, user_id, None, Some(creator.id), None, None)
-                        .await?
-                        .into_iter()
-                        .map(|c| c.name)
-                        .collect();
-                people.push(ImportOrExportPersonItem {
-                    name: creator.name,
-                    identifier: creator.identifier,
-                    source: creator.source,
-                    reviews: vec![review_item],
-                    collections,
-                });
+            .await
+            .unwrap();
+        for rm in related_people.iter() {
+            let p = rm
+                .find_related(Person)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let db_reviews = p
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item = get_review_export_item(
+                    self.review_by_id(review.id, user_id, false).await.unwrap(),
+                );
+                reviews.push(review_item);
             }
-        }
-        for person in people {
-            writer.serialize_value(&person).unwrap();
+            let collections =
+                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportPersonItem {
+                identifier: p.identifier,
+                source: p.source,
+                source_specifics: p.source_specifics,
+                name: p.name,
+                reviews,
+                collections,
+                monitored: rm.media_monitored,
+            };
+            writer.serialize_value(&exp).unwrap();
         }
         Ok(true)
     }

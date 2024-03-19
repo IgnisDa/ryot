@@ -16,25 +16,29 @@ use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
-    entities::{import_report, prelude::ImportReport, user::UserWithOnlyPreferences},
+    entities::{
+        import_report, prelude::ImportReport, user::UserWithOnlyPreferences, user_measurement,
+    },
     fitness::resolver::ExerciseService,
     miscellaneous::resolver::MiscellaneousService,
     models::{
         fitness::UserWorkoutInput,
         media::{
-            CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
+            CommitPersonInput, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
+            ImportOrExportItemRating, ImportOrExportMediaItem, ImportOrExportPersonItem,
             PartialMetadataWithoutId, PostReviewInput, ProgressUpdateInput,
+            ToggleMediaMonitorInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput, IdObject,
     },
     traits::AuthProvider,
-    users::UserReviewScale,
+    users::{UserPreferences, UserReviewScale},
     utils::partial_user_by_id,
 };
 
 mod audiobookshelf;
-mod generic_json;
 mod goodreads;
+mod json;
 mod mal;
 mod media_tracker;
 mod movary;
@@ -101,7 +105,7 @@ pub struct DeployStrongAppImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployGenericJsonImportInput {
+pub struct DeployJsonImportInput {
     // The file path of the uploaded JSON export.
     export: String,
 }
@@ -122,8 +126,8 @@ pub struct DeployImportJobInput {
     pub mal: Option<DeployMalImportInput>,
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
-    pub generic_json: Option<DeployGenericJsonImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
+    pub json: Option<DeployJsonImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -161,7 +165,9 @@ pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
     media: Vec<ImportOrExportMediaItem>,
     failed_items: Vec<ImportFailedItem>,
+    people: Vec<ImportOrExportPersonItem>,
     workouts: Vec<UserWorkoutInput>,
+    measurements: Vec<user_measurement::Model>,
 }
 
 #[derive(
@@ -276,17 +282,148 @@ impl ImporterService {
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
         match input.source {
-            ImportSource::StrongApp => self.import_exercises(user_id, input).await,
-            _ => self.import_media(user_id, input).await,
-        }
+            ImportSource::StrongApp | ImportSource::WorkoutsJson => {
+                self.import_workouts(user_id, input).await?
+            }
+            ImportSource::PeopleJson => self.import_people(user_id, input).await?,
+            ImportSource::MeasurementsJson => self.import_measurements(user_id, input).await?,
+            _ => self.import_media(user_id, input).await?,
+        };
+        self.media_service
+            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
+            .await
+            .ok();
+        self.media_service
+            .deploy_background_job(user_id, BackgroundJob::UpdateAllMetadata)
+            .await
+            .ok();
+        Ok(())
     }
 
     #[instrument(skip(self, input))]
-    async fn import_exercises(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
+    async fn import_people(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let mut import = match input.source {
+            ImportSource::PeopleJson => json::people_import(input.json.unwrap()).await.unwrap(),
+            _ => unreachable!(),
+        };
+        let details = ImportResultResponse {
+            import: ImportDetails {
+                total: import.people.len(),
+            },
+            failed_items: vec![],
+        };
+        let preferences =
+            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
+                .await?
+                .preferences;
+        for (idx, item) in import.people.iter().enumerate() {
+            let person = self
+                .media_service
+                .commit_person(CommitPersonInput {
+                    identifier: item.identifier.clone(),
+                    name: item.name.clone(),
+                    source: item.source,
+                    source_specifics: item.source_specifics.clone(),
+                })
+                .await?;
+            for review in item.reviews.iter() {
+                if let Some(input) =
+                    convert_review_into_input(review, &preferences, None, Some(person.id))
+                {
+                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                        import.failed_items.push(ImportFailedItem {
+                            lot: None,
+                            step: ImportFailStep::ReviewConversion,
+                            identifier: item.name.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                }
+            }
+            for col in item.collections.iter() {
+                self.media_service
+                    .create_or_update_collection(
+                        user_id,
+                        CreateOrUpdateCollectionInput {
+                            name: col.to_string(),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                self.media_service
+                    .add_entity_to_collection(
+                        user_id,
+                        ChangeCollectionToEntityInput {
+                            collection_name: col.to_string(),
+                            person_id: Some(person.id),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .ok();
+            }
+            self.media_service
+                .toggle_media_monitor(
+                    user_id,
+                    ToggleMediaMonitorInput {
+                        person_id: Some(person.id),
+                        force_value: item.monitored,
+                        ..Default::default()
+                    },
+                )
+                .await?;
+            tracing::debug!(
+                "Imported person: {idx}/{total}, name: {name}",
+                idx = idx + 1,
+                total = import.people.len(),
+                name = item.name,
+            );
+        }
+        self.finish_import_job(db_import_job, details).await?;
+        Ok(())
+    }
+
+    #[instrument(skip(self, input))]
+    async fn import_measurements(
+        &self,
+        user_id: i32,
+        input: Box<DeployImportJobInput>,
+    ) -> Result<()> {
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let import = match input.source {
+            ImportSource::MeasurementsJson => json::measurements_import(input.json.unwrap())
+                .await
+                .unwrap(),
+            _ => unreachable!(),
+        };
+        let details = ImportResultResponse {
+            import: ImportDetails {
+                total: import.measurements.len(),
+            },
+            failed_items: vec![],
+        };
+        for measurement in import.measurements {
+            self.exercise_service
+                .create_user_measurement(user_id, measurement)
+                .await
+                .ok();
+        }
+        self.finish_import_job(db_import_job, details).await?;
+        Ok(())
+    }
+
+    #[instrument(skip(self, input))]
+    async fn import_workouts(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let import = match input.source {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), self.timezone.clone())
+                    .await
+                    .unwrap()
+            }
+            ImportSource::WorkoutsJson => {
+                json::workouts_import(input.json.unwrap(), &self.exercise_service)
                     .await
                     .unwrap()
             }
@@ -315,9 +452,7 @@ impl ImporterService {
             ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
                 .await
                 .unwrap(),
-            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap())
-                .await
-                .unwrap(),
+            ImportSource::MediaJson => json::media_import(input.json.unwrap()).await.unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.goodreads.unwrap(),
@@ -360,6 +495,7 @@ impl ImporterService {
                 "Importing media with identifier = {iden}",
                 iden = &item.source_id
             );
+            let rev_length = item.reviews.len();
             let identifier = item.internal_identifier.clone().unwrap();
             let data = match identifier {
                 ImportOrExportItemIdentifier::NeedsDetails { identifier, title } => {
@@ -400,7 +536,7 @@ impl ImporterService {
                 } else {
                     Some(100)
                 };
-                match self
+                if let Err(e) = self
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
@@ -419,55 +555,27 @@ impl ImporterService {
                     )
                     .await
                 {
-                    Ok(_) => {}
-                    Err(e) => import.failed_items.push(ImportFailedItem {
+                    import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::SeenHistoryConversion,
                         identifier: item.source_id.to_owned(),
                         error: Some(e.message),
-                    }),
+                    });
                 };
             }
             for review in item.reviews.iter() {
-                if review.review.is_none() && review.rating.is_none() {
-                    tracing::debug!("Skipping review since it has no content");
-                    continue;
-                }
-                let rating = match preferences.general.review_scale {
-                    UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
-                    UserReviewScale::OutOfHundred => review.rating,
-                };
-                let text = review.review.clone().and_then(|r| r.text);
-                let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
-                let date = review.review.clone().map(|r| r.date);
-                match self
-                    .media_service
-                    .post_review(
-                        user_id,
-                        PostReviewInput {
-                            rating,
-                            text,
-                            spoiler,
-                            visibility: review.review.clone().and_then(|r| r.visibility),
-                            date: date.flatten(),
-                            metadata_id: Some(metadata.id),
-                            show_season_number: review.show_season_number,
-                            show_episode_number: review.show_episode_number,
-                            podcast_episode_number: review.podcast_episode_number,
-                            manga_chapter_number: review.manga_chapter_number,
-                            ..Default::default()
-                        },
-                    )
-                    .await
+                if let Some(input) =
+                    convert_review_into_input(review, &preferences, Some(metadata.id), None)
                 {
-                    Ok(_) => {}
-                    Err(e) => import.failed_items.push(ImportFailedItem {
-                        lot: Some(item.lot),
-                        step: ImportFailStep::ReviewConversion,
-                        identifier: item.source_id.to_owned(),
-                        error: Some(e.message),
-                    }),
-                };
+                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                        import.failed_items.push(ImportFailedItem {
+                            lot: Some(item.lot),
+                            step: ImportFailStep::ReviewConversion,
+                            identifier: item.source_id.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                }
             }
             for col in item.collections.iter() {
                 self.media_service
@@ -491,20 +599,26 @@ impl ImporterService {
                     .await
                     .ok();
             }
+            self.media_service
+                .toggle_media_monitor(
+                    user_id,
+                    ToggleMediaMonitorInput {
+                        metadata_id: Some(metadata.id),
+                        force_value: item.monitored,
+                        ..Default::default()
+                    },
+                )
+                .await?;
             tracing::debug!(
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx + 1,
                 total = import.media.len(),
                 lot = item.lot,
                 hist = item.seen_history.len(),
-                rev = item.reviews.len(),
+                rev = rev_length,
                 col = item.collections.len(),
             );
         }
-        self.media_service
-            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
-            .await
-            .ok();
         tracing::debug!(
             "Imported {total} media items from {source}",
             total = import.media.len(),
@@ -547,4 +661,37 @@ impl ImporterService {
         let model = model.update(&self.media_service.db).await.unwrap();
         Ok(model)
     }
+}
+
+fn convert_review_into_input(
+    review: &ImportOrExportItemRating,
+    preferences: &UserPreferences,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+) -> Option<PostReviewInput> {
+    if review.review.is_none() && review.rating.is_none() {
+        tracing::debug!("Skipping review since it has no content");
+        return None;
+    }
+    let rating = match preferences.general.review_scale {
+        UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
+        UserReviewScale::OutOfHundred => review.rating,
+    };
+    let text = review.review.clone().and_then(|r| r.text);
+    let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
+    let date = review.review.clone().map(|r| r.date);
+    Some(PostReviewInput {
+        rating,
+        text,
+        spoiler,
+        visibility: review.review.clone().and_then(|r| r.visibility),
+        date: date.flatten(),
+        metadata_id,
+        person_id,
+        show_season_number: review.show_season_number,
+        show_episode_number: review.show_episode_number,
+        podcast_episode_number: review.podcast_episode_number,
+        manga_chapter_number: review.manga_chapter_number,
+        ..Default::default()
+    })
 }

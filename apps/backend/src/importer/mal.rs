@@ -73,6 +73,7 @@ fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
         seen_history: vec![seen_item],
         reviews: vec![review_item],
         collections: vec![],
+        monitored: None,
     }
 }
 
@@ -87,10 +88,12 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         media.push(convert_to_format(item, MetadataLot::Manga));
     }
     Ok(ImportResult {
+        media,
+        people: vec![],
+        workouts: vec![],
         collections: vec![],
         failed_items: vec![],
-        media,
-        workouts: vec![],
+        measurements: vec![],
     })
 }
 

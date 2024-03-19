@@ -132,6 +132,7 @@ pub async fn import(
                         ..Default::default()
                     }],
                     collections,
+                    monitored: None,
                 })
             } else {
                 failed_items.push(ImportFailedItem {
@@ -154,9 +155,11 @@ pub async fn import(
         }
     }
     Ok(ImportResult {
-        collections: vec![],
         media,
         failed_items,
+        people: vec![],
         workouts: vec![],
+        collections: vec![],
+        measurements: vec![],
     })
 }

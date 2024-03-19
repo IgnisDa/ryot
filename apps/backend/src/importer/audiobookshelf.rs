@@ -96,6 +96,7 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                             }],
                             collections: vec![],
                             reviews: vec![],
+                            monitored: None,
                         })
                     } else {
                         failed_items.push(ImportFailedItem {
@@ -120,7 +121,9 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
     Ok(ImportResult {
         media,
         failed_items,
+        people: vec![],
         workouts: vec![],
         collections: vec![],
+        measurements: vec![],
     })
 }

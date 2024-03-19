@@ -220,7 +220,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         collections: all_collections,
         media: media_items,
         failed_items,
+        people: vec![],
         workouts: vec![],
+        measurements: vec![],
     })
 }
 
@@ -253,6 +255,7 @@ fn process_item(
             seen_history: vec![],
             reviews: vec![],
             collections: vec![],
+            monitored: None,
         }),
         None => Err(ImportFailedItem {
             lot: None,
