@@ -13,7 +13,7 @@ use crate::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
-            MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PersonSearchItem,
+            MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
@@ -121,7 +121,7 @@ impl MediaProvider for NonMediaAnilistService {
         query: &str,
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let is_studio = matches!(
             source_specifics,
             Some(PersonSourceSpecifics::Anilist { is_studio: true })
@@ -161,7 +161,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .into_iter()
                 .map(|s| {
                     let data = s.unwrap();
-                    PersonSearchItem {
+                    PeopleSearchItem {
                         identifier: data.id.to_string(),
                         name: data.name,
                         image: None,
@@ -205,7 +205,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .into_iter()
                 .map(|s| {
                     let data = s.unwrap();
-                    PersonSearchItem {
+                    PeopleSearchItem {
                         identifier: data.id.to_string(),
                         name: data.name.unwrap().full.unwrap(),
                         image: data.image.and_then(|i| i.medium),

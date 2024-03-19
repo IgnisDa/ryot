@@ -13,7 +13,7 @@ use crate::{
         media::{
             MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-            PersonSearchItem, PersonSourceSpecifics,
+            PeopleSearchItem, PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -154,7 +154,7 @@ impl MediaProvider for MangaUpdatesService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
             .post("authors/search")
@@ -172,7 +172,7 @@ impl MediaProvider for MangaUpdatesService {
         let items = data
             .results
             .into_iter()
-            .map(|s| PersonSearchItem {
+            .map(|s| PeopleSearchItem {
                 identifier: s.record.id.to_string(),
                 name: s.hit_name,
                 image: None,

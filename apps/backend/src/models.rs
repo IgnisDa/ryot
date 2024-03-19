@@ -93,7 +93,7 @@ pub struct SearchDetails {
     name = "MetadataSearchResults",
     params(media::MetadataSearchItemResponse)
 ))]
-#[graphql(concrete(name = "PersonSearchResults", params(media::PersonSearchItemResponse)))]
+#[graphql(concrete(name = "PeopleSearchResults", params(media::PeopleSearchItemResponse)))]
 #[graphql(concrete(
     name = "PublicCollectionsListResults",
     params(media::PublicCollectionItem)
@@ -197,8 +197,8 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct PersonSearchItemResponse {
-        pub item: PersonSearchItem,
+    pub struct PeopleSearchItemResponse {
+        pub item: PeopleSearchItem,
         /// Whether the user has interacted with this person.
         pub has_interacted: bool,
         pub database_id: Option<i32>,
@@ -583,7 +583,7 @@ pub mod media {
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct PersonSearchItem {
+    pub struct PeopleSearchItem {
         pub identifier: String,
         pub name: String,
         pub image: Option<String>,

@@ -19,7 +19,7 @@ use crate::{
         media::{
             MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
             MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -244,7 +244,7 @@ where id = {id};
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
@@ -268,7 +268,7 @@ offset: {offset};
             .into_iter()
             .map(|ic| {
                 let image = ic.logo.map(|a| self.get_cover_image_url(a.image_id));
-                PersonSearchItem {
+                PeopleSearchItem {
                     identifier: ic.id.to_string(),
                     name: ic.name,
                     image,

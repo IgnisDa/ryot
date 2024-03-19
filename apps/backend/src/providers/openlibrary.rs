@@ -16,7 +16,7 @@ use crate::{
         media::{
             BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-            PersonSearchItem, PersonSourceSpecifics,
+            PeopleSearchItem, PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -120,7 +120,7 @@ impl MediaProvider for OpenlibraryService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Debug, Serialize, Deserialize)]
         pub struct OpenlibraryAuthor {
@@ -144,7 +144,7 @@ impl MediaProvider for OpenlibraryService {
         let resp = search
             .docs
             .into_iter()
-            .map(|d| PersonSearchItem {
+            .map(|d| PeopleSearchItem {
                 identifier: get_key(&d.key),
                 name: d.name,
                 image: None,

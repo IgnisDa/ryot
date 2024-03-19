@@ -80,7 +80,7 @@ use crate::{
             MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSearchItemResponse, PersonSourceSpecifics,
+            PartialMetadataWithoutId, PeopleSearchItemResponse, PersonSourceSpecifics,
             PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
             ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
@@ -993,7 +993,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PersonSearchItemResponse>> {
+    ) -> Result<SearchResults<PeopleSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_search(user_id, input).await
@@ -3621,7 +3621,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PersonSearchItemResponse>> {
+    ) -> Result<SearchResults<PeopleSearchItemResponse>> {
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -3683,7 +3683,7 @@ impl MiscellaneousService {
             .into_iter()
             .map(|i| {
                 let interaction = interactions.get(&i.identifier).cloned();
-                PersonSearchItemResponse {
+                PeopleSearchItemResponse {
                     has_interacted: interaction.unwrap_or_default().1,
                     database_id: interaction.map(|i| i.0),
                     item: i,

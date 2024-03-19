@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
-            MetadataSearchItem, PartialMetadataPerson, PersonSearchItem, PersonSourceSpecifics,
+            MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics,
             VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
@@ -93,7 +93,7 @@ impl MediaProvider for VndbService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let mut rsp = self
             .client
             .post("producer")
@@ -112,7 +112,7 @@ impl MediaProvider for VndbService {
             .results
             .unwrap_or_default()
             .into_iter()
-            .map(|b| PersonSearchItem {
+            .map(|b| PeopleSearchItem {
                 identifier: b.id,
                 name: b.title.unwrap(),
                 image: None,

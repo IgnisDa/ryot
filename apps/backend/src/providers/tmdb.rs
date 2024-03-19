@@ -23,7 +23,7 @@ use crate::{
         media::{
             MediaDetails, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadataPerson, PartialMetadataWithoutId, PersonSearchItem,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
@@ -213,7 +213,7 @@ impl MediaProvider for NonMediaTmdbService {
         query: &str,
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let typ = match source_specifics {
             Some(PersonSourceSpecifics::Tmdb { is_company: true }) => "company",
             _ => "person",
@@ -234,7 +234,7 @@ impl MediaProvider for NonMediaTmdbService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| PersonSearchItem {
+            .map(|d| PeopleSearchItem {
                 identifier: d.id.to_string(),
                 name: d.title.unwrap(),
                 image: d.poster_path.map(|p| self.base.get_image_url(p)),

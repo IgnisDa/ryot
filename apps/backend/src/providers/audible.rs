@@ -18,7 +18,7 @@ use crate::{
         media::{
             AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
             MetadataImageLot, MetadataPerson, MetadataSearchItem, PartialMetadataPerson,
-            PartialMetadataWithoutId, PersonSearchItem, PersonSourceSpecifics,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -198,7 +198,7 @@ impl MediaProvider for AudibleService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<SearchResults<PersonSearchItem>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
         let req_internal_page = internal_page - 1;
         let data: Vec<AudibleAuthor> = surf::get(format!("{}/authors", AUDNEX_URL))
@@ -211,7 +211,7 @@ impl MediaProvider for AudibleService {
             .map_err(|e| anyhow!(e))?;
         let data = data
             .into_iter()
-            .map(|a| PersonSearchItem {
+            .map(|a| PeopleSearchItem {
                 identifier: a.asin.unwrap_or_default(),
                 name: a.name,
                 image: None,
