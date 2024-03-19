@@ -15,6 +15,7 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
 const documents = {
     "mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {\n  addEntityToCollection(input: $input)\n}": types.AddEntityToCollectionDocument,
     "mutation CommitMetadata($input: CommitMetadataInput!) {\n  commitMetadata(input: $input) {\n    id\n  }\n}": types.CommitMetadataDocument,
+    "mutation CommitPerson($input: CommitPersonInput!) {\n  commitPerson(input: $input) {\n    id\n  }\n}": types.CommitPersonDocument,
     "mutation CreateCustomExercise($input: ExerciseInput!) {\n  createCustomExercise(input: $input)\n}": types.CreateCustomExerciseDocument,
     "mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {\n  createCustomMetadata(input: $input) {\n    id\n  }\n}": types.CreateCustomMetadataDocument,
     "mutation CreateMediaReminder($input: CreateMediaReminderInput!) {\n  createMediaReminder(input: $input)\n}": types.CreateMediaReminderDocument,
@@ -118,6 +119,10 @@ export function graphql(source: "mutation AddEntityToCollection($input: ChangeCo
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation CommitMetadata($input: CommitMetadataInput!) {\n  commitMetadata(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation CommitMetadata($input: CommitMetadataInput!) {\n  commitMetadata(input: $input) {\n    id\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation CommitPerson($input: CommitPersonInput!) {\n  commitPerson(input: $input) {\n    id\n  }\n}"): (typeof documents)["mutation CommitPerson($input: CommitPersonInput!) {\n  commitPerson(input: $input) {\n    id\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

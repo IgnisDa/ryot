@@ -145,6 +145,12 @@ export type CommitMetadataInput = {
   source: MediaSource;
 };
 
+export type CommitPersonInput = {
+  identifier: Scalars['String']['input'];
+  source: MediaSource;
+  sourceSpecifics?: InputMaybe<PeopleSearchSourceSpecificsInput>;
+};
+
 export type CoreDetails = {
   authorName: Scalars['String']['output'];
   docsLink: Scalars['String']['output'];
@@ -911,6 +917,8 @@ export type MutationRoot = {
   addEntityToCollection: Scalars['Boolean']['output'];
   /** Fetch details about a media and create a media item in the database. */
   commitMetadata: IdObject;
+  /** Fetches details about a person and creates a person item in the database. */
+  commitPerson: IdObject;
   /** Create a custom exercise. */
   createCustomExercise: Scalars['String']['output'];
   /** Create a custom media item. */
@@ -1012,6 +1020,11 @@ export type MutationRootAddEntityToCollectionArgs = {
 
 export type MutationRootCommitMetadataArgs = {
   input: CommitMetadataInput;
+};
+
+
+export type MutationRootCommitPersonArgs = {
+  input: CommitPersonInput;
 };
 
 
@@ -1228,6 +1241,25 @@ export type PeopleSearchInput = {
   sourceSpecifics?: InputMaybe<PeopleSearchSourceSpecificsInput>;
 };
 
+export type PeopleSearchItem = {
+  birthYear?: Maybe<Scalars['Int']['output']>;
+  identifier: Scalars['String']['output'];
+  image?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type PeopleSearchItemResponse = {
+  databaseId?: Maybe<Scalars['Int']['output']>;
+  /** Whether the user has interacted with this person. */
+  hasInteracted: Scalars['Boolean']['output'];
+  item: PeopleSearchItem;
+};
+
+export type PeopleSearchResults = {
+  details: SearchDetails;
+  items: Array<PeopleSearchItemResponse>;
+};
+
 export type PeopleSearchSourceSpecificsInput = {
   isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
   isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1266,25 +1298,6 @@ export type PersonDetailsGroupedByRole = {
 export type PersonDetailsItemWithCharacter = {
   character?: Maybe<Scalars['String']['output']>;
   media: PartialMetadata;
-};
-
-export type PersonSearchItem = {
-  birthYear?: Maybe<Scalars['Int']['output']>;
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-};
-
-export type PersonSearchItemResponse = {
-  databaseId?: Maybe<Scalars['Int']['output']>;
-  /** Whether the user has interacted with this person. */
-  hasInteracted: Scalars['Boolean']['output'];
-  item: PersonSearchItem;
-};
-
-export type PersonSearchResults = {
-  details: SearchDetails;
-  items: Array<PersonSearchItemResponse>;
 };
 
 export enum PersonSortBy {
@@ -1440,7 +1453,7 @@ export type QueryRoot = {
   /** Get paginated list of people. */
   peopleList: MediaCreatorSearchResults;
   /** Search for a list of people from a given source. */
-  peopleSearch: PersonSearchResults;
+  peopleSearch: PeopleSearchResults;
   /** Get details about a creator present in the database. */
   personDetails: PersonDetails;
   /** Get all languages supported by all the providers. */
@@ -2357,6 +2370,13 @@ export type CommitMetadataMutationVariables = Exact<{
 
 export type CommitMetadataMutation = { commitMetadata: { id: number } };
 
+export type CommitPersonMutationVariables = Exact<{
+  input: CommitPersonInput;
+}>;
+
+
+export type CommitPersonMutation = { commitPerson: { id: number } };
+
 export type CreateCustomExerciseMutationVariables = Exact<{
   input: ExerciseInput;
 }>;
@@ -2926,6 +2946,7 @@ export const ReviewItemPartFragmentDoc = {"kind":"Document","definitions":[{"kin
 export const UserMediaReminderPartFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserMediaReminderPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserMediaReminder"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"remindOn"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]} as unknown as DocumentNode<UserMediaReminderPartFragment, unknown>;
 export const AddEntityToCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddEntityToCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ChangeCollectionToEntityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addEntityToCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<AddEntityToCollectionMutation, AddEntityToCollectionMutationVariables>;
 export const CommitMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitMetadataInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitMetadataMutation, CommitMetadataMutationVariables>;
+export const CommitPersonDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitPerson"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitPersonInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitPerson"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitPersonMutation, CommitPersonMutationVariables>;
 export const CreateCustomExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomExercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ExerciseInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomExercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateCustomExerciseMutation, CreateCustomExerciseMutationVariables>;
 export const CreateCustomMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCustomMetadataInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateCustomMetadataMutation, CreateCustomMetadataMutationVariables>;
 export const CreateMediaReminderDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateMediaReminder"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateMediaReminderInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createMediaReminder"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateMediaReminderMutation, CreateMediaReminderMutationVariables>;
