@@ -59,6 +59,16 @@ enum Action {
 	List = "list",
 }
 
+const SEARCH_SOURCES_ALLOWED = [
+	MediaSource.Tmdb,
+	MediaSource.Anilist,
+	MediaSource.Vndb,
+	MediaSource.Openlibrary,
+	MediaSource.Audible,
+	MediaSource.MangaUpdates,
+	MediaSource.Igdb,
+] as const;
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const action = params.action as Action;
 	const coreDetails = await getCoreDetails();
@@ -240,6 +250,16 @@ export default function Page() {
 								</Stack>
 							</Modal>
 						</>
+					) : null}
+					{loaderData.action === Action.Search ? (
+						<Select
+							data={SEARCH_SOURCES_ALLOWED.map((o) => ({
+								value: o.toString(),
+								label: startCase(o.toLowerCase()),
+							}))}
+							defaultValue={loaderData.peopleSearch?.url.source}
+							onChange={(v) => setP("source", v)}
+						/>
 					) : null}
 				</Group>
 				{(loaderData.peopleList?.list.details.total || 0) > 0 ? (
