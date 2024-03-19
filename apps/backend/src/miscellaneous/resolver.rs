@@ -3633,15 +3633,7 @@ impl MiscellaneousService {
             });
         }
         let provider = self.get_non_metadata_provider(input.source).await?;
-        let source_specifics = match input.source_specifics {
-            Some(f) if f.is_tmdb_company.unwrap_or_default() => {
-                Some(PersonSourceSpecifics::Tmdb { is_company: true })
-            }
-            Some(f) if f.is_anilist_studio.unwrap_or_default() => {
-                Some(PersonSourceSpecifics::Anilist { is_studio: true })
-            }
-            _ => None,
-        };
+        let source_specifics = source_specifics_from_normalized_data(input.source_specifics);
         let results = provider
             .person_search(&query, input.search.page, &source_specifics)
             .await?;
@@ -7188,4 +7180,19 @@ GROUP BY
     async fn development_mutation(&self) -> Result<bool> {
         Ok(true)
     }
+}
+
+fn source_specifics_from_normalized_data(
+    input: Option<PeopleSearchSourceSpecificsInput>,
+) -> Option<PersonSourceSpecifics> {
+    let source_specifics = match input {
+        Some(f) if f.is_tmdb_company.unwrap_or_default() => {
+            Some(PersonSourceSpecifics::Tmdb { is_company: true })
+        }
+        Some(f) if f.is_anilist_studio.unwrap_or_default() => {
+            Some(PersonSourceSpecifics::Anilist { is_studio: true })
+        }
+        _ => None,
+    };
+    source_specifics
 }
