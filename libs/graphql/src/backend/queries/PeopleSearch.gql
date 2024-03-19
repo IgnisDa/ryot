@@ -5,14 +5,10 @@ query PeopleSearch($input: PeopleSearchInput!) {
       nextPage
     }
     items {
-      item {
-        identifier
-        name
-        image
-        birthYear
-      }
-      hasInteracted
-      databaseId
+      identifier
+      name
+      image
+      birthYear
     }
   }
 }

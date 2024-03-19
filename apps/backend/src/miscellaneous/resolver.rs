@@ -80,13 +80,13 @@ use crate::{
             MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PeopleSearchItemResponse, PersonSourceSpecifics,
-            PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-            ProgressUpdateInput, ProgressUpdateResultUnion, PublicCollectionItem,
-            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-            UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
-            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
+            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
+            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
+            WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -994,7 +994,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PeopleSearchItemResponse>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_search(user_id, input).await
@@ -3615,9 +3615,9 @@ impl MiscellaneousService {
 
     async fn people_search(
         &self,
-        user_id: i32,
+        _user_id: i32,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PeopleSearchItemResponse>> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -3632,55 +3632,6 @@ impl MiscellaneousService {
         let results = provider
             .people_search(&query, input.search.page, &input.source_specifics)
             .await?;
-        let all_identifiers = results
-            .items
-            .iter()
-            .map(|i| i.identifier.to_owned())
-            .collect_vec();
-        let interactions = Person::find()
-            .join(
-                JoinType::LeftJoin,
-                person::Relation::UserToEntity
-                    .def()
-                    .on_condition(move |_left, right| {
-                        Condition::all()
-                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(user_id))
-                    }),
-            )
-            .select_only()
-            .column(person::Column::Identifier)
-            .column_as(
-                Expr::col((Alias::new("person"), person::Column::Id)),
-                "database_id",
-            )
-            .column_as(
-                Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id)).is_not_null(),
-                "has_interacted",
-            )
-            .filter(person::Column::Source.eq(input.source))
-            .filter(person::Column::Identifier.is_in(&all_identifiers))
-            .into_tuple::<(String, i32, bool)>()
-            .all(&self.db)
-            .await?
-            .into_iter()
-            .map(|(key, value1, value2)| (key, (value1, value2)));
-        let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
-        let data = results
-            .items
-            .into_iter()
-            .map(|i| {
-                let interaction = interactions.get(&i.identifier).cloned();
-                PeopleSearchItemResponse {
-                    has_interacted: interaction.unwrap_or_default().1,
-                    database_id: interaction.map(|i| i.0),
-                    item: i,
-                }
-            })
-            .collect();
-        let results = SearchResults {
-            details: results.details,
-            items: data,
-        };
         Ok(results)
     }
 
