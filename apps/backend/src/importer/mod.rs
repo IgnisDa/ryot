@@ -557,9 +557,6 @@ impl ImporterService {
                             error: Some(e.message),
                         });
                     };
-                } else {
-                    tracing::debug!("Skipping review since it has no content");
-                    continue;
                 }
             }
             for col in item.collections.iter() {
@@ -655,6 +652,7 @@ fn convert_review_into_input(
     person_id: Option<i32>,
 ) -> Option<PostReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
+        tracing::debug!("Skipping review since it has no content");
         return None;
     }
     let rating = match preferences.general.review_scale {
