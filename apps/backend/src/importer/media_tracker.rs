@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use database::{MetadataLot, MetadataSource, Visibility};
+use database::{MediaSource, MetadataLot, Visibility};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -240,18 +240,18 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
-                    (Uuid::new_v4().to_string(), MetadataSource::Custom)
+                    (Uuid::new_v4().to_string(), MediaSource::Custom)
                 } else {
                     (
                         get_key(&details.openlibrary_id.clone().unwrap()),
-                        MetadataSource::Openlibrary,
+                        MediaSource::Openlibrary,
                     )
                 }
             }
-            MediaType::Movie => (details.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
-            MediaType::Tv => (details.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
-            MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MetadataSource::Igdb),
-            MediaType::Audiobook => (details.audible_id.clone().unwrap(), MetadataSource::Audible),
+            MediaType::Movie => (details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb),
+            MediaType::Tv => (details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb),
+            MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MediaSource::Igdb),
+            MediaType::Audiobook => (details.audible_id.clone().unwrap(), MediaSource::Audible),
         };
         tracing::debug!(
             "Got details for {type:?}, with {seen} seen history: {id} ({idx}/{total})",
@@ -289,7 +289,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     title: details.title,
                     description: details.overview,
                     lot,
-                    source: MetadataSource::Custom,
+                    source: MediaSource::Custom,
                     creators: details
                         .authors
                         .unwrap_or_default()

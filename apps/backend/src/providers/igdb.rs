@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
@@ -17,9 +17,9 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-            PartialMetadataWithoutId, VideoGameSpecifics,
+            MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
+            MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -58,17 +58,45 @@ fields
     genres.*;
 where version_parent = null;
 ";
+static INVOLVED_COMPANY_FIELDS: &str = "
+fields
+    *,
+    company.id,
+    company.name,
+    company.country,
+    company.description,
+    company.logo.*,
+    company.websites.url,
+    company.start_date,
+    company.url,
+    company.developed.id,
+    company.developed.name,
+    company.developed.cover.image_id,
+    company.published.id,
+    company.published.name,
+    company.published.cover.image_id;
+";
+static COMPANY_FIELDS: &str = "
+fields
+    id,
+    name,
+    logo.*,
+    start_date;
+";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbWebsite {
     url: String,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbCompany {
     id: i32,
     name: String,
     logo: Option<IgdbImage>,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    start_date: Option<DateTimeUtc>,
     country: Option<i32>,
     description: Option<String>,
     websites: Option<Vec<IgdbWebsite>>,
@@ -190,7 +218,7 @@ where id = {id};
                         identifier: g.id.to_string(),
                         title: g.name.unwrap(),
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                        source: MetadataSource::Igdb,
+                        source: MediaSource::Igdb,
                         lot: MetadataLot::VideoGame,
                     })
                 }
@@ -205,34 +233,70 @@ where id = {id};
                 description: None,
                 images: vec![],
                 lot: MetadataLot::VideoGame,
-                source: MetadataSource::Igdb,
+                source: MediaSource::Igdb,
             },
             items,
         ))
     }
 
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn people_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r#"
-fields
-    *,
-    company.id,
-    company.name,
-    company.country,
-    company.description,
-    company.logo.*,
-    company.websites.url,
-    company.start_date,
-    company.url,
-    company.developed.id,
-    company.developed.name,
-    company.developed.cover.image_id,
-    company.published.id,
-    company.published.name,
-    company.published.cover.image_id;
+{fields}
+search "{query}";
+limit {limit};
+offset: {offset};
+            "#,
+            fields = COMPANY_FIELDS,
+            query = query,
+            limit = self.page_limit,
+            offset = (page.unwrap_or(1) - 1) * self.page_limit
+        );
+        let mut rsp = client
+            .post("companies")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let details: Vec<IgdbCompany> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = details
+            .into_iter()
+            .map(|ic| {
+                let image = ic.logo.map(|a| self.get_cover_image_url(a.image_id));
+                PeopleSearchItem {
+                    identifier: ic.id.to_string(),
+                    name: ic.name,
+                    image,
+                    birth_year: None,
+                }
+            })
+            .collect_vec();
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: resp.len().try_into().unwrap(),
+                next_page: Some(page.unwrap_or(1) + 1),
+            },
+            items: resp,
+        })
+    }
+
+    async fn person_details(
+        &self,
+        identity: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r#"
+{fields}
 where id = {id};
             "#,
+            fields = INVOLVED_COMPANY_FIELDS,
             id = identity
         );
         let mut rsp = client
@@ -254,7 +318,7 @@ where id = {id};
                     PartialMetadataWithoutId {
                         title: r.name.unwrap(),
                         identifier: r.id.to_string(),
-                        source: MetadataSource::Igdb,
+                        source: MediaSource::Igdb,
                         lot: MetadataLot::VideoGame,
                         image,
                     },
@@ -268,7 +332,7 @@ where id = {id};
                 PartialMetadataWithoutId {
                     title: r.name.unwrap(),
                     identifier: r.id.to_string(),
-                    source: MetadataSource::Igdb,
+                    source: MediaSource::Igdb,
                     lot: MetadataLot::VideoGame,
                     image,
                 },
@@ -280,7 +344,7 @@ where id = {id};
             images: Some(Vec::from_iter(
                 detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
             )),
-            source: MetadataSource::Igdb,
+            source: MediaSource::Igdb,
             description: detail.description,
             place: detail
                 .country
@@ -295,6 +359,7 @@ where id = {id};
             birth_date: None,
             death_date: None,
             gender: None,
+            source_specifics: None,
         })
     }
 
@@ -326,7 +391,7 @@ where id = {id};
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let client = get_client(&self.config).await;
         let count_req_body =
@@ -365,7 +430,7 @@ offset: {offset};
             .into_iter()
             .map(|r| {
                 let a = self.igdb_response_to_search_response(r);
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier: a.identifier,
                     title: a.title,
                     image: a.url_images.first().map(|i| i.image.clone()),
@@ -418,9 +483,10 @@ impl IgdbService {
                 PartialMetadataPerson {
                     identifier: ic.id.to_string(),
                     name: ic.company.name,
-                    source: MetadataSource::Igdb,
+                    source: MediaSource::Igdb,
                     role: role.to_owned(),
                     character: None,
+                    source_specifics: None,
                 }
             })
             .unique()
@@ -437,7 +503,7 @@ impl IgdbService {
         MediaDetails {
             identifier: item.id.to_string(),
             lot: MetadataLot::VideoGame,
-            source: MetadataSource::Igdb,
+            source: MediaSource::Igdb,
             title: item.name.unwrap(),
             description: item.summary,
             people,
@@ -469,7 +535,7 @@ impl IgdbService {
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),
                     lot: MetadataLot::VideoGame,
-                    source: MetadataSource::Igdb,
+                    source: MediaSource::Igdb,
                 })
                 .collect(),
             provider_rating: item.rating,

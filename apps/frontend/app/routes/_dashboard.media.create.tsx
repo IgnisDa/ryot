@@ -27,9 +27,9 @@ import {
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
-	CreateCustomMediaDocument,
+	CreateCustomMetadataDocument,
+	MediaSource,
 	MetadataLot,
-	MetadataSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
@@ -66,12 +66,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
 	input.creators = input.creators?.split(", ");
-	const { createCustomMedia } = await gqlClient.request(
-		CreateCustomMediaDocument,
+	const { createCustomMetadata } = await gqlClient.request(
+		CreateCustomMetadataDocument,
 		{ input },
 		await getAuthorizationHeader(request),
 	);
-	return redirect($path("/media/item/:id", { id: createCustomMedia.id }));
+	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
 };
 
 const optionalString = z.string().optional();
@@ -124,7 +124,7 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={imageUrls.map((i) => i.url)}
-				externalLink={{ source: MetadataSource.Custom }}
+				externalLink={{ source: MediaSource.Custom }}
 			>
 				<ScrollArea.Autosize mah={400}>
 					<Form method="post">

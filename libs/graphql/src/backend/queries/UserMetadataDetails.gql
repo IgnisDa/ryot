@@ -1,5 +1,5 @@
-query UserMediaDetails($metadataId: Int!) {
-  userMediaDetails(metadataId: $metadataId) {
+query UserMetadataDetails($metadataId: Int!) {
+  userMetadataDetails(metadataId: $metadataId) {
     collections {
       ...CollectionPart
     }

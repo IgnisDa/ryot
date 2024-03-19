@@ -2,14 +2,15 @@ import { $path } from "@ignisda/remix-routes";
 import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
-	CommitMediaDocument,
+	CommitMetadataDocument,
+	CommitPersonDocument,
 	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
 	DeleteMediaReminderDocument,
 	DeleteReviewDocument,
 	EntityLot,
+	MediaSource,
 	MetadataLot,
-	MetadataSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
@@ -42,12 +43,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	await match(intent)
 		.with("commitMedia", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMedia } = await gqlClient.request(
-				CommitMediaDocument,
-				submission,
+			const { commitMetadata } = await gqlClient.request(
+				CommitMetadataDocument,
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			returnData = { commitMedia };
+			returnData = { commitMedia: commitMetadata };
+		})
+		.with("commitPerson", async () => {
+			const submission = processSubmission(formData, commitPersonSchema);
+			const { commitPerson } = await gqlClient.request(
+				CommitPersonDocument,
+				{
+					input: {
+						identifier: submission.identifier,
+						name: submission.name,
+						source: submission.source,
+						sourceSpecifics: {
+							isAnilistStudio: submission.isAnilistStudio,
+							isTmdbCompany: submission.isTmdbCompany,
+						},
+					},
+				},
+				await getAuthorizationHeader(request),
+			);
+			returnData = { commitPerson };
 		})
 		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
@@ -189,7 +209,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const commitMediaSchema = z.object({
 	identifier: z.string(),
 	lot: z.nativeEnum(MetadataLot),
-	source: z.nativeEnum(MetadataSource),
+	source: z.nativeEnum(MediaSource),
+});
+
+const commitPersonSchema = z.object({
+	identifier: z.string(),
+	source: z.nativeEnum(MediaSource),
+	name: z.string(),
+	isTmdbCompany: zx.BoolAsString.optional(),
+	isAnilistStudio: zx.BoolAsString.optional(),
 });
 
 const reviewCommentSchema = z.object({

@@ -288,11 +288,11 @@ impl ImporterService {
             _ => self.import_media(user_id, input).await?,
         };
         self.media_service
-            .deploy_background_job(BackgroundJob::CalculateSummary, user_id)
+            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
             .await
             .ok();
         self.media_service
-            .deploy_background_job(BackgroundJob::UpdateAllMetadata, user_id)
+            .deploy_background_job(user_id, BackgroundJob::UpdateAllMetadata)
             .await
             .ok();
         Ok(())
@@ -567,6 +567,10 @@ impl ImporterService {
                 col = item.collections.len(),
             );
         }
+        self.media_service
+            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
+            .await
+            .ok();
         tracing::debug!(
             "Imported {total} media items from {source}",
             total = import.media.len(),

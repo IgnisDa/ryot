@@ -1,5 +1,5 @@
-mutation CreateCustomMedia($input: CreateCustomMediaInput!) {
-  createCustomMedia(input: $input) {
+mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
+  createCustomMetadata(input: $input) {
     id
   }
 }

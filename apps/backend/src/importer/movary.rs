@@ -3,7 +3,7 @@ use std::fs;
 use async_graphql::Result;
 use chrono::NaiveDate;
 use csv::Reader;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -49,7 +49,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
     let history = fs::read_to_string(&input.history)?;
     let watchlist = fs::read_to_string(&input.watchlist)?;
     let lot = MetadataLot::Movie;
-    let source = MetadataSource::Tmdb;
+    let source = MediaSource::Tmdb;
     let mut media = vec![];
     let mut failed_items = vec![];
     let mut ratings_reader = Reader::from_reader(ratings.as_bytes());

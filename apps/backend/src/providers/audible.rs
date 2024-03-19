@@ -1,9 +1,10 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaSource, MetadataLot};
 use http_types::mime;
 use itertools::Itertools;
+use paginate::Pages;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -15,9 +16,9 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            AudioBookSpecifics, MediaDetails, MediaSearchItem, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, PartialMetadataPerson,
-            PartialMetadataWithoutId,
+            AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataSearchItem, PartialMetadataPerson,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -192,7 +193,54 @@ impl AudibleService {
 
 #[async_trait]
 impl MediaProvider for AudibleService {
-    async fn person_details(&self, identity: &str) -> Result<MetadataPerson> {
+    async fn people_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PeopleSearchItem>> {
+        let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
+        let req_internal_page = internal_page - 1;
+        let data: Vec<AudibleAuthor> = surf::get(format!("{}/authors", AUDNEX_URL))
+            .query(&json!({ "region": self.locale, "name": query }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data = data
+            .into_iter()
+            .map(|a| PeopleSearchItem {
+                identifier: a.asin.unwrap_or_default(),
+                name: a.name,
+                image: None,
+                birth_year: None,
+            })
+            .collect_vec();
+        let total_items = data.len();
+        let pages = Pages::new(total_items, self.page_limit.try_into().unwrap());
+        let selected_page = pages.with_offset(req_internal_page);
+        let items = data[selected_page.start..selected_page.end + 1].to_vec();
+        let has_next_page = pages.page_count() > internal_page;
+        Ok(SearchResults {
+            details: SearchDetails {
+                next_page: if has_next_page {
+                    Some((internal_page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+                total: total_items.try_into().unwrap(),
+            },
+            items,
+        })
+    }
+
+    async fn person_details(
+        &self,
+        identity: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         let data: AudnexResponse = surf::get(format!("{}/authors/{}", AUDNEX_URL, identity))
             .query(&json!({ "region": self.locale }))
             .unwrap()
@@ -206,13 +254,14 @@ impl MediaProvider for AudibleService {
             name: data.name,
             description: data.description,
             images: Some(Vec::from_iter(data.image)),
-            source: MetadataSource::Audible,
+            source: MediaSource::Audible,
             gender: None,
             death_date: None,
             birth_date: None,
             place: None,
             website: None,
             related: vec![],
+            source_specifics: None,
         })
     }
 
@@ -252,7 +301,7 @@ impl MediaProvider for AudibleService {
                 title: data.product.title,
                 image: data.product.product_images.and_then(|i| i.image_2400),
                 identifier: i,
-                source: MetadataSource::Audible,
+                source: MediaSource::Audible,
                 lot: MetadataLot::AudioBook,
             })
         }
@@ -265,7 +314,7 @@ impl MediaProvider for AudibleService {
                 description: None,
                 images: vec![],
                 lot: MetadataLot::AudioBook,
-                source: MetadataSource::Audible,
+                source: MediaSource::Audible,
             },
             collection_contents,
         ))
@@ -305,7 +354,7 @@ impl MediaProvider for AudibleService {
                     title: sim.title,
                     image: sim.product_images.and_then(|i| i.image_500),
                     identifier: sim.asin,
-                    source: MetadataSource::Audible,
+                    source: MediaSource::Audible,
                     lot: MetadataLot::AudioBook,
                 });
             }
@@ -320,7 +369,7 @@ impl MediaProvider for AudibleService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
@@ -346,7 +395,7 @@ impl MediaProvider for AudibleService {
             .into_iter()
             .map(|d| {
                 let a = self.audible_response_to_search_response(d);
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier: a.identifier,
                     title: a.title,
                     image: a.url_images.first().map(|i| i.image.clone()),
@@ -385,10 +434,11 @@ impl AudibleService {
             .filter_map(|a| {
                 a.asin.map(|au| PartialMetadataPerson {
                     identifier: au,
-                    source: MetadataSource::Audible,
+                    source: MediaSource::Audible,
                     role: "Author".to_owned(),
                     name: a.name,
                     character: None,
+                    source_specifics: None,
                 })
             })
             .collect_vec();
@@ -415,7 +465,7 @@ impl AudibleService {
         MediaDetails {
             identifier: item.asin,
             lot: MetadataLot::AudioBook,
-            source: MetadataSource::Audible,
+            source: MediaSource::Audible,
             is_nsfw: item.is_adult_product,
             title: item.title,
             description,
