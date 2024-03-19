@@ -31,6 +31,7 @@ import {
 	IconAlertCircle,
 	IconBarbell,
 	IconFriends,
+	IconGrowth,
 	IconScaleOutline,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
@@ -131,7 +132,8 @@ export default function Page() {
 						</Text>
 					</Alert>
 				) : null}
-				{loaderData.latestUserSummary.media.mediaInteractedWith === 0 ? (
+				{loaderData.latestUserSummary.media.metadataOverall.interactedWith ===
+				0 ? (
 					<NewUserGuideAlert />
 				) : null}
 				{loaderData.userPreferences.dashboard.map((de) =>
@@ -359,21 +361,22 @@ export default function Page() {
 									/>
 									{loaderData.userPreferences.media.enabled ? (
 										<ActualDisplayStat
-											icon={<IconFriends />}
+											icon={<IconGrowth />}
 											lot="General stats"
 											color={theme.colors.grape[8]}
 											data={[
 												{
 													label: "Media",
 													value:
-														loaderData.latestUserSummary.media
-															.mediaInteractedWith,
+														loaderData.latestUserSummary.media.metadataOverall
+															.interactedWith,
 													type: "number",
 												},
 												{
 													label: "Reviews",
 													value:
-														loaderData.latestUserSummary.media.reviewsPosted,
+														loaderData.latestUserSummary.media.metadataOverall
+															.reviewed,
 													type: "number",
 													hideIfZero: true,
 												},
