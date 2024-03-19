@@ -5,7 +5,6 @@ import {
 	FileInput,
 	Group,
 	MultiSelect,
-	ScrollArea,
 	Select,
 	Stack,
 	TextInput,
@@ -31,13 +30,11 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 	ExerciseSource,
-	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { z } from "zod";
-import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
@@ -143,82 +140,75 @@ export default function Page() {
 
 	return (
 		<Container>
-			<MediaDetailsLayout
-				images={imageUrls.map((i) => i.url)}
-				externalLink={{ source: MediaSource.Custom }}
-			>
-				<ScrollArea.Autosize mah={400}>
-					<Form method="post" replace>
-						<Stack>
-							<Title>Create Exercise</Title>
-							<TextInput label="Name" required autoFocus name="id" />
-							<Select
-								label="Type"
-								data={Object.values(ExerciseLot).map((l) => ({
-									value: l,
-									label: changeCase(l),
-								}))}
-								required
-								name="lot"
-							/>
-							<Group wrap="nowrap">
-								<Select
-									label="Level"
-									data={Object.values(ExerciseLevel)}
-									required
-									name="level"
-								/>
-								<Select
-									label="Force"
-									data={Object.values(ExerciseForce)}
-									name="force"
-								/>
-							</Group>
-							<Group wrap="nowrap">
-								<Select
-									label="Equipment"
-									data={Object.values(ExerciseEquipment)}
-									name="equipment"
-								/>
-								<Select
-									label="Mechanic"
-									data={Object.values(ExerciseMechanic)}
-									name="mechanic"
-								/>
-							</Group>
-							<MultiSelect
-								label="Muscles"
-								data={Object.values(ExerciseMuscle)}
-								name="muscles"
-							/>
-							<Textarea
-								label="Instructions"
-								description="Separate each instruction with a newline"
-								name="instructions"
-							/>
-							<input
-								hidden
-								value={JSON.stringify(imageUrls.map((i) => i.key))}
-								name="images"
-								readOnly
-							/>
-							<FileInput
-								label="Images"
-								multiple
-								disabled={fileUploadNowAllowed}
-								description={
-									fileUploadNowAllowed &&
-									"Please set the S3 variables required to enable file uploading"
-								}
-								onChange={(f) => uploadFiles(f)}
-								accept="image/png,image/jpeg,image/jpg"
-								leftSection={<IconPhoto />}
-							/>
-							<Button type="submit">Create</Button>
-						</Stack>
-					</Form>
-				</ScrollArea.Autosize>
-			</MediaDetailsLayout>
+			<Form method="post" replace>
+				<Stack>
+					<Title>Create Exercise</Title>
+					<TextInput label="Name" required autoFocus name="id" />
+					<Select
+						label="Type"
+						data={Object.values(ExerciseLot).map((l) => ({
+							value: l,
+							label: changeCase(l),
+						}))}
+						required
+						name="lot"
+					/>
+					<Group wrap="nowrap">
+						<Select
+							label="Level"
+							data={Object.values(ExerciseLevel)}
+							required
+							name="level"
+						/>
+						<Select
+							label="Force"
+							data={Object.values(ExerciseForce)}
+							name="force"
+						/>
+					</Group>
+					<Group wrap="nowrap">
+						<Select
+							label="Equipment"
+							data={Object.values(ExerciseEquipment)}
+							name="equipment"
+						/>
+						<Select
+							label="Mechanic"
+							data={Object.values(ExerciseMechanic)}
+							name="mechanic"
+						/>
+					</Group>
+					<MultiSelect
+						label="Muscles"
+						data={Object.values(ExerciseMuscle)}
+						name="muscles"
+					/>
+					<Textarea
+						label="Instructions"
+						description="Separate each instruction with a newline"
+						name="instructions"
+					/>
+					<input
+						hidden
+						value={JSON.stringify(imageUrls.map((i) => i.key))}
+						name="images"
+						readOnly
+					/>
+					<FileInput
+						label="Images"
+						multiple
+						disabled={fileUploadNowAllowed}
+						description={
+							fileUploadNowAllowed &&
+							"Please set the S3 variables required to enable file uploading"
+						}
+						onChange={(f) => uploadFiles(f)}
+						accept="image/png,image/jpeg,image/jpg"
+						leftSection={<IconPhoto />}
+					/>
+					<Button type="submit">Create</Button>
+				</Stack>
+			</Form>
 		</Container>
 	);
 }
