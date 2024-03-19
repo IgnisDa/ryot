@@ -1305,6 +1305,14 @@ pub mod media {
         pub person_id: Option<i32>,
         pub force_value: Option<bool>,
     }
+
+    #[derive(Debug, InputObject)]
+    pub struct CommitPersonInput {
+        pub name: String,
+        pub source: MediaSource,
+        pub identifier: String,
+        pub source_specifics: Option<PersonSourceSpecifics>,
+    }
 }
 
 pub mod fitness {

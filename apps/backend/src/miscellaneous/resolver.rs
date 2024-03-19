@@ -72,21 +72,22 @@ use crate::{
     models::{
         fitness::UserUnitSystem,
         media::{
-            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CreateOrUpdateCollectionInput,
-            GenreListItem, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportItemReviewComment, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MetadataFreeCreator, MetadataGroupListItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
-            MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
-            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, ToggleMediaMonitorInput, UserMediaOwnership,
-            UserMediaReminder, UserSummary, UserToMediaReason, VideoGameSpecifics,
-            VisualNovelSpecifics, WatchProvider,
+            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitPersonInput,
+            CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
+            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
+            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataSearchItem, MetadataSearchItemResponse, MetadataSearchItemWithLot,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            PublicCollectionItem, ReviewPostedEvent, SeenAnimeExtraInformation,
+            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, ToggleMediaMonitorInput, UserMediaOwnership, UserMediaReminder,
+            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
+            WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -234,14 +235,6 @@ struct CommitMetadataInput {
     lot: MetadataLot,
     source: MediaSource,
     identifier: String,
-}
-
-#[derive(Debug, InputObject)]
-struct CommitPersonInput {
-    name: String,
-    source: MediaSource,
-    identifier: String,
-    source_specifics: Option<PersonSourceSpecifics>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -3839,7 +3832,7 @@ impl MiscellaneousService {
         }
     }
 
-    async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
+    pub async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
         if let Some(p) = Person::find()
             .filter(person::Column::Source.eq(input.source))
             .filter(person::Column::Identifier.eq(input.identifier.clone()))
