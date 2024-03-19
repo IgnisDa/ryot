@@ -236,6 +236,13 @@ struct CommitMetadataInput {
     identifier: String,
 }
 
+#[derive(Debug, InputObject)]
+struct CommitPersonInput {
+    source: MediaSource,
+    identifier: String,
+    source_specifics: Option<PeopleSearchSourceSpecificsInput>,
+}
+
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum RegisterErrorVariant {
     UsernameAlreadyExists,
@@ -1135,6 +1142,16 @@ impl MiscellaneousMutation {
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.commit_metadata(input).await
+    }
+
+    /// Fetches details about a person and creates a person item in the database.
+    async fn commit_person(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CommitPersonInput,
+    ) -> Result<IdObject> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.commit_person(input).await
     }
 
     /// Create a new user for the service. Also set their `lot` as admin if
@@ -3633,7 +3650,7 @@ impl MiscellaneousService {
             });
         }
         let provider = self.get_non_metadata_provider(input.source).await?;
-        let source_specifics = source_specifics_from_normalized_data(input.source_specifics);
+        let source_specifics = person_source_specifics_from_normalized_data(input.source_specifics);
         let results = provider
             .person_search(&query, input.search.page, &source_specifics)
             .await?;
@@ -3895,6 +3912,30 @@ impl MiscellaneousService {
                 .await?;
             let media_id = self.commit_media_internal(details, None).await?;
             Ok(media_id)
+        }
+    }
+
+    async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
+        if let Some(p) = Person::find()
+            .filter(person::Column::Source.eq(input.source))
+            .filter(person::Column::Identifier.eq(input.identifier.clone()))
+            .one(&self.db)
+            .await?
+            .map(|p| IdObject { id: p.id })
+        {
+            Ok(p)
+        } else {
+            let source_specifics =
+                person_source_specifics_from_normalized_data(input.source_specifics);
+            let person = person::ActiveModel {
+                identifier: ActiveValue::Set(input.identifier),
+                source: ActiveValue::Set(input.source),
+                source_specifics: ActiveValue::Set(source_specifics),
+                name: ActiveValue::Set("Downloading...".to_owned()),
+                ..Default::default()
+            };
+            let person = person.insert(&self.db).await?;
+            Ok(IdObject { id: person.id })
         }
     }
 
@@ -7182,10 +7223,10 @@ GROUP BY
     }
 }
 
-fn source_specifics_from_normalized_data(
+fn person_source_specifics_from_normalized_data(
     input: Option<PeopleSearchSourceSpecificsInput>,
 ) -> Option<PersonSourceSpecifics> {
-    let source_specifics = match input {
+    match input {
         Some(f) if f.is_tmdb_company.unwrap_or_default() => {
             Some(PersonSourceSpecifics::Tmdb { is_company: true })
         }
@@ -7193,6 +7234,5 @@ fn source_specifics_from_normalized_data(
             Some(PersonSourceSpecifics::Anilist { is_studio: true })
         }
         _ => None,
-    };
-    source_specifics
+    }
 }
