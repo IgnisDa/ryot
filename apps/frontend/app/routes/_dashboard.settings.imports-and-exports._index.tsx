@@ -129,7 +129,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				})
 				.with(
 					ImportSource.MediaJson,
-					ImportSource.PersonJson,
+					ImportSource.PeopleJson,
 					ImportSource.WorkoutsJson,
 					ImportSource.MeasurementsJson,
 					async () => ({
@@ -269,7 +269,7 @@ export default function Page() {
 												)
 												.with(
 													ImportSource.MediaJson,
-													ImportSource.PersonJson,
+													ImportSource.PeopleJson,
 													ImportSource.WorkoutsJson,
 													ImportSource.MeasurementsJson,
 													() => "json-files",
@@ -559,7 +559,7 @@ export default function Page() {
 											))
 											.with(
 												ImportSource.MediaJson,
-												ImportSource.PersonJson,
+												ImportSource.PeopleJson,
 												ImportSource.WorkoutsJson,
 												ImportSource.MeasurementsJson,
 												() => (

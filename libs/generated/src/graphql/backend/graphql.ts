@@ -676,7 +676,7 @@ export enum ImportSource {
   MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
-  PersonJson = 'PERSON_JSON',
+  PeopleJson = 'PEOPLE_JSON',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT',

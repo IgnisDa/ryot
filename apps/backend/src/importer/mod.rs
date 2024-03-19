@@ -285,7 +285,7 @@ impl ImporterService {
             ImportSource::StrongApp | ImportSource::WorkoutsJson => {
                 self.import_workouts(user_id, input).await?
             }
-            ImportSource::PersonJson => self.import_people(user_id, input).await?,
+            ImportSource::PeopleJson => self.import_people(user_id, input).await?,
             ImportSource::MeasurementsJson => self.import_measurements(user_id, input).await?,
             _ => self.import_media(user_id, input).await?,
         };
@@ -304,7 +304,7 @@ impl ImporterService {
     async fn import_people(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
         let mut import = match input.source {
-            ImportSource::PersonJson => json::people_import(input.json.unwrap()).await.unwrap(),
+            ImportSource::PeopleJson => json::people_import(input.json.unwrap()).await.unwrap(),
             _ => unreachable!(),
         };
         let details = ImportResultResponse {

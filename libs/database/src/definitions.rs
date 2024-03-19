@@ -169,7 +169,7 @@ pub enum ImportSource {
     #[sea_orm(string_value = "MJ")]
     MediaJson,
     #[sea_orm(string_value = "PJ")]
-    PersonJson,
+    PeopleJson,
     #[sea_orm(string_value = "TR")]
     Trakt,
     #[sea_orm(string_value = "MO")]
