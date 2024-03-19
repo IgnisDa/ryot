@@ -287,20 +287,20 @@ export default function Page() {
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
-								{loaderData.peopleList?.list.details.total}
+								{loaderData.peopleList.list.details.total}
 							</Text>{" "}
 							items found
 						</Box>
 						{loaderData.peopleList.list.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.peopleList?.list.items.map((creator) => (
+								{loaderData.peopleList?.list.items.map((person) => (
 									<BaseDisplayItem
-										name={creator.name}
-										bottomLeft={`${creator.mediaCount} items`}
-										imageLink={creator.image}
-										imagePlaceholder={getInitials(creator.name)}
-										key={creator.id}
-										href={$path("/media/people/item/:id", { id: creator.id })}
+										name={person.name}
+										bottomLeft={`${person.mediaCount} items`}
+										imageLink={person.image}
+										imagePlaceholder={getInitials(person.name)}
+										key={person.id}
+										href={$path("/media/people/item/:id", { id: person.id })}
 									/>
 								))}
 							</ApplicationGrid>
@@ -314,6 +314,38 @@ export default function Page() {
 								onChange={(v) => setP("page", v.toString())}
 								total={Math.ceil(
 									loaderData.peopleList.list.details.total /
+										loaderData.coreDetails.pageLimit,
+								)}
+							/>
+						</Center>
+					</>
+				) : null}
+				{loaderData.peopleSearch ? (
+					<>
+						<Box>
+							<Text display="inline" fw="bold">
+								{loaderData.peopleSearch.search.details.total}
+							</Text>{" "}
+							items found
+						</Box>
+						{loaderData.peopleSearch.search.details.total > 0 ? (
+							<ApplicationGrid>
+								{loaderData.peopleSearch.search.items.map((person) => (
+									<Box key={person.item.identifier}>
+										{JSON.stringify(person, null, 4)}
+									</Box>
+								))}
+							</ApplicationGrid>
+						) : (
+							<Text>No people found matching your query</Text>
+						)}
+						<Center>
+							<ApplicationPagination
+								size="sm"
+								defaultValue={loaderData.page}
+								onChange={(v) => setP("page", v.toString())}
+								total={Math.ceil(
+									loaderData.peopleSearch.search.details.total /
 										loaderData.coreDetails.pageLimit,
 								)}
 							/>
