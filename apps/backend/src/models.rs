@@ -739,6 +739,22 @@ pub mod media {
         Deserialize,
         FromJsonQueryResult,
     )]
+    pub struct MetadataOverallSummary {
+        pub reviewed: u64,
+        pub interacted_with: u64,
+    }
+
+    #[derive(
+        SimpleObject,
+        Debug,
+        PartialEq,
+        Eq,
+        Clone,
+        Default,
+        Serialize,
+        Deserialize,
+        FromJsonQueryResult,
+    )]
     pub struct UserMediaSummary {
         pub books: BooksSummary,
         pub movies: MoviesSummary,
@@ -749,8 +765,8 @@ pub mod media {
         pub audio_books: AudioBooksSummary,
         pub anime: AnimeSummary,
         pub manga: MangaSummary,
-        pub reviews_posted: u64,
-        pub media_interacted_with: u64,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub metadata_overall: MetadataOverallSummary,
     }
     #[derive(
         SimpleObject,

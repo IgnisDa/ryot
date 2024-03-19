@@ -4624,15 +4624,19 @@ impl MiscellaneousService {
 
         tracing::debug!("Calculating numbers summary for user {:?}", ls);
 
-        let num_reviews = Review::find()
+        let metadata_num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .filter(review::Column::MetadataId.is_not_null())
             .apply_if(start_from, |query, v| {
                 query.filter(review::Column::PostedOn.gt(v))
             })
             .count(&self.db)
             .await?;
 
-        tracing::debug!("Calculated number reviews for user {:?}", num_reviews);
+        tracing::debug!(
+            "Calculated number of metadata reviews for user {:?}",
+            metadata_num_reviews
+        );
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
@@ -4657,7 +4661,7 @@ impl MiscellaneousService {
 
         tracing::debug!("Calculated number workouts for user {:?}", num_workouts);
 
-        let num_media_interacted_with = UserToEntity::find()
+        let num_metadata_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
             .apply_if(start_from, |query, v| {
@@ -4667,8 +4671,8 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number media interacted with for user {:?}",
-            num_media_interacted_with
+            "Calculated number metadata interacted with for user {:?}",
+            num_metadata_interacted_with
         );
 
         let num_exercises_interacted_with = UserToEntity::find()
@@ -4709,8 +4713,8 @@ impl MiscellaneousService {
             total_workout_time
         );
 
-        ls.media.reviews_posted += num_reviews;
-        ls.media.media_interacted_with += num_media_interacted_with;
+        ls.media.metadata_overall.reviewed += metadata_num_reviews;
+        ls.media.metadata_overall.interacted_with += num_metadata_interacted_with;
         ls.fitness.measurements_recorded += num_measurements;
         ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
         ls.fitness.workouts.recorded += num_workouts;
