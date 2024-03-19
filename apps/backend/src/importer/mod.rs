@@ -568,10 +568,6 @@ impl ImporterService {
                 col = item.collections.len(),
             );
         }
-        self.media_service
-            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
-            .await
-            .ok();
         tracing::debug!(
             "Imported {total} media items from {source}",
             total = import.media.len(),
