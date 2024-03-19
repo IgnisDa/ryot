@@ -1,8 +1,9 @@
 import { parseWithZod } from "@conform-to/zod";
-import { json } from "@remix-run/node";
+import { json, unstable_composeUploadHandlers, unstable_createMemoryUploadHandler } from "@remix-run/node";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
 import { authCookie } from "./cookies.server";
+import { API_URL } from "./api.server";
 
 export const expectedEnvironmentVariables = z.object({
 	DISABLE_TELEMETRY: z
@@ -72,3 +73,21 @@ export const getLogoutCookies = async () => {
 		expires: new Date(0),
 	});
 };
+
+
+export const temporaryFileUploadHandler = unstable_composeUploadHandlers(async (params) => {
+	if (params.filename && params.data) {
+		const formData = new FormData();
+		const blob = [];
+		for await (const chunk of params.data) blob.push(chunk);
+		const file = new File(blob, params.filename);
+		formData.append("files[]", file, params.filename);
+		const resp = await fetch(`${API_URL}/upload`, {
+			method: "POST",
+			body: formData,
+		});
+		const data = await resp.json();
+		return data[0];
+	}
+	return undefined;
+}, unstable_createMemoryUploadHandler());
