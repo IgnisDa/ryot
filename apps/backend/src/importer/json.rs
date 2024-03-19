@@ -6,7 +6,9 @@ use crate::{
     entities::{user_measurement, workout},
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
-    models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
+    models::media::{
+        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportPersonItem,
+    },
 };
 
 pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> {
@@ -37,6 +39,19 @@ pub async fn measurements_import(input: DeployJsonImportInput) -> Result<ImportR
         media: vec![],
         workouts: vec![],
         collections: vec![],
+        failed_items: vec![],
+    })
+}
+
+pub async fn people_import(input: DeployJsonImportInput) -> Result<ImportResult> {
+    let export = fs::read_to_string(input.export)?;
+    let people = serde_json::from_str::<Vec<ImportOrExportPersonItem>>(&export).unwrap();
+    Ok(ImportResult {
+        people,
+        media: vec![],
+        workouts: vec![],
+        collections: vec![],
+        measurements: vec![],
         failed_items: vec![],
     })
 }
