@@ -31,8 +31,8 @@ import {
 	IconAlertCircle,
 	IconBarbell,
 	IconFriends,
-	IconGrowth,
 	IconScaleOutline,
+	IconServer,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
 import { ReactNode } from "react";
@@ -361,7 +361,7 @@ export default function Page() {
 									/>
 									{loaderData.userPreferences.media.enabled ? (
 										<ActualDisplayStat
-											icon={<IconGrowth />}
+											icon={<IconServer />}
 											lot="Metadata stats"
 											color={theme.colors.grape[8]}
 											data={[
