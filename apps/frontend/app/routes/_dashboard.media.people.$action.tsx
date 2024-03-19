@@ -393,6 +393,7 @@ const PersonSearchItem = (props: {
 					const id = await commitPerson(
 						props.item.identifier,
 						loaderData.peopleSearch.url.source,
+						props.item.title,
 						loaderData.peopleSearch.url.isTmdbCompany,
 						loaderData.peopleSearch.url.isAnilistStudio,
 					);
@@ -407,6 +408,7 @@ const PersonSearchItem = (props: {
 const commitPerson = async (
 	identifier: string,
 	source: MediaSource,
+	name: string,
 	isTmdbCompany?: boolean,
 	isAnilistStudio?: boolean,
 ) => {
@@ -414,6 +416,7 @@ const commitPerson = async (
 	const location = withoutHost(window.location.href);
 	data.append("identifier", identifier);
 	data.append("source", source);
+	if (name) data.append("name", name);
 	if (isTmdbCompany) data.append("isTmdbCompany", String(isTmdbCompany));
 	if (isAnilistStudio) data.append("isAnilistStudio", String(isAnilistStudio));
 	data.append(redirectToQueryParam, location);

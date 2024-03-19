@@ -57,6 +57,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{
 					input: {
 						identifier: submission.identifier,
+						name: submission.name,
 						source: submission.source,
 						sourceSpecifics: {
 							isAnilistStudio: submission.isAnilistStudio,
@@ -214,6 +215,7 @@ const commitMediaSchema = z.object({
 const commitPersonSchema = z.object({
 	identifier: z.string(),
 	source: z.nativeEnum(MediaSource),
+	name: z.string(),
 	isTmdbCompany: zx.BoolAsString.optional(),
 	isAnilistStudio: zx.BoolAsString.optional(),
 });
