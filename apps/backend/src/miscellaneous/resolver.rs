@@ -3100,28 +3100,15 @@ impl MiscellaneousService {
         index: usize,
     ) -> Result<()> {
         let role = person.role.clone();
-        let db_person = if let Some(db_person) = Person::find()
-            .filter(person::Column::Identifier.eq(&person.identifier))
-            .filter(person::Column::Source.eq(person.source))
-            .apply_if(person.source_specifics.clone(), |query, v| {
-                query.filter(person::Column::SourceSpecifics.eq(v))
+        let source_specifics =
+            normalize_data_to_person_source_specifics(person.source_specifics.clone());
+        let db_person = self
+            .commit_person(CommitPersonInput {
+                identifier: person.identifier.clone(),
+                source: person.source,
+                source_specifics,
             })
-            .one(&self.db)
-            .await
-            .unwrap()
-        {
-            db_person
-        } else {
-            let person = person::ActiveModel {
-                identifier: ActiveValue::Set(person.identifier),
-                source: ActiveValue::Set(person.source),
-                name: ActiveValue::Set(person.name),
-                is_partial: ActiveValue::Set(Some(true)),
-                source_specifics: ActiveValue::Set(person.source_specifics),
-                ..Default::default()
-            };
-            person.insert(&self.db).await?
-        };
+            .await?;
         let intermediate = metadata_to_person::ActiveModel {
             metadata_id: ActiveValue::Set(metadata_id),
             person_id: ActiveValue::Set(db_person.id),
@@ -3916,17 +3903,19 @@ impl MiscellaneousService {
     }
 
     async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
+        let source_specifics = person_source_specifics_from_normalized_data(input.source_specifics);
         if let Some(p) = Person::find()
             .filter(person::Column::Source.eq(input.source))
             .filter(person::Column::Identifier.eq(input.identifier.clone()))
+            .apply_if(source_specifics.clone(), |query, v| {
+                query.filter(person::Column::SourceSpecifics.eq(v))
+            })
             .one(&self.db)
             .await?
             .map(|p| IdObject { id: p.id })
         {
             Ok(p)
         } else {
-            let source_specifics =
-                person_source_specifics_from_normalized_data(input.source_specifics);
             let person = person::ActiveModel {
                 identifier: ActiveValue::Set(input.identifier),
                 source: ActiveValue::Set(input.source),
@@ -7236,5 +7225,25 @@ fn person_source_specifics_from_normalized_data(
             Some(PersonSourceSpecifics::Anilist { is_studio: true })
         }
         _ => None,
+    }
+}
+
+fn normalize_data_to_person_source_specifics(
+    input: Option<PersonSourceSpecifics>,
+) -> Option<PeopleSearchSourceSpecificsInput> {
+    match input {
+        Some(PersonSourceSpecifics::Tmdb { is_company }) => {
+            Some(PeopleSearchSourceSpecificsInput {
+                is_tmdb_company: Some(is_company),
+                is_anilist_studio: None,
+            })
+        }
+        Some(PersonSourceSpecifics::Anilist { is_studio }) => {
+            Some(PeopleSearchSourceSpecificsInput {
+                is_tmdb_company: None,
+                is_anilist_studio: Some(is_studio),
+            })
+        }
+        None => None,
     }
 }
