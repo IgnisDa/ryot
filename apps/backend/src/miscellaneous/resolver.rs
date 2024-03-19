@@ -7102,6 +7102,7 @@ GROUP BY
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.source_specifics = ActiveValue::Set(provider_person.source_specifics);
+        to_update_person.name = ActiveValue::Set(provider_person.name);
         to_update_person.update(&self.db).await.ok();
         for (role, media) in provider_person.related.clone() {
             let title = media.title.clone();
