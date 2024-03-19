@@ -899,6 +899,7 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
+    #[skip_serializing_none]
     #[derive(
         Debug,
         Serialize,
@@ -913,7 +914,7 @@ pub mod media {
         Default,
         Schematic,
     )]
-    #[graphql(input_name = "PeopleSourceSpecificsInput")]
+    #[graphql(input_name = "PersonSourceSpecificsInput")]
     pub struct PersonSourceSpecifics {
         pub is_tmdb_company: Option<bool>,
         pub is_anilist_studio: Option<bool>,

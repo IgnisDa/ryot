@@ -149,7 +149,7 @@ export type CommitPersonInput = {
   identifier: Scalars['String']['input'];
   name: Scalars['String']['input'];
   source: MediaSource;
-  sourceSpecifics?: InputMaybe<PeopleSourceSpecificsInput>;
+  sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
 };
 
 export type CoreDetails = {
@@ -1242,7 +1242,7 @@ export type PeopleListInput = {
 export type PeopleSearchInput = {
   search: SearchInput;
   source: MediaSource;
-  sourceSpecifics?: InputMaybe<PeopleSourceSpecificsInput>;
+  sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
 };
 
 export type PeopleSearchItem = {
@@ -1255,11 +1255,6 @@ export type PeopleSearchItem = {
 export type PeopleSearchResults = {
   details: SearchDetails;
   items: Array<PeopleSearchItem>;
-};
-
-export type PeopleSourceSpecificsInput = {
-  isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
-  isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type Person = {
@@ -1305,6 +1300,11 @@ export enum PersonSortBy {
 export type PersonSortInput = {
   by?: PersonSortBy;
   order?: GraphqlSortOrder;
+};
+
+export type PersonSourceSpecificsInput = {
+  isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
+  isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type PodcastEpisode = {
