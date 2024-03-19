@@ -303,7 +303,7 @@ impl ImporterService {
     #[instrument(skip(self, input))]
     async fn import_people(&self, user_id: i32, input: Box<DeployImportJobInput>) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
-        let import = match input.source {
+        let mut import = match input.source {
             ImportSource::PersonJson => json::people_import(input.json.unwrap()).await.unwrap(),
             _ => unreachable!(),
         };
@@ -313,6 +313,10 @@ impl ImporterService {
             },
             failed_items: vec![],
         };
+        let preferences =
+            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
+                .await?
+                .preferences;
         for (idx, item) in import.people.iter().enumerate() {
             let person = self
                 .media_service
@@ -323,6 +327,20 @@ impl ImporterService {
                     source_specifics: item.source_specifics.clone(),
                 })
                 .await?;
+            for review in item.reviews.iter() {
+                if let Some(input) =
+                    convert_review_into_input(review, &preferences, None, Some(person.id))
+                {
+                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                        import.failed_items.push(ImportFailedItem {
+                            lot: None,
+                            step: ImportFailStep::ReviewConversion,
+                            identifier: item.name.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                }
+            }
             for col in item.collections.iter() {
                 self.media_service
                     .create_or_update_collection(
