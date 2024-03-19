@@ -3932,6 +3932,7 @@ impl MiscellaneousService {
                 source: ActiveValue::Set(input.source),
                 source_specifics: ActiveValue::Set(source_specifics),
                 name: ActiveValue::Set("Downloading...".to_owned()),
+                is_partial: ActiveValue::Set(Some(true)),
                 ..Default::default()
             };
             let person = person.insert(&self.db).await?;
