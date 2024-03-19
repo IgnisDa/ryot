@@ -25,13 +25,14 @@ use crate::{
         fitness::UserWorkoutInput,
         media::{
             CommitPersonInput, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-            ImportOrExportMediaItem, ImportOrExportPersonItem, PartialMetadataWithoutId,
-            PostReviewInput, ProgressUpdateInput, ToggleMediaMonitorInput,
+            ImportOrExportItemRating, ImportOrExportMediaItem, ImportOrExportPersonItem,
+            PartialMetadataWithoutId, PostReviewInput, ProgressUpdateInput,
+            ToggleMediaMonitorInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput, IdObject,
     },
     traits::AuthProvider,
-    users::UserReviewScale,
+    users::{UserPreferences, UserReviewScale},
     utils::partial_user_by_id,
 };
 
@@ -476,6 +477,7 @@ impl ImporterService {
                 "Importing media with identifier = {iden}",
                 iden = &item.source_id
             );
+            let rev_length = item.reviews.len();
             let identifier = item.internal_identifier.clone().unwrap();
             let data = match identifier {
                 ImportOrExportItemIdentifier::NeedsDetails { identifier, title } => {
@@ -544,38 +546,21 @@ impl ImporterService {
                 };
             }
             for review in item.reviews.iter() {
-                if review.review.is_none() && review.rating.is_none() {
+                if let Some(input) =
+                    convert_review_into_input(review, &preferences, Some(metadata.id), None)
+                {
+                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                        import.failed_items.push(ImportFailedItem {
+                            lot: Some(item.lot),
+                            step: ImportFailStep::ReviewConversion,
+                            identifier: item.source_id.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                } else {
                     tracing::debug!("Skipping review since it has no content");
                     continue;
                 }
-                let rating = match preferences.general.review_scale {
-                    UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
-                    UserReviewScale::OutOfHundred => review.rating,
-                };
-                let text = review.review.clone().and_then(|r| r.text);
-                let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
-                let date = review.review.clone().map(|r| r.date);
-                let input = PostReviewInput {
-                    rating,
-                    text,
-                    spoiler,
-                    visibility: review.review.clone().and_then(|r| r.visibility),
-                    date: date.flatten(),
-                    metadata_id: Some(metadata.id),
-                    show_season_number: review.show_season_number,
-                    show_episode_number: review.show_episode_number,
-                    podcast_episode_number: review.podcast_episode_number,
-                    manga_chapter_number: review.manga_chapter_number,
-                    ..Default::default()
-                };
-                if let Err(e) = self.media_service.post_review(user_id, input).await {
-                    import.failed_items.push(ImportFailedItem {
-                        lot: Some(item.lot),
-                        step: ImportFailStep::ReviewConversion,
-                        identifier: item.source_id.to_owned(),
-                        error: Some(e.message),
-                    });
-                };
             }
             for col in item.collections.iter() {
                 self.media_service
@@ -615,7 +600,7 @@ impl ImporterService {
                 total = import.media.len(),
                 lot = item.lot,
                 hist = item.seen_history.len(),
-                rev = item.reviews.len(),
+                rev = rev_length,
                 col = item.collections.len(),
             );
         }
@@ -661,4 +646,36 @@ impl ImporterService {
         let model = model.update(&self.media_service.db).await.unwrap();
         Ok(model)
     }
+}
+
+fn convert_review_into_input(
+    review: &ImportOrExportItemRating,
+    preferences: &UserPreferences,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+) -> Option<PostReviewInput> {
+    if review.review.is_none() && review.rating.is_none() {
+        return None;
+    }
+    let rating = match preferences.general.review_scale {
+        UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
+        UserReviewScale::OutOfHundred => review.rating,
+    };
+    let text = review.review.clone().and_then(|r| r.text);
+    let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
+    let date = review.review.clone().map(|r| r.date);
+    Some(PostReviewInput {
+        rating,
+        text,
+        spoiler,
+        visibility: review.review.clone().and_then(|r| r.visibility),
+        date: date.flatten(),
+        metadata_id,
+        person_id,
+        show_season_number: review.show_season_number,
+        show_episode_number: review.show_episode_number,
+        podcast_episode_number: review.podcast_episode_number,
+        manga_chapter_number: review.manga_chapter_number,
+        ..Default::default()
+    })
 }
