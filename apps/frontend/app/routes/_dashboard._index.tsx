@@ -362,7 +362,7 @@ export default function Page() {
 									{loaderData.userPreferences.media.enabled ? (
 										<ActualDisplayStat
 											icon={<IconGrowth />}
-											lot="General stats"
+											lot="Metadata stats"
 											color={theme.colors.grape[8]}
 											data={[
 												{
@@ -383,6 +383,28 @@ export default function Page() {
 											]}
 										/>
 									) : null}
+									<ActualDisplayStat
+										icon={<IconFriends />}
+										lot="People stats"
+										color={theme.colors.green[8]}
+										data={[
+											{
+												label: "People",
+												value:
+													loaderData.latestUserSummary.media.peopleOverall
+														.interactedWith,
+												type: "number",
+											},
+											{
+												label: "Reviews",
+												value:
+													loaderData.latestUserSummary.media.peopleOverall
+														.reviewed,
+												type: "number",
+												hideIfZero: true,
+											},
+										]}
+									/>
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
