@@ -240,7 +240,7 @@ struct CommitMetadataInput {
 struct CommitPersonInput {
     source: MediaSource,
     identifier: String,
-    source_specifics: Option<PeopleSearchSourceSpecificsInput>,
+    source_specifics: Option<PersonSourceSpecifics>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -709,16 +709,10 @@ struct ToggleMediaMonitorInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct PeopleSearchSourceSpecificsInput {
-    is_tmdb_company: Option<bool>,
-    is_anilist_studio: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct PeopleSearchInput {
     search: SearchInput,
     source: MediaSource,
-    source_specifics: Option<PeopleSearchSourceSpecificsInput>,
+    source_specifics: Option<PersonSourceSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -3100,13 +3094,11 @@ impl MiscellaneousService {
         index: usize,
     ) -> Result<()> {
         let role = person.role.clone();
-        let source_specifics =
-            normalize_data_to_person_source_specifics(person.source_specifics.clone());
         let db_person = self
             .commit_person(CommitPersonInput {
                 identifier: person.identifier.clone(),
                 source: person.source,
-                source_specifics,
+                source_specifics: person.source_specifics,
             })
             .await?;
         let intermediate = metadata_to_person::ActiveModel {
@@ -3637,9 +3629,8 @@ impl MiscellaneousService {
             });
         }
         let provider = self.get_non_metadata_provider(input.source).await?;
-        let source_specifics = person_source_specifics_from_normalized_data(input.source_specifics);
         let results = provider
-            .person_search(&query, input.search.page, &source_specifics)
+            .person_search(&query, input.search.page, &input.source_specifics)
             .await?;
         let all_identifiers = results
             .items
@@ -3903,11 +3894,10 @@ impl MiscellaneousService {
     }
 
     async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
-        let source_specifics = person_source_specifics_from_normalized_data(input.source_specifics);
         if let Some(p) = Person::find()
             .filter(person::Column::Source.eq(input.source))
             .filter(person::Column::Identifier.eq(input.identifier.clone()))
-            .apply_if(source_specifics.clone(), |query, v| {
+            .apply_if(input.source_specifics.clone(), |query, v| {
                 query.filter(person::Column::SourceSpecifics.eq(v))
             })
             .one(&self.db)
@@ -3919,7 +3909,7 @@ impl MiscellaneousService {
             let person = person::ActiveModel {
                 identifier: ActiveValue::Set(input.identifier),
                 source: ActiveValue::Set(input.source),
-                source_specifics: ActiveValue::Set(source_specifics),
+                source_specifics: ActiveValue::Set(input.source_specifics),
                 name: ActiveValue::Set("Downloading...".to_owned()),
                 is_partial: ActiveValue::Set(Some(true)),
                 ..Default::default()
@@ -7211,39 +7201,5 @@ GROUP BY
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
         Ok(true)
-    }
-}
-
-fn person_source_specifics_from_normalized_data(
-    input: Option<PeopleSearchSourceSpecificsInput>,
-) -> Option<PersonSourceSpecifics> {
-    match input {
-        Some(f) if f.is_tmdb_company.unwrap_or_default() => {
-            Some(PersonSourceSpecifics::Tmdb { is_company: true })
-        }
-        Some(f) if f.is_anilist_studio.unwrap_or_default() => {
-            Some(PersonSourceSpecifics::Anilist { is_studio: true })
-        }
-        _ => None,
-    }
-}
-
-fn normalize_data_to_person_source_specifics(
-    input: Option<PersonSourceSpecifics>,
-) -> Option<PeopleSearchSourceSpecificsInput> {
-    match input {
-        Some(PersonSourceSpecifics::Tmdb { is_company }) => {
-            Some(PeopleSearchSourceSpecificsInput {
-                is_tmdb_company: Some(is_company),
-                is_anilist_studio: None,
-            })
-        }
-        Some(PersonSourceSpecifics::Anilist { is_studio }) => {
-            Some(PeopleSearchSourceSpecificsInput {
-                is_tmdb_company: None,
-                is_anilist_studio: Some(is_studio),
-            })
-        }
-        None => None,
     }
 }

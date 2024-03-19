@@ -124,7 +124,10 @@ impl MediaProvider for NonMediaAnilistService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let is_studio = matches!(
             source_specifics,
-            Some(PersonSourceSpecifics::Anilist { is_studio: true })
+            Some(PersonSourceSpecifics {
+                is_anilist_studio: Some(true),
+                ..
+            })
         );
         let (items, total, next_page) = if is_studio {
             let variables = studio_search_query::Variables {
@@ -230,7 +233,10 @@ impl MediaProvider for NonMediaAnilistService {
     ) -> Result<MetadataPerson> {
         let is_studio = matches!(
             source_specifics,
-            Some(PersonSourceSpecifics::Anilist { is_studio: true })
+            Some(PersonSourceSpecifics {
+                is_anilist_studio: Some(true),
+                ..
+            })
         );
         let data = if is_studio {
             let variables = studio_query::Variables {
@@ -579,7 +585,10 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
                     source: MediaSource::Anilist,
                     role: STUDIO_ROLE.to_owned(),
                     character: None,
-                    source_specifics: Some(PersonSourceSpecifics::Anilist { is_studio: true }),
+                    source_specifics: Some(PersonSourceSpecifics {
+                        is_anilist_studio: Some(true),
+                        ..Default::default()
+                    }),
                 }
             }),
     );

@@ -215,7 +215,10 @@ impl MediaProvider for NonMediaTmdbService {
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let typ = match source_specifics {
-            Some(PersonSourceSpecifics::Tmdb { is_company: true }) => "company",
+            Some(PersonSourceSpecifics {
+                is_tmdb_company: Some(true),
+                ..
+            }) => "company",
             _ => "person",
         };
         let page = page.unwrap_or(1);
@@ -261,7 +264,10 @@ impl MediaProvider for NonMediaTmdbService {
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
         let typ = match source_specifics {
-            Some(PersonSourceSpecifics::Tmdb { is_company: true }) => "company",
+            Some(PersonSourceSpecifics {
+                is_tmdb_company: Some(true),
+                ..
+            }) => "company",
             _ => "person",
         };
         let details: TmdbNonMediaEntity = self
@@ -524,7 +530,10 @@ impl MediaProvider for TmdbMovieService {
                     role: "Production Company".to_owned(),
                     source: MediaSource::Tmdb,
                     character: None,
-                    source_specifics: Some(PersonSourceSpecifics::Tmdb { is_company: true }),
+                    source_specifics: Some(PersonSourceSpecifics {
+                        is_tmdb_company: Some(true),
+                        ..Default::default()
+                    }),
                 })
                 .collect_vec(),
         );
@@ -812,7 +821,10 @@ impl MediaProvider for TmdbShowService {
                     role: "Production Company".to_owned(),
                     source: MediaSource::Tmdb,
                     character: None,
-                    source_specifics: Some(PersonSourceSpecifics::Tmdb { is_company: true }),
+                    source_specifics: Some(PersonSourceSpecifics {
+                        is_tmdb_company: Some(true),
+                        ..Default::default()
+                    }),
                 })
                 .collect_vec(),
         );

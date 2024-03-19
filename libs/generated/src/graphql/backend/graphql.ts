@@ -148,7 +148,7 @@ export type CommitMetadataInput = {
 export type CommitPersonInput = {
   identifier: Scalars['String']['input'];
   source: MediaSource;
-  sourceSpecifics?: InputMaybe<PeopleSearchSourceSpecificsInput>;
+  sourceSpecifics?: InputMaybe<PeopleSourceSpecificsInput>;
 };
 
 export type CoreDetails = {
@@ -1238,7 +1238,7 @@ export type PeopleListInput = {
 export type PeopleSearchInput = {
   search: SearchInput;
   source: MediaSource;
-  sourceSpecifics?: InputMaybe<PeopleSearchSourceSpecificsInput>;
+  sourceSpecifics?: InputMaybe<PeopleSourceSpecificsInput>;
 };
 
 export type PeopleSearchItem = {
@@ -1260,7 +1260,7 @@ export type PeopleSearchResults = {
   items: Array<PeopleSearchItemResponse>;
 };
 
-export type PeopleSearchSourceSpecificsInput = {
+export type PeopleSourceSpecificsInput = {
   isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
   isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };

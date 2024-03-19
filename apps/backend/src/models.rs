@@ -907,10 +907,23 @@ pub mod media {
         Error(ProgressUpdateError),
     }
 
-    #[derive(Debug, Clone, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Hash)]
-    pub enum PersonSourceSpecifics {
-        Tmdb { is_company: bool },
-        Anilist { is_studio: bool },
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        InputObject,
+        Clone,
+        SimpleObject,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Hash,
+        Default,
+    )]
+    #[graphql(input_name = "PeopleSourceSpecificsInput")]
+    pub struct PersonSourceSpecifics {
+        pub is_tmdb_company: Option<bool>,
+        pub is_anilist_studio: Option<bool>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
