@@ -45,6 +45,10 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 
+export type SearchParams = {
+	query?: string;
+};
+
 const defaultFilters = {
 	sortBy: PersonSortBy.MediaItems,
 	orderBy: GraphqlSortOrder.Desc,
@@ -58,13 +62,15 @@ enum Action {
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const action = params.action as Action;
 	const coreDetails = await getCoreDetails();
+	const { query, page } = zx.parseQuery(request, {
+		query: z.string().optional(),
+		page: zx.IntAsString.default("1"),
+	});
 	const [peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
-			const query = zx.parseQuery(
+			const urlParse = zx.parseQuery(
 				request,
 				z.object({
-					page: zx.IntAsString.default("1"),
-					query: z.string().optional(),
 					sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
 					orderBy: z
 						.nativeEnum(GraphqlSortOrder)
@@ -75,21 +81,19 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				PeopleListDocument,
 				{
 					input: {
-						search: { page: query.page, query: query.query },
-						sort: { by: query.sortBy, order: query.orderBy },
+						search: { page, query },
+						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 					},
 				},
 				await getAuthorizationHeader(request),
 			);
-			return [{ list: peopleList, url: query }, undefined] as const;
+			return [{ list: peopleList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
-			const query = zx.parseQuery(
+			const urlParse = zx.parseQuery(
 				request,
 				z.object({
 					source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
-					page: zx.IntAsString.default("1"),
-					query: z.string().optional(),
 					isTmdbCompany: zx.BoolAsString.optional(),
 					isAnilistStudio: zx.BoolAsString.optional(),
 				}),
@@ -98,21 +102,23 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				PeopleSearchDocument,
 				{
 					input: {
-						source: query.source,
-						search: { page: query.page, query: query.query },
+						source: urlParse.source,
+						search: { page, query },
 						sourceSpecifics: {
-							isAnilistStudio: query.isAnilistStudio,
-							isTmdbCompany: query.isTmdbCompany,
+							isAnilistStudio: urlParse.isAnilistStudio,
+							isTmdbCompany: urlParse.isTmdbCompany,
 						},
 					},
 				},
 				await getAuthorizationHeader(request),
 			);
-			return [undefined, { search: peopleSearch, url: query }] as const;
+			return [undefined, { search: peopleSearch, url: urlParse }] as const;
 		})
 		.exhaustive();
 	return json({
 		action,
+		query,
+		page,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		peopleList,
 		peopleSearch,
@@ -169,10 +175,7 @@ export default function Page() {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for people"
-						initialValue={
-							loaderData.peopleList?.url.query ||
-							loaderData.peopleSearch?.url.query
-						}
+						initialValue={loaderData.query}
 					/>
 					{loaderData.action === Action.List ? (
 						<>
@@ -267,7 +270,7 @@ export default function Page() {
 					<Center>
 						<ApplicationPagination
 							size="sm"
-							defaultValue={loaderData.peopleList.url.page}
+							defaultValue={loaderData.page}
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(
 								loaderData.peopleList.list.details.total /
