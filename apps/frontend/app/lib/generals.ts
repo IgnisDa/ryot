@@ -1,9 +1,7 @@
 import type { MantineColorScheme } from "@mantine/core";
 import {
-	GetPresignedS3UrlDocument,
 	MediaSource,
 	MetadataLot,
-	PresignedPutS3UrlDocument,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -21,7 +19,6 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { GraphQLClient } from "graphql-request";
 import { match } from "ts-pattern";
 
 dayjs.extend(relativeTime);
@@ -44,10 +41,6 @@ export const ApplicationKey = {
 	CurrentWorkout: getApplicationKeyAccessor(6),
 	Toast: getApplicationKeyAccessor(7),
 };
-
-export const gqlClientSide = new GraphQLClient("/backend/graphql", {
-	credentials: "include",
-});
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
@@ -214,32 +207,6 @@ export const getMetadataIcon = (lot: MetadataLot) => {
 		.with(MetadataLot.Anime, () => IconBooks)
 		.with(MetadataLot.VisualNovel, () => IconBook2)
 		.exhaustive();
-};
-
-export const uploadFileAndGetKey = async (
-	fileName: string,
-	prefix: string,
-	contentType: string,
-	body: ArrayBuffer | Buffer,
-) => {
-	const { presignedPutS3Url } = await gqlClientSide.request(
-		PresignedPutS3UrlDocument,
-		{ input: { fileName, prefix } },
-	);
-	await fetch(presignedPutS3Url.uploadUrl, {
-		method: "PUT",
-		body,
-		headers: { "Content-Type": contentType },
-	});
-	return presignedPutS3Url.key;
-};
-
-export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await gqlClientSide.request(
-		GetPresignedS3UrlDocument,
-		{ key },
-	);
-	return getPresignedS3Url;
 };
 
 export { dayjs as dayjsLib };

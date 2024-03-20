@@ -93,7 +93,7 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if insert {
-            associate_user_with_entity(&model.user_id, Some(model.metadata_id), None, db)
+            associate_user_with_entity(&model.user_id, Some(model.metadata_id), None, None, db)
                 .await
                 .ok();
         }

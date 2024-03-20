@@ -1,7 +1,16 @@
 import { parseWithZod } from "@conform-to/zod";
-import { json } from "@remix-run/node";
-import { UserLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	json,
+	unstable_composeUploadHandlers,
+	unstable_createMemoryUploadHandler,
+} from "@remix-run/node";
+import {
+	GetPresignedS3UrlDocument,
+	PresignedPutS3UrlDocument,
+	UserLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { ZodTypeAny, output, z } from "zod";
+import { API_URL, gqlClient } from "./api.server";
 import { authCookie } from "./cookies.server";
 
 export const expectedEnvironmentVariables = z.object({
@@ -72,3 +81,71 @@ export const getLogoutCookies = async () => {
 		expires: new Date(0),
 	});
 };
+
+export const uploadFileAndGetKey = async (
+	fileName: string,
+	prefix: string,
+	contentType: string,
+	body: ArrayBuffer | Buffer,
+) => {
+	const { presignedPutS3Url } = await gqlClient.request(
+		PresignedPutS3UrlDocument,
+		{ input: { fileName, prefix } },
+	);
+	await fetch(presignedPutS3Url.uploadUrl, {
+		method: "PUT",
+		body,
+		headers: { "Content-Type": contentType },
+	});
+	return presignedPutS3Url.key;
+};
+
+export const getPresignedGetUrl = async (key: string) => {
+	const { getPresignedS3Url } = await gqlClient.request(
+		GetPresignedS3UrlDocument,
+		{ key },
+	);
+	return getPresignedS3Url;
+};
+
+const asyncIterableToFile = async (
+	asyncIterable: AsyncIterable<Uint8Array>,
+	filename: string,
+) => {
+	const blob = [];
+	for await (const chunk of asyncIterable) blob.push(chunk);
+	return new File(blob, filename);
+};
+
+export const temporaryFileUploadHandler = unstable_composeUploadHandlers(
+	async (params) => {
+		if (params.filename && params.data) {
+			const formData = new FormData();
+			const file = await asyncIterableToFile(params.data, params.filename);
+			formData.append("files[]", file, params.filename);
+			const resp = await fetch(`${API_URL}/upload`, {
+				method: "POST",
+				body: formData,
+			});
+			const data = await resp.json();
+			return data[0];
+		}
+		return undefined;
+	},
+	unstable_createMemoryUploadHandler(),
+);
+
+export const s3FileUploader = (prefix: string) =>
+	unstable_composeUploadHandlers(async (params) => {
+		if (params.filename && params.data) {
+			const file = await asyncIterableToFile(params.data, params.filename);
+			const key = await uploadFileAndGetKey(
+				file.name,
+				prefix,
+				file.type,
+				await file.arrayBuffer(),
+			);
+			return key;
+		}
+		return undefined;
+	}, unstable_createMemoryUploadHandler());

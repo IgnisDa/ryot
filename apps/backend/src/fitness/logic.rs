@@ -151,7 +151,7 @@ impl UserWorkoutInput {
                 }
                 Some(e) => {
                     let performed = e.exercise_num_times_interacted.unwrap_or_default();
-                    let mut extra_info = e.exercise_extra_information.clone().unwrap();
+                    let mut extra_info = e.exercise_extra_information.clone().unwrap_or_default();
                     extra_info.history.insert(0, history_item);
                     let mut up: user_to_entity::ActiveModel = e.into();
                     up.exercise_num_times_interacted = ActiveValue::Set(Some(performed + 1));
@@ -205,7 +205,7 @@ impl UserWorkoutInput {
             let mut personal_bests = association
                 .exercise_extra_information
                 .clone()
-                .unwrap()
+                .unwrap_or_default()
                 .personal_bests;
             let types_of_prs = match db_ex.lot {
                 ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
@@ -260,8 +260,10 @@ impl UserWorkoutInput {
                     }
                 }
             }
-            let mut association_extra_information =
-                association.exercise_extra_information.clone().unwrap();
+            let mut association_extra_information = association
+                .exercise_extra_information
+                .clone()
+                .unwrap_or_default();
             let mut association: user_to_entity::ActiveModel = association.into();
             association_extra_information.lifetime_stats += total.clone();
             association_extra_information.personal_bests = personal_bests;
@@ -328,7 +330,10 @@ impl workout::Model {
                 None => continue,
                 Some(assoc) => assoc,
             };
-            let mut ei = association.exercise_extra_information.clone().unwrap();
+            let mut ei = association
+                .exercise_extra_information
+                .clone()
+                .unwrap_or_default();
             if let Some(ex_idx) = ei
                 .history
                 .iter()

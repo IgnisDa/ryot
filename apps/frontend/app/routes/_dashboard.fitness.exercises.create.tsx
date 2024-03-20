@@ -5,21 +5,19 @@ import {
 	FileInput,
 	Group,
 	MultiSelect,
-	ScrollArea,
 	Select,
 	Stack,
 	TextInput,
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useListState } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
 	MetaFunction,
 	json,
 	redirect,
+	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -31,18 +29,15 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 	ExerciseSource,
-	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase, cloneDeep } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { z } from "zod";
-import { MediaDetailsLayout } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import { processSubmission, s3FileUploader } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
@@ -56,14 +51,14 @@ export const meta: MetaFunction = () => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await request.formData();
+	const uploaders = s3FileUploader("exercises");
+	const formData = await unstable_parseMultipartFormData(request, uploaders);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as ExerciseMuscle[])
 		: [];
-	const images = JSON.parse(submission.images || "[]");
 	const instructions = submission.instructions;
-	const newInput = Object.assign(submission, {});
+	const newInput = cloneDeep(submission);
 	newInput.muscles = undefined;
 	newInput.instructions = undefined;
 	newInput.images = undefined;
@@ -72,7 +67,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		...newInput,
 		muscles,
 		attributes: {
-			images,
+			images: submission.images || [],
 			instructions: instructions?.split("\n") || [],
 		},
 	};
@@ -101,6 +96,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const optionalString = z.string().optional();
+const optionalStringArray = z.array(z.string()).optional();
 
 const schema = z.object({
 	id: z.string(),
@@ -111,114 +107,79 @@ const schema = z.object({
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscles: optionalString,
 	instructions: optionalString,
-	images: optionalString,
+	images: optionalStringArray,
 });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [imageUrls, setImageUrls] = useListState<{ key: string; url: string }>(
-		[],
-	);
 
 	const fileUploadNowAllowed = !loaderData.coreEnabledFeatures.fileStorage;
 
-	const uploadFiles = async (files: File[]) => {
-		if (files.length > 0) {
-			for (const file of files) {
-				const key = await uploadFileAndGetKey(
-					file.name,
-					"exercises",
-					file.type,
-					await file.arrayBuffer(),
-				);
-				const url = await getPresignedGetUrl(key);
-				setImageUrls.append({ key, url });
-			}
-			notifications.show({
-				title: "Success",
-				message: `Uploaded ${files.length} files`,
-			});
-		}
-	};
-
 	return (
 		<Container>
-			<MediaDetailsLayout
-				images={imageUrls.map((i) => i.url)}
-				externalLink={{ source: MediaSource.Custom }}
-			>
-				<ScrollArea.Autosize mah={400}>
-					<Form method="post" replace>
-						<Stack>
-							<Title>Create Exercise</Title>
-							<TextInput label="Name" required autoFocus name="id" />
-							<Select
-								label="Type"
-								data={Object.values(ExerciseLot).map((l) => ({
-									value: l,
-									label: changeCase(l),
-								}))}
-								required
-								name="lot"
-							/>
-							<Group wrap="nowrap">
-								<Select
-									label="Level"
-									data={Object.values(ExerciseLevel)}
-									required
-									name="level"
-								/>
-								<Select
-									label="Force"
-									data={Object.values(ExerciseForce)}
-									name="force"
-								/>
-							</Group>
-							<Group wrap="nowrap">
-								<Select
-									label="Equipment"
-									data={Object.values(ExerciseEquipment)}
-									name="equipment"
-								/>
-								<Select
-									label="Mechanic"
-									data={Object.values(ExerciseMechanic)}
-									name="mechanic"
-								/>
-							</Group>
-							<MultiSelect
-								label="Muscles"
-								data={Object.values(ExerciseMuscle)}
-								name="muscles"
-							/>
-							<Textarea
-								label="Instructions"
-								description="Separate each instruction with a newline"
-								name="instructions"
-							/>
-							<input
-								hidden
-								value={JSON.stringify(imageUrls.map((i) => i.key))}
-								name="images"
-								readOnly
-							/>
-							<FileInput
-								label="Images"
-								multiple
-								disabled={fileUploadNowAllowed}
-								description={
-									fileUploadNowAllowed &&
-									"Please set the S3 variables required to enable file uploading"
-								}
-								onChange={(f) => uploadFiles(f)}
-								accept="image/png,image/jpeg,image/jpg"
-								leftSection={<IconPhoto />}
-							/>
-							<Button type="submit">Create</Button>
-						</Stack>
-					</Form>
-				</ScrollArea.Autosize>
-			</MediaDetailsLayout>
+			<Form method="post" replace encType="multipart/form-data">
+				<Stack>
+					<Title>Create Exercise</Title>
+					<TextInput label="Name" required autoFocus name="id" />
+					<Select
+						label="Type"
+						data={Object.values(ExerciseLot).map((l) => ({
+							value: l,
+							label: changeCase(l),
+						}))}
+						required
+						name="lot"
+					/>
+					<Group wrap="nowrap">
+						<Select
+							label="Level"
+							data={Object.values(ExerciseLevel)}
+							required
+							name="level"
+						/>
+						<Select
+							label="Force"
+							data={Object.values(ExerciseForce)}
+							name="force"
+						/>
+					</Group>
+					<Group wrap="nowrap">
+						<Select
+							label="Equipment"
+							data={Object.values(ExerciseEquipment)}
+							name="equipment"
+						/>
+						<Select
+							label="Mechanic"
+							data={Object.values(ExerciseMechanic)}
+							name="mechanic"
+						/>
+					</Group>
+					<MultiSelect
+						label="Muscles"
+						data={Object.values(ExerciseMuscle)}
+						name="muscles"
+					/>
+					<Textarea
+						label="Instructions"
+						description="Separate each instruction with a newline"
+						name="instructions"
+					/>
+					<FileInput
+						label="Images"
+						name="images"
+						multiple
+						disabled={fileUploadNowAllowed}
+						description={
+							fileUploadNowAllowed &&
+							"Please set the S3 variables required to enable file uploading"
+						}
+						accept="image/png,image/jpeg,image/jpg"
+						leftSection={<IconPhoto />}
+					/>
+					<Button type="submit">Create</Button>
+				</Stack>
+			</Form>
 		</Container>
 	);
 }

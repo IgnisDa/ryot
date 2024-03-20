@@ -12,8 +12,8 @@ You can go to the reports page by clicking on "Reports" link on the imports page
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
-- You can see the descriptions of the failing importing steps by reviewing the
-  documentation of the `ImportFailStep` enum in the `/backend/graphql` endpoint.
+- You can see description of the importing steps by going to `<your instance
+  url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
 
 ## Goodreads
 

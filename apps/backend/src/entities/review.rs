@@ -118,9 +118,15 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if insert {
-            associate_user_with_entity(&model.user_id, model.metadata_id, model.person_id, db)
-                .await
-                .ok();
+            associate_user_with_entity(
+                &model.user_id,
+                model.metadata_id,
+                model.person_id,
+                None,
+                db,
+            )
+            .await
+            .ok();
         }
         Ok(model)
     }

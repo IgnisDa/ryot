@@ -26,8 +26,6 @@ import {
 	LoaderFunctionArgs,
 	MetaFunction,
 	json,
-	unstable_composeUploadHandlers,
-	unstable_createMemoryUploadHandler,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
@@ -52,12 +50,15 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { API_URL, getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { dayjsLib } from "~/lib/generals";
 import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	processSubmission,
+	temporaryFileUploadHandler,
+} from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, coreEnabledFeatures, { importReports }, { userExports }] =
@@ -87,27 +88,10 @@ export const meta: MetaFunction = () => {
 	return [{ title: "Imports and Exports | Ryot" }];
 };
 
-const uploadHandler = unstable_composeUploadHandlers(async (params) => {
-	if (params.filename && params.data) {
-		const formData = new FormData();
-		const blob = [];
-		for await (const chunk of params.data) blob.push(chunk);
-		const file = new File(blob, params.filename);
-		formData.append("files[]", file, params.filename);
-		const resp = await fetch(`${API_URL}/upload`, {
-			method: "POST",
-			body: formData,
-		});
-		const data = await resp.json();
-		return data[0];
-	}
-	return undefined;
-}, unstable_createMemoryUploadHandler());
-
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await unstable_parseMultipartFormData(
 		request,
-		uploadHandler,
+		temporaryFileUploadHandler,
 	);
 	return namedAction(request, {
 		deployImport: async () => {
