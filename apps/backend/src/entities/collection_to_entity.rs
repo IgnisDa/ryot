@@ -106,9 +106,15 @@ impl ActiveModelBehavior for ActiveModel {
                 .one(db)
                 .await?
                 .unwrap();
-            associate_user_with_entity(&collection.user_id, model.metadata_id, model.person_id, db)
-                .await
-                .ok();
+            associate_user_with_entity(
+                &collection.user_id,
+                model.metadata_id,
+                model.person_id,
+                None,
+                db,
+            )
+            .await
+            .ok();
         }
         Ok(model)
     }
