@@ -30,7 +30,7 @@ import {
 	ExerciseMuscle,
 	ExerciseSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase, cloneDeep } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { z } from "zod";
@@ -58,7 +58,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		? (submission.muscles.split(",") as ExerciseMuscle[])
 		: [];
 	const instructions = submission.instructions;
-	const newInput = Object.assign(submission, {});
+	const newInput = cloneDeep(submission);
 	newInput.muscles = undefined;
 	newInput.instructions = undefined;
 	newInput.images = undefined;
