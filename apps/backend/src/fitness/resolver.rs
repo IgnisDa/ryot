@@ -387,8 +387,10 @@ impl ExerciseService {
             .one(&self.db)
             .await?
         {
-            let user_to_exercise_extra_information =
-                association.exercise_extra_information.clone().unwrap();
+            let user_to_exercise_extra_information = association
+                .exercise_extra_information
+                .clone()
+                .unwrap_or_default();
             let workouts = Workout::find()
                 .filter(
                     workout::Column::Id.is_in(
@@ -834,11 +836,11 @@ impl ExerciseService {
                 association
                     .exercise_extra_information
                     .clone()
-                    .unwrap()
+                    .unwrap_or_default()
                     .history
                     .first()
                     .cloned()
-                    .unwrap()
+                    .unwrap_or_default()
                     .workout_id,
             )
             .one(&self.db)
