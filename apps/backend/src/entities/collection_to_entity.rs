@@ -110,7 +110,7 @@ impl ActiveModelBehavior for ActiveModel {
                 &collection.user_id,
                 model.metadata_id,
                 model.person_id,
-                None,
+                model.exercise_id.clone(),
                 db,
             )
             .await
