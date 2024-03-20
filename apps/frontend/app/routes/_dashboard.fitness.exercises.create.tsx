@@ -51,7 +51,7 @@ export const meta: MetaFunction = () => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const uploaders = s3FileUploader("metadata");
+	const uploaders = s3FileUploader("exercises");
 	const formData = await unstable_parseMultipartFormData(request, uploaders);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
