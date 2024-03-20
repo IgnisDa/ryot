@@ -11,14 +11,13 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useListState } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
 	MetaFunction,
 	json,
 	redirect,
+	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -36,10 +35,9 @@ import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { z } from "zod";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getPresignedGetUrl, uploadFileAndGetKey } from "~/lib/generals";
 import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import { processSubmission, s3FileUploader } from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
@@ -53,12 +51,12 @@ export const meta: MetaFunction = () => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await request.formData();
+	const uploaders = s3FileUploader("metadata");
+	const formData = await unstable_parseMultipartFormData(request, uploaders);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as ExerciseMuscle[])
 		: [];
-	const images = JSON.parse(submission.images || "[]");
 	const instructions = submission.instructions;
 	const newInput = Object.assign(submission, {});
 	newInput.muscles = undefined;
@@ -69,7 +67,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		...newInput,
 		muscles,
 		attributes: {
-			images,
+			images: submission.images || [],
 			instructions: instructions?.split("\n") || [],
 		},
 	};
@@ -98,6 +96,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const optionalString = z.string().optional();
+const optionalStringArray = z.array(z.string()).optional();
 
 const schema = z.object({
 	id: z.string(),
@@ -108,39 +107,17 @@ const schema = z.object({
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscles: optionalString,
 	instructions: optionalString,
-	images: optionalString,
+	images: optionalStringArray,
 });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [imageUrls, setImageUrls] = useListState<{ key: string; url: string }>(
-		[],
-	);
 
 	const fileUploadNowAllowed = !loaderData.coreEnabledFeatures.fileStorage;
 
-	const uploadFiles = async (files: File[]) => {
-		if (files.length > 0) {
-			for (const file of files) {
-				const key = await uploadFileAndGetKey(
-					file.name,
-					"exercises",
-					file.type,
-					await file.arrayBuffer(),
-				);
-				const url = await getPresignedGetUrl(key);
-				setImageUrls.append({ key, url });
-			}
-			notifications.show({
-				title: "Success",
-				message: `Uploaded ${files.length} files`,
-			});
-		}
-	};
-
 	return (
 		<Container>
-			<Form method="post" replace>
+			<Form method="post" replace encType="multipart/form-data">
 				<Stack>
 					<Title>Create Exercise</Title>
 					<TextInput label="Name" required autoFocus name="id" />
@@ -188,21 +165,15 @@ export default function Page() {
 						description="Separate each instruction with a newline"
 						name="instructions"
 					/>
-					<input
-						hidden
-						value={JSON.stringify(imageUrls.map((i) => i.key))}
-						name="images"
-						readOnly
-					/>
 					<FileInput
 						label="Images"
+						name="images"
 						multiple
 						disabled={fileUploadNowAllowed}
 						description={
 							fileUploadNowAllowed &&
 							"Please set the S3 variables required to enable file uploading"
 						}
-						onChange={(f) => uploadFiles(f)}
 						accept="image/png,image/jpeg,image/jpg"
 						leftSection={<IconPhoto />}
 					/>
