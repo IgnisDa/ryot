@@ -23,14 +23,14 @@ import {
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
-	DashboardElementLot,
+	type DashboardElementLot,
 	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	UserReviewScale,

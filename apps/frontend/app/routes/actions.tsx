@@ -1,6 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	ActionFunctionArgs,
+	type ActionFunctionArgs,
 	json,
 	redirect,
 	unstable_parseMultipartFormData,

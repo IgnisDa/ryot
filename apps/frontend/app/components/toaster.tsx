@@ -1,7 +1,7 @@
 import { Notifications, notifications } from "@mantine/notifications";
 import { useEffect } from "react";
 import { match } from "ts-pattern";
-import { Toast } from "~/lib/toast.server";
+import type { Toast } from "~/lib/toast.server";
 
 export function Toaster({ toast }: { toast?: Toast | null }) {
 	return (

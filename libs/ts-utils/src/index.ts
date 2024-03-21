@@ -2,7 +2,7 @@ import { UserUnitSystem } from "@ryot/generated/graphql/backend/graphql";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
-	HumanizeDurationOptions,
+	type HumanizeDurationOptions,
 } from "humanize-duration-ts";
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";

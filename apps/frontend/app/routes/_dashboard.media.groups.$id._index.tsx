@@ -10,7 +10,11 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
@@ -35,7 +39,7 @@ import {
 	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
-	PostReview,
+	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
 } from "~/components/media";

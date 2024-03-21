@@ -15,7 +15,11 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
@@ -45,7 +49,7 @@ import {
 } from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
-	PostReview,
+	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
 } from "~/components/media";

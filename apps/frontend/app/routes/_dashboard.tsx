@@ -19,16 +19,19 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
+import { type LoaderFunctionArgs, json } from "@remix-run/node";
 import {
 	Form,
 	Link,
 	NavLink,
 	Outlet,
-	ShouldRevalidateFunction,
+	type ShouldRevalidateFunction,
 	useLoaderData,
 } from "@remix-run/react";
-import { CoreDetails, UserLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	type CoreDetails,
+	UserLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
 	IconArchive,

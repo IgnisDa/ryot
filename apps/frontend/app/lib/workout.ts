@@ -5,13 +5,13 @@ import {
 	SetLot,
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
-	WorkoutSetStatistic,
+	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { Dayjs } from "dayjs";
+import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
-import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
+import type { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
 import { ApplicationKey } from "./generals";
 
 export type ExerciseSet = {

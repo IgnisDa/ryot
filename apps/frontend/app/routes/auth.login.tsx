@@ -2,9 +2,9 @@ import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { $path } from "@ignisda/remix-routes";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 	redirect,
 } from "@remix-run/node";

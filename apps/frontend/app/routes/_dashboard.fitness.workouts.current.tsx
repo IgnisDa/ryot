@@ -1,4 +1,4 @@
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { $path } from "@ignisda/remix-routes";
@@ -42,9 +42,9 @@ import {
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 	redirect,
 } from "@remix-run/node";
@@ -86,6 +86,7 @@ import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
@@ -98,13 +99,12 @@ import {
 } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
-	Exercise,
-	ExerciseSet,
+	type Exercise,
+	type ExerciseSet,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/workout";
-import { withQuery } from "ufo";
 
 const workoutCookieName = ApplicationKey.CurrentWorkout;
 const defaultTimerLocalStorageKey = ApplicationKey.DefaultExerciseRestTimer;
@@ -706,7 +706,7 @@ const ExerciseDisplay = (props: {
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
-									const defaultDuration = parseInt(
+									const defaultDuration = Number.parseInt(
 										localStorage.getItem(defaultTimerLocalStorageKey) || "20",
 									);
 									draft.exercises[props.exerciseIdx].restTimer = {
@@ -1119,7 +1119,7 @@ const ExerciseDisplay = (props: {
 															typeof newObject[key] === "string" &&
 															!Number.isNaN(newObject[key])
 														)
-															newObject[key] = parseFloat(
+															newObject[key] = Number.parseFloat(
 																newObject[key] as string,
 															);
 													return newObject;
@@ -1430,7 +1430,7 @@ const TimerDrawer = (props: {
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
 								if (!input) return;
-								const intInput = parseInt(input);
+								const intInput = Number.parseInt(input);
 								if (intInput) props.startTimer(intInput);
 								else alert("Invalid input");
 							}}

@@ -1,7 +1,7 @@
 import { Text } from "@mantine/core";
 import {
 	ExerciseLot,
-	UserUnitSystem,
+	type UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayDistanceWithUnit, displayWeightWithUnit } from "@ryot/ts-utils";

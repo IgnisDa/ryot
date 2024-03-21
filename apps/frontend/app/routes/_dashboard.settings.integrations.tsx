@@ -19,9 +19,9 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import {
@@ -37,7 +37,7 @@ import {
 	GenerateAuthTokenDocument,
 	UserIntegrationLot,
 	UserIntegrationsDocument,
-	UserIntegrationsQuery,
+	type UserIntegrationsQuery,
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";

@@ -10,9 +10,9 @@ import {
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import {
-	LinksFunction,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type LinksFunction,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import {
