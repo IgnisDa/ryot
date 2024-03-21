@@ -72,6 +72,9 @@ query UserPreferences {
         show
         videoGame
         visualNovel
+        people
+        groups
+        genres
       }
     }
   }

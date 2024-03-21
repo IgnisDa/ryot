@@ -5359,6 +5359,18 @@ impl MiscellaneousService {
                                         preferences.features_enabled.media.anime =
                                             value_bool.unwrap()
                                     }
+                                    "people" => {
+                                        preferences.features_enabled.media.people =
+                                            value_bool.unwrap()
+                                    }
+                                    "groups" => {
+                                        preferences.features_enabled.media.groups =
+                                            value_bool.unwrap()
+                                    }
+                                    "genres" => {
+                                        preferences.features_enabled.media.genres =
+                                            value_bool.unwrap()
+                                    }
                                     _ => return Err(err()),
                                 };
                             }
