@@ -159,6 +159,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
+const deleteUploadedAsset = (key: string) => {
+	const formData = new FormData();
+	formData.append("key", key);
+	fetch(withQuery("/actions", { intent: "deleteS3Asset" }), {
+		method: "POST",
+		body: formData,
+	});
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [parent] = useAutoAnimate();
@@ -397,6 +406,11 @@ export default function Page() {
 													"Are you sure you want to cancel this workout?",
 											});
 											if (yes) {
+												for (const e of currentWorkout.exercises) {
+													const assets = [...e.images, ...e.videos];
+													for (const asset of assets)
+														deleteUploadedAsset(asset.key);
+												}
 												navigate($path("/"));
 												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
@@ -683,15 +697,6 @@ const ExerciseDisplay = (props: {
 
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
-
-	const deleteUploadedAsset = (key: string) => {
-		const formData = new FormData();
-		formData.append("key", key);
-		fetch(withQuery("/actions", { intent: "deleteS3Asset" }), {
-			method: "POST",
-			body: formData,
-		});
-	};
 
 	return currentWorkout ? (
 		<>
