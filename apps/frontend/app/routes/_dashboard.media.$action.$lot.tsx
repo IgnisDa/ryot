@@ -202,7 +202,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		url: withoutHost(url.href),
 		collections: userCollectionsList,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
-		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
+		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 	});
 };
