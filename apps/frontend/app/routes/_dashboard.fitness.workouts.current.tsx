@@ -86,6 +86,7 @@ import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
+import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
@@ -144,17 +145,24 @@ export const meta: MetaFunction = () => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	const workout = JSON.parse(formData.get("workout") as string);
-	const { createUserWorkout } = await gqlClient.request(
-		CreateUserWorkoutDocument,
-		workout,
-		await getAuthorizationHeader(request),
-	);
-	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
-		headers: await createToastHeaders({
-			message: "Workout completed successfully",
-			type: "success",
-		}),
+	return namedAction(request, {
+		createWorkout: async () => {
+			const workout = JSON.parse(formData.get("workout") as string);
+			const { createUserWorkout } = await gqlClient.request(
+				CreateUserWorkoutDocument,
+				workout,
+				await getAuthorizationHeader(request),
+			);
+			return redirect(
+				$path("/fitness/workouts/:id", { id: createUserWorkout }),
+				{
+					headers: await createToastHeaders({
+						message: "Workout completed successfully",
+						type: "success",
+					}),
+				},
+			);
+		},
 	});
 };
 
@@ -369,7 +377,10 @@ export default function Page() {
 														interval.stop();
 														Cookies.remove(workoutCookieName);
 														createUserWorkoutFetcher.submit(
-															{ workout: JSON.stringify(input) },
+															{
+																intent: "createWorkout",
+																workout: JSON.stringify(input),
+															},
 															{ method: "post" },
 														);
 													}
