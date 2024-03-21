@@ -1,5 +1,10 @@
 import { $path } from "@ignisda/remix-routes";
-import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
+import {
+	ActionFunctionArgs,
+	json,
+	redirect,
+	unstable_parseMultipartFormData,
+} from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
 	CommitMetadataDocument,
@@ -28,6 +33,7 @@ import {
 	MetadataSpecificsSchema,
 	getLogoutCookies,
 	processSubmission,
+	s3FileUploader,
 } from "~/lib/utilities.server";
 
 export const loader = async () => redirect($path("/"));
@@ -49,6 +55,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			returnData = { commitMedia: commitMetadata };
+		})
+		.with("uploadWorkoutAsset", async () => {
+			const uploader = s3FileUploader("workouts");
+			const formData = await unstable_parseMultipartFormData(request, uploader);
+			const fileKey = formData.get("file");
+			returnData = { key: fileKey };
 		})
 		.with("commitPerson", async () => {
 			const submission = processSubmission(formData, commitPersonSchema);

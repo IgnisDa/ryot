@@ -47,12 +47,10 @@ import {
 	MetaFunction,
 	json,
 	redirect,
-	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
-	DeleteS3ObjectDocument,
 	ExerciseLot,
 	ExerciseSortBy,
 	SetLot,
@@ -106,7 +104,6 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/workout";
-import { s3FileUploader } from "~/lib/utilities.server";
 import { withQuery } from "ufo";
 
 const workoutCookieName = ApplicationKey.CurrentWorkout;
@@ -139,8 +136,7 @@ export const meta: MetaFunction = () => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const uploaders = s3FileUploader("workouts");
-	const formData = await unstable_parseMultipartFormData(request, uploaders);
+	const formData = await request.clone().formData();
 	return namedAction(request, {
 		createWorkout: async () => {
 			const workout = JSON.parse(formData.get("workout") as string);
@@ -551,12 +547,12 @@ const StatInput = (props: {
 const fileType = "image/jpeg";
 
 const ImageDisplay = (props: {
-	imageKey: string;
-	removeImage: (imageKey: string) => void;
+	imageSrc: string;
+	removeImage: () => void;
 }) => {
 	return (
 		<Box pos="relative">
-			<Avatar src={"imageUrl.data"} size="lg" />
+			<Avatar src={props.imageSrc} size="lg" />
 			<ActionIcon
 				pos="absolute"
 				top={0}
@@ -565,13 +561,7 @@ const ImageDisplay = (props: {
 				size="xs"
 				onClick={async () => {
 					const yes = confirm("Are you sure you want to remove this image?");
-					if (yes) {
-						const { deleteS3Object } = await gqlClientSide.request(
-							DeleteS3ObjectDocument,
-							{ key: props.imageKey },
-						);
-						if (deleteS3Object) props.removeImage(props.imageKey);
-					}
+					if (yes) props.removeImage();
 				}}
 			>
 				<IconTrash />
@@ -778,17 +768,17 @@ const ExerciseDisplay = (props: {
 						<>
 							{props.exercise.images.length > 0 ? (
 								<Avatar.Group spacing="xs">
-									{props.exercise.images.map((i) => (
+									{props.exercise.images.map((i, imgIdx) => (
 										<ImageDisplay
-											key={i}
-											imageKey={i}
+											key={i.key}
+											imageSrc={i.imageSrc}
 											removeImage={() => {
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images =
-															draft.exercises[props.exerciseIdx].images.filter(
-																(image) => image !== i,
-															);
+														const images =
+															draft.exercises[props.exerciseIdx].images;
+														images.splice(imgIdx, 1);
+														draft.exercises[props.exerciseIdx].images = images;
 													}),
 												);
 											}}
@@ -826,17 +816,24 @@ const ExerciseDisplay = (props: {
 													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
 													"base64",
 												);
-												const uploadedKey = await uploadFileAndGetKey(
-													"image.jpeg",
-													"workouts",
-													fileType,
-													buffer,
+												const fileObj = new File([buffer], "image.jpg", {
+													type: fileType,
+												});
+												const toSubmitForm = new FormData();
+												toSubmitForm.append("file", fileObj, "image.jpg");
+												const resp = await fetch(
+													withQuery("/actions", {
+														intent: "uploadWorkoutAsset",
+													}),
+													{ method: "POST", body: toSubmitForm },
 												);
+												const data = await resp.json();
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images.push(
-															uploadedKey,
-														);
+														draft.exercises[props.exerciseIdx].images.push({
+															imageSrc,
+															key: data.key,
+														});
 													}),
 												);
 											}
