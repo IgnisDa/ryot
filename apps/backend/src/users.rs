@@ -38,6 +38,12 @@ pub struct UserMediaFeaturesEnabledPreferences {
     pub show: bool,
     pub video_game: bool,
     pub visual_novel: bool,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub people: bool,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub groups: bool,
+    #[serde(default)] // FIXME: remove in the next major release
+    pub genres: bool,
 }
 
 impl Default for UserMediaFeaturesEnabledPreferences {
@@ -53,6 +59,9 @@ impl Default for UserMediaFeaturesEnabledPreferences {
             show: true,
             video_game: true,
             visual_novel: true,
+            people: true,
+            groups: true,
+            genres: true,
         }
     }
 }

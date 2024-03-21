@@ -1,4 +1,5 @@
-import { Buffer } from "node:buffer";
+// biome-ignore lint/style/useNodejsImportProtocol: This is a browser import
+import { Buffer } from "buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { $path } from "@ignisda/remix-routes";
@@ -155,6 +156,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				},
 			);
 		},
+	});
+};
+
+const deleteUploadedAsset = (key: string) => {
+	const formData = new FormData();
+	formData.append("key", key);
+	fetch(withQuery("/actions", { intent: "deleteS3Asset" }), {
+		method: "POST",
+		body: formData,
 	});
 };
 
@@ -396,6 +406,11 @@ export default function Page() {
 													"Are you sure you want to cancel this workout?",
 											});
 											if (yes) {
+												for (const e of currentWorkout.exercises) {
+													const assets = [...e.images, ...e.videos];
+													for (const asset of assets)
+														deleteUploadedAsset(asset.key);
+												}
 												navigate($path("/"));
 												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
@@ -773,6 +788,7 @@ const ExerciseDisplay = (props: {
 											key={i.key}
 											imageSrc={i.imageSrc}
 											removeImage={() => {
+												deleteUploadedAsset(i.key);
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
 														const images =
@@ -973,12 +989,18 @@ const ExerciseDisplay = (props: {
 									const yes = confirm(
 										`This removes '${props.exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 									);
-									if (yes)
+									if (yes) {
+										const assets = [
+											...props.exercise.images,
+											...props.exercise.videos,
+										];
+										for (const asset of assets) deleteUploadedAsset(asset.key);
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
 												draft.exercises.splice(props.exerciseIdx, 1);
 											}),
 										);
+									}
 								}}
 							>
 								Remove

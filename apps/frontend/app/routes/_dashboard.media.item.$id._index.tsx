@@ -171,6 +171,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			reviewScale: userPreferences.general.reviewScale,
 			videosDisabled: userPreferences.general.disableVideos,
 			watchProvidersDisabled: userPreferences.general.disableWatchProviders,
+			peopleEnabled: userPreferences.featuresEnabled.media.people,
+			groupsEnabled: userPreferences.featuresEnabled.media.groups,
+			genresEnabled: userPreferences.featuresEnabled.media.genres,
 		},
 		coreDetails: {
 			itemDetailsHeight: coreDetails.itemDetailsHeight,
@@ -570,7 +573,8 @@ export default function Page() {
 					}}
 				>
 					<Box>
-						{loaderData.mediaMainDetails.group ? (
+						{loaderData.userPreferences.groupsEnabled &&
+						loaderData.mediaMainDetails.group ? (
 							<Link
 								to={$path("/media/groups/:id", {
 									id: loaderData.mediaMainDetails.group.id,
@@ -868,28 +872,30 @@ export default function Page() {
 										cols={{ base: 3, xl: 4 }}
 										spacing={{ base: "md", lg: "xs" }}
 									>
-										{loaderData.mediaMainDetails.genres
-											.slice(0, 12)
-											.map((g) => (
-												<Group key={g.id} wrap="nowrap">
-													<Box
-														h={11}
-														w={11}
-														style={{ borderRadius: 2, flex: "none" }}
-														bg={getMantineColor(g.name)}
-													/>
-													<Anchor
-														component={Link}
-														to={$path("/media/genre/:id", {
-															id: g.id,
-														})}
-														fz="sm"
-														truncate
-													>
-														{g.name.trim()}
-													</Anchor>
-												</Group>
-											))}
+										{loaderData.userPreferences.genresEnabled
+											? loaderData.mediaMainDetails.genres
+													.slice(0, 12)
+													.map((g) => (
+														<Group key={g.id} wrap="nowrap">
+															<Box
+																h={11}
+																w={11}
+																style={{ borderRadius: 2, flex: "none" }}
+																bg={getMantineColor(g.name)}
+															/>
+															<Anchor
+																component={Link}
+																to={$path("/media/genre/:id", {
+																	id: g.id,
+																})}
+																fz="sm"
+																truncate
+															>
+																{g.name.trim()}
+															</Anchor>
+														</Group>
+													))
+											: null}
 									</SimpleGrid>
 									{loaderData.mediaMainDetails.description ? (
 										<div
@@ -899,57 +905,64 @@ export default function Page() {
 											}}
 										/>
 									) : null}
-									<Stack>
-										<Suspense fallback={<FallbackForDefer />}>
-											<Await resolve={loaderData.mediaAdditionalDetails}>
-												{({ metadataDetails: mediaAdditionalDetails }) =>
-													mediaAdditionalDetails.creators.map((c) => (
-														<Box key={c.name}>
-															<Text fw="bold">{c.name}</Text>
-															<ScrollArea
-																mt="xs"
-																w={{
-																	base: 380,
-																	xs: 440,
-																	sm: 480,
-																	md: 520,
-																	lg: 580,
-																}}
-															>
-																<Flex gap="md">
-																	{c.items.map((creator) => (
-																		<Box key={`${creator.id}-${creator.name}`}>
-																			{creator.id ? (
-																				<Anchor
-																					component={Link}
-																					data-creator-id={creator.id}
-																					to={$path("/media/people/item/:id", {
-																						id: creator.id,
-																					})}
-																				>
+									{loaderData.userPreferences.peopleEnabled ? (
+										<Stack>
+											<Suspense fallback={<FallbackForDefer />}>
+												<Await resolve={loaderData.mediaAdditionalDetails}>
+													{({ metadataDetails: mediaAdditionalDetails }) =>
+														mediaAdditionalDetails.creators.map((c) => (
+															<Box key={c.name}>
+																<Text fw="bold">{c.name}</Text>
+																<ScrollArea
+																	mt="xs"
+																	w={{
+																		base: 380,
+																		xs: 440,
+																		sm: 480,
+																		md: 520,
+																		lg: 580,
+																	}}
+																>
+																	<Flex gap="md">
+																		{c.items.map((creator) => (
+																			<Box
+																				key={`${creator.id}-${creator.name}`}
+																			>
+																				{creator.id ? (
+																					<Anchor
+																						component={Link}
+																						data-creator-id={creator.id}
+																						to={$path(
+																							"/media/people/item/:id",
+																							{
+																								id: creator.id,
+																							},
+																						)}
+																					>
+																						<MetadataCreator
+																							name={creator.name}
+																							image={creator.image}
+																							character={creator.character}
+																						/>
+																					</Anchor>
+																				) : (
 																					<MetadataCreator
 																						name={creator.name}
 																						image={creator.image}
 																						character={creator.character}
 																					/>
-																				</Anchor>
-																			) : (
-																				<MetadataCreator
-																					name={creator.name}
-																					image={creator.image}
-																					character={creator.character}
-																				/>
-																			)}
-																		</Box>
-																	))}
-																</Flex>
-															</ScrollArea>
-														</Box>
-													))
-												}
-											</Await>
-										</Suspense>
-									</Stack>
+																				)}
+																			</Box>
+																		))}
+																	</Flex>
+																</ScrollArea>
+															</Box>
+														))
+													}
+												</Await>
+											</Suspense>
+										</Stack>
+									) : null}
 								</Stack>
 							</MediaScrollArea>
 						</Tabs.Panel>

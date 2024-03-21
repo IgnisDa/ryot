@@ -66,6 +66,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
 			.filter(([v, _]) => v !== "enabled")
+			.filter(([name, _]) => getLot(name) !== undefined)
 			.map(([name, enabled]) => {
 				// biome-ignore lint/style/noNonNullAssertion: required here
 				return { name: getLot(name)!, enabled };
@@ -77,21 +78,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 					href: undefined,
 				};
 			}) || []),
-		{ label: "Groups", href: $path("/media/groups/list") },
-		{
-			label: "People",
-			href: $path("/media/people/:action", { action: "list" }),
-		},
-		{ label: "Genres", href: $path("/media/genre/list") },
-	].map((link, _index) => ({
-		label: link.label,
-		link: link.href
-			? link.href
-			: $path("/media/:action/:lot", {
-					action: "list",
-					lot: link.label.toLowerCase(),
-			  }),
-	}));
+		userPreferences.featuresEnabled.media.groups
+			? {
+					label: "Groups",
+					href: $path("/media/groups/list"),
+			  }
+			: undefined,
+		userPreferences.featuresEnabled.media.people
+			? {
+					label: "People",
+					href: $path("/media/people/:action", { action: "list" }),
+			  }
+			: undefined,
+		userPreferences.featuresEnabled.media.genres
+			? {
+					label: "Genres",
+					href: $path("/media/genre/list"),
+			  }
+			: undefined,
+	]
+		.filter(Boolean)
+		.map((link, _index) =>
+			link
+				? {
+						label: link.label,
+						link: link.href
+							? link.href
+							: $path("/media/:action/:lot", {
+									action: "list",
+									lot: link.label.toLowerCase(),
+							  }),
+				  }
+				: undefined,
+		);
 
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
