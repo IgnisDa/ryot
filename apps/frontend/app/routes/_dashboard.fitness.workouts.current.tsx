@@ -1,4 +1,5 @@
-import { Buffer } from "node:buffer";
+// biome-ignore lint/style/useNodejsImportProtocol: This is a browser import
+import { Buffer } from "buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { $path } from "@ignisda/remix-routes";
