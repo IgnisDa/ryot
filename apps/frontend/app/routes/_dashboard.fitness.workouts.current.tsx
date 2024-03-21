@@ -684,6 +684,8 @@ const ExerciseDisplay = (props: {
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
+	const fetcher = useFetcher();
+
 	return currentWorkout ? (
 		<>
 			<SupersetExerciseModal
@@ -774,6 +776,14 @@ const ExerciseDisplay = (props: {
 											key={i.key}
 											imageSrc={i.imageSrc}
 											removeImage={() => {
+												const formData = new FormData();
+												formData.append("key", i.key);
+												fetcher.submit(formData, {
+													method: "POST",
+													action: withQuery("/actions", {
+														intent: "deleteS3Asset",
+													}),
+												});
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
 														const images =

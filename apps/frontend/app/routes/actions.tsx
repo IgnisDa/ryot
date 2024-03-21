@@ -13,6 +13,7 @@ import {
 	CreateReviewCommentDocument,
 	DeleteMediaReminderDocument,
 	DeleteReviewDocument,
+	DeleteS3ObjectDocument,
 	EntityLot,
 	MediaSource,
 	MetadataLot,
@@ -61,6 +62,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const formData = await unstable_parseMultipartFormData(request, uploader);
 			const fileKey = formData.get("file");
 			returnData = { key: fileKey };
+		})
+		.with("deleteS3Asset", async () => {
+			const key = formData.get("key") as string;
+			const { deleteS3Object } = await gqlClient.request(
+				DeleteS3ObjectDocument,
+				{ key },
+			);
+			returnData = { success: deleteS3Object };
 		})
 		.with("commitPerson", async () => {
 			const submission = processSubmission(formData, commitPersonSchema);
