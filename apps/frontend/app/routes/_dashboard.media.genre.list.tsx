@@ -11,7 +11,11 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";

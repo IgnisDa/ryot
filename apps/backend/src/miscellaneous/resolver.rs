@@ -1397,7 +1397,11 @@ impl MiscellaneousService {
 
         tokio::spawn(async move {
             cache_clone
-                .monitor(4, 0.25, ChronoDuration::minutes(3).to_std().unwrap())
+                .monitor(
+                    4,
+                    0.25,
+                    ChronoDuration::try_minutes(3).unwrap().to_std().unwrap(),
+                )
                 .await
         });
 
@@ -2611,7 +2615,8 @@ impl MiscellaneousService {
                 .insert(
                     cache,
                     (),
-                    ChronoDuration::hours(self.config.server.progress_update_threshold)
+                    ChronoDuration::try_hours(self.config.server.progress_update_threshold)
+                        .unwrap()
                         .to_std()
                         .unwrap(),
                 )

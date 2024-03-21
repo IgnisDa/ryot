@@ -21,7 +21,11 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
@@ -486,7 +490,7 @@ const DisplayLifetimeStatistic = (props: {
 	val: string | number;
 	stat: string;
 }) => {
-	return parseFloat(props.val.toString()) !== 0 ? (
+	return Number.parseFloat(props.val.toString()) !== 0 ? (
 		<Flex mt={6} align="center" justify="space-between">
 			<Text size="sm">Total {props.stat}</Text>
 			<Text size="sm">{props.val}</Text>

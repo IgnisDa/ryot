@@ -256,7 +256,7 @@ impl ImporterService {
             .all(&self.media_service.db)
             .await?;
         for job in all_jobs {
-            if Utc::now() - job.started_on > Duration::hours(24) {
+            if Utc::now() - job.started_on > Duration::try_hours(24).unwrap() {
                 tracing::debug!("Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
                 job.success = ActiveValue::Set(Some(false));

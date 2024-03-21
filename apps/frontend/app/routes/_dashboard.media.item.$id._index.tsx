@@ -33,9 +33,9 @@ import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	defer,
 	json,
 	redirect,
@@ -50,7 +50,7 @@ import {
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataAdditionalDetailsDocument,
-	MetadataAdditionalDetailsQuery,
+	type MetadataAdditionalDetailsQuery,
 	MetadataLot,
 	MetadataMainDetailsDocument,
 	MetadataVideoSource,
@@ -58,7 +58,7 @@ import {
 	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
 	UserMetadataDetailsDocument,
-	UserMetadataDetailsQuery,
+	type UserMetadataDetailsQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -86,7 +86,7 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { Fragment, ReactNode, Suspense, useState } from "react";
+import { Fragment, type ReactNode, Suspense, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -105,7 +105,7 @@ import {
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
-	PostReview,
+	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
 } from "~/components/media";
@@ -141,7 +141,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const id = params.id;
 	invariant(id, "No ID provided");
-	const metadataId = parseInt(id);
+	const metadataId = Number.parseInt(id);
 	const headers = await getAuthorizationHeader(request);
 	const [
 		coreDetails,

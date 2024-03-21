@@ -1,6 +1,10 @@
 import { $path } from "@ignisda/remix-routes";
 import { Box, Center, Container, Stack, Text, Title } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";

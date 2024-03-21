@@ -8,9 +8,9 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";

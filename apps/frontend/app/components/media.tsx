@@ -22,7 +22,7 @@ import {
 	ScrollArea,
 	SegmentedControl,
 	Stack,
-	StyleProp,
+	type StyleProp,
 	Text,
 	TextInput,
 	Textarea,
@@ -41,11 +41,11 @@ import {
 } from "@remix-run/react";
 import {
 	EntityLot,
-	MediaSource,
+	type MediaSource,
 	MetadataLot,
 	type PartialMetadata,
 	type ReviewItem,
-	UserMediaReminderPartFragment,
+	type UserMediaReminderPartFragment,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -63,7 +63,7 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
@@ -74,7 +74,7 @@ import {
 	redirectToQueryParam,
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import { ApplicationUser } from "~/lib/utilities.server";
+import type { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/common.module.css";
 import { HiddenLocationInput } from "./common";
 import { confirmWrapper } from "./confirmation";
@@ -629,7 +629,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 								{match(props.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
 										// biome-ignore lint/style/noNonNullAssertion: it is validated above
-										parseFloat(props.averageRating!.toString()).toFixed(1),
+										Number.parseFloat(props.averageRating!.toString()).toFixed(
+											1,
+										),
 									)
 									.with(UserReviewScale.OutOfHundred, () => props.averageRating)
 									.exhaustive()}{" "}

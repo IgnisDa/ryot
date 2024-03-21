@@ -13,7 +13,7 @@ pub struct Claims {
 impl Claims {
     pub fn new(sub: String, token_valid_for_days: i64) -> Self {
         let iat = Utc::now();
-        let exp = iat + Duration::days(token_valid_for_days);
+        let exp = iat + Duration::try_days(token_valid_for_days).unwrap();
 
         Self {
             sub,

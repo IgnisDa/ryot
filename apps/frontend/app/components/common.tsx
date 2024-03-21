@@ -11,7 +11,7 @@ import {
 	Modal,
 	MultiSelect,
 	Pagination,
-	PaginationProps,
+	type PaginationProps,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -28,7 +28,7 @@ import type {
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { ReactNode, forwardRef, useRef } from "react";
+import { type ReactNode, forwardRef, useRef } from "react";
 import { useState } from "react";
 import { withoutHost } from "ufo";
 import events from "~/lib/events";

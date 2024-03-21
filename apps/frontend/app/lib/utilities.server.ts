@@ -7,9 +7,9 @@ import {
 import {
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
-	UserLot,
+	type UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { ZodTypeAny, output, z } from "zod";
+import { type ZodTypeAny, type output, z } from "zod";
 import { API_URL, gqlClient } from "./api.server";
 import { authCookie } from "./cookies.server";
 
@@ -53,7 +53,7 @@ export type ApplicationUser = {
 
 const emptyNumberString = z
 	.any()
-	.transform((v) => (!v ? undefined : parseInt(v)))
+	.transform((v) => (!v ? undefined : Number.parseInt(v)))
 	.nullable();
 
 export const MetadataSpecificsSchema = z.object({

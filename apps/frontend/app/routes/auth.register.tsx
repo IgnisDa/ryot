@@ -3,9 +3,9 @@ import { parseWithZod } from "@conform-to/zod";
 import { $path } from "@ignisda/remix-routes";
 import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, Link } from "@remix-run/react";

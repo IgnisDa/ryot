@@ -12,12 +12,16 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
-	UserUnitSystem,
+	type UserUnitSystem,
 	UserWorkoutListDocument,
-	UserWorkoutListQuery,
+	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
@@ -27,7 +31,7 @@ import {
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
-import { ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import {

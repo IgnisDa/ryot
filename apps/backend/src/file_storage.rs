@@ -33,7 +33,8 @@ impl FileStorageService {
             .bucket(&self.bucket_name)
             .key(key)
             .presigned(
-                PresigningConfig::expires_in(Duration::minutes(90).to_std().unwrap()).unwrap(),
+                PresigningConfig::expires_in(Duration::try_minutes(90).unwrap().to_std().unwrap())
+                    .unwrap(),
             )
             .await
             .unwrap()
@@ -67,7 +68,8 @@ impl FileStorageService {
             .key(&key)
             .set_metadata(metadata)
             .presigned(
-                PresigningConfig::expires_in(Duration::minutes(10).to_std().unwrap()).unwrap(),
+                PresigningConfig::expires_in(Duration::try_minutes(10).unwrap().to_std().unwrap())
+                    .unwrap(),
             )
             .await
             .unwrap()

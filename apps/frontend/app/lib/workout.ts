@@ -5,13 +5,13 @@ import {
 	SetLot,
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
-	WorkoutSetStatistic,
+	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { Dayjs } from "dayjs";
+import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
-import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
+import type { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
 import { ApplicationKey } from "./generals";
 
 export type ExerciseSet = {
@@ -23,6 +23,8 @@ export type ExerciseSet = {
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
+type Media = { imageSrc: string; key: string };
+
 export type Exercise = {
 	identifier: string;
 	exerciseId: string;
@@ -32,8 +34,8 @@ export type Exercise = {
 	sets: Array<ExerciseSet>;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 	restTimer?: { enabled: boolean; duration: number } | null;
-	videos: string[];
-	images: string[];
+	videos: Media[];
+	images: Media[];
 	supersetWith: Array<string>;
 };
 
@@ -219,7 +221,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 			sets,
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			supersetWith: exercise.supersetWith as any,
-			assets: { images: [...exercise.images], videos: [...exercise.videos] },
+			assets: {
+				images: exercise.images.map((m) => m.key),
+				videos: exercise.videos.map((m) => m.key),
+			},
 			restTime: exercise.restTimer?.enabled
 				? exercise.restTimer.duration
 				: undefined,
@@ -232,8 +237,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			input.input.exercises.findIndex((e: any) => e.identifier === identifier),
 		);
 		supersetWith = supersetWith.filter((idx) => idx !== -1);
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		ex.supersetWith = supersetWith as any;
+		ex.supersetWith = supersetWith;
 	}
 	for (const ex of input.input.exercises) {
 		// biome-ignore lint/suspicious/noExplicitAny: required here

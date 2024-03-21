@@ -1,4 +1,4 @@
-import { Buffer } from "buffer";
+import { Buffer } from "node:buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { $path } from "@ignisda/remix-routes";
@@ -42,16 +42,15 @@ import {
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 	redirect,
 } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
-	DeleteS3ObjectDocument,
 	ExerciseLot,
 	ExerciseSortBy,
 	SetLot,
@@ -76,7 +75,6 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
@@ -86,19 +84,14 @@ import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
+import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import {
-	ApplicationKey,
-	dayjsLib,
-	getPresignedGetUrl,
-	getSetColor,
-	gqlClientSide,
-	uploadFileAndGetKey,
-} from "~/lib/generals";
+import { ApplicationKey, dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getCoreEnabledFeatures,
@@ -106,8 +99,8 @@ import {
 } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
-	Exercise,
-	ExerciseSet,
+	type Exercise,
+	type ExerciseSet,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
@@ -144,17 +137,24 @@ export const meta: MetaFunction = () => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	const workout = JSON.parse(formData.get("workout") as string);
-	const { createUserWorkout } = await gqlClient.request(
-		CreateUserWorkoutDocument,
-		workout,
-		await getAuthorizationHeader(request),
-	);
-	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
-		headers: await createToastHeaders({
-			message: "Workout completed successfully",
-			type: "success",
-		}),
+	return namedAction(request, {
+		createWorkout: async () => {
+			const workout = JSON.parse(formData.get("workout") as string);
+			const { createUserWorkout } = await gqlClient.request(
+				CreateUserWorkoutDocument,
+				workout,
+				await getAuthorizationHeader(request),
+			);
+			return redirect(
+				$path("/fitness/workouts/:id", { id: createUserWorkout }),
+				{
+					headers: await createToastHeaders({
+						message: "Workout completed successfully",
+						type: "success",
+					}),
+				},
+			);
+		},
 	});
 };
 
@@ -370,7 +370,13 @@ export default function Page() {
 														Cookies.remove(workoutCookieName);
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
-															{ method: "post" },
+															{
+																method: "post",
+																action: withQuery(".", {
+																	intent: "createWorkout",
+																}),
+																encType: "multipart/form-data",
+															},
 														);
 													}
 												}}
@@ -541,20 +547,12 @@ const StatInput = (props: {
 const fileType = "image/jpeg";
 
 const ImageDisplay = (props: {
-	imageKey: string;
-	removeImage: (imageKey: string) => void;
+	imageSrc: string;
+	removeImage: () => void;
 }) => {
-	const imageUrl = useQuery({
-		queryKey: ["presignedUrl", props.imageKey],
-		queryFn: async () => {
-			return await getPresignedGetUrl(props.imageKey);
-		},
-		staleTime: Infinity,
-	});
-
-	return imageUrl.data ? (
+	return (
 		<Box pos="relative">
-			<Avatar src={imageUrl.data} size="lg" />
+			<Avatar src={props.imageSrc} size="lg" />
 			<ActionIcon
 				pos="absolute"
 				top={0}
@@ -563,19 +561,13 @@ const ImageDisplay = (props: {
 				size="xs"
 				onClick={async () => {
 					const yes = confirm("Are you sure you want to remove this image?");
-					if (yes) {
-						const { deleteS3Object } = await gqlClientSide.request(
-							DeleteS3ObjectDocument,
-							{ key: props.imageKey },
-						);
-						if (deleteS3Object) props.removeImage(props.imageKey);
-					}
+					if (yes) props.removeImage();
 				}}
 			>
 				<IconTrash />
 			</ActionIcon>
 		</Box>
-	) : null;
+	);
 };
 
 const SupersetExerciseModal = (props: {
@@ -714,7 +706,7 @@ const ExerciseDisplay = (props: {
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
-									const defaultDuration = parseInt(
+									const defaultDuration = Number.parseInt(
 										localStorage.getItem(defaultTimerLocalStorageKey) || "20",
 									);
 									draft.exercises[props.exerciseIdx].restTimer = {
@@ -776,17 +768,17 @@ const ExerciseDisplay = (props: {
 						<>
 							{props.exercise.images.length > 0 ? (
 								<Avatar.Group spacing="xs">
-									{props.exercise.images.map((i) => (
+									{props.exercise.images.map((i, imgIdx) => (
 										<ImageDisplay
-											key={i}
-											imageKey={i}
+											key={i.key}
+											imageSrc={i.imageSrc}
 											removeImage={() => {
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images =
-															draft.exercises[props.exerciseIdx].images.filter(
-																(image) => image !== i,
-															);
+														const images =
+															draft.exercises[props.exerciseIdx].images;
+														images.splice(imgIdx, 1);
+														draft.exercises[props.exerciseIdx].images = images;
 													}),
 												);
 											}}
@@ -824,17 +816,24 @@ const ExerciseDisplay = (props: {
 													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
 													"base64",
 												);
-												const uploadedKey = await uploadFileAndGetKey(
-													"image.jpeg",
-													"workouts",
-													fileType,
-													buffer,
+												const fileObj = new File([buffer], "image.jpg", {
+													type: fileType,
+												});
+												const toSubmitForm = new FormData();
+												toSubmitForm.append("file", fileObj, "image.jpg");
+												const resp = await fetch(
+													withQuery("/actions", {
+														intent: "uploadWorkoutAsset",
+													}),
+													{ method: "POST", body: toSubmitForm },
 												);
+												const data = await resp.json();
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images.push(
-															uploadedKey,
-														);
+														draft.exercises[props.exerciseIdx].images.push({
+															imageSrc,
+															key: data.key,
+														});
 													}),
 												);
 											}
@@ -1120,7 +1119,7 @@ const ExerciseDisplay = (props: {
 															typeof newObject[key] === "string" &&
 															!Number.isNaN(newObject[key])
 														)
-															newObject[key] = parseFloat(
+															newObject[key] = Number.parseFloat(
 																newObject[key] as string,
 															);
 													return newObject;
@@ -1431,7 +1430,7 @@ const TimerDrawer = (props: {
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
 								if (!input) return;
-								const intInput = parseInt(input);
+								const intInput = Number.parseInt(input);
 								if (intInput) props.startTimer(intInput);
 								else alert("Invalid input");
 							}}

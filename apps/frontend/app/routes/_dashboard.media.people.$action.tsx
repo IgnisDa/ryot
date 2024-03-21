@@ -15,7 +15,11 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
@@ -45,7 +49,7 @@ import {
 } from "~/components/common";
 import {
 	BaseDisplayItem,
-	Item,
+	type Item,
 	MediaItemWithoutUpdateModal,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";

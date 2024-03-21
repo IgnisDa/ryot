@@ -11,11 +11,15 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	UserCalendarEventsDocument,
-	UserCalendarEventsQuery,
+	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";

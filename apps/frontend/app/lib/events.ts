@@ -1,5 +1,5 @@
 import type Umami from "@bitprojects/umami-logger-typescript";
-import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 
 declare global {
 	interface Window {

@@ -7,7 +7,7 @@ use std::{
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use async_trait::async_trait;
 use boilermates::boilermates;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDate};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaSource, MetadataLot, SeenState, Visibility,
@@ -392,9 +392,9 @@ pub mod media {
             where
                 E: de::Error,
             {
-                NaiveDateTime::from_timestamp_millis(v.try_into().unwrap())
+                DateTime::from_timestamp_millis(v.try_into().unwrap())
                     .ok_or_else(|| E::custom("Could not convert timestamp"))
-                    .map(|d| d.date())
+                    .map(|d| d.date_naive())
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>

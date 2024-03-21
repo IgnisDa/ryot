@@ -22,9 +22,9 @@ import { DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 	redirect,
 } from "@remix-run/node";

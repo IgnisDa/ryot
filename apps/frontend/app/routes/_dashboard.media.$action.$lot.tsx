@@ -16,7 +16,11 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import {
 	Link,
 	useLoaderData,
@@ -34,7 +38,7 @@ import {
 	MetadataLot,
 	MetadataSearchDocument,
 	UserCollectionsListDocument,
-	UserReviewScale,
+	type UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -61,7 +65,7 @@ import {
 	DebouncedSearchInput,
 } from "~/components/common";
 import {
-	Item,
+	type Item,
 	MediaItemWithoutUpdateModal,
 	NewUserGuideAlert,
 	commitMedia,
@@ -202,7 +206,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		url: withoutHost(url.href),
 		collections: userCollectionsList,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
-		mediaInteractedWith: latestUserSummary.media.mediaInteractedWith,
+		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 	});
 };

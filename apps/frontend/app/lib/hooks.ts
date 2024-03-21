@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "@remix-run/react";
 import { useAtom } from "jotai";
 import Cookies from "js-cookie";
 import { ApplicationKey, getStringAsciiValue } from "./generals";
-import { InProgressWorkout, currentWorkoutAtom } from "./workout";
+import { type InProgressWorkout, currentWorkoutAtom } from "./workout";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();

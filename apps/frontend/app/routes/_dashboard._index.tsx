@@ -13,17 +13,21 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
-	CalendarEventPartFragment,
+	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MetadataLot,
 	UserCollectionsListDocument,
-	UserMediaFeaturesEnabledPreferences,
+	type UserMediaFeaturesEnabledPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
@@ -35,7 +39,7 @@ import {
 	IconServer,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";

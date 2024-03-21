@@ -22,14 +22,14 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
-	FetcherWithComponents,
+	type FetcherWithComponents,
 	Form,
 	useFetcher,
 	useLoaderData,
@@ -44,7 +44,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconDownload } from "@tabler/icons-react";
-import { ReactNode, RefObject, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";

@@ -22,7 +22,11 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	ExerciseEquipment,

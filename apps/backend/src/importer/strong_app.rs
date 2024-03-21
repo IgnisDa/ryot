@@ -45,7 +45,7 @@ pub async fn import(
         .offset_from_utc_datetime(&Utc::now().naive_utc())
         .fix()
         .local_minus_utc();
-    let offset = Duration::seconds(offset.into());
+    let offset = Duration::try_seconds(offset.into()).unwrap();
     let file_string = fs::read_to_string(&input.export_path)?;
     // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
     let data = file_string.clone();
@@ -121,9 +121,9 @@ pub async fn import(
                 let minutes = captures.get(2).map_or(0, |m| {
                     m.as_str().trim_end_matches('m').parse::<i64>().unwrap_or(0)
                 });
-                Duration::hours(hours) + Duration::minutes(minutes)
+                Duration::try_hours(hours).unwrap() + Duration::try_minutes(minutes).unwrap()
             } else {
-                Duration::seconds(0)
+                Duration::try_seconds(0).unwrap()
             };
             workouts.push(UserWorkoutInput {
                 id: None,

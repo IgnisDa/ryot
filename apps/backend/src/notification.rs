@@ -15,7 +15,7 @@ impl UserNotificationSetting {
     pub async fn send_message(&self, config: &Arc<AppConfig>, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);
         if env::var("DISABLE_NOTIFICATIONS").is_ok() {
-            tracing::warn!("Notifications not sent, body was: {}", msg);
+            tracing::warn!("Notification not sent. Body was: {:#?}", msg);
             return Ok(());
         }
         match self {

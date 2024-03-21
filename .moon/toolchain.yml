@@ -4,7 +4,7 @@ node:
   version: "20.10.0"
   packageManager: "yarn"
   yarn:
-    version: "4.0.2"
+    version: "4.1.1"
   addEnginesConstraint: true
   dedupeOnLockfileChange: false
   inferTasksFromScripts: false

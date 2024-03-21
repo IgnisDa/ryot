@@ -25,19 +25,19 @@ import { DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
 	EditUserWorkoutDocument,
-	ExerciseLot,
+	type ExerciseLot,
 	SetLot,
 	WorkoutDetailsDocument,
-	WorkoutDetailsQuery,
+	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	displayDistanceWithUnit,
@@ -60,7 +60,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -375,7 +375,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 			const exerciseDetails = await getExerciseDetails(props.exercise.name);
 			return exerciseDetails;
 		},
-		staleTime: Infinity,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 	const supersetLinks =
