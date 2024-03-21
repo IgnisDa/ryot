@@ -47,6 +47,7 @@ import {
 	MetaFunction,
 	json,
 	redirect,
+	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import {
@@ -76,7 +77,6 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
@@ -92,14 +92,7 @@ import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import {
-	ApplicationKey,
-	dayjsLib,
-	getPresignedGetUrl,
-	getSetColor,
-	gqlClientSide,
-	uploadFileAndGetKey,
-} from "~/lib/generals";
+import { ApplicationKey, dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	getCoreDetails,
 	getCoreEnabledFeatures,
@@ -113,6 +106,8 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/workout";
+import { s3FileUploader } from "~/lib/utilities.server";
+import { withQuery } from "ufo";
 
 const workoutCookieName = ApplicationKey.CurrentWorkout;
 const defaultTimerLocalStorageKey = ApplicationKey.DefaultExerciseRestTimer;
@@ -144,7 +139,8 @@ export const meta: MetaFunction = () => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await request.clone().formData();
+	const uploaders = s3FileUploader("workouts");
+	const formData = await unstable_parseMultipartFormData(request, uploaders);
 	return namedAction(request, {
 		createWorkout: async () => {
 			const workout = JSON.parse(formData.get("workout") as string);
@@ -377,11 +373,14 @@ export default function Page() {
 														interval.stop();
 														Cookies.remove(workoutCookieName);
 														createUserWorkoutFetcher.submit(
+															{ workout: JSON.stringify(input) },
 															{
-																intent: "createWorkout",
-																workout: JSON.stringify(input),
+																method: "post",
+																action: withQuery(".", {
+																	intent: "createWorkout",
+																}),
+																encType: "multipart/form-data",
 															},
-															{ method: "post" },
 														);
 													}
 												}}
@@ -555,17 +554,9 @@ const ImageDisplay = (props: {
 	imageKey: string;
 	removeImage: (imageKey: string) => void;
 }) => {
-	const imageUrl = useQuery({
-		queryKey: ["presignedUrl", props.imageKey],
-		queryFn: async () => {
-			return await getPresignedGetUrl(props.imageKey);
-		},
-		staleTime: Infinity,
-	});
-
-	return imageUrl.data ? (
+	return (
 		<Box pos="relative">
-			<Avatar src={imageUrl.data} size="lg" />
+			<Avatar src={"imageUrl.data"} size="lg" />
 			<ActionIcon
 				pos="absolute"
 				top={0}
@@ -586,7 +577,7 @@ const ImageDisplay = (props: {
 				<IconTrash />
 			</ActionIcon>
 		</Box>
-	) : null;
+	);
 };
 
 const SupersetExerciseModal = (props: {
