@@ -684,7 +684,14 @@ const ExerciseDisplay = (props: {
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
-	const fetcher = useFetcher();
+	const deleteUploadedAsset = (key: string) => {
+		const formData = new FormData();
+		formData.append("key", key);
+		fetch(withQuery("/actions", { intent: "deleteS3Asset" }), {
+			method: "POST",
+			body: formData,
+		});
+	};
 
 	return currentWorkout ? (
 		<>
@@ -776,14 +783,7 @@ const ExerciseDisplay = (props: {
 											key={i.key}
 											imageSrc={i.imageSrc}
 											removeImage={() => {
-												const formData = new FormData();
-												formData.append("key", i.key);
-												fetcher.submit(formData, {
-													method: "POST",
-													action: withQuery("/actions", {
-														intent: "deleteS3Asset",
-													}),
-												});
+												deleteUploadedAsset(i.key);
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
 														const images =
@@ -984,12 +984,18 @@ const ExerciseDisplay = (props: {
 									const yes = confirm(
 										`This removes '${props.exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 									);
-									if (yes)
+									if (yes) {
+										const assets = [
+											...props.exercise.images,
+											...props.exercise.videos,
+										];
+										for (const asset of assets) deleteUploadedAsset(asset.key);
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
 												draft.exercises.splice(props.exerciseIdx, 1);
 											}),
 										);
+									}
 								}}
 							>
 								Remove
