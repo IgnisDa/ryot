@@ -232,8 +232,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			input.input.exercises.findIndex((e: any) => e.identifier === identifier),
 		);
 		supersetWith = supersetWith.filter((idx) => idx !== -1);
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		ex.supersetWith = supersetWith as any;
+		ex.supersetWith = supersetWith;
 	}
 	for (const ex of input.input.exercises) {
 		// biome-ignore lint/suspicious/noExplicitAny: required here
