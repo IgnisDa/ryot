@@ -114,7 +114,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
 			const input: any = {};
 			for (const [name, value] of formData.entries()) {
-				console.log(name, value);
 				if (value !== "" && name !== redirectToQueryParam)
 					set(input, name, value);
 			}
