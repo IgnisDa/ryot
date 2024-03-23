@@ -20,7 +20,7 @@ export const userPreferencesCookie = createCookie(
 	commonCookieOptions,
 );
 
-export const coreDetailsDetails = createCookie(
+export const coreDetailsCookie = createCookie(
 	ApplicationKey.CoreDetails,
 	commonCookieOptions,
 );

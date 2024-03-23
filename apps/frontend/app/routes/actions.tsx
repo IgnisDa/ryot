@@ -4,11 +4,13 @@ import {
 	json,
 	redirect,
 	unstable_parseMultipartFormData,
+	type LoaderFunctionArgs,
 } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
 	CommitMetadataDocument,
 	CommitPersonDocument,
+	CoreDetailsDocument,
 	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
 	DeleteMediaReminderDocument,
@@ -20,24 +22,57 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
+	UserPreferencesDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { safeRedirect } from "remix-utils/safe-redirect";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { colorSchemeCookie } from "~/lib/cookies.server";
+import {
+	colorSchemeCookie,
+	coreDetailsCookie,
+	userPreferencesCookie,
+} from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import {
 	MetadataSpecificsSchema,
+	combineHeaders,
 	getLogoutCookies,
 	processSubmission,
 	s3FileUploader,
 } from "~/lib/utilities.server";
 
-export const loader = async () => redirect($path("/"));
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const url = new URL(request.url);
+	const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
+	const { userPreferences } = await gqlClient.request(
+		UserPreferencesDocument,
+		undefined,
+		await getAuthorizationHeader(request),
+	);
+	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
+	const redirectUrl = safeRedirect(
+		url.searchParams.get(redirectToQueryParam) || "/",
+	);
+	return redirect(redirectUrl, {
+		headers: combineHeaders(
+			{
+				"Set-Cookie": await coreDetailsCookie.serialize(coreDetails, {
+					maxAge: cookieMaxAge,
+				}),
+			},
+			{
+				"Set-Cookie": await userPreferencesCookie.serialize(userPreferences, {
+					maxAge: cookieMaxAge,
+				}),
+			},
+		),
+	});
+};
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
