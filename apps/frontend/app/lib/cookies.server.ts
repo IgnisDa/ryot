@@ -14,6 +14,17 @@ export const authCookie = createCookie(
 	ApplicationKey.Auth,
 	commonCookieOptions,
 );
+
+export const userPreferencesCookie = createCookie(
+	ApplicationKey.UserPreferences,
+	commonCookieOptions,
+);
+
+export const coreDetailsDetails = createCookie(
+	ApplicationKey.CoreDetails,
+	commonCookieOptions,
+);
+
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: commonCookieOptions,
 });

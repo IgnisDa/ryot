@@ -40,6 +40,8 @@ export const ApplicationKey = {
 	DefaultExerciseRestTimer: getApplicationKeyAccessor(5),
 	CurrentWorkout: getApplicationKeyAccessor(6),
 	Toast: getApplicationKeyAccessor(7),
+	UserPreferences: getApplicationKeyAccessor(8),
+	CoreDetails: getApplicationKeyAccessor(9),
 };
 
 export const getSetColor = (l: SetLot) =>
