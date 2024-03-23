@@ -8,5 +8,6 @@ query CoreDetails {
     itemDetailsHeight
     reviewsDisabled
     pageLimit
+    tokenValidForDays
   }
 }

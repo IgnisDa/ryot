@@ -565,6 +565,7 @@ struct CoreDetails {
     reviews_disabled: bool,
     page_limit: i32,
     timezone: String,
+    token_valid_for_days: i64,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1456,6 +1457,7 @@ impl MiscellaneousService {
             page_limit: self.config.frontend.page_size,
             reviews_disabled: self.config.users.reviews_disabled,
             item_details_height: self.config.frontend.item_details_height,
+            token_valid_for_days: self.config.users.token_valid_for_days,
         })
     }
 
