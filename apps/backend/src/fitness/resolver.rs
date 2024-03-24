@@ -514,7 +514,11 @@ impl ExerciseService {
                         q.filter(exercise::Column::Equipment.eq(v))
                     })
                     .apply_if(q.collection, |q, v| {
-                        q.filter(collection_to_entity::Column::CollectionId.eq(v))
+                        q.join(
+                            JoinType::LeftJoin,
+                            exercise::Relation::CollectionToEntity.def(),
+                        )
+                        .filter(collection_to_entity::Column::CollectionId.eq(v))
                     })
             })
             .apply_if(input.search.query, |query, v| {
@@ -530,10 +534,6 @@ impl ExerciseService {
                         )),
                 )
             })
-            .join(
-                JoinType::LeftJoin,
-                exercise::Relation::CollectionToEntity.def(),
-            )
             .join(
                 JoinType::LeftJoin,
                 user_to_entity::Relation::Exercise
