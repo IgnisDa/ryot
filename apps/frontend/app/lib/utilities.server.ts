@@ -11,7 +11,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { type ZodTypeAny, type output, z } from "zod";
 import { API_URL, gqlClient } from "./api.server";
-import { authCookie } from "./cookies.server";
+import {
+	authCookie,
+	coreDetailsCookie,
+	userCollectionsListCookie,
+	userDetailsCookie,
+	userPreferencesCookie,
+} from "./cookies.server";
 
 export const expectedEnvironmentVariables = z.object({
 	DISABLE_TELEMETRY: z
@@ -36,9 +42,8 @@ export function combineHeaders(
 	const combined = new Headers();
 	for (const header of headers) {
 		if (!header) continue;
-		for (const [key, value] of new Headers(header).entries()) {
+		for (const [key, value] of new Headers(header).entries())
 			combined.append(key, value);
-		}
 	}
 	return combined;
 }
@@ -78,9 +83,33 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 };
 
 export const getLogoutCookies = async () => {
-	return await authCookie.serialize("", {
-		expires: new Date(0),
-	});
+	return combineHeaders(
+		{
+			"Set-Cookie": await authCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"Set-Cookie": await coreDetailsCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"Set-Cookie": await userPreferencesCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"Set-Cookie": await userDetailsCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"Set-Cookie": await userCollectionsListCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+	);
 };
 
 export const uploadFileAndGetKey = async (

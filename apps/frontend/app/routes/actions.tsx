@@ -173,7 +173,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		})
 		.with("logout", async () => {
 			redirectTo = $path("/auth/login");
-			headers = { "Set-Cookie": await getLogoutCookies() };
+			headers = await getLogoutCookies();
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
