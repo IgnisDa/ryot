@@ -770,6 +770,7 @@ pub mod media {
         #[serde(default)] // FIXME: Remove in the next major release
         pub people_overall: MediaOverallSummary,
     }
+
     #[derive(
         SimpleObject,
         Debug,
