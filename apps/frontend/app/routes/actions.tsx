@@ -30,7 +30,11 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { getAuthorizationHeader, gqlClient, redirectIfNotAuthenticated } from "~/lib/api.server";
+import {
+	getAuthorizationHeader,
+	gqlClient,
+	redirectIfNotAuthenticated,
+} from "~/lib/api.server";
 import {
 	colorSchemeCookie,
 	coreDetailsCookie,

@@ -8,6 +8,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { coreDetailsCookie, userPreferencesCookie } from "./cookies.server";
+import { withQuery, withoutHost } from "ufo";
+import { redirectToQueryParam } from "./generals";
 
 export const getCoreEnabledFeatures = async () => {
 	const { coreEnabledFeatures } = await gqlClient.request(
@@ -20,7 +22,12 @@ export const getCoreDetails = async (request: Request) => {
 	const details = await coreDetailsCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	if (!details) throw redirect($path("/actions"));
+	if (!details)
+		throw redirect(
+			withQuery($path("/actions"), {
+				[redirectToQueryParam]: withoutHost(request.url),
+			}),
+		);
 	return details as CoreDetails;
 };
 
@@ -28,7 +35,12 @@ export const getUserPreferences = async (request: Request) => {
 	const prefs = await userPreferencesCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	if (!prefs) throw redirect($path("/actions"));
+	if (!prefs)
+		throw redirect(
+			withQuery($path("/actions"), {
+				[redirectToQueryParam]: withoutHost(request.url),
+			}),
+		);
 	return prefs as UserPreferences;
 };
 
