@@ -22,6 +22,7 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
+	UserCollectionsListDocument,
 	UserDetailsDocument,
 	UserPreferencesDocument,
 	Visibility,
@@ -39,6 +40,7 @@ import {
 import {
 	colorSchemeCookie,
 	coreDetailsCookie,
+	userCollectionsListCookie,
 	userDetailsCookie,
 	userPreferencesCookie,
 } from "~/lib/cookies.server";
@@ -55,20 +57,29 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	await redirectIfNotAuthenticated(request);
 	const url = new URL(request.url);
-	const [{ coreDetails }, { userPreferences }, { userDetails }] =
-		await Promise.all([
-			gqlClient.request(CoreDetailsDocument),
-			gqlClient.request(
-				UserPreferencesDocument,
-				undefined,
-				await getAuthorizationHeader(request),
-			),
-			gqlClient.request(
-				UserDetailsDocument,
-				undefined,
-				await getAuthorizationHeader(request),
-			),
-		]);
+	const [
+		{ coreDetails },
+		{ userPreferences },
+		{ userDetails },
+		{ userCollectionsList },
+	] = await Promise.all([
+		gqlClient.request(CoreDetailsDocument),
+		gqlClient.request(
+			UserPreferencesDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+		gqlClient.request(
+			UserDetailsDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+		gqlClient.request(
+			UserCollectionsListDocument,
+			{},
+			await getAuthorizationHeader(request),
+		),
+	]);
 	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
 	const redirectUrl = safeRedirect(
 		url.searchParams.get(redirectToQueryParam) || "/",
@@ -89,6 +100,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				"Set-Cookie": await userDetailsCookie.serialize(userDetails, {
 					maxAge: cookieMaxAge,
 				}),
+			},
+			{
+				"Set-Cookie": await userCollectionsListCookie.serialize(
+					userCollectionsList,
+					{ maxAge: cookieMaxAge },
+				),
 			},
 		),
 	});

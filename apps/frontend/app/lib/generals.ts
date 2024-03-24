@@ -38,6 +38,7 @@ export const ApplicationKey = {
 	UserPreferences: "UserPreferences",
 	CoreDetails: "CoreDetails",
 	UserDetails: "UserDetails",
+	UserCollectionsList: "UserCollectionsList",
 };
 
 export const getSetColor = (l: SetLot) =>

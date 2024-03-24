@@ -30,6 +30,11 @@ export const userDetailsCookie = createCookie(
 	commonCookieOptions,
 );
 
+export const userCollectionsListCookie = createCookie(
+	ApplicationKey.UserCollectionsList,
+	commonCookieOptions,
+);
+
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: commonCookieOptions,
 });
