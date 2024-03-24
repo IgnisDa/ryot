@@ -55,17 +55,20 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	await redirectIfNotAuthenticated(request);
 	const url = new URL(request.url);
-	const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
-	const { userPreferences } = await gqlClient.request(
-		UserPreferencesDocument,
-		undefined,
-		await getAuthorizationHeader(request),
-	);
-	const { userDetails } = await gqlClient.request(
-		UserDetailsDocument,
-		undefined,
-		await getAuthorizationHeader(request),
-	);
+	const [{ coreDetails }, { userPreferences }, { userDetails }] =
+		await Promise.all([
+			gqlClient.request(CoreDetailsDocument),
+			gqlClient.request(
+				UserPreferencesDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			),
+			gqlClient.request(
+				UserDetailsDocument,
+				undefined,
+				await getAuthorizationHeader(request),
+			),
+		]);
 	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
 	const redirectUrl = safeRedirect(
 		url.searchParams.get(redirectToQueryParam) || "/",
