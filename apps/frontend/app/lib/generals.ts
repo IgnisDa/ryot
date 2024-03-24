@@ -42,6 +42,7 @@ export const ApplicationKey = {
 	Toast: getApplicationKeyAccessor(7),
 	UserPreferences: getApplicationKeyAccessor(8),
 	CoreDetails: getApplicationKeyAccessor(9),
+	UserDetails: getApplicationKeyAccessor(10),
 };
 
 export const getSetColor = (l: SetLot) =>

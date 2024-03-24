@@ -22,6 +22,7 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
+	UserDetailsDocument,
 	UserPreferencesDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -38,6 +39,7 @@ import {
 import {
 	colorSchemeCookie,
 	coreDetailsCookie,
+	userDetailsCookie,
 	userPreferencesCookie,
 } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
@@ -59,6 +61,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		undefined,
 		await getAuthorizationHeader(request),
 	);
+	const { userDetails } = await gqlClient.request(
+		UserDetailsDocument,
+		undefined,
+		await getAuthorizationHeader(request),
+	);
 	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
 	const redirectUrl = safeRedirect(
 		url.searchParams.get(redirectToQueryParam) || "/",
@@ -72,6 +79,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			},
 			{
 				"Set-Cookie": await userPreferencesCookie.serialize(userPreferences, {
+					maxAge: cookieMaxAge,
+				}),
+			},
+			{
+				"Set-Cookie": await userDetailsCookie.serialize(userDetails, {
 					maxAge: cookieMaxAge,
 				}),
 			},

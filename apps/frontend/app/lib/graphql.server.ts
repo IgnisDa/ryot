@@ -3,12 +3,16 @@ import { redirect } from "@remix-run/node";
 import {
 	type CoreDetails,
 	CoreEnabledFeaturesDocument,
-	UserDetailsDocument,
+	type User,
 	type UserPreferences,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { coreDetailsCookie, userPreferencesCookie } from "./cookies.server";
 import { withQuery, withoutHost } from "ufo";
+import { gqlClient } from "~/lib/api.server";
+import {
+	coreDetailsCookie,
+	userDetailsCookie,
+	userPreferencesCookie,
+} from "./cookies.server";
 import { redirectToQueryParam } from "./generals";
 
 export const getCoreEnabledFeatures = async () => {
@@ -45,11 +49,14 @@ export const getUserPreferences = async (request: Request) => {
 };
 
 export const getUserDetails = async (request: Request) => {
-	const { userDetails } = await gqlClient.request(
-		UserDetailsDocument,
-		undefined,
-		await getAuthorizationHeader(request),
+	const details = await userDetailsCookie.parse(
+		request.headers.get("cookie") || "",
 	);
-	if (userDetails.__typename === "User") return userDetails;
-	throw new Error("User not found");
+	if (!details)
+		throw redirect(
+			withQuery($path("/actions"), {
+				[redirectToQueryParam]: withoutHost(request.url),
+			}),
+		);
+	return details as User;
 };
