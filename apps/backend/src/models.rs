@@ -765,9 +765,7 @@ pub mod media {
         pub audio_books: AudioBooksSummary,
         pub anime: AnimeSummary,
         pub manga: MangaSummary,
-        #[serde(default)] // FIXME: Remove in the next major release
         pub metadata_overall: MediaOverallSummary,
-        #[serde(default)] // FIXME: Remove in the next major release
         pub people_overall: MediaOverallSummary,
     }
 
@@ -785,7 +783,6 @@ pub mod media {
     pub struct UserFitnessWorkoutSummary {
         pub recorded: u64,
         pub duration: u64,
-        #[serde(default)] // FIXME: Remove in the next major release
         pub weight: Decimal,
     }
 
@@ -803,17 +800,14 @@ pub mod media {
     pub struct UserFitnessSummary {
         pub measurements_recorded: u64,
         pub exercises_interacted_with: u64,
-        #[serde(default)] // FIXME: Remove in the next major release
         pub workouts: UserFitnessWorkoutSummary,
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
     pub struct UserSummaryUniqueItems {
         pub audio_books: HashSet<i32>,
-        #[serde(default)] // FIXME: Remove in the next major release
         pub anime_episodes: HashSet<(i32, i32)>,
         pub anime: HashSet<i32>,
-        #[serde(default)] // FIXME: Remove in the next major release
         pub manga_chapters: HashSet<(i32, i32)>,
         pub manga: HashSet<i32>,
         pub books: HashSet<i32>,
@@ -845,7 +839,6 @@ pub mod media {
         pub unique_items: UserSummaryUniqueItems,
         pub calculated_on: DateTimeUtc,
         #[graphql(skip)]
-        #[serde(default)] // FIXME: Remove in the next major release
         pub calculated_from_beginning: bool,
     }
 
