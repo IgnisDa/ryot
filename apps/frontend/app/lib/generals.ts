@@ -25,20 +25,8 @@ dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
 
-export const ApplicationKey = {
-	Auth: "Auth",
-	ColorScheme: "ColorScheme",
-	IsWorkoutInProgress: "IsWorkoutInProgress",
-	SavedMeasurementsDisplaySelectedStats:
-		"SavedMeasurementsDisplaySelectedStats",
-	SavedOpenedLinkGroups: "SavedOpenedLinkGroups",
-	DefaultExerciseRestTimer: "DefaultExerciseRestTimer",
+export const ApplicationKeys = {
 	CurrentWorkout: "CurrentWorkout",
-	Toast: "Toast",
-	UserPreferences: "UserPreferences",
-	CoreDetails: "CoreDetails",
-	UserDetails: "UserDetails",
-	UserCollectionsList: "UserCollectionsList",
 };
 
 export const getSetColor = (l: SetLot) =>

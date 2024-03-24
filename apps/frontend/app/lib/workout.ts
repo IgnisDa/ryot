@@ -12,7 +12,7 @@ import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
 import type { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
-import { ApplicationKey } from "./generals";
+import { ApplicationKeys } from "./generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
@@ -53,7 +53,7 @@ export type InProgressWorkout = {
 type CurrentWorkout = InProgressWorkout | null;
 
 export const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
-	ApplicationKey.CurrentWorkout,
+	ApplicationKeys.CurrentWorkout,
 	null,
 );
 

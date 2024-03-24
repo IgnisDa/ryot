@@ -92,7 +92,7 @@ import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { ApplicationKey, dayjsLib, getSetColor } from "~/lib/generals";
+import { ApplicationKeys, dayjsLib, getSetColor } from "~/lib/generals";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	getCoreDetails,
@@ -107,8 +107,8 @@ import {
 	timerAtom,
 } from "~/lib/workout";
 
-const workoutCookieName = ApplicationKey.CurrentWorkout;
-const defaultTimerLocalStorageKey = ApplicationKey.DefaultExerciseRestTimer;
+const workoutCookieName = ApplicationKeys.CurrentWorkout;
+const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookies = request.headers.get("Cookie");

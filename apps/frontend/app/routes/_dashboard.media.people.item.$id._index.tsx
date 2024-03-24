@@ -59,9 +59,9 @@ import { createToastHeaders } from "~/lib/toast.server";
 import {
 	getCoreDetails,
 	getUserCollectionsList,
-	processSubmission,
 	getUserDetails,
 	getUserPreferences,
+	processSubmission,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({

@@ -51,7 +51,7 @@ import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import { redirectIfNotAuthenticated } from "~/lib/api.server";
 import { colorSchemeCookie } from "~/lib/cookies.server";
-import { ApplicationKey, getLot } from "~/lib/generals";
+import { getLot } from "~/lib/generals";
 import {
 	expectedEnvironmentVariables,
 	getCoreDetails,
@@ -197,7 +197,7 @@ export default function Layout() {
 		  }
 		| undefined
 	>({
-		key: ApplicationKey.SavedOpenedLinkGroups,
+		key: "SavedOpenedLinkGroups",
 		defaultValue: {
 			fitness: false,
 			media: false,

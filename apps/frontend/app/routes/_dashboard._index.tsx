@@ -48,7 +48,7 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
-	ApplicationKey,
+	ApplicationKeys,
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
@@ -59,7 +59,7 @@ import {
 	getUserPreferences,
 } from "~/lib/utilities.server";
 
-const cookieName = ApplicationKey.CurrentWorkout;
+const cookieName = ApplicationKeys.CurrentWorkout;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userPreferences = await getUserPreferences(request);

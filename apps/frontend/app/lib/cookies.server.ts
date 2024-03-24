@@ -1,8 +1,7 @@
 import { createCookie, createCookieSessionStorage } from "@remix-run/node";
-import { ApplicationKey } from "./generals";
 
 const commonCookieOptions = {
-	name: ApplicationKey.Toast,
+	name: "Toast",
 	sameSite: "lax",
 	path: "/",
 	httpOnly: true,
@@ -10,28 +9,25 @@ const commonCookieOptions = {
 	secure: process.env.NODE_ENV === "production",
 } as const;
 
-export const authCookie = createCookie(
-	ApplicationKey.Auth,
-	commonCookieOptions,
-);
+export const authCookie = createCookie("Auth", commonCookieOptions);
 
 export const userPreferencesCookie = createCookie(
-	ApplicationKey.UserPreferences,
+	"UserPreferences",
 	commonCookieOptions,
 );
 
 export const coreDetailsCookie = createCookie(
-	ApplicationKey.CoreDetails,
+	"CoreDetails",
 	commonCookieOptions,
 );
 
 export const userDetailsCookie = createCookie(
-	ApplicationKey.UserDetails,
+	"UserDetails",
 	commonCookieOptions,
 );
 
 export const userCollectionsListCookie = createCookie(
-	ApplicationKey.UserCollectionsList,
+	"UserCollectionsList",
 	commonCookieOptions,
 );
 
@@ -39,6 +35,6 @@ export const toastSessionStorage = createCookieSessionStorage({
 	cookie: commonCookieOptions,
 });
 
-export const colorSchemeCookie = createCookie(ApplicationKey.ColorScheme, {
+export const colorSchemeCookie = createCookie("ColorScheme", {
 	maxAge: 60 * 60 * 24 * 365,
 });
