@@ -3,7 +3,6 @@ import { redirect } from "@remix-run/node";
 import {
 	type CoreDetails,
 	CoreEnabledFeaturesDocument,
-	type User,
 	type UserPreferences,
 } from "@ryot/generated/graphql/backend/graphql";
 import { withQuery, withoutHost } from "ufo";
@@ -14,6 +13,7 @@ import {
 	userPreferencesCookie,
 } from "./cookies.server";
 import { redirectToQueryParam } from "./generals";
+import type { ApplicationUser } from "./utilities.server";
 
 export const getCoreEnabledFeatures = async () => {
 	const { coreEnabledFeatures } = await gqlClient.request(
@@ -58,5 +58,5 @@ export const getUserDetails = async (request: Request) => {
 				[redirectToQueryParam]: withoutHost(request.url),
 			}),
 		);
-	return details as User;
+	return details as ApplicationUser;
 };

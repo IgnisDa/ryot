@@ -49,6 +49,7 @@ export type ApplicationUser = {
 	email?: string | null | undefined;
 	name: string;
 	lot: UserLot;
+	isDemo: boolean;
 };
 
 const emptyNumberString = z
