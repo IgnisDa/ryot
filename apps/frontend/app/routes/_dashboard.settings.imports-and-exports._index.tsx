@@ -63,7 +63,7 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
-			getCoreDetails(),
+			getCoreDetails(request),
 			getCoreEnabledFeatures(),
 			gqlClient.request(
 				ImportReportsDocument,

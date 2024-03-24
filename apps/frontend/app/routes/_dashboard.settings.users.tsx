@@ -40,7 +40,7 @@ import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, { usersList }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(
 			UsersListDocument,
 			undefined,

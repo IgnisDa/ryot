@@ -81,7 +81,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		{ userExerciseDetails },
 		{ userCollectionsList: collections },
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
 		gqlClient.request(

@@ -109,7 +109,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		await getAuthorizationHeader(request),
 	);
 	const [coreDetails, userPreferences, userDetails] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 	]);

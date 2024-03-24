@@ -47,7 +47,7 @@ import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, { userNotificationPlatforms }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(
 			UserNotificationPlatformsDocument,
 			undefined,

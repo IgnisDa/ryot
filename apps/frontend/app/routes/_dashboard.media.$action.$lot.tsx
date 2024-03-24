@@ -115,7 +115,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		{ latestUserSummary },
 		{ userCollectionsList },
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(
 			LatestUserSummaryDocument,

@@ -57,7 +57,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [userPreferences, coreDetails, { userWorkoutList }] = await Promise.all(
 		[
 			getUserPreferences(request),
-			getCoreDetails(),
+			getCoreDetails(request),
 			gqlClient.request(
 				UserWorkoutListDocument,
 				{

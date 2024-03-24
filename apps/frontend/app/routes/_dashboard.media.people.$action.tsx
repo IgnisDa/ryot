@@ -84,7 +84,7 @@ const SEARCH_SOURCES_ALLOWED = [
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const action = params.action as Action;
 	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 	]);
 	const { query, page } = zx.parseQuery(request, {

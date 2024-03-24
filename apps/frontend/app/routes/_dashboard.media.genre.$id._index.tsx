@@ -28,7 +28,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const genreId = params.id ? Number(params.id) : null;
 	invariant(genreId, "No ID provided");
 	const [coreDetails, { genreDetails }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },
 		}),

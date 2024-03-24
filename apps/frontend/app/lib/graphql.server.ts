@@ -1,10 +1,13 @@
+import { $path } from "@ignisda/remix-routes";
+import { redirect } from "@remix-run/node";
 import {
-	CoreDetailsDocument,
+	type CoreDetails,
 	CoreEnabledFeaturesDocument,
 	UserDetailsDocument,
-	UserPreferencesDocument,
+	type UserPreferences,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { coreDetailsCookie, userPreferencesCookie } from "./cookies.server";
 
 export const getCoreEnabledFeatures = async () => {
 	const { coreEnabledFeatures } = await gqlClient.request(
@@ -13,18 +16,20 @@ export const getCoreEnabledFeatures = async () => {
 	return coreEnabledFeatures;
 };
 
-export const getCoreDetails = async () => {
-	const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
-	return coreDetails;
+export const getCoreDetails = async (request: Request) => {
+	const details = await coreDetailsCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	if (!details) throw redirect($path("/actions"));
+	return details as CoreDetails;
 };
 
 export const getUserPreferences = async (request: Request) => {
-	const { userPreferences } = await gqlClient.request(
-		UserPreferencesDocument,
-		undefined,
-		await getAuthorizationHeader(request),
+	const prefs = await userPreferencesCookie.parse(
+		request.headers.get("cookie") || "",
 	);
-	return userPreferences;
+	if (!prefs) throw redirect($path("/actions"));
+	return prefs as UserPreferences;
 };
 
 export const getUserDetails = async (request: Request) => {

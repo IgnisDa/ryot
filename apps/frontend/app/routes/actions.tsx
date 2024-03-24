@@ -1,10 +1,10 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
 	json,
 	redirect,
 	unstable_parseMultipartFormData,
-	type LoaderFunctionArgs,
 } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,

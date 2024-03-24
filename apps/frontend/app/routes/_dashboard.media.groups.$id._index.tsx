@@ -68,7 +68,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		{ userMetadataGroupDetails },
 		{ userCollectionsList: collections },
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(MetadataGroupDetailsDocument, { metadataGroupId }),

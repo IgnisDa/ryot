@@ -119,7 +119,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			message: "No workout in progress",
 		});
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
-		[getCoreDetails(), getUserPreferences(request), getCoreEnabledFeatures()],
+		[
+			getCoreDetails(request),
+			getUserPreferences(request),
+			getCoreEnabledFeatures(),
+		],
 	);
 	return json({
 		coreDetails,
