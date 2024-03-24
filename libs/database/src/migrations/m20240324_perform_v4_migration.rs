@@ -15,7 +15,7 @@ SET summary = jsonb_set(
   summary,
   '{media, metadata_overall}',
   '{"reviewed": 0, "interacted_with": 0}',
-  false
+  true
 );
 
 UPDATE "user"
@@ -23,7 +23,7 @@ SET summary = jsonb_set(
   summary,
   '{media, people_overall}',
   '{"reviewed": 0, "interacted_with": 0}',
-  false
+  true
 );
 
 UPDATE "user"
@@ -31,7 +31,7 @@ SET summary = jsonb_set(
   summary,
   '{fitness, workouts}',
   '{"weight": "0", "duration": 0, "recorded": 0}',
-  false
+  true
 );
 
 UPDATE "user"
@@ -39,7 +39,7 @@ SET summary = jsonb_set(
   summary,
   '{calculated_from_beginning}',
   'false',
-  false
+  true
 );
 
 UPDATE "user"
@@ -47,7 +47,7 @@ SET summary = jsonb_set(
   summary,
   '{unique_items, anime_episodes}',
   '[]',
-  false
+  true
 );
 
 UPDATE "user"
@@ -55,7 +55,7 @@ SET summary = jsonb_set(
   summary,
   '{unique_items, manga_chapters}',
   '[]',
-  false
+  true
 );
 "#,
         )
