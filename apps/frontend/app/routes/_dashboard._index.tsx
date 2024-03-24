@@ -26,7 +26,6 @@ import {
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MetadataLot,
-	UserCollectionsListDocument,
 	type UserMediaFeaturesEnabledPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -54,7 +53,10 @@ import {
 	getLot,
 	getMetadataIcon,
 } from "~/lib/generals";
-import { getUserPreferences } from "~/lib/graphql.server";
+import {
+	getUserCollectionsList,
+	getUserPreferences,
+} from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 
 const cookieName = ApplicationKey.CurrentWorkout;
@@ -70,11 +72,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	};
 	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(DashboardElementLot.InProgress);
-	const { userCollectionsList } = await gqlClient.request(
-		UserCollectionsListDocument,
-		{ name: "In Progress" },
-		await getAuthorizationHeader(request),
-	);
+	const userCollectionsList = await getUserCollectionsList(request);
 	const collectionId = userCollectionsList[0].id;
 	const { collectionContents } = await gqlClient.request(
 		CollectionContentsDocument,

@@ -25,7 +25,6 @@ import {
 	DeployUpdatePersonJobDocument,
 	EntityLot,
 	PersonDetailsDocument,
-	UserCollectionsListDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -58,6 +57,7 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	getCoreDetails,
+	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
 } from "~/lib/graphql.server";
@@ -80,7 +80,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userDetails,
 		{ personDetails },
 		{ userPersonDetails },
-		{ userCollectionsList: collections },
+		collections,
 	] = await Promise.all([
 		getCoreDetails(request),
 		getUserPreferences(request),
@@ -91,11 +91,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			{ personId },
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	return json({
 		query,

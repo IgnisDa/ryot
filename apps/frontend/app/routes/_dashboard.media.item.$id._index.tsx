@@ -56,7 +56,6 @@ import {
 	MetadataVideoSource,
 	SeenState,
 	ToggleMediaOwnershipDocument,
-	UserCollectionsListDocument,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -114,6 +113,7 @@ import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import {
 	getCoreDetails,
+	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
 } from "~/lib/graphql.server";
@@ -148,13 +148,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userPreferences,
 		userDetails,
 		{ metadataDetails: mediaMainDetails },
-		{ userCollectionsList: collections },
+		collections,
 	] = await Promise.all([
 		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(MetadataMainDetailsDocument, { metadataId }),
-		gqlClient.request(UserCollectionsListDocument, {}, headers),
+		getUserCollectionsList(request),
 	]);
 	const mediaAdditionalDetails = gqlClient.request(
 		MetadataAdditionalDetailsDocument,

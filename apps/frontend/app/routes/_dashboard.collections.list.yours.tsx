@@ -33,7 +33,6 @@ import {
 import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
-	UserCollectionsListDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -45,16 +44,13 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getUserCollectionsList } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [{ userCollectionsList }] = await Promise.all([
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+	const [userCollectionsList] = await Promise.all([
+		getUserCollectionsList(request),
 	]);
 	return json({ collections: userCollectionsList });
 };

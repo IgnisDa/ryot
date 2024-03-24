@@ -31,7 +31,6 @@ import {
 	EntityLot,
 	ExerciseDetailsDocument,
 	SetLot,
-	UserCollectionsListDocument,
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -60,7 +59,11 @@ import { DisplayExerciseStats } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import {
+	getCoreDetails,
+	getUserCollectionsList,
+	getUserPreferences,
+} from "~/lib/graphql.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const searchParamsSchema = z.object({
@@ -79,7 +82,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		userPreferences,
 		{ exerciseDetails },
 		{ userExerciseDetails },
-		{ userCollectionsList: collections },
+		collections,
 	] = await Promise.all([
 		getCoreDetails(request),
 		getUserPreferences(request),
@@ -89,11 +92,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 			{ input: { exerciseId } },
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	return json({
 		query,
