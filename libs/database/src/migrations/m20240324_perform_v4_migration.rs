@@ -66,6 +66,71 @@ WHERE summary->'unique_items'->'manga_chapters' IS NULL;
 "#,
         )
         .await?;
+        // for user_to_entity
+        db.execute_unprepared(
+            r#"
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN SELECT id, exercise_extra_information FROM user_to_entity
+    LOOP
+        UPDATE user_to_entity
+        SET exercise_extra_information = jsonb_set(
+            r.exercise_extra_information,
+            '{personal_bests}',
+            (
+                SELECT jsonb_agg(
+                    jsonb_set(
+                        pb,
+                        '{sets}',
+                        (
+                            SELECT jsonb_agg(
+                                jsonb_set(set, '{exercise_idx}', '0')
+                            )
+                            FROM jsonb_array_elements(pb->'sets') AS set
+                        )
+                    )
+                )
+                FROM jsonb_array_elements(r.exercise_extra_information->'personal_bests') AS pb
+            )
+        )
+        WHERE id = r.id;
+    END LOOP;
+END $$;
+
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN SELECT id, exercise_extra_information FROM user_to_entity
+    LOOP
+        UPDATE user_to_entity
+        SET exercise_extra_information = jsonb_set(
+            r.exercise_extra_information,
+            '{personal_bests}',
+            (
+                SELECT jsonb_agg(
+                    jsonb_set(
+                        pb,
+                        '{sets}',
+                        (
+                            SELECT jsonb_agg(
+                                jsonb_set(set, '{workout_done_on}', '2022-08-18T02:05:03Z')
+                            )
+                            FROM jsonb_array_elements(pb->'sets') AS set
+                        )
+                    )
+                )
+                FROM jsonb_array_elements(r.exercise_extra_information->'personal_bests') AS pb
+            )
+        )
+        WHERE id = r.id;
+    END LOOP;
+END $$;
+"#,
+        )
+        .await?;
         Ok(())
     }
 
