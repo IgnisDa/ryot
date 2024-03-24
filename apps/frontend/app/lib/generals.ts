@@ -25,24 +25,19 @@ dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
 
-export const getApplicationKeyAccessor = (keyName: number) => {
-	const base1 = btoa(keyName.toString());
-	const base2 = btoa(base1);
-	return `ryot_${base2}`.replaceAll(/=/g, "eq");
-};
-
 export const ApplicationKey = {
-	Auth: getApplicationKeyAccessor(0),
-	ColorScheme: getApplicationKeyAccessor(1),
-	IsWorkoutInProgress: getApplicationKeyAccessor(2),
-	SavedMeasurementsDisplaySelectedStats: getApplicationKeyAccessor(3),
-	SavedOpenedLinkGroups: getApplicationKeyAccessor(4),
-	DefaultExerciseRestTimer: getApplicationKeyAccessor(5),
-	CurrentWorkout: getApplicationKeyAccessor(6),
-	Toast: getApplicationKeyAccessor(7),
-	UserPreferences: getApplicationKeyAccessor(8),
-	CoreDetails: getApplicationKeyAccessor(9),
-	UserDetails: getApplicationKeyAccessor(10),
+	Auth: "Auth",
+	ColorScheme: "ColorScheme",
+	IsWorkoutInProgress: "IsWorkoutInProgress",
+	SavedMeasurementsDisplaySelectedStats:
+		"SavedMeasurementsDisplaySelectedStats",
+	SavedOpenedLinkGroups: "SavedOpenedLinkGroups",
+	DefaultExerciseRestTimer: "DefaultExerciseRestTimer",
+	CurrentWorkout: "CurrentWorkout",
+	Toast: "Toast",
+	UserPreferences: "UserPreferences",
+	CoreDetails: "CoreDetails",
+	UserDetails: "UserDetails",
 };
 
 export const getSetColor = (l: SetLot) =>
