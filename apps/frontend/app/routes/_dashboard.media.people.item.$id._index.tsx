@@ -55,14 +55,14 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { createToastHeaders } from "~/lib/toast.server";
 import {
 	getCoreDetails,
 	getUserCollectionsList,
+	processSubmission,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),

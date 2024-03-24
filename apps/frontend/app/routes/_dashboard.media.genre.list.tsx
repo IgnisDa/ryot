@@ -26,8 +26,8 @@ import {
 	DebouncedSearchInput,
 } from "~/components/common";
 import { gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
+import { getCoreDetails } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),

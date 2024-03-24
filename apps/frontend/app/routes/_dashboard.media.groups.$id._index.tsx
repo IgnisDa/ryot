@@ -48,7 +48,7 @@ import {
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),

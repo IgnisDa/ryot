@@ -20,9 +20,11 @@ import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	getCoreEnabledFeatures,
+	processSubmission,
+} from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

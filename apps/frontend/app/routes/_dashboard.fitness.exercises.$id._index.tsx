@@ -63,7 +63,7 @@ import {
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserPreferences,
-} from "~/lib/graphql.server";
+} from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const searchParamsSchema = z.object({

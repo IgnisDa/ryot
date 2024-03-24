@@ -72,12 +72,12 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { Verb, getLot, getVerb, redirectToQueryParam } from "~/lib/generals";
+import { useSearchParam } from "~/lib/hooks";
 import {
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { useSearchParam } from "~/lib/hooks";
+} from "~/lib/utilities.server";
 
 export type SearchParams = {
 	query?: string;

@@ -53,11 +53,11 @@ import {
 	getLot,
 	getMetadataIcon,
 } from "~/lib/generals";
+import { useGetMantineColor } from "~/lib/hooks";
 import {
 	getUserCollectionsList,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { useGetMantineColor } from "~/lib/hooks";
+} from "~/lib/utilities.server";
 
 const cookieName = ApplicationKey.CurrentWorkout;
 

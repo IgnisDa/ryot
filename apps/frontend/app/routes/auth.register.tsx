@@ -16,8 +16,8 @@ import {
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
-import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
+import { getCoreEnabledFeatures } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

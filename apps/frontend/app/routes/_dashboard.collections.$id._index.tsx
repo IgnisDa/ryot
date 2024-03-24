@@ -55,12 +55,12 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
+import { useSearchParam } from "~/lib/hooks";
 import {
 	getCoreDetails,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { useSearchParam } from "~/lib/hooks";
+} from "~/lib/utilities.server";
 
 const defaultFiltersValue = {
 	sort: CollectionContentsSortBy.LastUpdatedOn,

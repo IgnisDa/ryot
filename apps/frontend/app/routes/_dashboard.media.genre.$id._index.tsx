@@ -14,8 +14,8 @@ import { zx } from "zodix";
 import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
 import { gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import { getCoreDetails } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),

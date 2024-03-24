@@ -54,8 +54,8 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import { getCoreDetails, getUserPreferences } from "~/lib/utilities.server";
 
 export type SearchParams = {
 	query?: string;

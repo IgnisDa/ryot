@@ -56,13 +56,13 @@ import {
 } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
+import { useSearchParam } from "~/lib/hooks";
 import {
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { useSearchParam } from "~/lib/hooks";
+} from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const defaultFiltersValue = {

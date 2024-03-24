@@ -21,9 +21,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getUserDetails } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import { getUserDetails, processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [userDetails] = await Promise.all([getUserDetails(request)]);

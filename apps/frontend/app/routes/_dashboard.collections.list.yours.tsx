@@ -47,9 +47,11 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { getUserCollectionsList } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	processSubmission,
+	getUserCollectionsList,
+} from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [userCollectionsList] = await Promise.all([

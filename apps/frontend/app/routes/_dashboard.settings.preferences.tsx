@@ -54,7 +54,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { getUserDetails, getUserPreferences } from "~/lib/graphql.server";
+import { getUserDetails, getUserPreferences } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
 const searchSchema = z.object({

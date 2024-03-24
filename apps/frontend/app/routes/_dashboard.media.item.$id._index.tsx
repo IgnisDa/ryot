@@ -111,14 +111,14 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
+import { useGetMantineColor } from "~/lib/hooks";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { useGetMantineColor } from "~/lib/hooks";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
+} from "~/lib/utilities.server";
 import {
 	MetadataSpecificsSchema,
 	processSubmission,

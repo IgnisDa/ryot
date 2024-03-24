@@ -53,8 +53,8 @@ import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { dayjsLib } from "~/lib/generals";
-import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
+import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/utilities.server";
 import {
 	processSubmission,
 	temporaryFileUploadHandler,
