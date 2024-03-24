@@ -56,7 +56,6 @@ import {
 	MetadataVideoSource,
 	SeenState,
 	ToggleMediaOwnershipDocument,
-	UserCollectionsListDocument,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -112,13 +111,14 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
-import {
-	getCoreDetails,
-	getUserDetails,
-	getUserPreferences,
-} from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
+import {
+	getCoreDetails,
+	getUserCollectionsList,
+	getUserDetails,
+	getUserPreferences,
+} from "~/lib/utilities.server";
 import {
 	MetadataSpecificsSchema,
 	processSubmission,
@@ -148,13 +148,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userPreferences,
 		userDetails,
 		{ metadataDetails: mediaMainDetails },
-		{ userCollectionsList: collections },
+		collections,
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(MetadataMainDetailsDocument, { metadataId }),
-		gqlClient.request(UserCollectionsListDocument, {}, headers),
+		getUserCollectionsList(request),
 	]);
 	const mediaAdditionalDetails = gqlClient.request(
 		MetadataAdditionalDetailsDocument,

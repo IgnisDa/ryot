@@ -27,8 +27,8 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
-import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import { getCoreDetails } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	date: z
@@ -42,7 +42,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { userCalendarEvents }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(
 			UserCalendarEventsDocument,
 			{ input: { month: query.date.month() + 1, year: query.date.year() } },

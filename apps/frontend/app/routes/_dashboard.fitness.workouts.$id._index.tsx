@@ -69,10 +69,9 @@ import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { getUserPreferences } from "~/lib/graphql.server";
 import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import { processSubmission, getUserPreferences } from "~/lib/utilities.server";
 import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {

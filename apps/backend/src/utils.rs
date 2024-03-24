@@ -16,7 +16,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
-use sea_query::{BinOper, Expr, Func, SimpleExpr};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -194,17 +193,6 @@ pub fn get_base_http_client(
         .set_base_url(Url::parse(url).unwrap())
         .try_into()
         .unwrap()
-}
-
-pub fn get_ilike_query<E>(expr: E, v: &str) -> SimpleExpr
-where
-    E: Into<SimpleExpr>,
-{
-    SimpleExpr::Binary(
-        Box::new(Func::lower(expr.into()).into()),
-        BinOper::Like,
-        Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
-    )
 }
 
 pub async fn get_stored_asset(

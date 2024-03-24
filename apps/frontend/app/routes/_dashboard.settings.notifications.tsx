@@ -41,13 +41,12 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
-import { getCoreDetails } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import { getCoreDetails, processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, { userNotificationPlatforms }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(
 			UserNotificationPlatformsDocument,
 			undefined,

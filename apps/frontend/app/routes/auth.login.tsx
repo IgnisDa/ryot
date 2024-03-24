@@ -10,6 +10,7 @@ import {
 } from "@remix-run/node";
 import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
 import {
+	CoreDetailsDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -19,9 +20,11 @@ import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	getCoreEnabledFeatures,
+	processSubmission,
+} from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -47,17 +50,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			username: submission.username,
 		},
 	});
+	const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
 	if (loginUser.__typename === "LoginResponse") {
 		let redirectUrl = $path("/");
 		if (submission[redirectToQueryParam])
 			redirectUrl = safeRedirect(submission[redirectToQueryParam]);
-		return redirect(redirectUrl, {
-			headers: {
-				"Set-Cookie": await authCookie.serialize(loginUser.apiKey, {
-					maxAge: loginUser.validFor * 24 * 60 * 60,
-				}),
+		return redirect(
+			$path("/actions", { [redirectToQueryParam]: redirectUrl }),
+			{
+				headers: {
+					"Set-Cookie": await authCookie.serialize(loginUser.apiKey, {
+						maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
+					}),
+				},
 			},
-		});
+		);
 	}
 	const message = match(loginUser.error)
 		.with(

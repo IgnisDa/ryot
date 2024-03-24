@@ -54,8 +54,8 @@ import {
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import { getCoreDetails, getUserPreferences } from "~/lib/utilities.server";
 
 export type SearchParams = {
 	query?: string;
@@ -84,7 +84,7 @@ const SEARCH_SOURCES_ALLOWED = [
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const action = params.action as Action;
 	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 	]);
 	const { query, page } = zx.parseQuery(request, {

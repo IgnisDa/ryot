@@ -25,7 +25,6 @@ import {
 	DeployUpdatePersonJobDocument,
 	EntityLot,
 	PersonDetailsDocument,
-	UserCollectionsListDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -56,13 +55,14 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { createToastHeaders } from "~/lib/toast.server";
 import {
 	getCoreDetails,
+	getUserCollectionsList,
+	processSubmission,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -80,9 +80,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userDetails,
 		{ personDetails },
 		{ userPersonDetails },
-		{ userCollectionsList: collections },
+		collections,
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(PersonDetailsDocument, { personId }),
@@ -91,11 +91,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			{ personId },
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	return json({
 		query,

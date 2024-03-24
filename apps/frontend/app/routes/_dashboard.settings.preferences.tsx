@@ -1,4 +1,5 @@
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Affix,
@@ -27,6 +28,7 @@ import {
 	type LoaderFunctionArgs,
 	type MetaFunction,
 	json,
+	redirect,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -47,10 +49,12 @@ import {
 import clsx from "clsx";
 import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
+import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getUserDetails, getUserPreferences } from "~/lib/graphql.server";
+import { redirectToQueryParam } from "~/lib/generals";
+import { getUserDetails, getUserPreferences } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
 const searchSchema = z.object({
@@ -101,7 +105,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		);
 	}
-	return json({ status: "success", submission } as const);
+	return redirect(
+		withQuery($path("/actions"), {
+			[redirectToQueryParam]: withoutHost(request.url),
+		}),
+	);
 };
 
 export default function Page() {

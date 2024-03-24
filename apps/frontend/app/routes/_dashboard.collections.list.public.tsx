@@ -24,8 +24,8 @@ import {
 	DebouncedSearchInput,
 } from "~/components/common";
 import { gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
+import { getCoreDetails } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.optional(),
@@ -37,7 +37,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { publicCollectionsList }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(PublicCollectionsListDocument, { input: query }),
 	]);
 	return json({

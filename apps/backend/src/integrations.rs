@@ -4,14 +4,14 @@ use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use sea_query::{Alias, Expr, Func};
+use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 use tracing::instrument;
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    utils::{get_base_http_client, get_ilike_query},
+    utils::get_base_http_client,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -205,13 +205,13 @@ impl IntegrationService {
                 let db_show = Metadata::find()
                     .filter(metadata::Column::Lot.eq(MetadataLot::Show))
                     .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-                    .filter(get_ilike_query(
-                        Func::cast_as(
+                    .filter(
+                        Expr::expr(Func::cast_as(
                             Expr::col(metadata::Column::ShowSpecifics),
                             Alias::new("text"),
-                        ),
-                        identifier,
-                    ))
+                        ))
+                        .ilike(identifier),
+                    )
                     .one(db)
                     .await?;
                 if db_show.is_none() {

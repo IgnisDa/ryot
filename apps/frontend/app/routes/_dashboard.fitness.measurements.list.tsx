@@ -50,10 +50,9 @@ import { zx } from "zodix";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { ApplicationKey, dayjsLib, redirectToQueryParam } from "~/lib/generals";
-import { getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import { getUserPreferences, processSubmission } from "~/lib/utilities.server";
 
 enum TimeSpan {
 	Last7Days = "Last 7 days",
@@ -114,7 +113,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
 			const input: any = {};
 			for (const [name, value] of formData.entries()) {
-				console.log(name, value);
 				if (value !== "" && name !== redirectToQueryParam)
 					set(input, name, value);
 			}

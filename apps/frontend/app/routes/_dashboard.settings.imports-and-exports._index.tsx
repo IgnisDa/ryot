@@ -53,8 +53,8 @@ import { confirmWrapper } from "~/components/confirmation";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { dayjsLib } from "~/lib/generals";
-import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
+import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/utilities.server";
 import {
 	processSubmission,
 	temporaryFileUploadHandler,
@@ -63,7 +63,7 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
-			getCoreDetails(),
+			getCoreDetails(request),
 			getCoreEnabledFeatures(),
 			gqlClient.request(
 				ImportReportsDocument,

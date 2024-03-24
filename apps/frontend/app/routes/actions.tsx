@@ -1,6 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
 	json,
 	redirect,
 	unstable_parseMultipartFormData,
@@ -9,6 +10,7 @@ import {
 	AddEntityToCollectionDocument,
 	CommitMetadataDocument,
 	CommitPersonDocument,
+	CoreDetailsDocument,
 	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
 	DeleteMediaReminderDocument,
@@ -20,24 +22,94 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
+	UserCollectionsListDocument,
+	UserDetailsDocument,
+	UserPreferencesDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { safeRedirect } from "remix-utils/safe-redirect";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { colorSchemeCookie } from "~/lib/cookies.server";
+import {
+	getAuthorizationHeader,
+	gqlClient,
+	redirectIfNotAuthenticated,
+} from "~/lib/api.server";
+import {
+	colorSchemeCookie,
+	coreDetailsCookie,
+	userCollectionsListCookie,
+	userDetailsCookie,
+	userPreferencesCookie,
+} from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import {
 	MetadataSpecificsSchema,
+	combineHeaders,
 	getLogoutCookies,
 	processSubmission,
 	s3FileUploader,
 } from "~/lib/utilities.server";
 
-export const loader = async () => redirect($path("/"));
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	await redirectIfNotAuthenticated(request);
+	const url = new URL(request.url);
+	const [
+		{ coreDetails },
+		{ userPreferences },
+		{ userDetails },
+		{ userCollectionsList },
+	] = await Promise.all([
+		gqlClient.request(CoreDetailsDocument),
+		gqlClient.request(
+			UserPreferencesDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+		gqlClient.request(
+			UserDetailsDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+		gqlClient.request(
+			UserCollectionsListDocument,
+			{},
+			await getAuthorizationHeader(request),
+		),
+	]);
+	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
+	const redirectUrl = safeRedirect(
+		url.searchParams.get(redirectToQueryParam) || "/",
+	);
+	return redirect(redirectUrl, {
+		headers: combineHeaders(
+			{
+				"Set-Cookie": await coreDetailsCookie.serialize(coreDetails, {
+					maxAge: cookieMaxAge,
+				}),
+			},
+			{
+				"Set-Cookie": await userPreferencesCookie.serialize(userPreferences, {
+					maxAge: cookieMaxAge,
+				}),
+			},
+			{
+				"Set-Cookie": await userDetailsCookie.serialize(userDetails, {
+					maxAge: cookieMaxAge,
+				}),
+			},
+			{
+				"Set-Cookie": await userCollectionsListCookie.serialize(
+					userCollectionsList,
+					{ maxAge: cookieMaxAge },
+				),
+			},
+		),
+	});
+};
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
@@ -101,7 +173,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		})
 		.with("logout", async () => {
 			redirectTo = $path("/auth/login");
-			headers = { "Set-Cookie": await getLogoutCookies() };
+			headers = await getLogoutCookies();
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);

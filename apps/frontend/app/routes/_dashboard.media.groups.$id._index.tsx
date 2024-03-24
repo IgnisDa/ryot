@@ -19,7 +19,6 @@ import { useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
 	MetadataGroupDetailsDocument,
-	UserCollectionsListDocument,
 	UserMetadataGroupDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -46,9 +45,10 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	getCoreDetails,
+	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -66,9 +66,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userDetails,
 		{ metadataGroupDetails },
 		{ userMetadataGroupDetails },
-		{ userCollectionsList: collections },
+		collections,
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(MetadataGroupDetailsDocument, { metadataGroupId }),
@@ -77,11 +77,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			{ metadataGroupId },
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	return json({
 		query,

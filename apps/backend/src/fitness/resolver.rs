@@ -14,7 +14,7 @@ use sea_orm::{
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
     RelationTrait,
 };
-use sea_query::{Alias, Condition, Expr, Func, JoinType};
+use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use strum::IntoEnumIterator;
@@ -41,7 +41,7 @@ use crate::{
         ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
-    utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
+    utils::{add_entity_to_collection, entity_in_collections, partial_user_by_id},
 };
 
 static JSON_URL: &str =
@@ -436,7 +436,7 @@ impl ExerciseService {
         let query = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
-                query.filter(get_ilike_query(Expr::col(workout::Column::Name), &v))
+                query.filter(Expr::col(workout::Column::Name).ilike(v))
             })
             .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.db).await?;
@@ -500,10 +500,13 @@ impl ExerciseService {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
                     .apply_if(q.muscle, |q, v| {
-                        q.filter(get_ilike_query(
-                            Func::cast_as(Expr::col(exercise::Column::Muscles), Alias::new("text")),
-                            &v.to_string(),
-                        ))
+                        q.filter(
+                            Expr::expr(Func::cast_as(
+                                Expr::col(exercise::Column::Muscles),
+                                Alias::new("text"),
+                            ))
+                            .ilike(v.to_string()),
+                        )
                     })
                     .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
                     .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
@@ -514,26 +517,20 @@ impl ExerciseService {
                         q.filter(exercise::Column::Equipment.eq(v))
                     })
                     .apply_if(q.collection, |q, v| {
-                        q.filter(collection_to_entity::Column::CollectionId.eq(v))
+                        q.join(
+                            JoinType::LeftJoin,
+                            exercise::Relation::CollectionToEntity.def(),
+                        )
+                        .filter(collection_to_entity::Column::CollectionId.eq(v))
                     })
             })
             .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(get_ilike_query(
-                            Expr::col((AliasedExercise::Table, exercise::Column::Id)),
-                            &v,
-                        ))
-                        .add(get_ilike_query(
-                            Expr::col(exercise::Column::Identifier),
-                            &slugify(v),
-                        )),
+                        .add(Expr::col((AliasedExercise::Table, exercise::Column::Id)).ilike(&v))
+                        .add(Expr::col(exercise::Column::Identifier).ilike(slugify(v))),
                 )
             })
-            .join(
-                JoinType::LeftJoin,
-                exercise::Relation::CollectionToEntity.def(),
-            )
             .join(
                 JoinType::LeftJoin,
                 user_to_entity::Relation::Exercise

@@ -35,9 +35,12 @@ import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { z } from "zod";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreEnabledFeatures } from "~/lib/graphql.server";
 import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission, s3FileUploader } from "~/lib/utilities.server";
+import {
+	getCoreEnabledFeatures,
+	processSubmission,
+	s3FileUploader,
+} from "~/lib/utilities.server";
 
 export const loader = async (_args: LoaderFunctionArgs) => {
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);

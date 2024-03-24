@@ -41,8 +41,8 @@ import {
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { getWorkoutStarter, useSearchParam } from "~/lib/hooks";
+import { getCoreDetails, getUserPreferences } from "~/lib/utilities.server";
 import { getDefaultWorkout } from "~/lib/workout";
 
 const searchParamsSchema = z.object({
@@ -57,7 +57,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [userPreferences, coreDetails, { userWorkoutList }] = await Promise.all(
 		[
 			getUserPreferences(request),
-			getCoreDetails(),
+			getCoreDetails(request),
 			gqlClient.request(
 				UserWorkoutListDocument,
 				{

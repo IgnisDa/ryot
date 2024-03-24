@@ -54,7 +54,7 @@ export const redirectIfNotAuthenticated = async (request: Request) => {
 						type: "error",
 						message: "You must be logged in to view this page",
 					}),
-					{ "Set-Cookie": await getLogoutCookies() },
+					await getLogoutCookies(),
 				),
 			},
 		);

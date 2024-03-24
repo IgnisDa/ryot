@@ -37,7 +37,6 @@ import {
 	MetadataListDocument,
 	MetadataLot,
 	MetadataSearchDocument,
-	UserCollectionsListDocument,
 	type UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
@@ -73,8 +72,12 @@ import {
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { Verb, getLot, getVerb, redirectToQueryParam } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import {
+	getCoreDetails,
+	getUserCollectionsList,
+	getUserPreferences,
+} from "~/lib/utilities.server";
 
 export type SearchParams = {
 	query?: string;
@@ -113,20 +116,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		coreDetails,
 		userPreferences,
 		{ latestUserSummary },
-		{ userCollectionsList },
+		userCollectionsList,
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(
 			LatestUserSummaryDocument,
 			undefined,
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),

@@ -93,12 +93,12 @@ import { DisplayExerciseStats } from "~/components/fitness";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { ApplicationKey, dayjsLib, getSetColor } from "~/lib/generals";
+import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	getCoreDetails,
 	getCoreEnabledFeatures,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
+} from "~/lib/utilities.server";
 import {
 	type Exercise,
 	type ExerciseSet,
@@ -119,7 +119,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			message: "No workout in progress",
 		});
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
-		[getCoreDetails(), getUserPreferences(request), getCoreEnabledFeatures()],
+		[
+			getCoreDetails(request),
+			getUserPreferences(request),
+			getCoreEnabledFeatures(),
+		],
 	);
 	return json({
 		coreDetails,

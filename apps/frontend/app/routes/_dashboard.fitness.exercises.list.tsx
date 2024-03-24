@@ -38,7 +38,6 @@ import {
 	ExerciseParametersDocument,
 	ExerciseSortBy,
 	ExercisesListDocument,
-	UserCollectionsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -57,12 +56,13 @@ import {
 } from "~/components/common";
 import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
+import { useSearchParam } from "~/lib/hooks";
 import {
 	getCoreDetails,
+	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { useSearchParam } from "~/lib/hooks";
+} from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const defaultFiltersValue = {
@@ -103,9 +103,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userDetails,
 		{ exerciseParameters },
 		{ exercisesList },
-		{ userCollectionsList },
+		userCollectionsList,
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(ExerciseParametersDocument, {}),
@@ -131,11 +131,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			},
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	return json({
 		coreDetails: { pageLimit: coreDetails.pageLimit },

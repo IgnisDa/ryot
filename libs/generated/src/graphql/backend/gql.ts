@@ -45,7 +45,7 @@ const documents = {
     "mutation EditSeenItem($input: EditSeenItemInput!) {\n  editSeenItem(input: $input)\n}": types.EditSeenItemDocument,
     "mutation EditUserWorkout($input: EditUserWorkoutInput!) {\n  editUserWorkout(input: $input)\n}": types.EditUserWorkoutDocument,
     "mutation GenerateAuthToken {\n  generateAuthToken\n}": types.GenerateAuthTokenDocument,
-    "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n      validFor\n    }\n  }\n}": types.LoginUserDocument,
+    "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}": types.LoginUserDocument,
     "mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {\n  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)\n}": types.MergeMetadataDocument,
     "mutation PostReview($input: PostReviewInput!) {\n  postReview(input: $input) {\n    id\n  }\n}": types.PostReviewDocument,
     "mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {\n  presignedPutS3Url(input: $input) {\n    key\n    uploadUrl\n  }\n}": types.PresignedPutS3UrlDocument,
@@ -57,7 +57,7 @@ const documents = {
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}": types.UpdateUserPreferenceDocument,
     "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    reviews {\n      ...ReviewItemPart\n    }\n    results {\n      details {\n        total\n        nextPage\n      }\n      items {\n        metadataLot\n        entityLot\n        details {\n          ...MetadataSearchItemPart\n        }\n      }\n    }\n    details {\n      name\n      description\n      visibility\n      createdOn\n    }\n  }\n}": types.CollectionContentsDocument,
-    "query CoreDetails {\n  coreDetails {\n    version\n    timezone\n    authorName\n    repositoryLink\n    docsLink\n    itemDetailsHeight\n    reviewsDisabled\n    pageLimit\n  }\n}": types.CoreDetailsDocument,
+    "query CoreDetails {\n  coreDetails {\n    version\n    timezone\n    authorName\n    repositoryLink\n    docsLink\n    itemDetailsHeight\n    reviewsDisabled\n    pageLimit\n    tokenValidForDays\n  }\n}": types.CoreDetailsDocument,
     "query CoreEnabledFeatures {\n  coreEnabledFeatures {\n    fileStorage\n    signupAllowed\n  }\n}": types.CoreEnabledFeaturesDocument,
     "query ExerciseDetails($exerciseId: String!) {\n  exerciseDetails(exerciseId: $exerciseId) {\n    id\n    lot\n    source\n    level\n    force\n    mechanic\n    equipment\n    muscles\n    attributes {\n      instructions\n      images\n    }\n  }\n}": types.ExerciseDetailsDocument,
     "query ExerciseParameters {\n  exerciseParameters {\n    filters {\n      type\n      level\n      force\n      mechanic\n      equipment\n      muscle\n    }\n    downloadRequired\n  }\n}": types.ExerciseParametersDocument,
@@ -242,7 +242,7 @@ export function graphql(source: "mutation GenerateAuthToken {\n  generateAuthTok
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n      validFor\n    }\n  }\n}"): (typeof documents)["mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n      validFor\n    }\n  }\n}"];
+export function graphql(source: "mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}"): (typeof documents)["mutation LoginUser($input: UserInput!) {\n  loginUser(input: $input) {\n    __typename\n    ... on LoginError {\n      error\n    }\n    ... on LoginResponse {\n      apiKey\n    }\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -290,7 +290,7 @@ export function graphql(source: "query CollectionContents($input: CollectionCont
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    timezone\n    authorName\n    repositoryLink\n    docsLink\n    itemDetailsHeight\n    reviewsDisabled\n    pageLimit\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    timezone\n    authorName\n    repositoryLink\n    docsLink\n    itemDetailsHeight\n    reviewsDisabled\n    pageLimit\n  }\n}"];
+export function graphql(source: "query CoreDetails {\n  coreDetails {\n    version\n    timezone\n    authorName\n    repositoryLink\n    docsLink\n    itemDetailsHeight\n    reviewsDisabled\n    pageLimit\n    tokenValidForDays\n  }\n}"): (typeof documents)["query CoreDetails {\n  coreDetails {\n    version\n    timezone\n    authorName\n    repositoryLink\n    docsLink\n    itemDetailsHeight\n    reviewsDisabled\n    pageLimit\n    tokenValidForDays\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
