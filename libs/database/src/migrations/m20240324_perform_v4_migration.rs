@@ -60,6 +60,29 @@ SET summary = jsonb_set(
 "#,
         )
         .await?;
+        // for user preferences
+        db.execute_unprepared(
+            r#"
+UPDATE "user"
+SET preferences = jsonb_set(preferences, '{features_enabled, media, people}', 'true', true);
+
+UPDATE "user"
+SET preferences = jsonb_set(preferences, '{features_enabled, media, groups}', 'true', true);
+
+UPDATE "user"
+SET preferences = jsonb_set(preferences, '{features_enabled, media, genres}', 'true', true);
+
+UPDATE "user"
+SET preferences = jsonb_set(preferences, '{general, disable_yank_integrations}', 'false', true);
+
+UPDATE "user"
+SET preferences = jsonb_set(preferences, '{general, disable_videos}', 'false', true);
+
+UPDATE "user"
+SET preferences = jsonb_set(preferences, '{general, disable_watch_providers}', 'false', true);
+"#,
+        )
+        .await?;
         // for user_to_entity
         db.execute_unprepared(
             r#"

@@ -38,11 +38,8 @@ pub struct UserMediaFeaturesEnabledPreferences {
     pub show: bool,
     pub video_game: bool,
     pub visual_novel: bool,
-    #[serde(default)] // FIXME: remove in the next major release
     pub people: bool,
-    #[serde(default)] // FIXME: remove in the next major release
     pub groups: bool,
-    #[serde(default)] // FIXME: remove in the next major release
     pub genres: bool,
 }
 
@@ -263,13 +260,9 @@ pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
-    #[serde(default)] // FIXME: remove in the next major release
     pub disable_yank_integrations: bool,
-    #[serde(default)] // FIXME: remove in the next major release
     pub disable_navigation_animation: bool,
-    #[serde(default)] // FIXME: remove in the next major release
     pub disable_videos: bool,
-    #[serde(default)] // FIXME: remove in the next major release
     pub disable_watch_providers: bool,
 }
 
