@@ -16,8 +16,7 @@ SET summary = jsonb_set(
   '{media, metadata_overall}',
   '{"reviewed": 0, "interacted_with": 0}',
   false
-)
-WHERE summary->'media'->'metadata_overall' IS NULL;
+);
 
 UPDATE "user"
 SET summary = jsonb_set(
@@ -25,8 +24,7 @@ SET summary = jsonb_set(
   '{media, people_overall}',
   '{"reviewed": 0, "interacted_with": 0}',
   false
-)
-WHERE summary->'media'->'people_overall' IS NULL;
+);
 
 UPDATE "user"
 SET summary = jsonb_set(
@@ -34,8 +32,7 @@ SET summary = jsonb_set(
   '{fitness, workouts}',
   '{"weight": "0", "duration": 0, "recorded": 0}',
   false
-)
-WHERE summary->'fitness'->'workouts' IS NULL;
+);
 
 UPDATE "user"
 SET summary = jsonb_set(
@@ -43,8 +40,7 @@ SET summary = jsonb_set(
   '{calculated_from_beginning}',
   'false',
   false
-)
-WHERE summary->'calculated_from_beginning' IS NULL;
+);
 
 UPDATE "user"
 SET summary = jsonb_set(
@@ -52,8 +48,7 @@ SET summary = jsonb_set(
   '{unique_items, anime_episodes}',
   '[]',
   false
-)
-WHERE summary->'unique_items'->'anime_episodes' IS NULL;
+);
 
 UPDATE "user"
 SET summary = jsonb_set(
@@ -61,8 +56,7 @@ SET summary = jsonb_set(
   '{unique_items, manga_chapters}',
   '[]',
   false
-)
-WHERE summary->'unique_items'->'manga_chapters' IS NULL;
+);
 "#,
         )
         .await?;
@@ -116,7 +110,7 @@ BEGIN
                         '{sets}',
                         (
                             SELECT jsonb_agg(
-                                jsonb_set(set, '{workout_done_on}', '2022-08-18T02:05:03Z')
+                                jsonb_set(set, '{workout_done_on}', '"2022-08-18T02:05:03Z"')
                             )
                             FROM jsonb_array_elements(pb->'sets') AS set
                         )
