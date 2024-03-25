@@ -62,6 +62,7 @@ mod m20240307_add_column_to_metadata_for_watch_providers;
 mod m20240309_change_generic_to_media_json;
 mod m20240310_add_source_specifics_field_to_person;
 mod m20240324_perform_v4_migration;
+mod m20240325_add_correct_attribute_to_user_preferences;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -141,6 +142,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240309_change_generic_to_media_json::Migration),
             Box::new(m20240310_add_source_specifics_field_to_person::Migration),
             Box::new(m20240324_perform_v4_migration::Migration),
+            Box::new(m20240325_add_correct_attribute_to_user_preferences::Migration),
         ]
     }
 }
