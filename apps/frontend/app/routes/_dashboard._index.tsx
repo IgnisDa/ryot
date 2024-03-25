@@ -27,8 +27,8 @@ import {
 	LatestUserSummaryDocument,
 	MetadataLot,
 	type UserMediaFeaturesEnabledPreferences,
-	UserUpcomingCalendarEventsDocument,
 	type UserPreferences,
+	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
