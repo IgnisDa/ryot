@@ -1,9 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-/// A fixed-length vector-like data structure that automatically removes the oldest element
-/// when a new element is added, ensuring that the length of the vector does not exceed
-/// the specified maximum capacity.
-///
 /// This data structure behaves like a regular `Vec`, but with a specific length. When you
 /// push a new element into it and it reaches its capacity, it will remove the oldest element
 /// to maintain the fixed length.
