@@ -28,6 +28,7 @@ import {
 	MetadataLot,
 	type UserMediaFeaturesEnabledPreferences,
 	UserUpcomingCalendarEventsDocument,
+	type UserPreferences,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
@@ -61,24 +62,28 @@ import {
 
 const cookieName = ApplicationKeys.CurrentWorkout;
 
+const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
+	const t = prefs.general.dashboard.find(
+		(de) => de.section === el,
+	)?.numElements;
+	invariant(t, `No take found for ${el}`);
+	return t;
+};
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const userPreferences = await getUserPreferences(request);
-	const getTake = (el: DashboardElementLot) => {
-		const t = userPreferences.general.dashboard.find(
-			(de) => de.section === el,
-		)?.numElements;
-		invariant(t, `No take found for ${el}`);
-		return t;
-	};
-	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(DashboardElementLot.InProgress);
+	const prefs = await getUserPreferences(request);
+	const takeUpcoming = getTake(prefs, DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(prefs, DashboardElementLot.InProgress);
 	const userCollectionsList = await getUserCollectionsList(request);
-	const collectionId = userCollectionsList[0].id;
+	const foundCollection = userCollectionsList.find(
+		(c) => c.name === "In Progress",
+	);
+	invariant(foundCollection, 'No collection found for "In Progress"');
 	const { collectionContents } = await gqlClient.request(
 		CollectionContentsDocument,
 		{
 			input: {
-				collectionId,
+				collectionId: foundCollection.id,
 				take: takeInProgress,
 				sort: { order: GraphqlSortOrder.Desc },
 			},
@@ -100,11 +105,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return json({
 		workoutInProgress,
 		userPreferences: {
-			reviewScale: userPreferences.general.reviewScale,
-			dashboard: userPreferences.general.dashboard,
-			media: userPreferences.featuresEnabled.media,
-			fitness: userPreferences.featuresEnabled.fitness,
-			unitSystem: userPreferences.fitness.exercises.unitSystem,
+			reviewScale: prefs.general.reviewScale,
+			dashboard: prefs.general.dashboard,
+			media: prefs.featuresEnabled.media,
+			fitness: prefs.featuresEnabled.fitness,
+			unitSystem: prefs.fitness.exercises.unitSystem,
 		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
@@ -362,51 +367,55 @@ export default function Page() {
 										]}
 									/>
 									{loaderData.userPreferences.media.enabled ? (
-										<ActualDisplayStat
-											icon={<IconServer />}
-											lot="Metadata stats"
-											color={theme.colors.grape[8]}
-											data={[
-												{
-													label: "Media",
-													value:
-														loaderData.latestUserSummary.media.metadataOverall
-															.interactedWith,
-													type: "number",
-												},
-												{
-													label: "Reviews",
-													value:
-														loaderData.latestUserSummary.media.metadataOverall
-															.reviewed,
-													type: "number",
-													hideIfZero: true,
-												},
-											]}
-										/>
+										<>
+											<ActualDisplayStat
+												icon={<IconServer />}
+												lot="Metadata stats"
+												color={theme.colors.grape[8]}
+												data={[
+													{
+														label: "Media",
+														value:
+															loaderData.latestUserSummary.media.metadataOverall
+																.interactedWith,
+														type: "number",
+													},
+													{
+														label: "Reviews",
+														value:
+															loaderData.latestUserSummary.media.metadataOverall
+																.reviewed,
+														type: "number",
+														hideIfZero: true,
+													},
+												]}
+											/>
+											{loaderData.userPreferences.media.people ? (
+												<ActualDisplayStat
+													icon={<IconFriends />}
+													lot="People stats"
+													color={theme.colors.red[9]}
+													data={[
+														{
+															label: "People",
+															value:
+																loaderData.latestUserSummary.media.peopleOverall
+																	.interactedWith,
+															type: "number",
+														},
+														{
+															label: "Reviews",
+															value:
+																loaderData.latestUserSummary.media.peopleOverall
+																	.reviewed,
+															type: "number",
+															hideIfZero: true,
+														},
+													]}
+												/>
+											) : null}
+										</>
 									) : null}
-									<ActualDisplayStat
-										icon={<IconFriends />}
-										lot="People stats"
-										color={theme.colors.red[9]}
-										data={[
-											{
-												label: "People",
-												value:
-													loaderData.latestUserSummary.media.peopleOverall
-														.interactedWith,
-												type: "number",
-											},
-											{
-												label: "Reviews",
-												value:
-													loaderData.latestUserSummary.media.peopleOverall
-														.reviewed,
-												type: "number",
-												hideIfZero: true,
-											},
-										]}
-									/>
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
@@ -461,6 +470,7 @@ export default function Page() {
 														loaderData.latestUserSummary.fitness
 															.measurementsRecorded,
 													type: "number",
+													hideIfZero: true,
 												},
 												{
 													label: "Exercises",
