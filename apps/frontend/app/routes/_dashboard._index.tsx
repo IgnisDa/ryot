@@ -470,6 +470,7 @@ export default function Page() {
 														loaderData.latestUserSummary.fitness
 															.measurementsRecorded,
 													type: "number",
+													hideIfZero: true,
 												},
 												{
 													label: "Exercises",
