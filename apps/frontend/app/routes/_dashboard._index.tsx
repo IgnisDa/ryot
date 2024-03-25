@@ -362,51 +362,55 @@ export default function Page() {
 										]}
 									/>
 									{loaderData.userPreferences.media.enabled ? (
-										<ActualDisplayStat
-											icon={<IconServer />}
-											lot="Metadata stats"
-											color={theme.colors.grape[8]}
-											data={[
-												{
-													label: "Media",
-													value:
-														loaderData.latestUserSummary.media.metadataOverall
-															.interactedWith,
-													type: "number",
-												},
-												{
-													label: "Reviews",
-													value:
-														loaderData.latestUserSummary.media.metadataOverall
-															.reviewed,
-													type: "number",
-													hideIfZero: true,
-												},
-											]}
-										/>
+										<>
+											<ActualDisplayStat
+												icon={<IconServer />}
+												lot="Metadata stats"
+												color={theme.colors.grape[8]}
+												data={[
+													{
+														label: "Media",
+														value:
+															loaderData.latestUserSummary.media.metadataOverall
+																.interactedWith,
+														type: "number",
+													},
+													{
+														label: "Reviews",
+														value:
+															loaderData.latestUserSummary.media.metadataOverall
+																.reviewed,
+														type: "number",
+														hideIfZero: true,
+													},
+												]}
+											/>
+											{loaderData.userPreferences.media.people ? (
+												<ActualDisplayStat
+													icon={<IconFriends />}
+													lot="People stats"
+													color={theme.colors.red[9]}
+													data={[
+														{
+															label: "People",
+															value:
+																loaderData.latestUserSummary.media.peopleOverall
+																	.interactedWith,
+															type: "number",
+														},
+														{
+															label: "Reviews",
+															value:
+																loaderData.latestUserSummary.media.peopleOverall
+																	.reviewed,
+															type: "number",
+															hideIfZero: true,
+														},
+													]}
+												/>
+											) : null}
+										</>
 									) : null}
-									<ActualDisplayStat
-										icon={<IconFriends />}
-										lot="People stats"
-										color={theme.colors.red[9]}
-										data={[
-											{
-												label: "People",
-												value:
-													loaderData.latestUserSummary.media.peopleOverall
-														.interactedWith,
-												type: "number",
-											},
-											{
-												label: "Reviews",
-												value:
-													loaderData.latestUserSummary.media.peopleOverall
-														.reviewed,
-												type: "number",
-												hideIfZero: true,
-											},
-										]}
-									/>
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.workouts.duration +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
