@@ -123,6 +123,7 @@ pub async fn get_user_to_entity_association<C>(
     metadata_id: Option<i32>,
     person_id: Option<i32>,
     exercise_id: Option<String>,
+    metadata_group_id: Option<i32>,
     db: &C,
 ) -> Option<user_to_entity::Model>
 where
@@ -135,7 +136,8 @@ where
                 .eq(metadata_id.to_owned())
                 .or(user_to_entity::Column::PersonId
                     .eq(person_id.to_owned())
-                    .or(user_to_entity::Column::ExerciseId.eq(exercise_id.to_owned()))),
+                    .or(user_to_entity::Column::ExerciseId.eq(exercise_id.to_owned()))
+                    .or(user_to_entity::Column::MetadataGroupId.eq(metadata_group_id.to_owned()))),
         )
         .one(db)
         .await
@@ -148,14 +150,21 @@ pub async fn associate_user_with_entity<C>(
     metadata_id: Option<i32>,
     person_id: Option<i32>,
     exercise_id: Option<String>,
+    metadata_group_id: Option<i32>,
     db: &C,
 ) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
-    let user_to_meta =
-        get_user_to_entity_association(user_id, metadata_id, person_id, exercise_id.clone(), db)
-            .await;
+    let user_to_meta = get_user_to_entity_association(
+        user_id,
+        metadata_id,
+        person_id,
+        exercise_id.clone(),
+        metadata_group_id,
+        db,
+    )
+    .await;
     Ok(match user_to_meta {
         None => {
             let user_to_meta = user_to_entity::ActiveModel {
@@ -163,6 +172,7 @@ where
                 metadata_id: ActiveValue::Set(metadata_id),
                 person_id: ActiveValue::Set(person_id),
                 exercise_id: ActiveValue::Set(exercise_id),
+                metadata_group_id: ActiveValue::Set(metadata_group_id),
                 last_updated_on: ActiveValue::Set(Utc::now()),
                 needs_to_be_updated: ActiveValue::Set(Some(true)),
                 ..Default::default()

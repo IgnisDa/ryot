@@ -27,7 +27,7 @@ const documents = {
     "mutation CreateUserWorkout($input: UserWorkoutInput!) {\n  createUserWorkout(input: $input)\n}": types.CreateUserWorkoutDocument,
     "mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {\n  createUserYankIntegration(input: $input)\n}": types.CreateUserYankIntegrationDocument,
     "mutation DeleteCollection($collectionName: String!) {\n  deleteCollection(collectionName: $collectionName)\n}": types.DeleteCollectionDocument,
-    "mutation DeleteMediaReminder($metadataId: Int, $personId: Int) {\n  deleteMediaReminder(metadataId: $metadataId, personId: $personId)\n}": types.DeleteMediaReminderDocument,
+    "mutation DeleteMediaReminder($input: DeleteMediaReminderInput!) {\n  deleteMediaReminder(input: $input)\n}": types.DeleteMediaReminderDocument,
     "mutation DeleteReview($reviewId: Int!) {\n  deleteReview(reviewId: $reviewId)\n}": types.DeleteReviewDocument,
     "mutation DeleteS3Object($key: String!) {\n  deleteS3Object(key: $key)\n}": types.DeleteS3ObjectDocument,
     "mutation DeleteSeenItem($seenId: Int!) {\n  deleteSeenItem(seenId: $seenId) {\n    id\n  }\n}": types.DeleteSeenItemDocument,
@@ -53,7 +53,7 @@ const documents = {
     "mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {\n  removeEntityFromCollection(input: $input) {\n    id\n  }\n}": types.RemoveEntityFromCollectionDocument,
     "mutation TestUserNotificationPlatforms {\n  testUserNotificationPlatforms\n}": types.TestUserNotificationPlatformsDocument,
     "mutation ToggleMediaMonitor($input: ToggleMediaMonitorInput!) {\n  toggleMediaMonitor(input: $input)\n}": types.ToggleMediaMonitorDocument,
-    "mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}": types.ToggleMediaOwnershipDocument,
+    "mutation ToggleMediaOwnership($input: ToggleMediaOwnershipInput!) {\n  toggleMediaOwnership(input: $input)\n}": types.ToggleMediaOwnershipDocument,
     "mutation UpdateUser($input: UpdateUserInput!) {\n  updateUser(input: $input) {\n    id\n  }\n}": types.UpdateUserDocument,
     "mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {\n  updateUserPreference(input: $input)\n}": types.UpdateUserPreferenceDocument,
     "query CollectionContents($input: CollectionContentsInput!) {\n  collectionContents(input: $input) {\n    user {\n      name\n    }\n    reviews {\n      ...ReviewItemPart\n    }\n    results {\n      details {\n        total\n        nextPage\n      }\n      items {\n        metadataLot\n        entityLot\n        details {\n          ...MetadataSearchItemPart\n        }\n      }\n    }\n    details {\n      name\n      description\n      visibility\n      createdOn\n    }\n  }\n}": types.CollectionContentsDocument,
@@ -170,7 +170,7 @@ export function graphql(source: "mutation DeleteCollection($collectionName: Stri
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation DeleteMediaReminder($metadataId: Int, $personId: Int) {\n  deleteMediaReminder(metadataId: $metadataId, personId: $personId)\n}"): (typeof documents)["mutation DeleteMediaReminder($metadataId: Int, $personId: Int) {\n  deleteMediaReminder(metadataId: $metadataId, personId: $personId)\n}"];
+export function graphql(source: "mutation DeleteMediaReminder($input: DeleteMediaReminderInput!) {\n  deleteMediaReminder(input: $input)\n}"): (typeof documents)["mutation DeleteMediaReminder($input: DeleteMediaReminderInput!) {\n  deleteMediaReminder(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -274,7 +274,7 @@ export function graphql(source: "mutation ToggleMediaMonitor($input: ToggleMedia
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}"): (typeof documents)["mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {\n  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)\n}"];
+export function graphql(source: "mutation ToggleMediaOwnership($input: ToggleMediaOwnershipInput!) {\n  toggleMediaOwnership(input: $input)\n}"): (typeof documents)["mutation ToggleMediaOwnership($input: ToggleMediaOwnershipInput!) {\n  toggleMediaOwnership(input: $input)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

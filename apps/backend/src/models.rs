@@ -1315,6 +1315,7 @@ pub mod media {
     pub struct ToggleMediaMonitorInput {
         pub metadata_id: Option<i32>,
         pub person_id: Option<i32>,
+        pub metadata_group_id: Option<i32>,
         pub force_value: Option<bool>,
     }
 

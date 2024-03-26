@@ -629,7 +629,22 @@ struct CreateMediaReminderInput {
     remind_on: NaiveDate,
     message: String,
     metadata_id: Option<i32>,
+    metadata_group_id: Option<i32>,
     person_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct DeleteMediaReminderInput {
+    metadata_id: Option<i32>,
+    metadata_group_id: Option<i32>,
+    person_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct ToggleMediaOwnershipInput {
+    owned_on: Option<NaiveDate>,
+    metadata_id: Option<i32>,
+    metadata_group_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1277,28 +1292,22 @@ impl MiscellaneousMutation {
     async fn delete_media_reminder(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: DeleteMediaReminderInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .delete_media_reminder(user_id, metadata_id, person_id)
-            .await
+        service.delete_media_reminder(user_id, input).await
     }
 
     /// Mark media as owned or remove ownership.
     async fn toggle_media_ownership(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
-        owned_on: Option<NaiveDate>,
+        input: ToggleMediaOwnershipInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .toggle_media_ownership(user_id, metadata_id, owned_on)
-            .await
+        service.toggle_media_ownership(user_id, input).await
     }
 
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
@@ -1828,7 +1837,8 @@ impl MiscellaneousService {
             .unwrap();
         let seen_by: i32 = seen_by.try_into().unwrap();
         let user_to_meta =
-            get_user_to_entity_association(&user_id, Some(metadata_id), None, None, &self.db).await;
+            get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
+                .await;
         let reminder = user_to_meta.clone().and_then(|n| n.media_reminder);
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
         let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
@@ -1870,7 +1880,8 @@ impl MiscellaneousService {
         let collections =
             entity_in_collections(&self.db, user_id, None, Some(creator_id), None, None).await?;
         let association =
-            get_user_to_entity_association(&user_id, None, Some(creator_id), None, &self.db).await;
+            get_user_to_entity_association(&user_id, None, Some(creator_id), None, None, &self.db)
+                .await;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -3465,12 +3476,19 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         if let Some(association) =
-            get_user_to_entity_association(&user_id, Some(merge_into), None, None, &self.db).await
+            get_user_to_entity_association(&user_id, Some(merge_into), None, None, None, &self.db)
+                .await
         {
-            let old_association =
-                get_user_to_entity_association(&user_id, Some(merge_from), None, None, &self.db)
-                    .await
-                    .unwrap();
+            let old_association = get_user_to_entity_association(
+                &user_id,
+                Some(merge_from),
+                None,
+                None,
+                None,
+                &self.db,
+            )
+            .await
+            .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
             if old_association.media_monitored.is_none() {
                 cloned.media_monitored = ActiveValue::Set(association.media_monitored);
@@ -6242,6 +6260,7 @@ GROUP BY
             input.metadata_id,
             input.person_id,
             None,
+            input.metadata_group_id,
             &self.db,
         )
         .await?;
@@ -6263,6 +6282,7 @@ GROUP BY
         let metadata = get_user_to_entity_association(
             &user_id,
             Some(to_monitor_metadata_id),
+            None,
             None,
             None,
             &self.db,
@@ -6637,12 +6657,20 @@ GROUP BY
             input.metadata_id,
             input.person_id,
             None,
+            input.metadata_group_id,
             &self.db,
         )
         .await?;
         if utm.media_reminder.is_some() {
-            self.delete_media_reminder(user_id, input.metadata_id, input.person_id)
-                .await?;
+            self.delete_media_reminder(
+                user_id,
+                DeleteMediaReminderInput {
+                    metadata_id: input.metadata_id,
+                    person_id: input.person_id,
+                    metadata_group_id: input.metadata_group_id,
+                },
+            )
+            .await?;
         }
         let mut utm: user_to_entity::ActiveModel = utm.into();
         utm.media_reminder = ActiveValue::Set(Some(UserMediaReminder {
@@ -6656,11 +6684,17 @@ GROUP BY
     async fn delete_media_reminder(
         &self,
         user_id: i32,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: DeleteMediaReminderInput,
     ) -> Result<bool> {
-        let utm =
-            associate_user_with_entity(&user_id, metadata_id, person_id, None, &self.db).await?;
+        let utm = associate_user_with_entity(
+            &user_id,
+            input.metadata_id,
+            input.person_id,
+            None,
+            input.metadata_group_id,
+            &self.db,
+        )
+        .await?;
         let mut utm: user_to_entity::ActiveModel = utm.into();
         utm.media_reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
@@ -6670,11 +6704,17 @@ GROUP BY
     async fn toggle_media_ownership(
         &self,
         user_id: i32,
-        metadata_id: i32,
-        owned_on: Option<NaiveDate>,
+        input: ToggleMediaOwnershipInput,
     ) -> Result<bool> {
-        let utm =
-            associate_user_with_entity(&user_id, Some(metadata_id), None, None, &self.db).await?;
+        let utm = associate_user_with_entity(
+            &user_id,
+            input.metadata_id,
+            None,
+            None,
+            input.metadata_group_id,
+            &self.db,
+        )
+        .await?;
         let has_ownership = utm.metadata_ownership.is_some();
         let mut utm: user_to_entity::ActiveModel = utm.into();
         if has_ownership {
@@ -6682,7 +6722,7 @@ GROUP BY
         } else {
             utm.metadata_ownership = ActiveValue::Set(Some(UserMediaOwnership {
                 marked_on: Utc::now(),
-                owned_on,
+                owned_on: input.owned_on,
             }));
         }
         utm.update(&self.db).await?;
@@ -6699,8 +6739,15 @@ GROUP BY
                 if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
                     self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
                         .await?;
-                    self.delete_media_reminder(utm.user_id, utm.metadata_id, utm.person_id)
-                        .await?;
+                    self.delete_media_reminder(
+                        utm.user_id,
+                        DeleteMediaReminderInput {
+                            metadata_group_id: utm.metadata_group_id,
+                            metadata_id: utm.metadata_id,
+                            person_id: utm.person_id,
+                        },
+                    )
+                    .await?;
                 }
             }
         }
