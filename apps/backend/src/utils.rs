@@ -179,7 +179,12 @@ where
             };
             user_to_meta.insert(db).await.unwrap()
         }
-        Some(u) => u,
+        Some(u) => {
+            let mut to_update: user_to_entity::ActiveModel = u.into();
+            to_update.last_updated_on = ActiveValue::Set(Utc::now());
+            to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
+            to_update.update(db).await.unwrap()
+        }
     })
 }
 
