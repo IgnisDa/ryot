@@ -63,6 +63,8 @@ mod m20240309_change_generic_to_media_json;
 mod m20240310_add_source_specifics_field_to_person;
 mod m20240324_perform_v4_migration;
 mod m20240325_add_correct_attribute_to_user_preferences;
+mod m20240326_0_add_metadata_group_id_column_to_user_to_entity;
+mod m20240326_1_add_user_to_entity_constraint;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -143,6 +145,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240310_add_source_specifics_field_to_person::Migration),
             Box::new(m20240324_perform_v4_migration::Migration),
             Box::new(m20240325_add_correct_attribute_to_user_preferences::Migration),
+            Box::new(m20240326_0_add_metadata_group_id_column_to_user_to_entity::Migration),
+            Box::new(m20240326_1_add_user_to_entity_constraint::Migration),
         ]
     }
 }
