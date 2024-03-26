@@ -55,7 +55,6 @@ import {
 	MetadataMainDetailsDocument,
 	MetadataVideoSource,
 	SeenState,
-	ToggleMediaOwnershipDocument,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -97,6 +96,7 @@ import {
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateOwnershipModal,
 	CreateReminderModal,
 	DisplayCollection,
 	DisplayMediaMonitored,
@@ -213,20 +213,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Progress updated successfully",
-				}),
-			});
-		},
-		toggleMediaOwnership: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
-				ToggleMediaOwnershipDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Ownership toggled successfully",
 				}),
 			});
 		},
@@ -2226,61 +2212,6 @@ const AdjustSeenTimesModal = (props: {
 					>
 						Submit
 					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-const CreateOwnershipModal = (props: {
-	opened: boolean;
-	metadataId: number;
-	onClose: () => void;
-}) => {
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form method="post" action="?intent=toggleMediaOwnership" replace>
-				<Stack>
-					<Title order={3}>Mark media as owned</Title>
-					<DateInput
-						label="When did you get this media?"
-						clearable
-						popoverProps={{ withinPortal: true }}
-						onChange={setOwnedOn}
-						value={ownedOn}
-					/>
-					<input hidden name="metadataId" defaultValue={props.metadataId} />
-					<input
-						hidden
-						name="ownedOn"
-						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
-					/>
-					<SimpleGrid cols={2}>
-						<Button
-							variant="outline"
-							onClick={props.onClose}
-							disabled={!!ownedOn}
-							data-autofocus
-							type="submit"
-						>
-							I don't remember
-						</Button>
-						<Button
-							disabled={!ownedOn}
-							variant="outline"
-							type="submit"
-							onClick={props.onClose}
-						>
-							Submit
-						</Button>
-					</SimpleGrid>
 				</Stack>
 			</Form>
 		</Modal>

@@ -22,6 +22,7 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
+	ToggleMediaOwnershipDocument,
 	UserCollectionsListDocument,
 	UserDetailsDocument,
 	UserPreferencesDocument,
@@ -267,7 +268,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		})
 		.with("deleteMediaReminder", async () => {
-			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			const submission = processSubmission(
+				formData,
+				metadataOrPersonOrMetadataGroupIdSchema,
+			);
 			await gqlClient.request(
 				DeleteMediaReminderDocument,
 				{ input: submission },
@@ -279,7 +283,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		})
 		.with("toggleMediaMonitor", async () => {
-			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			const submission = processSubmission(
+				formData,
+				metadataOrPersonOrMetadataGroupIdSchema,
+			);
 			await gqlClient.request(
 				ToggleMediaMonitorDocument,
 				{ input: submission },
@@ -288,6 +295,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			headers = await createToastHeaders({
 				type: "success",
 				message: "Monitor toggled successfully",
+			});
+		})
+		.with("toggleMediaOwnership", async () => {
+			const submission = processSubmission(
+				formData,
+				metadataOrPersonOrMetadataGroupIdSchema,
+			);
+			await gqlClient.request(
+				ToggleMediaOwnershipDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			headers = await createToastHeaders({
+				type: "success",
+				message: "Ownership toggled successfully",
 			});
 		})
 		.run();
@@ -339,14 +361,15 @@ const reviewSchema = z
 	})
 	.merge(MetadataSpecificsSchema);
 
-const metadataOrPersonIdSchema = z.object({
+const metadataOrPersonOrMetadataGroupIdSchema = z.object({
 	metadataId: zx.IntAsString.optional(),
+	metadataGroupId: zx.IntAsString.optional(),
 	personId: zx.IntAsString.optional(),
 });
 
 const createMediaReminderSchema = z
 	.object({ message: z.string(), remindOn: z.string() })
-	.merge(metadataOrPersonIdSchema);
+	.merge(metadataOrPersonOrMetadataGroupIdSchema);
 
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(
