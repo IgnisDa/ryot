@@ -113,6 +113,61 @@ impl OpenlibraryService {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PeopleSearchOpenlibraryAuthor {
+    key: String,
+    name: String,
+    birth_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct PersonDetailsOpenlibraryLink {
+    url: Option<String>,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct PersonDetailsOpenlibraryAuthor {
+    key: String,
+    bio: Option<OpenlibraryDescription>,
+    name: String,
+    photos: Option<Vec<i64>>,
+    links: Option<Vec<PersonDetailsOpenlibraryLink>>,
+    birth_date: Option<String>,
+    death_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct MetadataDetailsOpenlibraryAuthor {
+    author: OpenlibraryKey,
+    #[serde(rename = "type", flatten)]
+    role: Option<OpenlibraryKey>,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+enum MetadataDetailsOpenlibraryAuthorResponse {
+    Flat(OpenlibraryKey),
+    Nested(MetadataDetailsOpenlibraryAuthor),
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct MetadataDetailsOpenlibraryBook {
+    key: String,
+    description: Option<OpenlibraryDescription>,
+    title: String,
+    covers: Option<Vec<i64>>,
+    authors: Option<Vec<MetadataDetailsOpenlibraryAuthorResponse>>,
+    subjects: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MetadataSearchOpenlibraryBook {
+    key: String,
+    title: String,
+    author_name: Option<Vec<String>>,
+    cover_i: Option<i64>,
+    publish_year: Option<Vec<i32>>,
+    first_publish_year: Option<i32>,
+    number_of_pages_median: Option<i32>,
+}
+
 #[async_trait]
 impl MediaProvider for OpenlibraryService {
     async fn people_search(
@@ -122,12 +177,6 @@ impl MediaProvider for OpenlibraryService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let page = page.unwrap_or(1);
-        #[derive(Debug, Serialize, Deserialize)]
-        pub struct OpenlibraryAuthor {
-            key: String,
-            name: String,
-            birth_date: Option<String>,
-        }
         let mut rsp = self
             .client
             .get("search/authors.json")
@@ -139,7 +188,7 @@ impl MediaProvider for OpenlibraryService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenLibrarySearchResponse<OpenlibraryAuthor> =
+        let search: OpenLibrarySearchResponse<PeopleSearchOpenlibraryAuthor> =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .docs
@@ -170,26 +219,12 @@ impl MediaProvider for OpenlibraryService {
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryLink {
-            url: Option<String>,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryAuthor {
-            key: String,
-            bio: Option<OpenlibraryDescription>,
-            name: String,
-            photos: Option<Vec<i64>>,
-            links: Option<Vec<OpenlibraryLink>>,
-            birth_date: Option<String>,
-            death_date: Option<String>,
-        }
         let mut rsp = self
             .client
             .get(format!("authors/{}.json", identity))
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: OpenlibraryAuthor = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: PersonDetailsOpenlibraryAuthor = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let identifier = get_key(&data.key);
         let description = data.bio.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
@@ -257,27 +292,6 @@ impl MediaProvider for OpenlibraryService {
 
     #[instrument(skip(self))]
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryAuthor {
-            author: OpenlibraryKey,
-            #[serde(rename = "type", flatten)]
-            role: Option<OpenlibraryKey>,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        #[serde(untagged)]
-        enum OpenlibraryAuthorResponse {
-            Flat(OpenlibraryKey),
-            Nested(OpenlibraryAuthor),
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct OpenlibraryBook {
-            key: String,
-            description: Option<OpenlibraryDescription>,
-            title: String,
-            covers: Option<Vec<i64>>,
-            authors: Option<Vec<OpenlibraryAuthorResponse>>,
-            subjects: Option<Vec<String>>,
-        }
         let mut rsp = self
             .client
             .get(format!("works/{}.json", identifier))
@@ -285,7 +299,7 @@ impl MediaProvider for OpenlibraryService {
             .map_err(|e| anyhow!(e))?;
 
         tracing::debug!("Getting work details.");
-        let data: OpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: MetadataDetailsOpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
         tracing::debug!("Getting edition details.");
@@ -315,8 +329,10 @@ impl MediaProvider for OpenlibraryService {
         let mut people = vec![];
         for a in data.authors.unwrap_or_default().iter() {
             let (key, role) = match a {
-                OpenlibraryAuthorResponse::Flat(s) => (s.key.to_owned(), "Author".to_owned()),
-                OpenlibraryAuthorResponse::Nested(s) => (
+                MetadataDetailsOpenlibraryAuthorResponse::Flat(s) => {
+                    (s.key.to_owned(), "Author".to_owned())
+                }
+                MetadataDetailsOpenlibraryAuthorResponse::Nested(s) => (
                     s.author.key.to_owned(),
                     s.role
                         .as_ref()
@@ -454,16 +470,6 @@ impl MediaProvider for OpenlibraryService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        #[derive(Debug, Serialize, Deserialize)]
-        pub struct OpenlibraryBook {
-            key: String,
-            title: String,
-            author_name: Option<Vec<String>>,
-            cover_i: Option<i64>,
-            publish_year: Option<Vec<i32>>,
-            first_publish_year: Option<i32>,
-            number_of_pages_median: Option<i32>,
-        }
         let fields = [
             "key",
             "title",
@@ -485,7 +491,7 @@ impl MediaProvider for OpenlibraryService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenLibrarySearchResponse<OpenlibraryBook> =
+        let search: OpenLibrarySearchResponse<MetadataSearchOpenlibraryBook> =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .docs
