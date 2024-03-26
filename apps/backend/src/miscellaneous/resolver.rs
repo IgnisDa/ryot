@@ -120,7 +120,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, VERSION,
+        user_by_id, user_id_from_token, AUTHOR,
     },
 };
 
@@ -557,7 +557,6 @@ struct MediaConsumedInput {
 #[derive(SimpleObject)]
 struct CoreDetails {
     docs_link: String,
-    version: String,
     author_name: String,
     repository_link: String,
     item_details_height: u32,
@@ -1450,7 +1449,6 @@ impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
             timezone: self.timezone.to_string(),
-            version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
