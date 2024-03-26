@@ -261,6 +261,7 @@ export const getCoreDetails = async (request: Request) => {
 };
 
 export const getUserPreferences = async (request: Request) => {
+	await redirectIfNotAuthenticated(request);
 	const prefs = await userPreferencesCookie.parse(
 		request.headers.get("cookie") || "",
 	);
@@ -269,6 +270,7 @@ export const getUserPreferences = async (request: Request) => {
 };
 
 export const getUserDetails = async (request: Request) => {
+	await redirectIfNotAuthenticated(request);
 	const details = await userDetailsCookie.parse(
 		request.headers.get("cookie") || "",
 	);
@@ -277,6 +279,7 @@ export const getUserDetails = async (request: Request) => {
 };
 
 export const getUserCollectionsList = async (request: Request) => {
+	await redirectIfNotAuthenticated(request);
 	const list = await userCollectionsListCookie.parse(
 		request.headers.get("cookie") || "",
 	);
