@@ -220,7 +220,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, metadataIdSchema);
 			await gqlClient.request(
 				ToggleMediaOwnershipDocument,
-				submission,
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
 			return json({ status: "success", submission } as const, {
