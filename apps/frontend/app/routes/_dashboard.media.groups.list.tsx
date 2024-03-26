@@ -25,7 +25,11 @@ import {
 } from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
 import { useSearchParam } from "~/lib/hooks";
-import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	gqlClient,
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -38,9 +42,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { metadataGroupsList }] = await Promise.all([
 		getCoreDetails(request),
-		gqlClient.request(MetadataGroupsListDocument, {
-			input: { page: query.page, query: query.query },
-		}),
+		gqlClient.request(
+			MetadataGroupsListDocument,
+			{ input: { page: query.page, query: query.query } },
+			await getAuthorizationHeader(request),
+		),
 	]);
 	return json({
 		coreDetails: { pageLimit: coreDetails.pageLimit },
