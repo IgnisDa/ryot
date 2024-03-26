@@ -6332,7 +6332,7 @@ GROUP BY
                     .filter(Condition::all().add(Expr::col(metadata_group::Column::Title).ilike(v)))
             })
             .filter(user_to_entity::Column::UserId.eq(user_id))
-            .join(JoinType::Join, person::Relation::UserToEntity.def())
+            .join(JoinType::Join, metadata_group::Relation::UserToEntity.def())
             .order_by_asc(metadata_group::Column::Title);
         let paginator = query
             .clone()
