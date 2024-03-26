@@ -589,6 +589,8 @@ struct UserPersonDetails {
 struct UserMetadataGroupDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
+    reminder: Option<UserMediaReminder>,
+    is_monitored: Option<bool>,
 }
 
 #[derive(SimpleObject)]
@@ -1901,9 +1903,20 @@ impl MiscellaneousService {
         let reviews = self
             .item_reviews(user_id, None, None, Some(metadata_group_id), None)
             .await?;
+        let association = get_user_to_entity_association(
+            &user_id,
+            None,
+            None,
+            None,
+            Some(metadata_group_id),
+            &self.db,
+        )
+        .await;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
+            is_monitored: association.clone().and_then(|n| n.media_monitored),
+            reminder: association.and_then(|n| n.media_reminder),
         })
     }
 
