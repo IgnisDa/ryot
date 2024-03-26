@@ -847,7 +847,8 @@ impl MiscellaneousQuery {
         input: SearchInput,
     ) -> Result<SearchResults<MetadataGroupListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_groups_list(input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.metadata_groups_list(user_id, input).await
     }
 
     /// Get all languages supported by all the providers.
@@ -6321,6 +6322,7 @@ GROUP BY
 
     pub async fn metadata_groups_list(
         &self,
+        user_id: i32,
         input: SearchInput,
     ) -> Result<SearchResults<MetadataGroupListItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
@@ -6329,6 +6331,8 @@ GROUP BY
                 query
                     .filter(Condition::all().add(Expr::col(metadata_group::Column::Title).ilike(v)))
             })
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .join(JoinType::Join, person::Relation::UserToEntity.def())
             .order_by_asc(metadata_group::Column::Title);
         let paginator = query
             .clone()
