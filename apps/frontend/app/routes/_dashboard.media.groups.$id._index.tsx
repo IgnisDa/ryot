@@ -224,7 +224,7 @@ export default function Page() {
 											<Button variant="outline">More actions</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
-											{false ? (
+											{loaderData.userMetadataGroupDetails.ownership ? (
 												<Form
 													action="/actions?intent=toggleMediaOwnership"
 													method="post"
@@ -236,13 +236,12 @@ export default function Page() {
 														name="metadataGroupId"
 														value={loaderData.metadataGroupId}
 														onClick={(e) => {
-															if (true)
-																if (
-																	!confirm(
-																		"Are you sure you want to remove ownership of this media?",
-																	)
+															if (
+																!confirm(
+																	"Are you sure you want to remove ownership of this media?",
 																)
-																	e.preventDefault();
+															)
+																e.preventDefault();
 														}}
 													>
 														Remove ownership

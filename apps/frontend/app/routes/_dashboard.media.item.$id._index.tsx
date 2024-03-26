@@ -1319,13 +1319,12 @@ export default function Page() {
 																	name="metadataId"
 																	value={loaderData.metadataId}
 																	onClick={(e) => {
-																		if (userMetadataDetails.ownership)
-																			if (
-																				!confirm(
-																					"Are you sure you want to remove ownership of this media?",
-																				)
+																		if (
+																			!confirm(
+																				"Are you sure you want to remove ownership of this media?",
 																			)
-																				e.preventDefault();
+																		)
+																			e.preventDefault();
 																	}}
 																>
 																	Remove ownership
