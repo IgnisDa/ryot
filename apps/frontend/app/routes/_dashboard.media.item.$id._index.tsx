@@ -1310,7 +1310,7 @@ export default function Page() {
 														)}
 														{userMetadataDetails.ownership ? (
 															<Form
-																action="?intent=toggleMediaOwnership"
+																action="/actions?intent=toggleMediaOwnership"
 																method="post"
 																replace
 															>
