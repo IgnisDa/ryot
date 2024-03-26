@@ -1841,7 +1841,7 @@ impl MiscellaneousService {
                 .await;
         let reminder = user_to_meta.clone().and_then(|n| n.media_reminder);
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
-        let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
+        let ownership = user_to_meta.and_then(|n| n.media_ownership);
 
         let average_rating = if reviews.is_empty() {
             None
@@ -2096,7 +2096,7 @@ impl MiscellaneousService {
                     Some(MediaGeneralFilter::Owned) => Some(true),
                     _ => None,
                 },
-                |query, _v| query.filter(user_to_entity::Column::MetadataOwnership.is_not_null()),
+                |query, _v| query.filter(user_to_entity::Column::MediaOwnership.is_not_null()),
             )
             .into_tuple::<i32>()
             .all(&self.db)
@@ -2761,7 +2761,7 @@ impl MiscellaneousService {
             let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
             let is_monitored = u.media_monitored.unwrap_or_default();
             let is_reminder_active = u.media_reminder.is_some();
-            let is_owned = u.metadata_ownership.is_some();
+            let is_owned = u.media_ownership.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
                 && !is_monitored
@@ -3496,8 +3496,8 @@ impl MiscellaneousService {
             if old_association.media_reminder.is_none() {
                 cloned.media_reminder = ActiveValue::Set(association.media_reminder);
             }
-            if old_association.metadata_ownership.is_none() {
-                cloned.metadata_ownership = ActiveValue::Set(association.metadata_ownership);
+            if old_association.media_ownership.is_none() {
+                cloned.media_ownership = ActiveValue::Set(association.media_ownership);
             }
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&self.db).await?;
@@ -6715,12 +6715,12 @@ GROUP BY
             &self.db,
         )
         .await?;
-        let has_ownership = utm.metadata_ownership.is_some();
+        let has_ownership = utm.media_ownership.is_some();
         let mut utm: user_to_entity::ActiveModel = utm.into();
         if has_ownership {
-            utm.metadata_ownership = ActiveValue::Set(None);
+            utm.media_ownership = ActiveValue::Set(None);
         } else {
-            utm.metadata_ownership = ActiveValue::Set(Some(UserMediaOwnership {
+            utm.media_ownership = ActiveValue::Set(Some(UserMediaOwnership {
                 marked_on: Utc::now(),
                 owned_on: input.owned_on,
             }));

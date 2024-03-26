@@ -21,7 +21,7 @@ pub struct Model {
     pub person_id: Option<i32>,
     pub metadata_id: Option<i32>,
     pub exercise_id: Option<String>,
-    pub metadata_ownership: Option<UserMediaOwnership>,
+    pub media_ownership: Option<UserMediaOwnership>,
     pub metadata_units_consumed: Option<i32>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
     pub exercise_num_times_interacted: Option<i32>,
