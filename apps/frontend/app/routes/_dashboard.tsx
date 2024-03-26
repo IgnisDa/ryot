@@ -493,14 +493,6 @@ const Footer = (props: { coreDetails: CoreDetails }) => {
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
-				<Anchor
-					href={`${props.coreDetails.repositoryLink}/releases/v${props.coreDetails.version}`}
-					target="_blank"
-				>
-					<Text c="red" fw="bold">
-						v{props.coreDetails.version}
-					</Text>
-				</Anchor>
 				<Anchor href="https://diptesh.me" target="_blank">
 					<Text c="indigo" fw="bold">
 						{props.coreDetails.authorName}
