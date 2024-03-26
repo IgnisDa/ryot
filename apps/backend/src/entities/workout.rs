@@ -20,7 +20,7 @@ use crate::{
 )]
 #[sea_orm(table_name = "workout")]
 #[graphql(name = "Workout")]
-#[schematic(rename = "Workout")]
+#[schematic(rename = "Workout", rename_all = "snake_case")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
