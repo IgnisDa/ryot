@@ -1,14 +1,23 @@
-import { createCookie, createCookieSessionStorage } from "@remix-run/node";
+import {
+	type CookieOptions,
+	createCookie,
+	createCookieSessionStorage,
+} from "@remix-run/node";
 import { ApplicationKey } from "./generals";
+import { expectedEnvironmentVariables } from "./utilities.server";
+
+const envVariables = expectedEnvironmentVariables.parse(process.env);
 
 const commonCookieOptions = {
-	name: ApplicationKey.Toast,
 	sameSite: "lax",
 	path: "/",
 	httpOnly: true,
 	secrets: (process.env.SESSION_SECRET || "").split(","),
-	secure: process.env.NODE_ENV === "production",
-} as const;
+	secure:
+		process.env.NODE_ENV === "production"
+			? !envVariables.FRONTEND_INSECURE_COOKIES
+			: false,
+} satisfies CookieOptions;
 
 export const authCookie = createCookie(
 	ApplicationKey.Auth,
@@ -36,7 +45,7 @@ export const userCollectionsListCookie = createCookie(
 );
 
 export const toastSessionStorage = createCookieSessionStorage({
-	cookie: commonCookieOptions,
+	cookie: { ...commonCookieOptions, name: ApplicationKey.Toast },
 });
 
 export const colorSchemeCookie = createCookie(ApplicationKey.ColorScheme, {

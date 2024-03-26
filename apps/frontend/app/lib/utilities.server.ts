@@ -17,6 +17,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { withQuery, withoutHost } from "ufo";
 import { type ZodTypeAny, type output, z } from "zod";
+import { zx } from "zodix";
 import { API_URL, gqlClient } from "./api.server";
 import {
 	authCookie,
@@ -39,6 +40,7 @@ export const expectedEnvironmentVariables = z.object({
 		.string()
 		.default("5ecd6915-d542-4fda-aa5f-70f09f04e2e0"),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
+	FRONTEND_INSECURE_COOKIES: zx.BoolAsString.optional(),
 });
 
 /**

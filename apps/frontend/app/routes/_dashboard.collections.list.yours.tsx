@@ -49,8 +49,8 @@ import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import {
-	processSubmission,
 	getUserCollectionsList,
+	processSubmission,
 } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
