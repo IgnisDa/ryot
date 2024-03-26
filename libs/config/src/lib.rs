@@ -262,6 +262,9 @@ pub struct FrontendUmamiConfig {
 pub struct FrontendConfig {
     #[setting(default = "https://ryot.fly.dev")]
     pub url: String,
+    /// Whether the cookies set are insecure.
+    #[setting(default = false)]
+    pub insecure_cookies: bool,
     /// The height of the right section of an item's details page in pixels.
     #[setting(default = 300)]
     pub item_details_height: u32,
