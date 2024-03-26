@@ -85,10 +85,16 @@ pub struct OpenlibraryService {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct OpenLibrarySearchResponse<T> {
+struct OpenMediaLibrarySearchResponse {
+    num_found: i32,
+    docs: Vec<MetadataSearchOpenlibraryBook>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct OpenAuthorLibrarySearchResponse {
     #[serde(alias = "numFound")]
     num_found: i32,
-    docs: Vec<T>,
+    docs: Vec<PeopleSearchOpenlibraryAuthor>,
 }
 
 impl MediaProviderLanguages for OpenlibraryService {
@@ -188,7 +194,7 @@ impl MediaProvider for OpenlibraryService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenLibrarySearchResponse<PeopleSearchOpenlibraryAuthor> =
+        let search: OpenAuthorLibrarySearchResponse =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .docs
@@ -491,7 +497,7 @@ impl MediaProvider for OpenlibraryService {
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenLibrarySearchResponse<MetadataSearchOpenlibraryBook> =
+        let search: OpenMediaLibrarySearchResponse =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .docs
