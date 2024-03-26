@@ -49,10 +49,10 @@ import {
 import { produce } from "immer";
 import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
-import { redirectIfNotAuthenticated } from "~/lib/api.server";
-import { colorSchemeCookie } from "~/lib/cookies.server";
 import { ApplicationKey, getLot } from "~/lib/generals";
+import { redirectIfNotAuthenticated } from "~/lib/utilities.server";
 import {
+	colorSchemeCookie,
 	expectedEnvironmentVariables,
 	getCoreDetails,
 	getUserPreferences,

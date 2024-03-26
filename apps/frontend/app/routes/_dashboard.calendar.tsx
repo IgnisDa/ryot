@@ -25,10 +25,13 @@ import { snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
-import { getCoreDetails } from "~/lib/utilities.server";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	gqlClient,
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	date: z

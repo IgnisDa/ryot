@@ -31,9 +31,10 @@ import {
 import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
+	getAuthorizationHeader,
 	getCoreEnabledFeatures,
+	gqlClient,
 	processSubmission,
 	s3FileUploader,
 } from "~/lib/utilities.server";

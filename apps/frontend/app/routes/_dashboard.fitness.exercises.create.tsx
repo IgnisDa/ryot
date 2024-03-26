@@ -34,10 +34,11 @@ import { changeCase, cloneDeep } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { z } from "zod";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { createToastHeaders } from "~/lib/toast.server";
 import {
+	createToastHeaders,
+	getAuthorizationHeader,
 	getCoreEnabledFeatures,
+	gqlClient,
 	processSubmission,
 	s3FileUploader,
 } from "~/lib/utilities.server";

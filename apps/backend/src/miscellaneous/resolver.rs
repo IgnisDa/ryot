@@ -6771,7 +6771,7 @@ GROUP BY
                     .map(|c| c.name)
                     .collect();
             let exp = ImportOrExportMediaItem {
-                source_id: m.id.to_string(),
+                source_id: m.title,
                 lot: m.lot,
                 source: m.source,
                 identifier: m.identifier.clone(),

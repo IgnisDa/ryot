@@ -42,12 +42,13 @@ import {
 	PostReviewModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
+	getAuthorizationHeader,
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
+	gqlClient,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({

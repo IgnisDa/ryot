@@ -32,26 +32,22 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { redirectToQueryParam } from "~/lib/generals";
 import {
-	getAuthorizationHeader,
-	gqlClient,
-	redirectIfNotAuthenticated,
-} from "~/lib/api.server";
-import {
+	MetadataSpecificsSchema,
 	colorSchemeCookie,
+	combineHeaders,
 	coreDetailsCookie,
+	createToastHeaders,
+	getAuthorizationHeader,
+	getLogoutCookies,
+	gqlClient,
+	processSubmission,
+	redirectIfNotAuthenticated,
+	s3FileUploader,
 	userCollectionsListCookie,
 	userDetailsCookie,
 	userPreferencesCookie,
-} from "~/lib/cookies.server";
-import { redirectToQueryParam } from "~/lib/generals";
-import { createToastHeaders } from "~/lib/toast.server";
-import {
-	MetadataSpecificsSchema,
-	combineHeaders,
-	getLogoutCookies,
-	processSubmission,
-	s3FileUploader,
 } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

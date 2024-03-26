@@ -27,10 +27,12 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
 import { Toaster } from "~/components/toaster";
-import { getToast } from "~/lib/toast.server";
-import { combineHeaders } from "~/lib/utilities.server";
+import {
+	colorSchemeCookie,
+	combineHeaders,
+	getToast,
+} from "~/lib/utilities.server";
 import { MountPoint } from "./components/confirmation";
-import { colorSchemeCookie } from "./lib/cookies.server";
 
 const theme = createTheme({
 	fontFamily: "Poppins",

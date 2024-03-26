@@ -54,14 +54,15 @@ import {
 	ApplicationPagination,
 	DebouncedSearchInput,
 } from "~/components/common";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import {
+	getAuthorizationHeader,
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
+	gqlClient,
 } from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 

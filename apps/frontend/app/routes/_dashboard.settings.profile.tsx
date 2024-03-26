@@ -17,9 +17,12 @@ import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useRef } from "react";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { createToastHeaders } from "~/lib/toast.server";
-import { getUserDetails } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getUserDetails,
+	gqlClient,
+} from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

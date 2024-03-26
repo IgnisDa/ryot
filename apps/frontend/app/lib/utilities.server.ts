@@ -7,6 +7,11 @@ import {
 	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
+	type CookieOptions,
+	createCookie,
+	createCookieSessionStorage,
+} from "@remix-run/node";
+import {
 	type CoreDetails,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
@@ -15,17 +20,68 @@ import {
 	type UserLot,
 	type UserPreferences,
 } from "@ryot/generated/graphql/backend/graphql";
+import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { GraphQLClient } from "graphql-request";
 import { withQuery, withoutHost } from "ufo";
+import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
-import { API_URL, gqlClient } from "./api.server";
-import {
-	authCookie,
-	coreDetailsCookie,
-	userCollectionsListCookie,
-	userDetailsCookie,
-	userPreferencesCookie,
-} from "./cookies.server";
+import { zx } from "zodix";
 import { redirectToQueryParam } from "./generals";
+import { ApplicationKey } from "./generals";
+
+export const API_URL = process.env.API_URL || "http://localhost:5000";
+
+export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
+	headers: { Connection: "keep-alive" },
+});
+
+const getAuthorizationCookie = async (request: Request) => {
+	const cookie = await authCookie.parse(request.headers.get("Cookie") || "");
+	return cookie;
+};
+
+export const getAuthorizationHeader = async (request: Request) => {
+	const cookie = await getAuthorizationCookie(request);
+	return { Authorization: `Bearer ${cookie}` };
+};
+
+export const getIsAuthenticated = async (request: Request) => {
+	const cookie = await getAuthorizationCookie(request);
+	if (!cookie) return [false, null] as const;
+	try {
+		const { userDetails } = await gqlClient.request(
+			UserDetailsDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		);
+		return [userDetails.__typename === "User", userDetails] as const;
+	} catch {
+		return [false, null] as const;
+	}
+};
+
+export const redirectIfNotAuthenticated = async (request: Request) => {
+	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
+	if (!isAuthenticated || userDetails.__typename !== "User") {
+		const url = new URL(request.url);
+		throw redirect(
+			withQuery($path("/auth/login"), {
+				[redirectToQueryParam]: url.pathname + url.search,
+			}),
+			{
+				status: 302,
+				headers: combineHeaders(
+					await createToastHeaders({
+						type: "error",
+						message: "You must be logged in to view this page",
+					}),
+					await getLogoutCookies(),
+				),
+			},
+		);
+	}
+	return userDetails;
+};
 
 export const expectedEnvironmentVariables = z.object({
 	DISABLE_TELEMETRY: z
@@ -39,6 +95,7 @@ export const expectedEnvironmentVariables = z.object({
 		.string()
 		.default("5ecd6915-d542-4fda-aa5f-70f09f04e2e0"),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
+	FRONTEND_INSECURE_COOKIES: zx.BoolAsString.optional(),
 });
 
 /**
@@ -235,3 +292,100 @@ const redirectIfDetailNotPresent = (request: Request, detail: unknown) => {
 			}),
 		);
 };
+
+const envVariables = expectedEnvironmentVariables.parse(process.env);
+
+const commonCookieOptions = {
+	sameSite: "lax",
+	path: "/",
+	httpOnly: true,
+	secrets: (process.env.SESSION_SECRET || "").split(","),
+	secure:
+		process.env.NODE_ENV === "production"
+			? !envVariables.FRONTEND_INSECURE_COOKIES
+			: false,
+} satisfies CookieOptions;
+
+export const authCookie = createCookie(
+	ApplicationKey.Auth,
+	commonCookieOptions,
+);
+
+export const userPreferencesCookie = createCookie(
+	ApplicationKey.UserPreferences,
+	commonCookieOptions,
+);
+
+export const coreDetailsCookie = createCookie(
+	ApplicationKey.CoreDetails,
+	commonCookieOptions,
+);
+
+export const userDetailsCookie = createCookie(
+	ApplicationKey.UserDetails,
+	commonCookieOptions,
+);
+
+export const userCollectionsListCookie = createCookie(
+	ApplicationKey.UserCollectionsList,
+	commonCookieOptions,
+);
+
+export const toastSessionStorage = createCookieSessionStorage({
+	cookie: { ...commonCookieOptions, name: ApplicationKey.Toast },
+});
+
+export const colorSchemeCookie = createCookie(ApplicationKey.ColorScheme, {
+	maxAge: 60 * 60 * 24 * 365,
+});
+
+export const toastKey = "toast";
+
+const TypeSchema = z.enum(["message", "success", "error"]);
+const ToastSchema = z.object({
+	message: z.string(),
+	id: z.string().default(() => randomUUID()),
+	title: z.string().optional(),
+	type: TypeSchema.default("message"),
+});
+
+export type Toast = z.infer<typeof ToastSchema>;
+export type OptionalToast = Omit<Toast, "id" | "type"> & {
+	id?: string;
+	type?: z.infer<typeof TypeSchema>;
+};
+
+export async function redirectWithToast(
+	url: string,
+	toast: OptionalToast,
+	init?: ResponseInit,
+) {
+	return redirect(url, {
+		...init,
+		headers: combineHeaders(init?.headers, await createToastHeaders(toast)),
+	});
+}
+
+export async function createToastHeaders(optionalToast: OptionalToast) {
+	const session = await toastSessionStorage.getSession();
+	const toast = ToastSchema.parse(optionalToast);
+	session.flash(toastKey, toast);
+	const cookie = await toastSessionStorage.commitSession(session);
+	return new Headers({ "set-cookie": cookie });
+}
+
+export async function getToast(request: Request) {
+	const session = await toastSessionStorage.getSession(
+		request.headers.get("cookie"),
+	);
+	const result = ToastSchema.safeParse(session.get(toastKey));
+	const toast = result.success ? result.data : null;
+	return {
+		toast,
+		headers: toast
+			? new Headers({
+					"set-cookie": await toastSessionStorage.destroySession(session),
+			  })
+			: null,
+	};
+}

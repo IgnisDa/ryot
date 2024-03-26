@@ -69,14 +69,15 @@ import {
 	NewUserGuideAlert,
 	commitMedia,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { Verb, getLot, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import {
+	getAuthorizationHeader,
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserPreferences,
+	gqlClient,
 } from "~/lib/utilities.server";
 
 export type SearchParams = {

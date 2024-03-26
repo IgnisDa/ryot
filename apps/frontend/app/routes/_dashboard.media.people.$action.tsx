@@ -52,10 +52,14 @@ import {
 	type Item,
 	MediaItemWithoutUpdateModal,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
-import { getCoreDetails, getUserPreferences } from "~/lib/utilities.server";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 
 export type SearchParams = {
 	query?: string;
