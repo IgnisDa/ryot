@@ -1047,7 +1047,8 @@ export const DisplayMediaMonitored = (props: { entityLot?: string }) => {
 
 export const CreateOwnershipModal = (props: {
 	opened: boolean;
-	metadataId: number;
+	metadataId?: number;
+	metadataGroupId?: number;
 	onClose: () => void;
 }) => {
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
@@ -1070,7 +1071,16 @@ export const CreateOwnershipModal = (props: {
 						onChange={setOwnedOn}
 						value={ownedOn}
 					/>
-					<input hidden name="metadataId" defaultValue={props.metadataId} />
+					{props.metadataId ? (
+						<input hidden name="metadataId" defaultValue={props.metadataId} />
+					) : null}
+					{props.metadataGroupId ? (
+						<input
+							hidden
+							name="metadataGroupId"
+							defaultValue={props.metadataGroupId}
+						/>
+					) : null}
 					<input
 						hidden
 						name="ownedOn"
