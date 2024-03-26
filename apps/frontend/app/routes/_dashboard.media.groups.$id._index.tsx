@@ -36,13 +36,13 @@ import {
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateOwnershipModal,
 	DisplayCollection,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
-	CreateOwnershipModal,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,

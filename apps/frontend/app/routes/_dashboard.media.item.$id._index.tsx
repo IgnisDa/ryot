@@ -29,7 +29,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
-import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
