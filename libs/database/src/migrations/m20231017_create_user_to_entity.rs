@@ -1,3 +1,4 @@
+use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
@@ -13,7 +14,7 @@ pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
 pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
 pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
 pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
-pub static CONSTRAINT_SQL: &str = r#"
+pub static CONSTRAINT_SQL: &str = indoc! { r#"
 ALTER TABLE "user_to_entity"
 ADD CONSTRAINT "user_to_entity__ensure_one_entity"
 CHECK (
@@ -23,7 +24,7 @@ CHECK (
     (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END)
     = 1
 );
-"#;
+"# };
 
 /// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
