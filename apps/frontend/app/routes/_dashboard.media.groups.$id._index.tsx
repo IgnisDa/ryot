@@ -3,6 +3,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Menu,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -15,7 +16,7 @@ import {
 	type MetaFunction,
 	json,
 } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
 	MetadataGroupDetailsDocument,
@@ -41,6 +42,7 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	CreateOwnershipModal,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
@@ -109,6 +111,10 @@ export default function Page() {
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
+	const [
+		mediaOwnershipModalOpened,
+		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
+	] = useDisclosure(false);
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
@@ -123,6 +129,11 @@ export default function Page() {
 				objectId={loaderData.metadataGroupId}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
+			/>
+			<CreateOwnershipModal
+				onClose={mediaOwnershipModalClose}
+				opened={mediaOwnershipModalOpened}
+				metadataGroupId={loaderData.metadataGroupId}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -208,6 +219,42 @@ export default function Page() {
 										entityLot={EntityLot.MediaGroup}
 										collections={loaderData.collections.map((c) => c.name)}
 									/>
+									<Menu shadow="md">
+										<Menu.Target>
+											<Button variant="outline">More actions</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											{false ? (
+												<Form
+													action="/actions?intent=toggleMediaOwnership"
+													method="post"
+													replace
+												>
+													<Menu.Item
+														type="submit"
+														color="red"
+														name="metadataGroupId"
+														value={loaderData.metadataGroupId}
+														onClick={(e) => {
+															if (true)
+																if (
+																	!confirm(
+																		"Are you sure you want to remove ownership of this media?",
+																	)
+																)
+																	e.preventDefault();
+														}}
+													>
+														Remove ownership
+													</Menu.Item>
+												</Form>
+											) : (
+												<Menu.Item onClick={mediaOwnershipModalOpen}>
+													Mark as owned
+												</Menu.Item>
+											)}
+										</Menu.Dropdown>
+									</Menu>
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
