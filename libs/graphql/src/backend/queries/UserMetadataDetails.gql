@@ -18,8 +18,7 @@ query UserMetadataDetails($metadataId: Int!) {
       ...UserMediaReminderPart
     }
     ownership {
-      markedOn
-      ownedOn
+      ...UserMediaOwnershipPart
     }
     isMonitored
     seenBy

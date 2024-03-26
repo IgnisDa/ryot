@@ -591,6 +591,7 @@ struct UserMetadataGroupDetails {
     collections: Vec<collection::Model>,
     reminder: Option<UserMediaReminder>,
     is_monitored: Option<bool>,
+    ownership: Option<UserMediaOwnership>,
 }
 
 #[derive(SimpleObject)]
@@ -1916,6 +1917,7 @@ impl MiscellaneousService {
             reviews,
             collections,
             is_monitored: association.clone().and_then(|n| n.media_monitored),
+            ownership: association.clone().and_then(|n| n.media_ownership),
             reminder: association.and_then(|n| n.media_reminder),
         })
     }
