@@ -9,8 +9,8 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
             r#"
-INSERT INTO user_to_entity (user_id, metadata_group_id, created_on, last_updated_on)
-SELECT DISTINCT r.user_id, r.metadata_group_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+INSERT INTO user_to_entity (user_id, metadata_group_id, created_on, last_updated_on, needs_to_be_updated)
+SELECT DISTINCT r.user_id, r.metadata_group_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, true
 FROM review r
 WHERE r.metadata_group_id IS NOT NULL
   AND NOT EXISTS (
@@ -23,8 +23,8 @@ WHERE r.metadata_group_id IS NOT NULL
         .await?;
         db.execute_unprepared(
             r#"
-INSERT INTO user_to_entity (user_id, metadata_group_id, created_on, last_updated_on)
-SELECT DISTINCT c.user_id, cte.metadata_group_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+INSERT INTO user_to_entity (user_id, metadata_group_id, created_on, last_updated_on, needs_to_be_updated)
+SELECT DISTINCT c.user_id, cte.metadata_group_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, true
 FROM collection_to_entity cte
 JOIN collection c ON cte.collection_id = c.id
 WHERE cte.metadata_group_id IS NOT NULL
