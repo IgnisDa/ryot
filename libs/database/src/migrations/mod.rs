@@ -66,6 +66,7 @@ mod m20240325_add_correct_attribute_to_user_preferences;
 mod m20240326_0_add_metadata_group_id_column_to_user_to_entity;
 mod m20240326_1_add_user_to_entity_constraint;
 mod m20240326_2_migrate_user_to_metadata_group_entries;
+mod m20240326_3_change_metadata_ownership_to_media_ownership;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -149,6 +150,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240326_0_add_metadata_group_id_column_to_user_to_entity::Migration),
             Box::new(m20240326_1_add_user_to_entity_constraint::Migration),
             Box::new(m20240326_2_migrate_user_to_metadata_group_entries::Migration),
+            Box::new(m20240326_3_change_metadata_ownership_to_media_ownership::Migration),
         ]
     }
 }
