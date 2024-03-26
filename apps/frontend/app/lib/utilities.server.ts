@@ -7,6 +7,11 @@ import {
 	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
+	type CookieOptions,
+	createCookie,
+	createCookieSessionStorage,
+} from "@remix-run/node";
+import {
 	type CoreDetails,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
@@ -19,14 +24,8 @@ import { withQuery, withoutHost } from "ufo";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
 import { API_URL, gqlClient } from "./api.server";
-import {
-	authCookie,
-	coreDetailsCookie,
-	userCollectionsListCookie,
-	userDetailsCookie,
-	userPreferencesCookie,
-} from "./cookies.server";
 import { redirectToQueryParam } from "./generals";
+import { ApplicationKey } from "./generals";
 
 export const expectedEnvironmentVariables = z.object({
 	DISABLE_TELEMETRY: z
@@ -237,3 +236,49 @@ const redirectIfDetailNotPresent = (request: Request, detail: unknown) => {
 			}),
 		);
 };
+
+const envVariables = expectedEnvironmentVariables.parse(process.env);
+
+const commonCookieOptions = {
+	sameSite: "lax",
+	path: "/",
+	httpOnly: true,
+	secrets: (process.env.SESSION_SECRET || "").split(","),
+	secure:
+		process.env.NODE_ENV === "production"
+			? !envVariables.FRONTEND_INSECURE_COOKIES
+			: false,
+} satisfies CookieOptions;
+
+export const authCookie = createCookie(
+	ApplicationKey.Auth,
+	commonCookieOptions,
+);
+
+export const userPreferencesCookie = createCookie(
+	ApplicationKey.UserPreferences,
+	commonCookieOptions,
+);
+
+export const coreDetailsCookie = createCookie(
+	ApplicationKey.CoreDetails,
+	commonCookieOptions,
+);
+
+export const userDetailsCookie = createCookie(
+	ApplicationKey.UserDetails,
+	commonCookieOptions,
+);
+
+export const userCollectionsListCookie = createCookie(
+	ApplicationKey.UserCollectionsList,
+	commonCookieOptions,
+);
+
+export const toastSessionStorage = createCookieSessionStorage({
+	cookie: { ...commonCookieOptions, name: ApplicationKey.Toast },
+});
+
+export const colorSchemeCookie = createCookie(ApplicationKey.ColorScheme, {
+	maxAge: 60 * 60 * 24 * 365,
+});

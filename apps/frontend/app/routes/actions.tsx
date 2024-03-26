@@ -37,21 +37,19 @@ import {
 	gqlClient,
 	redirectIfNotAuthenticated,
 } from "~/lib/api.server";
-import {
-	colorSchemeCookie,
-	coreDetailsCookie,
-	userCollectionsListCookie,
-	userDetailsCookie,
-	userPreferencesCookie,
-} from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
 import { createToastHeaders } from "~/lib/toast.server";
 import {
 	MetadataSpecificsSchema,
+	colorSchemeCookie,
 	combineHeaders,
+	coreDetailsCookie,
 	getLogoutCookies,
 	processSubmission,
 	s3FileUploader,
+	userCollectionsListCookie,
+	userDetailsCookie,
+	userPreferencesCookie,
 } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

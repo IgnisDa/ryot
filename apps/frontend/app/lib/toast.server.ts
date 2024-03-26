@@ -1,8 +1,7 @@
 import { redirect } from "@remix-run/node";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
-import { combineHeaders } from "~/lib/utilities.server";
-import { toastSessionStorage } from "./cookies.server";
+import { combineHeaders, toastSessionStorage } from "~/lib/utilities.server";
 
 export const toastKey = "toast";
 

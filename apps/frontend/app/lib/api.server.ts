@@ -3,10 +3,13 @@ import { redirect } from "@remix-run/node";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
 import { withQuery } from "ufo";
-import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "./generals";
 import { createToastHeaders } from "./toast.server";
-import { combineHeaders, getLogoutCookies } from "./utilities.server";
+import {
+	authCookie,
+	combineHeaders,
+	getLogoutCookies,
+} from "./utilities.server";
 
 export const API_URL = process.env.API_URL || "http://localhost:5000";
 

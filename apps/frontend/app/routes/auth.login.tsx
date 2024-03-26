@@ -18,10 +18,10 @@ import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
-import { authCookie } from "~/lib/cookies.server";
 import { redirectToQueryParam } from "~/lib/generals";
 import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
+	authCookie,
 	getCoreEnabledFeatures,
 	processSubmission,
 } from "~/lib/utilities.server";
