@@ -517,7 +517,11 @@ export default function Page() {
 									</Anchor>
 								</Group>
 							</Flex>
-							<Form action="?intent=deployExport" method="post">
+							<Form
+								action="?intent=deployExport"
+								method="post"
+								encType="multipart/form-data"
+							>
 								<MultiSelect
 									name="toExport"
 									label="Data to export"
