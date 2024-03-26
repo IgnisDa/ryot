@@ -56,6 +56,7 @@ import {
 	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
+	IconBackpack,
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
@@ -1042,6 +1043,15 @@ export const DisplayMediaMonitored = (props: { entityLot?: string }) => {
 			<Text size="xs">
 				This {props.entityLot || "media"} is being monitored
 			</Text>
+		</Flex>
+	);
+};
+
+export const DisplayMediaOwned = () => {
+	return (
+		<Flex align="center" gap={2}>
+			<IconBackpack size={20} />
+			<Text size="xs">You own this media</Text>
 		</Flex>
 	);
 };

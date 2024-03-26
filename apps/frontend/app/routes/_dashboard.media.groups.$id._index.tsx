@@ -33,6 +33,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
@@ -43,6 +44,7 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	DisplayMediaOwned,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
@@ -162,6 +164,9 @@ export default function Page() {
 									entityLot={EntityLot.MediaGroup}
 								/>
 							))}
+							{loaderData.userMetadataGroupDetails.ownership ? (
+								<DisplayMediaOwned />
+							) : null}
 						</Group>
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
@@ -230,6 +235,7 @@ export default function Page() {
 													method="post"
 													replace
 												>
+													<HiddenLocationInput />
 													<Menu.Item
 														type="submit"
 														color="red"

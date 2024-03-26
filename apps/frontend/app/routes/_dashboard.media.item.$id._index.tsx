@@ -106,6 +106,7 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	DisplayMediaOwned,
 } from "~/components/media";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
@@ -597,12 +598,7 @@ export default function Page() {
 									{userMetadataDetails.isMonitored ? (
 										<DisplayMediaMonitored />
 									) : null}
-									{userMetadataDetails.ownership ? (
-										<Flex align="center" gap={2}>
-											<IconBackpack size={20} />
-											<Text size="xs">You own this media</Text>
-										</Flex>
-									) : null}
+									{userMetadataDetails.ownership ? <DisplayMediaOwned /> : null}
 									{loaderData.mediaMainDetails.isPartial ? (
 										<MediaIsPartial mediaType="media" />
 									) : null}
@@ -1313,6 +1309,7 @@ export default function Page() {
 																method="post"
 																replace
 															>
+																<HiddenLocationInput />
 																<Menu.Item
 																	type="submit"
 																	color="red"
