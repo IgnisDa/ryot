@@ -39,10 +39,14 @@ import {
 	DebouncedSearchInput,
 } from "~/components/common";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { getWorkoutStarter, useSearchParam } from "~/lib/hooks";
-import { getCoreDetails, getUserPreferences } from "~/lib/utilities.server";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 import { getDefaultWorkout } from "~/lib/workout";
 
 const searchParamsSchema = z.object({

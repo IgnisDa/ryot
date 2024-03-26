@@ -54,13 +54,14 @@ import {
 	PostReviewModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { createToastHeaders } from "~/lib/toast.server";
 import {
+	createToastHeaders,
+	getAuthorizationHeader,
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
+	gqlClient,
 	processSubmission,
 } from "~/lib/utilities.server";
 

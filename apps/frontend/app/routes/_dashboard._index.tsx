@@ -47,7 +47,6 @@ import {
 	MediaItemWithoutUpdateModal,
 	NewUserGuideAlert,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
 	ApplicationKey,
 	dayjsLib,
@@ -56,8 +55,10 @@ import {
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import {
+	getAuthorizationHeader,
 	getUserCollectionsList,
 	getUserPreferences,
+	gqlClient,
 } from "~/lib/utilities.server";
 
 const cookieName = ApplicationKey.CurrentWorkout;

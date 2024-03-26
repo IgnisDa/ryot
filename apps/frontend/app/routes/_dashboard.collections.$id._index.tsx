@@ -53,13 +53,14 @@ import {
 	PostReviewModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import {
+	getAuthorizationHeader,
 	getCoreDetails,
 	getUserDetails,
 	getUserPreferences,
+	gqlClient,
 } from "~/lib/utilities.server";
 
 const defaultFiltersValue = {

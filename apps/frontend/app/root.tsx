@@ -27,8 +27,11 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
 import { Toaster } from "~/components/toaster";
-import { getToast } from "~/lib/toast.server";
-import { colorSchemeCookie, combineHeaders } from "~/lib/utilities.server";
+import {
+	colorSchemeCookie,
+	combineHeaders,
+	getToast,
+} from "~/lib/utilities.server";
 import { MountPoint } from "./components/confirmation";
 
 const theme = createTheme({

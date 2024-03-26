@@ -32,20 +32,18 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	getAuthorizationHeader,
-	gqlClient,
-	redirectIfNotAuthenticated,
-} from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { createToastHeaders } from "~/lib/toast.server";
 import {
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	combineHeaders,
 	coreDetailsCookie,
+	createToastHeaders,
+	getAuthorizationHeader,
 	getLogoutCookies,
+	gqlClient,
 	processSubmission,
+	redirectIfNotAuthenticated,
 	s3FileUploader,
 	userCollectionsListCookie,
 	userDetailsCookie,

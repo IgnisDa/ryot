@@ -17,13 +17,15 @@ import {
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { getIsAuthenticated, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
 	authCookie,
+	createToastHeaders,
 	getCoreEnabledFeatures,
+	getIsAuthenticated,
+	gqlClient,
 	processSubmission,
+	redirectWithToast,
 } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 

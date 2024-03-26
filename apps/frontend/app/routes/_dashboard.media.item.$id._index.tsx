@@ -108,16 +108,18 @@ import {
 	PostReviewModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
+	createToastHeaders,
+	getAuthorizationHeader,
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
+	gqlClient,
+	redirectWithToast,
 } from "~/lib/utilities.server";
 import {
 	MetadataSpecificsSchema,

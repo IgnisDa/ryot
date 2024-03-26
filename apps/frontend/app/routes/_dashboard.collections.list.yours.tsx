@@ -45,11 +45,12 @@ import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { redirectToQueryParam } from "~/lib/generals";
-import { createToastHeaders } from "~/lib/toast.server";
 import {
+	createToastHeaders,
+	getAuthorizationHeader,
 	getUserCollectionsList,
+	gqlClient,
 	processSubmission,
 } from "~/lib/utilities.server";
 

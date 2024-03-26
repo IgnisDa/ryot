@@ -4,7 +4,7 @@ import {
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import invariant from "tiny-invariant";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getAuthorizationHeader, gqlClient } from "~/lib/utilities.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const exerciseId = params.id;

@@ -90,14 +90,16 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { ApplicationKey, dayjsLib, getSetColor } from "~/lib/generals";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
 import {
+	createToastHeaders,
+	getAuthorizationHeader,
 	getCoreDetails,
 	getCoreEnabledFeatures,
 	getUserPreferences,
+	gqlClient,
+	redirectWithToast,
 } from "~/lib/utilities.server";
 import {
 	type Exercise,

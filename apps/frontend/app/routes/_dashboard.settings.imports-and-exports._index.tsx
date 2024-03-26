@@ -50,11 +50,15 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
 import { dayjsLib } from "~/lib/generals";
-import { createToastHeaders } from "~/lib/toast.server";
-import { getCoreDetails, getCoreEnabledFeatures } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getCoreDetails,
+	getCoreEnabledFeatures,
+	gqlClient,
+} from "~/lib/utilities.server";
 import {
 	processSubmission,
 	temporaryFileUploadHandler,

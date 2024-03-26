@@ -57,12 +57,13 @@ import { zx } from "zodix";
 import { AddEntityToCollectionModal } from "~/components/common";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import {
+	getAuthorizationHeader,
 	getCoreDetails,
 	getUserCollectionsList,
 	getUserPreferences,
+	gqlClient,
 } from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
