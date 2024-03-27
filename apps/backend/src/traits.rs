@@ -43,6 +43,7 @@ pub trait MediaProvider {
         query: &str,
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         bail!("This provider does not support searching people")
     }

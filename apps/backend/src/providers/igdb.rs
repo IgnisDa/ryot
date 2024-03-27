@@ -244,6 +244,7 @@ where id = {id};
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let client = get_client(&self.config).await;
         let req_body = format!(

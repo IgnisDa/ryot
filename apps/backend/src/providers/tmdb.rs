@@ -214,6 +214,7 @@ impl MediaProvider for NonMediaTmdbService {
         query: &str,
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let typ = match source_specifics {
             Some(PersonSourceSpecifics {
@@ -230,6 +231,7 @@ impl MediaProvider for NonMediaTmdbService {
                 "query": query.to_owned(),
                 "page": page,
                 "language": self.base.language,
+                "include_adult": display_nsfw,
             }))
             .unwrap()
             .await

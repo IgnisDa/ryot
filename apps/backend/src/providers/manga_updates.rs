@@ -154,6 +154,7 @@ impl MediaProvider for MangaUpdatesService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client

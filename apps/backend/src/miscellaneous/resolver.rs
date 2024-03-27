@@ -3739,7 +3739,7 @@ impl MiscellaneousService {
 
     async fn people_search(
         &self,
-        _user_id: i32,
+        user_id: i32,
         input: PeopleSearchInput,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let query = input.search.query.unwrap_or_default();
@@ -3752,9 +3752,17 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
+        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+            .await?
+            .preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
-            .people_search(&query, input.search.page, &input.source_specifics)
+            .people_search(
+                &query,
+                input.search.page,
+                &input.source_specifics,
+                preferences.general.display_nsfw,
+            )
             .await?;
         Ok(results)
     }
