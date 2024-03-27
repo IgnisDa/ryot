@@ -13,12 +13,15 @@ import {
 } from "@remix-run/node";
 import {
 	type CoreDetails,
+	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
+	UserCollectionsListDocument,
 	type UserCollectionsListQuery,
 	type UserLot,
 	type UserPreferences,
+	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
@@ -40,8 +43,14 @@ const getAuthorizationCookie = async (request: Request) => {
 	return cookie;
 };
 
-export const getAuthorizationHeader = async (request: Request) => {
-	const cookie = await getAuthorizationCookie(request);
+export const getAuthorizationHeader = async (
+	request?: Request,
+	token?: string,
+) => {
+	let cookie: string;
+	if (request) cookie = await getAuthorizationCookie(request);
+	else if (token) cookie = token;
+	else cookie = "";
 	return { Authorization: `Bearer ${cookie}` };
 };
 
@@ -392,3 +401,53 @@ export async function getToast(request: Request) {
 			: null,
 	};
 }
+
+export const getCookiesForApplication = async (token: string) => {
+	const [
+		{ coreDetails },
+		{ userPreferences },
+		{ userDetails },
+		{ userCollectionsList },
+	] = await Promise.all([
+		gqlClient.request(CoreDetailsDocument),
+		gqlClient.request(
+			UserPreferencesDocument,
+			undefined,
+			await getAuthorizationHeader(undefined, token),
+		),
+		gqlClient.request(
+			UserDetailsDocument,
+			undefined,
+			await getAuthorizationHeader(undefined, token),
+		),
+		gqlClient.request(
+			UserCollectionsListDocument,
+			{},
+			await getAuthorizationHeader(undefined, token),
+		),
+	]);
+	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
+	return combineHeaders(
+		{
+			"Set-Cookie": await coreDetailsCookie.serialize(coreDetails, {
+				maxAge: cookieMaxAge,
+			}),
+		},
+		{
+			"Set-Cookie": await userPreferencesCookie.serialize(userPreferences, {
+				maxAge: cookieMaxAge,
+			}),
+		},
+		{
+			"Set-Cookie": await userDetailsCookie.serialize(userDetails, {
+				maxAge: cookieMaxAge,
+			}),
+		},
+		{
+			"Set-Cookie": await userCollectionsListCookie.serialize(
+				userCollectionsList,
+				{ maxAge: cookieMaxAge },
+			),
+		},
+	);
+};
