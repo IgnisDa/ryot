@@ -77,9 +77,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		),
 	]);
 	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
-	const redirectUrl = safeRedirect(
+	let redirectUrl = safeRedirect(
 		url.searchParams.get(redirectToQueryParam) || "/",
 	);
+	if (redirectUrl.includes("actions")) redirectUrl = "/";
 	return redirect(redirectUrl, {
 		headers: combineHeaders(
 			{
