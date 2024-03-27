@@ -112,10 +112,10 @@ use crate::{
         MediaProviderLanguages,
     },
     users::{
-        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserPreferences,
-        UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserYankIntegration, UserYankIntegrationSetting,
-        UserYankIntegrationSettingKind,
+        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
+        UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
+        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrationSettingKind,
+        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -5498,8 +5498,15 @@ impl MiscellaneousService {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
                         "dashboard" => {
-                            preferences.general.dashboard =
-                                serde_json::from_str(&input.value).unwrap();
+                            let value = serde_json::from_str::<Vec<UserGeneralDashboardElement>>(
+                                &input.value,
+                            )
+                            .unwrap();
+                            let default_general_prefs = UserGeneralPreferences::default();
+                            if value.len() != default_general_prefs.dashboard.len() {
+                                return Err(err());
+                            }
+                            preferences.general.dashboard = value;
                         }
                         "disable_yank_integrations" => {
                             preferences.general.disable_yank_integrations = value_bool.unwrap();
