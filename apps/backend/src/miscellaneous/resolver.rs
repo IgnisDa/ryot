@@ -113,10 +113,9 @@ use crate::{
     },
     users::{
         UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
-        UserNotificationSetting, UserNotificationSettingKind, UserNotificationsPreferences,
-        UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserYankIntegration, UserYankIntegrationSetting,
-        UserYankIntegrationSettingKind,
+        UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
+        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrationSettingKind,
+        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -5481,15 +5480,8 @@ impl MiscellaneousService {
                     }
                     "notifications" => match right {
                         "to_send" => {
-                            let value =
-                                serde_json::from_str::<Vec<MediaStateChanged>>(&input.value)
-                                    .unwrap();
-                            let default_notification_prefs =
-                                UserNotificationsPreferences::default();
-                            if value.len() != default_notification_prefs.to_send.len() {
-                                return Err(err());
-                            }
-                            preferences.notifications.to_send = value;
+                            preferences.notifications.to_send =
+                                serde_json::from_str(&input.value).unwrap();
                         }
                         "enabled" => {
                             preferences.notifications.enabled = value_bool.unwrap();
