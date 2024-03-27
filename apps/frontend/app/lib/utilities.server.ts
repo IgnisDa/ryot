@@ -288,10 +288,12 @@ export const getUserCollectionsList = async (request: Request) => {
 };
 
 const redirectIfDetailNotPresent = (request: Request, detail: unknown) => {
+	let redirectTo = withoutHost(request.url);
+	if (redirectTo.includes("actions")) redirectTo = $path("/");
 	if (!detail)
 		throw redirect(
 			withQuery($path("/actions"), {
-				[redirectToQueryParam]: withoutHost(request.url),
+				[redirectToQueryParam]: redirectTo,
 			}),
 		);
 };
