@@ -47,6 +47,7 @@ import {
 	ReviewItemDisplay,
 	CreateReminderModal,
 	DisplayMediaReminder,
+	DisplayMediaMonitored,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
@@ -169,7 +170,7 @@ export default function Page() {
 							{loaderData.metadataGroupDetails.details.parts} media items
 						</Text>
 					</Flex>
-					<Group id="entity-collections">
+					<Group>
 						{loaderData.userMetadataGroupDetails.collections.map((col) => (
 							<DisplayCollection
 								key={col.id}
@@ -180,6 +181,9 @@ export default function Page() {
 						))}
 						{loaderData.userMetadataGroupDetails.ownership ? (
 							<DisplayMediaOwned />
+						) : null}
+						{loaderData.userMetadataGroupDetails.isMonitored ? (
+							<DisplayMediaMonitored entityLot="group" />
 						) : null}
 					</Group>
 					{loaderData.userMetadataGroupDetails.reminder ? (
@@ -309,6 +313,37 @@ export default function Page() {
 													Create reminder
 												</Menu.Item>
 											)}
+											<Form
+												action="/actions?intent=toggleMediaMonitor"
+												method="post"
+												replace
+											>
+												<HiddenLocationInput />
+												<Menu.Item
+													type="submit"
+													color={
+														loaderData.userMetadataGroupDetails.isMonitored
+															? "red"
+															: undefined
+													}
+													name="metadataGroupId"
+													value={loaderData.metadataGroupId}
+													onClick={(e) => {
+														if (loaderData.userMetadataGroupDetails.isMonitored)
+															if (
+																!confirm(
+																	"Are you sure you want to stop monitoring this person?",
+																)
+															)
+																e.preventDefault();
+													}}
+												>
+													{loaderData.userMetadataGroupDetails.isMonitored
+														? "Stop"
+														: "Start"}{" "}
+													monitoring
+												</Menu.Item>
+											</Form>
 										</Menu.Dropdown>
 									</Menu>
 								</SimpleGrid>
