@@ -1,5 +1,13 @@
 
 
+# Version 4.3.11 (2024-03-27)
+
+## Bug Fixes
+
+- **frontend:** prevent infinite loop of setting cookies
+  
+  
+
 # Version 4.3.10 (2024-03-27)
 
 
@@ -220,11 +228,11 @@
 
 
 
-# Version 4.0.12 (2024-01-03)
-
-
-
 # Version 4.0.13 (2024-01-03)
+
+
+
+# Version 4.0.12 (2024-01-03)
 
 ## Build
 
