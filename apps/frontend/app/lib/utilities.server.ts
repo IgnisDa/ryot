@@ -13,12 +13,15 @@ import {
 } from "@remix-run/node";
 import {
 	type CoreDetails,
+	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
+	UserCollectionsListDocument,
 	type UserCollectionsListQuery,
 	type UserLot,
 	type UserPreferences,
+	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
@@ -40,8 +43,14 @@ const getAuthorizationCookie = async (request: Request) => {
 	return cookie;
 };
 
-export const getAuthorizationHeader = async (request: Request) => {
-	const cookie = await getAuthorizationCookie(request);
+export const getAuthorizationHeader = async (
+	request?: Request,
+	token?: string,
+) => {
+	let cookie: string;
+	if (request) cookie = await getAuthorizationCookie(request);
+	else if (token) cookie = token;
+	else cookie = "";
 	return { Authorization: `Bearer ${cookie}` };
 };
 
@@ -147,6 +156,15 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 	return submission.value;
 };
 
+export const getUserCollectionsList = async (request: Request) => {
+	const { userCollectionsList } = await gqlClient.request(
+		UserCollectionsListDocument,
+		{},
+		await getAuthorizationHeader(request),
+	);
+	return userCollectionsList;
+};
+
 export const getLogoutCookies = async () => {
 	return combineHeaders(
 		{
@@ -166,11 +184,6 @@ export const getLogoutCookies = async () => {
 		},
 		{
 			"Set-Cookie": await userDetailsCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"Set-Cookie": await userCollectionsListCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
@@ -256,7 +269,6 @@ export const getCoreDetails = async (request: Request) => {
 	const details = await coreDetailsCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	redirectIfDetailNotPresent(request, details);
 	return details as CoreDetails;
 };
 
@@ -265,7 +277,6 @@ export const getUserPreferences = async (request: Request) => {
 	const prefs = await userPreferencesCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	redirectIfDetailNotPresent(request, prefs);
 	return prefs as UserPreferences;
 };
 
@@ -274,26 +285,7 @@ export const getUserDetails = async (request: Request) => {
 	const details = await userDetailsCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	redirectIfDetailNotPresent(request, details);
 	return details as ApplicationUser;
-};
-
-export const getUserCollectionsList = async (request: Request) => {
-	await redirectIfNotAuthenticated(request);
-	const list = await userCollectionsListCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	redirectIfDetailNotPresent(request, list);
-	return list as UserCollectionsListQuery["userCollectionsList"];
-};
-
-const redirectIfDetailNotPresent = (request: Request, detail: unknown) => {
-	if (!detail)
-		throw redirect(
-			withQuery($path("/actions"), {
-				[redirectToQueryParam]: withoutHost(request.url),
-			}),
-		);
 };
 
 const envVariables = expectedEnvironmentVariables.parse(process.env);
@@ -326,11 +318,6 @@ export const coreDetailsCookie = createCookie(
 
 export const userDetailsCookie = createCookie(
 	ApplicationKey.UserDetails,
-	commonCookieOptions,
-);
-
-export const userCollectionsListCookie = createCookie(
-	ApplicationKey.UserCollectionsList,
 	commonCookieOptions,
 );
 
@@ -392,3 +379,38 @@ export async function getToast(request: Request) {
 			: null,
 	};
 }
+
+export const getCookiesForApplication = async (token: string) => {
+	const [{ coreDetails }, { userPreferences }, { userDetails }] =
+		await Promise.all([
+			gqlClient.request(CoreDetailsDocument),
+			gqlClient.request(
+				UserPreferencesDocument,
+				undefined,
+				await getAuthorizationHeader(undefined, token),
+			),
+			gqlClient.request(
+				UserDetailsDocument,
+				undefined,
+				await getAuthorizationHeader(undefined, token),
+			),
+		]);
+	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
+	return combineHeaders(
+		{
+			"Set-Cookie": await coreDetailsCookie.serialize(coreDetails, {
+				maxAge: cookieMaxAge,
+			}),
+		},
+		{
+			"Set-Cookie": await userPreferencesCookie.serialize(userPreferences, {
+				maxAge: cookieMaxAge,
+			}),
+		},
+		{
+			"Set-Cookie": await userDetailsCookie.serialize(userDetails, {
+				maxAge: cookieMaxAge,
+			}),
+		},
+	);
+};

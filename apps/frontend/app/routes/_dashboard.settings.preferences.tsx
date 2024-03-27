@@ -1,5 +1,4 @@
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Affix,
@@ -49,12 +48,12 @@ import {
 import clsx from "clsx";
 import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
-import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
 import {
+	authCookie,
 	getAuthorizationHeader,
+	getCookiesForApplication,
 	getUserDetails,
 	getUserPreferences,
 	gqlClient,
@@ -109,11 +108,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		);
 	}
-	return redirect(
-		withQuery($path("/actions"), {
-			[redirectToQueryParam]: withoutHost(request.url),
-		}),
-	);
+	const token = await authCookie.parse(request.headers.get("Cookie"));
+	const headers = await getCookiesForApplication(token);
+	return json({}, { headers });
 };
 
 export default function Page() {
