@@ -1,6 +1,26 @@
 
 
-# Version 4.3.8 (2024-03-26)
+# Version 4.3.11 (2024-03-27)
+
+## Bug Fixes
+
+- **frontend:** prevent infinite loop of setting cookies
+  
+  
+
+# Version 4.3.10 (2024-03-27)
+
+
+
+# Version 4.3.9 (2024-03-27)
+
+## Bug Fixes
+
+- do not redirect to actions if already there
+  
+  
+
+# Version 4.3.8 (2024-03-27)
 
 ## Features
 

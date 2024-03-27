@@ -20,7 +20,9 @@ import { z } from "zod";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	authCookie,
+	combineHeaders,
 	createToastHeaders,
+	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	getIsAuthenticated,
 	gqlClient,
@@ -57,16 +59,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		let redirectUrl = $path("/");
 		if (submission[redirectToQueryParam])
 			redirectUrl = safeRedirect(submission[redirectToQueryParam]);
-		return redirect(
-			$path("/actions", { [redirectToQueryParam]: redirectUrl }),
-			{
-				headers: {
+		const cookies = await getCookiesForApplication(loginUser.apiKey);
+		return redirect(redirectUrl, {
+			headers: combineHeaders(
+				{
 					"Set-Cookie": await authCookie.serialize(loginUser.apiKey, {
 						maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
 					}),
 				},
-			},
-		);
+				cookies,
+			),
+		});
 	}
 	const message = match(loginUser.error)
 		.with(
