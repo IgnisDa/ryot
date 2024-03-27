@@ -9,8 +9,8 @@ use crate::{
     file_storage::FileStorageService,
     models::{
         media::{
-            MediaDetails, MetadataPerson, MetadataSearchItem, PartialMetadataWithoutId,
-            PeopleSearchItem, PersonSourceSpecifics,
+            MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
         },
         SearchResults,
     },
@@ -19,7 +19,7 @@ use crate::{
 
 #[async_trait]
 pub trait MediaProvider {
-    /// Search for a media via a query.
+    /// Search for media via a query.
     #[allow(unused_variables)]
     async fn metadata_search(
         &self,
@@ -36,7 +36,7 @@ pub trait MediaProvider {
         bail!("This provider does not support getting media details")
     }
 
-    /// Search for a person via a query.
+    /// Search for people via a query.
     #[allow(unused_variables)]
     async fn people_search(
         &self,
@@ -55,6 +55,16 @@ pub trait MediaProvider {
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
+    }
+
+    /// Search for metadata groups via a query.
+    #[allow(unused_variables)]
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        bail!("This provider does not support searching metadata groups")
     }
 
     /// Get details about a group/collection.

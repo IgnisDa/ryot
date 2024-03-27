@@ -1335,6 +1335,14 @@ pub mod media {
         pub identifier: String,
         pub source_specifics: Option<PersonSourceSpecifics>,
     }
+
+    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+    pub struct MetadataGroupSearchItem {
+        pub name: String,
+        pub identifier: String,
+        pub image: Option<String>,
+        pub parts: Option<i32>,
+    }
 }
 
 pub mod fitness {
