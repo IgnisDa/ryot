@@ -1,5 +1,13 @@
 
 
+# Version 4.3.8 (2024-03-26)
+
+## Features
+
+- **frontend:** redirect if not authenticated
+  
+  
+
 # Version 4.3.7 (2024-03-26)
 
 
