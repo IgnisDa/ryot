@@ -20,7 +20,6 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
-	ToggleMediaOwnershipDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import invariant from "tiny-invariant";
@@ -201,10 +200,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		})
 		.with("deleteMediaReminder", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
+			const submission = processSubmission(formData, metadataOrPersonIdSchema);
 			await gqlClient.request(
 				DeleteMediaReminderDocument,
 				{ input: submission },
@@ -216,10 +212,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		})
 		.with("toggleMediaMonitor", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
+			const submission = processSubmission(formData, metadataOrPersonIdSchema);
 			await gqlClient.request(
 				ToggleMediaMonitorDocument,
 				{ input: submission },
@@ -228,21 +221,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			headers = await createToastHeaders({
 				type: "success",
 				message: "Monitor toggled successfully",
-			});
-		})
-		.with("toggleMediaOwnership", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
-			await gqlClient.request(
-				ToggleMediaOwnershipDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: "success",
-				message: "Ownership toggled successfully",
 			});
 		})
 		.run();
@@ -294,15 +272,14 @@ const reviewSchema = z
 	})
 	.merge(MetadataSpecificsSchema);
 
-const metadataOrPersonOrMetadataGroupIdSchema = z.object({
+const metadataOrPersonIdSchema = z.object({
 	metadataId: zx.IntAsString.optional(),
-	metadataGroupId: zx.IntAsString.optional(),
 	personId: zx.IntAsString.optional(),
 });
 
 const createMediaReminderSchema = z
 	.object({ message: z.string(), remindOn: z.string() })
-	.merge(metadataOrPersonOrMetadataGroupIdSchema);
+	.merge(metadataOrPersonIdSchema);
 
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(
