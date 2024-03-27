@@ -77,17 +77,17 @@ use crate::{
             ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataSearchItem, MetadataSearchItemResponse, MetadataSearchItemWithLot,
-            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            PublicCollectionItem, ReviewPostedEvent, SeenAnimeExtraInformation,
-            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, ToggleMediaMonitorInput, UserMediaOwnership, UserMediaReminder,
-            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
-            WatchProvider,
+            MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
+            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, ToggleMediaMonitorInput, UserMediaOwnership,
+            UserMediaReminder, UserSummary, UserToMediaReason, VideoGameSpecifics,
+            VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -720,6 +720,13 @@ struct PeopleSearchInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MetadataGroupSearchInput {
+    search: SearchInput,
+    lot: MetadataLot,
+    source: MediaSource,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MetadataSearchInput {
     search: SearchInput,
     lot: MetadataLot,
@@ -1003,6 +1010,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_search(user_id, input).await
+    }
+
+    /// Search for a list of groups from a given source.
+    async fn metadata_group_search(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: MetadataGroupSearchInput,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.metadata_group_search(user_id, input).await
     }
 }
 
@@ -3737,6 +3755,28 @@ impl MiscellaneousService {
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(&query, input.search.page, &input.source_specifics)
+            .await?;
+        Ok(results)
+    }
+
+    async fn metadata_group_search(
+        &self,
+        _user_id: i32,
+        input: MetadataGroupSearchInput,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let query = input.search.query.unwrap_or_default();
+        if query.is_empty() {
+            return Ok(SearchResults {
+                details: SearchDetails {
+                    total: 0,
+                    next_page: None,
+                },
+                items: vec![],
+            });
+        }
+        let provider = self.get_metadata_provider(input.lot, input.source).await?;
+        let results = provider
+            .metadata_group_search(&query, input.search.page)
             .await?;
         Ok(results)
     }

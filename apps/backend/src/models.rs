@@ -95,6 +95,10 @@ pub struct SearchDetails {
 ))]
 #[graphql(concrete(name = "PeopleSearchResults", params(media::PeopleSearchItem)))]
 #[graphql(concrete(
+    name = "MetadataGroupSearchResults",
+    params(media::MetadataGroupSearchItem)
+))]
+#[graphql(concrete(
     name = "PublicCollectionsListResults",
     params(media::PublicCollectionItem)
 ))]
