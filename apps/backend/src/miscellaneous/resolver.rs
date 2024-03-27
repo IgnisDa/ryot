@@ -5403,6 +5403,17 @@ impl MiscellaneousService {
                     "features_enabled" => {
                         let (left, right) = right.split_once('.').ok_or_else(err)?;
                         match left {
+                            "others" => match right {
+                                "collections" => {
+                                    preferences.features_enabled.others.collections =
+                                        value_bool.unwrap()
+                                }
+                                "calendar" => {
+                                    preferences.features_enabled.others.calendar =
+                                        value_bool.unwrap()
+                                }
+                                _ => return Err(err()),
+                            },
                             "fitness" => match right {
                                 "enabled" => {
                                     preferences.features_enabled.fitness.enabled =
