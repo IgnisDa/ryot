@@ -963,6 +963,7 @@ export const CreateReminderModal = (props: {
 	defaultText: string;
 	metadataId?: number;
 	personId?: number;
+	metadataGroupId?: number;
 }) => {
 	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
 
@@ -1007,8 +1008,14 @@ export const CreateReminderModal = (props: {
 					/>
 					<input
 						hidden
-						name={props.metadataId ? "metadataId" : "personId"}
-						value={props.metadataId || props.personId}
+						name={
+							props.metadataId
+								? "metadataId"
+								: props.personId
+								  ? "personId"
+								  : "metadataGroupId"
+						}
+						value={props.metadataId || props.personId || props.metadataGroupId}
 						readOnly
 					/>
 					<Button

@@ -45,6 +45,8 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	CreateReminderModal,
+	DisplayMediaReminder,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
@@ -120,9 +122,22 @@ export default function Page() {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
+	const [
+		createMediaReminderModalOpened,
+		{
+			open: createMediaReminderModalOpen,
+			close: createMediaReminderModalClose,
+		},
+	] = useDisclosure(false);
 
 	return (
 		<>
+			<CreateReminderModal
+				onClose={createMediaReminderModalClose}
+				opened={createMediaReminderModalOpened}
+				defaultText={`Check out new releases in '${loaderData.metadataGroupDetails.details.title}'`}
+				metadataGroupId={loaderData.metadataGroupId}
+			/>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -154,20 +169,25 @@ export default function Page() {
 							{loaderData.metadataGroupDetails.details.parts} media items
 						</Text>
 					</Flex>
-					{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
-						<Group id="entity-collections">
-							{loaderData.userMetadataGroupDetails.collections.map((col) => (
-								<DisplayCollection
-									key={col.id}
-									col={col}
-									entityId={loaderData.metadataGroupId.toString()}
-									entityLot={EntityLot.MediaGroup}
-								/>
-							))}
-							{loaderData.userMetadataGroupDetails.ownership ? (
-								<DisplayMediaOwned />
-							) : null}
-						</Group>
+					<Group id="entity-collections">
+						{loaderData.userMetadataGroupDetails.collections.length > 0
+							? loaderData.userMetadataGroupDetails.collections.map((col) => (
+									<DisplayCollection
+										key={col.id}
+										col={col}
+										entityId={loaderData.metadataGroupId.toString()}
+										entityLot={EntityLot.MediaGroup}
+									/>
+							  ))
+							: null}
+						{loaderData.userMetadataGroupDetails.ownership ? (
+							<DisplayMediaOwned />
+						) : null}
+					</Group>
+					{loaderData.userMetadataGroupDetails.reminder ? (
+						<DisplayMediaReminder
+							d={loaderData.userMetadataGroupDetails.reminder}
+						/>
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
@@ -256,6 +276,39 @@ export default function Page() {
 											) : (
 												<Menu.Item onClick={mediaOwnershipModalOpen}>
 													Mark as owned
+												</Menu.Item>
+											)}
+											{loaderData.userMetadataGroupDetails.reminder ? (
+												<Form
+													action="/actions?intent=deleteMediaReminder"
+													method="post"
+													replace
+												>
+													<input
+														hidden
+														name="metadataGroupId"
+														value={loaderData.metadataGroupId}
+														readOnly
+													/>
+													<HiddenLocationInput />
+													<Menu.Item
+														type="submit"
+														color="red"
+														onClick={(e) => {
+															if (
+																!confirm(
+																	"Are you sure you want to delete this reminder?",
+																)
+															)
+																e.preventDefault();
+														}}
+													>
+														Remove reminder
+													</Menu.Item>
+												</Form>
+											) : (
+												<Menu.Item onClick={createMediaReminderModalOpen}>
+													Create reminder
 												</Menu.Item>
 											)}
 										</Menu.Dropdown>
