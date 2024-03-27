@@ -170,16 +170,14 @@ export default function Page() {
 						</Text>
 					</Flex>
 					<Group id="entity-collections">
-						{loaderData.userMetadataGroupDetails.collections.length > 0
-							? loaderData.userMetadataGroupDetails.collections.map((col) => (
-									<DisplayCollection
-										key={col.id}
-										col={col}
-										entityId={loaderData.metadataGroupId.toString()}
-										entityLot={EntityLot.MediaGroup}
-									/>
-							  ))
-							: null}
+						{loaderData.userMetadataGroupDetails.collections.map((col) => (
+							<DisplayCollection
+								key={col.id}
+								col={col}
+								entityId={loaderData.metadataGroupId.toString()}
+								entityLot={EntityLot.MediaGroup}
+							/>
+						))}
 						{loaderData.userMetadataGroupDetails.ownership ? (
 							<DisplayMediaOwned />
 						) : null}

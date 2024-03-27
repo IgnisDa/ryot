@@ -584,16 +584,14 @@ export default function Page() {
 						<Await resolve={loaderData.userMediaDetails}>
 							{({ userMetadataDetails }) => (
 								<Group>
-									{userMetadataDetails.collections.length > 0
-										? userMetadataDetails.collections.map((col) => (
-												<DisplayCollection
-													col={col}
-													entityId={loaderData.metadataId.toString()}
-													entityLot={EntityLot.Media}
-													key={col.id}
-												/>
-										  ))
-										: null}
+									{userMetadataDetails.collections.map((col) => (
+										<DisplayCollection
+											col={col}
+											entityId={loaderData.metadataId.toString()}
+											entityLot={EntityLot.Media}
+											key={col.id}
+										/>
+									))}
 									{userMetadataDetails.isMonitored ? (
 										<DisplayMediaMonitored />
 									) : null}
