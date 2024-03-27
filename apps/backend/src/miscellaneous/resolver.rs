@@ -113,9 +113,10 @@ use crate::{
     },
     users::{
         UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
-        UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
-        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrationSettingKind,
-        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrationSettingKind,
+        UserNotificationSetting, UserNotificationSettingKind, UserNotificationsPreferences,
+        UserPreferences, UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
+        UserSinkIntegrationSettingKind, UserYankIntegration, UserYankIntegrationSetting,
+        UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -5230,9 +5231,8 @@ impl MiscellaneousService {
                                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                                 match left {
                                     "custom" => {
-                                        let value_vector =
-                                            serde_json::from_str(&input.value).unwrap();
-                                        preferences.fitness.measurements.custom = value_vector;
+                                        let value = serde_json::from_str(&input.value).unwrap();
+                                        preferences.fitness.measurements.custom = value;
                                     }
                                     "inbuilt" => match right {
                                         "weight" => {
@@ -5481,8 +5481,15 @@ impl MiscellaneousService {
                     }
                     "notifications" => match right {
                         "to_send" => {
-                            preferences.notifications.to_send =
-                                serde_json::from_str(&input.value).unwrap();
+                            let value =
+                                serde_json::from_str::<Vec<MediaStateChanged>>(&input.value)
+                                    .unwrap();
+                            let default_notification_prefs =
+                                UserNotificationsPreferences::default();
+                            if value.len() != default_notification_prefs.to_send.len() {
+                                return Err(err());
+                            }
+                            preferences.notifications.to_send = value;
                         }
                         "enabled" => {
                             preferences.notifications.enabled = value_bool.unwrap();
