@@ -179,6 +179,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			fitness: userPreferences.featuresEnabled.fitness,
 			disableNavigationAnimation:
 				userPreferences.general.disableNavigationAnimation,
+			collectionsEnabled: userPreferences.featuresEnabled.others.collections,
+			calendarEnabled: userPreferences.featuresEnabled.others.calendar,
 		},
 	});
 };
@@ -271,28 +273,32 @@ export default function Layout() {
 								links={loaderData.fitnessLinks}
 							/>
 						) : undefined}
-						<LinksGroup
-							label="Calendar"
-							icon={IconCalendar}
-							href={$path("/calendar")}
-							opened={false}
-							toggle={toggle}
-							setOpened={() => {}}
-						/>
-						<LinksGroup
-							label="Collections"
-							icon={IconArchive}
-							opened={openedLinkGroups?.collection || false}
-							toggle={toggle}
-							setOpened={(k) => {
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.collection = k;
-									}),
-								);
-							}}
-							links={loaderData.collectionLinks}
-						/>
+						{loaderData.userPreferences.calendarEnabled ? (
+							<LinksGroup
+								label="Calendar"
+								icon={IconCalendar}
+								href={$path("/calendar")}
+								opened={false}
+								toggle={toggle}
+								setOpened={() => {}}
+							/>
+						) : null}
+						{loaderData.userPreferences.collectionsEnabled ? (
+							<LinksGroup
+								label="Collections"
+								icon={IconArchive}
+								opened={openedLinkGroups?.collection || false}
+								toggle={toggle}
+								setOpened={(k) => {
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.collection = k;
+										}),
+									);
+								}}
+								links={loaderData.collectionLinks}
+							/>
+						) : null}
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
