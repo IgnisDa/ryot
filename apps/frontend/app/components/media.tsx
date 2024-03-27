@@ -1033,12 +1033,12 @@ export const CreateReminderModal = (props: {
 };
 
 export const DisplayMediaReminder = (props: {
-	d: UserMediaReminderPartFragment;
+	reminderData: UserMediaReminderPartFragment;
 }) => {
 	return (
 		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-			Reminder for {props.d.remindOn}
-			<Text c="green">{props.d.message}</Text>
+			Reminder for {props.reminderData.remindOn}
+			<Text c="green">{props.reminderData.message}</Text>
 		</Alert>
 	);
 };

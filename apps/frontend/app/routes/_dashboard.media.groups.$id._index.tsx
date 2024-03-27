@@ -186,7 +186,7 @@ export default function Page() {
 					</Group>
 					{loaderData.userMetadataGroupDetails.reminder ? (
 						<DisplayMediaReminder
-							d={loaderData.userMetadataGroupDetails.reminder}
+							reminderData={loaderData.userMetadataGroupDetails.reminder}
 						/>
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>

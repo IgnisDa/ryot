@@ -767,7 +767,9 @@ export default function Page() {
 										</Group>
 									) : null}
 									{userMetadataDetails?.reminder ? (
-										<DisplayMediaReminder d={userMetadataDetails.reminder} />
+										<DisplayMediaReminder
+											reminderData={userMetadataDetails.reminder}
+										/>
 									) : null}
 									{userMetadataDetails?.inProgress ? (
 										<Alert icon={<IconAlertCircle />} variant="outline">
