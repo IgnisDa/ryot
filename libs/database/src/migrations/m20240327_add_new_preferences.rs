@@ -10,10 +10,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 UPDATE "user"
-SET preferences = jsonb_set(preferences, '{features_enabled, others, collections}', 'true', true);
-
-UPDATE "user"
-SET preferences = jsonb_set(preferences, '{features_enabled, others, calendar}', 'true', true);
+SET preferences = jsonb_set(preferences, '{features_enabled, others}', '{"collections": true, "calendar": true}', true);
 "#,
         )
         .await?;
