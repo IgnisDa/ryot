@@ -21,10 +21,11 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
+            MediaDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+            PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -602,6 +603,30 @@ impl MediaProvider for TmdbMovieService {
             watch_providers,
             ..Default::default()
         })
+    }
+
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let page = page.unwrap_or(1);
+        let mut rsp = self
+            .client
+            .get("search/collection")
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": self.base.language,
+                "include_adult": display_nsfw,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        dbg!(&search);
+        todo!()
     }
 
     async fn metadata_group_details(

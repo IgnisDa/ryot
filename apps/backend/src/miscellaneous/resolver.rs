@@ -3761,7 +3761,7 @@ impl MiscellaneousService {
 
     async fn metadata_group_search(
         &self,
-        _user_id: i32,
+        user_id: i32,
         input: MetadataGroupSearchInput,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let query = input.search.query.unwrap_or_default();
@@ -3774,9 +3774,12 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
+        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+            .await?
+            .preferences;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
-            .metadata_group_search(&query, input.search.page)
+            .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
         Ok(results)
     }

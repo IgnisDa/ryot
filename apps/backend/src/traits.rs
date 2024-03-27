@@ -63,6 +63,7 @@ pub trait MediaProvider {
         &self,
         query: &str,
         page: Option<i32>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         bail!("This provider does not support searching metadata groups")
     }
