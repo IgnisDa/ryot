@@ -101,7 +101,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		undefined,
 		await getAuthorizationHeader(request),
 	);
-	const cookies = request.headers.get("Cookie");
+	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return json({
 		workoutInProgress,

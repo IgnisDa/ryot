@@ -63,7 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		return redirect(redirectUrl, {
 			headers: combineHeaders(
 				{
-					"Set-Cookie": await authCookie.serialize(loginUser.apiKey, {
+					"set-cookie": await authCookie.serialize(loginUser.apiKey, {
 						maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
 					}),
 				},

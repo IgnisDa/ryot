@@ -93,11 +93,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		})
 		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
-				request.headers.get("Cookie") || "",
+				request.headers.get("cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
 			headers = {
-				"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
+				"set-cookie": await colorSchemeCookie.serialize(newColorScheme),
 			};
 		})
 		.with("logout", async () => {

@@ -27,7 +27,6 @@ import {
 	type LoaderFunctionArgs,
 	type MetaFunction,
 	json,
-	redirect,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -108,7 +107,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		);
 	}
-	const token = await authCookie.parse(request.headers.get("Cookie"));
+	const token = await authCookie.parse(request.headers.get("cookie"));
 	const headers = await getCookiesForApplication(token);
 	return json({}, { headers });
 };

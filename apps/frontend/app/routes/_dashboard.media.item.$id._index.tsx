@@ -65,7 +65,6 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
-	IconBackpack,
 	IconBook,
 	IconBrandPagekit,
 	IconBulb,

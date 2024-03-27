@@ -39,7 +39,7 @@ export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
 });
 
 const getAuthorizationCookie = async (request: Request) => {
-	const cookie = await authCookie.parse(request.headers.get("Cookie") || "");
+	const cookie = await authCookie.parse(request.headers.get("cookie") || "");
 	return cookie;
 };
 
@@ -168,22 +168,22 @@ export const getUserCollectionsList = async (request: Request) => {
 export const getLogoutCookies = async () => {
 	return combineHeaders(
 		{
-			"Set-Cookie": await authCookie.serialize("", {
+			"set-cookie": await authCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"Set-Cookie": await coreDetailsCookie.serialize("", {
+			"set-cookie": await coreDetailsCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"Set-Cookie": await userPreferencesCookie.serialize("", {
+			"set-cookie": await userPreferencesCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"Set-Cookie": await userDetailsCookie.serialize("", {
+			"set-cookie": await userDetailsCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
@@ -398,17 +398,17 @@ export const getCookiesForApplication = async (token: string) => {
 	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
 	return combineHeaders(
 		{
-			"Set-Cookie": await coreDetailsCookie.serialize(coreDetails, {
+			"set-cookie": await coreDetailsCookie.serialize(coreDetails, {
 				maxAge: cookieMaxAge,
 			}),
 		},
 		{
-			"Set-Cookie": await userPreferencesCookie.serialize(userPreferences, {
+			"set-cookie": await userPreferencesCookie.serialize(userPreferences, {
 				maxAge: cookieMaxAge,
 			}),
 		},
 		{
-			"Set-Cookie": await userDetailsCookie.serialize(userDetails, {
+			"set-cookie": await userDetailsCookie.serialize(userDetails, {
 				maxAge: cookieMaxAge,
 			}),
 		},

@@ -113,7 +113,7 @@ const workoutCookieName = ApplicationKey.CurrentWorkout;
 const defaultTimerLocalStorageKey = ApplicationKey.DefaultExerciseRestTimer;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const cookies = request.headers.get("Cookie");
+	const cookies = request.headers.get("cookie");
 	const inProgress = parse(cookies || "")[workoutCookieName] === "true";
 	if (!inProgress)
 		return redirectWithToast($path("/"), {

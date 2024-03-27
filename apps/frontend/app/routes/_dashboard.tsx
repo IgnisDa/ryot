@@ -154,7 +154,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	];
 
 	const currentColorScheme = await colorSchemeCookie.parse(
-		request.headers.get("Cookie") || "",
+		request.headers.get("cookie") || "",
 	);
 
 	const envData = expectedEnvironmentVariables.parse(process.env);
