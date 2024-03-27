@@ -6,7 +6,6 @@
 		"noEmitOnError": true,
 		"skipLibCheck": true,
 		"moduleResolution": "nodenext",
-		"noUnusedLocals": true,
 		"target": "es2022"
 	}
 }

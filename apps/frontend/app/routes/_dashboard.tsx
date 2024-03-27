@@ -49,7 +49,7 @@ import {
 import { produce } from "immer";
 import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
-import { ApplicationKey, getLot } from "~/lib/generals";
+import { getLot } from "~/lib/generals";
 import { redirectIfNotAuthenticated } from "~/lib/utilities.server";
 import {
 	colorSchemeCookie,
@@ -197,7 +197,7 @@ export default function Layout() {
 		  }
 		| undefined
 	>({
-		key: ApplicationKey.SavedOpenedLinkGroups,
+		key: "SavedOpenedLinkGroups",
 		defaultValue: {
 			fitness: false,
 			media: false,

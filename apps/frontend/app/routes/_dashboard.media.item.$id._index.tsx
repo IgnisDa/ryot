@@ -98,6 +98,7 @@ import {
 	CreateReminderModal,
 	DisplayCollection,
 	DisplayMediaMonitored,
+	DisplayMediaOwned,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -105,7 +106,6 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
-	DisplayMediaOwned,
 } from "~/components/media";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";

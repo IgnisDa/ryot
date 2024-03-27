@@ -91,7 +91,7 @@ import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import events from "~/lib/events";
-import { ApplicationKey, dayjsLib, getSetColor } from "~/lib/generals";
+import { CurrentWorkoutKey, dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -109,8 +109,8 @@ import {
 	timerAtom,
 } from "~/lib/workout";
 
-const workoutCookieName = ApplicationKey.CurrentWorkout;
-const defaultTimerLocalStorageKey = ApplicationKey.DefaultExerciseRestTimer;
+const workoutCookieName = CurrentWorkoutKey;
+const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookies = request.headers.get("cookie");

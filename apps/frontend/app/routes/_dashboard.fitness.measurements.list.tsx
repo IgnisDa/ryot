@@ -48,7 +48,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import events from "~/lib/events";
-import { ApplicationKey, dayjsLib, redirectToQueryParam } from "~/lib/generals";
+import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -179,7 +179,7 @@ export default function Page() {
 	);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
-		key: ApplicationKey.SavedMeasurementsDisplaySelectedStats,
+		key: "SavedMeasurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
 	const [searchParams, { setP }] = useSearchParam();

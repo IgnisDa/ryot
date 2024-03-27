@@ -39,12 +39,12 @@ import {
 import {
 	CreateOwnershipModal,
 	DisplayCollection,
+	DisplayMediaOwned,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
-	DisplayMediaOwned,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
