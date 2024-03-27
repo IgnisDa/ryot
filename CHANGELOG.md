@@ -1,6 +1,14 @@
 
 
-# Version 4.3.8 (2024-03-26)
+# Version 4.3.9 (2024-03-27)
+
+## Bug Fixes
+
+- do not redirect to actions if already there
+  
+  
+
+# Version 4.3.8 (2024-03-27)
 
 ## Features
 
