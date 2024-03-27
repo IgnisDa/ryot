@@ -627,8 +627,28 @@ impl MediaProvider for TmdbMovieService {
             .await
             .map_err(|e| anyhow!(e))?;
         let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        dbg!(&search);
-        todo!()
+        let resp = search
+            .results
+            .into_iter()
+            .map(|d| MetadataGroupSearchItem {
+                identifier: d.id.to_string(),
+                name: d.title.unwrap(),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                parts: None,
+            })
+            .collect_vec();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
+            items: resp,
+        })
     }
 
     async fn metadata_group_details(
