@@ -1345,7 +1345,7 @@ pub mod media {
         pub name: String,
         pub identifier: String,
         pub image: Option<String>,
-        pub parts: Option<i32>,
+        pub parts: Option<usize>,
     }
 }
 
