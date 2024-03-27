@@ -1,10 +1,17 @@
 query UserMetadataGroupDetails($metadataGroupId: Int!) {
   userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+    isMonitored
     reviews {
       ...ReviewItemPart
     }
     collections {
       ...CollectionPart
+    }
+    ownership {
+      ...UserMediaOwnershipPart
+    }
+    reminder {
+      ...UserMediaReminderPart
     }
   }
 }

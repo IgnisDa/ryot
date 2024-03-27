@@ -155,3 +155,8 @@ fragment UserMediaReminderPart on UserMediaReminder {
   remindOn
   message
 }
+
+fragment UserMediaOwnershipPart on UserMediaOwnership {
+  markedOn
+  ownedOn
+}

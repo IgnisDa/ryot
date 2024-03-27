@@ -8,6 +8,7 @@
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"resolveJsonModule": true,
+		"noUnusedLocals": true,
 		"target": "es2022",
 		"strict": true,
 		"allowJs": true,

@@ -1,8 +1,10 @@
+use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
-    m20230417_create_user::User, m20230622_create_exercise::Exercise,
+    m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
+    m20230622_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
@@ -10,16 +12,19 @@ pub struct Migration;
 
 pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
 pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
-pub static CONSTRAINT_SQL: &str = r#"
+pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
+pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
+pub static CONSTRAINT_SQL: &str = indoc! { r#"
 ALTER TABLE "user_to_entity"
 ADD CONSTRAINT "user_to_entity__ensure_one_entity"
 CHECK (
     (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
     (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
-    (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END)
+    (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END)
     = 1
 );
-"#;
+"# };
 
 /// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
@@ -39,14 +44,15 @@ pub enum UserToEntity {
     MetadataId,
     ExerciseId,
     PersonId,
+    MetadataGroupId,
     // specifics
     MediaMonitored,
     MediaReminder,
     MetadataUnitsConsumed,
-    MetadataOwnership,
     ExerciseExtraInformation,
     ExerciseNumTimesInteracted,
     MediaReason,
+    MediaOwnership,
 }
 
 #[async_trait::async_trait]
@@ -76,7 +82,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataId).integer())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())
-                    .col(ColumnDef::new(UserToEntity::MetadataOwnership).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
                     .col(ColumnDef::new(UserToEntity::MediaReason).array(ColumnType::Text))
@@ -120,6 +125,16 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(UserToEntity::MetadataGroupId).integer())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(METADATA_GROUP_FK_NAME)
+                            .from(UserToEntity::Table, UserToEntity::MetadataGroupId)
+                            .to(MetadataGroup::Table, MetadataGroup::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(UserToEntity::MediaOwnership).json_binary())
                     .to_owned(),
             )
             .await?;
@@ -153,6 +168,17 @@ impl MigrationTrait for Migration {
                     .table(UserToEntity::Table)
                     .col(UserToEntity::UserId)
                     .col(UserToEntity::PersonId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(METADATA_GROUP_INDEX_NAME)
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::MetadataGroupId)
                     .to_owned(),
             )
             .await?;

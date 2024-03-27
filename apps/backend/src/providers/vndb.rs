@@ -93,6 +93,7 @@ impl MediaProvider for VndbService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let mut rsp = self
             .client

@@ -111,6 +111,7 @@ impl ActiveModelBehavior for ActiveModel {
                 model.metadata_id,
                 model.person_id,
                 model.exercise_id.clone(),
+                model.metadata_group_id,
                 db,
             )
             .await

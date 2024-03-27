@@ -181,6 +181,7 @@ impl MediaProvider for OpenlibraryService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self

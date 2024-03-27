@@ -86,7 +86,7 @@ export const links: LinksFunction = () => {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
-		request.headers.get("Cookie") || "",
+		request.headers.get("cookie") || "",
 	);
 	const defaultColorScheme = colorScheme || "light";
 	return json(

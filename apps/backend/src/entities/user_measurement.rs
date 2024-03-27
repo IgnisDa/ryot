@@ -23,7 +23,7 @@ use crate::models::fitness::UserMeasurementStats;
     Schematic,
 )]
 #[graphql(name = "UserMeasurement", input_name = "UserMeasurementInput")]
-#[schematic(rename = "UserMeasurement")]
+#[schematic(rename = "UserMeasurement", rename_all = "snake_case")]
 #[sea_orm(table_name = "user_measurement")]
 pub struct Model {
     /// The date and time this measurement was made.

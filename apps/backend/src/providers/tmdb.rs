@@ -21,10 +21,11 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
+            MediaDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+            PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -213,6 +214,7 @@ impl MediaProvider for NonMediaTmdbService {
         query: &str,
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let typ = match source_specifics {
             Some(PersonSourceSpecifics {
@@ -229,6 +231,7 @@ impl MediaProvider for NonMediaTmdbService {
                 "query": query.to_owned(),
                 "page": page,
                 "language": self.base.language,
+                "include_adult": display_nsfw,
             }))
             .unwrap()
             .await
@@ -601,6 +604,50 @@ impl MediaProvider for TmdbMovieService {
                 .collect(),
             watch_providers,
             ..Default::default()
+        })
+    }
+
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let page = page.unwrap_or(1);
+        let mut rsp = self
+            .client
+            .get("search/collection")
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": self.base.language,
+                "include_adult": display_nsfw,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = search
+            .results
+            .into_iter()
+            .map(|d| MetadataGroupSearchItem {
+                identifier: d.id.to_string(),
+                name: d.title.unwrap(),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                parts: None,
+            })
+            .collect_vec();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
+            items: resp,
         })
     }
 

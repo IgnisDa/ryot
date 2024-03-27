@@ -20,6 +20,7 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
+	ToggleMediaOwnershipDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import invariant from "tiny-invariant";
@@ -93,11 +94,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		})
 		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
-				request.headers.get("Cookie") || "",
+				request.headers.get("cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
 			headers = {
-				"Set-Cookie": await colorSchemeCookie.serialize(newColorScheme),
+				"set-cookie": await colorSchemeCookie.serialize(newColorScheme),
 			};
 		})
 		.with("logout", async () => {
@@ -200,10 +201,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		})
 		.with("deleteMediaReminder", async () => {
-			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			const submission = processSubmission(
+				formData,
+				metadataOrPersonOrMetadataGroupIdSchema,
+			);
 			await gqlClient.request(
 				DeleteMediaReminderDocument,
-				submission,
+				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
 			headers = await createToastHeaders({
@@ -211,8 +215,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				message: "Reminder deleted successfully",
 			});
 		})
+		.with("toggleMediaOwnership", async () => {
+			const submission = processSubmission(
+				formData,
+				metadataOrPersonOrMetadataGroupIdSchema,
+			);
+			await gqlClient.request(
+				ToggleMediaOwnershipDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			headers = await createToastHeaders({
+				type: "success",
+				message: "Ownership toggled successfully",
+			});
+		})
 		.with("toggleMediaMonitor", async () => {
-			const submission = processSubmission(formData, metadataOrPersonIdSchema);
+			const submission = processSubmission(
+				formData,
+				metadataOrPersonOrMetadataGroupIdSchema,
+			);
 			await gqlClient.request(
 				ToggleMediaMonitorDocument,
 				{ input: submission },
@@ -272,14 +294,15 @@ const reviewSchema = z
 	})
 	.merge(MetadataSpecificsSchema);
 
-const metadataOrPersonIdSchema = z.object({
+const metadataOrPersonOrMetadataGroupIdSchema = z.object({
 	metadataId: zx.IntAsString.optional(),
+	metadataGroupId: zx.IntAsString.optional(),
 	personId: zx.IntAsString.optional(),
 });
 
 const createMediaReminderSchema = z
 	.object({ message: z.string(), remindOn: z.string() })
-	.merge(metadataOrPersonIdSchema);
+	.merge(metadataOrPersonOrMetadataGroupIdSchema);
 
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(

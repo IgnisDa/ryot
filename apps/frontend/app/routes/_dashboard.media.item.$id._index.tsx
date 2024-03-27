@@ -29,7 +29,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
-import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -55,7 +54,6 @@ import {
 	MetadataMainDetailsDocument,
 	MetadataVideoSource,
 	SeenState,
-	ToggleMediaOwnershipDocument,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -67,7 +65,6 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
-	IconBackpack,
 	IconBook,
 	IconBrandPagekit,
 	IconBulb,
@@ -97,9 +94,11 @@ import {
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateOwnershipModal,
 	CreateReminderModal,
 	DisplayCollection,
 	DisplayMediaMonitored,
+	DisplayMediaOwned,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -213,20 +212,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Progress updated successfully",
-				}),
-			});
-		},
-		toggleMediaOwnership: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
-				ToggleMediaOwnershipDocument,
-				submission,
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Ownership toggled successfully",
 				}),
 			});
 		},
@@ -599,25 +584,18 @@ export default function Page() {
 						<Await resolve={loaderData.userMediaDetails}>
 							{({ userMetadataDetails }) => (
 								<Group>
-									{userMetadataDetails.collections.length > 0
-										? userMetadataDetails.collections.map((col) => (
-												<DisplayCollection
-													col={col}
-													entityId={loaderData.metadataId.toString()}
-													entityLot={EntityLot.Media}
-													key={col.id}
-												/>
-										  ))
-										: null}
+									{userMetadataDetails.collections.map((col) => (
+										<DisplayCollection
+											col={col}
+											entityId={loaderData.metadataId.toString()}
+											entityLot={EntityLot.Media}
+											key={col.id}
+										/>
+									))}
 									{userMetadataDetails.isMonitored ? (
 										<DisplayMediaMonitored />
 									) : null}
-									{userMetadataDetails.ownership ? (
-										<Flex align="center" gap={2}>
-											<IconBackpack size={20} />
-											<Text size="xs">You own this media</Text>
-										</Flex>
-									) : null}
+									{userMetadataDetails.ownership ? <DisplayMediaOwned /> : null}
 									{loaderData.mediaMainDetails.isPartial ? (
 										<MediaIsPartial mediaType="media" />
 									) : null}
@@ -787,7 +765,9 @@ export default function Page() {
 										</Group>
 									) : null}
 									{userMetadataDetails?.reminder ? (
-										<DisplayMediaReminder d={userMetadataDetails.reminder} />
+										<DisplayMediaReminder
+											reminderData={userMetadataDetails.reminder}
+										/>
 									) : null}
 									{userMetadataDetails?.inProgress ? (
 										<Alert icon={<IconAlertCircle />} variant="outline">
@@ -1324,23 +1304,23 @@ export default function Page() {
 														)}
 														{userMetadataDetails.ownership ? (
 															<Form
-																action="?intent=toggleMediaOwnership"
+																action="/actions?intent=toggleMediaOwnership"
 																method="post"
 																replace
 															>
+																<HiddenLocationInput />
 																<Menu.Item
 																	type="submit"
 																	color="red"
 																	name="metadataId"
 																	value={loaderData.metadataId}
 																	onClick={(e) => {
-																		if (userMetadataDetails.ownership)
-																			if (
-																				!confirm(
-																					"Are you sure you want to remove ownership of this media?",
-																				)
+																		if (
+																			!confirm(
+																				"Are you sure you want to remove ownership of this media?",
 																			)
-																				e.preventDefault();
+																		)
+																			e.preventDefault();
 																	}}
 																>
 																	Remove ownership
@@ -2226,61 +2206,6 @@ const AdjustSeenTimesModal = (props: {
 					>
 						Submit
 					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-const CreateOwnershipModal = (props: {
-	opened: boolean;
-	metadataId: number;
-	onClose: () => void;
-}) => {
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form method="post" action="?intent=toggleMediaOwnership" replace>
-				<Stack>
-					<Title order={3}>Mark media as owned</Title>
-					<DateInput
-						label="When did you get this media?"
-						clearable
-						popoverProps={{ withinPortal: true }}
-						onChange={setOwnedOn}
-						value={ownedOn}
-					/>
-					<input hidden name="metadataId" defaultValue={props.metadataId} />
-					<input
-						hidden
-						name="ownedOn"
-						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
-					/>
-					<SimpleGrid cols={2}>
-						<Button
-							variant="outline"
-							onClick={props.onClose}
-							disabled={!!ownedOn}
-							data-autofocus
-							type="submit"
-						>
-							I don't remember
-						</Button>
-						<Button
-							disabled={!ownedOn}
-							variant="outline"
-							type="submit"
-							onClick={props.onClose}
-						>
-							Submit
-						</Button>
-					</SimpleGrid>
 				</Stack>
 			</Form>
 		</Modal>

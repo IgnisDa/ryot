@@ -48,7 +48,7 @@ import {
 	NewUserGuideAlert,
 } from "~/components/media";
 import {
-	ApplicationKey,
+	CurrentWorkoutKey,
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
@@ -61,7 +61,7 @@ import {
 	gqlClient,
 } from "~/lib/utilities.server";
 
-const cookieName = ApplicationKey.CurrentWorkout;
+const cookieName = CurrentWorkoutKey;
 
 const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
 	const t = prefs.general.dashboard.find(
@@ -101,7 +101,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		undefined,
 		await getAuthorizationHeader(request),
 	);
-	const cookies = request.headers.get("Cookie");
+	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return json({
 		workoutInProgress,

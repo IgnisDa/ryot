@@ -21,6 +21,7 @@ import {
 	Rating,
 	ScrollArea,
 	SegmentedControl,
+	SimpleGrid,
 	Stack,
 	type StyleProp,
 	Text,
@@ -31,6 +32,7 @@ import {
 	useComputedColorScheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
 	Form,
@@ -54,6 +56,7 @@ import {
 	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
+	IconBackpack,
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
@@ -960,6 +963,7 @@ export const CreateReminderModal = (props: {
 	defaultText: string;
 	metadataId?: number;
 	personId?: number;
+	metadataGroupId?: number;
 }) => {
 	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
 
@@ -1004,8 +1008,14 @@ export const CreateReminderModal = (props: {
 					/>
 					<input
 						hidden
-						name={props.metadataId ? "metadataId" : "personId"}
-						value={props.metadataId || props.personId}
+						name={
+							props.metadataId
+								? "metadataId"
+								: props.personId
+								  ? "personId"
+								  : "metadataGroupId"
+						}
+						value={props.metadataId || props.personId || props.metadataGroupId}
 						readOnly
 					/>
 					<Button
@@ -1023,12 +1033,12 @@ export const CreateReminderModal = (props: {
 };
 
 export const DisplayMediaReminder = (props: {
-	d: UserMediaReminderPartFragment;
+	reminderData: UserMediaReminderPartFragment;
 }) => {
 	return (
 		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-			Reminder for {props.d.remindOn}
-			<Text c="green">{props.d.message}</Text>
+			Reminder for {props.reminderData.remindOn}
+			<Text c="green">{props.reminderData.message}</Text>
 		</Alert>
 	);
 };
@@ -1041,5 +1051,80 @@ export const DisplayMediaMonitored = (props: { entityLot?: string }) => {
 				This {props.entityLot || "media"} is being monitored
 			</Text>
 		</Flex>
+	);
+};
+
+export const DisplayMediaOwned = () => {
+	return (
+		<Flex align="center" gap={2}>
+			<IconBackpack size={20} />
+			<Text size="xs">You own this media</Text>
+		</Flex>
+	);
+};
+
+export const CreateOwnershipModal = (props: {
+	opened: boolean;
+	metadataId?: number;
+	metadataGroupId?: number;
+	onClose: () => void;
+}) => {
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form method="post" action="/actions?intent=toggleMediaOwnership" replace>
+				<HiddenLocationInput />
+				<Stack>
+					<Title order={3}>Mark media as owned</Title>
+					<DateInput
+						label="When did you get this media?"
+						clearable
+						popoverProps={{ withinPortal: true }}
+						onChange={setOwnedOn}
+						value={ownedOn}
+					/>
+					{props.metadataId ? (
+						<input hidden name="metadataId" defaultValue={props.metadataId} />
+					) : null}
+					{props.metadataGroupId ? (
+						<input
+							hidden
+							name="metadataGroupId"
+							defaultValue={props.metadataGroupId}
+						/>
+					) : null}
+					<input
+						hidden
+						name="ownedOn"
+						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
+					/>
+					<SimpleGrid cols={2}>
+						<Button
+							variant="outline"
+							onClick={props.onClose}
+							disabled={!!ownedOn}
+							data-autofocus
+							type="submit"
+						>
+							I don't remember
+						</Button>
+						<Button
+							disabled={!ownedOn}
+							variant="outline"
+							type="submit"
+							onClick={props.onClose}
+						>
+							Submit
+						</Button>
+					</SimpleGrid>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };

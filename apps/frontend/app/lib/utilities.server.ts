@@ -18,19 +18,17 @@ import {
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
-	type UserCollectionsListQuery,
 	type UserLot,
 	type UserPreferences,
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
-import { withQuery, withoutHost } from "ufo";
+import { withQuery } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
 import { redirectToQueryParam } from "./generals";
-import { ApplicationKey } from "./generals";
 
 export const API_URL = process.env.API_URL || "http://localhost:5000";
 
@@ -39,7 +37,7 @@ export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
 });
 
 const getAuthorizationCookie = async (request: Request) => {
-	const cookie = await authCookie.parse(request.headers.get("Cookie") || "");
+	const cookie = await authCookie.parse(request.headers.get("cookie") || "");
 	return cookie;
 };
 
@@ -168,22 +166,22 @@ export const getUserCollectionsList = async (request: Request) => {
 export const getLogoutCookies = async () => {
 	return combineHeaders(
 		{
-			"Set-Cookie": await authCookie.serialize("", {
+			"set-cookie": await authCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"Set-Cookie": await coreDetailsCookie.serialize("", {
+			"set-cookie": await coreDetailsCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"Set-Cookie": await userPreferencesCookie.serialize("", {
+			"set-cookie": await userPreferencesCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"Set-Cookie": await userDetailsCookie.serialize("", {
+			"set-cookie": await userDetailsCookie.serialize("", {
 				expires: new Date(0),
 			}),
 		},
@@ -301,31 +299,28 @@ const commonCookieOptions = {
 			: false,
 } satisfies CookieOptions;
 
-export const authCookie = createCookie(
-	ApplicationKey.Auth,
-	commonCookieOptions,
-);
+export const authCookie = createCookie("Auth", commonCookieOptions);
 
 export const userPreferencesCookie = createCookie(
-	ApplicationKey.UserPreferences,
+	"UserPreferences",
 	commonCookieOptions,
 );
 
 export const coreDetailsCookie = createCookie(
-	ApplicationKey.CoreDetails,
+	"CoreDetails",
 	commonCookieOptions,
 );
 
 export const userDetailsCookie = createCookie(
-	ApplicationKey.UserDetails,
+	"UserDetails",
 	commonCookieOptions,
 );
 
 export const toastSessionStorage = createCookieSessionStorage({
-	cookie: { ...commonCookieOptions, name: ApplicationKey.Toast },
+	cookie: { ...commonCookieOptions, name: "Toast" },
 });
 
-export const colorSchemeCookie = createCookie(ApplicationKey.ColorScheme, {
+export const colorSchemeCookie = createCookie("ColorScheme", {
 	maxAge: 60 * 60 * 24 * 365,
 });
 
@@ -398,17 +393,17 @@ export const getCookiesForApplication = async (token: string) => {
 	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
 	return combineHeaders(
 		{
-			"Set-Cookie": await coreDetailsCookie.serialize(coreDetails, {
+			"set-cookie": await coreDetailsCookie.serialize(coreDetails, {
 				maxAge: cookieMaxAge,
 			}),
 		},
 		{
-			"Set-Cookie": await userPreferencesCookie.serialize(userPreferences, {
+			"set-cookie": await userPreferencesCookie.serialize(userPreferences, {
 				maxAge: cookieMaxAge,
 			}),
 		},
 		{
-			"Set-Cookie": await userDetailsCookie.serialize(userDetails, {
+			"set-cookie": await userDetailsCookie.serialize(userDetails, {
 				maxAge: cookieMaxAge,
 			}),
 		},

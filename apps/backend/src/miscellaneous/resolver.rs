@@ -77,17 +77,17 @@ use crate::{
             ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
             MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
-            MetadataGroupListItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataSearchItem, MetadataSearchItemResponse, MetadataSearchItemWithLot,
-            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            PublicCollectionItem, ReviewPostedEvent, SeenAnimeExtraInformation,
-            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, ToggleMediaMonitorInput, UserMediaOwnership, UserMediaReminder,
-            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
-            WatchProvider,
+            MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
+            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
+            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+            SeenShowExtraInformation, ShowSpecifics, ToggleMediaMonitorInput, UserMediaOwnership,
+            UserMediaReminder, UserSummary, UserToMediaReason, VideoGameSpecifics,
+            VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -112,15 +112,15 @@ use crate::{
         MediaProviderLanguages,
     },
     users::{
-        UserNotification, UserNotificationSetting, UserNotificationSettingKind, UserPreferences,
-        UserReviewScale, UserSinkIntegration, UserSinkIntegrationSetting,
-        UserSinkIntegrationSettingKind, UserYankIntegration, UserYankIntegrationSetting,
-        UserYankIntegrationSettingKind,
+        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
+        UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
+        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrationSettingKind,
+        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR, VERSION,
+        user_by_id, user_id_from_token, AUTHOR,
     },
 };
 
@@ -557,7 +557,6 @@ struct MediaConsumedInput {
 #[derive(SimpleObject)]
 struct CoreDetails {
     docs_link: String,
-    version: String,
     author_name: String,
     repository_link: String,
     item_details_height: u32,
@@ -590,6 +589,9 @@ struct UserPersonDetails {
 struct UserMetadataGroupDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
+    reminder: Option<UserMediaReminder>,
+    is_monitored: Option<bool>,
+    ownership: Option<UserMediaOwnership>,
 }
 
 #[derive(SimpleObject)]
@@ -630,7 +632,22 @@ struct CreateMediaReminderInput {
     remind_on: NaiveDate,
     message: String,
     metadata_id: Option<i32>,
+    metadata_group_id: Option<i32>,
     person_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct DeleteMediaReminderInput {
+    metadata_id: Option<i32>,
+    metadata_group_id: Option<i32>,
+    person_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct ToggleMediaOwnershipInput {
+    owned_on: Option<NaiveDate>,
+    metadata_id: Option<i32>,
+    metadata_group_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -700,6 +717,13 @@ struct PeopleSearchInput {
     search: SearchInput,
     source: MediaSource,
     source_specifics: Option<PersonSourceSpecifics>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MetadataGroupSearchInput {
+    search: SearchInput,
+    lot: MetadataLot,
+    source: MediaSource,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -847,7 +871,8 @@ impl MiscellaneousQuery {
         input: SearchInput,
     ) -> Result<SearchResults<MetadataGroupListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_groups_list(input).await
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.metadata_groups_list(user_id, input).await
     }
 
     /// Get all languages supported by all the providers.
@@ -985,6 +1010,17 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_search(user_id, input).await
+    }
+
+    /// Search for a list of groups from a given source.
+    async fn metadata_group_search(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: MetadataGroupSearchInput,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.metadata_group_search(user_id, input).await
     }
 }
 
@@ -1277,28 +1313,22 @@ impl MiscellaneousMutation {
     async fn delete_media_reminder(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: DeleteMediaReminderInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .delete_media_reminder(user_id, metadata_id, person_id)
-            .await
+        service.delete_media_reminder(user_id, input).await
     }
 
     /// Mark media as owned or remove ownership.
     async fn toggle_media_ownership(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
-        owned_on: Option<NaiveDate>,
+        input: ToggleMediaOwnershipInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .toggle_media_ownership(user_id, metadata_id, owned_on)
-            .await
+        service.toggle_media_ownership(user_id, input).await
     }
 
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
@@ -1449,7 +1479,6 @@ impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
             timezone: self.timezone.to_string(),
-            version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
@@ -1829,10 +1858,11 @@ impl MiscellaneousService {
             .unwrap();
         let seen_by: i32 = seen_by.try_into().unwrap();
         let user_to_meta =
-            get_user_to_entity_association(&user_id, Some(metadata_id), None, None, &self.db).await;
+            get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
+                .await;
         let reminder = user_to_meta.clone().and_then(|n| n.media_reminder);
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
-        let ownership = user_to_meta.and_then(|n| n.metadata_ownership);
+        let ownership = user_to_meta.and_then(|n| n.media_ownership);
 
         let average_rating = if reviews.is_empty() {
             None
@@ -1871,7 +1901,8 @@ impl MiscellaneousService {
         let collections =
             entity_in_collections(&self.db, user_id, None, Some(creator_id), None, None).await?;
         let association =
-            get_user_to_entity_association(&user_id, None, Some(creator_id), None, &self.db).await;
+            get_user_to_entity_association(&user_id, None, Some(creator_id), None, None, &self.db)
+                .await;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -1891,9 +1922,21 @@ impl MiscellaneousService {
         let reviews = self
             .item_reviews(user_id, None, None, Some(metadata_group_id), None)
             .await?;
+        let association = get_user_to_entity_association(
+            &user_id,
+            None,
+            None,
+            None,
+            Some(metadata_group_id),
+            &self.db,
+        )
+        .await;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
+            is_monitored: association.clone().and_then(|n| n.media_monitored),
+            ownership: association.clone().and_then(|n| n.media_ownership),
+            reminder: association.and_then(|n| n.media_reminder),
         })
     }
 
@@ -2086,7 +2129,7 @@ impl MiscellaneousService {
                     Some(MediaGeneralFilter::Owned) => Some(true),
                     _ => None,
                 },
-                |query, _v| query.filter(user_to_entity::Column::MetadataOwnership.is_not_null()),
+                |query, _v| query.filter(user_to_entity::Column::MediaOwnership.is_not_null()),
             )
             .into_tuple::<i32>()
             .all(&self.db)
@@ -2708,6 +2751,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    // TODO: Process this by creating a loop over user_ids instead of user_to_entity_ids
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
         let all_user_to_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::MetadataId.is_not_null())
@@ -2751,7 +2795,7 @@ impl MiscellaneousService {
             let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
             let is_monitored = u.media_monitored.unwrap_or_default();
             let is_reminder_active = u.media_reminder.is_some();
-            let is_owned = u.metadata_ownership.is_some();
+            let is_owned = u.media_ownership.is_some();
             if seen_count + reviewed_count == 0
                 && !is_in_collection
                 && !is_monitored
@@ -2859,6 +2903,84 @@ impl MiscellaneousService {
                     tracing::debug!(
                         "Updating user_to_person = {id:?}",
                         id = (&u.user_id, &u.person_id)
+                    );
+                    u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                }
+                u.needs_to_be_updated = ActiveValue::Set(None);
+                u.update(&self.db).await.ok();
+            }
+        }
+        let all_user_to_metadata_groups = UserToEntity::find()
+            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
+            .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
+            .all(&self.db)
+            .await
+            .unwrap();
+        for u in all_user_to_metadata_groups {
+            // check if it has been reviewed
+            let reviewed_count = Review::find()
+                .filter(review::Column::UserId.eq(u.user_id))
+                .filter(review::Column::MetadataGroupId.eq(u.metadata_group_id))
+                .count(&self.db)
+                .await
+                .unwrap();
+            // check if it is part of any collection
+            let collection_ids: Vec<i32> = Collection::find()
+                .select_only()
+                .column(collection::Column::Id)
+                .filter(collection::Column::UserId.eq(u.user_id))
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let metadata_group_ids: Vec<i32> = CollectionToEntity::find()
+                .select_only()
+                .column(collection_to_entity::Column::MetadataGroupId)
+                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
+                .filter(collection_to_entity::Column::MetadataGroupId.is_not_null())
+                .into_tuple()
+                .all(&self.db)
+                .await
+                .unwrap();
+            let is_in_collection = metadata_group_ids.contains(&u.metadata_group_id.unwrap());
+            let is_monitored = u.media_monitored.unwrap_or_default();
+            let is_owned = u.media_ownership.is_some();
+            let is_reminder_active = u.media_reminder.is_some();
+            if reviewed_count == 0
+                && !is_in_collection
+                && !is_monitored
+                && !is_reminder_active
+                && !is_owned
+            {
+                tracing::debug!(
+                    "Removing user_to_metadata_group = {id:?}",
+                    id = (u.user_id, u.metadata_group_id)
+                );
+                u.delete(&self.db).await.ok();
+            } else {
+                let mut new_reasons = HashSet::new();
+                if reviewed_count > 0 {
+                    new_reasons.insert(UserToMediaReason::Reviewed);
+                }
+                if is_in_collection {
+                    new_reasons.insert(UserToMediaReason::Collection);
+                }
+                if is_monitored {
+                    new_reasons.insert(UserToMediaReason::Monitored);
+                }
+                if is_reminder_active {
+                    new_reasons.insert(UserToMediaReason::Reminder);
+                }
+                if is_owned {
+                    new_reasons.insert(UserToMediaReason::Owned);
+                }
+                let previous_reasons =
+                    HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                let mut u: user_to_entity::ActiveModel = u.into();
+                if new_reasons != previous_reasons {
+                    tracing::debug!(
+                        "Updating user_to_metadata_group = {id:?}",
+                        id = (&u.user_id, &u.metadata_group_id)
                     );
                     u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                 }
@@ -3466,12 +3588,19 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         if let Some(association) =
-            get_user_to_entity_association(&user_id, Some(merge_into), None, None, &self.db).await
+            get_user_to_entity_association(&user_id, Some(merge_into), None, None, None, &self.db)
+                .await
         {
-            let old_association =
-                get_user_to_entity_association(&user_id, Some(merge_from), None, None, &self.db)
-                    .await
-                    .unwrap();
+            let old_association = get_user_to_entity_association(
+                &user_id,
+                Some(merge_from),
+                None,
+                None,
+                None,
+                &self.db,
+            )
+            .await
+            .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
             if old_association.media_monitored.is_none() {
                 cloned.media_monitored = ActiveValue::Set(association.media_monitored);
@@ -3479,8 +3608,8 @@ impl MiscellaneousService {
             if old_association.media_reminder.is_none() {
                 cloned.media_reminder = ActiveValue::Set(association.media_reminder);
             }
-            if old_association.metadata_ownership.is_none() {
-                cloned.metadata_ownership = ActiveValue::Set(association.metadata_ownership);
+            if old_association.media_ownership.is_none() {
+                cloned.media_ownership = ActiveValue::Set(association.media_ownership);
             }
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&self.db).await?;
@@ -3610,7 +3739,7 @@ impl MiscellaneousService {
 
     async fn people_search(
         &self,
-        _user_id: i32,
+        user_id: i32,
         input: PeopleSearchInput,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let query = input.search.query.unwrap_or_default();
@@ -3623,9 +3752,42 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
+        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+            .await?
+            .preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
-            .people_search(&query, input.search.page, &input.source_specifics)
+            .people_search(
+                &query,
+                input.search.page,
+                &input.source_specifics,
+                preferences.general.display_nsfw,
+            )
+            .await?;
+        Ok(results)
+    }
+
+    async fn metadata_group_search(
+        &self,
+        user_id: i32,
+        input: MetadataGroupSearchInput,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let query = input.search.query.unwrap_or_default();
+        if query.is_empty() {
+            return Ok(SearchResults {
+                details: SearchDetails {
+                    total: 0,
+                    next_page: None,
+                },
+                items: vec![],
+            });
+        }
+        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+            .await?
+            .preferences;
+        let provider = self.get_metadata_provider(input.lot, input.source).await?;
+        let results = provider
+            .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
         Ok(results)
     }
@@ -5119,9 +5281,8 @@ impl MiscellaneousService {
                                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                                 match left {
                                     "custom" => {
-                                        let value_vector =
-                                            serde_json::from_str(&input.value).unwrap();
-                                        preferences.fitness.measurements.custom = value_vector;
+                                        let value = serde_json::from_str(&input.value).unwrap();
+                                        preferences.fitness.measurements.custom = value;
                                     }
                                     "inbuilt" => match right {
                                         "weight" => {
@@ -5293,6 +5454,17 @@ impl MiscellaneousService {
                     "features_enabled" => {
                         let (left, right) = right.split_once('.').ok_or_else(err)?;
                         match left {
+                            "others" => match right {
+                                "collections" => {
+                                    preferences.features_enabled.others.collections =
+                                        value_bool.unwrap()
+                                }
+                                "calendar" => {
+                                    preferences.features_enabled.others.calendar =
+                                        value_bool.unwrap()
+                                }
+                                _ => return Err(err()),
+                            },
                             "fitness" => match right {
                                 "enabled" => {
                                     preferences.features_enabled.fitness.enabled =
@@ -5387,8 +5559,15 @@ impl MiscellaneousService {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
                         "dashboard" => {
-                            preferences.general.dashboard =
-                                serde_json::from_str(&input.value).unwrap();
+                            let value = serde_json::from_str::<Vec<UserGeneralDashboardElement>>(
+                                &input.value,
+                            )
+                            .unwrap();
+                            let default_general_prefs = UserGeneralPreferences::default();
+                            if value.len() != default_general_prefs.dashboard.len() {
+                                return Err(err());
+                            }
+                            preferences.general.dashboard = value;
                         }
                         "disable_yank_integrations" => {
                             preferences.general.disable_yank_integrations = value_bool.unwrap();
@@ -6243,6 +6422,7 @@ GROUP BY
             input.metadata_id,
             input.person_id,
             None,
+            input.metadata_group_id,
             &self.db,
         )
         .await?;
@@ -6264,6 +6444,7 @@ GROUP BY
         let metadata = get_user_to_entity_association(
             &user_id,
             Some(to_monitor_metadata_id),
+            None,
             None,
             None,
             &self.db,
@@ -6321,6 +6502,7 @@ GROUP BY
 
     pub async fn metadata_groups_list(
         &self,
+        user_id: i32,
         input: SearchInput,
     ) -> Result<SearchResults<MetadataGroupListItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
@@ -6329,6 +6511,8 @@ GROUP BY
                 query
                     .filter(Condition::all().add(Expr::col(metadata_group::Column::Title).ilike(v)))
             })
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .join(JoinType::Join, metadata_group::Relation::UserToEntity.def())
             .order_by_asc(metadata_group::Column::Title);
         let paginator = query
             .clone()
@@ -6635,12 +6819,20 @@ GROUP BY
             input.metadata_id,
             input.person_id,
             None,
+            input.metadata_group_id,
             &self.db,
         )
         .await?;
         if utm.media_reminder.is_some() {
-            self.delete_media_reminder(user_id, input.metadata_id, input.person_id)
-                .await?;
+            self.delete_media_reminder(
+                user_id,
+                DeleteMediaReminderInput {
+                    metadata_id: input.metadata_id,
+                    person_id: input.person_id,
+                    metadata_group_id: input.metadata_group_id,
+                },
+            )
+            .await?;
         }
         let mut utm: user_to_entity::ActiveModel = utm.into();
         utm.media_reminder = ActiveValue::Set(Some(UserMediaReminder {
@@ -6654,11 +6846,17 @@ GROUP BY
     async fn delete_media_reminder(
         &self,
         user_id: i32,
-        metadata_id: Option<i32>,
-        person_id: Option<i32>,
+        input: DeleteMediaReminderInput,
     ) -> Result<bool> {
-        let utm =
-            associate_user_with_entity(&user_id, metadata_id, person_id, None, &self.db).await?;
+        let utm = associate_user_with_entity(
+            &user_id,
+            input.metadata_id,
+            input.person_id,
+            None,
+            input.metadata_group_id,
+            &self.db,
+        )
+        .await?;
         let mut utm: user_to_entity::ActiveModel = utm.into();
         utm.media_reminder = ActiveValue::Set(None);
         utm.update(&self.db).await?;
@@ -6668,19 +6866,25 @@ GROUP BY
     async fn toggle_media_ownership(
         &self,
         user_id: i32,
-        metadata_id: i32,
-        owned_on: Option<NaiveDate>,
+        input: ToggleMediaOwnershipInput,
     ) -> Result<bool> {
-        let utm =
-            associate_user_with_entity(&user_id, Some(metadata_id), None, None, &self.db).await?;
-        let has_ownership = utm.metadata_ownership.is_some();
+        let utm = associate_user_with_entity(
+            &user_id,
+            input.metadata_id,
+            None,
+            None,
+            input.metadata_group_id,
+            &self.db,
+        )
+        .await?;
+        let has_ownership = utm.media_ownership.is_some();
         let mut utm: user_to_entity::ActiveModel = utm.into();
         if has_ownership {
-            utm.metadata_ownership = ActiveValue::Set(None);
+            utm.media_ownership = ActiveValue::Set(None);
         } else {
-            utm.metadata_ownership = ActiveValue::Set(Some(UserMediaOwnership {
+            utm.media_ownership = ActiveValue::Set(Some(UserMediaOwnership {
                 marked_on: Utc::now(),
-                owned_on,
+                owned_on: input.owned_on,
             }));
         }
         utm.update(&self.db).await?;
@@ -6697,8 +6901,15 @@ GROUP BY
                 if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
                     self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
                         .await?;
-                    self.delete_media_reminder(utm.user_id, utm.metadata_id, utm.person_id)
-                        .await?;
+                    self.delete_media_reminder(
+                        utm.user_id,
+                        DeleteMediaReminderInput {
+                            metadata_group_id: utm.metadata_group_id,
+                            metadata_id: utm.metadata_id,
+                            person_id: utm.person_id,
+                        },
+                    )
+                    .await?;
                 }
             }
         }

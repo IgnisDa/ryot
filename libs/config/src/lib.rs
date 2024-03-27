@@ -465,6 +465,10 @@ impl AppConfig {
         cl.server.config_dump_path = gt();
         cl.server.cors_origins = vec![gt()];
         cl.users.jwt_secret = gt();
+        cl.server.smtp.server = gt();
+        cl.server.smtp.user = gt();
+        cl.server.smtp.password = gt();
+        cl.server.smtp.mailbox = gt();
         cl
     }
 }
