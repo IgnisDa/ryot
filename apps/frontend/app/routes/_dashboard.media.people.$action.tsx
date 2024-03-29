@@ -71,8 +71,8 @@ const defaultFilters = {
 };
 
 enum Action {
-	Search = "search",
 	List = "list",
+	Search = "search",
 }
 
 const SEARCH_SOURCES_ALLOWED = [

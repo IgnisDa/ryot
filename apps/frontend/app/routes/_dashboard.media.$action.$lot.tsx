@@ -92,8 +92,8 @@ const defaultFilters = {
 };
 
 enum Action {
-	Search = "search",
 	List = "list",
+	Search = "search",
 }
 
 const metadataMapping = {
