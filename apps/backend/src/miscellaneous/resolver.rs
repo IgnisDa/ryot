@@ -3249,7 +3249,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn commit_metadata_group_internal(
+    async fn commit_metadata_group_internal(
         &self,
         identifier: &String,
         lot: MetadataLot,
@@ -4015,38 +4015,25 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<IdObject> {
-        if let Some(m) = MetadataGroup::find()
-            .filter(metadata_group::Column::Lot.eq(input.lot))
-            .filter(metadata_group::Column::Source.eq(input.source))
-            .filter(metadata_group::Column::Identifier.eq(input.identifier.clone()))
-            .one(&self.db)
-            .await?
-            .map(|m| IdObject { id: m.id })
-        {
-            Ok(m)
-        } else {
-            let (group_id, associated_items) = self
-                .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
-                .await?;
-            for (idx, media) in associated_items.into_iter().enumerate() {
-                let db_partial_metadata = self.create_partial_metadata(media).await?;
-                MetadataToMetadataGroup::delete_many()
-                    .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
-                    .filter(
-                        metadata_to_metadata_group::Column::MetadataId.eq(db_partial_metadata.id),
-                    )
-                    .exec(&self.db)
-                    .await
-                    .ok();
-                let intermediate = metadata_to_metadata_group::ActiveModel {
-                    metadata_group_id: ActiveValue::Set(group_id),
-                    metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                    part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-                };
-                intermediate.insert(&self.db).await.ok();
-            }
-            Ok(IdObject { id: group_id })
+        let (group_id, associated_items) = self
+            .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
+            .await?;
+        for (idx, media) in associated_items.into_iter().enumerate() {
+            let db_partial_metadata = self.create_partial_metadata(media).await?;
+            MetadataToMetadataGroup::delete_many()
+                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(db_partial_metadata.id))
+                .exec(&self.db)
+                .await
+                .ok();
+            let intermediate = metadata_to_metadata_group::ActiveModel {
+                metadata_group_id: ActiveValue::Set(group_id),
+                metadata_id: ActiveValue::Set(db_partial_metadata.id),
+                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+            };
+            intermediate.insert(&self.db).await.ok();
         }
+        Ok(IdObject { id: group_id })
     }
 
     async fn review_by_id(
