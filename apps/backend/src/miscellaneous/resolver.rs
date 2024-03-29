@@ -72,7 +72,7 @@ use crate::{
     models::{
         fitness::UserUnitSystem,
         media::{
-            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitPersonInput,
+            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
             CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
             ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
@@ -228,13 +228,6 @@ struct UserInput {
     username: String,
     #[graphql(secret)]
     password: String,
-}
-
-#[derive(Debug, InputObject)]
-struct CommitMetadataInput {
-    lot: MetadataLot,
-    source: MediaSource,
-    identifier: String,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1155,7 +1148,7 @@ impl MiscellaneousMutation {
     async fn commit_metadata(
         &self,
         gql_ctx: &Context<'_>,
-        input: CommitMetadataInput,
+        input: CommitMediaInput,
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.commit_metadata(input).await
@@ -1169,6 +1162,16 @@ impl MiscellaneousMutation {
     ) -> Result<IdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.commit_person(input).await
+    }
+
+    /// Fetch details about a media group and create a media group item in the database.
+    async fn commit_metadata_group(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CommitMediaInput,
+    ) -> Result<IdObject> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.commit_metadata_group(input).await
     }
 
     /// Create a new user for the service. Also set their `lot` as admin if
@@ -3246,21 +3249,20 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn associate_group_with_metadata(
+    pub async fn commit_metadata_group_internal(
         &self,
+        identifier: &String,
         lot: MetadataLot,
         source: MediaSource,
-        group_identifier: String,
-    ) -> Result<()> {
+    ) -> Result<(i32, Vec<PartialMetadataWithoutId>)> {
         let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(&group_identifier))
+            .filter(metadata_group::Column::Identifier.eq(identifier))
             .filter(metadata_group::Column::Lot.eq(lot))
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
         let provider = self.get_metadata_provider(lot, source).await?;
-        let (group_details, associated_items) =
-            provider.metadata_group_details(&group_identifier).await?;
+        let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
             Some(eg) => eg.id,
             None => {
@@ -3270,22 +3272,7 @@ impl MiscellaneousService {
                 new_group.id
             }
         };
-        for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = self.create_partial_metadata(media).await?;
-            MetadataToMetadataGroup::delete_many()
-                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(db_partial_metadata.id))
-                .exec(&self.db)
-                .await
-                .ok();
-            let intermediate = metadata_to_metadata_group::ActiveModel {
-                metadata_group_id: ActiveValue::Set(group_id),
-                metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-            };
-            intermediate.insert(&self.db).await.ok();
-        }
-        Ok(())
+        Ok((group_id, associated_items))
     }
 
     async fn associate_suggestion_with_metadata(
@@ -3982,7 +3969,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    async fn commit_metadata(&self, input: CommitMetadataInput) -> Result<IdObject> {
+    async fn commit_metadata(&self, input: CommitMediaInput) -> Result<IdObject> {
         if let Some(m) = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
@@ -4024,6 +4011,41 @@ impl MiscellaneousService {
             };
             let person = person.insert(&self.db).await?;
             Ok(IdObject { id: person.id })
+        }
+    }
+
+    pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<IdObject> {
+        if let Some(m) = MetadataGroup::find()
+            .filter(metadata::Column::Lot.eq(input.lot))
+            .filter(metadata::Column::Source.eq(input.source))
+            .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
+            .one(&self.db)
+            .await?
+            .map(|m| IdObject { id: m.id })
+        {
+            Ok(m)
+        } else {
+            let (group_id, associated_items) = self
+                .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
+                .await?;
+            for (idx, media) in associated_items.into_iter().enumerate() {
+                let db_partial_metadata = self.create_partial_metadata(media).await?;
+                MetadataToMetadataGroup::delete_many()
+                    .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
+                    .filter(
+                        metadata_to_metadata_group::Column::MetadataId.eq(db_partial_metadata.id),
+                    )
+                    .exec(&self.db)
+                    .await
+                    .ok();
+                let intermediate = metadata_to_metadata_group::ActiveModel {
+                    metadata_group_id: ActiveValue::Set(group_id),
+                    metadata_id: ActiveValue::Set(db_partial_metadata.id),
+                    part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+                };
+                intermediate.insert(&self.db).await.ok();
+            }
+            Ok(IdObject { id: group_id })
         }
     }
 
@@ -6081,7 +6103,7 @@ impl MiscellaneousService {
             pu.progress
         };
         let IdObject { id } = self
-            .commit_metadata(CommitMetadataInput {
+            .commit_metadata(CommitMediaInput {
                 lot: pu.lot,
                 source: pu.source,
                 identifier: pu.identifier,

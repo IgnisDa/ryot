@@ -1,4 +1,4 @@
-mutation CommitMetadata($input: CommitMetadataInput!) {
+mutation CommitMetadata($input: CommitMediaInput!) {
   commitMetadata(input: $input) {
     id
   }

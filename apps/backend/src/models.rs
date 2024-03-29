@@ -1347,6 +1347,13 @@ pub mod media {
         pub image: Option<String>,
         pub parts: Option<usize>,
     }
+
+    #[derive(Debug, InputObject)]
+    pub struct CommitMediaInput {
+        pub lot: MetadataLot,
+        pub source: MediaSource,
+        pub identifier: String,
+    }
 }
 
 pub mod fitness {
