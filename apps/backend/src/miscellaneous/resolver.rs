@@ -4016,9 +4016,9 @@ impl MiscellaneousService {
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<IdObject> {
         if let Some(m) = MetadataGroup::find()
-            .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Source.eq(input.source))
-            .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
+            .filter(metadata_group::Column::Lot.eq(input.lot))
+            .filter(metadata_group::Column::Source.eq(input.source))
+            .filter(metadata_group::Column::Identifier.eq(input.identifier.clone()))
             .one(&self.db)
             .await?
             .map(|m| IdObject { id: m.id })
