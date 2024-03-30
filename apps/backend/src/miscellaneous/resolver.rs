@@ -3485,7 +3485,6 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
-        // TODO: Allow partial metadata groups
         for group_identifier in groups {
             self.deploy_associate_group_with_metadata_job(lot, source, group_identifier)
                 .await
@@ -7406,7 +7405,7 @@ GROUP BY
         let mut url = match entity_lot {
             EntityLot::Media => format!("media/item/{}", id),
             EntityLot::Person => format!("media/people/item/{}", id),
-            EntityLot::MediaGroup => format!("media/groups/{}", id),
+            EntityLot::MediaGroup => format!("media/groups/item/{}", id),
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
         };
