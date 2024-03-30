@@ -3236,14 +3236,12 @@ impl MiscellaneousService {
         &self,
         lot: MediaLot,
         source: MediaSource,
-        group_identifier: String,
+        identifier: String,
     ) -> Result<()> {
         self.perform_application_job
             .clone()
             .push(ApplicationJob::AssociateGroupWithMetadata(
-                lot,
-                source,
-                group_identifier,
+                lot, source, identifier,
             ))
             .await?;
         Ok(())
