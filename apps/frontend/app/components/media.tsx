@@ -581,7 +581,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 									$path("/media/item/:id", { id: props.item.identifier }),
 								)
 								.with(EntityLot.MediaGroup, () =>
-									$path("/media/groups/:id", { id: props.item.identifier }),
+									$path("/media/groups/item/:id", {
+										id: props.item.identifier,
+									}),
 								)
 								.with(EntityLot.Person, () =>
 									$path("/media/people/item/:id", {

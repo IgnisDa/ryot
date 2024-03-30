@@ -563,7 +563,7 @@ export default function Page() {
 						{loaderData.userPreferences.groupsEnabled &&
 						loaderData.mediaMainDetails.group ? (
 							<Link
-								to={$path("/media/groups/:id", {
+								to={$path("/media/groups/item/:id", {
 									id: loaderData.mediaMainDetails.group.id,
 								})}
 								style={{ color: "unset" }}
