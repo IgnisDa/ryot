@@ -68,6 +68,7 @@ mod m20240326_1_add_user_to_entity_constraint;
 mod m20240326_2_migrate_user_to_metadata_group_entries;
 mod m20240326_3_change_metadata_ownership_to_media_ownership;
 mod m20240327_add_new_preferences;
+mod m20240330_add_is_partial_field_to_metadata_group;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -153,6 +154,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240326_2_migrate_user_to_metadata_group_entries::Migration),
             Box::new(m20240326_3_change_metadata_ownership_to_media_ownership::Migration),
             Box::new(m20240327_add_new_preferences::Migration),
+            Box::new(m20240330_add_is_partial_field_to_metadata_group::Migration),
         ]
     }
 }
