@@ -46,11 +46,11 @@ import {
 	DeployUpdateMetadataJobDocument,
 	EditSeenItemDocument,
 	EntityLot,
+	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataAdditionalDetailsDocument,
 	type MetadataAdditionalDetailsQuery,
-	MetadataLot,
 	MetadataMainDetailsDocument,
 	MetadataVideoSource,
 	SeenState,
@@ -289,7 +289,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const podcastSpecifics = podcastSpecificsSchema.parse(
 				JSON.parse(submission.podcastSpecifics || "[]"),
 			);
-			if (submission.metadataLot === MetadataLot.Anime) {
+			if (submission.metadataLot === MediaLot.Anime) {
 				if (submission.animeEpisodeNumber) {
 					if (submission.animeAllEpisodesBefore) {
 						for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
@@ -302,7 +302,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}
 				}
 			}
-			if (submission.metadataLot === MetadataLot.Manga) {
+			if (submission.metadataLot === MediaLot.Manga) {
 				if (submission.mangaChapterNumber) {
 					if (submission.mangaAllChaptersBefore) {
 						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
@@ -315,7 +315,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}
 				}
 			}
-			if (submission.metadataLot === MetadataLot.Show) {
+			if (submission.metadataLot === MediaLot.Show) {
 				if (submission.completeShow) {
 					for (const season of showSpecifics) {
 						for (const episode of season.episodes) {
@@ -355,7 +355,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}
 				}
 			}
-			if (submission.metadataLot === MetadataLot.Podcast) {
+			if (submission.metadataLot === MediaLot.Podcast) {
 				if (submission.completePodcast) {
 					for (const episode of podcastSpecifics) {
 						updates.push({
@@ -418,7 +418,7 @@ const editSeenItem = z.object({
 
 const progressUpdateSchema = z
 	.object({
-		metadataLot: z.nativeEnum(MetadataLot),
+		metadataLot: z.nativeEnum(MediaLot),
 		date: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
 		showSpecifics: z.string().optional(),
@@ -800,7 +800,7 @@ export default function Page() {
 							>
 								History
 							</Tabs.Tab>
-							{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
+							{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
 								<Tabs.Tab
 									value="seasons"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -808,7 +808,7 @@ export default function Page() {
 									Seasons
 								</Tabs.Tab>
 							) : null}
-							{loaderData.mediaMainDetails.lot === MetadataLot.Podcast ? (
+							{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
 								<Tabs.Tab
 									value="episodes"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -996,7 +996,7 @@ export default function Page() {
 													</Menu.Target>
 													<Menu.Dropdown>
 														{loaderData.mediaMainDetails.lot ===
-														MetadataLot.Show ? (
+														MediaLot.Show ? (
 															<>
 																<Menu.Label>Shows</Menu.Label>
 																{userMetadataDetails.nextEntry ? (
@@ -1006,13 +1006,13 @@ export default function Page() {
 																				setUpdateProgressModalData({
 																					showSeasonNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show
+																						MediaLot.Show
 																							? userMetadataDetails.nextEntry
 																									?.season
 																							: undefined,
 																					showEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show
+																						MediaLot.Show
 																							? userMetadataDetails.nextEntry
 																									?.episode
 																							: undefined,
@@ -1037,7 +1037,7 @@ export default function Page() {
 															</>
 														) : null}
 														{loaderData.mediaMainDetails.lot ===
-														MetadataLot.Podcast ? (
+														MediaLot.Podcast ? (
 															<>
 																<Menu.Label>Podcasts</Menu.Label>
 																{userMetadataDetails.nextEntry ? (
@@ -1047,7 +1047,7 @@ export default function Page() {
 																				setUpdateProgressModalData({
 																					podcastEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Podcast
+																						MediaLot.Podcast
 																							? userMetadataDetails.nextEntry
 																									?.episode
 																							: undefined,
@@ -1113,16 +1113,16 @@ export default function Page() {
 																	Set progress
 																</Menu.Item>
 																{loaderData.mediaMainDetails.lot !==
-																	MetadataLot.Show &&
+																	MediaLot.Show &&
 																loaderData.mediaMainDetails.lot !==
-																	MetadataLot.Podcast ? (
+																	MediaLot.Podcast ? (
 																	<StateChangeButtons />
 																) : null}
 															</>
 														) : loaderData.mediaMainDetails.lot !==
-																MetadataLot.Show &&
+																MediaLot.Show &&
 														  loaderData.mediaMainDetails.lot !==
-																MetadataLot.Podcast ? (
+																MediaLot.Podcast ? (
 															<>
 																<Menu.Label>Not in progress</Menu.Label>
 																<Form
@@ -1140,10 +1140,7 @@ export default function Page() {
 																		name="progress"
 																		defaultValue={0}
 																	/>
-																	{![
-																		MetadataLot.Anime,
-																		MetadataLot.Manga,
-																	].includes(
+																	{![MediaLot.Anime, MediaLot.Manga].includes(
 																		loaderData.mediaMainDetails.lot,
 																	) ? (
 																		<Menu.Item
@@ -1187,13 +1184,13 @@ export default function Page() {
 																	undefined,
 																showEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Show
+																	MediaLot.Show
 																		? userMetadataDetails?.nextEntry?.episode ??
 																		  undefined
 																		: null,
 																podcastEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast
+																	MediaLot.Podcast
 																		? userMetadataDetails?.nextEntry?.episode ??
 																		  undefined
 																		: null,
@@ -1381,11 +1378,11 @@ export default function Page() {
 																				Consumed{" "}
 																				{match(loaderData.mediaMainDetails.lot)
 																					.with(
-																						MetadataLot.AudioBook,
-																						MetadataLot.Movie,
-																						MetadataLot.Show,
-																						MetadataLot.Podcast,
-																						MetadataLot.VisualNovel,
+																						MediaLot.AudioBook,
+																						MediaLot.Movie,
+																						MediaLot.Show,
+																						MediaLot.Podcast,
+																						MediaLot.VisualNovel,
 																						() =>
 																							humanizeDuration(
 																								(userMetadataDetails.unitsConsumed ||
@@ -1400,19 +1397,19 @@ export default function Page() {
 																								userMetadataDetails.unitsConsumed
 																							} ${match(v)
 																								.with(
-																									MetadataLot.VideoGame,
+																									MediaLot.VideoGame,
 																									() => "",
 																								)
 																								.with(
-																									MetadataLot.Book,
+																									MediaLot.Book,
 																									() => "pages",
 																								)
 																								.with(
-																									MetadataLot.Anime,
+																									MediaLot.Anime,
 																									() => "episodes",
 																								)
 																								.with(
-																									MetadataLot.Manga,
+																									MediaLot.Manga,
 																									() => "chapters",
 																								)
 																								.exhaustive()}`,
@@ -1852,7 +1849,7 @@ const ProgressUpdateModal = (props: {
 					/>
 				) : null}
 				<Stack>
-					{loaderData.mediaMainDetails.lot === MetadataLot.Anime ? (
+					{loaderData.mediaMainDetails.lot === MediaLot.Anime ? (
 						<>
 							<NumberInput
 								label="Episode"
@@ -1870,7 +1867,7 @@ const ProgressUpdateModal = (props: {
 							) : null}
 						</>
 					) : null}
-					{loaderData.mediaMainDetails.lot === MetadataLot.Manga ? (
+					{loaderData.mediaMainDetails.lot === MediaLot.Manga ? (
 						<>
 							<NumberInput
 								label="Chapter"
@@ -1892,7 +1889,7 @@ const ProgressUpdateModal = (props: {
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ metadataDetails: mediaAdditionalDetails }) => (
 								<>
-									{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
+									{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
 										<>
 											<input
 												hidden
@@ -1956,7 +1953,7 @@ const ProgressUpdateModal = (props: {
 											) : null}
 										</>
 									) : null}
-									{loaderData.mediaMainDetails.lot === MetadataLot.Podcast ? (
+									{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
 										<>
 											<input
 												hidden
@@ -2041,20 +2038,18 @@ const IndividualProgressModal = (props: {
 	metadataId: number;
 	progress: number;
 	total?: number | null;
-	lot: MetadataLot;
+	lot: MediaLot;
 }) => {
 	const [value, setValue] = useState<number | undefined>(props.progress);
 
 	const [updateIcon, text] = match(props.lot)
-		.with(MetadataLot.Book, () => [<IconBook size={24} />, "Pages"])
-		.with(MetadataLot.Anime, () => [<IconDeviceTv size={24} />, "Episodes"])
-		.with(MetadataLot.Manga, () => [<IconBrandPagekit size={24} />, "Chapters"])
-		.with(
-			MetadataLot.Movie,
-			MetadataLot.VisualNovel,
-			MetadataLot.AudioBook,
-			() => [<IconClock size={24} />, "Minutes"],
-		)
+		.with(MediaLot.Book, () => [<IconBook size={24} />, "Pages"])
+		.with(MediaLot.Anime, () => [<IconDeviceTv size={24} />, "Episodes"])
+		.with(MediaLot.Manga, () => [<IconBrandPagekit size={24} />, "Chapters"])
+		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
+			<IconClock size={24} />,
+			"Minutes",
+		])
 		.otherwise(() => [null, null]);
 
 	return (

@@ -1,7 +1,7 @@
 import type { MantineColorScheme } from "@mantine/core";
 import {
+	MediaLot,
 	MediaSource,
-	MetadataLot,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -50,16 +50,16 @@ export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
 	const newLot = (lot as string).toLowerCase();
 	return match(newLot)
-		.with("anime", "animes", () => MetadataLot.Anime)
-		.with("manga", "mangas", () => MetadataLot.Manga)
-		.with("books", "book", () => MetadataLot.Book)
-		.with("movies", "movie", () => MetadataLot.Movie)
-		.with("tv", "show", "shows", () => MetadataLot.Show)
+		.with("anime", "animes", () => MediaLot.Anime)
+		.with("manga", "mangas", () => MediaLot.Manga)
+		.with("books", "book", () => MediaLot.Book)
+		.with("movies", "movie", () => MediaLot.Movie)
+		.with("tv", "show", "shows", () => MediaLot.Show)
 		.with(
 			"visual_novel",
 			"visualnovel",
 			"visual novel",
-			() => MetadataLot.VisualNovel,
+			() => MediaLot.VisualNovel,
 		)
 		.with(
 			"games",
@@ -68,7 +68,7 @@ export const getLot = (lot: unknown) => {
 			"video_game",
 			"video game",
 			"video_games",
-			() => MetadataLot.VideoGame,
+			() => MediaLot.VideoGame,
 		)
 		.with(
 			"audio book",
@@ -76,35 +76,35 @@ export const getLot = (lot: unknown) => {
 			"audiobook",
 			"audio_book",
 			"audio_books",
-			() => MetadataLot.AudioBook,
+			() => MediaLot.AudioBook,
 		)
-		.with("podcast", "podcasts", () => MetadataLot.Podcast)
+		.with("podcast", "podcasts", () => MediaLot.Podcast)
 		.otherwise(() => undefined);
 };
 
-export const getLotGradient = (lot: MetadataLot) =>
+export const getLotGradient = (lot: MediaLot) =>
 	match(lot)
-		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
-		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
-		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
-		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MetadataLot.VideoGame, () => ({
+		.with(MediaLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
+		.with(MediaLot.Book, () => ({ from: "teal", to: "lime" }))
+		.with(MediaLot.Movie, () => ({ from: "teal", to: "blue" }))
+		.with(MediaLot.Show, () => ({ from: "orange", to: "red" }))
+		.with(MediaLot.VideoGame, () => ({
 			from: "purple",
 			to: "blue",
 		}))
-		.with(MetadataLot.Anime, () => ({
+		.with(MediaLot.Anime, () => ({
 			from: "red",
 			to: "blue",
 		}))
-		.with(MetadataLot.Manga, () => ({
+		.with(MediaLot.Manga, () => ({
 			from: "red",
 			to: "green",
 		}))
-		.with(MetadataLot.Podcast, () => ({
+		.with(MediaLot.Podcast, () => ({
 			from: "yellow",
 			to: "purple",
 		}))
-		.with(MetadataLot.VisualNovel, () => ({
+		.with(MediaLot.VisualNovel, () => ({
 			from: "green",
 			to: "yellow",
 		}))
@@ -131,22 +131,22 @@ export enum Verb {
 	Read = 0,
 }
 
-export const getVerb = (verb: Verb, lot: MetadataLot) => {
+export const getVerb = (verb: Verb, lot: MediaLot) => {
 	return match(verb)
 		.with(Verb.Read, () => {
 			return match(lot)
-				.with(MetadataLot.Book, MetadataLot.Manga, () => "read")
+				.with(MediaLot.Book, MediaLot.Manga, () => "read")
 				.with(
-					MetadataLot.Movie,
-					MetadataLot.Show,
-					MetadataLot.Anime,
-					MetadataLot.VisualNovel,
+					MediaLot.Movie,
+					MediaLot.Show,
+					MediaLot.Anime,
+					MediaLot.VisualNovel,
 					() => "watch",
 				)
 				.with(
-					MetadataLot.AudioBook,
-					MetadataLot.VideoGame,
-					MetadataLot.Podcast,
+					MediaLot.AudioBook,
+					MediaLot.VideoGame,
+					MediaLot.Podcast,
 					() => "play",
 				)
 				.otherwise(() => {
@@ -180,17 +180,17 @@ export const getStringAsciiValue = (input: string) => {
 	return total;
 };
 
-export const getMetadataIcon = (lot: MetadataLot) => {
+export const getMetadataIcon = (lot: MediaLot) => {
 	return match(lot)
-		.with(MetadataLot.Book, () => IconBook)
-		.with(MetadataLot.Movie, () => IconDeviceTv)
-		.with(MetadataLot.Show, () => IconDeviceDesktop)
-		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
-		.with(MetadataLot.AudioBook, () => IconHeadphones)
-		.with(MetadataLot.Podcast, () => IconMicrophone)
-		.with(MetadataLot.Manga, () => IconDeviceTvOld)
-		.with(MetadataLot.Anime, () => IconBooks)
-		.with(MetadataLot.VisualNovel, () => IconBook2)
+		.with(MediaLot.Book, () => IconBook)
+		.with(MediaLot.Movie, () => IconDeviceTv)
+		.with(MediaLot.Show, () => IconDeviceDesktop)
+		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
+		.with(MediaLot.AudioBook, () => IconHeadphones)
+		.with(MediaLot.Podcast, () => IconMicrophone)
+		.with(MediaLot.Manga, () => IconDeviceTvOld)
+		.with(MediaLot.Anime, () => IconBooks)
+		.with(MediaLot.VisualNovel, () => IconBook2)
 		.exhaustive();
 };
 

@@ -16,8 +16,8 @@ import {
 	DeleteReviewDocument,
 	DeleteS3ObjectDocument,
 	EntityLot,
+	MediaLot,
 	MediaSource,
-	MetadataLot,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	ToggleMediaMonitorDocument,
@@ -262,7 +262,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 const commitMediaSchema = z.object({
 	identifier: z.string(),
-	lot: z.nativeEnum(MetadataLot),
+	lot: z.nativeEnum(MediaLot),
 	source: z.nativeEnum(MediaSource),
 });
 

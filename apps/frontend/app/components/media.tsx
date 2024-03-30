@@ -43,8 +43,8 @@ import {
 } from "@remix-run/react";
 import {
 	EntityLot,
+	MediaLot,
 	type MediaSource,
-	MetadataLot,
 	type PartialMetadata,
 	type ReviewItem,
 	type UserMediaReminderPartFragment,
@@ -84,7 +84,7 @@ import { confirmWrapper } from "./confirmation";
 
 export const commitMedia = async (
 	identifier: string,
-	lot: MetadataLot,
+	lot: MediaLot,
 	source: MediaSource,
 ) => {
 	const data = new FormData();
@@ -161,7 +161,7 @@ export const ReviewItemDisplay = (props: {
 	metadataGroupId?: number;
 	personId?: number;
 	collectionId?: number;
-	lot?: MetadataLot;
+	lot?: MediaLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
@@ -556,7 +556,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	reviewScale: UserReviewScale;
 	entityLot?: EntityLot | null;
 	href?: string;
-	lot?: MetadataLot | null;
+	lot?: MediaLot | null;
 	children?: ReactNode;
 	imageOverlayForLoadingIndicator?: boolean;
 	hasInteracted?: boolean;
@@ -756,7 +756,7 @@ export const PostReviewModal = (props: {
 	title: string;
 	reviewScale: UserReviewScale;
 	data?: PostReview;
-	lot?: MetadataLot;
+	lot?: MediaLot;
 }) => {
 	if (!props.data) return <></>;
 	return (
@@ -832,7 +832,7 @@ export const PostReviewModal = (props: {
 							.exhaustive()}
 						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
 					</Flex>
-					{props.lot === MetadataLot.Show ? (
+					{props.lot === MediaLot.Show ? (
 						<Flex gap="md">
 							<NumberInput
 								label="Season"
@@ -859,7 +859,7 @@ export const PostReviewModal = (props: {
 							/>
 						</Flex>
 					) : null}
-					{props.lot === MetadataLot.Podcast ? (
+					{props.lot === MediaLot.Podcast ? (
 						<NumberInput
 							label="Episode"
 							name="podcastEpisodeNumber"
@@ -871,7 +871,7 @@ export const PostReviewModal = (props: {
 							}
 						/>
 					) : null}
-					{props.lot === MetadataLot.Anime ? (
+					{props.lot === MediaLot.Anime ? (
 						<NumberInput
 							label="Episode"
 							name="animeEpisodeNumber"
@@ -883,7 +883,7 @@ export const PostReviewModal = (props: {
 							}
 						/>
 					) : null}
-					{props.lot === MetadataLot.Manga ? (
+					{props.lot === MediaLot.Manga ? (
 						<NumberInput
 							label="Chapter"
 							name="mangaChapterNumber"

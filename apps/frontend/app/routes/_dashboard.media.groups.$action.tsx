@@ -17,10 +17,10 @@ import {
 } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
+	MediaLot,
 	MediaSource,
 	MetadataGroupSearchDocument,
 	MetadataGroupsListDocument,
-	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconListCheck, IconSearch } from "@tabler/icons-react";
@@ -58,9 +58,9 @@ enum Action {
 	Search = "search",
 }
 
-const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MetadataLot>> = {
-	[MediaSource.Tmdb]: MetadataLot.Movie,
-	[MediaSource.Igdb]: MetadataLot.VideoGame,
+const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
+	[MediaSource.Tmdb]: MediaLot.Movie,
+	[MediaSource.Igdb]: MediaLot.VideoGame,
 };
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -287,7 +287,7 @@ const GroupSearchItem = (props: {
 const commitGroup = async (
 	identifier: string,
 	source: MediaSource,
-	lot: MetadataLot,
+	lot: MediaLot,
 ) => {
 	const data = new FormData();
 	const location = withoutHost(window.location.href);

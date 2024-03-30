@@ -32,10 +32,10 @@ import {
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaGeneralFilter,
+	MediaLot,
 	MediaSortBy,
 	MediaSource,
 	MetadataListDocument,
-	MetadataLot,
 	MetadataSearchDocument,
 	type UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -97,19 +97,19 @@ enum Action {
 }
 
 const metadataMapping = {
-	[MetadataLot.AudioBook]: [MediaSource.Audible],
-	[MetadataLot.Book]: [MediaSource.Openlibrary, MediaSource.GoogleBooks],
-	[MetadataLot.Podcast]: [MediaSource.Itunes, MediaSource.Listennotes],
-	[MetadataLot.VideoGame]: [MediaSource.Igdb],
-	[MetadataLot.Anime]: [MediaSource.Anilist, MediaSource.Mal],
-	[MetadataLot.Manga]: [
+	[MediaLot.AudioBook]: [MediaSource.Audible],
+	[MediaLot.Book]: [MediaSource.Openlibrary, MediaSource.GoogleBooks],
+	[MediaLot.Podcast]: [MediaSource.Itunes, MediaSource.Listennotes],
+	[MediaLot.VideoGame]: [MediaSource.Igdb],
+	[MediaLot.Anime]: [MediaSource.Anilist, MediaSource.Mal],
+	[MediaLot.Manga]: [
 		MediaSource.Anilist,
 		MediaSource.MangaUpdates,
 		MediaSource.Mal,
 	],
-	[MetadataLot.Movie]: [MediaSource.Tmdb],
-	[MetadataLot.Show]: [MediaSource.Tmdb],
-	[MetadataLot.VisualNovel]: [MediaSource.Vndb],
+	[MediaLot.Movie]: [MediaSource.Tmdb],
+	[MediaLot.Show]: [MediaSource.Tmdb],
+	[MediaLot.VisualNovel]: [MediaSource.Vndb],
 } as const;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -502,7 +502,7 @@ export default function Page() {
 const MediaSearchItem = (props: {
 	item: Item;
 	idx: number;
-	lot: MetadataLot;
+	lot: MediaLot;
 	source: MediaSource;
 	action: "search" | "list";
 	hasInteracted: boolean;
@@ -535,7 +535,7 @@ const MediaSearchItem = (props: {
 	const [appItemId, setAppItemId] = useState(props.maybeItemId);
 
 	const isShowOrPodcast =
-		props.lot === MetadataLot.Show || props.lot === MetadataLot.Podcast;
+		props.lot === MediaLot.Show || props.lot === MediaLot.Podcast;
 
 	return (
 		<MediaItemWithoutUpdateModal
