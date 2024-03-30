@@ -3266,7 +3266,8 @@ impl MiscellaneousService {
         let group_id = match existing_group {
             Some(eg) => eg.id,
             None => {
-                let mut db_group: metadata_group::ActiveModel = group_details.into_model(0).into();
+                let mut db_group: metadata_group::ActiveModel =
+                    group_details.into_model(0, None).into();
                 db_group.id = ActiveValue::NotSet;
                 let new_group = db_group.insert(&self.db).await?;
                 new_group.id

@@ -16,17 +16,19 @@ pub struct Model {
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub parts: i32,
     pub identifier: String,
+    pub lot: MediaLot,
+    pub source: MediaSource,
+    pub parts: i32,
     pub title: String,
-    pub description: Option<String>,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub images: Vec<MetadataImage>,
     #[sea_orm(ignore)]
     pub display_images: Vec<String>,
-    pub lot: MediaLot,
-    pub source: MediaSource,
+    #[boilermates(not_in("MetadataGroupWithoutId"))]
+    pub is_partial: Option<bool>,
+    pub description: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
