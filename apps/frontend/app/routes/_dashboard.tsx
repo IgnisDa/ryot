@@ -84,7 +84,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userPreferences.featuresEnabled.media.groups
 			? {
 					label: "Groups",
-					href: $path("/media/groups/list"),
+					href: $path("/media/groups/:action", { action: "list" }),
 			  }
 			: undefined,
 		userPreferences.featuresEnabled.media.people
