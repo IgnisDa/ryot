@@ -3461,9 +3461,11 @@ impl MiscellaneousService {
             .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
             .exec(&self.db)
             .await?;
-        // suggestions
         MetadataToMetadata::delete_many()
             .filter(metadata_to_metadata::Column::FromMetadataId.eq(metadata_id))
+            .filter(
+                metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
+            )
             .exec(&self.db)
             .await?;
         for (index, creator) in people.into_iter().enumerate() {
