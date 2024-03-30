@@ -2754,241 +2754,243 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    // TODO: Process this by creating a loop over user_ids instead of user_to_entity_ids
     pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let all_user_to_metadata = UserToEntity::find()
-            .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
+        let all_users = User::find()
+            .select_only()
+            .column(user::Column::Id)
+            .into_tuple::<i32>()
             .all(&self.db)
             .await
             .unwrap();
-        for u in all_user_to_metadata {
-            // check if there is any seen item
-            let seen_count = Seen::find()
-                .filter(seen::Column::UserId.eq(u.user_id))
-                .filter(seen::Column::MetadataId.eq(u.metadata_id))
-                .count(&self.db)
-                .await
-                .unwrap();
-            // check if it has been reviewed
-            let reviewed_count = Review::find()
-                .filter(review::Column::UserId.eq(u.user_id))
-                .filter(review::Column::MetadataId.eq(u.metadata_id))
-                .count(&self.db)
-                .await
-                .unwrap();
-            // check if it is part of any collection
+        for user_id in all_users {
             let collection_ids: Vec<i32> = Collection::find()
                 .select_only()
                 .column(collection::Column::Id)
-                .filter(collection::Column::UserId.eq(u.user_id))
+                .filter(collection::Column::UserId.eq(user_id))
                 .into_tuple()
                 .all(&self.db)
                 .await
                 .unwrap();
-            let meta_ids: Vec<i32> = CollectionToEntity::find()
-                .select_only()
-                .column(collection_to_entity::Column::MetadataId)
-                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
-                .filter(collection_to_entity::Column::MetadataId.is_not_null())
-                .into_tuple()
+            let all_user_to_metadata = UserToEntity::find()
+                .filter(user_to_entity::Column::MetadataId.is_not_null())
+                .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
+                .filter(user_to_entity::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
-            let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
-            let is_monitored = u.media_monitored.unwrap_or_default();
-            let is_reminder_active = u.media_reminder.is_some();
-            let is_owned = u.media_ownership.is_some();
-            if seen_count + reviewed_count == 0
-                && !is_in_collection
-                && !is_monitored
-                && !is_reminder_active
-                && !is_owned
-            {
-                tracing::debug!(
-                    "Removing user_to_metadata = {id:?}",
-                    id = (u.user_id, u.metadata_id)
-                );
-                u.delete(&self.db).await.ok();
-            } else {
-                let mut new_reasons = HashSet::new();
-                if seen_count > 0 {
-                    new_reasons.insert(UserToMediaReason::Seen);
-                }
-                if reviewed_count > 0 {
-                    new_reasons.insert(UserToMediaReason::Reviewed);
-                }
-                if is_in_collection {
-                    new_reasons.insert(UserToMediaReason::Collection);
-                }
-                if is_monitored {
-                    new_reasons.insert(UserToMediaReason::Monitored);
-                }
-                if is_reminder_active {
-                    new_reasons.insert(UserToMediaReason::Reminder);
-                }
-                if is_owned {
-                    new_reasons.insert(UserToMediaReason::Owned);
-                }
-                let previous_reasons =
-                    HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
-                let mut u: user_to_entity::ActiveModel = u.into();
-                if new_reasons != previous_reasons {
+            for u in all_user_to_metadata {
+                // check if there is any seen item
+                let seen_count = Seen::find()
+                    .filter(seen::Column::UserId.eq(u.user_id))
+                    .filter(seen::Column::MetadataId.eq(u.metadata_id))
+                    .count(&self.db)
+                    .await
+                    .unwrap();
+                // check if it has been reviewed
+                let reviewed_count = Review::find()
+                    .filter(review::Column::UserId.eq(u.user_id))
+                    .filter(review::Column::MetadataId.eq(u.metadata_id))
+                    .count(&self.db)
+                    .await
+                    .unwrap();
+                // check if it is part of any collection
+                let meta_ids: Vec<i32> = CollectionToEntity::find()
+                    .select_only()
+                    .column(collection_to_entity::Column::MetadataId)
+                    .filter(
+                        collection_to_entity::Column::CollectionId.is_in(collection_ids.clone()),
+                    )
+                    .filter(collection_to_entity::Column::MetadataId.is_not_null())
+                    .into_tuple()
+                    .all(&self.db)
+                    .await
+                    .unwrap();
+                let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
+                let is_monitored = u.media_monitored.unwrap_or_default();
+                let is_reminder_active = u.media_reminder.is_some();
+                let is_owned = u.media_ownership.is_some();
+                if seen_count + reviewed_count == 0
+                    && !is_in_collection
+                    && !is_monitored
+                    && !is_reminder_active
+                    && !is_owned
+                {
                     tracing::debug!(
-                        "Updating user_to_metadata = {id:?}",
-                        id = (&u.user_id, &u.metadata_id)
+                        "Removing user_to_metadata = {id:?}",
+                        id = (u.user_id, u.metadata_id)
                     );
-                    u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.delete(&self.db).await.ok();
+                } else {
+                    let mut new_reasons = HashSet::new();
+                    if seen_count > 0 {
+                        new_reasons.insert(UserToMediaReason::Seen);
+                    }
+                    if reviewed_count > 0 {
+                        new_reasons.insert(UserToMediaReason::Reviewed);
+                    }
+                    if is_in_collection {
+                        new_reasons.insert(UserToMediaReason::Collection);
+                    }
+                    if is_monitored {
+                        new_reasons.insert(UserToMediaReason::Monitored);
+                    }
+                    if is_reminder_active {
+                        new_reasons.insert(UserToMediaReason::Reminder);
+                    }
+                    if is_owned {
+                        new_reasons.insert(UserToMediaReason::Owned);
+                    }
+                    let previous_reasons =
+                        HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                    let mut u: user_to_entity::ActiveModel = u.into();
+                    if new_reasons != previous_reasons {
+                        tracing::debug!(
+                            "Updating user_to_metadata = {id:?}",
+                            id = (&u.user_id, &u.metadata_id)
+                        );
+                        u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    }
+                    u.needs_to_be_updated = ActiveValue::Set(None);
+                    u.update(&self.db).await.ok();
                 }
-                u.needs_to_be_updated = ActiveValue::Set(None);
-                u.update(&self.db).await.ok();
             }
-        }
-        let all_user_to_person = UserToEntity::find()
-            .filter(user_to_entity::Column::PersonId.is_not_null())
-            .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
-            .all(&self.db)
-            .await
-            .unwrap();
-        for u in all_user_to_person {
-            // check if it has been reviewed
-            let reviewed_count = Review::find()
-                .filter(review::Column::UserId.eq(u.user_id))
-                .filter(review::Column::PersonId.eq(u.person_id))
-                .count(&self.db)
-                .await
-                .unwrap();
-            // check if it is part of any collection
-            let collection_ids: Vec<i32> = Collection::find()
-                .select_only()
-                .column(collection::Column::Id)
-                .filter(collection::Column::UserId.eq(u.user_id))
-                .into_tuple()
+            let all_user_to_person = UserToEntity::find()
+                .filter(user_to_entity::Column::PersonId.is_not_null())
+                .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
+                .filter(user_to_entity::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
-            let person_ids: Vec<i32> = CollectionToEntity::find()
-                .select_only()
-                .column(collection_to_entity::Column::PersonId)
-                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
-                .filter(collection_to_entity::Column::PersonId.is_not_null())
-                .into_tuple()
-                .all(&self.db)
-                .await
-                .unwrap();
-            let is_in_collection = person_ids.contains(&u.person_id.unwrap());
-            let is_monitored = u.media_monitored.unwrap_or_default();
-            let is_reminder_active = u.media_reminder.is_some();
-            if reviewed_count == 0 && !is_in_collection && !is_monitored && !is_reminder_active {
-                tracing::debug!(
-                    "Removing user_to_person = {id:?}",
-                    id = (u.user_id, u.person_id)
-                );
-                u.delete(&self.db).await.ok();
-            } else {
-                let mut new_reasons = HashSet::new();
-                if reviewed_count > 0 {
-                    new_reasons.insert(UserToMediaReason::Reviewed);
-                }
-                if is_in_collection {
-                    new_reasons.insert(UserToMediaReason::Collection);
-                }
-                if is_monitored {
-                    new_reasons.insert(UserToMediaReason::Monitored);
-                }
-                if is_reminder_active {
-                    new_reasons.insert(UserToMediaReason::Reminder);
-                }
-                let previous_reasons =
-                    HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
-                let mut u: user_to_entity::ActiveModel = u.into();
-                if new_reasons != previous_reasons {
+            for u in all_user_to_person {
+                // check if it has been reviewed
+                let reviewed_count = Review::find()
+                    .filter(review::Column::UserId.eq(u.user_id))
+                    .filter(review::Column::PersonId.eq(u.person_id))
+                    .count(&self.db)
+                    .await
+                    .unwrap();
+                // check if it is part of any collection
+                let person_ids: Vec<i32> = CollectionToEntity::find()
+                    .select_only()
+                    .column(collection_to_entity::Column::PersonId)
+                    .filter(
+                        collection_to_entity::Column::CollectionId.is_in(collection_ids.clone()),
+                    )
+                    .filter(collection_to_entity::Column::PersonId.is_not_null())
+                    .into_tuple()
+                    .all(&self.db)
+                    .await
+                    .unwrap();
+                let is_in_collection = person_ids.contains(&u.person_id.unwrap());
+                let is_monitored = u.media_monitored.unwrap_or_default();
+                let is_reminder_active = u.media_reminder.is_some();
+                if reviewed_count == 0 && !is_in_collection && !is_monitored && !is_reminder_active
+                {
                     tracing::debug!(
-                        "Updating user_to_person = {id:?}",
-                        id = (&u.user_id, &u.person_id)
+                        "Removing user_to_person = {id:?}",
+                        id = (u.user_id, u.person_id)
                     );
-                    u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.delete(&self.db).await.ok();
+                } else {
+                    let mut new_reasons = HashSet::new();
+                    if reviewed_count > 0 {
+                        new_reasons.insert(UserToMediaReason::Reviewed);
+                    }
+                    if is_in_collection {
+                        new_reasons.insert(UserToMediaReason::Collection);
+                    }
+                    if is_monitored {
+                        new_reasons.insert(UserToMediaReason::Monitored);
+                    }
+                    if is_reminder_active {
+                        new_reasons.insert(UserToMediaReason::Reminder);
+                    }
+                    let previous_reasons =
+                        HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                    let mut u: user_to_entity::ActiveModel = u.into();
+                    if new_reasons != previous_reasons {
+                        tracing::debug!(
+                            "Updating user_to_person = {id:?}",
+                            id = (&u.user_id, &u.person_id)
+                        );
+                        u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    }
+                    u.needs_to_be_updated = ActiveValue::Set(None);
+                    u.update(&self.db).await.ok();
                 }
-                u.needs_to_be_updated = ActiveValue::Set(None);
-                u.update(&self.db).await.ok();
             }
-        }
-        let all_user_to_metadata_groups = UserToEntity::find()
-            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
-            .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
-            .all(&self.db)
-            .await
-            .unwrap();
-        for u in all_user_to_metadata_groups {
-            // check if it has been reviewed
-            let reviewed_count = Review::find()
-                .filter(review::Column::UserId.eq(u.user_id))
-                .filter(review::Column::MetadataGroupId.eq(u.metadata_group_id))
-                .count(&self.db)
-                .await
-                .unwrap();
-            // check if it is part of any collection
-            let collection_ids: Vec<i32> = Collection::find()
-                .select_only()
-                .column(collection::Column::Id)
-                .filter(collection::Column::UserId.eq(u.user_id))
-                .into_tuple()
+            let all_user_to_metadata_groups = UserToEntity::find()
+                .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
+                .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
+                .filter(user_to_entity::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
-            let metadata_group_ids: Vec<i32> = CollectionToEntity::find()
-                .select_only()
-                .column(collection_to_entity::Column::MetadataGroupId)
-                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
-                .filter(collection_to_entity::Column::MetadataGroupId.is_not_null())
-                .into_tuple()
-                .all(&self.db)
-                .await
-                .unwrap();
-            let is_in_collection = metadata_group_ids.contains(&u.metadata_group_id.unwrap());
-            let is_monitored = u.media_monitored.unwrap_or_default();
-            let is_owned = u.media_ownership.is_some();
-            let is_reminder_active = u.media_reminder.is_some();
-            if reviewed_count == 0
-                && !is_in_collection
-                && !is_monitored
-                && !is_reminder_active
-                && !is_owned
-            {
-                tracing::debug!(
-                    "Removing user_to_metadata_group = {id:?}",
-                    id = (u.user_id, u.metadata_group_id)
-                );
-                u.delete(&self.db).await.ok();
-            } else {
-                let mut new_reasons = HashSet::new();
-                if reviewed_count > 0 {
-                    new_reasons.insert(UserToMediaReason::Reviewed);
-                }
-                if is_in_collection {
-                    new_reasons.insert(UserToMediaReason::Collection);
-                }
-                if is_monitored {
-                    new_reasons.insert(UserToMediaReason::Monitored);
-                }
-                if is_reminder_active {
-                    new_reasons.insert(UserToMediaReason::Reminder);
-                }
-                if is_owned {
-                    new_reasons.insert(UserToMediaReason::Owned);
-                }
-                let previous_reasons =
-                    HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
-                let mut u: user_to_entity::ActiveModel = u.into();
-                if new_reasons != previous_reasons {
+            for u in all_user_to_metadata_groups {
+                // check if it has been reviewed
+                let reviewed_count = Review::find()
+                    .filter(review::Column::UserId.eq(u.user_id))
+                    .filter(review::Column::MetadataGroupId.eq(u.metadata_group_id))
+                    .count(&self.db)
+                    .await
+                    .unwrap();
+                // check if it is part of any collection
+                let metadata_group_ids: Vec<i32> = CollectionToEntity::find()
+                    .select_only()
+                    .column(collection_to_entity::Column::MetadataGroupId)
+                    .filter(
+                        collection_to_entity::Column::CollectionId.is_in(collection_ids.clone()),
+                    )
+                    .filter(collection_to_entity::Column::MetadataGroupId.is_not_null())
+                    .into_tuple()
+                    .all(&self.db)
+                    .await
+                    .unwrap();
+                let is_in_collection = metadata_group_ids.contains(&u.metadata_group_id.unwrap());
+                let is_monitored = u.media_monitored.unwrap_or_default();
+                let is_owned = u.media_ownership.is_some();
+                let is_reminder_active = u.media_reminder.is_some();
+                if reviewed_count == 0
+                    && !is_in_collection
+                    && !is_monitored
+                    && !is_reminder_active
+                    && !is_owned
+                {
                     tracing::debug!(
-                        "Updating user_to_metadata_group = {id:?}",
-                        id = (&u.user_id, &u.metadata_group_id)
+                        "Removing user_to_metadata_group = {id:?}",
+                        id = (u.user_id, u.metadata_group_id)
                     );
-                    u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    u.delete(&self.db).await.ok();
+                } else {
+                    let mut new_reasons = HashSet::new();
+                    if reviewed_count > 0 {
+                        new_reasons.insert(UserToMediaReason::Reviewed);
+                    }
+                    if is_in_collection {
+                        new_reasons.insert(UserToMediaReason::Collection);
+                    }
+                    if is_monitored {
+                        new_reasons.insert(UserToMediaReason::Monitored);
+                    }
+                    if is_reminder_active {
+                        new_reasons.insert(UserToMediaReason::Reminder);
+                    }
+                    if is_owned {
+                        new_reasons.insert(UserToMediaReason::Owned);
+                    }
+                    let previous_reasons =
+                        HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                    let mut u: user_to_entity::ActiveModel = u.into();
+                    if new_reasons != previous_reasons {
+                        tracing::debug!(
+                            "Updating user_to_metadata_group = {id:?}",
+                            id = (&u.user_id, &u.metadata_group_id)
+                        );
+                        u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    }
+                    u.needs_to_be_updated = ActiveValue::Set(None);
+                    u.update(&self.db).await.ok();
                 }
-                u.needs_to_be_updated = ActiveValue::Set(None);
-                u.update(&self.db).await.ok();
             }
         }
         Ok(())
@@ -3483,6 +3485,7 @@ impl MiscellaneousService {
                 .await
                 .ok();
         }
+        // TODO: Allow partial metadata groups
         for group_identifier in groups {
             self.deploy_associate_group_with_metadata_job(lot, source, group_identifier)
                 .await
