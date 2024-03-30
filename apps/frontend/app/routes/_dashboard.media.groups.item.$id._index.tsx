@@ -48,6 +48,7 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	MediaIsPartial,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
@@ -184,6 +185,9 @@ export default function Page() {
 						) : null}
 						{loaderData.userMetadataGroupDetails.isMonitored ? (
 							<DisplayMediaMonitored entityLot="group" />
+						) : null}
+						{loaderData.metadataGroupDetails.details.isPartial ? (
+							<MediaIsPartial mediaType="group" />
 						) : null}
 					</Group>
 					{loaderData.userMetadataGroupDetails.reminder ? (
