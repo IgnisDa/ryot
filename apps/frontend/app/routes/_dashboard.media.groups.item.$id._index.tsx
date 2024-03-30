@@ -38,16 +38,16 @@ import {
 } from "~/components/common";
 import {
 	CreateOwnershipModal,
+	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaMonitored,
 	DisplayMediaOwned,
+	DisplayMediaReminder,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
-	CreateReminderModal,
-	DisplayMediaReminder,
-	DisplayMediaMonitored,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,

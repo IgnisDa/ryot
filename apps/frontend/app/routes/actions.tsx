@@ -8,6 +8,7 @@ import {
 import {
 	AddEntityToCollectionDocument,
 	CommitMetadataDocument,
+	CommitMetadataGroupDocument,
 	CommitPersonDocument,
 	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
@@ -91,6 +92,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			returnData = { commitPerson };
+		})
+		.with("commitMetadataGroup", async () => {
+			const submission = processSubmission(formData, commitMediaSchema);
+			const { commitMetadataGroup } = await gqlClient.request(
+				CommitMetadataGroupDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			returnData = { commitMetadataGroup };
 		})
 		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
