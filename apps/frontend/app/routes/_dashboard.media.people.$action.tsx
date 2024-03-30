@@ -175,9 +175,7 @@ export default function Page() {
 	return (
 		<Container>
 			<Stack>
-				<Flex align="center" gap="md">
-					<Title>People</Title>
-				</Flex>
+				<Title>People</Title>
 				<Tabs
 					variant="default"
 					value={loaderData.action}
@@ -311,32 +309,34 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.peopleList.list.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.peopleList?.list.items.map((person) => (
-									<BaseDisplayItem
-										name={person.name}
-										bottomLeft={`${person.mediaCount} items`}
-										imageLink={person.image}
-										imagePlaceholder={getInitials(person.name)}
-										key={person.id}
-										href={$path("/media/people/item/:id", { id: person.id })}
+							<>
+								<ApplicationGrid>
+									{loaderData.peopleList?.list.items.map((person) => (
+										<BaseDisplayItem
+											name={person.name}
+											bottomLeft={`${person.mediaCount} items`}
+											imageLink={person.image}
+											imagePlaceholder={getInitials(person.name)}
+											key={person.id}
+											href={$path("/media/people/item/:id", { id: person.id })}
+										/>
+									))}
+								</ApplicationGrid>
+								<Center>
+									<ApplicationPagination
+										size="sm"
+										defaultValue={loaderData.page}
+										onChange={(v) => setP("page", v.toString())}
+										total={Math.ceil(
+											loaderData.peopleList.list.details.total /
+												loaderData.coreDetails.pageLimit,
+										)}
 									/>
-								))}
-							</ApplicationGrid>
+								</Center>
+							</>
 						) : (
 							<Text>No information to display</Text>
 						)}
-						<Center>
-							<ApplicationPagination
-								size="sm"
-								defaultValue={loaderData.page}
-								onChange={(v) => setP("page", v.toString())}
-								total={Math.ceil(
-									loaderData.peopleList.list.details.total /
-										loaderData.coreDetails.pageLimit,
-								)}
-							/>
-						</Center>
 					</>
 				) : null}
 				{loaderData.peopleSearch ? (
@@ -348,32 +348,34 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.peopleSearch.search.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.peopleSearch.search.items.map((person) => (
-									<PersonSearchItem
-										item={{
-											...person,
-											title: person.name,
-											publishYear: person.birthYear?.toString(),
-										}}
-										key={person.identifier}
+							<>
+								<ApplicationGrid>
+									{loaderData.peopleSearch.search.items.map((person) => (
+										<PersonSearchItem
+											item={{
+												...person,
+												title: person.name,
+												publishYear: person.birthYear?.toString(),
+											}}
+											key={person.identifier}
+										/>
+									))}
+								</ApplicationGrid>
+								<Center>
+									<ApplicationPagination
+										size="sm"
+										defaultValue={loaderData.page}
+										onChange={(v) => setP("page", v.toString())}
+										total={Math.ceil(
+											loaderData.peopleSearch.search.details.total /
+												loaderData.coreDetails.pageLimit,
+										)}
 									/>
-								))}
-							</ApplicationGrid>
+								</Center>
+							</>
 						) : (
 							<Text>No people found matching your query</Text>
 						)}
-						<Center>
-							<ApplicationPagination
-								size="sm"
-								defaultValue={loaderData.page}
-								onChange={(v) => setP("page", v.toString())}
-								total={Math.ceil(
-									loaderData.peopleSearch.search.details.total /
-										loaderData.coreDetails.pageLimit,
-								)}
-							/>
-						</Center>
 					</>
 				) : null}
 			</Stack>
