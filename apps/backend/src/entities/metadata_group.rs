@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use boilermates::boilermates;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +25,7 @@ pub struct Model {
     pub images: Vec<MetadataImage>,
     #[sea_orm(ignore)]
     pub display_images: Vec<String>,
-    pub lot: MetadataLot,
+    pub lot: MediaLot,
     pub source: MediaSource,
 }
 

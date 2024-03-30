@@ -42,7 +42,7 @@ export interface UserMeasurement {
 	timestamp: string;
 }
 
-export type MetadataLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
+export type MediaLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
 
 export interface IdAndNamedObject {
 	id: number;
@@ -130,7 +130,7 @@ export interface ImportOrExportMediaItem {
 	 *
 	 * @default 'Book'
 	 */
-	lot: MetadataLot;
+	lot: MediaLot;
 	/** Whether the media is being monitored. */
 	monitored: boolean | null;
 	/** The review history for the user. */

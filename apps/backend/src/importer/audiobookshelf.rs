@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::Display;
@@ -80,7 +80,7 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
             let metadata = item.media.unwrap().metadata.unwrap();
             match item.media_type.unwrap() {
                 MediaType::Book => {
-                    let lot = MetadataLot::AudioBook;
+                    let lot = MediaLot::AudioBook;
                     if let Some(asin) = metadata.asin {
                         media.push(ImportOrExportMediaItem {
                             internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {

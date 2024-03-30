@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -273,7 +273,7 @@ impl VndbService {
             .collect_vec();
         MediaDetails {
             identifier: item.id,
-            lot: MetadataLot::VisualNovel,
+            lot: MediaLot::VisualNovel,
             source: MediaSource::Vndb,
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),

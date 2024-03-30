@@ -15,7 +15,7 @@ use async_graphql::{
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
-    AliasedReview, AliasedSeen, AliasedUserToEntity, MediaSource, MetadataLot,
+    AliasedReview, AliasedSeen, AliasedUserToEntity, MediaLot, MediaSource,
     MetadataToMetadataRelation, SeenState, UserLot, Visibility,
 };
 use enum_meta::Meta;
@@ -129,7 +129,7 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateCustomMetadataInput {
     title: String,
-    lot: MetadataLot,
+    lot: MediaLot,
     description: Option<String>,
     creators: Option<Vec<String>>,
     genres: Option<Vec<String>>,
@@ -302,7 +302,7 @@ enum CollectionContentsSortBy {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 struct CollectionContentsFilter {
     entity_type: Option<EntityLot>,
-    metadata_lot: Option<MetadataLot>,
+    metadata_lot: Option<MediaLot>,
 }
 
 #[derive(Debug, InputObject)]
@@ -441,7 +441,7 @@ struct GraphqlMediaDetails {
     original_language: Option<String>,
     provider_rating: Option<Decimal>,
     production_status: Option<String>,
-    lot: MetadataLot,
+    lot: MediaLot,
     source: MediaSource,
     creators: Vec<MetadataCreatorGroupedByRole>,
     watch_providers: Vec<WatchProvider>,
@@ -530,7 +530,7 @@ struct MediaFilter {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MetadataListInput {
     search: SearchInput,
-    lot: MetadataLot,
+    lot: MediaLot,
     filter: Option<MediaFilter>,
     sort: Option<SortInput<MediaSortBy>>,
 }
@@ -544,7 +544,7 @@ struct PeopleListInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaConsumedInput {
     identifier: String,
-    lot: MetadataLot,
+    lot: MediaLot,
 }
 
 #[derive(SimpleObject)]
@@ -674,7 +674,7 @@ struct GraphqlCalendarEvent {
     metadata_id: i32,
     metadata_title: String,
     metadata_image: Option<String>,
-    metadata_lot: MetadataLot,
+    metadata_lot: MediaLot,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
@@ -715,14 +715,14 @@ struct PeopleSearchInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MetadataGroupSearchInput {
     search: SearchInput,
-    lot: MetadataLot,
+    lot: MediaLot,
     source: MediaSource,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MetadataSearchInput {
     search: SearchInput,
-    lot: MetadataLot,
+    lot: MediaLot,
     source: MediaSource,
 }
 
@@ -1668,8 +1668,8 @@ impl MiscellaneousService {
             }
             MediaSource::Tmdb => {
                 let bw = match model.lot {
-                    MetadataLot::Movie => "movie",
-                    MetadataLot::Show => "tv",
+                    MediaLot::Movie => "movie",
+                    MediaLot::Show => "tv",
                     _ => unreachable!(),
                 };
                 Some(format!(
@@ -1682,16 +1682,16 @@ impl MiscellaneousService {
             MediaSource::Igdb => Some(format!("https://www.igdb.com/games/{slug}")),
             MediaSource::Anilist => {
                 let bw = match model.lot {
-                    MetadataLot::Anime => "anime",
-                    MetadataLot::Manga => "manga",
+                    MediaLot::Anime => "anime",
+                    MediaLot::Manga => "manga",
                     _ => unreachable!(),
                 };
                 Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
             }
             MediaSource::Mal => {
                 let bw = match model.lot {
-                    MetadataLot::Anime => "anime",
-                    MetadataLot::Manga => "manga",
+                    MediaLot::Anime => "anime",
+                    MediaLot::Manga => "manga",
                     _ => unreachable!(),
                 };
                 Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
@@ -1960,7 +1960,7 @@ impl MiscellaneousService {
             metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
             m_title: String,
             m_images: Option<Vec<MetadataImage>>,
-            m_lot: MetadataLot,
+            m_lot: MediaLot,
             m_show_specifics: Option<ShowSpecifics>,
             m_podcast_specifics: Option<PodcastSpecifics>,
         }
@@ -2594,7 +2594,7 @@ impl MiscellaneousService {
                     .unwrap();
                 tracing::debug!("Progress update meta = {:?}", meta.title);
 
-                let show_ei = if matches!(meta.lot, MetadataLot::Show) {
+                let show_ei = if matches!(meta.lot, MediaLot::Show) {
                     let season = input.show_season_number.ok_or_else(|| {
                         Error::new("Season number is required for show progress update")
                     })?;
@@ -2605,7 +2605,7 @@ impl MiscellaneousService {
                 } else {
                     None
                 };
-                let podcast_ei = if matches!(meta.lot, MetadataLot::Podcast) {
+                let podcast_ei = if matches!(meta.lot, MediaLot::Podcast) {
                     let episode = input.podcast_episode_number.ok_or_else(|| {
                         Error::new("Episode number is required for podcast progress update")
                     })?;
@@ -2613,14 +2613,14 @@ impl MiscellaneousService {
                 } else {
                     None
                 };
-                let anime_ei = if matches!(meta.lot, MetadataLot::Anime) {
+                let anime_ei = if matches!(meta.lot, MediaLot::Anime) {
                     Some(SeenAnimeExtraInformation {
                         episode: input.anime_episode_number,
                     })
                 } else {
                     None
                 };
-                let manga_ei = if matches!(meta.lot, MetadataLot::Manga) {
+                let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
                     Some(SeenMangaExtraInformation {
                         chapter: input.manga_chapter_number,
                     })
@@ -3234,7 +3234,7 @@ impl MiscellaneousService {
 
     async fn deploy_associate_group_with_metadata_job(
         &self,
-        lot: MetadataLot,
+        lot: MediaLot,
         source: MediaSource,
         group_identifier: String,
     ) -> Result<()> {
@@ -3252,7 +3252,7 @@ impl MiscellaneousService {
     async fn commit_metadata_group_internal(
         &self,
         identifier: &String,
-        lot: MetadataLot,
+        lot: MediaLot,
         source: MediaSource,
     ) -> Result<(i32, Vec<PartialMetadataWithoutId>)> {
         let existing_group = MetadataGroup::find()
@@ -3448,7 +3448,7 @@ impl MiscellaneousService {
     async fn change_metadata_associations(
         &self,
         metadata_id: i32,
-        lot: MetadataLot,
+        lot: MediaLot,
         source: MediaSource,
         genres: Vec<String>,
         suggestions: Vec<PartialMetadataWithoutId>,
@@ -3810,11 +3810,7 @@ impl MiscellaneousService {
         .await)
     }
 
-    async fn get_metadata_provider(
-        &self,
-        lot: MetadataLot,
-        source: MediaSource,
-    ) -> Result<Provider> {
+    async fn get_metadata_provider(&self, lot: MediaLot, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
@@ -3838,14 +3834,14 @@ impl MiscellaneousService {
                     .await,
             ),
             MediaSource::Tmdb => match lot {
-                MetadataLot::Show => Box::new(
+                MediaLot::Show => Box::new(
                     TmdbShowService::new(
                         &self.config.movies_and_shows.tmdb,
                         self.config.frontend.page_size,
                     )
                     .await,
                 ),
-                MetadataLot::Movie => Box::new(
+                MediaLot::Movie => Box::new(
                     TmdbMovieService::new(
                         &self.config.movies_and_shows.tmdb,
                         self.config.frontend.page_size,
@@ -3855,14 +3851,14 @@ impl MiscellaneousService {
                 _ => return err(),
             },
             MediaSource::Anilist => match lot {
-                MetadataLot::Anime => Box::new(
+                MediaLot::Anime => Box::new(
                     AnilistAnimeService::new(
                         &self.config.anime_and_manga.anilist,
                         self.config.frontend.page_size,
                     )
                     .await,
                 ),
-                MetadataLot::Manga => Box::new(
+                MediaLot::Manga => Box::new(
                     AnilistMangaService::new(
                         &self.config.anime_and_manga.anilist,
                         self.config.frontend.page_size,
@@ -3872,14 +3868,14 @@ impl MiscellaneousService {
                 _ => return err(),
             },
             MediaSource::Mal => match lot {
-                MetadataLot::Anime => Box::new(
+                MediaLot::Anime => Box::new(
                     MalAnimeService::new(
                         &self.config.anime_and_manga.mal,
                         self.config.frontend.page_size,
                     )
                     .await,
                 ),
-                MetadataLot::Manga => Box::new(
+                MediaLot::Manga => Box::new(
                     MalMangaService::new(
                         &self.config.anime_and_manga.mal,
                         self.config.frontend.page_size,
@@ -3960,7 +3956,7 @@ impl MiscellaneousService {
 
     async fn details_from_provider(
         &self,
-        lot: MetadataLot,
+        lot: MediaLot,
         source: MediaSource,
         identifier: &str,
     ) -> Result<MediaDetails> {
@@ -5214,15 +5210,15 @@ impl MiscellaneousService {
             })
             .collect();
         let is_partial = match input.lot {
-            MetadataLot::Anime => input.anime_specifics.is_none(),
-            MetadataLot::AudioBook => input.audio_book_specifics.is_none(),
-            MetadataLot::Book => input.book_specifics.is_none(),
-            MetadataLot::Manga => input.manga_specifics.is_none(),
-            MetadataLot::Movie => input.movie_specifics.is_none(),
-            MetadataLot::Podcast => input.podcast_specifics.is_none(),
-            MetadataLot::Show => input.show_specifics.is_none(),
-            MetadataLot::VideoGame => input.video_game_specifics.is_none(),
-            MetadataLot::VisualNovel => input.visual_novel_specifics.is_none(),
+            MediaLot::Anime => input.anime_specifics.is_none(),
+            MediaLot::AudioBook => input.audio_book_specifics.is_none(),
+            MediaLot::Book => input.book_specifics.is_none(),
+            MediaLot::Manga => input.manga_specifics.is_none(),
+            MediaLot::Movie => input.movie_specifics.is_none(),
+            MediaLot::Podcast => input.podcast_specifics.is_none(),
+            MediaLot::Show => input.show_specifics.is_none(),
+            MediaLot::VideoGame => input.video_game_specifics.is_none(),
+            MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
         let details = MediaDetails {
             identifier,
@@ -6163,9 +6159,7 @@ impl MiscellaneousService {
             }
             SeenState::Completed => {
                 let metadata = self.generic_metadata(seen.metadata_id).await?;
-                if metadata.model.lot == MetadataLot::Podcast
-                    || metadata.model.lot == MetadataLot::Show
-                {
+                if metadata.model.lot == MediaLot::Podcast || metadata.model.lot == MediaLot::Show {
                     // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
                     // correspond to each episode exactly once, it means the show can be removed
                     // from the "In Progress" collection.

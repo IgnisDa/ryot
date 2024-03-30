@@ -3,7 +3,7 @@ use std::sync::Arc;
 use apalis::prelude::Storage;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{Duration, Utc};
-use database::{ImportSource, MetadataLot};
+use database::{ImportSource, MediaLot};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -149,7 +149,7 @@ pub enum ImportFailStep {
     Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
 )]
 pub struct ImportFailedItem {
-    lot: Option<MetadataLot>,
+    lot: Option<MediaLot>,
     step: ImportFailStep,
     identifier: String,
     error: Option<String>,

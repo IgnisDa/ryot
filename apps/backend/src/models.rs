@@ -10,7 +10,7 @@ use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaSource, MetadataLot, SeenState, Visibility,
+    MediaLot, MediaSource, SeenState, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
@@ -190,7 +190,7 @@ pub mod media {
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MetadataSearchItemWithLot {
         pub details: MetadataSearchItem,
-        pub metadata_lot: Option<MetadataLot>,
+        pub metadata_lot: Option<MediaLot>,
         pub entity_lot: EntityLot,
     }
 
@@ -272,7 +272,7 @@ pub mod media {
         pub id: i32,
         pub title: String,
         pub description: Option<String>,
-        pub lot: MetadataLot,
+        pub lot: MediaLot,
         pub image: Option<String>,
         #[graphql(skip)]
         pub images: Vec<MetadataImage>,
@@ -997,7 +997,7 @@ pub mod media {
         pub source: MediaSource,
         pub description: Option<String>,
         pub original_language: Option<String>,
-        pub lot: MetadataLot,
+        pub lot: MediaLot,
         pub production_status: Option<String>,
         pub creators: Vec<MetadataFreeCreator>,
         pub people: Vec<PartialMetadataPerson>,
@@ -1100,7 +1100,7 @@ pub mod media {
         /// An string to help identify it in the original source.
         pub source_id: String,
         /// The type of media.
-        pub lot: MetadataLot,
+        pub lot: MediaLot,
         /// The source of media.
         pub source: MediaSource,
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
@@ -1320,7 +1320,7 @@ pub mod media {
         pub identifier: String,
         pub title: String,
         pub image: Option<String>,
-        pub lot: MetadataLot,
+        pub lot: MediaLot,
         pub source: MediaSource,
     }
 
@@ -1350,7 +1350,7 @@ pub mod media {
 
     #[derive(Debug, InputObject)]
     pub struct CommitMediaInput {
-        pub lot: MetadataLot,
+        pub lot: MediaLot,
         pub source: MediaSource,
         pub identifier: String,
     }

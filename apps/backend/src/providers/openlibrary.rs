@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use scraper::{Html, Selector};
@@ -272,7 +272,7 @@ impl MediaProvider for OpenlibraryService {
                     PartialMetadataWithoutId {
                         identifier: get_key(&entry.key),
                         title,
-                        lot: MetadataLot::Book,
+                        lot: MediaLot::Book,
                         source: MediaSource::Openlibrary,
                         image,
                     },
@@ -446,7 +446,7 @@ impl MediaProvider for OpenlibraryService {
                     title: name,
                     image,
                     identifier,
-                    lot: MetadataLot::Book,
+                    lot: MediaLot::Book,
                     source: MediaSource::Openlibrary,
                 });
             }
@@ -456,7 +456,7 @@ impl MediaProvider for OpenlibraryService {
             identifier: get_key(&data.key),
             title: data.title,
             description,
-            lot: MetadataLot::Book,
+            lot: MediaLot::Book,
             source: MediaSource::Openlibrary,
             people,
             genres,

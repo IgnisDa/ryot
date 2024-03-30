@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
@@ -268,7 +268,7 @@ where id = {id};
                         title: g.name.unwrap(),
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                         source: MediaSource::Igdb,
-                        lot: MetadataLot::VideoGame,
+                        lot: MediaLot::VideoGame,
                     })
                 }
             })
@@ -281,7 +281,7 @@ where id = {id};
                 title: details.name.unwrap_or_default(),
                 description: None,
                 images: vec![],
-                lot: MetadataLot::VideoGame,
+                lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
             },
             items,
@@ -369,7 +369,7 @@ where id = {id};
                         title: r.name.unwrap(),
                         identifier: r.id.to_string(),
                         source: MediaSource::Igdb,
-                        lot: MetadataLot::VideoGame,
+                        lot: MediaLot::VideoGame,
                         image,
                     },
                 )
@@ -383,7 +383,7 @@ where id = {id};
                     title: r.name.unwrap(),
                     identifier: r.id.to_string(),
                     source: MediaSource::Igdb,
-                    lot: MetadataLot::VideoGame,
+                    lot: MediaLot::VideoGame,
                     image,
                 },
             )
@@ -552,7 +552,7 @@ impl IgdbService {
             .collect_vec();
         MediaDetails {
             identifier: item.id.to_string(),
-            lot: MetadataLot::VideoGame,
+            lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,
             title: item.name.unwrap(),
             description: item.summary,
@@ -584,7 +584,7 @@ impl IgdbService {
                     title: g.name.unwrap(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),
-                    lot: MetadataLot::VideoGame,
+                    lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
                 })
                 .collect(),

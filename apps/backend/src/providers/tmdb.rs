@@ -7,7 +7,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -314,8 +314,8 @@ impl MediaProvider for NonMediaTmdbService {
                             title: media.title.or(media.name).unwrap_or_default(),
                             image: media.poster_path.map(|p| self.base.get_image_url(p)),
                             lot: match media.media_type.unwrap().as_ref() {
-                                "movie" => MetadataLot::Movie,
-                                "tv" => MetadataLot::Show,
+                                "movie" => MediaLot::Movie,
+                                "tv" => MediaLot::Show,
                                 _ => continue,
                             },
                             source: MediaSource::Tmdb,
@@ -346,8 +346,8 @@ impl MediaProvider for NonMediaTmdbService {
                                 title: m.title.unwrap_or_default(),
                                 image: m.poster_path.map(|p| self.base.get_image_url(p)),
                                 lot: match m_typ {
-                                    "movie" => MetadataLot::Movie,
-                                    "tv" => MetadataLot::Show,
+                                    "movie" => MediaLot::Movie,
+                                    "tv" => MediaLot::Show,
                                     _ => unreachable!(),
                                 },
                                 source: MediaSource::Tmdb,
@@ -559,7 +559,7 @@ impl MediaProvider for TmdbMovieService {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
             original_language: self.base.get_language_name(data.original_language),
-            lot: MetadataLot::Movie,
+            lot: MediaLot::Movie,
             source: MediaSource::Tmdb,
             production_status: data.status,
             title: data.title.unwrap(),
@@ -691,7 +691,7 @@ impl MediaProvider for TmdbMovieService {
                 title: p.title.unwrap(),
                 identifier: p.id.to_string(),
                 source: MediaSource::Tmdb,
-                lot: MetadataLot::Movie,
+                lot: MediaLot::Movie,
                 image: p.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
@@ -710,7 +710,7 @@ impl MediaProvider for TmdbMovieService {
                         lot: MetadataImageLot::Poster,
                     })
                     .collect(),
-                lot: MetadataLot::Movie,
+                lot: MediaLot::Movie,
                 source: MediaSource::Tmdb,
             },
             parts,
@@ -907,7 +907,7 @@ impl MediaProvider for TmdbShowService {
             title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
             original_language: self.base.get_language_name(show_data.original_language),
-            lot: MetadataLot::Show,
+            lot: MediaLot::Show,
             production_status: show_data.status,
             source: MediaSource::Tmdb,
             description: show_data.overview,
@@ -1135,8 +1135,8 @@ impl TmdbService {
         identifier: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
         let lot = match typ {
-            "movie" => MetadataLot::Movie,
-            "tv" => MetadataLot::Show,
+            "movie" => MediaLot::Movie,
+            "tv" => MediaLot::Show,
             _ => unreachable!(),
         };
         let mut suggestions = vec![];

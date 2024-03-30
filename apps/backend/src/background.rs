@@ -3,7 +3,7 @@ use std::{env, sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use chrono::DateTime;
 use chrono_tz::Tz;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
@@ -153,7 +153,7 @@ pub enum ApplicationJob {
     UpdateExerciseJob(Exercise),
     UpdatePerson(i32),
     RecalculateCalendarEvents,
-    AssociateGroupWithMetadata(MetadataLot, MediaSource, String),
+    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ReviewPosted(ReviewPostedEvent),
     PerformExport(i32, Vec<ExportItem>),
     RecalculateUserSummary(i32),

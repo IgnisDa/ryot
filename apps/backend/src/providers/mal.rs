@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use rand::{seq::SliceRandom, thread_rng};
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
@@ -210,8 +210,8 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         .await
         .map_err(|e| anyhow!(e))?;
     let lot = match media_type {
-        "manga" => MetadataLot::Manga,
-        "anime" => MetadataLot::Anime,
+        "manga" => MediaLot::Manga,
+        "anime" => MediaLot::Anime,
         _ => unreachable!(),
     };
     let manga_specifics =
@@ -233,7 +233,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
             source: MediaSource::Mal,
-            lot: MetadataLot::Anime,
+            lot: MediaLot::Anime,
         });
     }
     for rel in details.related_manga.unwrap_or_default().into_iter() {
@@ -242,7 +242,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             title: rel.node.title,
             image: Some(rel.node.main_picture.large),
             source: MediaSource::Mal,
-            lot: MetadataLot::Manga,
+            lot: MediaLot::Manga,
         });
     }
     for rel in details.recommendations.unwrap_or_default().into_iter() {

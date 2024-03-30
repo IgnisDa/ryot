@@ -109,7 +109,7 @@ export type CollectionContents = {
 
 export type CollectionContentsFilter = {
   entityType?: InputMaybe<EntityLot>;
-  metadataLot?: InputMaybe<MetadataLot>;
+  metadataLot?: InputMaybe<MediaLot>;
 };
 
 export type CollectionContentsInput = {
@@ -141,7 +141,7 @@ export type CollectionItem = {
 
 export type CommitMediaInput = {
   identifier: Scalars['String']['input'];
-  lot: MetadataLot;
+  lot: MediaLot;
   source: MediaSource;
 };
 
@@ -172,7 +172,7 @@ export type CreateCustomMetadataInput = {
   genres?: InputMaybe<Array<Scalars['String']['input']>>;
   images?: InputMaybe<Array<Scalars['String']['input']>>;
   isNsfw?: InputMaybe<Scalars['Boolean']['input']>;
-  lot: MetadataLot;
+  lot: MediaLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
@@ -538,7 +538,7 @@ export type GraphqlCalendarEvent = {
   date: Scalars['NaiveDate']['output'];
   metadataId: Scalars['Int']['output'];
   metadataImage?: Maybe<Scalars['String']['output']>;
-  metadataLot: MetadataLot;
+  metadataLot: MediaLot;
   metadataTitle: Scalars['String']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
@@ -562,7 +562,7 @@ export type GraphqlMediaDetails = {
   identifier: Scalars['String']['output'];
   isNsfw?: Maybe<Scalars['Boolean']['output']>;
   isPartial?: Maybe<Scalars['Boolean']['output']>;
-  lot: MetadataLot;
+  lot: MediaLot;
   mangaSpecifics?: Maybe<MangaSpecifics>;
   movieSpecifics?: Maybe<MovieSpecifics>;
   originalLanguage?: Maybe<Scalars['String']['output']>;
@@ -646,7 +646,7 @@ export enum ImportFailStep {
 export type ImportFailedItem = {
   error?: Maybe<Scalars['String']['output']>;
   identifier: Scalars['String']['output'];
-  lot?: Maybe<MetadataLot>;
+  lot?: Maybe<MediaLot>;
   step: ImportFailStep;
 };
 
@@ -767,6 +767,19 @@ export type MediaListResults = {
   items: Array<MediaListItem>;
 };
 
+/** The different types of media that can be stored. */
+export enum MediaLot {
+  Anime = 'ANIME',
+  AudioBook = 'AUDIO_BOOK',
+  Book = 'BOOK',
+  Manga = 'MANGA',
+  Movie = 'MOVIE',
+  Podcast = 'PODCAST',
+  Show = 'SHOW',
+  VideoGame = 'VIDEO_GAME',
+  VisualNovel = 'VISUAL_NOVEL'
+}
+
 export type MediaOverallSummary = {
   interactedWith: Scalars['Int']['output'];
   reviewed: Scalars['Int']['output'];
@@ -831,7 +844,7 @@ export type MetadataGroup = {
   displayImages: Array<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   identifier: Scalars['String']['output'];
-  lot: MetadataLot;
+  lot: MediaLot;
   parts: Scalars['Int']['output'];
   source: MediaSource;
   title: Scalars['String']['output'];
@@ -847,7 +860,7 @@ export type MetadataGroupListItem = {
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   image?: Maybe<Scalars['String']['output']>;
-  lot: MetadataLot;
+  lot: MediaLot;
   parts: Scalars['Int']['output'];
   title: Scalars['String']['output'];
 };
@@ -858,7 +871,7 @@ export type MetadataGroupListResults = {
 };
 
 export type MetadataGroupSearchInput = {
-  lot: MetadataLot;
+  lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
 };
@@ -877,26 +890,13 @@ export type MetadataGroupSearchResults = {
 
 export type MetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
-  lot: MetadataLot;
+  lot: MediaLot;
   search: SearchInput;
   sort?: InputMaybe<MediaSortInput>;
 };
 
-/** The different types of media that can be stored. */
-export enum MetadataLot {
-  Anime = 'ANIME',
-  AudioBook = 'AUDIO_BOOK',
-  Book = 'BOOK',
-  Manga = 'MANGA',
-  Movie = 'MOVIE',
-  Podcast = 'PODCAST',
-  Show = 'SHOW',
-  VideoGame = 'VIDEO_GAME',
-  VisualNovel = 'VISUAL_NOVEL'
-}
-
 export type MetadataSearchInput = {
-  lot: MetadataLot;
+  lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
 };
@@ -918,7 +918,7 @@ export type MetadataSearchItemResponse = {
 export type MetadataSearchItemWithLot = {
   details: MetadataSearchItem;
   entityLot: EntityLot;
-  metadataLot?: Maybe<MetadataLot>;
+  metadataLot?: Maybe<MediaLot>;
 };
 
 export type MetadataSearchResults = {
@@ -1263,7 +1263,7 @@ export type PartialMetadata = {
   id: Scalars['Int']['output'];
   identifier: Scalars['String']['output'];
   image?: Maybe<Scalars['String']['output']>;
-  lot: MetadataLot;
+  lot: MediaLot;
   source: MediaSource;
   title: Scalars['String']['output'];
 };
@@ -2421,19 +2421,19 @@ export type AddEntityToCollectionMutationVariables = Exact<{
 
 export type AddEntityToCollectionMutation = { addEntityToCollection: boolean };
 
-export type CommitMetadataGroupMutationVariables = Exact<{
-  input: CommitMediaInput;
-}>;
-
-
-export type CommitMetadataGroupMutation = { commitMetadataGroup: { id: number } };
-
 export type CommitMetadataMutationVariables = Exact<{
   input: CommitMediaInput;
 }>;
 
 
 export type CommitMetadataMutation = { commitMetadata: { id: number } };
+
+export type CommitMetadataGroupMutationVariables = Exact<{
+  input: CommitMediaInput;
+}>;
+
+
+export type CommitMetadataGroupMutation = { commitMetadataGroup: { id: number } };
 
 export type CommitPersonMutationVariables = Exact<{
   input: CommitPersonInput;
@@ -2725,7 +2725,7 @@ export type CollectionContentsQueryVariables = Exact<{
 }>;
 
 
-export type CollectionContentsQuery = { collectionContents: { user: { name: string }, reviews: Array<{ id: number, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, spoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null }>, results: { details: { total: number, nextPage?: number | null }, items: Array<{ metadataLot?: MetadataLot | null, entityLot: EntityLot, details: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> }, details: { name: string, description?: string | null, visibility: Visibility, createdOn: string } } };
+export type CollectionContentsQuery = { collectionContents: { user: { name: string }, reviews: Array<{ id: number, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, spoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null }>, results: { details: { total: number, nextPage?: number | null }, items: Array<{ metadataLot?: MediaLot | null, entityLot: EntityLot, details: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> }, details: { name: string, description?: string | null, visibility: Visibility, createdOn: string } } };
 
 export type CoreDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2761,7 +2761,7 @@ export type GenreDetailsQueryVariables = Exact<{
 }>;
 
 
-export type GenreDetailsQuery = { genreDetails: { details: { id: number, name: string, numItems?: number | null }, contents: { details: { total: number, nextPage?: number | null }, items: Array<{ metadataLot?: MetadataLot | null, details: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } } };
+export type GenreDetailsQuery = { genreDetails: { details: { id: number, name: string, numItems?: number | null }, contents: { details: { total: number, nextPage?: number | null }, items: Array<{ metadataLot?: MediaLot | null, details: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } } };
 
 export type GenresListQueryVariables = Exact<{
   input: SearchInput;
@@ -2780,7 +2780,7 @@ export type GetPresignedS3UrlQuery = { getPresignedS3Url: string };
 export type ImportReportsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ImportReportsQuery = { importReports: Array<{ id: number, source: ImportSource, startedOn: string, finishedOn?: string | null, success?: boolean | null, details?: { import: { total: number }, failedItems: Array<{ lot?: MetadataLot | null, step: ImportFailStep, identifier: string, error?: string | null }> } | null }> };
+export type ImportReportsQuery = { importReports: Array<{ id: number, source: ImportSource, startedOn: string, finishedOn?: string | null, success?: boolean | null, details?: { import: { total: number }, failedItems: Array<{ lot?: MediaLot | null, step: ImportFailStep, identifier: string, error?: string | null }> } | null }> };
 
 export type LatestUserSummaryQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2792,14 +2792,14 @@ export type MetadataAdditionalDetailsQueryVariables = Exact<{
 }>;
 
 
-export type MetadataAdditionalDetailsQuery = { metadataDetails: { lot: MetadataLot, creators: Array<{ name: string, items: Array<{ id?: number | null, name: string, image?: string | null, character?: string | null }> }>, suggestions: Array<{ id: number, lot: MetadataLot, source: MediaSource, identifier: string, title: string, image?: string | null }>, watchProviders: Array<{ name: string, image?: string | null, languages: Array<string> }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: number | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: string }> } | null, showSpecifics?: { totalSeasons?: number | null, totalEpisodes?: number | null, runtime?: number | null, seasons: Array<{ seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: string | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
+export type MetadataAdditionalDetailsQuery = { metadataDetails: { lot: MediaLot, creators: Array<{ name: string, items: Array<{ id?: number | null, name: string, image?: string | null, character?: string | null }> }>, suggestions: Array<{ id: number, lot: MediaLot, source: MediaSource, identifier: string, title: string, image?: string | null }>, watchProviders: Array<{ name: string, image?: string | null, languages: Array<string> }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: number | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: string }> } | null, showSpecifics?: { totalSeasons?: number | null, totalEpisodes?: number | null, runtime?: number | null, seasons: Array<{ seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: string | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
 
 export type MetadataGroupDetailsQueryVariables = Exact<{
   metadataGroupId: Scalars['Int']['input'];
 }>;
 
 
-export type MetadataGroupDetailsQuery = { metadataGroupDetails: { sourceUrl?: string | null, details: { id: number, title: string, lot: MetadataLot, source: MediaSource, displayImages: Array<string>, parts: number }, contents: Array<{ id: number, lot: MetadataLot, source: MediaSource, identifier: string, title: string, image?: string | null }> } };
+export type MetadataGroupDetailsQuery = { metadataGroupDetails: { sourceUrl?: string | null, details: { id: number, title: string, lot: MediaLot, source: MediaSource, displayImages: Array<string>, parts: number }, contents: Array<{ id: number, lot: MediaLot, source: MediaSource, identifier: string, title: string, image?: string | null }> } };
 
 export type MetadataGroupSearchQueryVariables = Exact<{
   input: MetadataGroupSearchInput;
@@ -2813,7 +2813,7 @@ export type MetadataGroupsListQueryVariables = Exact<{
 }>;
 
 
-export type MetadataGroupsListQuery = { metadataGroupsList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: number, title: string, lot: MetadataLot, parts: number, image?: string | null }> } };
+export type MetadataGroupsListQuery = { metadataGroupsList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: number, title: string, lot: MediaLot, parts: number, image?: string | null }> } };
 
 export type MetadataListQueryVariables = Exact<{
   input: MetadataListInput;
@@ -2827,7 +2827,7 @@ export type MetadataMainDetailsQueryVariables = Exact<{
 }>;
 
 
-export type MetadataMainDetailsQuery = { metadataDetails: { title: string, lot: MetadataLot, source: MediaSource, isNsfw?: boolean | null, isPartial?: boolean | null, sourceUrl?: string | null, identifier: string, description?: string | null, publishYear?: number | null, publishDate?: string | null, providerRating?: string | null, productionStatus?: string | null, originalLanguage?: string | null, genres: Array<{ id: number, name: string }>, group?: { id: number, name: string, part: number } | null, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> } } };
+export type MetadataMainDetailsQuery = { metadataDetails: { title: string, lot: MediaLot, source: MediaSource, isNsfw?: boolean | null, isPartial?: boolean | null, sourceUrl?: string | null, identifier: string, description?: string | null, publishYear?: number | null, publishDate?: string | null, providerRating?: string | null, productionStatus?: string | null, originalLanguage?: string | null, genres: Array<{ id: number, name: string }>, group?: { id: number, name: string, part: number } | null, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> } } };
 
 export type MetadataSearchQueryVariables = Exact<{
   input: MetadataSearchInput;
@@ -2874,7 +2874,7 @@ export type UserCalendarEventsQueryVariables = Exact<{
 }>;
 
 
-export type UserCalendarEventsQuery = { userCalendarEvents: Array<{ date: string, events: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MetadataLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> }> };
+export type UserCalendarEventsQuery = { userCalendarEvents: Array<{ date: string, events: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> }> };
 
 export type UserCollectionsListQueryVariables = Exact<{
   name?: InputMaybe<Scalars['String']['input']>;
@@ -2948,7 +2948,7 @@ export type UserUpcomingCalendarEventsQueryVariables = Exact<{
 }>;
 
 
-export type UserUpcomingCalendarEventsQuery = { userUpcomingCalendarEvents: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MetadataLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> };
+export type UserUpcomingCalendarEventsQuery = { userUpcomingCalendarEvents: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> };
 
 export type UserWorkoutListQueryVariables = Exact<{
   input: SearchInput;
@@ -2977,13 +2977,13 @@ export type SeenAnimeExtraInformationPartFragment = { episode?: number | null };
 
 export type SeenMangaExtraInformationPartFragment = { chapter?: number | null };
 
-export type CalendarEventPartFragment = { calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MetadataLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null };
+export type CalendarEventPartFragment = { calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null };
 
 export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null };
 
 export type MetadataSearchItemPartFragment = { identifier: string, title: string, image?: string | null, publishYear?: number | null };
 
-export type PartialMetadataPartFragment = { id: number, lot: MetadataLot, source: MediaSource, identifier: string, title: string, image?: string | null };
+export type PartialMetadataPartFragment = { id: number, lot: MediaLot, source: MediaSource, identifier: string, title: string, image?: string | null };
 
 export type WorkoutOrExerciseTotalsPartFragment = { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number };
 
@@ -3018,8 +3018,8 @@ export const ReviewItemPartFragmentDoc = {"kind":"Document","definitions":[{"kin
 export const UserMediaReminderPartFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserMediaReminderPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserMediaReminder"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"remindOn"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]} as unknown as DocumentNode<UserMediaReminderPartFragment, unknown>;
 export const UserMediaOwnershipPartFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserMediaOwnershipPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UserMediaOwnership"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"markedOn"}},{"kind":"Field","name":{"kind":"Name","value":"ownedOn"}}]}}]} as unknown as DocumentNode<UserMediaOwnershipPartFragment, unknown>;
 export const AddEntityToCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddEntityToCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ChangeCollectionToEntityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addEntityToCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<AddEntityToCollectionMutation, AddEntityToCollectionMutationVariables>;
-export const CommitMetadataGroupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitMetadataGroup"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitMediaInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitMetadataGroup"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitMetadataGroupMutation, CommitMetadataGroupMutationVariables>;
 export const CommitMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitMediaInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitMetadataMutation, CommitMetadataMutationVariables>;
+export const CommitMetadataGroupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitMetadataGroup"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitMediaInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitMetadataGroup"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitMetadataGroupMutation, CommitMetadataGroupMutationVariables>;
 export const CommitPersonDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitPerson"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitPersonInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitPerson"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitPersonMutation, CommitPersonMutationVariables>;
 export const CreateCustomExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomExercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ExerciseInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomExercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateCustomExerciseMutation, CreateCustomExerciseMutationVariables>;
 export const CreateCustomMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCustomMetadataInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateCustomMetadataMutation, CreateCustomMetadataMutationVariables>;

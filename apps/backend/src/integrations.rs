@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Result};
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use regex::Regex;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -17,7 +17,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegrationMedia {
     pub identifier: String,
-    pub lot: MetadataLot,
+    pub lot: MediaLot,
     #[serde(default)]
     pub source: MediaSource,
     pub progress: i32,
@@ -99,8 +99,8 @@ impl IntegrationService {
         let runtime = payload.item.run_time_ticks.unwrap();
         let position = payload.session.play_state.position_ticks.unwrap();
         let lot = match payload.item.item_type.as_str() {
-            "Episode" => MetadataLot::Show,
-            "Movie" => MetadataLot::Movie,
+            "Episode" => MediaLot::Show,
+            "Movie" => MediaLot::Movie,
             _ => bail!("Only movies and shows supported"),
         };
         Ok(IntegrationMedia {
@@ -197,13 +197,13 @@ impl IntegrationService {
         let tmdb_guid = tmdb_guid.unwrap();
         let identifier = &tmdb_guid.id[7..];
         let (identifier, lot) = match payload.metadata.item_type.as_str() {
-            "movie" => (identifier.to_owned(), MetadataLot::Movie),
+            "movie" => (identifier.to_owned(), MediaLot::Movie),
             "episode" => {
                 // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
                 // TMDB ID sent by Plex (which is actually the episode ID) is also present
                 // in the media specifics we have in DB.
                 let db_show = Metadata::find()
-                    .filter(metadata::Column::Lot.eq(MetadataLot::Show))
+                    .filter(metadata::Column::Lot.eq(MediaLot::Show))
                     .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
                     .filter(
                         Expr::expr(Func::cast_as(
@@ -217,7 +217,7 @@ impl IntegrationService {
                 if db_show.is_none() {
                     bail!("No show found with TMDb ID {}", identifier);
                 }
-                (db_show.unwrap().identifier, MetadataLot::Show)
+                (db_show.unwrap().identifier, MediaLot::Show)
             }
             _ => bail!("Only movies and shows supported"),
         };
@@ -311,7 +311,7 @@ impl IntegrationService {
                 tracing::debug!("Got response for individual item progress {:#?}", resp);
                 media_items.push(IntegrationMedia {
                     identifier: asin,
-                    lot: MetadataLot::AudioBook,
+                    lot: MediaLot::AudioBook,
                     source: MediaSource::Audible,
                     progress: (resp.progress * dec!(100)).to_i32().unwrap(),
                     show_season_number: None,

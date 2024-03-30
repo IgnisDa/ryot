@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -226,7 +226,7 @@ impl MediaProvider for MangaUpdatesService {
                         title: r.title,
                         identifier: r.series_id.to_string(),
                         source: MediaSource::MangaUpdates,
-                        lot: MetadataLot::Manga,
+                        lot: MediaLot::Manga,
                         image: None,
                     },
                 )
@@ -303,7 +303,7 @@ impl MediaProvider for MangaUpdatesService {
                     image: data.image.unwrap().url.original,
                     identifier: data.series_id.unwrap().to_string(),
                     source: MediaSource::MangaUpdates,
-                    lot: MetadataLot::Manga,
+                    lot: MediaLot::Manga,
                 });
             }
         }
@@ -312,7 +312,7 @@ impl MediaProvider for MangaUpdatesService {
             title: data.title.unwrap(),
             description: data.description,
             source: MediaSource::MangaUpdates,
-            lot: MetadataLot::Manga,
+            lot: MediaLot::Manga,
             people,
             production_status: data.status,
             genres: data

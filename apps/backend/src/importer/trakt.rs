@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -187,7 +187,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     } else {
                         (None, None)
                     };
-                if d.lot == MetadataLot::Show
+                if d.lot == MediaLot::Show
                     && (show_season_number.is_none() || show_episode_number.is_none())
                 {
                     failed_items.push(ImportFailedItem {
@@ -230,9 +230,9 @@ fn process_item(
     i: &ListItemResponse,
 ) -> std::result::Result<ImportOrExportMediaItem, ImportFailedItem> {
     let (source_id, identifier, lot, title) = if let Some(d) = i.movie.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MetadataLot::Movie, d.title.clone())
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Movie, d.title.clone())
     } else if let Some(d) = i.show.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MetadataLot::Show, d.title.clone())
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Show, d.title.clone())
     } else {
         return Err(ImportFailedItem {
             lot: None,
