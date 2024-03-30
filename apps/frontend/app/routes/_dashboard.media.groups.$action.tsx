@@ -21,6 +21,7 @@ import {
 	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -46,10 +47,10 @@ enum Action {
 	Search = "search",
 }
 
-const SEARCH_SOURCES_ALLOWED = [
-	[MediaSource.Tmdb, MetadataLot.Movie],
-	[MediaSource.Igdb, MetadataLot.VideoGame],
-] as const;
+const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MetadataLot>> = {
+	[MediaSource.Tmdb]: MetadataLot.Movie,
+	[MediaSource.Igdb]: MetadataLot.VideoGame,
+};
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const action = params.action as Action;
@@ -72,18 +73,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				request,
 				z.object({
 					source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
-					lot: z.nativeEnum(MetadataLot).default(MetadataLot.Movie),
 				}),
 			);
+			const lot = SEARCH_SOURCES_ALLOWED[urlParse.source];
+			invariant(lot, "Invalid lot");
 			const { metadataGroupSearch } = await gqlClient.request(
 				MetadataGroupSearchDocument,
-				{
-					input: {
-						lot: urlParse.lot,
-						source: urlParse.source,
-						search: { page, query },
-					},
-				},
+				{ input: { lot, source: urlParse.source, search: { page, query } } },
 				await getAuthorizationHeader(request),
 			);
 			return [
@@ -103,11 +99,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = ({ params }) => {
-	return [
-		{
-			title: `${changeCase(params.action || "")} Groups | Ryot`,
-		},
-	];
+	return [{ title: `${changeCase(params.action || "")} Groups | Ryot` }];
 };
 
 export default function Page() {
