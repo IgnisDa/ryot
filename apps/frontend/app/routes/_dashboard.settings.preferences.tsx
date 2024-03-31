@@ -303,7 +303,7 @@ export default function Page() {
 											.with("disableVideos", () => "Do not display videos")
 											.with(
 												"disableWatchProviders",
-												() => "Do not display watch providers",
+												() => 'Do not display the "Watch On" tab',
 											)
 											.exhaustive()}
 										defaultChecked={loaderData.userPreferences.general[name]}

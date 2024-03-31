@@ -842,7 +842,7 @@ export default function Page() {
 									value="watchProviders"
 									leftSection={<IconMovie size={16} />}
 								>
-									Watch Providers
+									Watch On
 								</Tabs.Tab>
 							) : null}
 						</Tabs.List>
