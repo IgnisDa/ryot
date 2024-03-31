@@ -397,7 +397,7 @@ const bulkUpdateSchema = z
 		progress: z.string().optional(),
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
-		watchProvider: z.string().optional(),
+		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(metadataIdSchema);
@@ -969,6 +969,7 @@ export default function Page() {
 																		progress={Number(
 																			userMetadataDetails.inProgress.progress,
 																		)}
+																		inProgress={userMetadataDetails.inProgress}
 																		metadataId={loaderData.metadataId}
 																		onClose={progressModalClose}
 																		opened={progressModalOpened}
@@ -2036,7 +2037,7 @@ const ProgressUpdateModal = (props: {
 					<Select
 						label="Where did you watch it?"
 						data={loaderData.userPreferences.watchProviders}
-						name="watchProvider"
+						name="providerWatchedOn"
 					/>
 					<Button
 						variant="outline"
@@ -2061,9 +2062,11 @@ const IndividualProgressModal = (props: {
 	onClose: () => void;
 	metadataId: number;
 	progress: number;
+	inProgress: UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 	total?: number | null;
 	lot: MediaLot;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const [value, setValue] = useState<number | undefined>(props.progress);
 
 	const [updateIcon, text] = match(props.lot)
@@ -2144,6 +2147,12 @@ const IndividualProgressModal = (props: {
 							</Flex>
 						</>
 					) : null}
+					<Select
+						data={loaderData.userPreferences.watchProviders}
+						label="Where did you watch it?"
+						name="providerWatchedOn"
+						defaultValue={props.inProgress.providerWatchedOn}
+					/>
 					<Button variant="outline" type="submit" onClick={props.onClose}>
 						Update
 					</Button>
