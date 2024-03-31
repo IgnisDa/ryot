@@ -2551,6 +2551,7 @@ impl MiscellaneousService {
         let seen = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
+                let watched_on = input.provider_watched_on.clone();
                 let mut updated_at = prev_seen[0].updated_at.clone();
                 let now = Utc::now();
                 updated_at.push(now);
@@ -2558,7 +2559,8 @@ impl MiscellaneousService {
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.updated_at = ActiveValue::Set(updated_at);
-                last_seen.provider_watched_on = ActiveValue::Set(input.provider_watched_on);
+                last_seen.provider_watched_on =
+                    ActiveValue::Set(input.provider_watched_on.or(watched_on));
                 if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
@@ -2575,13 +2577,15 @@ impl MiscellaneousService {
                     .unwrap();
                 match last_seen {
                     Some(ls) => {
+                        let watched_on = ls.provider_watched_on.clone();
                         let mut updated_at = ls.updated_at.clone();
                         let now = Utc::now();
                         updated_at.push(now);
                         let mut last_seen: seen::ActiveModel = ls.into();
                         last_seen.state = ActiveValue::Set(new_state);
                         last_seen.updated_at = ActiveValue::Set(updated_at);
-                        last_seen.provider_watched_on = ActiveValue::Set(input.provider_watched_on);
+                        last_seen.provider_watched_on =
+                            ActiveValue::Set(input.provider_watched_on.or(watched_on));
                         last_seen.update(&self.db).await.unwrap()
                     }
                     None => {
