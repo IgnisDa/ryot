@@ -7,6 +7,17 @@ use strum::{EnumString, IntoEnumIterator};
 
 use crate::models::{fitness::UserUnitSystem, MediaStateChanged};
 
+const WATCH_PROVIDERS: [&str; 8] = [
+    "Netflix",
+    "Amazon Prime",
+    "Disney+",
+    "HBO Max",
+    "Apple TV",
+    "Peacock",
+    "Hulu",
+    "Crunchyroll",
+];
+
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
@@ -282,6 +293,7 @@ pub struct UserGeneralPreferences {
     pub disable_navigation_animation: bool,
     pub disable_videos: bool,
     pub disable_watch_providers: bool,
+    pub watch_providers: Vec<String>,
 }
 
 impl Default for UserGeneralPreferences {
@@ -310,6 +322,7 @@ impl Default for UserGeneralPreferences {
             disable_navigation_animation: false,
             disable_videos: false,
             disable_watch_providers: false,
+            watch_providers: WATCH_PROVIDERS.into_iter().map(|s| s.to_owned()).collect(),
         }
     }
 }
