@@ -24,6 +24,7 @@ pub enum Seen {
     PodcastExtraInformation,
     AnimeExtraInformation,
     MangaExtraInformation,
+    ProviderWatchedOn,
 }
 
 #[async_trait::async_trait]
@@ -94,6 +95,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
                     .to_owned(),
             )
             .await?;
