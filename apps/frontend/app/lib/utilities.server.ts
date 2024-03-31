@@ -74,7 +74,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 		request.headers.get("cookie") || "",
 	);
 	const nextUrl = withoutHost(request.url);
-	if (runningKey !== envVariables.RUNNING_KEY) {
+	if (runningKey !== serverVariables.RUNNING_KEY) {
 		throw redirect(
 			withQuery($path("/auth/login"), { [redirectToQueryParam]: nextUrl }),
 			{
@@ -108,7 +108,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	return userDetails;
 };
 
-export const expectedEnvironmentVariables = z.object({
+const expectedServerVariables = z.object({
 	RUNNING_KEY: z
 		.string()
 		.default(() => (isProduction ? crypto.randomUUID() : "s3cr3t")),
@@ -259,14 +259,14 @@ export const getCoreEnabledFeatures = async () => {
 	return coreEnabledFeatures;
 };
 
-export const envVariables = expectedEnvironmentVariables.parse(process.env);
+export const serverVariables = expectedServerVariables.parse(process.env);
 
 const commonCookieOptions = {
 	sameSite: "lax",
 	path: "/",
 	httpOnly: true,
 	secrets: (process.env.SESSION_SECRET || "").split(","),
-	secure: isProduction ? !envVariables.FRONTEND_INSECURE_COOKIES : false,
+	secure: isProduction ? !serverVariables.FRONTEND_INSECURE_COOKIES : false,
 } satisfies CookieOptions;
 
 export const authCookie = createCookie("Auth", commonCookieOptions);

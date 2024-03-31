@@ -51,7 +51,7 @@ import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import { getLot } from "~/lib/generals";
 import {
-	envVariables,
+	serverVariables,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import {
@@ -160,13 +160,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	);
 
 	const shouldHaveUmami =
-		envVariables.FRONTEND_UMAMI_SCRIPT_URL &&
-		envVariables.FRONTEND_UMAMI_WEBSITE_ID &&
-		!envVariables.DISABLE_TELEMETRY &&
+		serverVariables.FRONTEND_UMAMI_SCRIPT_URL &&
+		serverVariables.FRONTEND_UMAMI_WEBSITE_ID &&
+		!serverVariables.DISABLE_TELEMETRY &&
 		!userDetails.isDemo;
 
 	return json({
-		envData: envVariables,
+		envData: serverVariables,
 		mediaLinks,
 		userDetails,
 		coreDetails,

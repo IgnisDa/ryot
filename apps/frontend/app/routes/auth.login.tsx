@@ -22,7 +22,7 @@ import {
 	authCookie,
 	combineHeaders,
 	createToastHeaders,
-	envVariables,
+	serverVariables,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	getIsAuthenticated,
@@ -70,7 +70,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ "set-cookie": await authCookie.serialize(loginUser.apiKey, options) },
 				{
 					"set-cookie": await runningKeyCookie.serialize(
-						envVariables.RUNNING_KEY,
+						serverVariables.RUNNING_KEY,
 						options,
 					),
 				},
