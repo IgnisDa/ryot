@@ -12,6 +12,7 @@ query UserPreferences {
       disableNavigationAnimation
       disableVideos
       disableWatchProviders
+      watchProviders
     }
     fitness {
       measurements {

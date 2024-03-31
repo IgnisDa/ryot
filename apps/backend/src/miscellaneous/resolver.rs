@@ -5595,6 +5595,10 @@ impl MiscellaneousService {
                         "disable_watch_providers" => {
                             preferences.general.disable_watch_providers = value_bool.unwrap();
                         }
+                        "watch_providers" => {
+                            preferences.general.watch_providers =
+                                serde_json::from_str(&input.value).unwrap();
+                        }
                         _ => return Err(err()),
                     },
                     _ => return Err(err()),
