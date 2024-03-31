@@ -43,12 +43,12 @@ import {
 	DisplayMediaMonitored,
 	DisplayMediaOwned,
 	DisplayMediaReminder,
+	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
-	MediaIsPartial,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
