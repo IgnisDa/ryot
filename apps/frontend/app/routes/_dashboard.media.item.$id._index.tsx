@@ -31,7 +31,6 @@ import {
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
@@ -2407,19 +2406,11 @@ const SeenItem = (props: {
 							<IconX size={20} />
 						</ActionIcon>
 					</Form>
-					<ActionIcon
-						color="blue"
-						onClick={() => {
-							if (props.history.state === SeenState.Completed) open();
-							else
-								notifications.show({
-									color: "yellow",
-									message: "You can only edit completed items.",
-								});
-						}}
-					>
-						<IconEdit size={20} />
-					</ActionIcon>
+					{props.history.state === SeenState.Completed ? (
+						<ActionIcon color="blue" onClick={open}>
+							<IconEdit size={20} />
+						</ActionIcon>
+					) : null}
 				</Flex>
 				<Flex direction="column">
 					<Flex gap="lg">
@@ -2476,6 +2467,14 @@ const SeenItem = (props: {
 									{dayjsLib(props.history.lastUpdatedOn).format("L")}
 								</Text>
 							</Flex>
+							{props.history.providerWatchedOn ? (
+								<Flex gap="xs">
+									<Text size="sm">Watched On:</Text>
+									<Text size="sm" fw="bold">
+										{props.history.providerWatchedOn}
+									</Text>
+								</Flex>
+							) : null}
 						</Flex>
 					</Flex>
 				</Flex>
