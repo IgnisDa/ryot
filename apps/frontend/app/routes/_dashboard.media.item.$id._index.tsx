@@ -176,6 +176,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			peopleEnabled: userPreferences.featuresEnabled.media.people,
 			groupsEnabled: userPreferences.featuresEnabled.media.groups,
 			genresEnabled: userPreferences.featuresEnabled.media.genres,
+			watchProviders: userPreferences.general.watchProviders,
 		},
 		coreDetails: {
 			itemDetailsHeight: coreDetails.itemDetailsHeight,
@@ -396,6 +397,7 @@ const bulkUpdateSchema = z
 		progress: z.string().optional(),
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
+		watchProvider: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(metadataIdSchema);
@@ -1805,13 +1807,23 @@ type UpdateProgress = {
 	podcastEpisodeNumber?: number | null;
 };
 
+const WATCH_TIMES = [
+	"Just Right Now",
+	"I don't remember",
+	"Custom Date",
+] as const;
+
 const ProgressUpdateModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	data?: UpdateProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
+		new Date(),
+	);
+	const [watchTime, setWatchTime] =
+		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
 	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
 		string | undefined
 	>(undefined);
@@ -1997,43 +2009,46 @@ const ProgressUpdateModal = (props: {
 							)}
 						</Await>
 					</Suspense>
-					<Title order={6}>
-						When did you {getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}{" "}
-						it?
-					</Title>
-					<Button.Group>
-						<Button
-							variant="outline"
-							type="submit"
-							name="date"
-							value={formatDateToNaiveDate(new Date())}
-							w="100%"
-						>
-							Just right now
-						</Button>
-						<Button variant="outline" type="submit" w="100%">
-							I don't remember
-						</Button>
-					</Button.Group>
-					<Group grow>
+					<Select
+						label={`When did you ${getVerb(
+							Verb.Read,
+							loaderData.mediaMainDetails.lot,
+						)} it?`}
+						data={WATCH_TIMES}
+						value={watchTime}
+						onChange={(v) => {
+							setWatchTime(v as typeof watchTime);
+							match(v)
+								.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
+								.with(WATCH_TIMES[1], () => setSelectedDate(null))
+								.with(WATCH_TIMES[2], () => setSelectedDate(null));
+						}}
+					/>
+					{watchTime === WATCH_TIMES[2] ? (
 						<DatePickerInput
+							label="Enter exact date"
 							dropdownType="modal"
 							maxDate={new Date()}
 							onChange={setSelectedDate}
 							clearable
 						/>
-						<Button
-							variant="outline"
-							disabled={selectedDate === null}
-							type="submit"
-							name="date"
-							value={
-								selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
-							}
-						>
-							Custom date
-						</Button>
-					</Group>
+					) : null}
+					<Select
+						label="Where did you watch it?"
+						data={loaderData.userPreferences.watchProviders}
+						name="watchProvider"
+					/>
+					<Button
+						variant="outline"
+						disabled={selectedDate === undefined}
+						type="submit"
+						name="date"
+						value={
+							selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
+						}
+					>
+						Submit
+					</Button>
 				</Stack>
 			</Form>
 		</Modal>
