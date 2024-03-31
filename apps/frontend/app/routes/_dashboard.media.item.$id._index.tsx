@@ -10,6 +10,7 @@ import {
 	Button,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Image,
@@ -1458,7 +1459,8 @@ export default function Page() {
 																}
 															>
 																<Accordion
-																	chevronPosition="right"
+																	// do not show the chevron at all
+																	chevron={<Box />}
 																	variant="contained"
 																	defaultValue={loaderData.query.showSeasonNumber?.toString()}
 																>
@@ -1516,43 +1518,46 @@ export default function Page() {
 																				<Accordion.Panel>
 																					{s.episodes.length > 0 ? (
 																						s.episodes.map((e) => (
-																							<Box mb="xs" ml="md" key={e.id}>
-																								<AccordionLabel
-																									{...e}
-																									key={e.episodeNumber}
-																									name={`${e.episodeNumber}. ${e.name}`}
-																									publishDate={e.publishDate}
-																									displayIndicator={
-																										userMetadataDetails.history.filter(
-																											(h) =>
-																												h.progress === 100 &&
-																												h.showExtraInformation &&
-																												h.showExtraInformation
-																													.episode ===
-																													e.episodeNumber &&
-																												h.showExtraInformation
-																													.season ===
-																													s.seasonNumber,
-																										).length || 0
-																									}
-																								>
-																									<Button
-																										variant="outline"
-																										onClick={() => {
-																											setUpdateProgressModalData(
-																												{
-																													showSeasonNumber:
+																							<Fragment key={e.id}>
+																								<Divider />
+																								<Box my="xs" ml="md">
+																									<AccordionLabel
+																										{...e}
+																										key={e.episodeNumber}
+																										name={`${e.episodeNumber}. ${e.name}`}
+																										publishDate={e.publishDate}
+																										displayIndicator={
+																											userMetadataDetails.history.filter(
+																												(h) =>
+																													h.progress === 100 &&
+																													h.showExtraInformation &&
+																													h.showExtraInformation
+																														.episode ===
+																														e.episodeNumber &&
+																													h.showExtraInformation
+																														.season ===
 																														s.seasonNumber,
-																													showEpisodeNumber:
-																														e.episodeNumber,
-																												},
-																											);
-																										}}
+																											).length || 0
+																										}
 																									>
-																										Mark as seen
-																									</Button>
-																								</AccordionLabel>
-																							</Box>
+																										<Button
+																											variant="outline"
+																											onClick={() => {
+																												setUpdateProgressModalData(
+																													{
+																														showSeasonNumber:
+																															s.seasonNumber,
+																														showEpisodeNumber:
+																															e.episodeNumber,
+																													},
+																												);
+																											}}
+																										>
+																											Mark as seen
+																										</Button>
+																									</AccordionLabel>
+																								</Box>
+																							</Fragment>
 																						))
 																					) : (
 																						<Text>
@@ -2258,36 +2263,38 @@ const AccordionLabel = (props: {
 
 	return (
 		<Stack data-episode-id={props.id}>
-			<Flex align="center" gap="sm">
-				<Indicator
-					disabled={props.displayIndicator === 0}
-					label={
-						props.displayIndicator === 1
-							? "Seen"
-							: `Seen × ${props.displayIndicator}`
-					}
-					offset={7}
-					position="bottom-end"
-					size={16}
-					color="red"
-				>
-					<Avatar
-						src={props.posterImages[0]}
-						radius="xl"
-						size="lg"
-						imageProps={{ loading: "lazy" }}
-					/>
-				</Indicator>
-				{props.children}
+			<Flex align="center" gap="sm" justify="space-between">
+				<Group wrap="nowrap">
+					<Indicator
+						disabled={props.displayIndicator === 0}
+						label={
+							props.displayIndicator === 1
+								? "Seen"
+								: `Seen × ${props.displayIndicator}`
+						}
+						offset={7}
+						position="bottom-end"
+						size={16}
+						color="red"
+					>
+						<Avatar
+							src={props.posterImages[0]}
+							radius="xl"
+							size="lg"
+							imageProps={{ loading: "lazy" }}
+						/>
+					</Indicator>
+					<Box>
+						<Text lineClamp={2}>{props.name}</Text>
+						{display ? (
+							<Text size="xs" c="dimmed">
+								{display}
+							</Text>
+						) : null}
+					</Box>
+				</Group>
+				<Box flex={0}>{props.children}</Box>
 			</Flex>
-			<Group gap={6}>
-				<Text>{props.name}</Text>
-				{display ? (
-					<Text size="xs" c="dimmed">
-						({display})
-					</Text>
-				) : null}
-			</Group>
 			{props.overview ? (
 				<Text
 					size="sm"
