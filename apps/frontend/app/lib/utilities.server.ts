@@ -30,6 +30,7 @@ import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
 import { redirectToQueryParam } from "./generals";
 
+const isProduction = process.env.NODE_ENV === "production";
 export const API_URL = process.env.API_URL || "http://localhost:5000";
 
 export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
@@ -108,7 +109,9 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 };
 
 export const expectedEnvironmentVariables = z.object({
-	RUNNING_KEY: z.string().default(crypto.randomUUID()),
+	RUNNING_KEY: z
+		.string()
+		.default(() => (isProduction ? crypto.randomUUID() : "s3cr3t")),
 	DISABLE_TELEMETRY: z
 		.string()
 		.optional()
@@ -263,10 +266,7 @@ const commonCookieOptions = {
 	path: "/",
 	httpOnly: true,
 	secrets: (process.env.SESSION_SECRET || "").split(","),
-	secure:
-		process.env.NODE_ENV === "production"
-			? !envVariables.FRONTEND_INSECURE_COOKIES
-			: false,
+	secure: isProduction ? !envVariables.FRONTEND_INSECURE_COOKIES : false,
 } satisfies CookieOptions;
 
 export const authCookie = createCookie("Auth", commonCookieOptions);
