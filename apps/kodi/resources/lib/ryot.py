@@ -23,8 +23,7 @@ class Ryot:
                 "lot": lot,
                 "progress": int(progress),
                 "show_season_number": season_number,
-                "show_episode_number": episode_number,
-                "provider_watched_on": "Kodi",
+                "show_episode_number": episode_number
             },
         )
 
