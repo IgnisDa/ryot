@@ -81,8 +81,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 				status: 302,
 				headers: combineHeaders(
 					await createToastHeaders({
-						message:
-							"An upgrade has been made to the website, please log in again.",
+						message: "Ryot has been updated, please log in again",
 						type: "error",
 					}),
 					await getLogoutCookies(),
