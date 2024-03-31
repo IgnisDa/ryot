@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use scraper::{Html, Selector};
@@ -181,6 +181,7 @@ impl MediaProvider for OpenlibraryService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
@@ -220,6 +221,7 @@ impl MediaProvider for OpenlibraryService {
         Ok(data)
     }
 
+    #[instrument(skip(self, _source_specifics))]
     async fn person_details(
         &self,
         identity: &str,
@@ -271,13 +273,14 @@ impl MediaProvider for OpenlibraryService {
                     PartialMetadataWithoutId {
                         identifier: get_key(&entry.key),
                         title,
-                        lot: MetadataLot::Book,
+                        lot: MediaLot::Book,
                         source: MediaSource::Openlibrary,
                         image,
                     },
                 ))
             }
         }
+        tracing::debug!("Found {} related works.", related.len());
         Ok(MetadataPerson {
             identifier,
             source: MediaSource::Openlibrary,
@@ -445,7 +448,7 @@ impl MediaProvider for OpenlibraryService {
                     title: name,
                     image,
                     identifier,
-                    lot: MetadataLot::Book,
+                    lot: MediaLot::Book,
                     source: MediaSource::Openlibrary,
                 });
             }
@@ -455,7 +458,7 @@ impl MediaProvider for OpenlibraryService {
             identifier: get_key(&data.key),
             title: data.title,
             description,
-            lot: MetadataLot::Book,
+            lot: MediaLot::Book,
             source: MediaSource::Openlibrary,
             people,
             genres,

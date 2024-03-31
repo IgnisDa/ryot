@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
@@ -17,9 +17,10 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
-            MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
+            MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -82,6 +83,15 @@ fields
     name,
     logo.*,
     start_date;
+";
+static COLLECTION_FIELDS: &str = "
+fields
+    id,
+    name,
+    games.id,
+    games.name,
+    games.cover.*,
+    games.version_parent;
 ";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -178,6 +188,50 @@ impl IgdbService {
 
 #[async_trait]
 impl MediaProvider for IgdbService {
+    #[allow(unused_variables)]
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let client = get_client(&self.config).await;
+        let req_body = format!(
+            r#"
+{fields}
+search "{query}";
+limit {limit};
+offset: {offset};
+            "#,
+            fields = COLLECTION_FIELDS,
+            query = query,
+            limit = self.page_limit,
+            offset = (page.unwrap_or(1) - 1) * self.page_limit
+        );
+        let mut rsp = client
+            .post("collections")
+            .body_string(req_body)
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let details: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = details
+            .into_iter()
+            .map(|d| MetadataGroupSearchItem {
+                identifier: d.id.to_string(),
+                name: d.name.unwrap(),
+                image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                parts: d.games.map(|g| g.len()),
+            })
+            .collect_vec();
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: resp.len().try_into().unwrap(),
+                next_page: Some(page.unwrap_or(1) + 1),
+            },
+            items: resp,
+        })
+    }
+
     async fn metadata_group_details(
         &self,
         identifier: &str,
@@ -185,15 +239,10 @@ impl MediaProvider for IgdbService {
         let client = get_client(&self.config).await;
         let req_body = format!(
             r"
-fields
-    id,
-    name,
-    games.id,
-    games.name,
-    games.cover.*,
-    games.version_parent;
+{fields}
 where id = {id};
             ",
+            fields = COLLECTION_FIELDS,
             id = identifier
         );
         let details: IgdbItemResponse = client
@@ -219,7 +268,7 @@ where id = {id};
                         title: g.name.unwrap(),
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                         source: MediaSource::Igdb,
-                        lot: MetadataLot::VideoGame,
+                        lot: MediaLot::VideoGame,
                     })
                 }
             })
@@ -232,7 +281,7 @@ where id = {id};
                 title: details.name.unwrap_or_default(),
                 description: None,
                 images: vec![],
-                lot: MetadataLot::VideoGame,
+                lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
             },
             items,
@@ -244,6 +293,7 @@ where id = {id};
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let client = get_client(&self.config).await;
         let req_body = format!(
@@ -319,7 +369,7 @@ where id = {id};
                         title: r.name.unwrap(),
                         identifier: r.id.to_string(),
                         source: MediaSource::Igdb,
-                        lot: MetadataLot::VideoGame,
+                        lot: MediaLot::VideoGame,
                         image,
                     },
                 )
@@ -333,7 +383,7 @@ where id = {id};
                     title: r.name.unwrap(),
                     identifier: r.id.to_string(),
                     source: MediaSource::Igdb,
-                    lot: MetadataLot::VideoGame,
+                    lot: MediaLot::VideoGame,
                     image,
                 },
             )
@@ -502,7 +552,7 @@ impl IgdbService {
             .collect_vec();
         MediaDetails {
             identifier: item.id.to_string(),
-            lot: MetadataLot::VideoGame,
+            lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,
             title: item.name.unwrap(),
             description: item.summary,
@@ -534,7 +584,7 @@ impl IgdbService {
                     title: g.name.unwrap(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                     identifier: g.id.to_string(),
-                    lot: MetadataLot::VideoGame,
+                    lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
                 })
                 .collect(),

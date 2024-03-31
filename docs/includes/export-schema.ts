@@ -4,29 +4,29 @@
 
 /** The actual statistics that were logged in a user measurement. */
 export interface UserMeasurementStats {
-	abdominalSkinfold: string | null;
-	basalMetabolicRate: string | null;
-	bicepsCircumference: string | null;
-	bodyFat: string | null;
-	bodyFatCaliper: string | null;
-	bodyMassIndex: string | null;
-	boneMass: string | null;
+	abdominal_skinfold: string | null;
+	basal_metabolic_rate: string | null;
+	biceps_circumference: string | null;
+	body_fat: string | null;
+	body_fat_caliper: string | null;
+	body_mass_index: string | null;
+	bone_mass: string | null;
 	calories: string | null;
-	chestCircumference: string | null;
-	chestSkinfold: string | null;
+	chest_circumference: string | null;
+	chest_skinfold: string | null;
 	custom: Record<string, string> | null;
-	hipCircumference: string | null;
-	leanBodyMass: string | null;
+	hip_circumference: string | null;
+	lean_body_mass: string | null;
 	muscle: string | null;
-	neckCircumference: string | null;
-	thighCircumference: string | null;
-	thighSkinfold: string | null;
-	totalBodyWater: string | null;
-	totalDailyEnergyExpenditure: string | null;
-	visceralFat: string | null;
-	waistCircumference: string | null;
-	waistToHeightRatio: string | null;
-	waistToHipRatio: string | null;
+	neck_circumference: string | null;
+	thigh_circumference: string | null;
+	thigh_skinfold: string | null;
+	total_body_water: string | null;
+	total_daily_energy_expenditure: string | null;
+	visceral_fat: string | null;
+	waist_circumference: string | null;
+	waist_to_height_ratio: string | null;
+	waist_to_hip_ratio: string | null;
 	weight: string | null;
 }
 
@@ -42,7 +42,7 @@ export interface UserMeasurement {
 	timestamp: string;
 }
 
-export type MetadataLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
+export type MediaLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
 
 export interface IdAndNamedObject {
 	id: number;
@@ -51,10 +51,10 @@ export interface IdAndNamedObject {
 
 /** Comments left in replies to posted reviews. */
 export interface ImportOrExportItemReviewComment {
-	createdOn: string;
+	created_on: string;
 	id: string;
 	/** The user ids of all those who liked it. */
-	likedBy: number[];
+	liked_by: number[];
 	text: string;
 	user: IdAndNamedObject;
 }
@@ -80,41 +80,41 @@ export interface ImportOrExportItemReview {
 /** A rating given to an entity. */
 export interface ImportOrExportItemRating {
 	/** If for an anime, the episode for which this review was for. */
-	animeEpisodeNumber: number | null;
+	anime_episode_number: number | null;
 	/** The comments attached to this review. */
 	comments: ImportOrExportItemReviewComment[] | null;
 	/** If for a manga, the chapter for which this review was for. */
-	mangaChapterNumber: number | null;
+	manga_chapter_number: number | null;
 	/** If for a podcast, the episode for which this review was for. */
-	podcastEpisodeNumber: number | null;
+	podcast_episode_number: number | null;
 	/** The score of the review. */
 	rating: string | null;
 	/** Data about the review. */
 	review: ImportOrExportItemReview | null;
 	/** If for a show, the episode for which this review was for. */
-	showEpisodeNumber: number | null;
+	show_episode_number: number | null;
 	/** If for a show, the season for which this review was for. */
-	showSeasonNumber: number | null;
+	show_season_number: number | null;
 }
 
 /** A specific instance when an entity was seen. */
 export interface ImportOrExportMediaItemSeen {
 	/** If for an anime, the episode which was seen. */
-	animeEpisodeNumber: number | null;
+	anime_episode_number: number | null;
 	/** The timestamp when finished watching. */
-	endedOn: string | null;
+	ended_on: string | null;
 	/** If for a manga, the chapter which was seen. */
-	mangaChapterNumber: number | null;
+	manga_chapter_number: number | null;
 	/** If for a podcast, the episode which was seen. */
-	podcastEpisodeNumber: number | null;
+	podcast_episode_number: number | null;
 	/** The progress of media done. If none, it is considered as done. */
 	progress: number | null;
 	/** If for a show, the episode which was seen. */
-	showEpisodeNumber: number | null;
+	show_episode_number: number | null;
 	/** If for a show, the season which was seen. */
-	showSeasonNumber: number | null;
+	show_season_number: number | null;
 	/** The timestamp when started watching. */
-	startedOn: string | null;
+	started_on: string | null;
 }
 
 export type MediaSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
@@ -130,13 +130,13 @@ export interface ImportOrExportMediaItem {
 	 *
 	 * @default 'Book'
 	 */
-	lot: MetadataLot;
+	lot: MediaLot;
 	/** Whether the media is being monitored. */
 	monitored: boolean | null;
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
 	/** The seen history for the user. */
-	seenHistory: ImportOrExportMediaItemSeen[];
+	seen_history: ImportOrExportMediaItemSeen[];
 	/**
 	 * The source of media.
 	 *
@@ -144,12 +144,12 @@ export interface ImportOrExportMediaItem {
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
-	sourceId: string;
+	source_id: string;
 }
 
 export interface PersonSourceSpecifics {
-	isAnilistStudio: boolean | null;
-	isTmdbCompany: boolean | null;
+	is_anilist_studio: boolean | null;
+	is_tmdb_company: boolean | null;
 }
 
 /** Details about a specific creator item that needs to be exported. */
@@ -171,7 +171,7 @@ export interface ImportOrExportPersonItem {
 	 */
 	source: MediaSource;
 	/** The source specific data. */
-	sourceSpecifics: PersonSourceSpecifics | null;
+	source_specifics: PersonSourceSpecifics | null;
 }
 
 /** The assets that were uploaded for an entity. */
@@ -192,7 +192,7 @@ export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'P
 export interface WorkoutSetStatistic {
 	distance: string | null;
 	duration: string | null;
-	oneRm: string | null;
+	one_rm: string | null;
 	pace: string | null;
 	reps: number | null;
 	volume: string | null;
@@ -205,10 +205,10 @@ export interface WorkoutSetTotals {
 
 /** Details about the set performed. */
 export interface WorkoutSetRecord {
-	actualRestTime: number | null;
-	confirmedAt: string | null;
+	actual_rest_time: number | null;
+	confirmed_at: string | null;
 	lot: SetLot;
-	personalBests: WorkoutSetPersonalBest[];
+	personal_bests: WorkoutSetPersonalBest[];
 	statistic: WorkoutSetStatistic;
 	totals: WorkoutSetTotals;
 }
@@ -218,10 +218,10 @@ export interface WorkoutOrExerciseTotals {
 	distance: string;
 	duration: string;
 	/** The number of personal bests achieved. */
-	personalBestsAchieved: number;
+	personal_bests_achieved: number;
 	reps: number;
 	/** The total seconds that were logged in the rest timer. */
-	restTime: number;
+	rest_time: number;
 	weight: string;
 }
 
@@ -231,10 +231,10 @@ export interface ProcessedExercise {
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];
-	restTime: number | null;
+	rest_time: number | null;
 	sets: WorkoutSetRecord[];
 	/** The indices of the exercises with which this has been superset with. */
-	supersetWith: number[];
+	superset_with: number[];
 	total: WorkoutOrExerciseTotals;
 }
 
@@ -246,10 +246,10 @@ export interface WorkoutInformation {
 
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
-	bestSet: WorkoutSetRecord;
+	best_set: WorkoutSetRecord;
 	id: string;
 	lot: ExerciseLot;
-	numSets: number;
+	num_sets: number;
 }
 
 export interface WorkoutSummary {
@@ -260,12 +260,12 @@ export interface WorkoutSummary {
 /** A workout that was completed by the user. */
 export interface Workout {
 	comment: string | null;
-	endTime: string;
+	end_time: string;
 	id: string;
 	information: WorkoutInformation;
 	name: string;
-	repeatedFrom: string | null;
-	startTime: string;
+	repeated_from: string | null;
+	start_time: string;
 	summary: WorkoutSummary;
 }
 

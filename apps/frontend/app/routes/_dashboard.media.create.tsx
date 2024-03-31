@@ -26,7 +26,7 @@ import {
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomMetadataDocument,
-	MetadataLot,
+	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
@@ -77,7 +77,7 @@ const optionalStringArray = z.array(z.string()).optional();
 
 const schema = z.object({
 	title: z.string(),
-	lot: z.nativeEnum(MetadataLot),
+	lot: z.nativeEnum(MediaLot),
 	images: optionalStringArray,
 	videos: optionalStringArray,
 	description: optionalString,
@@ -102,7 +102,7 @@ export default function Page() {
 					<Group wrap="nowrap">
 						<Select
 							label="Type"
-							data={Object.values(MetadataLot).map((v) => ({
+							data={Object.values(MediaLot).map((v) => ({
 								value: v,
 								label: changeCase(v),
 							}))}

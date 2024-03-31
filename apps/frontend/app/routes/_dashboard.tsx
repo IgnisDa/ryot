@@ -49,7 +49,7 @@ import {
 import { produce } from "immer";
 import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
-import { ApplicationKey, getLot } from "~/lib/generals";
+import { getLot } from "~/lib/generals";
 import { redirectIfNotAuthenticated } from "~/lib/utilities.server";
 import {
 	colorSchemeCookie,
@@ -84,7 +84,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userPreferences.featuresEnabled.media.groups
 			? {
 					label: "Groups",
-					href: $path("/media/groups/list"),
+					href: $path("/media/groups/:action", { action: "list" }),
 			  }
 			: undefined,
 		userPreferences.featuresEnabled.media.people
@@ -154,7 +154,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	];
 
 	const currentColorScheme = await colorSchemeCookie.parse(
-		request.headers.get("Cookie") || "",
+		request.headers.get("cookie") || "",
 	);
 
 	const envData = expectedEnvironmentVariables.parse(process.env);
@@ -179,6 +179,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			fitness: userPreferences.featuresEnabled.fitness,
 			disableNavigationAnimation:
 				userPreferences.general.disableNavigationAnimation,
+			collectionsEnabled: userPreferences.featuresEnabled.others.collections,
+			calendarEnabled: userPreferences.featuresEnabled.others.calendar,
 		},
 	});
 };
@@ -197,7 +199,7 @@ export default function Layout() {
 		  }
 		| undefined
 	>({
-		key: ApplicationKey.SavedOpenedLinkGroups,
+		key: "SavedOpenedLinkGroups",
 		defaultValue: {
 			fitness: false,
 			media: false,
@@ -271,28 +273,32 @@ export default function Layout() {
 								links={loaderData.fitnessLinks}
 							/>
 						) : undefined}
-						<LinksGroup
-							label="Calendar"
-							icon={IconCalendar}
-							href={$path("/calendar")}
-							opened={false}
-							toggle={toggle}
-							setOpened={() => {}}
-						/>
-						<LinksGroup
-							label="Collections"
-							icon={IconArchive}
-							opened={openedLinkGroups?.collection || false}
-							toggle={toggle}
-							setOpened={(k) => {
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.collection = k;
-									}),
-								);
-							}}
-							links={loaderData.collectionLinks}
-						/>
+						{loaderData.userPreferences.calendarEnabled ? (
+							<LinksGroup
+								label="Calendar"
+								icon={IconCalendar}
+								href={$path("/calendar")}
+								opened={false}
+								toggle={toggle}
+								setOpened={() => {}}
+							/>
+						) : null}
+						{loaderData.userPreferences.collectionsEnabled ? (
+							<LinksGroup
+								label="Collections"
+								icon={IconArchive}
+								opened={openedLinkGroups?.collection || false}
+								toggle={toggle}
+								setOpened={(k) => {
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.collection = k;
+										}),
+									);
+								}}
+								links={loaderData.collectionLinks}
+							/>
+						) : null}
 						<LinksGroup
 							label="Settings"
 							icon={IconSettings}
@@ -493,14 +499,6 @@ const Footer = (props: { coreDetails: CoreDetails }) => {
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
-				<Anchor
-					href={`${props.coreDetails.repositoryLink}/releases/v${props.coreDetails.version}`}
-					target="_blank"
-				>
-					<Text c="red" fw="bold">
-						v{props.coreDetails.version}
-					</Text>
-				</Anchor>
 				<Anchor href="https://diptesh.me" target="_blank">
 					<Text c="indigo" fw="bold">
 						{props.coreDetails.authorName}

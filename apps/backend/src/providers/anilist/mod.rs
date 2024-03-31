@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use http_types::mime;
 use itertools::Itertools;
@@ -121,6 +121,7 @@ impl MediaProvider for NonMediaAnilistService {
         query: &str,
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let is_studio = matches!(
             source_specifics,
@@ -274,8 +275,8 @@ impl MediaProvider for NonMediaAnilistService {
                             identifier: data.id.to_string(),
                             source: MediaSource::Anilist,
                             lot: match data.type_.unwrap() {
-                                studio_query::MediaType::ANIME => MetadataLot::Anime,
-                                studio_query::MediaType::MANGA => MetadataLot::Manga,
+                                studio_query::MediaType::ANIME => MediaLot::Anime,
+                                studio_query::MediaType::MANGA => MediaLot::Manga,
                                 studio_query::MediaType::Other(_) => unreachable!(),
                             },
                             image: data.cover_image.unwrap().extra_large,
@@ -356,8 +357,8 @@ impl MediaProvider for NonMediaAnilistService {
                             identifier: data.id.to_string(),
                             source: MediaSource::Anilist,
                             lot: match data.type_.unwrap() {
-                                staff_query::MediaType::ANIME => MetadataLot::Anime,
-                                staff_query::MediaType::MANGA => MetadataLot::Manga,
+                                staff_query::MediaType::ANIME => MediaLot::Anime,
+                                staff_query::MediaType::MANGA => MediaLot::Manga,
                                 staff_query::MediaType::Other(_) => unreachable!(),
                             },
                             image: data.cover_image.unwrap().extra_large,
@@ -381,8 +382,8 @@ impl MediaProvider for NonMediaAnilistService {
                                 identifier: data.id.to_string(),
                                 source: MediaSource::Anilist,
                                 lot: match data.type_.unwrap() {
-                                    staff_query::MediaType::ANIME => MetadataLot::Anime,
-                                    staff_query::MediaType::MANGA => MetadataLot::Manga,
+                                    staff_query::MediaType::ANIME => MediaLot::Anime,
+                                    staff_query::MediaType::MANGA => MediaLot::Manga,
                                     staff_query::MediaType::Other(_) => unreachable!(),
                                 },
                                 image: data.cover_image.unwrap().extra_large,
@@ -594,8 +595,8 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
     );
     let people = people.into_iter().unique().collect_vec();
     let lot = match details.type_.unwrap() {
-        media_details_query::MediaType::ANIME => MetadataLot::Anime,
-        media_details_query::MediaType::MANGA => MetadataLot::Manga,
+        media_details_query::MediaType::ANIME => MediaLot::Anime,
+        media_details_query::MediaType::MANGA => MediaLot::Manga,
         media_details_query::MediaType::Other(_) => unreachable!(),
     };
 
@@ -628,8 +629,8 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
                 identifier: data.id.to_string(),
                 source: MediaSource::Anilist,
                 lot: match data.type_.unwrap() {
-                    media_details_query::MediaType::ANIME => MetadataLot::Anime,
-                    media_details_query::MediaType::MANGA => MetadataLot::Manga,
+                    media_details_query::MediaType::ANIME => MediaLot::Anime,
+                    media_details_query::MediaType::MANGA => MediaLot::Manga,
                     media_details_query::MediaType::Other(_) => unreachable!(),
                 },
                 image: data.cover_image.unwrap().extra_large,

@@ -3,6 +3,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Menu,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -15,7 +16,7 @@ import {
 	type MetaFunction,
 	json,
 } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
 	MetadataGroupDetailsDocument,
@@ -32,10 +33,17 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateOwnershipModal,
+	CreateReminderModal,
 	DisplayCollection,
+	DisplayMediaMonitored,
+	DisplayMediaOwned,
+	DisplayMediaReminder,
+	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	type PostReview,
@@ -109,12 +117,29 @@ export default function Page() {
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
+	const [
+		mediaOwnershipModalOpened,
+		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
+	] = useDisclosure(false);
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
+	const [
+		createMediaReminderModalOpened,
+		{
+			open: createMediaReminderModalOpen,
+			close: createMediaReminderModalClose,
+		},
+	] = useDisclosure(false);
 
 	return (
 		<>
+			<CreateReminderModal
+				onClose={createMediaReminderModalClose}
+				opened={createMediaReminderModalOpened}
+				defaultText={`Check out new releases in '${loaderData.metadataGroupDetails.details.title}'`}
+				metadataGroupId={loaderData.metadataGroupId}
+			/>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -123,6 +148,11 @@ export default function Page() {
 				objectId={loaderData.metadataGroupId}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
+			/>
+			<CreateOwnershipModal
+				onClose={mediaOwnershipModalClose}
+				opened={mediaOwnershipModalOpened}
+				metadataGroupId={loaderData.metadataGroupId}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -141,17 +171,29 @@ export default function Page() {
 							{loaderData.metadataGroupDetails.details.parts} media items
 						</Text>
 					</Flex>
-					{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
-						<Group id="entity-collections">
-							{loaderData.userMetadataGroupDetails.collections.map((col) => (
-								<DisplayCollection
-									key={col.id}
-									col={col}
-									entityId={loaderData.metadataGroupId.toString()}
-									entityLot={EntityLot.MediaGroup}
-								/>
-							))}
-						</Group>
+					<Group>
+						{loaderData.userMetadataGroupDetails.collections.map((col) => (
+							<DisplayCollection
+								key={col.id}
+								col={col}
+								entityId={loaderData.metadataGroupId.toString()}
+								entityLot={EntityLot.MediaGroup}
+							/>
+						))}
+						{loaderData.userMetadataGroupDetails.ownership ? (
+							<DisplayMediaOwned />
+						) : null}
+						{loaderData.userMetadataGroupDetails.isMonitored ? (
+							<DisplayMediaMonitored entityLot="group" />
+						) : null}
+						{loaderData.metadataGroupDetails.details.isPartial ? (
+							<MediaIsPartial mediaType="group" />
+						) : null}
+					</Group>
+					{loaderData.userMetadataGroupDetails.reminder ? (
+						<DisplayMediaReminder
+							reminderData={loaderData.userMetadataGroupDetails.reminder}
+						/>
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
@@ -208,6 +250,106 @@ export default function Page() {
 										entityLot={EntityLot.MediaGroup}
 										collections={loaderData.collections.map((c) => c.name)}
 									/>
+									<Menu shadow="md">
+										<Menu.Target>
+											<Button variant="outline">More actions</Button>
+										</Menu.Target>
+										<Menu.Dropdown>
+											{loaderData.userMetadataGroupDetails.ownership ? (
+												<Form
+													action="/actions?intent=toggleMediaOwnership"
+													method="post"
+													replace
+												>
+													<HiddenLocationInput />
+													<Menu.Item
+														type="submit"
+														color="red"
+														name="metadataGroupId"
+														value={loaderData.metadataGroupId}
+														onClick={(e) => {
+															if (
+																!confirm(
+																	"Are you sure you want to remove ownership of this media?",
+																)
+															)
+																e.preventDefault();
+														}}
+													>
+														Remove ownership
+													</Menu.Item>
+												</Form>
+											) : (
+												<Menu.Item onClick={mediaOwnershipModalOpen}>
+													Mark as owned
+												</Menu.Item>
+											)}
+											{loaderData.userMetadataGroupDetails.reminder ? (
+												<Form
+													action="/actions?intent=deleteMediaReminder"
+													method="post"
+													replace
+												>
+													<input
+														hidden
+														name="metadataGroupId"
+														value={loaderData.metadataGroupId}
+														readOnly
+													/>
+													<HiddenLocationInput />
+													<Menu.Item
+														type="submit"
+														color="red"
+														onClick={(e) => {
+															if (
+																!confirm(
+																	"Are you sure you want to delete this reminder?",
+																)
+															)
+																e.preventDefault();
+														}}
+													>
+														Remove reminder
+													</Menu.Item>
+												</Form>
+											) : (
+												<Menu.Item onClick={createMediaReminderModalOpen}>
+													Create reminder
+												</Menu.Item>
+											)}
+											<Form
+												action="/actions?intent=toggleMediaMonitor"
+												method="post"
+												replace
+											>
+												<HiddenLocationInput />
+												<Menu.Item
+													type="submit"
+													color={
+														loaderData.userMetadataGroupDetails.isMonitored
+															? "red"
+															: undefined
+													}
+													name="metadataGroupId"
+													value={loaderData.metadataGroupId}
+													onClick={(e) => {
+														if (loaderData.userMetadataGroupDetails.isMonitored)
+															if (
+																!confirm(
+																	"Are you sure you want to stop monitoring this person?",
+																)
+															)
+																e.preventDefault();
+													}}
+												>
+													{loaderData.userMetadataGroupDetails.isMonitored
+														? "Stop"
+														: "Start"}{" "}
+													monitoring
+												</Menu.Item>
+											</Form>
+										</Menu.Dropdown>
+									</Menu>
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>

@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use database::{MediaSource, MetadataLot, Visibility};
+use database::{MediaLot, MediaSource, Visibility};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -35,7 +35,7 @@ enum MediaType {
     Audiobook,
 }
 
-impl From<MediaType> for MetadataLot {
+impl From<MediaType> for MediaLot {
     fn from(value: MediaType) -> Self {
         match value {
             MediaType::Book => Self::Book,
@@ -222,7 +222,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 continue;
             }
         };
-        let lot = MetadataLot::from(media_type.clone());
+        let lot = MediaLot::from(media_type.clone());
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
         let details: ItemDetails = match rsp.body_json().await {
             Ok(s) => s,

@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_graphql::Result;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use rs_utils::{convert_naive_to_utc, convert_string_to_date};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -40,7 +40,7 @@ fn get_date(date: String) -> Option<DateTimeUtc> {
     }
 }
 
-fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
+fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
     let progress = if item.done != 0 && item.total != 0 {
         Some(item.done / item.total)
     } else {
@@ -82,10 +82,10 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     let manga_data = decode_data::<DataRoot>(&input.manga_path)?;
     let mut media = vec![];
     for item in anime_data.items.into_iter() {
-        media.push(convert_to_format(item, MetadataLot::Anime));
+        media.push(convert_to_format(item, MediaLot::Anime));
     }
     for item in manga_data.items.into_iter() {
-        media.push(convert_to_format(item, MetadataLot::Manga));
+        media.push(convert_to_format(item, MediaLot::Manga));
     }
     Ok(ImportResult {
         media,

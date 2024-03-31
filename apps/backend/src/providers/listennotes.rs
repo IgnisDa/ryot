@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use itertools::Itertools;
 use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
@@ -98,7 +98,7 @@ impl MediaProvider for ListennotesService {
                 title: r.title,
                 image: r.thumbnail,
                 identifier: r.id,
-                lot: MetadataLot::Podcast,
+                lot: MediaLot::Podcast,
                 source: MediaSource::Listennotes,
             })
             .collect();
@@ -226,7 +226,7 @@ impl ListennotesService {
             title: podcast_data.title,
             is_nsfw: podcast_data.explicit_content,
             description: podcast_data.description,
-            lot: MetadataLot::Podcast,
+            lot: MediaLot::Podcast,
             source: MediaSource::Listennotes,
             creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,

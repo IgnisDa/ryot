@@ -1712,6 +1712,7 @@ name = "database"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "indoc",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
@@ -2928,6 +2929,12 @@ dependencies = [
  "hashbrown 0.14.3",
  "serde",
 ]
+
+[[package]]
+name = "indoc"
+version = "2.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b248f5224d1d606005e02c97f5aa4e88eeb230488bcc03bc9ca4d7991399f2b5"
 
 [[package]]
 name = "infer"
@@ -4527,7 +4534,7 @@ checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
 
 [[package]]
 name = "ryot"
-version = "4.3.11"
+version = "4.3.12"
 dependencies = [
  "anyhow",
  "apalis",

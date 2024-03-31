@@ -14,6 +14,7 @@ pub enum MetadataGroup {
     Images,
     Lot,
     Source,
+    IsPartial,
 }
 
 #[async_trait::async_trait]
@@ -41,6 +42,7 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(MetadataGroup::IsPartial).boolean())
                     .to_owned(),
             )
             .await?;

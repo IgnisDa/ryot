@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use paginate::Pages;
@@ -198,6 +198,7 @@ impl MediaProvider for AudibleService {
         query: &str,
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
         let req_internal_page = internal_page - 1;
@@ -302,7 +303,7 @@ impl MediaProvider for AudibleService {
                 image: data.product.product_images.and_then(|i| i.image_2400),
                 identifier: i,
                 source: MediaSource::Audible,
-                lot: MetadataLot::AudioBook,
+                lot: MediaLot::AudioBook,
             })
         }
         Ok((
@@ -313,7 +314,7 @@ impl MediaProvider for AudibleService {
                 title: data.product.title,
                 description: None,
                 images: vec![],
-                lot: MetadataLot::AudioBook,
+                lot: MediaLot::AudioBook,
                 source: MediaSource::Audible,
             },
             collection_contents,
@@ -355,7 +356,7 @@ impl MediaProvider for AudibleService {
                     image: sim.product_images.and_then(|i| i.image_500),
                     identifier: sim.asin,
                     source: MediaSource::Audible,
-                    lot: MetadataLot::AudioBook,
+                    lot: MediaLot::AudioBook,
                 });
             }
         }
@@ -464,7 +465,7 @@ impl AudibleService {
         };
         MediaDetails {
             identifier: item.asin,
-            lot: MetadataLot::AudioBook,
+            lot: MediaLot::AudioBook,
             source: MediaSource::Audible,
             is_nsfw: item.is_adult_product,
             title: item.title,

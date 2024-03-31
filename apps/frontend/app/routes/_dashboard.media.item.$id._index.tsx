@@ -10,6 +10,7 @@ import {
 	Button,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Image,
@@ -29,7 +30,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
-import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -47,15 +47,14 @@ import {
 	DeployUpdateMetadataJobDocument,
 	EditSeenItemDocument,
 	EntityLot,
+	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataAdditionalDetailsDocument,
 	type MetadataAdditionalDetailsQuery,
-	MetadataLot,
 	MetadataMainDetailsDocument,
 	MetadataVideoSource,
 	SeenState,
-	ToggleMediaOwnershipDocument,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -67,7 +66,6 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
-	IconBackpack,
 	IconBook,
 	IconBrandPagekit,
 	IconBulb,
@@ -97,9 +95,11 @@ import {
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
+	CreateOwnershipModal,
 	CreateReminderModal,
 	DisplayCollection,
 	DisplayMediaMonitored,
+	DisplayMediaOwned,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -216,20 +216,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
-		toggleMediaOwnership: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
-				ToggleMediaOwnershipDocument,
-				submission,
-				await getAuthorizationHeader(request),
-			);
-			return json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Ownership toggled successfully",
-				}),
-			});
-		},
 		deleteSeenItem: async () => {
 			const submission = processSubmission(formData, seenIdSchema);
 			await gqlClient.request(
@@ -304,7 +290,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const podcastSpecifics = podcastSpecificsSchema.parse(
 				JSON.parse(submission.podcastSpecifics || "[]"),
 			);
-			if (submission.metadataLot === MetadataLot.Anime) {
+			if (submission.metadataLot === MediaLot.Anime) {
 				if (submission.animeEpisodeNumber) {
 					if (submission.animeAllEpisodesBefore) {
 						for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
@@ -317,7 +303,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}
 				}
 			}
-			if (submission.metadataLot === MetadataLot.Manga) {
+			if (submission.metadataLot === MediaLot.Manga) {
 				if (submission.mangaChapterNumber) {
 					if (submission.mangaAllChaptersBefore) {
 						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
@@ -330,7 +316,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}
 				}
 			}
-			if (submission.metadataLot === MetadataLot.Show) {
+			if (submission.metadataLot === MediaLot.Show) {
 				if (submission.completeShow) {
 					for (const season of showSpecifics) {
 						for (const episode of season.episodes) {
@@ -370,7 +356,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}
 				}
 			}
-			if (submission.metadataLot === MetadataLot.Podcast) {
+			if (submission.metadataLot === MediaLot.Podcast) {
 				if (submission.completePodcast) {
 					for (const episode of podcastSpecifics) {
 						updates.push({
@@ -433,7 +419,7 @@ const editSeenItem = z.object({
 
 const progressUpdateSchema = z
 	.object({
-		metadataLot: z.nativeEnum(MetadataLot),
+		metadataLot: z.nativeEnum(MediaLot),
 		date: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
 		showSpecifics: z.string().optional(),
@@ -578,7 +564,7 @@ export default function Page() {
 						{loaderData.userPreferences.groupsEnabled &&
 						loaderData.mediaMainDetails.group ? (
 							<Link
-								to={$path("/media/groups/:id", {
+								to={$path("/media/groups/item/:id", {
 									id: loaderData.mediaMainDetails.group.id,
 								})}
 								style={{ color: "unset" }}
@@ -599,25 +585,18 @@ export default function Page() {
 						<Await resolve={loaderData.userMediaDetails}>
 							{({ userMetadataDetails }) => (
 								<Group>
-									{userMetadataDetails.collections.length > 0
-										? userMetadataDetails.collections.map((col) => (
-												<DisplayCollection
-													col={col}
-													entityId={loaderData.metadataId.toString()}
-													entityLot={EntityLot.Media}
-													key={col.id}
-												/>
-										  ))
-										: null}
+									{userMetadataDetails.collections.map((col) => (
+										<DisplayCollection
+											col={col}
+											entityId={loaderData.metadataId.toString()}
+											entityLot={EntityLot.Media}
+											key={col.id}
+										/>
+									))}
 									{userMetadataDetails.isMonitored ? (
 										<DisplayMediaMonitored />
 									) : null}
-									{userMetadataDetails.ownership ? (
-										<Flex align="center" gap={2}>
-											<IconBackpack size={20} />
-											<Text size="xs">You own this media</Text>
-										</Flex>
-									) : null}
+									{userMetadataDetails.ownership ? <DisplayMediaOwned /> : null}
 									{loaderData.mediaMainDetails.isPartial ? (
 										<MediaIsPartial mediaType="media" />
 									) : null}
@@ -787,7 +766,9 @@ export default function Page() {
 										</Group>
 									) : null}
 									{userMetadataDetails?.reminder ? (
-										<DisplayMediaReminder d={userMetadataDetails.reminder} />
+										<DisplayMediaReminder
+											reminderData={userMetadataDetails.reminder}
+										/>
 									) : null}
 									{userMetadataDetails?.inProgress ? (
 										<Alert icon={<IconAlertCircle />} variant="outline">
@@ -820,7 +801,7 @@ export default function Page() {
 							>
 								History
 							</Tabs.Tab>
-							{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
+							{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
 								<Tabs.Tab
 									value="seasons"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -828,7 +809,7 @@ export default function Page() {
 									Seasons
 								</Tabs.Tab>
 							) : null}
-							{loaderData.mediaMainDetails.lot === MetadataLot.Podcast ? (
+							{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
 								<Tabs.Tab
 									value="episodes"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -1016,7 +997,7 @@ export default function Page() {
 													</Menu.Target>
 													<Menu.Dropdown>
 														{loaderData.mediaMainDetails.lot ===
-														MetadataLot.Show ? (
+														MediaLot.Show ? (
 															<>
 																<Menu.Label>Shows</Menu.Label>
 																{userMetadataDetails.nextEntry ? (
@@ -1026,13 +1007,13 @@ export default function Page() {
 																				setUpdateProgressModalData({
 																					showSeasonNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show
+																						MediaLot.Show
 																							? userMetadataDetails.nextEntry
 																									?.season
 																							: undefined,
 																					showEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Show
+																						MediaLot.Show
 																							? userMetadataDetails.nextEntry
 																									?.episode
 																							: undefined,
@@ -1057,7 +1038,7 @@ export default function Page() {
 															</>
 														) : null}
 														{loaderData.mediaMainDetails.lot ===
-														MetadataLot.Podcast ? (
+														MediaLot.Podcast ? (
 															<>
 																<Menu.Label>Podcasts</Menu.Label>
 																{userMetadataDetails.nextEntry ? (
@@ -1067,7 +1048,7 @@ export default function Page() {
 																				setUpdateProgressModalData({
 																					podcastEpisodeNumber:
 																						loaderData.mediaMainDetails.lot ===
-																						MetadataLot.Podcast
+																						MediaLot.Podcast
 																							? userMetadataDetails.nextEntry
 																									?.episode
 																							: undefined,
@@ -1133,16 +1114,16 @@ export default function Page() {
 																	Set progress
 																</Menu.Item>
 																{loaderData.mediaMainDetails.lot !==
-																	MetadataLot.Show &&
+																	MediaLot.Show &&
 																loaderData.mediaMainDetails.lot !==
-																	MetadataLot.Podcast ? (
+																	MediaLot.Podcast ? (
 																	<StateChangeButtons />
 																) : null}
 															</>
 														) : loaderData.mediaMainDetails.lot !==
-																MetadataLot.Show &&
+																MediaLot.Show &&
 														  loaderData.mediaMainDetails.lot !==
-																MetadataLot.Podcast ? (
+																MediaLot.Podcast ? (
 															<>
 																<Menu.Label>Not in progress</Menu.Label>
 																<Form
@@ -1160,10 +1141,7 @@ export default function Page() {
 																		name="progress"
 																		defaultValue={0}
 																	/>
-																	{![
-																		MetadataLot.Anime,
-																		MetadataLot.Manga,
-																	].includes(
+																	{![MediaLot.Anime, MediaLot.Manga].includes(
 																		loaderData.mediaMainDetails.lot,
 																	) ? (
 																		<Menu.Item
@@ -1207,13 +1185,13 @@ export default function Page() {
 																	undefined,
 																showEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Show
+																	MediaLot.Show
 																		? userMetadataDetails?.nextEntry?.episode ??
 																		  undefined
 																		: null,
 																podcastEpisodeNumber:
 																	loaderData.mediaMainDetails.lot ===
-																	MetadataLot.Podcast
+																	MediaLot.Podcast
 																		? userMetadataDetails?.nextEntry?.episode ??
 																		  undefined
 																		: null,
@@ -1324,23 +1302,23 @@ export default function Page() {
 														)}
 														{userMetadataDetails.ownership ? (
 															<Form
-																action="?intent=toggleMediaOwnership"
+																action="/actions?intent=toggleMediaOwnership"
 																method="post"
 																replace
 															>
+																<HiddenLocationInput />
 																<Menu.Item
 																	type="submit"
 																	color="red"
 																	name="metadataId"
 																	value={loaderData.metadataId}
 																	onClick={(e) => {
-																		if (userMetadataDetails.ownership)
-																			if (
-																				!confirm(
-																					"Are you sure you want to remove ownership of this media?",
-																				)
+																		if (
+																			!confirm(
+																				"Are you sure you want to remove ownership of this media?",
 																			)
-																				e.preventDefault();
+																		)
+																			e.preventDefault();
 																	}}
 																>
 																	Remove ownership
@@ -1401,11 +1379,11 @@ export default function Page() {
 																				Consumed{" "}
 																				{match(loaderData.mediaMainDetails.lot)
 																					.with(
-																						MetadataLot.AudioBook,
-																						MetadataLot.Movie,
-																						MetadataLot.Show,
-																						MetadataLot.Podcast,
-																						MetadataLot.VisualNovel,
+																						MediaLot.AudioBook,
+																						MediaLot.Movie,
+																						MediaLot.Show,
+																						MediaLot.Podcast,
+																						MediaLot.VisualNovel,
 																						() =>
 																							humanizeDuration(
 																								(userMetadataDetails.unitsConsumed ||
@@ -1420,19 +1398,19 @@ export default function Page() {
 																								userMetadataDetails.unitsConsumed
 																							} ${match(v)
 																								.with(
-																									MetadataLot.VideoGame,
+																									MediaLot.VideoGame,
 																									() => "",
 																								)
 																								.with(
-																									MetadataLot.Book,
+																									MediaLot.Book,
 																									() => "pages",
 																								)
 																								.with(
-																									MetadataLot.Anime,
+																									MediaLot.Anime,
 																									() => "episodes",
 																								)
 																								.with(
-																									MetadataLot.Manga,
+																									MediaLot.Manga,
 																									() => "chapters",
 																								)
 																								.exhaustive()}`,
@@ -1481,7 +1459,8 @@ export default function Page() {
 																}
 															>
 																<Accordion
-																	chevronPosition="right"
+																	// do not show the chevron at all
+																	chevron={<Box />}
 																	variant="contained"
 																	defaultValue={loaderData.query.showSeasonNumber?.toString()}
 																>
@@ -1539,43 +1518,46 @@ export default function Page() {
 																				<Accordion.Panel>
 																					{s.episodes.length > 0 ? (
 																						s.episodes.map((e) => (
-																							<Box mb="xs" ml="md" key={e.id}>
-																								<AccordionLabel
-																									{...e}
-																									key={e.episodeNumber}
-																									name={`${e.episodeNumber}. ${e.name}`}
-																									publishDate={e.publishDate}
-																									displayIndicator={
-																										userMetadataDetails.history.filter(
-																											(h) =>
-																												h.progress === 100 &&
-																												h.showExtraInformation &&
-																												h.showExtraInformation
-																													.episode ===
-																													e.episodeNumber &&
-																												h.showExtraInformation
-																													.season ===
-																													s.seasonNumber,
-																										).length || 0
-																									}
-																								>
-																									<Button
-																										variant="outline"
-																										onClick={() => {
-																											setUpdateProgressModalData(
-																												{
-																													showSeasonNumber:
+																							<Fragment key={e.id}>
+																								<Divider />
+																								<Box my="xs" ml="md">
+																									<AccordionLabel
+																										{...e}
+																										key={e.episodeNumber}
+																										name={`${e.episodeNumber}. ${e.name}`}
+																										publishDate={e.publishDate}
+																										displayIndicator={
+																											userMetadataDetails.history.filter(
+																												(h) =>
+																													h.progress === 100 &&
+																													h.showExtraInformation &&
+																													h.showExtraInformation
+																														.episode ===
+																														e.episodeNumber &&
+																													h.showExtraInformation
+																														.season ===
 																														s.seasonNumber,
-																													showEpisodeNumber:
-																														e.episodeNumber,
-																												},
-																											);
-																										}}
+																											).length || 0
+																										}
 																									>
-																										Mark as seen
-																									</Button>
-																								</AccordionLabel>
-																							</Box>
+																										<Button
+																											variant="outline"
+																											onClick={() => {
+																												setUpdateProgressModalData(
+																													{
+																														showSeasonNumber:
+																															s.seasonNumber,
+																														showEpisodeNumber:
+																															e.episodeNumber,
+																													},
+																												);
+																											}}
+																										>
+																											Mark as seen
+																										</Button>
+																									</AccordionLabel>
+																								</Box>
+																							</Fragment>
 																						))
 																					) : (
 																						<Text>
@@ -1872,7 +1854,7 @@ const ProgressUpdateModal = (props: {
 					/>
 				) : null}
 				<Stack>
-					{loaderData.mediaMainDetails.lot === MetadataLot.Anime ? (
+					{loaderData.mediaMainDetails.lot === MediaLot.Anime ? (
 						<>
 							<NumberInput
 								label="Episode"
@@ -1890,7 +1872,7 @@ const ProgressUpdateModal = (props: {
 							) : null}
 						</>
 					) : null}
-					{loaderData.mediaMainDetails.lot === MetadataLot.Manga ? (
+					{loaderData.mediaMainDetails.lot === MediaLot.Manga ? (
 						<>
 							<NumberInput
 								label="Chapter"
@@ -1912,7 +1894,7 @@ const ProgressUpdateModal = (props: {
 						<Await resolve={loaderData.mediaAdditionalDetails}>
 							{({ metadataDetails: mediaAdditionalDetails }) => (
 								<>
-									{loaderData.mediaMainDetails.lot === MetadataLot.Show ? (
+									{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
 										<>
 											<input
 												hidden
@@ -1976,7 +1958,7 @@ const ProgressUpdateModal = (props: {
 											) : null}
 										</>
 									) : null}
-									{loaderData.mediaMainDetails.lot === MetadataLot.Podcast ? (
+									{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
 										<>
 											<input
 												hidden
@@ -2061,20 +2043,18 @@ const IndividualProgressModal = (props: {
 	metadataId: number;
 	progress: number;
 	total?: number | null;
-	lot: MetadataLot;
+	lot: MediaLot;
 }) => {
 	const [value, setValue] = useState<number | undefined>(props.progress);
 
 	const [updateIcon, text] = match(props.lot)
-		.with(MetadataLot.Book, () => [<IconBook size={24} />, "Pages"])
-		.with(MetadataLot.Anime, () => [<IconDeviceTv size={24} />, "Episodes"])
-		.with(MetadataLot.Manga, () => [<IconBrandPagekit size={24} />, "Chapters"])
-		.with(
-			MetadataLot.Movie,
-			MetadataLot.VisualNovel,
-			MetadataLot.AudioBook,
-			() => [<IconClock size={24} />, "Minutes"],
-		)
+		.with(MediaLot.Book, () => [<IconBook size={24} />, "Pages"])
+		.with(MediaLot.Anime, () => [<IconDeviceTv size={24} />, "Episodes"])
+		.with(MediaLot.Manga, () => [<IconBrandPagekit size={24} />, "Chapters"])
+		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
+			<IconClock size={24} />,
+			"Minutes",
+		])
 		.otherwise(() => [null, null]);
 
 	return (
@@ -2232,61 +2212,6 @@ const AdjustSeenTimesModal = (props: {
 	);
 };
 
-const CreateOwnershipModal = (props: {
-	opened: boolean;
-	metadataId: number;
-	onClose: () => void;
-}) => {
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form method="post" action="?intent=toggleMediaOwnership" replace>
-				<Stack>
-					<Title order={3}>Mark media as owned</Title>
-					<DateInput
-						label="When did you get this media?"
-						clearable
-						popoverProps={{ withinPortal: true }}
-						onChange={setOwnedOn}
-						value={ownedOn}
-					/>
-					<input hidden name="metadataId" defaultValue={props.metadataId} />
-					<input
-						hidden
-						name="ownedOn"
-						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
-					/>
-					<SimpleGrid cols={2}>
-						<Button
-							variant="outline"
-							onClick={props.onClose}
-							disabled={!!ownedOn}
-							data-autofocus
-							type="submit"
-						>
-							I don't remember
-						</Button>
-						<Button
-							disabled={!ownedOn}
-							variant="outline"
-							type="submit"
-							onClick={props.onClose}
-						>
-							Submit
-						</Button>
-					</SimpleGrid>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
 const MergeMetadataModal = (props: {
 	opened: boolean;
 	metadataId: number;
@@ -2338,36 +2263,38 @@ const AccordionLabel = (props: {
 
 	return (
 		<Stack data-episode-id={props.id}>
-			<Flex align="center" gap="sm">
-				<Indicator
-					disabled={props.displayIndicator === 0}
-					label={
-						props.displayIndicator === 1
-							? "Seen"
-							: `Seen × ${props.displayIndicator}`
-					}
-					offset={7}
-					position="bottom-end"
-					size={16}
-					color="red"
-				>
-					<Avatar
-						src={props.posterImages[0]}
-						radius="xl"
-						size="lg"
-						imageProps={{ loading: "lazy" }}
-					/>
-				</Indicator>
-				{props.children}
+			<Flex align="center" gap="sm" justify="space-between">
+				<Group wrap="nowrap">
+					<Indicator
+						disabled={props.displayIndicator === 0}
+						label={
+							props.displayIndicator === 1
+								? "Seen"
+								: `Seen × ${props.displayIndicator}`
+						}
+						offset={7}
+						position="bottom-end"
+						size={16}
+						color="red"
+					>
+						<Avatar
+							src={props.posterImages[0]}
+							radius="xl"
+							size="lg"
+							imageProps={{ loading: "lazy" }}
+						/>
+					</Indicator>
+					<Box>
+						<Text lineClamp={2}>{props.name}</Text>
+						{display ? (
+							<Text size="xs" c="dimmed">
+								{display}
+							</Text>
+						) : null}
+					</Box>
+				</Group>
+				<Box flex={0}>{props.children}</Box>
 			</Flex>
-			<Group gap={6}>
-				<Text>{props.name}</Text>
-				{display ? (
-					<Text size="xs" c="dimmed">
-						({display})
-					</Text>
-				) : null}
-			</Group>
 			{props.overview ? (
 				<Text
 					size="sm"

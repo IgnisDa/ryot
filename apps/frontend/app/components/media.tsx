@@ -21,6 +21,7 @@ import {
 	Rating,
 	ScrollArea,
 	SegmentedControl,
+	SimpleGrid,
 	Stack,
 	type StyleProp,
 	Text,
@@ -31,6 +32,7 @@ import {
 	useComputedColorScheme,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
 	Form,
@@ -41,8 +43,8 @@ import {
 } from "@remix-run/react";
 import {
 	EntityLot,
+	MediaLot,
 	type MediaSource,
-	MetadataLot,
 	type PartialMetadata,
 	type ReviewItem,
 	type UserMediaReminderPartFragment,
@@ -54,6 +56,7 @@ import {
 	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
+	IconBackpack,
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
@@ -81,7 +84,7 @@ import { confirmWrapper } from "./confirmation";
 
 export const commitMedia = async (
 	identifier: string,
-	lot: MetadataLot,
+	lot: MediaLot,
 	source: MediaSource,
 ) => {
 	const data = new FormData();
@@ -158,7 +161,7 @@ export const ReviewItemDisplay = (props: {
 	metadataGroupId?: number;
 	personId?: number;
 	collectionId?: number;
-	lot?: MetadataLot;
+	lot?: MediaLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
@@ -553,7 +556,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	reviewScale: UserReviewScale;
 	entityLot?: EntityLot | null;
 	href?: string;
-	lot?: MetadataLot | null;
+	lot?: MediaLot | null;
 	children?: ReactNode;
 	imageOverlayForLoadingIndicator?: boolean;
 	hasInteracted?: boolean;
@@ -578,7 +581,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 									$path("/media/item/:id", { id: props.item.identifier }),
 								)
 								.with(EntityLot.MediaGroup, () =>
-									$path("/media/groups/:id", { id: props.item.identifier }),
+									$path("/media/groups/item/:id", {
+										id: props.item.identifier,
+									}),
 								)
 								.with(EntityLot.Person, () =>
 									$path("/media/people/item/:id", {
@@ -751,7 +756,7 @@ export const PostReviewModal = (props: {
 	title: string;
 	reviewScale: UserReviewScale;
 	data?: PostReview;
-	lot?: MetadataLot;
+	lot?: MediaLot;
 }) => {
 	if (!props.data) return <></>;
 	return (
@@ -827,7 +832,7 @@ export const PostReviewModal = (props: {
 							.exhaustive()}
 						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
 					</Flex>
-					{props.lot === MetadataLot.Show ? (
+					{props.lot === MediaLot.Show ? (
 						<Flex gap="md">
 							<NumberInput
 								label="Season"
@@ -854,7 +859,7 @@ export const PostReviewModal = (props: {
 							/>
 						</Flex>
 					) : null}
-					{props.lot === MetadataLot.Podcast ? (
+					{props.lot === MediaLot.Podcast ? (
 						<NumberInput
 							label="Episode"
 							name="podcastEpisodeNumber"
@@ -866,7 +871,7 @@ export const PostReviewModal = (props: {
 							}
 						/>
 					) : null}
-					{props.lot === MetadataLot.Anime ? (
+					{props.lot === MediaLot.Anime ? (
 						<NumberInput
 							label="Episode"
 							name="animeEpisodeNumber"
@@ -878,7 +883,7 @@ export const PostReviewModal = (props: {
 							}
 						/>
 					) : null}
-					{props.lot === MetadataLot.Manga ? (
+					{props.lot === MediaLot.Manga ? (
 						<NumberInput
 							label="Chapter"
 							name="mangaChapterNumber"
@@ -960,6 +965,7 @@ export const CreateReminderModal = (props: {
 	defaultText: string;
 	metadataId?: number;
 	personId?: number;
+	metadataGroupId?: number;
 }) => {
 	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
 
@@ -1004,8 +1010,14 @@ export const CreateReminderModal = (props: {
 					/>
 					<input
 						hidden
-						name={props.metadataId ? "metadataId" : "personId"}
-						value={props.metadataId || props.personId}
+						name={
+							props.metadataId
+								? "metadataId"
+								: props.personId
+								  ? "personId"
+								  : "metadataGroupId"
+						}
+						value={props.metadataId || props.personId || props.metadataGroupId}
 						readOnly
 					/>
 					<Button
@@ -1023,12 +1035,12 @@ export const CreateReminderModal = (props: {
 };
 
 export const DisplayMediaReminder = (props: {
-	d: UserMediaReminderPartFragment;
+	reminderData: UserMediaReminderPartFragment;
 }) => {
 	return (
 		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-			Reminder for {props.d.remindOn}
-			<Text c="green">{props.d.message}</Text>
+			Reminder for {props.reminderData.remindOn}
+			<Text c="green">{props.reminderData.message}</Text>
 		</Alert>
 	);
 };
@@ -1041,5 +1053,80 @@ export const DisplayMediaMonitored = (props: { entityLot?: string }) => {
 				This {props.entityLot || "media"} is being monitored
 			</Text>
 		</Flex>
+	);
+};
+
+export const DisplayMediaOwned = () => {
+	return (
+		<Flex align="center" gap={2}>
+			<IconBackpack size={20} />
+			<Text size="xs">You own this media</Text>
+		</Flex>
+	);
+};
+
+export const CreateOwnershipModal = (props: {
+	opened: boolean;
+	metadataId?: number;
+	metadataGroupId?: number;
+	onClose: () => void;
+}) => {
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form method="post" action="/actions?intent=toggleMediaOwnership" replace>
+				<HiddenLocationInput />
+				<Stack>
+					<Title order={3}>Mark media as owned</Title>
+					<DateInput
+						label="When did you get this media?"
+						clearable
+						popoverProps={{ withinPortal: true }}
+						onChange={setOwnedOn}
+						value={ownedOn}
+					/>
+					{props.metadataId ? (
+						<input hidden name="metadataId" defaultValue={props.metadataId} />
+					) : null}
+					{props.metadataGroupId ? (
+						<input
+							hidden
+							name="metadataGroupId"
+							defaultValue={props.metadataGroupId}
+						/>
+					) : null}
+					<input
+						hidden
+						name="ownedOn"
+						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
+					/>
+					<SimpleGrid cols={2}>
+						<Button
+							variant="outline"
+							onClick={props.onClose}
+							disabled={!!ownedOn}
+							data-autofocus
+							type="submit"
+						>
+							I don't remember
+						</Button>
+						<Button
+							disabled={!ownedOn}
+							variant="outline"
+							type="submit"
+							onClick={props.onClose}
+						>
+							Submit
+						</Button>
+					</SimpleGrid>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };

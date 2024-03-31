@@ -7,7 +7,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -21,10 +21,11 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
+            MediaDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+            PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -213,6 +214,7 @@ impl MediaProvider for NonMediaTmdbService {
         query: &str,
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
+        display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let typ = match source_specifics {
             Some(PersonSourceSpecifics {
@@ -229,6 +231,7 @@ impl MediaProvider for NonMediaTmdbService {
                 "query": query.to_owned(),
                 "page": page,
                 "language": self.base.language,
+                "include_adult": display_nsfw,
             }))
             .unwrap()
             .await
@@ -311,8 +314,8 @@ impl MediaProvider for NonMediaTmdbService {
                             title: media.title.or(media.name).unwrap_or_default(),
                             image: media.poster_path.map(|p| self.base.get_image_url(p)),
                             lot: match media.media_type.unwrap().as_ref() {
-                                "movie" => MetadataLot::Movie,
-                                "tv" => MetadataLot::Show,
+                                "movie" => MediaLot::Movie,
+                                "tv" => MediaLot::Show,
                                 _ => continue,
                             },
                             source: MediaSource::Tmdb,
@@ -343,8 +346,8 @@ impl MediaProvider for NonMediaTmdbService {
                                 title: m.title.unwrap_or_default(),
                                 image: m.poster_path.map(|p| self.base.get_image_url(p)),
                                 lot: match m_typ {
-                                    "movie" => MetadataLot::Movie,
-                                    "tv" => MetadataLot::Show,
+                                    "movie" => MediaLot::Movie,
+                                    "tv" => MediaLot::Show,
                                     _ => unreachable!(),
                                 },
                                 source: MediaSource::Tmdb,
@@ -556,7 +559,7 @@ impl MediaProvider for TmdbMovieService {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
             original_language: self.base.get_language_name(data.original_language),
-            lot: MetadataLot::Movie,
+            lot: MediaLot::Movie,
             source: MediaSource::Tmdb,
             production_status: data.status,
             title: data.title.unwrap(),
@@ -604,6 +607,50 @@ impl MediaProvider for TmdbMovieService {
         })
     }
 
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let page = page.unwrap_or(1);
+        let mut rsp = self
+            .client
+            .get("search/collection")
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": self.base.language,
+                "include_adult": display_nsfw,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = search
+            .results
+            .into_iter()
+            .map(|d| MetadataGroupSearchItem {
+                identifier: d.id.to_string(),
+                name: d.title.unwrap(),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                parts: None,
+            })
+            .collect_vec();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
+            items: resp,
+        })
+    }
+
     async fn metadata_group_details(
         &self,
         identifier: &str,
@@ -644,7 +691,7 @@ impl MediaProvider for TmdbMovieService {
                 title: p.title.unwrap(),
                 identifier: p.id.to_string(),
                 source: MediaSource::Tmdb,
-                lot: MetadataLot::Movie,
+                lot: MediaLot::Movie,
                 image: p.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
@@ -663,7 +710,7 @@ impl MediaProvider for TmdbMovieService {
                         lot: MetadataImageLot::Poster,
                     })
                     .collect(),
-                lot: MetadataLot::Movie,
+                lot: MediaLot::Movie,
                 source: MediaSource::Tmdb,
             },
             parts,
@@ -860,7 +907,7 @@ impl MediaProvider for TmdbShowService {
             title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
             original_language: self.base.get_language_name(show_data.original_language),
-            lot: MetadataLot::Show,
+            lot: MediaLot::Show,
             production_status: show_data.status,
             source: MediaSource::Tmdb,
             description: show_data.overview,
@@ -1088,8 +1135,8 @@ impl TmdbService {
         identifier: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
         let lot = match typ {
-            "movie" => MetadataLot::Movie,
-            "tv" => MetadataLot::Show,
+            "movie" => MediaLot::Movie,
+            "tv" => MediaLot::Show,
             _ => unreachable!(),
         };
         let mut suggestions = vec![];

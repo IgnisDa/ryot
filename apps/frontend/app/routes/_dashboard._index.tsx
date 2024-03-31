@@ -25,7 +25,7 @@ import {
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
-	MetadataLot,
+	MediaLot,
 	type UserMediaFeaturesEnabledPreferences,
 	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
@@ -48,7 +48,7 @@ import {
 	NewUserGuideAlert,
 } from "~/components/media";
 import {
-	ApplicationKey,
+	CurrentWorkoutKey,
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
@@ -61,7 +61,7 @@ import {
 	gqlClient,
 } from "~/lib/utilities.server";
 
-const cookieName = ApplicationKey.CurrentWorkout;
+const cookieName = CurrentWorkoutKey;
 
 const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
 	const t = prefs.general.dashboard.find(
@@ -101,7 +101,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		undefined,
 		await getAuthorizationHeader(request),
 	);
-	const cookies = request.headers.get("Cookie");
+	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return json({
 		workoutInProgress,
@@ -196,7 +196,7 @@ export default function Page() {
 								>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Movie}
+										lot={MediaLot.Movie}
 										data={[
 											{
 												label: "Movies",
@@ -214,7 +214,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Show}
+										lot={MediaLot.Show}
 										data={[
 											{
 												label: "Shows",
@@ -244,7 +244,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.VideoGame}
+										lot={MediaLot.VideoGame}
 										data={[
 											{
 												label: "Video games",
@@ -256,7 +256,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.VisualNovel}
+										lot={MediaLot.VisualNovel}
 										data={[
 											{
 												label: "Visual Novels",
@@ -276,7 +276,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.AudioBook}
+										lot={MediaLot.AudioBook}
 										data={[
 											{
 												label: "Audiobooks",
@@ -294,7 +294,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Book}
+										lot={MediaLot.Book}
 										data={[
 											{
 												label: "Books",
@@ -310,7 +310,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Podcast}
+										lot={MediaLot.Podcast}
 										data={[
 											{
 												label: "Podcasts",
@@ -335,7 +335,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Manga}
+										lot={MediaLot.Manga}
 										data={[
 											{
 												label: "Manga",
@@ -352,7 +352,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Anime}
+										lot={MediaLot.Anime}
 										data={[
 											{
 												label: "Anime",
@@ -508,12 +508,12 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 				image: um.metadataImage,
 				publishYear: `${match(um.metadataLot)
 					.with(
-						MetadataLot.Show,
+						MediaLot.Show,
 						() =>
 							`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
 					)
 					.with(
-						MetadataLot.Podcast,
+						MediaLot.Podcast,
 						() => `EP-${um.podcastExtraInformation?.episode}`,
 					)
 					.otherwise(() => "")} ${
@@ -598,7 +598,7 @@ const ActualDisplayStat = (props: {
 };
 
 const DisplayStatForMediaType = (props: {
-	lot: MetadataLot;
+	lot: MediaLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
 	media: UserMediaFeaturesEnabledPreferences;
 }) => {

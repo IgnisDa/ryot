@@ -66,6 +66,23 @@ impl Default for UserMediaFeaturesEnabledPreferences {
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
+pub struct UserOthersFeaturesEnabledPreferences {
+    pub collections: bool,
+    pub calendar: bool,
+}
+
+impl Default for UserOthersFeaturesEnabledPreferences {
+    fn default() -> Self {
+        Self {
+            calendar: true,
+            collections: true,
+        }
+    }
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
 pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
@@ -204,6 +221,7 @@ impl Default for UserMeasurementsPreferences {
 pub struct UserFeaturesEnabledPreferences {
     pub media: UserMediaFeaturesEnabledPreferences,
     pub fitness: UserFitnessFeaturesEnabledPreferences,
+    pub others: UserOthersFeaturesEnabledPreferences,
 }
 
 #[derive(

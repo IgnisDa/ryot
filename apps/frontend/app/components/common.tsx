@@ -23,8 +23,8 @@ import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { Form } from "@remix-run/react";
 import type {
 	EntityLot,
+	MediaLot,
 	MediaSource,
-	MetadataLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
@@ -67,7 +67,7 @@ export const MediaDetailsLayout = (props: {
 	images: (string | null | undefined)[];
 	externalLink?: {
 		source: MediaSource;
-		lot?: MetadataLot;
+		lot?: MediaLot;
 		href?: string | null;
 	};
 }) => {

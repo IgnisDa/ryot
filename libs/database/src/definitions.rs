@@ -23,7 +23,7 @@ use strum::Display;
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 #[config(rename_all = "PascalCase")]
-pub enum MetadataLot {
+pub enum MediaLot {
     #[sea_orm(string_value = "AB")]
     AudioBook,
     #[sea_orm(string_value = "AN")]

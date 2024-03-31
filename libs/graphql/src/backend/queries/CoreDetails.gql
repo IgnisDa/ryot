@@ -1,6 +1,5 @@
 query CoreDetails {
   coreDetails {
-    version
     timezone
     authorName
     repositoryLink

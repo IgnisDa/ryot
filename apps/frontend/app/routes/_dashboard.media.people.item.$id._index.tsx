@@ -213,16 +213,14 @@ export default function Page() {
 						) : null}
 					</Text>
 					<Group>
-						{loaderData.userPersonDetails.collections.length > 0
-							? loaderData.userPersonDetails.collections.map((col) => (
-									<DisplayCollection
-										col={col}
-										entityId={loaderData.personId.toString()}
-										entityLot={EntityLot.Person}
-										key={col.id}
-									/>
-							  ))
-							: null}
+						{loaderData.userPersonDetails.collections.map((col) => (
+							<DisplayCollection
+								col={col}
+								entityId={loaderData.personId.toString()}
+								entityLot={EntityLot.Person}
+								key={col.id}
+							/>
+						))}
 						{loaderData.personDetails.details.isPartial ? (
 							<MediaIsPartial mediaType="person" />
 						) : null}
@@ -231,7 +229,9 @@ export default function Page() {
 						) : null}
 					</Group>
 					{loaderData.userPersonDetails.reminder ? (
-						<DisplayMediaReminder d={loaderData.userPersonDetails.reminder} />
+						<DisplayMediaReminder
+							reminderData={loaderData.userPersonDetails.reminder}
+						/>
 					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">

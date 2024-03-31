@@ -3,7 +3,7 @@ use std::{env, sync::Arc, time::Instant};
 use apalis::prelude::{Job, JobContext, JobError};
 use chrono::DateTime;
 use chrono_tz::Tz;
-use database::{MediaSource, MetadataLot};
+use database::{MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
@@ -14,7 +14,7 @@ use crate::{
     miscellaneous::resolver::MiscellaneousService,
     models::{
         fitness::Exercise,
-        media::{ProgressUpdateInput, ReviewPostedEvent},
+        media::{CommitMediaInput, ProgressUpdateInput, ReviewPostedEvent},
         ExportItem,
     },
 };
@@ -153,7 +153,7 @@ pub enum ApplicationJob {
     UpdateExerciseJob(Exercise),
     UpdatePerson(i32),
     RecalculateCalendarEvents,
-    AssociateGroupWithMetadata(MetadataLot, MediaSource, String),
+    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ReviewPosted(ReviewPostedEvent),
     PerformExport(i32, Vec<ExportItem>),
     RecalculateUserSummary(i32),
@@ -201,8 +201,12 @@ pub async fn perform_application_job(
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
         }
-        ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => misc_service
-            .associate_group_with_metadata(lot, source, group_identifier)
+        ApplicationJob::AssociateGroupWithMetadata(lot, source, identifier) => misc_service
+            .commit_metadata_group(CommitMediaInput {
+                lot,
+                source,
+                identifier,
+            })
             .await
             .is_ok(),
         ApplicationJob::ReviewPosted(event) => {

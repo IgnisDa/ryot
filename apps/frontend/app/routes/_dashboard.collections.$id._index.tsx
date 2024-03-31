@@ -26,7 +26,7 @@ import {
 	CollectionContentsSortBy,
 	EntityLot,
 	GraphqlSortOrder,
-	MetadataLot,
+	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -77,7 +77,7 @@ const searchParamsSchema = z.object({
 		.default(defaultFiltersValue.sort),
 	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFiltersValue.order),
 	entityLot: z.nativeEnum(EntityLot).optional(),
-	metadataLot: z.nativeEnum(MetadataLot).optional(),
+	metadataLot: z.nativeEnum(MediaLot).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -279,7 +279,7 @@ export default function Page() {
 												<Select
 													placeholder="Select a media type"
 													defaultValue={loaderData.query.metadataLot}
-													data={Object.values(MetadataLot).map((o) => ({
+													data={Object.values(MediaLot).map((o) => ({
 														value: o.toString(),
 														label: startCase(o.toLowerCase()),
 													}))}

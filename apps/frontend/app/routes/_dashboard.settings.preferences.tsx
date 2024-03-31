@@ -27,7 +27,6 @@ import {
 	type LoaderFunctionArgs,
 	type MetaFunction,
 	json,
-	redirect,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -52,6 +51,8 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	authCookie,
+	combineHeaders,
+	createToastHeaders,
 	getAuthorizationHeader,
 	getCookiesForApplication,
 	getUserDetails,
@@ -108,9 +109,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		);
 	}
-	const token = await authCookie.parse(request.headers.get("Cookie"));
-	const headers = await getCookiesForApplication(token);
-	return json({}, { headers });
+	const token = await authCookie.parse(request.headers.get("cookie"));
+	const applicationHeaders = await getCookiesForApplication(token);
+	const toastHeaders = await createToastHeaders({
+		message: "Preferences updated",
+		type: "success",
+	});
+	return json(
+		{},
+		{ headers: combineHeaders(applicationHeaders, toastHeaders) },
+	);
 };
 
 export default function Page() {
@@ -135,11 +143,7 @@ export default function Page() {
 		<Container size="xs">
 			{toUpdatePreferences.length > 0 ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<Form
-						method="post"
-						reloadDocument
-						action={`?defaultTab=${defaultTab}`}
-					>
+					<Form method="post" action={`?defaultTab=${defaultTab}`}>
 						{toUpdatePreferences.map((pref) => (
 							<input
 								key={pref[0]}
@@ -241,7 +245,7 @@ export default function Page() {
 					<Tabs.Panel value="general" mt="md">
 						<Stack>
 							<Text>Features that you want to use.</Text>
-							{(["media", "fitness"] as const).map((facet) => (
+							{(["media", "fitness", "others"] as const).map((facet) => (
 								<Fragment key={facet}>
 									<Title order={4}>{startCase(facet)}</Title>
 									<SimpleGrid cols={2}>
