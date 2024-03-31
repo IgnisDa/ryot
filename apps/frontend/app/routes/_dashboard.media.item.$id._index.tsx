@@ -281,6 +281,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				podcastEpisodeNumber: submission.podcastEpisodeNumber,
 				animeEpisodeNumber: submission.animeEpisodeNumber,
 				mangaChapterNumber: submission.mangaChapterNumber,
+				providerWatchedOn: submission.providerWatchedOn,
 			};
 			let needsFinalUpdate = true;
 			const updates = [];
@@ -431,6 +432,7 @@ const progressUpdateSchema = z
 		completePodcast: zx.BoolAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
+		providerWatchedOn: z.string().optional(),
 	})
 	.merge(metadataIdSchema)
 	.merge(MetadataSpecificsSchema);
@@ -2379,6 +2381,21 @@ const SeenItem = (props: {
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
 		: null;
+	const displayAnimeExtraInformation =
+		props.history.animeExtraInformation?.episode;
+	const displayMangaExtraInformation =
+		props.history.mangaExtraInformation?.chapter;
+	const watchedOnInformation = props.history.providerWatchedOn;
+
+	const displayAllInformation = [
+		displayShowExtraInformation,
+		displayPodcastExtraInformation,
+		displayAnimeExtraInformation,
+		displayMangaExtraInformation,
+		watchedOnInformation,
+	]
+		.filter(Boolean)
+		.join("; ");
 
 	return (
 		<>
@@ -2420,24 +2437,9 @@ const SeenItem = (props: {
 								? `(${props.history.progress}%)`
 								: null}
 						</Text>
-						{displayShowExtraInformation ? (
+						{displayAllInformation ? (
 							<Text c="dimmed" lineClamp={1}>
-								{displayShowExtraInformation}
-							</Text>
-						) : null}
-						{displayPodcastExtraInformation ? (
-							<Text c="dimmed" lineClamp={1}>
-								{displayPodcastExtraInformation}
-							</Text>
-						) : null}
-						{props.history.animeExtraInformation?.episode ? (
-							<Text c="dimmed">
-								EP-{props.history.animeExtraInformation.episode}
-							</Text>
-						) : null}
-						{props.history.mangaExtraInformation?.chapter ? (
-							<Text c="dimmed">
-								Ch-{props.history.mangaExtraInformation.chapter}
+								{displayAllInformation}
 							</Text>
 						) : null}
 					</Flex>
@@ -2467,14 +2469,6 @@ const SeenItem = (props: {
 									{dayjsLib(props.history.lastUpdatedOn).format("L")}
 								</Text>
 							</Flex>
-							{props.history.providerWatchedOn ? (
-								<Flex gap="xs">
-									<Text size="sm">Watched On:</Text>
-									<Text size="sm" fw="bold">
-										{props.history.providerWatchedOn}
-									</Text>
-								</Flex>
-							) : null}
 						</Flex>
 					</Flex>
 				</Flex>
