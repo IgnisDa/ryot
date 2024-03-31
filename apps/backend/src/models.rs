@@ -879,6 +879,7 @@ pub mod media {
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
         pub change_state: Option<SeenState>,
+        pub provider_watched_on: Option<String>,
     }
 
     #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1052,6 +1053,8 @@ pub mod media {
         pub anime_episode_number: Option<i32>,
         /// If for a manga, the chapter which was seen.
         pub manga_chapter_number: Option<i32>,
+        /// The provider this item was watched on.
+        pub provider_watched_on: Option<String>,
     }
 
     /// Review data associated to a rating.

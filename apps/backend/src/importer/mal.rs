@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_graphql::Result;
-use database::{MediaLot, MediaSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use rs_utils::{convert_naive_to_utc, convert_string_to_date};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -50,6 +50,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
     let seen_item = ImportOrExportMediaItemSeen {
         started_on: get_date(item.my_start_date),
         ended_on: get_date(item.my_finish_date),
+        provider_watched_on: Some(ImportSource::Mal.to_string()),
         progress,
         ..Default::default()
     };

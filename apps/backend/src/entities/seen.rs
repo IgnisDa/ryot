@@ -32,6 +32,7 @@ pub struct Model {
     pub user_id: i32,
     pub metadata_id: i32,
     pub state: SeenState,
+    pub provider_watched_on: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
     pub updated_at: Vec<DateTimeUtc>,

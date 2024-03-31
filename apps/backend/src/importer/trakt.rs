@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
-use database::{MediaLot, MediaSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -204,6 +204,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                 d.seen_history.push(ImportOrExportMediaItemSeen {
                     ended_on: item.watched_at,
                     show_season_number,
+                    provider_watched_on: Some(ImportSource::Trakt.to_string()),
                     show_episode_number,
                     ..Default::default()
                 });

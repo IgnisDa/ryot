@@ -33,6 +33,7 @@ fragment CalendarEventPart on GraphqlCalendarEvent {
 fragment SeenPart on Seen {
   id
   progress
+  providerWatchedOn
   state
   startedOn
   finishedOn

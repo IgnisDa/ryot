@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
-use database::{MediaLot, MediaSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::Display;
@@ -92,6 +92,7 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                             source_id: metadata.title.unwrap_or_default(),
                             identifier: item.id,
                             seen_history: vec![ImportOrExportMediaItemSeen {
+                                provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
                                 ..Default::default()
                             }],
                             collections: vec![],

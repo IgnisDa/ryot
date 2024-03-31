@@ -1,6 +1,7 @@
 use std::{fs, sync::Arc};
 
 use async_graphql::Result;
+use database::ImportSource;
 
 use crate::{
     entities::{user_measurement, workout},
@@ -18,7 +19,10 @@ pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> 
         m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails {
             identifier: m.identifier.clone(),
             title: m.source_id.clone(),
-        })
+        });
+        m.seen_history.iter_mut().for_each(|s| {
+            s.provider_watched_on = Some(ImportSource::MediaJson.to_string());
+        });
     });
     Ok(ImportResult {
         media,

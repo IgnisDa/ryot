@@ -26,6 +26,7 @@ pub struct IntegrationMedia {
     pub podcast_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
     pub manga_chapter_number: Option<i32>,
+    pub provider_watched_on: Option<String>,
 }
 
 #[derive(Debug)]
@@ -108,9 +109,10 @@ impl IntegrationService {
             lot,
             source: MediaSource::Tmdb,
             progress: position / runtime * dec!(100),
-            podcast_episode_number: None,
             show_season_number: payload.item.season_number,
             show_episode_number: payload.item.episode_number,
+            provider_watched_on: Some("Jellyfin".to_string()),
+            podcast_episode_number: None,
             manga_chapter_number: None,
             anime_episode_number: None,
         })
@@ -234,9 +236,10 @@ impl IntegrationService {
             lot,
             source: MediaSource::Tmdb,
             progress,
-            podcast_episode_number: None,
+            provider_watched_on: Some("Plex".to_string()),
             show_season_number: payload.metadata.season_number,
             show_episode_number: payload.metadata.episode_number,
+            podcast_episode_number: None,
             anime_episode_number: None,
             manga_chapter_number: None,
         })
@@ -312,6 +315,7 @@ impl IntegrationService {
                     lot: MediaLot::AudioBook,
                     source: MediaSource::Audible,
                     progress: resp.progress * dec!(100),
+                    provider_watched_on: Some("Audiobookshelf".to_string()),
                     show_season_number: None,
                     show_episode_number: None,
                     podcast_episode_number: None,

@@ -2558,6 +2558,7 @@ impl MiscellaneousService {
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.updated_at = ActiveValue::Set(updated_at);
+                last_seen.provider_watched_on = ActiveValue::Set(input.provider_watched_on);
                 if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
@@ -2580,6 +2581,7 @@ impl MiscellaneousService {
                         let mut last_seen: seen::ActiveModel = ls.into();
                         last_seen.state = ActiveValue::Set(new_state);
                         last_seen.updated_at = ActiveValue::Set(updated_at);
+                        last_seen.provider_watched_on = ActiveValue::Set(input.provider_watched_on);
                         last_seen.update(&self.db).await.unwrap()
                     }
                     None => {
@@ -2650,6 +2652,7 @@ impl MiscellaneousService {
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
                     state: ActiveValue::Set(SeenState::InProgress),
+                    provider_watched_on: ActiveValue::Set(input.provider_watched_on),
                     show_extra_information: ActiveValue::Set(show_ei),
                     podcast_extra_information: ActiveValue::Set(podcast_ei),
                     anime_extra_information: ActiveValue::Set(anime_ei),
@@ -6109,6 +6112,7 @@ impl MiscellaneousService {
                 podcast_episode_number: pu.podcast_episode_number,
                 anime_episode_number: pu.anime_episode_number,
                 manga_chapter_number: pu.manga_chapter_number,
+                provider_watched_on: pu.provider_watched_on,
                 change_state: None,
             },
             user_id,
@@ -6964,6 +6968,7 @@ GROUP BY
                         progress: Some(s.progress),
                         started_on: s.started_on.map(convert_naive_to_utc),
                         ended_on: s.finished_on.map(convert_naive_to_utc),
+                        provider_watched_on: s.provider_watched_on,
                         show_season_number,
                         show_episode_number,
                         podcast_episode_number,
