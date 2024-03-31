@@ -91,6 +91,7 @@ export const redirectIfNotAuthenticated = async (request: Request) => {
 };
 
 export const expectedEnvironmentVariables = z.object({
+	RUNNING_KEY: z.string().default(crypto.randomUUID()),
 	DISABLE_TELEMETRY: z
 		.string()
 		.optional()
@@ -161,31 +162,6 @@ export const getUserCollectionsList = async (request: Request) => {
 		await getAuthorizationHeader(request),
 	);
 	return userCollectionsList;
-};
-
-export const getLogoutCookies = async () => {
-	return combineHeaders(
-		{
-			"set-cookie": await authCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"set-cookie": await coreDetailsCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"set-cookie": await userPreferencesCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"set-cookie": await userDetailsCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-	);
 };
 
 export const uploadFileAndGetKey = async (
@@ -261,29 +237,6 @@ export const getCoreEnabledFeatures = async () => {
 		CoreEnabledFeaturesDocument,
 	);
 	return coreEnabledFeatures;
-};
-
-export const getCoreDetails = async (request: Request) => {
-	const details = await coreDetailsCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return details as CoreDetails;
-};
-
-export const getUserPreferences = async (request: Request) => {
-	await redirectIfNotAuthenticated(request);
-	const prefs = await userPreferencesCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return prefs as UserPreferences;
-};
-
-export const getUserDetails = async (request: Request) => {
-	await redirectIfNotAuthenticated(request);
-	const details = await userDetailsCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return details as ApplicationUser;
 };
 
 const envVariables = expectedEnvironmentVariables.parse(process.env);
@@ -408,4 +361,52 @@ export const getCookiesForApplication = async (token: string) => {
 			}),
 		},
 	);
+};
+
+export const getLogoutCookies = async () => {
+	return combineHeaders(
+		{
+			"set-cookie": await authCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"set-cookie": await coreDetailsCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"set-cookie": await userPreferencesCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"set-cookie": await userDetailsCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+	);
+};
+
+export const getCoreDetails = async (request: Request) => {
+	const details = await coreDetailsCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	return details as CoreDetails;
+};
+
+export const getUserPreferences = async (request: Request) => {
+	await redirectIfNotAuthenticated(request);
+	const prefs = await userPreferencesCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	return prefs as UserPreferences;
+};
+
+export const getUserDetails = async (request: Request) => {
+	await redirectIfNotAuthenticated(request);
+	const details = await userDetailsCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	return details as ApplicationUser;
 };
