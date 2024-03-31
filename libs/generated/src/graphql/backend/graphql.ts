@@ -1427,7 +1427,7 @@ export type ProgressUpdateInput = {
   mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
   metadataId: Scalars['Int']['input'];
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  progress?: InputMaybe<Scalars['Int']['input']>;
+  progress?: InputMaybe<Scalars['Decimal']['input']>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -1704,7 +1704,7 @@ export type Seen = {
   metadataId: Scalars['Int']['output'];
   numTimesUpdated: Scalars['Int']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
-  progress: Scalars['Int']['output'];
+  progress: Scalars['Decimal']['output'];
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
   startedOn?: Maybe<Scalars['NaiveDate']['output']>;
   state: SeenState;
@@ -2918,7 +2918,7 @@ export type UserMetadataDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserMetadataDetailsQuery = { userMetadataDetails: { averageRating?: string | null, unitsConsumed?: number | null, isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null } | null, history: Array<{ id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null }>, reviews: Array<{ id: number, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, spoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null }>, reminder?: { remindOn: string, message: string } | null, ownership?: { markedOn: string, ownedOn?: string | null } | null, nextEntry?: { season?: number | null, episode?: number | null, chapter?: number | null } | null } };
+export type UserMetadataDetailsQuery = { userMetadataDetails: { averageRating?: string | null, unitsConsumed?: number | null, isMonitored: boolean, seenBy: number, collections: Array<{ id: number, name: string }>, inProgress?: { id: number, progress: string, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null } | null, history: Array<{ id: number, progress: string, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null }>, reviews: Array<{ id: number, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, spoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null }>, reminder?: { remindOn: string, message: string } | null, ownership?: { markedOn: string, ownedOn?: string | null } | null, nextEntry?: { season?: number | null, episode?: number | null, chapter?: number | null } | null } };
 
 export type UserMetadataGroupDetailsQueryVariables = Exact<{
   metadataGroupId: Scalars['Int']['input'];
@@ -2980,7 +2980,7 @@ export type SeenMangaExtraInformationPartFragment = { chapter?: number | null };
 
 export type CalendarEventPartFragment = { calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null };
 
-export type SeenPartFragment = { id: number, progress: number, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null };
+export type SeenPartFragment = { id: number, progress: string, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null } | null };
 
 export type MetadataSearchItemPartFragment = { identifier: string, title: string, image?: string | null, publishYear?: number | null };
 

@@ -29,7 +29,10 @@ use markdown::{
 use nanoid::nanoid;
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::{
+    prelude::{FromPrimitive, ToPrimitive},
+    Decimal,
+};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -2515,7 +2518,7 @@ impl MiscellaneousService {
             None => match input.progress {
                 None => ProgressUpdateAction::ChangeState,
                 Some(p) => {
-                    if p == 100 {
+                    if p == dec!(100) {
                         match input.date {
                             None => ProgressUpdateAction::InThePast,
                             Some(u) => {
@@ -2555,7 +2558,7 @@ impl MiscellaneousService {
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.updated_at = ActiveValue::Set(updated_at);
-                if progress == 100 {
+                if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
                 last_seen.update(&self.db).await.unwrap()
@@ -2635,9 +2638,9 @@ impl MiscellaneousService {
                 tracing::debug!("Progress update finished on = {:?}", finished_on);
                 let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
                 {
-                    (0, Some(Utc::now().date_naive()))
+                    (dec!(0), Some(Utc::now().date_naive()))
                 } else {
-                    (100, None)
+                    (dec!(100), None)
                 };
                 tracing::debug!("Progress update percentage = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
@@ -4684,7 +4687,7 @@ impl MiscellaneousService {
                 ));
             }
             si.delete(&self.db).await.ok();
-            if progress < 100 {
+            if progress < dec!(100) {
                 self.remove_entity_from_collection(
                     user_id,
                     ChangeCollectionToEntityInput {
@@ -6080,11 +6083,12 @@ impl MiscellaneousService {
     }
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
-        if pu.progress < self.config.integration.minimum_progress_limit {
+        let limit = Decimal::from_i32(self.config.integration.minimum_progress_limit).unwrap();
+        if pu.progress < limit {
             return Ok(());
         }
-        let progress = if pu.progress > self.config.integration.maximum_progress_limit {
-            100
+        let progress = if pu.progress > limit {
+            dec!(100)
         } else {
             pu.progress
         };

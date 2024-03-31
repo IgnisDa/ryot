@@ -534,7 +534,7 @@ impl ImporterService {
                 let progress = if seen.progress.is_some() {
                     seen.progress
                 } else {
-                    Some(100)
+                    Some(dec!(100))
                 };
                 if let Err(e) = self
                     .media_service

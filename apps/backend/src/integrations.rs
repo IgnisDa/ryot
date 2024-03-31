@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use database::{MediaLot, MediaSource};
 use regex::Regex;
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
@@ -20,7 +20,7 @@ pub struct IntegrationMedia {
     pub lot: MediaLot,
     #[serde(default)]
     pub source: MediaSource,
-    pub progress: i32,
+    pub progress: Decimal,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
@@ -107,7 +107,7 @@ impl IntegrationService {
             identifier,
             lot,
             source: MediaSource::Tmdb,
-            progress: (position / runtime * dec!(100)).to_i32().unwrap(),
+            progress: position / runtime * dec!(100),
             podcast_episode_number: None,
             show_season_number: payload.item.season_number,
             show_episode_number: payload.item.episode_number,
@@ -222,11 +222,9 @@ impl IntegrationService {
             _ => bail!("Only movies and shows supported"),
         };
         let progress = match payload.metadata.view_offset {
-            Some(offset) => (offset / payload.metadata.duration * dec!(100))
-                .to_i32()
-                .unwrap(),
+            Some(offset) => offset / payload.metadata.duration * dec!(100),
             None => match payload.event_type.as_str() {
-                "media.scrobble" => 100,
+                "media.scrobble" => dec!(100),
                 _ => bail!("No position associated with this media"),
             },
         };
@@ -313,7 +311,7 @@ impl IntegrationService {
                     identifier: asin,
                     lot: MediaLot::AudioBook,
                     source: MediaSource::Audible,
-                    progress: (resp.progress * dec!(100)).to_i32().unwrap(),
+                    progress: resp.progress * dec!(100),
                     show_season_number: None,
                     show_episode_number: None,
                     podcast_episode_number: None,

@@ -108,7 +108,7 @@ export interface ImportOrExportMediaItemSeen {
 	/** If for a podcast, the episode which was seen. */
 	podcast_episode_number: number | null;
 	/** The progress of media done. If none, it is considered as done. */
-	progress: number | null;
+	progress: string | null;
 	/** If for a show, the episode which was seen. */
 	show_episode_number: number | null;
 	/** If for a show, the season which was seen. */
