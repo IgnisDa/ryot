@@ -24,7 +24,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
-import { withQuery } from "ufo";
+import { withQuery, withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
@@ -67,14 +67,31 @@ export const getIsAuthenticated = async (request: Request) => {
 	}
 };
 
-export const redirectIfNotAuthenticated = async (request: Request) => {
+export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
-	if (!isAuthenticated || userDetails.__typename !== "User") {
-		const url = new URL(request.url);
+	const runningKey = await runningKeyCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	const nextUrl = withoutHost(request.url);
+	if (runningKey !== envVariables.RUNNING_KEY) {
 		throw redirect(
-			withQuery($path("/auth/login"), {
-				[redirectToQueryParam]: url.pathname + url.search,
-			}),
+			withQuery($path("/auth/login"), { [redirectToQueryParam]: nextUrl }),
+			{
+				status: 302,
+				headers: combineHeaders(
+					await createToastHeaders({
+						message:
+							"An upgrade has been made to the website, please log in again.",
+						type: "error",
+					}),
+					await getLogoutCookies(),
+				),
+			},
+		);
+	}
+	if (!isAuthenticated || userDetails.__typename !== "User") {
+		throw redirect(
+			withQuery($path("/auth/login"), { [redirectToQueryParam]: nextUrl }),
 			{
 				status: 302,
 				headers: combineHeaders(
@@ -239,7 +256,7 @@ export const getCoreEnabledFeatures = async () => {
 	return coreEnabledFeatures;
 };
 
-const envVariables = expectedEnvironmentVariables.parse(process.env);
+export const envVariables = expectedEnvironmentVariables.parse(process.env);
 
 const commonCookieOptions = {
 	sameSite: "lax",
@@ -268,6 +285,8 @@ export const userDetailsCookie = createCookie(
 	"UserDetails",
 	commonCookieOptions,
 );
+
+export const runningKeyCookie = createCookie("RunningKey", commonCookieOptions);
 
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: { ...commonCookieOptions, name: "Toast" },
@@ -385,6 +404,11 @@ export const getLogoutCookies = async () => {
 				expires: new Date(0),
 			}),
 		},
+		{
+			"set-cookie": await runningKeyCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
 	);
 };
 
@@ -396,7 +420,7 @@ export const getCoreDetails = async (request: Request) => {
 };
 
 export const getUserPreferences = async (request: Request) => {
-	await redirectIfNotAuthenticated(request);
+	await redirectIfNotAuthenticatedOrUpdated(request);
 	const prefs = await userPreferencesCookie.parse(
 		request.headers.get("cookie") || "",
 	);
@@ -404,7 +428,7 @@ export const getUserPreferences = async (request: Request) => {
 };
 
 export const getUserDetails = async (request: Request) => {
-	await redirectIfNotAuthenticated(request);
+	await redirectIfNotAuthenticatedOrUpdated(request);
 	const details = await userDetailsCookie.parse(
 		request.headers.get("cookie") || "",
 	);

@@ -50,17 +50,19 @@ import { produce } from "immer";
 import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import { getLot } from "~/lib/generals";
-import { redirectIfNotAuthenticated } from "~/lib/utilities.server";
+import {
+	envVariables,
+	redirectIfNotAuthenticatedOrUpdated,
+} from "~/lib/utilities.server";
 import {
 	colorSchemeCookie,
-	expectedEnvironmentVariables,
 	getCoreDetails,
 	getUserPreferences,
 } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const userDetails = await redirectIfNotAuthenticated(request);
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, coreDetails] = await Promise.all([
 		getUserPreferences(request),
 		getCoreDetails(request),
@@ -157,15 +159,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		request.headers.get("cookie") || "",
 	);
 
-	const envData = expectedEnvironmentVariables.parse(process.env);
 	const shouldHaveUmami =
-		envData.FRONTEND_UMAMI_SCRIPT_URL &&
-		envData.FRONTEND_UMAMI_WEBSITE_ID &&
-		!envData.DISABLE_TELEMETRY &&
+		envVariables.FRONTEND_UMAMI_SCRIPT_URL &&
+		envVariables.FRONTEND_UMAMI_WEBSITE_ID &&
+		!envVariables.DISABLE_TELEMETRY &&
 		!userDetails.isDemo;
 
 	return json({
-		envData,
+		envData: envVariables,
 		mediaLinks,
 		userDetails,
 		coreDetails,

@@ -22,12 +22,14 @@ import {
 	authCookie,
 	combineHeaders,
 	createToastHeaders,
+	envVariables,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	getIsAuthenticated,
 	gqlClient,
 	processSubmission,
 	redirectWithToast,
+	runningKeyCookie,
 } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
@@ -60,12 +62,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		if (submission[redirectToQueryParam])
 			redirectUrl = safeRedirect(submission[redirectToQueryParam]);
 		const cookies = await getCookiesForApplication(loginUser.apiKey);
+		const options = {
+			maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
+		} as const;
 		return redirect(redirectUrl, {
 			headers: combineHeaders(
+				{ "set-cookie": await authCookie.serialize(loginUser.apiKey, options) },
 				{
-					"set-cookie": await authCookie.serialize(loginUser.apiKey, {
-						maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
-					}),
+					"set-cookie": await runningKeyCookie.serialize(
+						envVariables.RUNNING_KEY,
+						options,
+					),
 				},
 				cookies,
 			),
