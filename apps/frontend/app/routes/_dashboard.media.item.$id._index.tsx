@@ -2001,17 +2001,20 @@ const ProgressUpdateModal = (props: {
 						When did you {getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}{" "}
 						it?
 					</Title>
-					<Button
-						variant="outline"
-						type="submit"
-						name="date"
-						value={formatDateToNaiveDate(new Date())}
-					>
-						Now
-					</Button>
-					<Button variant="outline" type="submit">
-						I do not remember
-					</Button>
+					<Button.Group>
+						<Button
+							variant="outline"
+							type="submit"
+							name="date"
+							value={formatDateToNaiveDate(new Date())}
+							w="100%"
+						>
+							Just right now
+						</Button>
+						<Button variant="outline" type="submit" w="100%">
+							I don't remember
+						</Button>
+					</Button.Group>
 					<Group grow>
 						<DatePickerInput
 							dropdownType="modal"
