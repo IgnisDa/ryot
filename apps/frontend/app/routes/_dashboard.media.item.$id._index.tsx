@@ -2260,11 +2260,22 @@ const AccordionLabel = (props: {
 		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
 	]
 		.filter(Boolean)
-		.join(", ");
+		.join("; ");
+
+	const DisplayDetails = () => (
+		<>
+			<Text lineClamp={2}>{props.name}</Text>
+			{display ? (
+				<Text size="xs" c="dimmed">
+					{display}
+				</Text>
+			) : null}
+		</>
+	);
 
 	return (
 		<Stack data-episode-id={props.id}>
-			<Flex align="center" gap="sm" justify="space-between">
+			<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
 				<Group wrap="nowrap">
 					<Indicator
 						disabled={props.displayIndicator === 0}
@@ -2285,17 +2296,15 @@ const AccordionLabel = (props: {
 							imageProps={{ loading: "lazy" }}
 						/>
 					</Indicator>
-					<Box>
-						<Text lineClamp={2}>{props.name}</Text>
-						{display ? (
-							<Text size="xs" c="dimmed">
-								{display}
-							</Text>
-						) : null}
+					<Box visibleFrom="md">
+						<DisplayDetails />
 					</Box>
 				</Group>
 				<Box flex={0}>{props.children}</Box>
 			</Flex>
+			<Box hiddenFrom="md">
+				<DisplayDetails />
+			</Box>
 			{props.overview ? (
 				<Text
 					size="sm"
