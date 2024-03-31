@@ -2296,11 +2296,13 @@ const AccordionLabel = (props: {
 							imageProps={{ loading: "lazy" }}
 						/>
 					</Indicator>
-					<Box visibleFrom="md">
+					<Box visibleFrom="md" ml="sm">
 						<DisplayDetails />
 					</Box>
 				</Group>
-				<Box flex={0}>{props.children}</Box>
+				<Box flex={0} ml={{ base: "md", md: 0 }}>
+					{props.children}
+				</Box>
 			</Flex>
 			<Box hiddenFrom="md">
 				<DisplayDetails />
