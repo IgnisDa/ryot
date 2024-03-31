@@ -16,6 +16,7 @@ import {
 	Stack,
 	Switch,
 	Tabs,
+	TagsInput,
 	Text,
 	Title,
 	rem,
@@ -330,6 +331,15 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
+							<TagsInput
+								label="Watch providers"
+								placeholder="Enter more providers"
+								defaultValue={loaderData.userPreferences.general.watchProviders}
+								disabled={!!loaderData.userDetails.isDemo}
+								onChange={(val) => {
+									appendPref("general.watch_providers", JSON.stringify(val));
+								}}
+							/>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications" mt="md">
