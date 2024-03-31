@@ -4,7 +4,7 @@ use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use database::{MediaLot, MediaSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -84,6 +84,7 @@ pub async fn import(
                 ImportOrExportMediaItemSeen {
                     started_on: None,
                     ended_on: None,
+                    provider_watched_on: Some(ImportSource::Goodreads.to_string()),
                     ..Default::default()
                 };
                 record.read_count

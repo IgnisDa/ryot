@@ -52,7 +52,7 @@ RUN npm install --global concurrently@8.2.2 && concurrently --version
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 USER ryot
-COPY config/Caddyfile /etc/caddy/Caddyfile
+COPY ci/Caddyfile /etc/caddy/Caddyfile
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules ./node_modules
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build

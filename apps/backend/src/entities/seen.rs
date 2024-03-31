@@ -4,6 +4,8 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use database::SeenState;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
@@ -24,12 +26,13 @@ use crate::{
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub progress: i32,
+    pub progress: Decimal,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
     pub user_id: i32,
     pub metadata_id: i32,
     pub state: SeenState,
+    pub provider_watched_on: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
     pub updated_at: Vec<DateTimeUtc>,
@@ -82,7 +85,7 @@ impl ActiveModelBehavior for ActiveModel {
     {
         let state = self.state.clone().unwrap();
         let progress = self.progress.clone().unwrap();
-        if progress == 100 && state == SeenState::InProgress {
+        if progress == dec!(100) && state == SeenState::InProgress {
             self.state = ActiveValue::Set(SeenState::Completed);
         }
         Ok(self)

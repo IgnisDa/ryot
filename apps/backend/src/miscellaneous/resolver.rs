@@ -29,7 +29,10 @@ use markdown::{
 use nanoid::nanoid;
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::{
+    prelude::{FromPrimitive, ToPrimitive},
+    Decimal,
+};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -2494,7 +2497,7 @@ impl MiscellaneousService {
         }
         tracing::debug!("Input for progress_update = {:?}", input);
 
-        let prev_seen = Seen::find()
+        let all_prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::State.ne(SeenState::Dropped))
@@ -2515,12 +2518,12 @@ impl MiscellaneousService {
             None => match input.progress {
                 None => ProgressUpdateAction::ChangeState,
                 Some(p) => {
-                    if p == 100 {
+                    if p == dec!(100) {
                         match input.date {
                             None => ProgressUpdateAction::InThePast,
                             Some(u) => {
                                 if Utc::now().date_naive() == u {
-                                    if prev_seen.is_empty() {
+                                    if all_prev_seen.is_empty() {
                                         ProgressUpdateAction::Now
                                     } else {
                                         ProgressUpdateAction::Update
@@ -2530,7 +2533,7 @@ impl MiscellaneousService {
                                 }
                             }
                         }
-                    } else if prev_seen.is_empty() {
+                    } else if all_prev_seen.is_empty() {
                         ProgressUpdateAction::JustStarted
                     } else {
                         ProgressUpdateAction::Update
@@ -2548,14 +2551,18 @@ impl MiscellaneousService {
         let seen = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
-                let mut updated_at = prev_seen[0].updated_at.clone();
+                let prev_seen = all_prev_seen[0].clone();
+                let watched_on = prev_seen.provider_watched_on.clone();
+                let mut updated_at = prev_seen.updated_at.clone();
                 let now = Utc::now();
                 updated_at.push(now);
-                let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
+                let mut last_seen: seen::ActiveModel = prev_seen.clone().into();
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.updated_at = ActiveValue::Set(updated_at);
-                if progress == 100 {
+                last_seen.provider_watched_on =
+                    ActiveValue::Set(input.provider_watched_on.or(watched_on));
+                if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
                 last_seen.update(&self.db).await.unwrap()
@@ -2571,12 +2578,15 @@ impl MiscellaneousService {
                     .unwrap();
                 match last_seen {
                     Some(ls) => {
+                        let watched_on = ls.provider_watched_on.clone();
                         let mut updated_at = ls.updated_at.clone();
                         let now = Utc::now();
                         updated_at.push(now);
                         let mut last_seen: seen::ActiveModel = ls.into();
                         last_seen.state = ActiveValue::Set(new_state);
                         last_seen.updated_at = ActiveValue::Set(updated_at);
+                        last_seen.provider_watched_on =
+                            ActiveValue::Set(input.provider_watched_on.or(watched_on));
                         last_seen.update(&self.db).await.unwrap()
                     }
                     None => {
@@ -2635,9 +2645,9 @@ impl MiscellaneousService {
                 tracing::debug!("Progress update finished on = {:?}", finished_on);
                 let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
                 {
-                    (0, Some(Utc::now().date_naive()))
+                    (dec!(0), Some(Utc::now().date_naive()))
                 } else {
-                    (100, None)
+                    (dec!(100), None)
                 };
                 tracing::debug!("Progress update percentage = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
@@ -2647,6 +2657,7 @@ impl MiscellaneousService {
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
                     state: ActiveValue::Set(SeenState::InProgress),
+                    provider_watched_on: ActiveValue::Set(input.provider_watched_on),
                     show_extra_information: ActiveValue::Set(show_ei),
                     podcast_extra_information: ActiveValue::Set(podcast_ei),
                     anime_extra_information: ActiveValue::Set(anime_ei),
@@ -4684,7 +4695,7 @@ impl MiscellaneousService {
                 ));
             }
             si.delete(&self.db).await.ok();
-            if progress < 100 {
+            if progress < dec!(100) {
                 self.remove_entity_from_collection(
                     user_id,
                     ChangeCollectionToEntityInput {
@@ -5589,6 +5600,10 @@ impl MiscellaneousService {
                         "disable_watch_providers" => {
                             preferences.general.disable_watch_providers = value_bool.unwrap();
                         }
+                        "watch_providers" => {
+                            preferences.general.watch_providers =
+                                serde_json::from_str(&input.value).unwrap();
+                        }
                         _ => return Err(err()),
                     },
                     _ => return Err(err()),
@@ -6080,11 +6095,12 @@ impl MiscellaneousService {
     }
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
-        if pu.progress < self.config.integration.minimum_progress_limit {
+        let limit = Decimal::from_i32(self.config.integration.minimum_progress_limit).unwrap();
+        if pu.progress < limit {
             return Ok(());
         }
-        let progress = if pu.progress > self.config.integration.maximum_progress_limit {
-            100
+        let progress = if pu.progress > limit {
+            dec!(100)
         } else {
             pu.progress
         };
@@ -6105,6 +6121,7 @@ impl MiscellaneousService {
                 podcast_episode_number: pu.podcast_episode_number,
                 anime_episode_number: pu.anime_episode_number,
                 manga_chapter_number: pu.manga_chapter_number,
+                provider_watched_on: pu.provider_watched_on,
                 change_state: None,
             },
             user_id,
@@ -6960,6 +6977,7 @@ GROUP BY
                         progress: Some(s.progress),
                         started_on: s.started_on.map(convert_naive_to_utc),
                         ended_on: s.finished_on.map(convert_naive_to_utc),
+                        provider_watched_on: s.provider_watched_on,
                         show_season_number,
                         show_episode_number,
                         podcast_episode_number,

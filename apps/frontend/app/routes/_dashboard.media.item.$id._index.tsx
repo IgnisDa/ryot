@@ -31,7 +31,6 @@ import {
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
@@ -176,6 +175,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			peopleEnabled: userPreferences.featuresEnabled.media.people,
 			groupsEnabled: userPreferences.featuresEnabled.media.groups,
 			genresEnabled: userPreferences.featuresEnabled.media.genres,
+			watchProviders: userPreferences.general.watchProviders,
 		},
 		coreDetails: {
 			itemDetailsHeight: coreDetails.itemDetailsHeight,
@@ -274,13 +274,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, progressUpdateSchema);
 			const variables = {
 				metadataId: submission.metadataId,
-				progress: 100,
+				progress: "100",
 				date: submission.date,
 				showSeasonNumber: submission.showSeasonNumber,
 				showEpisodeNumber: submission.showEpisodeNumber,
 				podcastEpisodeNumber: submission.podcastEpisodeNumber,
 				animeEpisodeNumber: submission.animeEpisodeNumber,
 				mangaChapterNumber: submission.mangaChapterNumber,
+				providerWatchedOn: submission.providerWatchedOn,
 			};
 			let needsFinalUpdate = true;
 			const updates = [];
@@ -393,9 +394,10 @@ const metadataIdSchema = z.object({ metadataId: zx.IntAsString });
 
 const bulkUpdateSchema = z
 	.object({
-		progress: zx.IntAsString.optional(),
+		progress: z.string().optional(),
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
+		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(metadataIdSchema);
@@ -430,6 +432,7 @@ const progressUpdateSchema = z
 		completePodcast: zx.BoolAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
+		providerWatchedOn: z.string().optional(),
 	})
 	.merge(metadataIdSchema)
 	.merge(MetadataSpecificsSchema);
@@ -842,7 +845,7 @@ export default function Page() {
 									value="watchProviders"
 									leftSection={<IconMovie size={16} />}
 								>
-									Watch Providers
+									Watch On
 								</Tabs.Tab>
 							) : null}
 						</Tabs.List>
@@ -964,9 +967,10 @@ export default function Page() {
 																{userMetadataDetails.inProgress ? (
 																	<IndividualProgressModal
 																		title={loaderData.mediaMainDetails.title}
-																		progress={
-																			userMetadataDetails.inProgress.progress
-																		}
+																		progress={Number(
+																			userMetadataDetails.inProgress.progress,
+																		)}
+																		inProgress={userMetadataDetails.inProgress}
 																		metadataId={loaderData.metadataId}
 																		onClose={progressModalClose}
 																		opened={progressModalOpened}
@@ -1480,7 +1484,7 @@ export default function Page() {
 																							s.episodes.every((e) =>
 																								userMetadataDetails.history.some(
 																									(h) =>
-																										h.progress === 100 &&
+																										h.progress === "100" &&
 																										h.showExtraInformation &&
 																										h.showExtraInformation
 																											.episode ===
@@ -1529,7 +1533,8 @@ export default function Page() {
 																										displayIndicator={
 																											userMetadataDetails.history.filter(
 																												(h) =>
-																													h.progress === 100 &&
+																													h.progress ===
+																														"100" &&
 																													h.showExtraInformation &&
 																													h.showExtraInformation
 																														.episode ===
@@ -1804,13 +1809,23 @@ type UpdateProgress = {
 	podcastEpisodeNumber?: number | null;
 };
 
+const WATCH_TIMES = [
+	"Just Right Now",
+	"I don't remember",
+	"Custom Date",
+] as const;
+
 const ProgressUpdateModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	data?: UpdateProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
+		new Date(),
+	);
+	const [watchTime, setWatchTime] =
+		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
 	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
 		string | undefined
 	>(undefined);
@@ -1996,40 +2011,46 @@ const ProgressUpdateModal = (props: {
 							)}
 						</Await>
 					</Suspense>
-					<Title order={6}>
-						When did you {getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}{" "}
-						it?
-					</Title>
-					<Button
-						variant="outline"
-						type="submit"
-						name="date"
-						value={formatDateToNaiveDate(new Date())}
-					>
-						Now
-					</Button>
-					<Button variant="outline" type="submit">
-						I do not remember
-					</Button>
-					<Group grow>
+					<Select
+						label={`When did you ${getVerb(
+							Verb.Read,
+							loaderData.mediaMainDetails.lot,
+						)} it?`}
+						data={WATCH_TIMES}
+						value={watchTime}
+						onChange={(v) => {
+							setWatchTime(v as typeof watchTime);
+							match(v)
+								.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
+								.with(WATCH_TIMES[1], () => setSelectedDate(null))
+								.with(WATCH_TIMES[2], () => setSelectedDate(null));
+						}}
+					/>
+					{watchTime === WATCH_TIMES[2] ? (
 						<DatePickerInput
+							label="Enter exact date"
 							dropdownType="modal"
 							maxDate={new Date()}
 							onChange={setSelectedDate}
 							clearable
 						/>
-						<Button
-							variant="outline"
-							disabled={selectedDate === null}
-							type="submit"
-							name="date"
-							value={
-								selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
-							}
-						>
-							Custom date
-						</Button>
-					</Group>
+					) : null}
+					<Select
+						label="Where did you watch it?"
+						data={loaderData.userPreferences.watchProviders}
+						name="providerWatchedOn"
+					/>
+					<Button
+						variant="outline"
+						disabled={selectedDate === undefined}
+						type="submit"
+						name="date"
+						value={
+							selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
+						}
+					>
+						Submit
+					</Button>
 				</Stack>
 			</Form>
 		</Modal>
@@ -2042,9 +2063,11 @@ const IndividualProgressModal = (props: {
 	onClose: () => void;
 	metadataId: number;
 	progress: number;
+	inProgress: UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 	total?: number | null;
 	lot: MediaLot;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const [value, setValue] = useState<number | undefined>(props.progress);
 
 	const [updateIcon, text] = match(props.lot)
@@ -2110,10 +2133,10 @@ const IndividualProgressModal = (props: {
 							</Text>
 							<Flex align="center" gap="xs">
 								<NumberInput
-									value={Math.ceil(((props.total || 1) * (value || 1)) / 100)}
+									value={((props.total || 1) * (value || 1)) / 100}
 									onChange={(v) => {
 										const newVal = (Number(v) / (props.total || 1)) * 100;
-										setValue(Math.ceil(newVal));
+										setValue(newVal);
 									}}
 									max={props.total}
 									min={0}
@@ -2125,6 +2148,12 @@ const IndividualProgressModal = (props: {
 							</Flex>
 						</>
 					) : null}
+					<Select
+						data={loaderData.userPreferences.watchProviders}
+						label="Where did you watch it?"
+						name="providerWatchedOn"
+						defaultValue={props.inProgress.providerWatchedOn}
+					/>
 					<Button variant="outline" type="submit" onClick={props.onClose}>
 						Update
 					</Button>
@@ -2259,11 +2288,22 @@ const AccordionLabel = (props: {
 		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
 	]
 		.filter(Boolean)
-		.join(", ");
+		.join("; ");
+
+	const DisplayDetails = () => (
+		<>
+			<Text lineClamp={2}>{props.name}</Text>
+			{display ? (
+				<Text size="xs" c="dimmed">
+					{display}
+				</Text>
+			) : null}
+		</>
+	);
 
 	return (
 		<Stack data-episode-id={props.id}>
-			<Flex align="center" gap="sm" justify="space-between">
+			<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
 				<Group wrap="nowrap">
 					<Indicator
 						disabled={props.displayIndicator === 0}
@@ -2284,17 +2324,17 @@ const AccordionLabel = (props: {
 							imageProps={{ loading: "lazy" }}
 						/>
 					</Indicator>
-					<Box>
-						<Text lineClamp={2}>{props.name}</Text>
-						{display ? (
-							<Text size="xs" c="dimmed">
-								{display}
-							</Text>
-						) : null}
+					<Box visibleFrom="md" ml="sm">
+						<DisplayDetails />
 					</Box>
 				</Group>
-				<Box flex={0}>{props.children}</Box>
+				<Box flex={0} ml={{ base: "md", md: 0 }}>
+					{props.children}
+				</Box>
 			</Flex>
+			<Box hiddenFrom="md">
+				<DisplayDetails />
+			</Box>
 			{props.overview ? (
 				<Text
 					size="sm"
@@ -2341,6 +2381,21 @@ const SeenItem = (props: {
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
 		: null;
+	const displayAnimeExtraInformation =
+		props.history.animeExtraInformation?.episode;
+	const displayMangaExtraInformation =
+		props.history.mangaExtraInformation?.chapter;
+	const watchedOnInformation = props.history.providerWatchedOn;
+
+	const displayAllInformation = [
+		displayShowExtraInformation,
+		displayPodcastExtraInformation,
+		displayAnimeExtraInformation,
+		displayMangaExtraInformation,
+		watchedOnInformation,
+	]
+		.filter(Boolean)
+		.join("; ");
 
 	return (
 		<>
@@ -2368,46 +2423,23 @@ const SeenItem = (props: {
 							<IconX size={20} />
 						</ActionIcon>
 					</Form>
-					<ActionIcon
-						color="blue"
-						onClick={() => {
-							if (props.history.state === SeenState.Completed) open();
-							else
-								notifications.show({
-									color: "yellow",
-									message: "You can only edit completed items.",
-								});
-						}}
-					>
-						<IconEdit size={20} />
-					</ActionIcon>
+					{props.history.state === SeenState.Completed ? (
+						<ActionIcon color="blue" onClick={open}>
+							<IconEdit size={20} />
+						</ActionIcon>
+					) : null}
 				</Flex>
 				<Flex direction="column">
 					<Flex gap="lg">
 						<Text fw="bold">
 							{changeCase(props.history.state)}{" "}
-							{props.history.progress !== 100
+							{props.history.progress !== "100"
 								? `(${props.history.progress}%)`
 								: null}
 						</Text>
-						{displayShowExtraInformation ? (
+						{displayAllInformation ? (
 							<Text c="dimmed" lineClamp={1}>
-								{displayShowExtraInformation}
-							</Text>
-						) : null}
-						{displayPodcastExtraInformation ? (
-							<Text c="dimmed" lineClamp={1}>
-								{displayPodcastExtraInformation}
-							</Text>
-						) : null}
-						{props.history.animeExtraInformation?.episode ? (
-							<Text c="dimmed">
-								EP-{props.history.animeExtraInformation.episode}
-							</Text>
-						) : null}
-						{props.history.mangaExtraInformation?.chapter ? (
-							<Text c="dimmed">
-								Ch-{props.history.mangaExtraInformation.chapter}
+								{displayAllInformation}
 							</Text>
 						) : null}
 					</Flex>

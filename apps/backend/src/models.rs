@@ -871,7 +871,7 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
     pub struct ProgressUpdateInput {
         pub metadata_id: i32,
-        pub progress: Option<i32>,
+        pub progress: Option<Decimal>,
         pub date: Option<NaiveDate>,
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
@@ -879,6 +879,7 @@ pub mod media {
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
         pub change_state: Option<SeenState>,
+        pub provider_watched_on: Option<String>,
     }
 
     #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1037,7 +1038,7 @@ pub mod media {
     #[schematic(rename_all = "snake_case")]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
-        pub progress: Option<i32>,
+        pub progress: Option<Decimal>,
         /// The timestamp when started watching.
         pub started_on: Option<DateTimeUtc>,
         /// The timestamp when finished watching.
@@ -1052,6 +1053,8 @@ pub mod media {
         pub anime_episode_number: Option<i32>,
         /// If for a manga, the chapter which was seen.
         pub manga_chapter_number: Option<i32>,
+        /// The provider this item was watched on.
+        pub provider_watched_on: Option<String>,
     }
 
     /// Review data associated to a rating.

@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use database::{MediaLot, MediaSource, Visibility};
+use database::{ImportSource, MediaLot, MediaSource, Visibility};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -357,6 +357,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         ended_on: s.date,
                         show_season_number: season_number,
                         show_episode_number: episode_number,
+                        provider_watched_on: Some(ImportSource::MediaTracker.to_string()),
                         ..Default::default()
                     }
                 })

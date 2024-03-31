@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_graphql::Result;
-use database::{MediaLot, MediaSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use rs_utils::{convert_naive_to_utc, convert_string_to_date};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -41,14 +41,16 @@ fn get_date(date: String) -> Option<DateTimeUtc> {
 }
 
 fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
-    let progress = if item.done != 0 && item.total != 0 {
-        Some(item.done / item.total)
+    let progress = if item.done != dec!(0) && item.total != 0 {
+        item.done
+            .checked_div(Decimal::from_i32(item.total).unwrap())
     } else {
         None
     };
     let seen_item = ImportOrExportMediaItemSeen {
         started_on: get_date(item.my_start_date),
         ended_on: get_date(item.my_finish_date),
+        provider_watched_on: Some(ImportSource::Mal.to_string()),
         progress,
         ..Default::default()
     };
@@ -112,7 +114,7 @@ struct Item {
     #[serde(alias = "series_episodes", alias = "manga_chapters")]
     total: i32,
     #[serde(alias = "my_watched_episodes", alias = "my_read_chapters")]
-    done: i32,
+    done: Decimal,
     my_start_date: String,
     my_finish_date: String,
     my_score: u32,

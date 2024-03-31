@@ -69,6 +69,9 @@ mod m20240326_2_migrate_user_to_metadata_group_entries;
 mod m20240326_3_change_metadata_ownership_to_media_ownership;
 mod m20240327_add_new_preferences;
 mod m20240330_add_is_partial_field_to_metadata_group;
+mod m20240401_0_change_seen_progress_type;
+mod m20240401_1_add_provider_watched_on_to_seen;
+mod m20240401_2_add_watch_providers_preferences;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -155,6 +158,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20240326_3_change_metadata_ownership_to_media_ownership::Migration),
             Box::new(m20240327_add_new_preferences::Migration),
             Box::new(m20240330_add_is_partial_field_to_metadata_group::Migration),
+            Box::new(m20240401_0_change_seen_progress_type::Migration),
+            Box::new(m20240401_1_add_provider_watched_on_to_seen::Migration),
+            Box::new(m20240401_2_add_watch_providers_preferences::Migration),
         ]
     }
 }

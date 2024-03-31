@@ -24,12 +24,13 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
-import { withQuery } from "ufo";
+import { withQuery, withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
 import { redirectToQueryParam } from "./generals";
 
+const isProduction = process.env.NODE_ENV === "production";
 export const API_URL = process.env.API_URL || "http://localhost:5000";
 
 export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
@@ -67,14 +68,30 @@ export const getIsAuthenticated = async (request: Request) => {
 	}
 };
 
-export const redirectIfNotAuthenticated = async (request: Request) => {
+export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
-	if (!isAuthenticated || userDetails.__typename !== "User") {
-		const url = new URL(request.url);
+	const runningKey = await runningKeyCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	const nextUrl = withoutHost(request.url);
+	if (runningKey !== serverVariables.RUNNING_KEY) {
 		throw redirect(
-			withQuery($path("/auth/login"), {
-				[redirectToQueryParam]: url.pathname + url.search,
-			}),
+			withQuery($path("/auth/login"), { [redirectToQueryParam]: nextUrl }),
+			{
+				status: 302,
+				headers: combineHeaders(
+					await createToastHeaders({
+						message: "Ryot has been updated, please log in again",
+						type: "error",
+					}),
+					await getLogoutCookies(),
+				),
+			},
+		);
+	}
+	if (!isAuthenticated || userDetails.__typename !== "User") {
+		throw redirect(
+			withQuery($path("/auth/login"), { [redirectToQueryParam]: nextUrl }),
 			{
 				status: 302,
 				headers: combineHeaders(
@@ -90,7 +107,10 @@ export const redirectIfNotAuthenticated = async (request: Request) => {
 	return userDetails;
 };
 
-export const expectedEnvironmentVariables = z.object({
+const expectedServerVariables = z.object({
+	RUNNING_KEY: z
+		.string()
+		.default(() => (isProduction ? crypto.randomUUID() : "s3cr3t")),
 	DISABLE_TELEMETRY: z
 		.string()
 		.optional()
@@ -161,31 +181,6 @@ export const getUserCollectionsList = async (request: Request) => {
 		await getAuthorizationHeader(request),
 	);
 	return userCollectionsList;
-};
-
-export const getLogoutCookies = async () => {
-	return combineHeaders(
-		{
-			"set-cookie": await authCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"set-cookie": await coreDetailsCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"set-cookie": await userPreferencesCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"set-cookie": await userDetailsCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-	);
 };
 
 export const uploadFileAndGetKey = async (
@@ -263,40 +258,14 @@ export const getCoreEnabledFeatures = async () => {
 	return coreEnabledFeatures;
 };
 
-export const getCoreDetails = async (request: Request) => {
-	const details = await coreDetailsCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return details as CoreDetails;
-};
-
-export const getUserPreferences = async (request: Request) => {
-	await redirectIfNotAuthenticated(request);
-	const prefs = await userPreferencesCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return prefs as UserPreferences;
-};
-
-export const getUserDetails = async (request: Request) => {
-	await redirectIfNotAuthenticated(request);
-	const details = await userDetailsCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return details as ApplicationUser;
-};
-
-const envVariables = expectedEnvironmentVariables.parse(process.env);
+export const serverVariables = expectedServerVariables.parse(process.env);
 
 const commonCookieOptions = {
 	sameSite: "lax",
 	path: "/",
 	httpOnly: true,
 	secrets: (process.env.SESSION_SECRET || "").split(","),
-	secure:
-		process.env.NODE_ENV === "production"
-			? !envVariables.FRONTEND_INSECURE_COOKIES
-			: false,
+	secure: isProduction ? !serverVariables.FRONTEND_INSECURE_COOKIES : false,
 } satisfies CookieOptions;
 
 export const authCookie = createCookie("Auth", commonCookieOptions);
@@ -315,6 +284,8 @@ export const userDetailsCookie = createCookie(
 	"UserDetails",
 	commonCookieOptions,
 );
+
+export const runningKeyCookie = createCookie("RunningKey", commonCookieOptions);
 
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: { ...commonCookieOptions, name: "Toast" },
@@ -408,4 +379,57 @@ export const getCookiesForApplication = async (token: string) => {
 			}),
 		},
 	);
+};
+
+export const getLogoutCookies = async () => {
+	return combineHeaders(
+		{
+			"set-cookie": await authCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"set-cookie": await coreDetailsCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"set-cookie": await userPreferencesCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"set-cookie": await userDetailsCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+		{
+			"set-cookie": await runningKeyCookie.serialize("", {
+				expires: new Date(0),
+			}),
+		},
+	);
+};
+
+export const getCoreDetails = async (request: Request) => {
+	const details = await coreDetailsCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	return details as CoreDetails;
+};
+
+export const getUserPreferences = async (request: Request) => {
+	await redirectIfNotAuthenticatedOrUpdated(request);
+	const prefs = await userPreferencesCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	return prefs as UserPreferences;
+};
+
+export const getUserDetails = async (request: Request) => {
+	await redirectIfNotAuthenticatedOrUpdated(request);
+	const details = await userDetailsCookie.parse(
+		request.headers.get("cookie") || "",
+	);
+	return details as ApplicationUser;
 };

@@ -534,7 +534,7 @@ impl ImporterService {
                 let progress = if seen.progress.is_some() {
                     seen.progress
                 } else {
-                    Some(100)
+                    Some(dec!(100))
                 };
                 if let Err(e) = self
                     .media_service
@@ -548,6 +548,7 @@ impl ImporterService {
                             podcast_episode_number: seen.podcast_episode_number,
                             anime_episode_number: seen.anime_episode_number,
                             manga_chapter_number: seen.manga_chapter_number,
+                            provider_watched_on: seen.provider_watched_on.clone(),
                             change_state: None,
                         },
                         user_id,

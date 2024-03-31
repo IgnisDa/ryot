@@ -81,7 +81,7 @@ are required to deploy to Fly.
    flyctl postgres create ryot-db
    ```
 
-2. Copy the [`fly.toml`]({{ extra.file_path }}/config/fly.toml) file from this
+2. Copy the [`fly.toml`]({{ extra.file_path }}/ci/fly.toml) file from this
    repository to your own repository. You **WILL** have to change the `app` key to
    a unique name. Deploy it using the below command.
    ```bash

@@ -16,6 +16,7 @@ import {
 	Stack,
 	Switch,
 	Tabs,
+	TagsInput,
 	Text,
 	Title,
 	rem,
@@ -145,12 +146,7 @@ export default function Page() {
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<Form method="post" action={`?defaultTab=${defaultTab}`}>
 						{toUpdatePreferences.map((pref) => (
-							<input
-								key={pref[0]}
-								hidden
-								name={pref[0]}
-								defaultValue={pref[1]}
-							/>
+							<input key={pref[0]} hidden name={pref[0]} value={pref[1]} />
 						))}
 						<Button
 							color="green"
@@ -303,7 +299,7 @@ export default function Page() {
 											.with("disableVideos", () => "Do not display videos")
 											.with(
 												"disableWatchProviders",
-												() => "Do not display watch providers",
+												() => 'Do not display the "Watch On" tab',
 											)
 											.exhaustive()}
 										defaultChecked={loaderData.userPreferences.general[name]}
@@ -330,6 +326,15 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
+							<TagsInput
+								label="Watch providers"
+								placeholder="Enter more providers"
+								defaultValue={loaderData.userPreferences.general.watchProviders}
+								disabled={!!loaderData.userDetails.isDemo}
+								onChange={(val) => {
+									appendPref("general.watch_providers", JSON.stringify(val));
+								}}
+							/>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications" mt="md">

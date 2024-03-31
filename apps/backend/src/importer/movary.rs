@@ -3,7 +3,7 @@ use std::fs;
 use async_graphql::Result;
 use chrono::NaiveDate;
 use csv::Reader;
-use database::{MediaLot, MediaSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -132,6 +132,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let seen_item = ImportOrExportMediaItemSeen {
             started_on: None,
             ended_on: watched_at,
+            provider_watched_on: Some(ImportSource::Movary.to_string()),
             ..Default::default()
         };
         let review = record.comment.map(|c| ImportOrExportItemReview {
