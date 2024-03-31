@@ -221,6 +221,7 @@ impl MediaProvider for OpenlibraryService {
         Ok(data)
     }
 
+    #[instrument(skip(self, _source_specifics))]
     async fn person_details(
         &self,
         identity: &str,
@@ -279,6 +280,7 @@ impl MediaProvider for OpenlibraryService {
                 ))
             }
         }
+        tracing::debug!("Found {} related works.", related.len());
         Ok(MetadataPerson {
             identifier,
             source: MediaSource::Openlibrary,
