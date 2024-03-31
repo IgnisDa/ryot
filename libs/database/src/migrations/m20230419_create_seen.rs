@@ -42,7 +42,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Seen::Progress)
-                            .integer()
+                            .decimal()
                             .not_null()
                             .default(0),
                     )
