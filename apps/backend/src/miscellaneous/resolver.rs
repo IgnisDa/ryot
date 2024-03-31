@@ -2497,7 +2497,7 @@ impl MiscellaneousService {
         }
         tracing::debug!("Input for progress_update = {:?}", input);
 
-        let prev_seen = Seen::find()
+        let all_prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::State.ne(SeenState::Dropped))
@@ -2523,7 +2523,7 @@ impl MiscellaneousService {
                             None => ProgressUpdateAction::InThePast,
                             Some(u) => {
                                 if Utc::now().date_naive() == u {
-                                    if prev_seen.is_empty() {
+                                    if all_prev_seen.is_empty() {
                                         ProgressUpdateAction::Now
                                     } else {
                                         ProgressUpdateAction::Update
@@ -2533,7 +2533,7 @@ impl MiscellaneousService {
                                 }
                             }
                         }
-                    } else if prev_seen.is_empty() {
+                    } else if all_prev_seen.is_empty() {
                         ProgressUpdateAction::JustStarted
                     } else {
                         ProgressUpdateAction::Update
@@ -2551,11 +2551,12 @@ impl MiscellaneousService {
         let seen = match action {
             ProgressUpdateAction::Update => {
                 let progress = input.progress.unwrap();
-                let watched_on = input.provider_watched_on.clone();
-                let mut updated_at = prev_seen[0].updated_at.clone();
+                let prev_seen = all_prev_seen[0].clone();
+                let watched_on = prev_seen.provider_watched_on.clone();
+                let mut updated_at = prev_seen.updated_at.clone();
                 let now = Utc::now();
                 updated_at.push(now);
-                let mut last_seen: seen::ActiveModel = prev_seen[0].clone().into();
+                let mut last_seen: seen::ActiveModel = prev_seen.clone().into();
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.updated_at = ActiveValue::Set(updated_at);
