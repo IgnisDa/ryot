@@ -274,7 +274,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, progressUpdateSchema);
 			const variables = {
 				metadataId: submission.metadataId,
-				progress: 100,
+				progress: "100",
 				date: submission.date,
 				showSeasonNumber: submission.showSeasonNumber,
 				showEpisodeNumber: submission.showEpisodeNumber,
@@ -393,7 +393,7 @@ const metadataIdSchema = z.object({ metadataId: zx.IntAsString });
 
 const bulkUpdateSchema = z
 	.object({
-		progress: zx.IntAsString.optional(),
+		progress: z.string().optional(),
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
 	})
@@ -964,9 +964,9 @@ export default function Page() {
 																{userMetadataDetails.inProgress ? (
 																	<IndividualProgressModal
 																		title={loaderData.mediaMainDetails.title}
-																		progress={
-																			userMetadataDetails.inProgress.progress
-																		}
+																		progress={Number(
+																			userMetadataDetails.inProgress.progress,
+																		)}
 																		metadataId={loaderData.metadataId}
 																		onClose={progressModalClose}
 																		opened={progressModalOpened}
@@ -1480,7 +1480,7 @@ export default function Page() {
 																							s.episodes.every((e) =>
 																								userMetadataDetails.history.some(
 																									(h) =>
-																										h.progress === 100 &&
+																										h.progress === "100" &&
 																										h.showExtraInformation &&
 																										h.showExtraInformation
 																											.episode ===
@@ -1529,7 +1529,8 @@ export default function Page() {
 																										displayIndicator={
 																											userMetadataDetails.history.filter(
 																												(h) =>
-																													h.progress === 100 &&
+																													h.progress ===
+																														"100" &&
 																													h.showExtraInformation &&
 																													h.showExtraInformation
 																														.episode ===
@@ -2110,10 +2111,10 @@ const IndividualProgressModal = (props: {
 							</Text>
 							<Flex align="center" gap="xs">
 								<NumberInput
-									value={Math.ceil(((props.total || 1) * (value || 1)) / 100)}
+									value={((props.total || 1) * (value || 1)) / 100}
 									onChange={(v) => {
 										const newVal = (Number(v) / (props.total || 1)) * 100;
-										setValue(Math.ceil(newVal));
+										setValue(newVal);
 									}}
 									max={props.total}
 									min={0}
@@ -2386,7 +2387,7 @@ const SeenItem = (props: {
 					<Flex gap="lg">
 						<Text fw="bold">
 							{changeCase(props.history.state)}{" "}
-							{props.history.progress !== 100
+							{props.history.progress !== "100"
 								? `(${props.history.progress}%)`
 								: null}
 						</Text>
