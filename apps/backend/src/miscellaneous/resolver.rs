@@ -4226,11 +4226,14 @@ impl MiscellaneousService {
         let sort = input.sort.unwrap_or_default();
         let filter = input.filter.unwrap_or_default();
         let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
-        let collection = Collection::find_by_id(input.collection_id)
+        let maybe_collection = Collection::find_by_id(input.collection_id)
             .one(&self.db)
             .await
-            .unwrap()
             .unwrap();
+        let collection = match maybe_collection {
+            Some(c) => c,
+            None => return Err(Error::new("Collection not found".to_owned())),
+        };
         if collection.visibility != Visibility::Public {
             match user_id {
                 None => {
