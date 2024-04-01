@@ -22,7 +22,6 @@ import {
 	type LoaderFunctionArgs,
 	type MetaFunction,
 	json,
-	redirect,
 } from "@remix-run/node";
 import {
 	Form,
@@ -41,11 +40,9 @@ import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
-import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -67,9 +64,6 @@ export const meta: MetaFunction = () => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	const redirectUrl = withQuery($path("/actions"), {
-		[redirectToQueryParam]: withoutHost(request.url),
-	});
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
@@ -79,14 +73,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ input: submission },
 					await getAuthorizationHeader(request),
 				);
-				return redirect(redirectUrl, {
-					headers: await createToastHeaders({
-						type: "success",
-						message: submission.updateId
-							? "Collection updated"
-							: "Collection created",
-					}),
-				});
+				return json(
+					{},
+					{
+						headers: await createToastHeaders({
+							type: "success",
+							message: submission.updateId
+								? "Collection updated"
+								: "Collection created",
+						}),
+					},
+				);
 			} catch (e) {
 				let message = "An error occurred";
 				if (e instanceof ClientError) {
@@ -117,14 +114,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			} catch {
 				wasSuccessful = false;
 			}
-			return redirect(redirectUrl, {
-				headers: await createToastHeaders({
-					type: wasSuccessful ? "success" : "error",
-					message: wasSuccessful
-						? "Collection deleted"
-						: "Can not delete a default collection",
-				}),
-			});
+			return json(
+				{},
+				{
+					headers: await createToastHeaders({
+						type: wasSuccessful ? "success" : "error",
+						message: wasSuccessful
+							? "Collection deleted"
+							: "Can not delete a default collection",
+					}),
+				},
+			);
 		},
 	});
 };
