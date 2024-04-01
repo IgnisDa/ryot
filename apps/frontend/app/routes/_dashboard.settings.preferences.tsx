@@ -144,7 +144,7 @@ export default function Page() {
 		<Container size="xs">
 			{toUpdatePreferences.length > 0 ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<Form method="post" action={`?defaultTab=${defaultTab}`}>
+					<Form method="post" action={`?defaultTab=${defaultTab}`} replace>
 						{toUpdatePreferences.map((pref) => (
 							<input key={pref[0]} hidden name={pref[0]} value={pref[1]} />
 						))}
