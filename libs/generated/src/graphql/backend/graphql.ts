@@ -748,7 +748,6 @@ export enum MediaGeneralFilter {
   All = 'ALL',
   Completed = 'COMPLETED',
   Dropped = 'DROPPED',
-  ExplicitlyMonitored = 'EXPLICITLY_MONITORED',
   InProgress = 'IN_PROGRESS',
   OnAHold = 'ON_A_HOLD',
   Owned = 'OWNED',

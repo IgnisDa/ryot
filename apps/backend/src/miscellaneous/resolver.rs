@@ -520,7 +520,6 @@ enum MediaGeneralFilter {
     OnAHold,
     Completed,
     Unseen,
-    ExplicitlyMonitored,
     Owned,
 }
 
@@ -2125,13 +2124,6 @@ impl MiscellaneousService {
             .filter(user_to_entity::Column::MetadataId.is_not_null())
             .apply_if(
                 match input.filter.as_ref().and_then(|f| f.general) {
-                    Some(MediaGeneralFilter::ExplicitlyMonitored) => Some(true),
-                    _ => None,
-                },
-                |query, v| query.filter(user_to_entity::Column::MediaMonitored.eq(v)),
-            )
-            .apply_if(
-                match input.filter.as_ref().and_then(|f| f.general) {
                     Some(MediaGeneralFilter::Owned) => Some(true),
                     _ => None,
                 },
@@ -2319,7 +2311,6 @@ impl MiscellaneousService {
                 match s {
                     MediaGeneralFilter::All => {}
                     MediaGeneralFilter::Owned => {}
-                    MediaGeneralFilter::ExplicitlyMonitored => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
                             .and_where(
