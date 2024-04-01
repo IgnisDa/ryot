@@ -73,6 +73,7 @@ mod m20240401_0_change_seen_progress_type;
 mod m20240401_1_add_provider_watched_on_to_seen;
 mod m20240401_2_add_watch_providers_preferences;
 mod m20240402_0_create_monitored_collection_for_existing_users;
+mod m20240402_1_create_collection_to_entity_entries_for_monitoring_media;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -163,6 +164,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20240401_1_add_provider_watched_on_to_seen::Migration),
             Box::new(m20240401_2_add_watch_providers_preferences::Migration),
             Box::new(m20240402_0_create_monitored_collection_for_existing_users::Migration),
+            Box::new(
+                m20240402_1_create_collection_to_entity_entries_for_monitoring_media::Migration,
+            ),
         ]
     }
 }
