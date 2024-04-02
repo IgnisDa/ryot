@@ -31,7 +31,7 @@ import { zx } from "zodix";
 import { redirectToQueryParam } from "./generals";
 
 const isProduction = process.env.NODE_ENV === "production";
-export const API_URL = process.env.API_URL || "http://localhost:5000";
+export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
 export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
 	headers: { Connection: "keep-alive" },
