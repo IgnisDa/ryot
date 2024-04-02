@@ -75,6 +75,7 @@ mod m20240401_2_add_watch_providers_preferences;
 mod m20240402_0_create_monitored_collection_for_existing_users;
 mod m20240402_1_create_collection_to_entity_entries_for_monitoring_media;
 mod m20240402_2_remove_monitored_from_media_reason;
+mod m20240402_3_drop_media_monitored_column_from_user_to_entity;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -169,6 +170,7 @@ impl MigratorTrait for Migrator {
                 m20240402_1_create_collection_to_entity_entries_for_monitoring_media::Migration,
             ),
             Box::new(m20240402_2_remove_monitored_from_media_reason::Migration),
+            Box::new(m20240402_3_drop_media_monitored_column_from_user_to_entity::Migration),
         ]
     }
 }
