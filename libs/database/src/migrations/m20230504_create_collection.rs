@@ -4,6 +4,8 @@ use crate::Visibility;
 
 use super::m20230417_create_user::User;
 
+pub static COLLECTION_NAME_INDEX: &str = "collection__name__index";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -68,7 +70,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("collection__name__index")
+                    .name(COLLECTION_NAME_INDEX)
                     .table(Collection::Table)
                     .col(Collection::Name)
                     .to_owned(),
