@@ -20,7 +20,6 @@ query UserMetadataDetails($metadataId: Int!) {
     ownership {
       ...UserMediaOwnershipPart
     }
-    isMonitored
     seenBy
     nextEntry {
       season
