@@ -578,11 +578,7 @@ export default function Page() {
 								</Text>
 							</Link>
 						) : null}
-						<Group>
-							<Title id="media-title">
-								{loaderData.mediaMainDetails.title}
-							</Title>
-						</Group>
+						<Title id="media-title">{loaderData.mediaMainDetails.title}</Title>
 					</Box>
 					<UserMetadataDetailsSuspenseLoader>
 						{(userMetadataDetails) => (
@@ -766,7 +762,9 @@ export default function Page() {
 									<Alert icon={<IconAlertCircle />} variant="outline">
 										You are currently{" "}
 										{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
-										ing this ({userMetadataDetails.inProgress.progress}%)
+										ing this (
+										{Number(userMetadataDetails.inProgress.progress).toFixed(2)}
+										%)
 									</Alert>
 								) : null}
 							</>
@@ -2391,7 +2389,7 @@ const SeenItem = (props: {
 						<Text fw="bold">
 							{changeCase(props.history.state)}{" "}
 							{props.history.progress !== "100"
-								? `(${props.history.progress}%)`
+								? `(${Number(props.history.progress).toFixed(2)}%)`
 								: null}
 						</Text>
 						{displayAllInformation ? (

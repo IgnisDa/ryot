@@ -6030,11 +6030,14 @@ impl MiscellaneousService {
     }
 
     async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
-        let limit = Decimal::from_i32(self.config.integration.minimum_progress_limit).unwrap();
-        if pu.progress < limit {
+        let maximum_limit =
+            Decimal::from_i32(self.config.integration.maximum_progress_limit).unwrap();
+        let minimum_limit =
+            Decimal::from_i32(self.config.integration.minimum_progress_limit).unwrap();
+        if pu.progress < minimum_limit {
             return Ok(());
         }
-        let progress = if pu.progress > limit {
+        let progress = if pu.progress > maximum_limit {
             dec!(100)
         } else {
             pu.progress
