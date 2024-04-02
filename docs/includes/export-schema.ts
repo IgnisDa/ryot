@@ -133,8 +133,6 @@ export interface ImportOrExportMediaItem {
 	 * @default 'Book'
 	 */
 	lot: MediaLot;
-	/** Whether the media is being monitored. */
-	monitored: boolean | null;
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
 	/** The seen history for the user. */
@@ -160,8 +158,6 @@ export interface ImportOrExportPersonItem {
 	collections: string[];
 	/** The provider identifier. */
 	identifier: string;
-	/** Whether the person is being monitored. */
-	monitored: boolean | null;
 	/** The name of the creator. */
 	name: string;
 	/** The review history for the user. */

@@ -75,7 +75,6 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         seen_history: vec![seen_item],
         reviews: vec![review_item],
         collections: vec![],
-        monitored: None,
     }
 }
 

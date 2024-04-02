@@ -256,7 +256,6 @@ fn process_item(
             seen_history: vec![],
             reviews: vec![],
             collections: vec![],
-            monitored: None,
         }),
         None => Err(ImportFailedItem {
             lot: None,

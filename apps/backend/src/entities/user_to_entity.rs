@@ -28,7 +28,6 @@ pub struct Model {
     #[graphql(skip)]
     pub media_reason: Option<Vec<UserToMediaReason>>,
     pub media_reminder: Option<UserMediaReminder>,
-    pub media_monitored: Option<bool>,
     #[graphql(skip)]
     pub needs_to_be_updated: Option<bool>,
     pub metadata_group_id: Option<i32>,

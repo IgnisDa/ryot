@@ -133,7 +133,6 @@ pub async fn import(
                         ..Default::default()
                     }],
                     collections,
-                    monitored: None,
                 })
             } else {
                 failed_items.push(ImportFailedItem {
