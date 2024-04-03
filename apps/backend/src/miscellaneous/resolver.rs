@@ -7270,8 +7270,91 @@ GROUP BY
         Ok(())
     }
 
+    async fn get_entities_and_monitored_by(
+        &self,
+    ) -> Result<(
+        EntityToMonitoredByMap,
+        EntityToMonitoredByMap,
+        EntityToMonitoredByMap,
+    )> {
+        #[derive(Debug, FromQueryResult, Clone, Default)]
+        struct UsersToBeNotified {
+            entity_id: i32,
+            to_notify: Vec<i32>,
+        }
+        let meta_map: Vec<_> =
+            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
+SELECT
+    m.id as entity_id,
+    array_agg(DISTINCT u.id) as to_notify
+FROM
+    metadata m
+JOIN collection_to_entity cte ON m.id = cte.metadata_id
+JOIN collection c ON cte.collection_id = c.id AND c.name = 'Monitoring'
+JOIN "user" u ON c.user_id = u.id
+GROUP BY
+    m.id;
+        "#,
+                [],
+            ))
+            .all(&self.db)
+            .await?;
+        let meta_map = meta_map
+            .into_iter()
+            .map(|m| (m.entity_id, m.to_notify))
+            .collect::<EntityToMonitoredByMap>();
+        let meta_group_map: Vec<_> =
+            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
+SELECT
+    m.id as entity_id,
+    array_agg(DISTINCT u.id) as to_notify
+FROM
+    metadata_group m
+JOIN collection_to_entity cte ON m.id = cte.metadata_group_id
+JOIN collection c ON cte.collection_id = c.id AND c.name = 'Monitoring'
+JOIN "user" u ON c.user_id = u.id
+GROUP BY
+    m.id;
+        "#,
+                [],
+            ))
+            .all(&self.db)
+            .await?;
+        let meta_group_map = meta_group_map
+            .into_iter()
+            .map(|m| (m.entity_id, m.to_notify))
+            .collect::<EntityToMonitoredByMap>();
+        let person_map: Vec<_> =
+            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
+SELECT
+    p.id as entity_id,
+    array_agg(DISTINCT u.id) as to_notify
+FROM
+    person p
+JOIN collection_to_entity cte ON p.id = cte.person_id
+JOIN collection c ON cte.collection_id = c.id AND c.name = 'Monitoring'
+JOIN "user" u ON c.user_id = u.id
+GROUP BY
+    p.id;
+        "#,
+                [],
+            ))
+            .all(&self.db)
+            .await?;
+        let person_map = person_map
+            .into_iter()
+            .map(|m| (m.entity_id, m.to_notify))
+            .collect::<EntityToMonitoredByMap>();
+        Ok((meta_map, meta_group_map, person_map))
+    }
+
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        // FIXME: Select the users who have this metadata in their Monitoring collection
         let collections_named_monitored = Collection::find()
             .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
             .select_only()
