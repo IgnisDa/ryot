@@ -4674,13 +4674,8 @@ impl MiscellaneousService {
     pub async fn update_metadata_and_notify_users(&self, metadata_id: i32) -> Result<()> {
         let notifications = self.update_metadata(metadata_id).await.unwrap();
         if !notifications.is_empty() {
-            let users_to_notify = self
-                .users_to_be_notified_for_metadata_state_changes()
-                .await
-                .unwrap()
-                .get(&metadata_id)
-                .cloned()
-                .unwrap_or_default();
+            let (meta_map, _, _) = self.get_entities_monitored_by().await.unwrap();
+            let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
                     self.send_media_state_changed_notification_for_user(
@@ -6251,85 +6246,8 @@ impl MiscellaneousService {
         Ok(success)
     }
 
-    // FIXME: Use the "Monitoring" collection
-    /// Get all the users that need to be sent notifications for metadata state change.
-    pub async fn users_to_be_notified_for_metadata_state_changes(
-        &self,
-    ) -> Result<EntityToMonitoredByMap> {
-        #[derive(Debug, FromQueryResult, Clone, Default)]
-        struct UsersToBeNotified {
-            metadata_id: i32,
-            to_notify: Vec<i32>,
-        }
-        // DEV: Ideally this should be using a materialized view, but I am too lazy.
-        let meta_map: Vec<_> =
-            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                r#"
-SELECT
-    m.id as metadata_id,
-    array_agg(DISTINCT CASE WHEN u.id IS NOT NULL THEN u.id END) as to_notify
-FROM
-    metadata m
-LEFT JOIN user_to_entity ute ON m.id = ute.metadata_id
-LEFT JOIN "user" u ON ute.user_id = u.id
-WHERE
-    ute.media_monitored = true
-GROUP BY
-    m.id;
-        "#,
-                [],
-            ))
-            .all(&self.db)
-            .await?;
-        Ok(meta_map
-            .into_iter()
-            .filter(|m| !m.to_notify.is_empty())
-            .map(|m| (m.metadata_id, m.to_notify))
-            .collect())
-    }
-
-    // Get all the users that need to be sent notifications for person state change.
-    pub async fn users_to_be_notified_for_person_state_changes(
-        &self,
-    ) -> Result<EntityToMonitoredByMap> {
-        #[derive(Debug, FromQueryResult, Clone, Default)]
-        struct UsersToBeNotified {
-            person_id: i32,
-            to_notify: Vec<i32>,
-        }
-        // DEV: Ideally this should be using a materialized view, but I am too lazy.
-        let person_map: Vec<_> =
-            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                r#"
-SELECT
-    p.id as person_id,
-    array_agg(DISTINCT CASE WHEN u.id IS NOT NULL THEN u.id END) as to_notify
-FROM
-    person p
-LEFT JOIN user_to_entity ute ON p.id = ute.person_id
-LEFT JOIN "user" u ON ute.user_id = u.id
-WHERE
-    ute.media_monitored = true
-GROUP BY
-    p.id;
-        "#,
-                [],
-            ))
-            .all(&self.db)
-            .await?;
-        Ok(person_map
-            .into_iter()
-            .filter(|m| !m.to_notify.is_empty())
-            .map(|m| (m.person_id, m.to_notify))
-            .collect())
-    }
-
     pub async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
-        let meta_map = self
-            .users_to_be_notified_for_metadata_state_changes()
-            .await?;
+        let (meta_map, _, _) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for metadata state changes: {:?}",
             meta_map
@@ -6346,14 +6264,13 @@ GROUP BY
         Ok(())
     }
 
-    // FIXME: Use the "Monitoring" collection
     pub async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
-        let meta_map = self.users_to_be_notified_for_person_state_changes().await?;
+        let (_, _, person_map) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for people state changes: {:?}",
-            meta_map
+            person_map
         );
-        for (person_id, to_notify) in meta_map {
+        for (person_id, to_notify) in person_map {
             let notifications = self.update_person(person_id).await?;
             for user in to_notify {
                 for notification in notifications.iter() {
@@ -7176,9 +7093,7 @@ GROUP BY
                 )
             })
             .collect_vec();
-        let meta_map = self
-            .users_to_be_notified_for_metadata_state_changes()
-            .await?;
+        let (meta_map, _, _) = self.get_entities_monitored_by().await?;
         for (metadata_id, notification) in notifications.into_iter() {
             let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
             for user in users_to_notify {
@@ -7249,13 +7164,8 @@ GROUP BY
     pub async fn update_person_and_notify_users(&self, person_id: i32) -> Result<()> {
         let notifications = self.update_person(person_id).await.unwrap();
         if !notifications.is_empty() {
-            let users_to_notify = self
-                .users_to_be_notified_for_person_state_changes()
-                .await
-                .unwrap()
-                .get(&person_id)
-                .cloned()
-                .unwrap_or_default();
+            let (_, _, person_map) = self.get_entities_monitored_by().await.unwrap();
+            let users_to_notify = person_map.get(&person_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
                     self.send_media_state_changed_notification_for_user(
@@ -7270,7 +7180,7 @@ GROUP BY
         Ok(())
     }
 
-    async fn get_entities_and_monitored_by(
+    async fn get_entities_monitored_by(
         &self,
     ) -> Result<(
         EntityToMonitoredByMap,
@@ -7328,7 +7238,7 @@ GROUP BY m.id;
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        let (meta_map, meta_group_map, person_map) = self.get_entities_and_monitored_by().await?;
+        let (meta_map, meta_group_map, person_map) = self.get_entities_monitored_by().await?;
         let monitored_by = match event.entity_lot {
             EntityLot::Media => meta_map.get(&event.obj_id).cloned().unwrap_or_default(),
             EntityLot::MediaGroup => meta_group_map
