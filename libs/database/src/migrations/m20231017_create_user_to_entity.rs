@@ -30,7 +30,7 @@ CHECK (
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it
-/// - added to their monitored media
+/// - owns it
 /// - added a reminder
 #[derive(Iden)]
 pub enum UserToEntity {
