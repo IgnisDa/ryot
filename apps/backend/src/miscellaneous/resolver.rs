@@ -122,8 +122,8 @@ use crate::{
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
-        get_current_date, get_stored_asset, get_user_to_entity_association, partial_user_by_id,
-        user_by_id, user_id_from_token, AUTHOR,
+        get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR,
     },
 };
 
@@ -2138,7 +2138,7 @@ impl MiscellaneousService {
                     Expr::col((metadata_alias.clone(), col)),
                     Alias::new("text"),
                 ))
-                .ilike(&v)
+                .ilike(ilike_sql(&v))
             };
             main_select = main_select
                 .cond_where(
@@ -4144,9 +4144,13 @@ impl MiscellaneousService {
             .apply_if(input.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(Expr::col((c_alias.clone(), collection::Column::Name)).ilike(&v))
                         .add(
-                            Expr::col((c_alias.clone(), collection::Column::Description)).ilike(&v),
+                            Expr::col((c_alias.clone(), collection::Column::Name))
+                                .ilike(ilike_sql(&v)),
+                        )
+                        .add(
+                            Expr::col((c_alias.clone(), collection::Column::Description))
+                                .ilike(ilike_sql(&v)),
                         ),
                 )
             })
@@ -4223,18 +4227,22 @@ impl MiscellaneousService {
                         Condition::any()
                             .add(
                                 Expr::col((AliasedMetadata::Table, metadata::Column::Title))
-                                    .ilike(&v),
+                                    .ilike(ilike_sql(&v)),
                             )
                             .add(
                                 Expr::col((
                                     AliasedMetadataGroup::Table,
                                     metadata_group::Column::Title,
                                 ))
-                                .ilike(&v),
+                                .ilike(ilike_sql(&v)),
                             )
-                            .add(Expr::col((AliasedPerson::Table, person::Column::Name)).ilike(&v))
                             .add(
-                                Expr::col((AliasedExercise::Table, exercise::Column::Id)).ilike(&v),
+                                Expr::col((AliasedPerson::Table, person::Column::Name))
+                                    .ilike(ilike_sql(&v)),
+                            )
+                            .add(
+                                Expr::col((AliasedExercise::Table, exercise::Column::Id))
+                                    .ilike(ilike_sql(&v)),
                             ),
                     )
                 })
@@ -6334,7 +6342,9 @@ impl MiscellaneousService {
                 num_items,
             )
             .apply_if(input.query, |query, v| {
-                query.filter(Condition::all().add(Expr::col(genre::Column::Name).ilike(v)))
+                query.filter(
+                    Condition::all().add(Expr::col(genre::Column::Name).ilike(ilike_sql(&v))),
+                )
             })
             .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
             // fuck it. we ball. (extremely unsafe, guaranteed to fail if names change)
@@ -6373,8 +6383,10 @@ impl MiscellaneousService {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let query = MetadataGroup::find()
             .apply_if(input.query, |query, v| {
-                query
-                    .filter(Condition::all().add(Expr::col(metadata_group::Column::Title).ilike(v)))
+                query.filter(
+                    Condition::all()
+                        .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
+                )
             })
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .join(JoinType::Join, metadata_group::Relation::UserToEntity.def())
@@ -6437,7 +6449,9 @@ impl MiscellaneousService {
         };
         let query = Person::find()
             .apply_if(input.search.query, |query, v| {
-                query.filter(Condition::all().add(Expr::col(person::Column::Name).ilike(v)))
+                query.filter(
+                    Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
+                )
             })
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .column_as(

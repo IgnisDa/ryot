@@ -41,7 +41,7 @@ use crate::{
         ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
-    utils::{add_entity_to_collection, entity_in_collections, partial_user_by_id},
+    utils::{add_entity_to_collection, entity_in_collections, ilike_sql, partial_user_by_id},
 };
 
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
@@ -435,7 +435,7 @@ impl ExerciseService {
         let query = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
-                query.filter(Expr::col(workout::Column::Name).ilike(v))
+                query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
             })
             .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.db).await?;
@@ -504,7 +504,7 @@ impl ExerciseService {
                                 Expr::col(exercise::Column::Muscles),
                                 Alias::new("text"),
                             ))
-                            .ilike(v.to_string()),
+                            .ilike(ilike_sql(&v.to_string())),
                         )
                     })
                     .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
@@ -526,7 +526,10 @@ impl ExerciseService {
             .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(Expr::col((AliasedExercise::Table, exercise::Column::Id)).ilike(&v))
+                        .add(
+                            Expr::col((AliasedExercise::Table, exercise::Column::Id))
+                                .ilike(ilike_sql(&v)),
+                        )
                         .add(Expr::col(exercise::Column::Identifier).ilike(slugify(v))),
                 )
             })

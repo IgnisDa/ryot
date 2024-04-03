@@ -357,3 +357,7 @@ where
         Ok(ctx)
     }
 }
+
+pub fn ilike_sql(value: &str) -> String {
+    format!("%{value}%")
+}
