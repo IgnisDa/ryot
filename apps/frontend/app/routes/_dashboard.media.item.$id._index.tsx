@@ -97,7 +97,6 @@ import {
 	CreateOwnershipModal,
 	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaMonitored,
 	DisplayMediaOwned,
 	DisplayMediaReminder,
 	MediaIsPartial,
@@ -106,6 +105,7 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
@@ -591,9 +591,6 @@ export default function Page() {
 										key={col.id}
 									/>
 								))}
-								{userMetadataDetails.isMonitored ? (
-									<DisplayMediaMonitored />
-								) : null}
 								{userMetadataDetails.ownership ? <DisplayMediaOwned /> : null}
 								{loaderData.mediaMainDetails.isPartial ? (
 									<MediaIsPartial mediaType="media" />
@@ -1198,37 +1195,17 @@ export default function Page() {
 													<Button variant="outline">More actions</Button>
 												</Menu.Target>
 												<Menu.Dropdown>
-													<Form
-														action="/actions?intent=toggleMediaMonitor"
-														method="post"
-														replace
-													>
-														<HiddenLocationInput />
-														<Menu.Item
-															type="submit"
-															color={
-																userMetadataDetails.isMonitored
-																	? "red"
-																	: undefined
-															}
-															name="metadataId"
-															value={loaderData.metadataId}
-															onClick={(e) => {
-																if (userMetadataDetails.isMonitored)
-																	if (
-																		!confirm(
-																			"Are you sure you want to stop monitoring this media?",
-																		)
-																	)
-																		e.preventDefault();
-															}}
-														>
-															{userMetadataDetails.isMonitored
-																? "Stop"
-																: "Start"}{" "}
-															monitoring
-														</Menu.Item>
-													</Form>
+													<UserMetadataDetailsSuspenseLoader>
+														{(userMetadataDetails) => (
+															<ToggleMediaMonitorMenuItem
+																inCollections={userMetadataDetails.collections.map(
+																	(c) => c.name,
+																)}
+																formValue={loaderData.metadataId}
+																entityLot={EntityLot.Media}
+															/>
+														)}
+													</UserMetadataDetailsSuspenseLoader>
 													<Form
 														action="?intent=deployUpdateMetadataJob"
 														method="post"
