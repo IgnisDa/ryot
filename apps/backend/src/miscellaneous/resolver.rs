@@ -1465,6 +1465,8 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
     }
 }
 
+type EntityToMonitoredByMap = HashMap<i32, Vec<i32>>;
+
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
@@ -6253,7 +6255,7 @@ impl MiscellaneousService {
     /// Get all the users that need to be sent notifications for metadata state change.
     pub async fn users_to_be_notified_for_metadata_state_changes(
         &self,
-    ) -> Result<HashMap<i32, Vec<i32>>> {
+    ) -> Result<EntityToMonitoredByMap> {
         #[derive(Debug, FromQueryResult, Clone, Default)]
         struct UsersToBeNotified {
             metadata_id: i32,
@@ -6290,7 +6292,7 @@ GROUP BY
     // Get all the users that need to be sent notifications for person state change.
     pub async fn users_to_be_notified_for_person_state_changes(
         &self,
-    ) -> Result<HashMap<i32, Vec<i32>>> {
+    ) -> Result<EntityToMonitoredByMap> {
         #[derive(Debug, FromQueryResult, Clone, Default)]
         struct UsersToBeNotified {
             person_id: i32,
