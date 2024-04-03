@@ -201,13 +201,14 @@ export default function Page() {
 						if (value) setDefaultTab(value);
 					}}
 				>
-					<Tabs.List>
+					<Tabs.List mb="md">
 						<Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
+						<Tabs.Tab value="features">Features</Tabs.Tab>
 						<Tabs.Tab value="general">General</Tabs.Tab>
 						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
 						<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 					</Tabs.List>
-					<Tabs.Panel value="dashboard" mt="md">
+					<Tabs.Panel value="dashboard">
 						<Text mb="md">The different sections on the dashboard.</Text>
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
@@ -238,7 +239,7 @@ export default function Page() {
 							</Droppable>
 						</DragDropContext>
 					</Tabs.Panel>
-					<Tabs.Panel value="general" mt="md">
+					<Tabs.Panel value="features">
 						<Stack>
 							<Text>Features that you want to use.</Text>
 							{(["media", "fitness", "others"] as const).map((facet) => (
@@ -266,10 +267,19 @@ export default function Page() {
 									</SimpleGrid>
 								</Fragment>
 							))}
-							<Divider />
-							<Title order={3} mb={-10}>
-								General
-							</Title>
+						</Stack>
+					</Tabs.Panel>
+					<Tabs.Panel value="general">
+						<Stack gap="xl">
+							<TagsInput
+								label="Watch providers"
+								placeholder="Enter more providers"
+								defaultValue={loaderData.userPreferences.general.watchProviders}
+								disabled={!!loaderData.userDetails.isDemo}
+								onChange={(val) => {
+									appendPref("general.watch_providers", JSON.stringify(val));
+								}}
+							/>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
 								{(
 									[
@@ -326,18 +336,9 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
-							<TagsInput
-								label="Watch providers"
-								placeholder="Enter more providers"
-								defaultValue={loaderData.userPreferences.general.watchProviders}
-								disabled={!!loaderData.userDetails.isDemo}
-								onChange={(val) => {
-									appendPref("general.watch_providers", JSON.stringify(val));
-								}}
-							/>
 						</Stack>
 					</Tabs.Panel>
-					<Tabs.Panel value="notifications" mt="md">
+					<Tabs.Panel value="notifications">
 						<Stack>
 							<Switch
 								size="xs"
@@ -434,7 +435,7 @@ export default function Page() {
 							</SimpleGrid>
 						</Stack>
 					</Tabs.Panel>
-					<Tabs.Panel value="fitness" mt="md">
+					<Tabs.Panel value="fitness">
 						<Stack>
 							<SimpleGrid
 								cols={{ base: 1, md: 2 }}
