@@ -18,6 +18,7 @@ endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-e
 | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | - / `PORT`                                                              | The port to listen on. Defaults to `8000`.                                                                             |
 | - / `TZ`                                                                | Timezone to be used for cron jobs. Accepts values according to the IANA database. Defaults to `GMT`.                   |
+| - / `FRONTEND_INSECURE_COOKIES`                                         | Whether to set `Secure=false` on cookies. Set this to `true` when running in a non-https context. Defaults to `false`. |
 | `disable_telemetry` / `DISABLE_TELEMETRY`                               | Disables telemetry collection using [Umami](https://umami.is). Defaults to `false`.                                    |
 | `database.url` / `DATABASE_URL`                                         | The Postgres database connection string.                                                                               |
 | `video_games.twitch.client_id` / `VIDEO_GAMES_TWITCH_CLIENT_ID`         | The client ID issued by Twitch. **Required** to enable video games tracking. [More information](guides/video-games.md) |
