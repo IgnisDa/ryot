@@ -143,7 +143,6 @@ pub async fn import(
                 seen_history,
                 reviews,
                 collections,
-                monitored: None,
             });
         } else {
             failed_items.push(ImportFailedItem {

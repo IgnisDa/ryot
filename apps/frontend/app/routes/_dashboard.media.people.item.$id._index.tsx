@@ -46,13 +46,13 @@ import {
 import {
 	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaMonitored,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import {
 	createToastHeaders,
@@ -224,9 +224,6 @@ export default function Page() {
 						{loaderData.personDetails.details.isPartial ? (
 							<MediaIsPartial mediaType="person" />
 						) : null}
-						{loaderData.userPersonDetails.isMonitored ? (
-							<DisplayMediaMonitored entityLot="person" />
-						) : null}
 					</Group>
 					{loaderData.userPersonDetails.reminder ? (
 						<DisplayMediaReminder
@@ -342,37 +339,13 @@ export default function Page() {
 											<Button variant="outline">More actions</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
-											<Form
-												action="/actions?intent=toggleMediaMonitor"
-												method="post"
-												replace
-											>
-												<HiddenLocationInput />
-												<Menu.Item
-													type="submit"
-													color={
-														loaderData.userPersonDetails.isMonitored
-															? "red"
-															: undefined
-													}
-													name="personId"
-													value={loaderData.personId}
-													onClick={(e) => {
-														if (loaderData.userPersonDetails.isMonitored)
-															if (
-																!confirm(
-																	"Are you sure you want to stop monitoring this person?",
-																)
-															)
-																e.preventDefault();
-													}}
-												>
-													{loaderData.userPersonDetails.isMonitored
-														? "Stop"
-														: "Start"}{" "}
-													monitoring
-												</Menu.Item>
-											</Form>
+											<ToggleMediaMonitorMenuItem
+												inCollections={loaderData.userPersonDetails.collections.map(
+													(c) => c.name,
+												)}
+												formValue={loaderData.personId}
+												entityLot={EntityLot.Person}
+											/>
 											{loaderData.userPersonDetails.reminder ? (
 												<Form
 													action="/actions?intent=deleteMediaReminder"

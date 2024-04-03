@@ -22,7 +22,6 @@ import {
 	authCookie,
 	combineHeaders,
 	createToastHeaders,
-	serverVariables,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	getIsAuthenticated,
@@ -30,6 +29,7 @@ import {
 	processSubmission,
 	redirectWithToast,
 	runningKeyCookie,
+	serverVariables,
 } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 

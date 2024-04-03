@@ -1,6 +1,5 @@
 query UserPersonDetails($personId: Int!) {
   userPersonDetails(personId: $personId) {
-    isMonitored
     collections {
       ...CollectionPart
     }

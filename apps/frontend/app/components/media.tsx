@@ -15,6 +15,7 @@ import {
 	Image,
 	Input,
 	Loader,
+	Menu,
 	Modal,
 	NumberInput,
 	Paper,
@@ -60,7 +61,6 @@ import {
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
-	IconEyeCheck,
 	IconPercentage,
 	IconStarFilled,
 	IconTrash,
@@ -1045,17 +1045,6 @@ export const DisplayMediaReminder = (props: {
 	);
 };
 
-export const DisplayMediaMonitored = (props: { entityLot?: string }) => {
-	return (
-		<Flex align="center" gap={2}>
-			<IconEyeCheck size={20} />
-			<Text size="xs">
-				This {props.entityLot || "media"} is being monitored
-			</Text>
-		</Flex>
-	);
-};
-
 export const DisplayMediaOwned = () => {
 	return (
 		<Flex align="center" gap={2}>
@@ -1128,5 +1117,37 @@ export const CreateOwnershipModal = (props: {
 				</Stack>
 			</Form>
 		</Modal>
+	);
+};
+
+export const ToggleMediaMonitorMenuItem = (props: {
+	entityLot: EntityLot;
+	inCollections: string[];
+	formValue: number;
+}) => {
+	const isMonitored = props.inCollections.includes("Monitoring");
+	const action = isMonitored
+		? "removeEntityFromCollection"
+		: "addEntityToCollection";
+
+	return (
+		<Form action={`/actions?intent=${action}`} method="post" replace>
+			<HiddenLocationInput />
+			<input hidden name="collectionName" value="Monitoring" />
+			<input hidden name="entityLot" value={props.entityLot} />
+			<Menu.Item
+				type="submit"
+				color={isMonitored ? "red" : undefined}
+				name="entityId"
+				value={props.formValue}
+				onClick={(e) => {
+					if (isMonitored)
+						if (!confirm("Are you sure you want to stop monitoring?"))
+							e.preventDefault();
+				}}
+			>
+				{isMonitored ? "Stop" : "Start"} monitoring
+			</Menu.Item>
+		</Form>
 	);
 };

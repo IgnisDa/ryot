@@ -51,8 +51,8 @@ import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import { getLot } from "~/lib/generals";
 import {
-	serverVariables,
 	redirectIfNotAuthenticatedOrUpdated,
+	serverVariables,
 } from "~/lib/utilities.server";
 import {
 	colorSchemeCookie,

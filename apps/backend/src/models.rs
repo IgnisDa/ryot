@@ -899,12 +899,12 @@ pub mod media {
         Reviewed,
         #[sea_orm(string_value = "Collection")]
         Collection,
-        #[sea_orm(string_value = "Monitored")]
-        Monitored,
         #[sea_orm(string_value = "Reminder")]
         Reminder,
         #[sea_orm(string_value = "Owned")]
         Owned,
+        #[sea_orm(string_value = "Monitoring")]
+        Monitoring,
     }
 
     #[derive(Debug, SimpleObject)]
@@ -1118,8 +1118,6 @@ pub mod media {
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
-        /// Whether the media is being monitored.
-        pub monitored: Option<bool>,
     }
 
     /// Details about a specific creator item that needs to be exported.
@@ -1139,8 +1137,6 @@ pub mod media {
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.
         pub collections: Vec<String>,
-        /// Whether the person is being monitored.
-        pub monitored: Option<bool>,
     }
 
     #[derive(
@@ -1325,14 +1321,6 @@ pub mod media {
         pub image: Option<String>,
         pub lot: MediaLot,
         pub source: MediaSource,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-    pub struct ToggleMediaMonitorInput {
-        pub metadata_id: Option<i32>,
-        pub person_id: Option<i32>,
-        pub metadata_group_id: Option<i32>,
-        pub force_value: Option<bool>,
     }
 
     #[derive(Debug, InputObject)]

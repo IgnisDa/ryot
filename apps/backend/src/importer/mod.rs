@@ -27,7 +27,6 @@ use crate::{
             CommitPersonInput, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
             ImportOrExportItemRating, ImportOrExportMediaItem, ImportOrExportPersonItem,
             PartialMetadataWithoutId, PostReviewInput, ProgressUpdateInput,
-            ToggleMediaMonitorInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput, IdObject,
     },
@@ -363,16 +362,6 @@ impl ImporterService {
                     .await
                     .ok();
             }
-            self.media_service
-                .toggle_media_monitor(
-                    user_id,
-                    ToggleMediaMonitorInput {
-                        person_id: Some(person.id),
-                        force_value: item.monitored,
-                        ..Default::default()
-                    },
-                )
-                .await?;
             tracing::debug!(
                 "Imported person: {idx}/{total}, name: {name}",
                 idx = idx + 1,
@@ -600,16 +589,6 @@ impl ImporterService {
                     .await
                     .ok();
             }
-            self.media_service
-                .toggle_media_monitor(
-                    user_id,
-                    ToggleMediaMonitorInput {
-                        metadata_id: Some(metadata.id),
-                        force_value: item.monitored,
-                        ..Default::default()
-                    },
-                )
-                .await?;
             tracing::debug!(
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx + 1,

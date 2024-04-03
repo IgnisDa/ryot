@@ -30,7 +30,7 @@ CHECK (
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it
-/// - added to their monitored media
+/// - owns it
 /// - added a reminder
 #[derive(Iden)]
 pub enum UserToEntity {
@@ -46,7 +46,6 @@ pub enum UserToEntity {
     PersonId,
     MetadataGroupId,
     // specifics
-    MediaMonitored,
     MediaReminder,
     MetadataUnitsConsumed,
     ExerciseExtraInformation,
@@ -77,7 +76,6 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
-                    .col(ColumnDef::new(UserToEntity::MediaMonitored).boolean())
                     .col(ColumnDef::new(UserToEntity::MediaReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataId).integer())

@@ -11,7 +11,7 @@ use tracing::instrument;
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    utils::get_base_http_client,
+    utils::{get_base_http_client, ilike_sql},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -212,7 +212,7 @@ impl IntegrationService {
                             Expr::col(metadata::Column::ShowSpecifics),
                             Alias::new("text"),
                         ))
-                        .ilike(identifier),
+                        .ilike(ilike_sql(identifier)),
                     )
                     .one(db)
                     .await?;
@@ -251,6 +251,7 @@ impl IntegrationService {
             Result::Err(err) => bail!(err),
         };
         payload.source = MediaSource::Tmdb;
+        payload.provider_watched_on = Some("Kodi".to_string());
         Ok(payload)
     }
 

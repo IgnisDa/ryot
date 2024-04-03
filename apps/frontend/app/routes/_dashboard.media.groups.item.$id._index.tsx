@@ -40,7 +40,6 @@ import {
 	CreateOwnershipModal,
 	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaMonitored,
 	DisplayMediaOwned,
 	DisplayMediaReminder,
 	MediaIsPartial,
@@ -49,6 +48,7 @@ import {
 	type PostReview,
 	PostReviewModal,
 	ReviewItemDisplay,
+	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
@@ -183,9 +183,6 @@ export default function Page() {
 						{loaderData.userMetadataGroupDetails.ownership ? (
 							<DisplayMediaOwned />
 						) : null}
-						{loaderData.userMetadataGroupDetails.isMonitored ? (
-							<DisplayMediaMonitored entityLot="group" />
-						) : null}
 						{loaderData.metadataGroupDetails.details.isPartial ? (
 							<MediaIsPartial mediaType="group" />
 						) : null}
@@ -255,6 +252,13 @@ export default function Page() {
 											<Button variant="outline">More actions</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
+											<ToggleMediaMonitorMenuItem
+												inCollections={loaderData.userMetadataGroupDetails.collections.map(
+													(c) => c.name,
+												)}
+												formValue={loaderData.metadataGroupId}
+												entityLot={EntityLot.MediaGroup}
+											/>
 											{loaderData.userMetadataGroupDetails.ownership ? (
 												<Form
 													action="/actions?intent=toggleMediaOwnership"
@@ -317,37 +321,6 @@ export default function Page() {
 													Create reminder
 												</Menu.Item>
 											)}
-											<Form
-												action="/actions?intent=toggleMediaMonitor"
-												method="post"
-												replace
-											>
-												<HiddenLocationInput />
-												<Menu.Item
-													type="submit"
-													color={
-														loaderData.userMetadataGroupDetails.isMonitored
-															? "red"
-															: undefined
-													}
-													name="metadataGroupId"
-													value={loaderData.metadataGroupId}
-													onClick={(e) => {
-														if (loaderData.userMetadataGroupDetails.isMonitored)
-															if (
-																!confirm(
-																	"Are you sure you want to stop monitoring this person?",
-																)
-															)
-																e.preventDefault();
-													}}
-												>
-													{loaderData.userMetadataGroupDetails.isMonitored
-														? "Stop"
-														: "Start"}{" "}
-													monitoring
-												</Menu.Item>
-											</Form>
 										</Menu.Dropdown>
 									</Menu>
 								</SimpleGrid>
