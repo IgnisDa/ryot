@@ -28,8 +28,6 @@ import {
 	gqlClient,
 	processSubmission,
 	redirectWithToast,
-	runningKeyCookie,
-	serverVariables,
 } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
@@ -68,12 +66,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		return redirect(redirectUrl, {
 			headers: combineHeaders(
 				{ "set-cookie": await authCookie.serialize(loginUser.apiKey, options) },
-				{
-					"set-cookie": await runningKeyCookie.serialize(
-						serverVariables.RUNNING_KEY,
-						options,
-					),
-				},
 				cookies,
 			),
 		});
