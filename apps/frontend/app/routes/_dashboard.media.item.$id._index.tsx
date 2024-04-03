@@ -1968,7 +1968,10 @@ const ProgressUpdateModal = (props: {
 						/>
 					) : null}
 					<Select
-						label="Where did you watch it?"
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							loaderData.mediaMainDetails.lot,
+						)} it?`}
 						data={loaderData.userPreferences.watchProviders}
 						name="providerWatchedOn"
 					/>
@@ -2082,7 +2085,10 @@ const IndividualProgressModal = (props: {
 					) : null}
 					<Select
 						data={loaderData.userPreferences.watchProviders}
-						label="Where did you watch it?"
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							loaderData.mediaMainDetails.lot,
+						)} it?`}
 						name="providerWatchedOn"
 						defaultValue={props.inProgress.providerWatchedOn}
 					/>
