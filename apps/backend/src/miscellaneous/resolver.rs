@@ -42,7 +42,7 @@ use sea_orm::{
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering,
-    PostgresQueryBuilder, Query, SelectStatement,
+    PgFunc, PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -1979,10 +1979,9 @@ impl MiscellaneousService {
                     .to(calendar_event::Column::MetadataId)
                     .on_condition(move |left, _right| {
                         Condition::all().add_option(match only_monitored {
-                            true => Some(
-                                Expr::col((left, user_to_entity::Column::MediaReason))
-                                    .contains(DefaultCollection::Monitoring.to_string()),
-                            ),
+                            true => Some(Expr::val(DefaultCollection::Monitoring.to_string()).eq(
+                                PgFunc::any(Expr::col((left, user_to_entity::Column::MediaReason))),
+                            )),
                             false => None,
                         })
                     })
