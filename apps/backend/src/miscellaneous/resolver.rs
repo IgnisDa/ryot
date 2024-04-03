@@ -2730,13 +2730,16 @@ impl MiscellaneousService {
             .await
             .unwrap();
         for user_id in all_users {
-            let collection_ids: Vec<i32> = Collection::find()
-                .select_only()
+            let collections = Collection::find()
                 .column(collection::Column::Id)
                 .filter(collection::Column::UserId.eq(user_id))
-                .into_tuple()
                 .all(&self.db)
                 .await
+                .unwrap();
+            let monitoring_collection_id = collections
+                .iter()
+                .find(|c| c.name == DefaultCollection::Monitoring.to_string())
+                .map(|c| c.id)
                 .unwrap();
             let all_user_to_metadata = UserToEntity::find()
                 .filter(user_to_entity::Column::MetadataId.is_not_null())
@@ -2771,6 +2774,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 let is_in_collection = !collections_part_of.is_empty();
+                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_reminder_active = u.media_reminder.is_some();
                 let is_owned = u.media_ownership.is_some();
                 if seen_count + reviewed_count == 0
@@ -2799,6 +2803,9 @@ impl MiscellaneousService {
                     }
                     if is_owned {
                         new_reasons.insert(UserToMediaReason::Owned);
+                    }
+                    if is_monitoring {
+                        new_reasons.insert(UserToMediaReason::Monitoring);
                     }
                     let previous_reasons =
                         HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
@@ -2840,6 +2847,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 let is_in_collection = !collections_part_of.is_empty();
+                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_reminder_active = u.media_reminder.is_some();
                 if reviewed_count == 0 && !is_in_collection && !is_reminder_active {
                     tracing::debug!(
@@ -2857,6 +2865,9 @@ impl MiscellaneousService {
                     }
                     if is_reminder_active {
                         new_reasons.insert(UserToMediaReason::Reminder);
+                    }
+                    if is_monitoring {
+                        new_reasons.insert(UserToMediaReason::Monitoring);
                     }
                     let previous_reasons =
                         HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
@@ -2898,6 +2909,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 let is_in_collection = !collections_part_of.is_empty();
+                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_owned = u.media_ownership.is_some();
                 let is_reminder_active = u.media_reminder.is_some();
                 if reviewed_count == 0 && !is_in_collection && !is_reminder_active && !is_owned {
@@ -2919,6 +2931,9 @@ impl MiscellaneousService {
                     }
                     if is_owned {
                         new_reasons.insert(UserToMediaReason::Owned);
+                    }
+                    if is_monitoring {
+                        new_reasons.insert(UserToMediaReason::Monitoring);
                     }
                     let previous_reasons =
                         HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());

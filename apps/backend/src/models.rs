@@ -903,6 +903,8 @@ pub mod media {
         Reminder,
         #[sea_orm(string_value = "Owned")]
         Owned,
+        #[sea_orm(string_value = "Monitored")]
+        Monitored,
     }
 
     #[derive(Debug, SimpleObject)]
