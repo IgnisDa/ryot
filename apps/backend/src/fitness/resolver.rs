@@ -44,10 +44,9 @@ use crate::{
     utils::{add_entity_to_collection, entity_in_collections, partial_user_by_id},
 };
 
-static JSON_URL: &str =
-    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
-static IMAGES_PREFIX_URL: &str =
-    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
+const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
+const JSON_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/dist/exercises.json");
+const IMAGES_PREFIX_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/exercises");
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct ExerciseListFilter {
