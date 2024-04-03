@@ -252,6 +252,13 @@ export default function Page() {
 											<Button variant="outline">More actions</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
+											<ToggleMediaMonitorMenuItem
+												inCollections={loaderData.userMetadataGroupDetails.collections.map(
+													(c) => c.name,
+												)}
+												formValue={loaderData.metadataGroupId}
+												entityLot={EntityLot.MediaGroup}
+											/>
 											{loaderData.userMetadataGroupDetails.ownership ? (
 												<Form
 													action="/actions?intent=toggleMediaOwnership"
@@ -314,13 +321,6 @@ export default function Page() {
 													Create reminder
 												</Menu.Item>
 											)}
-											<ToggleMediaMonitorMenuItem
-												inCollections={loaderData.userMetadataGroupDetails.collections.map(
-													(c) => c.name,
-												)}
-												formValue={loaderData.metadataGroupId}
-												entityLot={EntityLot.MediaGroup}
-											/>
 										</Menu.Dropdown>
 									</Menu>
 								</SimpleGrid>
