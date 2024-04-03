@@ -2761,18 +2761,16 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 // check if it is part of any collection
-                let meta_ids: Vec<i32> = CollectionToEntity::find()
+                let collections_part_of = CollectionToEntity::find()
                     .select_only()
-                    .column(collection_to_entity::Column::MetadataId)
-                    .filter(
-                        collection_to_entity::Column::CollectionId.is_in(collection_ids.clone()),
-                    )
-                    .filter(collection_to_entity::Column::MetadataId.is_not_null())
-                    .into_tuple()
+                    .column(collection_to_entity::Column::CollectionId)
+                    .filter(collection_to_entity::Column::MetadataId.eq(u.metadata_id.unwrap()))
+                    .filter(collection_to_entity::Column::CollectionId.is_not_null())
+                    .into_tuple::<i32>()
                     .all(&self.db)
                     .await
                     .unwrap();
-                let is_in_collection = meta_ids.contains(&u.metadata_id.unwrap());
+                let is_in_collection = !collections_part_of.is_empty();
                 let is_reminder_active = u.media_reminder.is_some();
                 let is_owned = u.media_ownership.is_some();
                 if seen_count + reviewed_count == 0
@@ -2832,18 +2830,16 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 // check if it is part of any collection
-                let person_ids: Vec<i32> = CollectionToEntity::find()
+                let collections_part_of = CollectionToEntity::find()
                     .select_only()
-                    .column(collection_to_entity::Column::PersonId)
-                    .filter(
-                        collection_to_entity::Column::CollectionId.is_in(collection_ids.clone()),
-                    )
-                    .filter(collection_to_entity::Column::PersonId.is_not_null())
-                    .into_tuple()
+                    .column(collection_to_entity::Column::CollectionId)
+                    .filter(collection_to_entity::Column::MetadataId.eq(u.metadata_id.unwrap()))
+                    .filter(collection_to_entity::Column::CollectionId.is_not_null())
+                    .into_tuple::<i32>()
                     .all(&self.db)
                     .await
                     .unwrap();
-                let is_in_collection = person_ids.contains(&u.person_id.unwrap());
+                let is_in_collection = !collections_part_of.is_empty();
                 let is_reminder_active = u.media_reminder.is_some();
                 if reviewed_count == 0 && !is_in_collection && !is_reminder_active {
                     tracing::debug!(
@@ -2892,18 +2888,16 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 // check if it is part of any collection
-                let metadata_group_ids: Vec<i32> = CollectionToEntity::find()
+                let collections_part_of = CollectionToEntity::find()
                     .select_only()
-                    .column(collection_to_entity::Column::MetadataGroupId)
-                    .filter(
-                        collection_to_entity::Column::CollectionId.is_in(collection_ids.clone()),
-                    )
-                    .filter(collection_to_entity::Column::MetadataGroupId.is_not_null())
-                    .into_tuple()
+                    .column(collection_to_entity::Column::CollectionId)
+                    .filter(collection_to_entity::Column::MetadataId.eq(u.metadata_id.unwrap()))
+                    .filter(collection_to_entity::Column::CollectionId.is_not_null())
+                    .into_tuple::<i32>()
                     .all(&self.db)
                     .await
                     .unwrap();
-                let is_in_collection = metadata_group_ids.contains(&u.metadata_group_id.unwrap());
+                let is_in_collection = !collections_part_of.is_empty();
                 let is_owned = u.media_ownership.is_some();
                 let is_reminder_active = u.media_reminder.is_some();
                 if reviewed_count == 0 && !is_in_collection && !is_reminder_active && !is_owned {
