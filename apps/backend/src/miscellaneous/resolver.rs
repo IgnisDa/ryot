@@ -7328,40 +7328,16 @@ GROUP BY m.id;
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        let collections_named_monitored = Collection::find()
-            .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
-            .select_only()
-            .column(collection::Column::Id)
-            .column(collection::Column::UserId)
-            .into_tuple::<(i32, i32)>()
-            .all(&self.db)
-            .await?;
-        let collections_in_which_entity_is_present = CollectionToEntity::find()
-            .select_only()
-            .column(collection_to_entity::Column::CollectionId)
-            .filter(
-                collection_to_entity::Column::MetadataId
-                    .eq(event.obj_id)
-                    .or(collection_to_entity::Column::PersonId.eq(event.obj_id)),
-            )
-            .filter(
-                collection_to_entity::Column::CollectionId
-                    .is_in(collections_named_monitored.iter().map(|c| c.0)),
-            )
-            .into_tuple::<i32>()
-            .all(&self.db)
-            .await?;
-        let monitored_by = collections_in_which_entity_is_present
-            .iter()
-            .map(|c| {
-                collections_named_monitored
-                    .iter()
-                    .find(|(id, _)| id == c)
-                    .unwrap()
-                    .1
-            })
-            .collect_vec();
-        dbg!(&monitored_by);
+        let (meta_map, meta_group_map, person_map) = self.get_entities_and_monitored_by().await?;
+        let monitored_by = match event.entity_lot {
+            EntityLot::Media => meta_map.get(&event.obj_id).cloned().unwrap_or_default(),
+            EntityLot::MediaGroup => meta_group_map
+                .get(&event.obj_id)
+                .cloned()
+                .unwrap_or_default(),
+            EntityLot::Person => person_map.get(&event.obj_id).cloned().unwrap_or_default(),
+            _ => vec![],
+        };
         let users = User::find()
             .select_only()
             .column(user::Column::Id)
