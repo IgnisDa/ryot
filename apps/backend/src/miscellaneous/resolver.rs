@@ -7282,71 +7282,44 @@ GROUP BY
             entity_id: i32,
             to_notify: Vec<i32>,
         }
-        let meta_map: Vec<_> =
-            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
-                DbBackend::Postgres,
+        let get_sql = |entity_type: &str| {
+            format!(
                 r#"
 SELECT
     m.id as entity_id,
     array_agg(DISTINCT u.id) as to_notify
-FROM
-    metadata m
-JOIN collection_to_entity cte ON m.id = cte.metadata_id
-JOIN collection c ON cte.collection_id = c.id AND c.name = 'Monitoring'
+FROM {entity_type} m
+JOIN collection_to_entity cte ON m.id = cte.{entity_type}_id
+JOIN collection c ON cte.collection_id = c.id AND c.name = '{}'
 JOIN "user" u ON c.user_id = u.id
-GROUP BY
-    m.id;
+GROUP BY m.id;
         "#,
-                [],
-            ))
-            .all(&self.db)
-            .await?;
+                DefaultCollection::Monitoring
+            )
+        };
+        let meta_map: Vec<_> = UsersToBeNotified::find_by_statement(
+            Statement::from_sql_and_values(DbBackend::Postgres, get_sql("metadata"), []),
+        )
+        .all(&self.db)
+        .await?;
         let meta_map = meta_map
             .into_iter()
             .map(|m| (m.entity_id, m.to_notify))
             .collect::<EntityToMonitoredByMap>();
-        let meta_group_map: Vec<_> =
-            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                r#"
-SELECT
-    m.id as entity_id,
-    array_agg(DISTINCT u.id) as to_notify
-FROM
-    metadata_group m
-JOIN collection_to_entity cte ON m.id = cte.metadata_group_id
-JOIN collection c ON cte.collection_id = c.id AND c.name = 'Monitoring'
-JOIN "user" u ON c.user_id = u.id
-GROUP BY
-    m.id;
-        "#,
-                [],
-            ))
-            .all(&self.db)
-            .await?;
+        let meta_group_map: Vec<_> = UsersToBeNotified::find_by_statement(
+            Statement::from_sql_and_values(DbBackend::Postgres, get_sql("metadata_group"), []),
+        )
+        .all(&self.db)
+        .await?;
         let meta_group_map = meta_group_map
             .into_iter()
             .map(|m| (m.entity_id, m.to_notify))
             .collect::<EntityToMonitoredByMap>();
-        let person_map: Vec<_> =
-            UsersToBeNotified::find_by_statement(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                r#"
-SELECT
-    p.id as entity_id,
-    array_agg(DISTINCT u.id) as to_notify
-FROM
-    person p
-JOIN collection_to_entity cte ON p.id = cte.person_id
-JOIN collection c ON cte.collection_id = c.id AND c.name = 'Monitoring'
-JOIN "user" u ON c.user_id = u.id
-GROUP BY
-    p.id;
-        "#,
-                [],
-            ))
-            .all(&self.db)
-            .await?;
+        let person_map: Vec<_> = UsersToBeNotified::find_by_statement(
+            Statement::from_sql_and_values(DbBackend::Postgres, get_sql("person"), []),
+        )
+        .all(&self.db)
+        .await?;
         let person_map = person_map
             .into_iter()
             .map(|m| (m.entity_id, m.to_notify))
