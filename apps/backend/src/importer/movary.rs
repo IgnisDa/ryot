@@ -180,10 +180,6 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
     Ok(ImportResult {
         media,
         failed_items,
-        people: vec![],
-        workouts: vec![],
-        collections: vec![],
-        measurements: vec![],
-        media_groups: vec![],
+        ..Default::default()
     })
 }

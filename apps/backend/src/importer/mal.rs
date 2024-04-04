@@ -90,12 +90,7 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     }
     Ok(ImportResult {
         media,
-        people: vec![],
-        workouts: vec![],
-        collections: vec![],
-        failed_items: vec![],
-        measurements: vec![],
-        media_groups: vec![],
+        ..Default::default()
     })
 }
 

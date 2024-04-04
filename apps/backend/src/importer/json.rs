@@ -27,12 +27,7 @@ pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> 
     });
     Ok(ImportResult {
         media,
-        people: vec![],
-        workouts: vec![],
-        collections: vec![],
-        media_groups: vec![],
-        failed_items: vec![],
-        measurements: vec![],
+        ..Default::default()
     })
 }
 
@@ -41,12 +36,7 @@ pub async fn measurements_import(input: DeployJsonImportInput) -> Result<ImportR
     let measurements = serde_json::from_str::<Vec<user_measurement::Model>>(&export).unwrap();
     Ok(ImportResult {
         measurements,
-        people: vec![],
-        media: vec![],
-        workouts: vec![],
-        collections: vec![],
-        media_groups: vec![],
-        failed_items: vec![],
+        ..Default::default()
     })
 }
 
@@ -55,12 +45,7 @@ pub async fn people_import(input: DeployJsonImportInput) -> Result<ImportResult>
     let people = serde_json::from_str::<Vec<ImportOrExportPersonItem>>(&export).unwrap();
     Ok(ImportResult {
         people,
-        media: vec![],
-        workouts: vec![],
-        collections: vec![],
-        measurements: vec![],
-        media_groups: vec![],
-        failed_items: vec![],
+        ..Default::default()
     })
 }
 
@@ -76,12 +61,7 @@ pub async fn workouts_import(
         .collect();
     Ok(ImportResult {
         workouts,
-        media: vec![],
-        people: vec![],
-        collections: vec![],
-        media_groups: vec![],
-        measurements: vec![],
-        failed_items: vec![],
+        ..Default::default()
     })
 }
 
@@ -90,11 +70,6 @@ pub async fn media_groups_import(input: DeployJsonImportInput) -> Result<ImportR
     let media_groups = serde_json::from_str::<Vec<ImportOrExportMediaGroupItem>>(&export).unwrap();
     Ok(ImportResult {
         media_groups,
-        people: vec![],
-        media: vec![],
-        workouts: vec![],
-        collections: vec![],
-        measurements: vec![],
-        failed_items: vec![],
+        ..Default::default()
     })
 }

@@ -160,7 +160,7 @@ pub struct ImportDetails {
     pub total: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
     media: Vec<ImportOrExportMediaItem>,
