@@ -162,6 +162,7 @@ pub enum ExportItem {
     Media,
     People,
     Workouts,
+    MediaGroup,
     Measurements,
 }
 

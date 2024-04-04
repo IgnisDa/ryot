@@ -496,6 +496,7 @@ export type ExercisesListInput = {
 export enum ExportItem {
   Measurements = 'MEASUREMENTS',
   Media = 'MEDIA',
+  MediaGroup = 'MEDIA_GROUP',
   People = 'PEOPLE',
   Workouts = 'WORKOUTS'
 }

@@ -77,11 +77,11 @@ use crate::{
         media::{
             AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
             CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
-            ImportOrExportMediaItemSeen, ImportOrExportPersonItem, MangaSpecifics,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
-            MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment,
+            ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
+            MediaListItem, MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem,
+            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
             PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
@@ -6868,6 +6868,56 @@ impl MiscellaneousService {
                 identifier: m.identifier.clone(),
                 internal_identifier: None,
                 seen_history,
+                reviews,
+                collections,
+            };
+            writer.serialize_value(&exp).unwrap();
+        }
+        Ok(true)
+    }
+
+    pub async fn export_media_group(
+        &self,
+        user_id: i32,
+        writer: &mut JsonStreamWriter<File>,
+    ) -> Result<bool> {
+        let related_metadata = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
+        for rm in related_metadata.iter() {
+            let m = rm
+                .find_related(MetadataGroup)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let db_reviews = m
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item = get_review_export_item(
+                    self.review_by_id(review.id, user_id, false).await.unwrap(),
+                );
+                reviews.push(review_item);
+            }
+            let collections =
+                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportMediaGroupItem {
+                title: m.title,
+                lot: m.lot,
+                source: m.source,
+                identifier: m.identifier.clone(),
                 reviews,
                 collections,
             };

@@ -106,6 +106,11 @@ impl ExporterService {
                         .export_media(user_id, &mut writer)
                         .await?;
                 }
+                ExportItem::MediaGroup => {
+                    self.media_service
+                        .export_media_group(user_id, &mut writer)
+                        .await?;
+                }
                 ExportItem::People => {
                     self.media_service
                         .export_people(user_id, &mut writer)
