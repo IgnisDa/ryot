@@ -157,7 +157,7 @@ pub struct IdAndNamedObject {
 }
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
-#[strum(serialize_all = "lowercase")]
+#[strum(serialize_all = "snake_case")]
 pub enum ExportItem {
     Media,
     People,
