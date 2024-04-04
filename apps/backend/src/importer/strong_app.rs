@@ -145,5 +145,6 @@ pub async fn import(
         collections: vec![],
         failed_items: vec![],
         measurements: vec![],
+        media_groups: vec![],
     })
 }

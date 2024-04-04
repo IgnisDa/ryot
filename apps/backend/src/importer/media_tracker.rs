@@ -161,7 +161,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         .unwrap();
     let mut lists: Vec<ListResponse> = rsp.body_json().await.unwrap();
 
-    let all_collections = lists
+    let collections = lists
         .iter()
         .map(|l| CreateOrUpdateCollectionInput {
             name: l.name.clone(),
@@ -368,9 +368,10 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     Ok(ImportResult {
         media: final_data,
         failed_items,
-        collections: all_collections,
+        collections,
         people: vec![],
         workouts: vec![],
         measurements: vec![],
+        media_groups: vec![],
     })
 }

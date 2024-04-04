@@ -3222,7 +3222,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn commit_metadata_group_internal(
+    pub async fn commit_metadata_group_internal(
         &self,
         identifier: &String,
         lot: MediaLot,

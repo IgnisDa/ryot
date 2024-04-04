@@ -59,7 +59,7 @@ struct ListResponse {
 }
 
 pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
-    let mut media_items = vec![];
+    let mut media = vec![];
     let mut failed_items = vec![];
 
     let client = get_base_http_client(
@@ -100,14 +100,14 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             match process_item(i) {
                 Ok(mut d) => {
                     d.collections.push(l.name.to_case(Case::Title));
-                    media_items.push(d)
+                    media.push(d)
                 }
                 Err(d) => failed_items.push(d),
             }
         }
     }
 
-    let all_collections = lists
+    let collections = lists
         .iter()
         .map(|l| CreateOrUpdateCollectionInput {
             name: l.name.to_case(Case::Title),
@@ -141,10 +141,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         }),
                         ..Default::default()
                     });
-                    if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
+                    if let Some(a) = media.iter_mut().find(|i| i.source_id == d.source_id) {
                         a.reviews = d.reviews;
                     } else {
-                        media_items.push(d)
+                        media.push(d)
                     }
                 }
                 Err(d) => failed_items.push(d),
@@ -208,22 +208,23 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     show_episode_number,
                     ..Default::default()
                 });
-                if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
+                if let Some(a) = media.iter_mut().find(|i| i.source_id == d.source_id) {
                     a.seen_history.extend(d.seen_history);
                 } else {
-                    media_items.push(d)
+                    media.push(d)
                 }
             }
             Err(d) => failed_items.push(d),
         }
     }
     Ok(ImportResult {
-        collections: all_collections,
-        media: media_items,
+        collections,
+        media,
         failed_items,
         people: vec![],
         workouts: vec![],
         measurements: vec![],
+        media_groups: vec![],
     })
 }
 

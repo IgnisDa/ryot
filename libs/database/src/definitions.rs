@@ -168,6 +168,8 @@ pub enum ImportSource {
     MediaTracker,
     #[sea_orm(string_value = "MJ")]
     MediaJson,
+    #[sea_orm(string_value = "MGJ")]
+    MediaGroupJson,
     #[sea_orm(string_value = "PJ")]
     PeopleJson,
     #[sea_orm(string_value = "TR")]

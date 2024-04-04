@@ -681,6 +681,7 @@ export enum ImportSource {
   Goodreads = 'GOODREADS',
   Mal = 'MAL',
   MeasurementsJson = 'MEASUREMENTS_JSON',
+  MediaGroupJson = 'MEDIA_GROUP_JSON',
   MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',

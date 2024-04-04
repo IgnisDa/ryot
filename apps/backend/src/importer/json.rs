@@ -8,7 +8,8 @@ use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
     models::media::{
-        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportPersonItem,
+        ImportOrExportItemIdentifier, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+        ImportOrExportPersonItem,
     },
 };
 
@@ -29,6 +30,7 @@ pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> 
         people: vec![],
         workouts: vec![],
         collections: vec![],
+        media_groups: vec![],
         failed_items: vec![],
         measurements: vec![],
     })
@@ -43,6 +45,7 @@ pub async fn measurements_import(input: DeployJsonImportInput) -> Result<ImportR
         media: vec![],
         workouts: vec![],
         collections: vec![],
+        media_groups: vec![],
         failed_items: vec![],
     })
 }
@@ -56,6 +59,7 @@ pub async fn people_import(input: DeployJsonImportInput) -> Result<ImportResult>
         workouts: vec![],
         collections: vec![],
         measurements: vec![],
+        media_groups: vec![],
         failed_items: vec![],
     })
 }
@@ -72,8 +76,23 @@ pub async fn workouts_import(
         .collect();
     Ok(ImportResult {
         workouts,
+        media: vec![],
+        people: vec![],
+        collections: vec![],
+        media_groups: vec![],
+        measurements: vec![],
+        failed_items: vec![],
+    })
+}
+
+pub async fn media_groups_import(input: DeployJsonImportInput) -> Result<ImportResult> {
+    let export = fs::read_to_string(input.export)?;
+    let media_groups = serde_json::from_str::<Vec<ImportOrExportMediaGroupItem>>(&export).unwrap();
+    Ok(ImportResult {
+        media_groups,
         people: vec![],
         media: vec![],
+        workouts: vec![],
         collections: vec![],
         measurements: vec![],
         failed_items: vec![],

@@ -161,5 +161,6 @@ pub async fn import(
         workouts: vec![],
         collections: vec![],
         measurements: vec![],
+        media_groups: vec![],
     })
 }

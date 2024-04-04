@@ -95,6 +95,7 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         collections: vec![],
         failed_items: vec![],
         measurements: vec![],
+        media_groups: vec![],
     })
 }
 
