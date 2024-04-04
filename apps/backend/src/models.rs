@@ -137,7 +137,7 @@ pub struct CompleteExport {
     /// Data about user's workouts.
     pub workouts: Option<Vec<workout::Model>>,
     /// Data about user's media groups.
-    pub media_groups: Option<Vec<media::ImportOrExportMediaGroupItem>>,
+    pub media_group: Option<Vec<media::ImportOrExportMediaGroupItem>>,
 }
 
 #[derive(Debug, InputObject, Default)]
