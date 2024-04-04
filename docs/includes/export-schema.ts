@@ -298,7 +298,7 @@ export interface CompleteExport {
 	/** Data about user's media. */
 	media: ImportOrExportMediaItem[] | null;
 	/** Data about user's media groups. */
-	media_groups: ImportOrExportMediaGroupItem[] | null;
+	media_group: ImportOrExportMediaGroupItem[] | null;
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workouts. */

@@ -142,6 +142,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					ImportSource.PeopleJson,
 					ImportSource.WorkoutsJson,
 					ImportSource.MeasurementsJson,
+					ImportSource.MediaGroupJson,
 					async () => ({
 						json: processSubmission(formData, jsonImportFormSchema),
 					}),
@@ -264,6 +265,7 @@ export default function Page() {
 													ImportSource.PeopleJson,
 													ImportSource.WorkoutsJson,
 													ImportSource.MeasurementsJson,
+													ImportSource.MediaGroupJson,
 													() => "json-files",
 												)
 												.with(undefined, () => "")
@@ -423,6 +425,7 @@ export default function Page() {
 												ImportSource.PeopleJson,
 												ImportSource.WorkoutsJson,
 												ImportSource.MeasurementsJson,
+												ImportSource.MediaGroupJson,
 												() => (
 													<>
 														<FileInput
