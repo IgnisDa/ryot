@@ -2407,6 +2407,17 @@ const SeenItem = (props: {
 									{dayjsLib(props.history.lastUpdatedOn).format("L")}
 								</Text>
 							</Flex>
+							{props.history.totalTimeSpent ? (
+								<Flex gap="xs">
+									<Text size="sm">Time:</Text>
+									<Text size="sm" fw="bold">
+										{humanizeDuration(props.history.totalTimeSpent * 1000, {
+											round: true,
+											units: ["mo", "d", "h"],
+										})}
+									</Text>
+								</Flex>
+							) : null}
 						</Flex>
 					</Flex>
 				</Flex>
