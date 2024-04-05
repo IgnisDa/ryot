@@ -2398,13 +2398,6 @@ const SeenItem = (props: {
 									: "N/A"}
 							</Text>
 						</Flex>
-						<Flex gap="xs">
-							<Text size="sm">Updated:</Text>
-							<Text size="sm" fw="bold">
-								{dayjsLib(props.history.lastUpdatedOn).format("L")}
-							</Text>
-						</Flex>
-
 						{props.history.totalTimeSpent ? (
 							<Flex gap="xs">
 								<Text size="sm">Time:</Text>
@@ -2416,6 +2409,12 @@ const SeenItem = (props: {
 								</Text>
 							</Flex>
 						) : null}
+						<Flex gap="xs">
+							<Text size="sm">Updated:</Text>
+							<Text size="sm" fw="bold">
+								{dayjsLib(props.history.lastUpdatedOn).format("L")}
+							</Text>
+						</Flex>
 					</SimpleGrid>
 				</Stack>
 			</Flex>
