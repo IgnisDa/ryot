@@ -38,6 +38,7 @@ fragment SeenPart on Seen {
   startedOn
   finishedOn
   lastUpdatedOn
+  totalTimeSpent
   numTimesUpdated
   showExtraInformation {
     ...SeenShowExtraInformationPart
