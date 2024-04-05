@@ -29,6 +29,7 @@ import {
 	DeleteUserNotificationPlatformDocument,
 	TestUserNotificationPlatformsDocument,
 	UserNotificationPlatformsDocument,
+	type UserNotificationPlatformsQuery,
 	UserNotificationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -140,53 +141,17 @@ export default function Page() {
 		createUserNotificationPlatformLot,
 		setCreateUserNotificationPlatformLot,
 	] = useState<UserNotificationSettingKind>();
-	const fetcher = useFetcher();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
 		<Container size="xs">
 			<Stack>
 				<Title>Notification settings</Title>
 				{loaderData.userNotificationPlatforms.length > 0 ? (
-					loaderData.userNotificationPlatforms.map((not) => (
-						<Paper p="xs" withBorder key={not.id}>
-							<Flex align="center" justify="space-between">
-								<Box w="80%">
-									<Text size="xs" lineClamp={1}>
-										{not.description}
-									</Text>
-									<Text size="xs">{dayjsLib(not.timestamp).fromNow()}</Text>
-								</Box>
-								<Group>
-									<Tooltip label="Delete">
-										<fetcher.Form
-											action="?intent=delete"
-											method="post"
-											ref={deleteFormRef}
-										>
-											<input
-												hidden
-												name="notificationId"
-												defaultValue={not.id}
-											/>
-											<ActionIcon
-												color="red"
-												variant="outline"
-												onClick={async () => {
-													const conf = await confirmWrapper({
-														confirmation:
-															"Are you sure you want to delete this notification platform?",
-													});
-													if (conf) fetcher.submit(deleteFormRef.current);
-												}}
-											>
-												<IconTrash size={16} />
-											</ActionIcon>
-										</fetcher.Form>
-									</Tooltip>
-								</Group>
-							</Flex>
-						</Paper>
+					loaderData.userNotificationPlatforms.map((notification) => (
+						<DisplayNotification
+							key={notification.id}
+							notification={notification}
+						/>
 					))
 				) : (
 					<Text>No notification platforms configured</Text>
@@ -351,3 +316,52 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const DisplayNotification = (props: {
+	notification: UserNotificationPlatformsQuery["userNotificationPlatforms"][number];
+}) => {
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
+	return (
+		<Paper p="xs" withBorder>
+			<Flex align="center" justify="space-between">
+				<Box w="80%">
+					<Text size="xs" lineClamp={1}>
+						{props.notification.description}
+					</Text>
+					<Text size="xs">
+						{dayjsLib(props.notification.timestamp).fromNow()}
+					</Text>
+				</Box>
+				<Group>
+					<Tooltip label="Delete">
+						<fetcher.Form
+							action="?intent=delete"
+							method="post"
+							ref={deleteFormRef}
+						>
+							<input
+								hidden
+								name="notificationId"
+								defaultValue={props.notification.id}
+							/>
+							<ActionIcon
+								color="red"
+								variant="outline"
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this notification platform?",
+									});
+									if (conf) fetcher.submit(deleteFormRef.current);
+								}}
+							>
+								<IconTrash size={16} />
+							</ActionIcon>
+						</fetcher.Form>
+					</Tooltip>
+				</Group>
+			</Flex>
+		</Paper>
+	);
+};
