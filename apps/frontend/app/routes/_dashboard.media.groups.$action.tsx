@@ -194,7 +194,6 @@ export default function Page() {
 								</ApplicationGrid>
 								<Center>
 									<ApplicationPagination
-										size="sm"
 										value={loaderData.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
@@ -234,7 +233,6 @@ export default function Page() {
 								</ApplicationGrid>
 								<Center>
 									<ApplicationPagination
-										size="sm"
 										value={loaderData.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(

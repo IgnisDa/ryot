@@ -51,7 +51,9 @@ export const ApplicationPagination = forwardRef<
 	PaginationProps
 >((props, ref) => {
 	if (props.total === 1) return null;
-	return <Pagination {...props} ref={ref} boundaries={1} siblings={0} />;
+	return (
+		<Pagination {...props} ref={ref} boundaries={1} siblings={0} size="sm" />
+	);
 });
 
 function getSurroundingElements<T>(array: T[], element: number): number[] {
