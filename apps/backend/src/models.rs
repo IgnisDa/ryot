@@ -136,6 +136,8 @@ pub struct CompleteExport {
     pub measurements: Option<Vec<user_measurement::Model>>,
     /// Data about user's workouts.
     pub workouts: Option<Vec<workout::Model>>,
+    /// Data about user's media groups.
+    pub media_group: Option<Vec<media::ImportOrExportMediaGroupItem>>,
 }
 
 #[derive(Debug, InputObject, Default)]
@@ -155,11 +157,12 @@ pub struct IdAndNamedObject {
 }
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
-#[strum(serialize_all = "lowercase")]
+#[strum(serialize_all = "snake_case")]
 pub enum ExportItem {
     Media,
     People,
     Workouts,
+    MediaGroup,
     Measurements,
 }
 
@@ -1114,6 +1117,25 @@ pub mod media {
         pub internal_identifier: Option<ImportOrExportItemIdentifier>,
         /// The seen history for the user.
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
+        /// The review history for the user.
+        pub reviews: Vec<ImportOrExportItemRating>,
+        /// The collections this entity was added to.
+        pub collections: Vec<String>,
+    }
+
+    /// Details about a specific media group item that needs to be imported or exported.
+    #[skip_serializing_none]
+    #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+    #[schematic(rename_all = "snake_case")]
+    pub struct ImportOrExportMediaGroupItem {
+        /// Name of the group.
+        pub title: String,
+        /// The type of media.
+        pub lot: MediaLot,
+        /// The source of media.
+        pub source: MediaSource,
+        /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
+        pub identifier: String,
         /// The review history for the user.
         pub reviews: Vec<ImportOrExportItemRating>,
         /// The collections this entity was added to.

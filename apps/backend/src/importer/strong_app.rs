@@ -140,10 +140,6 @@ pub async fn import(
     }
     Ok(ImportResult {
         workouts,
-        media: vec![],
-        people: vec![],
-        collections: vec![],
-        failed_items: vec![],
-        measurements: vec![],
+        ..Default::default()
     })
 }

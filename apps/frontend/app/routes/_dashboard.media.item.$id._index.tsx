@@ -1968,7 +1968,10 @@ const ProgressUpdateModal = (props: {
 						/>
 					) : null}
 					<Select
-						label="Where did you watch it?"
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							loaderData.mediaMainDetails.lot,
+						)} it?`}
 						data={loaderData.userPreferences.watchProviders}
 						name="providerWatchedOn"
 					/>
@@ -2082,7 +2085,10 @@ const IndividualProgressModal = (props: {
 					) : null}
 					<Select
 						data={loaderData.userPreferences.watchProviders}
-						label="Where did you watch it?"
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							loaderData.mediaMainDetails.lot,
+						)} it?`}
 						name="providerWatchedOn"
 						defaultValue={props.inProgress.providerWatchedOn}
 					/>
@@ -2361,7 +2367,7 @@ const SeenItem = (props: {
 						</ActionIcon>
 					) : null}
 				</Flex>
-				<Flex direction="column">
+				<Stack gap={4}>
 					<Flex gap="lg">
 						<Text fw="bold">
 							{changeCase(props.history.state)}{" "}
@@ -2375,35 +2381,42 @@ const SeenItem = (props: {
 							</Text>
 						) : null}
 					</Flex>
-					<Flex ml="sm" direction="column" gap={{ md: 4 }}>
-						<Flex gap={{ base: "md", md: "xl" }} wrap="wrap">
-							<Flex gap="xs">
-								<Text size="sm">Started:</Text>
-								<Text size="sm" fw="bold">
-									{props.history.startedOn
-										? dayjsLib(props.history.startedOn).format("L")
-										: "N/A"}
-								</Text>
-							</Flex>
-							<Flex gap="xs">
-								<Text size="sm">Ended:</Text>
-								<Text size="sm" fw="bold">
-									{props.history.finishedOn
-										? dayjsLib(props.history.finishedOn).format("L")
-										: "N/A"}
-								</Text>
-							</Flex>
+					<SimpleGrid cols={{ base: 1, md: 2 }} spacing={2}>
+						<Flex gap="xs">
+							<Text size="sm">Started:</Text>
+							<Text size="sm" fw="bold">
+								{props.history.startedOn
+									? dayjsLib(props.history.startedOn).format("L")
+									: "N/A"}
+							</Text>
 						</Flex>
-						<Flex gap="md">
+						<Flex gap="xs">
+							<Text size="sm">Ended:</Text>
+							<Text size="sm" fw="bold">
+								{props.history.finishedOn
+									? dayjsLib(props.history.finishedOn).format("L")
+									: "N/A"}
+							</Text>
+						</Flex>
+						{props.history.totalTimeSpent ? (
 							<Flex gap="xs">
-								<Text size="sm">Updated:</Text>
+								<Text size="sm">Time:</Text>
 								<Text size="sm" fw="bold">
-									{dayjsLib(props.history.lastUpdatedOn).format("L")}
+									{humanizeDuration(props.history.totalTimeSpent * 1000, {
+										round: true,
+										units: ["mo", "d", "h"],
+									})}
 								</Text>
 							</Flex>
+						) : null}
+						<Flex gap="xs">
+							<Text size="sm">Updated:</Text>
+							<Text size="sm" fw="bold">
+								{dayjsLib(props.history.lastUpdatedOn).format("L")}
+							</Text>
 						</Flex>
-					</Flex>
-				</Flex>
+					</SimpleGrid>
+				</Stack>
 			</Flex>
 			<AdjustSeenTimesModal
 				opened={opened}

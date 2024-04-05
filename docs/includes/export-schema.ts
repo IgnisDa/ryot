@@ -147,6 +147,30 @@ export interface ImportOrExportMediaItem {
 	source_id: string;
 }
 
+/** Details about a specific media group item that needs to be imported or exported. */
+export interface ImportOrExportMediaGroupItem {
+	/** The collections this entity was added to. */
+	collections: string[];
+	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
+	identifier: string;
+	/**
+	 * The type of media.
+	 *
+	 * @default 'Book'
+	 */
+	lot: MediaLot;
+	/** The review history for the user. */
+	reviews: ImportOrExportItemRating[];
+	/**
+	 * The source of media.
+	 *
+	 * @default 'Audible'
+	 */
+	source: MediaSource;
+	/** Name of the group. */
+	title: string;
+}
+
 export interface PersonSourceSpecifics {
 	is_anilist_studio: boolean | null;
 	is_tmdb_company: boolean | null;
@@ -273,6 +297,8 @@ export interface CompleteExport {
 	measurements: UserMeasurement[] | null;
 	/** Data about user's media. */
 	media: ImportOrExportMediaItem[] | null;
+	/** Data about user's media groups. */
+	media_group: ImportOrExportMediaGroupItem[] | null;
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workouts. */

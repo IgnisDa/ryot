@@ -33,15 +33,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
 
-  mail:
-    image: axllent/mailpit
-    ports:
-      - 8025:8025
-    environment:
-      MP_SMTP_AUTH_ACCEPT_ANY: "1"
-      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
-      MP_VERBOSE: "1"
-
 volumes:
   minio_storage:
   postgres_storage:

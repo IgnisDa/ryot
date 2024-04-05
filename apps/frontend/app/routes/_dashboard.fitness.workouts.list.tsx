@@ -197,8 +197,7 @@ export default function Page() {
 				)}
 				<Center>
 					<ApplicationPagination
-						size="sm"
-						defaultValue={loaderData.query.page}
+						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
 							loaderData.userWorkoutList.details.total /

@@ -385,8 +385,7 @@ export default function Page() {
 						{loaderData.exercisesList.details.total > 0 ? (
 							<Center>
 								<ApplicationPagination
-									size="sm"
-									defaultValue={loaderData.query.page}
+									value={loaderData.query.page}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.exercisesList.details.total /

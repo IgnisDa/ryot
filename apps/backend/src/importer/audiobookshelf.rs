@@ -121,9 +121,6 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
     Ok(ImportResult {
         media,
         failed_items,
-        people: vec![],
-        workouts: vec![],
-        collections: vec![],
-        measurements: vec![],
+        ..Default::default()
     })
 }
