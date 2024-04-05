@@ -325,7 +325,7 @@ export default function Page() {
 								<Center>
 									<ApplicationPagination
 										size="sm"
-										defaultValue={loaderData.page}
+										value={loaderData.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.peopleList.list.details.total /
@@ -364,7 +364,7 @@ export default function Page() {
 								<Center>
 									<ApplicationPagination
 										size="sm"
-										defaultValue={loaderData.page}
+										value={loaderData.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.peopleSearch.search.details.total /

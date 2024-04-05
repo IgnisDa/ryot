@@ -413,7 +413,7 @@ export default function Page() {
 							<Center>
 								<ApplicationPagination
 									size="sm"
-									defaultValue={loaderData.numPage}
+									value={loaderData.numPage}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaList.list.details.total /
@@ -483,7 +483,7 @@ export default function Page() {
 							<Center>
 								<ApplicationPagination
 									size="sm"
-									defaultValue={loaderData.numPage}
+									value={loaderData.numPage}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaSearch.search.details.total /

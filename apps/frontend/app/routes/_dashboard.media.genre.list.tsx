@@ -107,7 +107,7 @@ export default function Page() {
 					<Center mt="xl">
 						<ApplicationPagination
 							size="sm"
-							defaultValue={loaderData.query.page}
+							value={loaderData.query.page}
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(
 								loaderData.listGenres.details.total /
