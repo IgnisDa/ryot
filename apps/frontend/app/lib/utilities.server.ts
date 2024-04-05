@@ -264,7 +264,6 @@ export const userDetailsCookie = createCookie(
 	commonCookieOptions,
 );
 
-
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: { ...commonCookieOptions, name: "Toast" },
 });
