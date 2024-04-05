@@ -860,7 +860,7 @@ impl ExerciseService {
                 .clone()
                 .unwrap()
                 .history
-                .first()
+                .last()
                 .cloned()
                 .unwrap()
                 .workout_id;
