@@ -130,7 +130,8 @@ impl UserNotificationSetting {
                     config.server.smtp.password.to_owned(),
                 );
 
-                let mailer = SmtpTransport::builder_dangerous(config.server.smtp.server.to_owned())
+                let mailer = SmtpTransport::starttls_relay(&config.server.smtp.server)
+                    .unwrap()
                     .port(config.server.smtp.port)
                     .credentials(credentials)
                     .build();
