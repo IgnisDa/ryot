@@ -2802,7 +2802,7 @@ impl MiscellaneousService {
                         "Removing user_to_metadata = {id:?}",
                         id = (u.user_id, u.metadata_id)
                     );
-                    u.delete(&self.db).await.ok();
+                    u.delete(&self.db).await.unwrap();
                 } else {
                     let mut new_reasons = HashSet::new();
                     if seen_count > 0 {
@@ -2834,7 +2834,7 @@ impl MiscellaneousService {
                         u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
                     u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
+                    u.update(&self.db).await.unwrap();
                 }
             }
             let all_user_to_person = UserToEntity::find()
@@ -2870,7 +2870,7 @@ impl MiscellaneousService {
                         "Removing user_to_person = {id:?}",
                         id = (u.user_id, u.person_id)
                     );
-                    u.delete(&self.db).await.ok();
+                    u.delete(&self.db).await.unwrap();
                 } else {
                     let mut new_reasons = HashSet::new();
                     if reviewed_count > 0 {
@@ -2896,7 +2896,7 @@ impl MiscellaneousService {
                         u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
                     u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
+                    u.update(&self.db).await.unwrap();
                 }
             }
             let all_user_to_metadata_groups = UserToEntity::find()
@@ -2936,7 +2936,7 @@ impl MiscellaneousService {
                         "Removing user_to_metadata_group = {id:?}",
                         id = (u.user_id, u.metadata_group_id)
                     );
-                    u.delete(&self.db).await.ok();
+                    u.delete(&self.db).await.unwrap();
                 } else {
                     let mut new_reasons = HashSet::new();
                     if reviewed_count > 0 {
@@ -2965,7 +2965,7 @@ impl MiscellaneousService {
                         u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
                     u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
+                    u.update(&self.db).await.unwrap();
                 }
             }
         }
