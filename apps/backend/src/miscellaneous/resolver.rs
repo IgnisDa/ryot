@@ -4527,6 +4527,15 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 if r.user_id == user_id {
+                    associate_user_with_entity(
+                        &user_id,
+                        r.metadata_id,
+                        r.person_id,
+                        None,
+                        r.metadata_group_id,
+                        &self.db,
+                    )
+                    .await?;
                     r.delete(&self.db).await?;
                     Ok(true)
                 } else {
@@ -4682,6 +4691,8 @@ impl MiscellaneousService {
                 .await
                 .ok();
             }
+            associate_user_with_entity(&user_id, Some(metadata_id), None, None, None, &self.db)
+                .await?;
             Ok(IdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
