@@ -7045,14 +7045,17 @@ impl MiscellaneousService {
             .await?;
 
         while let Some(meta) = meta_stream.try_next().await? {
+            tracing::trace!("Processing metadata id = {:#?}", meta.id);
             let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
             for cal_event in calendar_events {
                 let mut need_to_delete = false;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
                         if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
-                            if ep.publish_date.unwrap() != cal_event.date {
-                                need_to_delete = true;
+                            if let Some(publish_date) = ep.publish_date {
+                                if publish_date != cal_event.date {
+                                    need_to_delete = true;
+                                }
                             }
                         }
                     }
