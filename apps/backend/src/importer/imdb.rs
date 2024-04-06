@@ -8,6 +8,8 @@ use serde::Deserialize;
 
 use crate::{
     importer::{DeployImdbImportInput, ImportFailStep, ImportFailedItem, ImportResult},
+    miscellaneous::DefaultCollection,
+    models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
     providers::tmdb::NonMediaTmdbService,
 };
 
@@ -45,7 +47,47 @@ pub async fn import(
                 continue;
             }
         };
-        dbg!(&record);
+        let lot = match record.title_type.as_str() {
+            "Movie" | "Video" => MediaLot::Movie,
+            "TV Series" | "TV Mini Series" => MediaLot::Show,
+            tt => {
+                failed_items.push(ImportFailedItem {
+                    lot: None,
+                    step: ImportFailStep::InputTransformation,
+                    identifier: record.id.clone(),
+                    error: Some(format!("Unknown title type: {tt}")),
+                });
+                continue;
+            }
+        };
+        let tmdb_identifier = match tmdb_service
+            .find_by_external_id(&record.id, "imdb_id")
+            .await
+        {
+            Ok(i) => i,
+            Err(e) => {
+                failed_items.push(ImportFailedItem {
+                    lot: Some(lot),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: record.id.clone(),
+                    error: Some(e.to_string()),
+                });
+                continue;
+            }
+        };
+        media.push(ImportOrExportMediaItem {
+            collections: vec![DefaultCollection::Watchlist.to_string()],
+            identifier: "".to_string(),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                identifier: tmdb_identifier,
+                title: record.title,
+            }),
+            lot,
+            source,
+            source_id: record.id,
+            reviews: vec![],
+            seen_history: vec![],
+        });
     }
     Ok(ImportResult {
         media,
