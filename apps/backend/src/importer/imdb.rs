@@ -69,7 +69,7 @@ pub async fn import(
             Err(e) => {
                 failed_items.push(ImportFailedItem {
                     lot: Some(lot),
-                    step: ImportFailStep::ItemDetailsFromSource,
+                    step: ImportFailStep::MediaDetailsFromProvider,
                     identifier: record.id.clone(),
                     error: Some(e.to_string()),
                 });
