@@ -101,8 +101,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		deployImport: async () => {
 			const source = formData.get("source") as ImportSource;
 			const values = await match(source)
-				.with(ImportSource.Goodreads, ImportSource.Imdb, () => ({
+				.with(ImportSource.Goodreads, () => ({
 					goodreads: processSubmission(formData, goodreadsImportFormSchema),
+				}))
+				.with(ImportSource.Imdb, () => ({
+					imdb: processSubmission(formData, goodreadsImportFormSchema),
 				}))
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, traktImportFormSchema),
