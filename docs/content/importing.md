@@ -14,6 +14,9 @@ You can go to the reports page by clicking on "Reports" link on the imports page
   you might have to manually import some data from your previous provider.
 - You can see description of the importing steps by going to `<your instance
   url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
+- I recommend turning on debug logging for the duration of the import using the
+  `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
+  progress.
 
 ## Goodreads
 
