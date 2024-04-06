@@ -101,7 +101,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		deployImport: async () => {
 			const source = formData.get("source") as ImportSource;
 			const values = await match(source)
-				.with(ImportSource.Goodreads, () => ({
+				.with(ImportSource.Goodreads, ImportSource.Imdb, () => ({
 					goodreads: processSubmission(formData, goodreadsImportFormSchema),
 				}))
 				.with(ImportSource.Trakt, () => ({
@@ -260,6 +260,7 @@ export default function Page() {
 													ImportSource.Audiobookshelf,
 													() => "audiobookshelf",
 												)
+												.with(ImportSource.Imdb, () => "imdb")
 												.with(
 													ImportSource.MediaJson,
 													ImportSource.PeopleJson,
@@ -321,7 +322,7 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.Goodreads, () => (
+											.with(ImportSource.Goodreads, ImportSource.Imdb, () => (
 												<>
 													<FileInput
 														label="CSV file"
