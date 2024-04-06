@@ -90,7 +90,7 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                             lot,
                             source: MediaSource::Audible,
                             source_id: metadata.title.unwrap_or_default(),
-                            identifier: item.id,
+                            identifier: "".to_string(),
                             seen_history: vec![ImportOrExportMediaItemSeen {
                                 provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
                                 ..Default::default()

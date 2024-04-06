@@ -81,7 +81,7 @@ struct TmdbImagesResponse {
     profiles: Option<Vec<TmdbImage>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct TmdbEntry {
     id: i32,
     #[serde(alias = "logo_path", alias = "profile_path")]
@@ -155,6 +155,12 @@ struct TmdbWatchProviderList {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct TmdbWatchProviderResponse {
     results: HashMap<String, TmdbWatchProviderList>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbFindByExernalSourceResponse {
+    movie_results: Vec<TmdbEntry>,
+    tv_results: Vec<TmdbEntry>,
 }
 
 #[derive(Debug, Clone)]
@@ -380,6 +386,32 @@ impl MediaProvider for NonMediaTmdbService {
             related,
         };
         Ok(resp)
+    }
+}
+
+impl NonMediaTmdbService {
+    pub async fn find_by_external_id(
+        &self,
+        external_id: &str,
+        external_source: &str,
+    ) -> Result<String> {
+        let details: TmdbFindByExernalSourceResponse = self
+            .client
+            .get(format!("find/{}", external_id))
+            .query(&json!({ "language": self.base.language, "external_source": external_source }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        if !details.movie_results.is_empty() {
+            Ok(details.movie_results[0].id.to_string())
+        } else if !details.tv_results.is_empty() {
+            Ok(details.tv_results[0].id.to_string())
+        } else {
+            Err(anyhow!("No results found"))
+        }
     }
 }
 

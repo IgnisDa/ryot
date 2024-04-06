@@ -245,7 +245,7 @@ fn process_item(
         Some(i) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),
             lot,
-            identifier: title.clone(),
+            identifier: "".to_string(),
             internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
                 identifier: i.to_string(),
                 title,
