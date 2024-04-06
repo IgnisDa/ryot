@@ -10,8 +10,6 @@ import {
 	Image,
 	Modal,
 	MultiSelect,
-	Pagination,
-	type PaginationProps,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -28,7 +26,7 @@ import type {
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { type ReactNode, forwardRef, useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import { useState } from "react";
 import { withoutHost } from "ufo";
 import events from "~/lib/events";
@@ -45,14 +43,6 @@ export const ApplicationGrid = (props: {
 		</SimpleGrid>
 	);
 };
-
-export const ApplicationPagination = forwardRef<
-	HTMLDivElement,
-	PaginationProps
->((props, ref) => {
-	if (props.total === 1) return null;
-	return <Pagination {...props} ref={ref} size="sm" />;
-});
 
 function getSurroundingElements<T>(array: T[], element: number): number[] {
 	if (array.length === 1) return [0];

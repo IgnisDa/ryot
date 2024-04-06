@@ -1,5 +1,13 @@
 import { $path } from "@ignisda/remix-routes";
-import { Box, Center, Container, Stack, Text, Title } from "@mantine/core";
+import {
+	Box,
+	Center,
+	Container,
+	Pagination,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
 import {
 	type LoaderFunctionArgs,
 	type MetaFunction,
@@ -11,7 +19,7 @@ import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import { ApplicationGrid } from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
 import { useSearchParam } from "~/lib/hooks";
 import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
@@ -75,7 +83,8 @@ export default function Page() {
 					))}
 				</ApplicationGrid>
 				<Center>
-					<ApplicationPagination
+					<Pagination
+						size="sm"
 						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
