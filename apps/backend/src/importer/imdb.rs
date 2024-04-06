@@ -34,6 +34,7 @@ pub async fn import(
     let ratings_reader = Reader::from_reader(export.as_bytes())
         .deserialize()
         .collect_vec();
+    let total = ratings_reader.len();
     for (idx, result) in ratings_reader.into_iter().enumerate() {
         let record: Item = match result {
             Ok(r) => r,
@@ -75,6 +76,7 @@ pub async fn import(
                 continue;
             }
         };
+        tracing::debug!("Found tmdb id: {} ({}/{})", tmdb_identifier, idx + 1, total);
         media.push(ImportOrExportMediaItem {
             collections: vec![DefaultCollection::Watchlist.to_string()],
             identifier: "".to_string(),
