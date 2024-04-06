@@ -249,9 +249,14 @@ export type DeployGoodreadsImportInput = {
   csvPath: Scalars['String']['input'];
 };
 
+export type DeployImdbImportInput = {
+  csvPath: Scalars['String']['input'];
+};
+
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
+  imdb?: InputMaybe<DeployImdbImportInput>;
   json?: InputMaybe<DeployJsonImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
@@ -679,6 +684,7 @@ export type ImportResultResponse = {
 export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   Goodreads = 'GOODREADS',
+  Imdb = 'IMDB',
   Mal = 'MAL',
   MeasurementsJson = 'MEASUREMENTS_JSON',
   MediaGroupJson = 'MEDIA_GROUP_JSON',

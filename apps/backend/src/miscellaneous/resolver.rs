@@ -3872,6 +3872,14 @@ impl MiscellaneousService {
         Ok(service)
     }
 
+    pub async fn get_tmdb_non_media_service(&self) -> Result<NonMediaTmdbService> {
+        Ok(NonMediaTmdbService::new(
+            self.config.movies_and_shows.tmdb.access_token.clone(),
+            self.config.movies_and_shows.tmdb.locale.clone(),
+        )
+        .await)
+    }
+
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
@@ -3911,13 +3919,7 @@ impl MiscellaneousService {
                 )
                 .await,
             ),
-            MediaSource::Tmdb => Box::new(
-                NonMediaTmdbService::new(
-                    self.config.movies_and_shows.tmdb.access_token.clone(),
-                    self.config.movies_and_shows.tmdb.locale.clone(),
-                )
-                .await,
-            ),
+            MediaSource::Tmdb => Box::new(self.get_tmdb_non_media_service().await?),
             MediaSource::Anilist => {
                 Box::new(NonMediaAnilistService::new(self.config.frontend.page_size).await)
             }
