@@ -40,3 +40,12 @@ S3 instance offered by [Minio](https://play.min.io).
 ```ts
 {% include 'export-schema.ts' %}
 ```
+
+## Exporting the entire database
+
+While debugging bugs, I might ask you to send me a database dump. You can do this by
+exporting the entire database and emailing the file.
+
+```bash
+docker exec -u postgres -i ryot-db pg_dump -Fc --no-acl --no-owner > /tmp/ryot.file.sql
+```

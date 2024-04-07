@@ -14,6 +14,7 @@ import {
 	Indicator,
 	MantineThemeProvider,
 	Modal,
+	Pagination,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -50,10 +51,7 @@ import {
 import { useAtom } from "jotai";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	ApplicationPagination,
-	DebouncedSearchInput,
-} from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common";
 import { dayjsLib } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import {
@@ -384,7 +382,8 @@ export default function Page() {
 						)}
 						{loaderData.exercisesList.details.total > 0 ? (
 							<Center>
-								<ApplicationPagination
+								<Pagination
+									size="sm"
 									value={loaderData.query.page}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(

@@ -104,6 +104,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.Goodreads, () => ({
 					goodreads: processSubmission(formData, goodreadsImportFormSchema),
 				}))
+				.with(ImportSource.Imdb, () => ({
+					imdb: processSubmission(formData, goodreadsImportFormSchema),
+				}))
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, traktImportFormSchema),
 				}))
@@ -260,6 +263,7 @@ export default function Page() {
 													ImportSource.Audiobookshelf,
 													() => "audiobookshelf",
 												)
+												.with(ImportSource.Imdb, () => "imdb")
 												.with(
 													ImportSource.MediaJson,
 													ImportSource.PeopleJson,
@@ -321,7 +325,7 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.Goodreads, () => (
+											.with(ImportSource.Goodreads, ImportSource.Imdb, () => (
 												<>
 													<FileInput
 														label="CSV file"

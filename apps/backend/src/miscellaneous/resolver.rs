@@ -2802,7 +2802,7 @@ impl MiscellaneousService {
                         "Removing user_to_metadata = {id:?}",
                         id = (u.user_id, u.metadata_id)
                     );
-                    u.delete(&self.db).await.ok();
+                    u.delete(&self.db).await.unwrap();
                 } else {
                     let mut new_reasons = HashSet::new();
                     if seen_count > 0 {
@@ -2834,7 +2834,7 @@ impl MiscellaneousService {
                         u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
                     u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
+                    u.update(&self.db).await.unwrap();
                 }
             }
             let all_user_to_person = UserToEntity::find()
@@ -2870,7 +2870,7 @@ impl MiscellaneousService {
                         "Removing user_to_person = {id:?}",
                         id = (u.user_id, u.person_id)
                     );
-                    u.delete(&self.db).await.ok();
+                    u.delete(&self.db).await.unwrap();
                 } else {
                     let mut new_reasons = HashSet::new();
                     if reviewed_count > 0 {
@@ -2896,7 +2896,7 @@ impl MiscellaneousService {
                         u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
                     u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
+                    u.update(&self.db).await.unwrap();
                 }
             }
             let all_user_to_metadata_groups = UserToEntity::find()
@@ -2918,7 +2918,10 @@ impl MiscellaneousService {
                 let collections_part_of = CollectionToEntity::find()
                     .select_only()
                     .column(collection_to_entity::Column::CollectionId)
-                    .filter(collection_to_entity::Column::MetadataId.eq(u.metadata_id.unwrap()))
+                    .filter(
+                        collection_to_entity::Column::MetadataGroupId
+                            .eq(u.metadata_group_id.unwrap()),
+                    )
                     .filter(collection_to_entity::Column::CollectionId.is_not_null())
                     .into_tuple::<i32>()
                     .all(&self.db)
@@ -2933,7 +2936,7 @@ impl MiscellaneousService {
                         "Removing user_to_metadata_group = {id:?}",
                         id = (u.user_id, u.metadata_group_id)
                     );
-                    u.delete(&self.db).await.ok();
+                    u.delete(&self.db).await.unwrap();
                 } else {
                     let mut new_reasons = HashSet::new();
                     if reviewed_count > 0 {
@@ -2962,7 +2965,7 @@ impl MiscellaneousService {
                         u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
                     u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.ok();
+                    u.update(&self.db).await.unwrap();
                 }
             }
         }
@@ -3872,6 +3875,14 @@ impl MiscellaneousService {
         Ok(service)
     }
 
+    pub async fn get_tmdb_non_media_service(&self) -> Result<NonMediaTmdbService> {
+        Ok(NonMediaTmdbService::new(
+            self.config.movies_and_shows.tmdb.access_token.clone(),
+            self.config.movies_and_shows.tmdb.locale.clone(),
+        )
+        .await)
+    }
+
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
@@ -3911,13 +3922,7 @@ impl MiscellaneousService {
                 )
                 .await,
             ),
-            MediaSource::Tmdb => Box::new(
-                NonMediaTmdbService::new(
-                    self.config.movies_and_shows.tmdb.access_token.clone(),
-                    self.config.movies_and_shows.tmdb.locale.clone(),
-                )
-                .await,
-            ),
+            MediaSource::Tmdb => Box::new(self.get_tmdb_non_media_service().await?),
             MediaSource::Anilist => {
                 Box::new(NonMediaAnilistService::new(self.config.frontend.page_size).await)
             }
@@ -4522,6 +4527,15 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 if r.user_id == user_id {
+                    associate_user_with_entity(
+                        &user_id,
+                        r.metadata_id,
+                        r.person_id,
+                        None,
+                        r.metadata_group_id,
+                        &self.db,
+                    )
+                    .await?;
                     r.delete(&self.db).await?;
                     Ok(true)
                 } else {
@@ -4628,11 +4642,20 @@ impl MiscellaneousService {
                 collection_to_entity::Column::MetadataId
                     .eq(input.metadata_id)
                     .or(collection_to_entity::Column::PersonId.eq(input.person_id))
-                    .or(collection_to_entity::Column::MetadataGroupId.eq(input.media_group_id))
-                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id)),
+                    .or(collection_to_entity::Column::MetadataGroupId.eq(input.metadata_group_id))
+                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone())),
             )
             .exec(&self.db)
             .await?;
+        associate_user_with_entity(
+            &user_id,
+            input.metadata_id,
+            input.person_id,
+            input.exercise_id,
+            input.metadata_group_id,
+            &self.db,
+        )
+        .await?;
         Ok(IdObject { id: collect.id })
     }
 
@@ -4677,6 +4700,8 @@ impl MiscellaneousService {
                 .await
                 .ok();
             }
+            associate_user_with_entity(&user_id, Some(metadata_id), None, None, None, &self.db)
+                .await?;
             Ok(IdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
@@ -7043,14 +7068,17 @@ impl MiscellaneousService {
             .await?;
 
         while let Some(meta) = meta_stream.try_next().await? {
+            tracing::trace!("Processing metadata id = {:#?}", meta.id);
             let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
             for cal_event in calendar_events {
                 let mut need_to_delete = false;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
                         if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
-                            if ep.publish_date.unwrap() != cal_event.date {
-                                need_to_delete = true;
+                            if let Some(publish_date) = ep.publish_date {
+                                if publish_date != cal_event.date {
+                                    need_to_delete = true;
+                                }
                             }
                         }
                     }

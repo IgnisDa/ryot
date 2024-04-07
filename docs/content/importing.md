@@ -14,6 +14,9 @@ You can go to the reports page by clicking on "Reports" link on the imports page
   you might have to manually import some data from your previous provider.
 - You can see description of the importing steps by going to `<your instance
   url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
+- I recommend turning on debug logging for the duration of the import using the
+  `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
+  progress.
 
 ## Goodreads
 
@@ -129,6 +132,17 @@ their ratings, history, comments and lists. A few points to note.
 - Find your profile slug. This is usually your username. You can find it by
   going to your profile page, and checking the URL.
 - Enter this username in the input.
+
+## IMDb
+
+You can import your watchlist from [IMDb](https://www.imdb.com). They will be added to
+the "Watchlist" collection.
+
+### Steps
+
+- Go to your account and select your watchlist.
+- Go the bottom and click on the "Export this list" button.
+- Upload the csv file in the input.
 
 ## Audiobookshelf
 

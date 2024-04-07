@@ -38,6 +38,7 @@ use crate::{
 
 mod audiobookshelf;
 mod goodreads;
+mod imdb;
 mod json;
 mod mal;
 mod media_tracker;
@@ -56,6 +57,12 @@ pub struct DeployMediaTrackerImportInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGoodreadsImportInput {
+    // The file path of the uploaded CSV export file.
+    csv_path: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployImdbImportInput {
     // The file path of the uploaded CSV export file.
     csv_path: String,
 }
@@ -128,6 +135,7 @@ pub struct DeployImportJobInput {
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
     pub json: Option<DeployJsonImportInput>,
+    pub imdb: Option<DeployImdbImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -576,6 +584,16 @@ impl ImporterService {
             ImportSource::Audiobookshelf => audiobookshelf::import(input.audiobookshelf.unwrap())
                 .await
                 .unwrap(),
+            ImportSource::Imdb => imdb::import(
+                input.imdb.unwrap(),
+                &self
+                    .media_service
+                    .get_tmdb_non_media_service()
+                    .await
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
             _ => unreachable!(),
         };
         let preferences =

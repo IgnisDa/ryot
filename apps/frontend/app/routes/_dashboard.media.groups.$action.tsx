@@ -4,6 +4,7 @@ import {
 	Center,
 	Container,
 	Group,
+	Pagination,
 	Select,
 	Stack,
 	Tabs,
@@ -30,11 +31,7 @@ import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	ApplicationGrid,
-	ApplicationPagination,
-	DebouncedSearchInput,
-} from "~/components/common";
+import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import {
 	BaseDisplayItem,
 	type Item,
@@ -193,7 +190,8 @@ export default function Page() {
 									))}
 								</ApplicationGrid>
 								<Center>
-									<ApplicationPagination
+									<Pagination
+										size="sm"
 										value={loaderData.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
@@ -232,7 +230,8 @@ export default function Page() {
 									))}
 								</ApplicationGrid>
 								<Center>
-									<ApplicationPagination
+									<Pagination
+										size="sm"
 										value={loaderData.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(

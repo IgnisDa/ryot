@@ -8,6 +8,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Pagination,
 	Stack,
 	Text,
 	Title,
@@ -34,10 +35,7 @@ import {
 import type { ReactElement } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	ApplicationPagination,
-	DebouncedSearchInput,
-} from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
 import { dayjsLib } from "~/lib/generals";
 import { getWorkoutStarter, useSearchParam } from "~/lib/hooks";
@@ -196,7 +194,8 @@ export default function Page() {
 					<Text>No workouts found</Text>
 				)}
 				<Center>
-					<ApplicationPagination
+					<Pagination
+						size="sm"
 						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(

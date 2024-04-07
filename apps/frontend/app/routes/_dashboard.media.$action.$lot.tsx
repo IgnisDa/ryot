@@ -9,6 +9,7 @@ import {
 	Group,
 	Menu,
 	Modal,
+	Pagination,
 	Select,
 	Stack,
 	Tabs,
@@ -60,7 +61,6 @@ import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
 	ApplicationGrid,
-	ApplicationPagination,
 	DebouncedSearchInput,
 } from "~/components/common";
 import {
@@ -411,7 +411,8 @@ export default function Page() {
 						)}
 						{loaderData.mediaList.list ? (
 							<Center>
-								<ApplicationPagination
+								<Pagination
+									size="sm"
 									value={loaderData.numPage}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
@@ -480,7 +481,8 @@ export default function Page() {
 						)}
 						{loaderData.mediaSearch.search ? (
 							<Center>
-								<ApplicationPagination
+								<Pagination
+									size="sm"
 									value={loaderData.numPage}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(

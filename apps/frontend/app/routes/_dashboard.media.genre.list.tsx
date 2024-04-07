@@ -6,6 +6,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Pagination,
 	Paper,
 	Stack,
 	Text,
@@ -20,11 +21,7 @@ import { Link, useLoaderData } from "@remix-run/react";
 import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	ApplicationGrid,
-	ApplicationPagination,
-	DebouncedSearchInput,
-} from "~/components/common";
+import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
 import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
 
@@ -105,7 +102,8 @@ export default function Page() {
 				)}
 				{loaderData.listGenres ? (
 					<Center mt="xl">
-						<ApplicationPagination
+						<Pagination
+							size="sm"
 							value={loaderData.query.page}
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(

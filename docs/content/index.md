@@ -7,8 +7,6 @@
 The docker image is `ghcr.io/ignisda/ryot:latest`.
 
 ```yaml
-version: "3.9"
-
 services:
   ryot-db:
     image: postgres:16-alpine
@@ -24,7 +22,7 @@ services:
   ryot:
     image: "ghcr.io/ignisda/ryot:latest"
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
+      - DATABASE_URL="postgres://postgres:postgres@ryot-db:5432/postgres"
     ports:
       - "8000:8000"
     pull_policy: always

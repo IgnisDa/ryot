@@ -7,6 +7,7 @@ import {
 	Flex,
 	Group,
 	Modal,
+	Pagination,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -42,11 +43,7 @@ import { useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	ApplicationGrid,
-	ApplicationPagination,
-	DebouncedSearchInput,
-} from "~/components/common";
+import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	type PostReview,
@@ -311,7 +308,8 @@ export default function Page() {
 								)}
 								{loaderData.contents.details ? (
 									<Center>
-										<ApplicationPagination
+										<Pagination
+											size="sm"
 											value={loaderData.query.page}
 											onChange={(v) => setP("page", v.toString())}
 											total={Math.ceil(

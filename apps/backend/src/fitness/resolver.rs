@@ -850,6 +850,33 @@ impl ExerciseService {
             association.last_updated_on = ActiveValue::Set(workout_date);
             association.update(&self.db).await?;
         }
+        let mut all_user_to_entity = UserToEntity::find()
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .stream(&self.db)
+            .await?;
+        while let Some(association) = all_user_to_entity.try_next().await? {
+            let first_workout_in_history = association
+                .exercise_extra_information
+                .clone()
+                .unwrap()
+                .history
+                .last()
+                .cloned()
+                .unwrap()
+                .workout_id;
+            let time_performed = Workout::find()
+                .select_only()
+                .column(workout::Column::StartTime)
+                .filter(workout::Column::Id.eq(first_workout_in_history))
+                .into_tuple::<DateTimeUtc>()
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let mut association: user_to_entity::ActiveModel = association.into();
+            association.created_on = ActiveValue::Set(time_performed);
+            association.update(&self.db).await?;
+        }
         Ok(())
     }
 

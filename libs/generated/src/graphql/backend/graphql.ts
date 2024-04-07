@@ -86,7 +86,7 @@ export type BooksSummary = {
 export type ChangeCollectionToEntityInput = {
   collectionName: Scalars['String']['input'];
   exerciseId?: InputMaybe<Scalars['String']['input']>;
-  mediaGroupId?: InputMaybe<Scalars['Int']['input']>;
+  metadataGroupId?: InputMaybe<Scalars['Int']['input']>;
   metadataId?: InputMaybe<Scalars['Int']['input']>;
   personId?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -249,9 +249,14 @@ export type DeployGoodreadsImportInput = {
   csvPath: Scalars['String']['input'];
 };
 
+export type DeployImdbImportInput = {
+  csvPath: Scalars['String']['input'];
+};
+
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
+  imdb?: InputMaybe<DeployImdbImportInput>;
   json?: InputMaybe<DeployJsonImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
@@ -679,6 +684,7 @@ export type ImportResultResponse = {
 export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   Goodreads = 'GOODREADS',
+  Imdb = 'IMDB',
   Mal = 'MAL',
   MeasurementsJson = 'MEASUREMENTS_JSON',
   MediaGroupJson = 'MEDIA_GROUP_JSON',

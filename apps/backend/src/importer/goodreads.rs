@@ -21,8 +21,6 @@ use crate::{
 
 #[derive(Debug, Deserialize)]
 struct Book {
-    #[serde(rename = "Book Id")]
-    id: String,
     #[serde(rename = "Title")]
     title: String,
     #[serde(rename = "ISBN13")]
@@ -135,7 +133,7 @@ pub async fn import(
                 source_id: record.title.clone(),
                 lot,
                 source,
-                identifier: record.id,
+                identifier: "".to_string(),
                 internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
                     identifier,
                     title: record.title,

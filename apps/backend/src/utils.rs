@@ -275,7 +275,7 @@ pub async fn add_entity_to_collection(
             CteCol::MetadataId
                 .eq(input.metadata_id)
                 .or(CteCol::PersonId.eq(input.person_id))
-                .or(CteCol::MetadataGroupId.eq(input.media_group_id))
+                .or(CteCol::MetadataGroupId.eq(input.metadata_group_id))
                 .or(CteCol::ExerciseId.eq(input.exercise_id.clone())),
         )
         .one(db)
@@ -291,7 +291,7 @@ pub async fn add_entity_to_collection(
         };
         created_collection.metadata_id = ActiveValue::Set(input.metadata_id);
         created_collection.person_id = ActiveValue::Set(input.person_id);
-        created_collection.metadata_group_id = ActiveValue::Set(input.media_group_id);
+        created_collection.metadata_group_id = ActiveValue::Set(input.metadata_group_id);
         created_collection.exercise_id = ActiveValue::Set(input.exercise_id);
         created_collection.insert(db).await.is_ok()
     };

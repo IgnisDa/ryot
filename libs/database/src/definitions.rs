@@ -160,6 +160,8 @@ pub enum ImportSource {
     Audiobookshelf,
     #[sea_orm(string_value = "GO")]
     Goodreads,
+    #[sea_orm(string_value = "IM")]
+    Imdb,
     #[sea_orm(string_value = "MA")]
     Mal,
     #[sea_orm(string_value = "MEJ")]
