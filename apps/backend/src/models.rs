@@ -145,7 +145,7 @@ pub struct ChangeCollectionToEntityInput {
     pub collection_name: String,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
-    pub media_group_id: Option<i32>,
+    pub metadata_group_id: Option<i32>,
     pub exercise_id: Option<String>,
 }
 

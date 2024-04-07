@@ -86,7 +86,7 @@ export type BooksSummary = {
 export type ChangeCollectionToEntityInput = {
   collectionName: Scalars['String']['input'];
   exerciseId?: InputMaybe<Scalars['String']['input']>;
-  mediaGroupId?: InputMaybe<Scalars['Int']['input']>;
+  metadataGroupId?: InputMaybe<Scalars['Int']['input']>;
   metadataId?: InputMaybe<Scalars['Int']['input']>;
   personId?: InputMaybe<Scalars['Int']['input']>;
 };

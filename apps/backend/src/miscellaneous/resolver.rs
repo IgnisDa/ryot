@@ -4642,8 +4642,8 @@ impl MiscellaneousService {
                 collection_to_entity::Column::MetadataId
                     .eq(input.metadata_id)
                     .or(collection_to_entity::Column::PersonId.eq(input.person_id))
-                    .or(collection_to_entity::Column::MetadataGroupId.eq(input.media_group_id))
-                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id)),
+                    .or(collection_to_entity::Column::MetadataGroupId.eq(input.metadata_group_id))
+                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone())),
             )
             .exec(&self.db)
             .await?;
@@ -4652,7 +4652,7 @@ impl MiscellaneousService {
             input.metadata_id,
             input.person_id,
             input.exercise_id,
-            input.media_group_id,
+            input.metadata_group_id,
             &self.db,
         )
         .await?;
