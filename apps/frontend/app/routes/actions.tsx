@@ -298,7 +298,7 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 		submission.entityLot === EntityLot.Media
 			? Number(submission.entityId)
 			: undefined;
-	const mediaGroupId =
+	const metadataGroupId =
 		submission.entityLot === EntityLot.MediaGroup
 			? Number(submission.entityId)
 			: undefined;
@@ -312,6 +312,6 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 			: undefined;
 	return [
 		submission,
-		{ metadataId, mediaGroupId, exerciseId, personId },
+		{ metadataId, metadataGroupId, exerciseId, personId },
 	] as const;
 };
