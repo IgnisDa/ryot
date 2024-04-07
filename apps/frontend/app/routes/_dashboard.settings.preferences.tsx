@@ -146,7 +146,13 @@ export default function Page() {
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<Form method="post" action={`?defaultTab=${defaultTab}`} replace>
 						{toUpdatePreferences.map((pref) => (
-							<input key={pref[0]} hidden name={pref[0]} value={pref[1]} />
+							<input
+								key={pref[0]}
+								hidden
+								name={pref[0]}
+								value={pref[1]}
+								readOnly
+							/>
 						))}
 						<Button
 							color="green"
