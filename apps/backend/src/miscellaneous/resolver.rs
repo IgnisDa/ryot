@@ -4647,6 +4647,15 @@ impl MiscellaneousService {
             )
             .exec(&self.db)
             .await?;
+        associate_user_with_entity(
+            &user_id,
+            input.metadata_id,
+            input.person_id,
+            input.exercise_id,
+            input.media_group_id,
+            &self.db,
+        )
+        .await?;
         Ok(IdObject { id: collect.id })
     }
 
