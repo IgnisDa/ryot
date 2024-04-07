@@ -133,6 +133,17 @@ their ratings, history, comments and lists. A few points to note.
   going to your profile page, and checking the URL.
 - Enter this username in the input.
 
+## IMDb
+
+You can import your watchlist from [IMDb](https://www.imdb.com). They will be added to
+the "Watchlist" collection.
+
+### Steps
+
+- Go to your account and select your watchlist.
+- Go the bottom and click on the "Export this list" button.
+- Upload the csv file in the input.
+
 ## Audiobookshelf
 
 !!! warning
