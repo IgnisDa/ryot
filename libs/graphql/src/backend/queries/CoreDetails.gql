@@ -5,7 +5,6 @@ query CoreDetails {
     repositoryLink
     docsLink
     itemDetailsHeight
-    reviewsDisabled
     pageLimit
     tokenValidForDays
   }

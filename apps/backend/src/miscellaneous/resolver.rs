@@ -555,7 +555,6 @@ struct CoreDetails {
     author_name: String,
     repository_link: String,
     item_details_height: u32,
-    reviews_disabled: bool,
     page_limit: i32,
     timezone: String,
     token_valid_for_days: i64,
@@ -1475,7 +1474,6 @@ impl MiscellaneousService {
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             page_limit: self.config.frontend.page_size,
-            reviews_disabled: self.config.users.reviews_disabled,
             item_details_height: self.config.frontend.item_details_height,
             token_valid_for_days: self.config.users.token_valid_for_days,
         })
@@ -4394,8 +4392,11 @@ impl MiscellaneousService {
     }
 
     pub async fn post_review(&self, user_id: i32, input: PostReviewInput) -> Result<IdObject> {
-        if self.config.users.reviews_disabled {
-            return Err(Error::new("Posting reviews on this instance is disabled"));
+        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+            .await?
+            .preferences;
+        if preferences.general.disable_reviews {
+            return Err(Error::new("Reviews are disabled"));
         }
         let review_id = match input.review_id {
             Some(i) => ActiveValue::Set(i),
@@ -4424,9 +4425,6 @@ impl MiscellaneousService {
         if input.rating.is_none() && input.text.is_none() {
             return Err(Error::new("At-least one of rating or review is required."));
         }
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
         let mut review_obj = review::ActiveModel {
             id: review_id,
             rating: ActiveValue::Set(input.rating.map(
@@ -5593,6 +5591,9 @@ impl MiscellaneousService {
                         "watch_providers" => {
                             preferences.general.watch_providers =
                                 serde_json::from_str(&input.value).unwrap();
+                        }
+                        "disable_reviews" => {
+                            preferences.general.disable_reviews = value_bool.unwrap();
                         }
                         _ => return Err(err()),
                     },

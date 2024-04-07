@@ -294,6 +294,7 @@ pub struct UserGeneralPreferences {
     pub disable_videos: bool,
     pub disable_watch_providers: bool,
     pub watch_providers: Vec<String>,
+    pub disable_reviews: bool,
 }
 
 impl Default for UserGeneralPreferences {
@@ -323,6 +324,7 @@ impl Default for UserGeneralPreferences {
             disable_videos: false,
             disable_watch_providers: false,
             watch_providers: WATCH_PROVIDERS.into_iter().map(|s| s.to_owned()).collect(),
+            disable_reviews: false,
         }
     }
 }
