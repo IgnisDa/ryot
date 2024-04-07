@@ -77,6 +77,7 @@ mod m20240402_1_create_collection_to_entity_entries_for_monitoring_media;
 mod m20240402_2_drop_media_monitored_column_from_user_to_entity;
 mod m20240402_3_change_name_of_reason;
 mod m20240403_add_total_time_spent_column_to_seen;
+mod m20240408_add_disable_reviews_to_preferences;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -173,6 +174,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240402_2_drop_media_monitored_column_from_user_to_entity::Migration),
             Box::new(m20240402_3_change_name_of_reason::Migration),
             Box::new(m20240403_add_total_time_spent_column_to_seen::Migration),
+            Box::new(m20240408_add_disable_reviews_to_preferences::Migration),
         ]
     }
 }
