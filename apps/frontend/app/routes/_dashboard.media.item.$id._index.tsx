@@ -176,11 +176,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			groupsEnabled: userPreferences.featuresEnabled.media.groups,
 			genresEnabled: userPreferences.featuresEnabled.media.genres,
 			watchProviders: userPreferences.general.watchProviders,
+			disableReviews: userPreferences.general.disableReviews,
 		},
-		coreDetails: {
-			itemDetailsHeight: coreDetails.itemDetailsHeight,
-			reviewsDisabled: coreDetails.reviewsDisabled,
-		},
+		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userDetails,
 		metadataId,
 		mediaMainDetails,
@@ -803,7 +801,7 @@ export default function Page() {
 									Episodes
 								</Tabs.Tab>
 							) : null}
-							{!loaderData.coreDetails.reviewsDisabled ? (
+							{!loaderData.userPreferences.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -1149,7 +1147,7 @@ export default function Page() {
 													) : null}
 												</Menu.Dropdown>
 											</Menu>
-											{!loaderData.coreDetails.reviewsDisabled ? (
+											{!loaderData.userPreferences.disableReviews ? (
 												<Button
 													variant="outline"
 													w="100%"
@@ -1560,7 +1558,7 @@ export default function Page() {
 						<UserMetadataDetailsSuspenseLoader>
 							{(userMetadataDetails) => (
 								<>
-									{!loaderData.coreDetails.reviewsDisabled ? (
+									{!loaderData.userPreferences.disableReviews ? (
 										<Tabs.Panel value="reviews">
 											{userMetadataDetails.reviews.length > 0 ? (
 												<MediaScrollArea
