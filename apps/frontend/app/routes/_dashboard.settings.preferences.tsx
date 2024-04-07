@@ -287,6 +287,7 @@ export default function Page() {
 										"disableYankIntegrations",
 										"disableNavigationAnimation",
 										"disableVideos",
+										"disableReviews",
 										"disableWatchProviders",
 									] as const
 								).map((name) => (
@@ -307,6 +308,7 @@ export default function Page() {
 												() => "Disable navigation animation",
 											)
 											.with("disableVideos", () => "Do not display videos")
+											.with("disableReviews", () => "Do not display reviews")
 											.with(
 												"disableWatchProviders",
 												() => 'Do not display the "Watch On" tab',
