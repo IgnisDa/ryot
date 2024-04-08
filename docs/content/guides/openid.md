@@ -11,7 +11,7 @@ SERVER_OAUTH_ISSUER_URL="https://accounts.google.com" # The URL of your OIDC pro
 ```
 
 In your OIDC provider, you will need to set the redirect URL to
-`https://ryot.fly.dev/api/auth`. As of now, Ryot does not use any information from the OIDC
+`<FRONTEND_URL>/api/auth`. As of now, Ryot does not use any information from the OIDC
 provider, so no scopes are required to be set.
 
 Once these are set, restart your Ryot instance and you should be able to see the button to
