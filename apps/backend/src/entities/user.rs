@@ -54,7 +54,9 @@ pub struct Model {
     pub name: String,
     pub email: Option<String>,
     #[graphql(skip)]
-    pub password: String,
+    pub password: Option<String>,
+    #[graphql(skip)]
+    pub oidc_issuer_id: Option<String>,
     pub is_demo: Option<bool>,
     pub lot: UserLot,
     #[graphql(skip)]
@@ -139,13 +141,15 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if self.password.is_set() {
-            let password = self.password.unwrap();
-            let salt = SaltString::generate(&mut OsRng);
-            let password_hash = get_hasher()
-                .hash_password(password.as_bytes(), &salt)
-                .map_err(|_| DbErr::Custom("Unable to hash password".to_owned()))?
-                .to_string();
-            self.password = ActiveValue::Set(password_hash);
+            let cloned_password = self.password.clone().unwrap();
+            if let Some(password) = cloned_password {
+                let salt = SaltString::generate(&mut OsRng);
+                let password_hash = get_hasher()
+                    .hash_password(password.as_bytes(), &salt)
+                    .map_err(|_| DbErr::Custom("Unable to hash password".to_owned()))?
+                    .to_string();
+                self.password = ActiveValue::Set(Some(password_hash));
+            }
         }
         Ok(self)
     }
