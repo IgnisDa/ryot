@@ -30,7 +30,7 @@ use nanoid::nanoid;
 use openidconnect::{
     core::{CoreClient, CoreResponseType},
     reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope,
+    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, OAuth2TokenResponse, Scope,
 };
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
@@ -7488,8 +7488,8 @@ GROUP BY m.id;
                     .exchange_code(AuthorizationCode::new(input.code))
                     .request_async(async_http_client)
                     .await?;
-                dbg!(&token);
-                todo!()
+                let access_token = token.access_token().secret().to_owned();
+                Ok(access_token)
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
