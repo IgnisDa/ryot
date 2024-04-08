@@ -124,6 +124,7 @@ export type ApplicationUser = {
 	id: number;
 	name: string;
 	lot: UserLot;
+	oidcIssuerId?: string;
 	isDemo: boolean;
 };
 

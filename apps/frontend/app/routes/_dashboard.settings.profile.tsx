@@ -79,10 +79,16 @@ export default function Page() {
 						<PasswordInput
 							label="Password"
 							name="password"
-							disabled={Boolean(loaderData.userDetails.isDemo)}
+							disabled={
+								Boolean(loaderData.userDetails.isDemo) ||
+								Boolean(loaderData.userDetails.oidcIssuerId)
+							}
 							description={
-								loaderData.userDetails.isDemo &&
-								"Password can not be changed for the demo user"
+								loaderData.userDetails.oidcIssuerId
+									? "This user has been created via OIDC"
+									: loaderData.userDetails.isDemo
+									  ? "Password can not be changed for the demo user"
+									  : undefined
 							}
 						/>
 						<Button
