@@ -20,7 +20,7 @@ import {
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetailsDocument,
-	GetOidcAuthorizationUrlDocument,
+	GetOidcRedirectUrlDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -61,10 +61,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	return namedAction(request, {
 		oidcRegister: async () => {
-			const { getOidcAuthorizationUrl } = await gqlClient.request(
-				GetOidcAuthorizationUrlDocument,
+			const { getOidcRedirectUrl } = await gqlClient.request(
+				GetOidcRedirectUrlDocument,
 			);
-			return redirect(getOidcAuthorizationUrl.url);
+			return redirect(getOidcRedirectUrl.url);
 		},
 		passwordRegister: async () => {
 			const submission = parseWithZod(formData, { schema: passwordSchema });
