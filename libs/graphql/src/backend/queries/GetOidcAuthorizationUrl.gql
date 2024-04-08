@@ -1,7 +1,0 @@
-query GetOidcAuthorizationUrl {
-  getOidcAuthorizationUrl {
-    url
-    csrf
-    nonce
-  }
-}

@@ -1264,7 +1264,7 @@ export type MutationRootUpdateUserPreferenceArgs = {
   input: UpdateUserPreferenceInput;
 };
 
-export type OidcAuthorizationUrl = {
+export type OidcRedirectUrl = {
   csrf: Scalars['String']['output'];
   nonce: Scalars['String']['output'];
   url: Scalars['String']['output'];
@@ -1478,7 +1478,7 @@ export type QueryRoot = {
   /** Get paginated list of genres. */
   genresList: GenreListResults;
   /** Get an authorization URL using the configured OIDC client. */
-  getOidcAuthorizationUrl: OidcAuthorizationUrl;
+  getOidcRedirectUrl: OidcRedirectUrl;
   /** Get an access token using the configured OIDC client. */
   getOidcToken: Scalars['String']['output'];
   /** Get a presigned URL (valid for 90 minutes) for a given key. */

@@ -1,0 +1,7 @@
+query GetOidcRedirectUrl {
+  getOidcRedirectUrl {
+    url
+    csrf
+    nonce
+  }
+}

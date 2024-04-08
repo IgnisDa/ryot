@@ -683,7 +683,7 @@ struct GraphqlCalendarEvent {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
-struct OidcAuthorizationUrl {
+struct OidcRedirectUrl {
     url: String,
     csrf: String,
     nonce: String,
@@ -1033,12 +1033,9 @@ impl MiscellaneousQuery {
     }
 
     /// Get an authorization URL using the configured OIDC client.
-    async fn get_oidc_authorization_url(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<OidcAuthorizationUrl> {
+    async fn get_oidc_redirect_url(&self, gql_ctx: &Context<'_>) -> Result<OidcRedirectUrl> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.get_oidc_authorization_url().await
+        service.get_oidc_redirect_url().await
     }
 
     /// Get an access token using the configured OIDC client.
@@ -7457,7 +7454,7 @@ GROUP BY m.id;
         url
     }
 
-    async fn get_oidc_authorization_url(&self) -> Result<OidcAuthorizationUrl> {
+    async fn get_oidc_redirect_url(&self) -> Result<OidcRedirectUrl> {
         match self.oidc_client.as_ref() {
             Some(client) => {
                 let (authorize_url, csrf, nonce) = client
@@ -7474,7 +7471,7 @@ GROUP BY m.id;
                     )
                     .url();
 
-                Ok(OidcAuthorizationUrl {
+                Ok(OidcRedirectUrl {
                     url: authorize_url.to_string(),
                     csrf: csrf.secret().to_string(),
                     nonce: nonce.secret().to_string(),
