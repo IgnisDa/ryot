@@ -485,6 +485,10 @@ impl AppConfig {
         cl.server.smtp.user = gt();
         cl.server.smtp.password = gt();
         cl.server.smtp.mailbox = gt();
+        cl.server.oauth.client_id = gt();
+        cl.server.oauth.client_secret = gt();
+        cl.server.oauth.auth_endpoint = gt();
+        cl.server.oauth.token_endpoint = gt();
         cl
     }
 }
