@@ -17,6 +17,7 @@ import {
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	authCookie,
@@ -37,9 +38,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		return redirectWithToast($path("/"), {
 			message: "You were already logged in",
 		});
-	const enabledFeatures = await getCoreEnabledFeatures();
+	const [enabledFeatures, { coreDetails }] = await Promise.all([
+		getCoreEnabledFeatures(),
+		gqlClient.request(CoreDetailsDocument),
+	]);
 	return json({
 		enabledFeatures: { signupAllowed: enabledFeatures.signupAllowed },
+		tokenValidForDays: coreDetails.tokenValidForDays,
 	});
 };
 
@@ -49,20 +54,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	const submission = processSubmission(formData, schema);
 	const { loginUser } = await gqlClient.request(LoginUserDocument, {
-		input: {
-			password: submission.password,
-			username: submission.username,
-		},
+		input: { password: submission.password, username: submission.username },
 	});
-	const { coreDetails } = await gqlClient.request(CoreDetailsDocument);
 	if (loginUser.__typename === "LoginResponse") {
 		let redirectUrl = $path("/");
 		if (submission[redirectToQueryParam])
 			redirectUrl = safeRedirect(submission[redirectToQueryParam]);
 		const cookies = await getCookiesForApplication(loginUser.apiKey);
-		const options = {
-			maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
-		} as const;
+		const options = { maxAge: submission.tokenValidForDays * 24 * 60 * 60 };
 		return redirect(redirectUrl, {
 			headers: combineHeaders(
 				{ "set-cookie": await authCookie.serialize(loginUser.apiKey, options) },
@@ -92,6 +91,7 @@ const schema = z.object({
 	username: z.string(),
 	password: z.string(),
 	[redirectToQueryParam]: z.string().optional(),
+	tokenValidForDays: zx.NumAsString,
 });
 
 type Schema = z.infer<typeof schema>;
@@ -111,6 +111,11 @@ export default function Page() {
 				method="post"
 				{...getFormProps(form)}
 			>
+				<input
+					type="hidden"
+					name="tokenValidForDays"
+					value={loaderData.tokenValidForDays}
+				/>
 				<TextInput
 					{...getInputProps(fields.username, { type: "text" })}
 					label="Username"
