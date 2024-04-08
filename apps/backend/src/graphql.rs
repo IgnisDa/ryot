@@ -37,5 +37,6 @@ pub async fn get_schema(app_services: &AppServices) -> GraphqlSchema {
     .data(app_services.importer_service.clone())
     .data(app_services.exporter_service.clone())
     .data(app_services.exercise_service.clone())
+    .data(app_services.oauth_client.clone())
     .finish()
 }

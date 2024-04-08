@@ -69,6 +69,7 @@ pub struct AppServices {
     pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
+    pub oauth_client: Arc<Option<CoreClient>>,
 }
 
 async fn create_openid_client(config: &config::AppConfig) -> Option<CoreClient> {
@@ -108,7 +109,7 @@ pub async fn create_app_services(
         file_storage_service.clone(),
         perform_application_job,
     ));
-    let oauth_client = create_openid_client(&config).await;
+    let oauth_client = Arc::new(create_openid_client(&config).await);
 
     let media_service = Arc::new(
         MiscellaneousService::new(
@@ -118,6 +119,7 @@ pub async fn create_app_services(
             perform_application_job,
             perform_core_application_job,
             timezone.clone(),
+            oauth_client.clone(),
         )
         .await,
     );
@@ -139,6 +141,7 @@ pub async fn create_app_services(
         exporter_service,
         file_storage_service,
         exercise_service,
+        oauth_client,
     }
 }
 

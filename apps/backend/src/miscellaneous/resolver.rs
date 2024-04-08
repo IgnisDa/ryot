@@ -27,6 +27,7 @@ use markdown::{
     Options,
 };
 use nanoid::nanoid;
+use openidconnect::core::CoreClient;
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::{
@@ -1398,6 +1399,7 @@ pub struct MiscellaneousService {
     file_storage_service: Arc<FileStorageService>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
+    oauth_client: Arc<Option<CoreClient>>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1410,6 +1412,7 @@ impl MiscellaneousService {
         perform_application_job: &SqliteStorage<ApplicationJob>,
         perform_core_application_job: &SqliteStorage<CoreApplicationJob>,
         timezone: Arc<chrono_tz::Tz>,
+        oauth_client: Arc<Option<CoreClient>>,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
@@ -1432,6 +1435,7 @@ impl MiscellaneousService {
             seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
+            oauth_client,
         }
     }
 }
