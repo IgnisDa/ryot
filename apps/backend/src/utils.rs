@@ -61,6 +61,8 @@ pub const AVATAR_URL: &str =
 pub const TEMP_DIR: &str = "tmp";
 pub const OPENID_SCOPES: [&str; 2] = ["email", "profile"];
 
+const FRONTEND_OAUTH_ENDPOINT: &str = "/oauth";
+
 /// All the services that are used by the app
 pub struct AppServices {
     pub config: Arc<config::AppConfig>,
@@ -73,18 +75,21 @@ pub struct AppServices {
 }
 
 async fn create_openid_client(config: &config::AppConfig) -> Option<CoreClient> {
-    match IssuerUrl::new(config.server.oauth.issuer_url.clone()) {
-        Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
-            .await
-            .ok()
-            .map(|provider| {
-                CoreClient::from_provider_metadata(
-                    provider,
-                    ClientId::new(config.server.oauth.client_id.clone()),
-                    Some(ClientSecret::new(config.server.oauth.client_secret.clone())),
-                )
-                .set_redirect_uri(RedirectUrl::new(config.frontend.url.clone() + "/oauth").unwrap())
-            }),
+    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
+        Ok(redirect_url) => match IssuerUrl::new(config.server.oauth.issuer_url.clone()) {
+            Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
+                .await
+                .ok()
+                .map(|provider| {
+                    CoreClient::from_provider_metadata(
+                        provider,
+                        ClientId::new(config.server.oauth.client_id.clone()),
+                        Some(ClientSecret::new(config.server.oauth.client_secret.clone())),
+                    )
+                    .set_redirect_uri(redirect_url)
+                }),
+            _ => None,
+        },
         _ => None,
     }
 }
