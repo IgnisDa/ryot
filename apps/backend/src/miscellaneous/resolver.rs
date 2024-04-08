@@ -31,6 +31,7 @@ use openidconnect::{
     core::{CoreClient, CoreResponseType},
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, OAuth2TokenResponse, Scope,
+    TokenResponse,
 };
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
@@ -686,7 +687,6 @@ struct GraphqlCalendarEvent {
 struct OidcRedirectUrl {
     url: String,
     csrf: String,
-    nonce: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
@@ -7457,7 +7457,7 @@ GROUP BY m.id;
     async fn get_oidc_redirect_url(&self) -> Result<OidcRedirectUrl> {
         match self.oidc_client.as_ref() {
             Some(client) => {
-                let (authorize_url, csrf, nonce) = client
+                let (authorize_url, csrf, _) = client
                     .authorize_url(
                         AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
                         CsrfToken::new_random,
@@ -7470,11 +7470,9 @@ GROUP BY m.id;
                             .collect_vec(),
                     )
                     .url();
-
                 Ok(OidcRedirectUrl {
                     url: authorize_url.to_string(),
                     csrf: csrf.secret().to_string(),
-                    nonce: nonce.secret().to_string(),
                 })
             }
             _ => Err(Error::new("OIDC client not configured")),
@@ -7488,7 +7486,16 @@ GROUP BY m.id;
                     .exchange_code(AuthorizationCode::new(input.code))
                     .request_async(async_http_client)
                     .await?;
-                let access_token = token.access_token().secret().to_owned();
+                let raw_access_token = token.access_token();
+                // let id_token = token.id_token().unwrap();
+                // let claims = id_token.claims(&client.id_token_verifier(), &input.nonce)?;
+                // let sub = client
+                //     .user_info(raw_access_token.clone(), None)
+                //     .unwrap()
+                //     .request_async(async_http_client)
+                //     .await?;
+                // dbg!(sub);
+                let access_token = raw_access_token.secret().to_owned();
                 Ok(access_token)
             }
             _ => Err(Error::new("OIDC client not configured")),
