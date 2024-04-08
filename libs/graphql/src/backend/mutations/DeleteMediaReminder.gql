@@ -1,3 +1,0 @@
-mutation DeleteMediaReminder($input: DeleteMediaReminderInput!) {
-  deleteMediaReminder(input: $input)
-}

@@ -1,5 +1,0 @@
-mutation CommitMetadataGroup($input: CommitMediaInput!) {
-  commitMetadataGroup(input: $input) {
-    id
-  }
-}

@@ -1,3 +1,0 @@
-mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
-  addEntityToCollection(input: $input)
-}

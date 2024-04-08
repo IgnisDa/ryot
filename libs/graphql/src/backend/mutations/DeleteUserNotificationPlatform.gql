@@ -1,3 +1,0 @@
-mutation DeleteUserNotificationPlatform($notificationId: Int!) {
-  deleteUserNotificationPlatform(notificationId: $notificationId)
-}
