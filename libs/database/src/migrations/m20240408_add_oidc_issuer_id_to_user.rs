@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::{User, USER_OIDC_ID_UNIQUE_KEY};
+use super::m20230417_create_user::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -14,16 +14,7 @@ impl MigrationTrait for Migration {
                 .alter_table(
                     TableAlterStatement::new()
                         .table(User::Table)
-                        .add_column(ColumnDef::new(User::OidcIssuerId).text())
-                        .to_owned(),
-                )
-                .await?;
-            manager
-                .create_index(
-                    Index::create()
-                        .name(USER_OIDC_ID_UNIQUE_KEY)
-                        .table(User::Table)
-                        .col(User::OidcIssuerId)
+                        .add_column(ColumnDef::new(User::OidcIssuerId).unique_key().text())
                         .to_owned(),
                 )
                 .await?;
