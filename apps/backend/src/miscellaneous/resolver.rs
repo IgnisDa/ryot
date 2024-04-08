@@ -239,7 +239,7 @@ struct PasswordUserInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
-enum RegisterUserInput {
+enum AuthUserInput {
     Password(PasswordUserInput),
     Oidc(String),
 }
@@ -1237,20 +1237,16 @@ impl MiscellaneousMutation {
     async fn register_user(
         &self,
         gql_ctx: &Context<'_>,
-        input: RegisterUserInput,
+        input: AuthUserInput,
     ) -> Result<RegisterResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.register_user(input).await
     }
 
     /// Login a user using their username and password and return an auth token.
-    async fn login_user(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: PasswordUserInput,
-    ) -> Result<LoginResult> {
+    async fn login_user(&self, gql_ctx: &Context<'_>, input: AuthUserInput) -> Result<LoginResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.login_user(&input.username, &input.password).await
+        service.login_user(input).await
     }
 
     /// Update a user's profile details.
@@ -5090,17 +5086,17 @@ impl MiscellaneousService {
         Ok(IdObject { id: obj.id })
     }
 
-    async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
+    async fn register_user(&self, input: AuthUserInput) -> Result<RegisterResult> {
         if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
         }
         let (filter, username, password) = match input.clone() {
-            RegisterUserInput::Oidc(id) => (user::Column::OidcIssuerId.eq(id), None, None),
-            RegisterUserInput::Password(input) => (
+            AuthUserInput::Oidc(id) => (user::Column::OidcIssuerId.eq(&id), id, None),
+            AuthUserInput::Password(input) => (
                 user::Column::Name.eq(&input.username),
-                Some(input.username),
+                input.username,
                 Some(input.password),
             ),
         };
@@ -5110,8 +5106,8 @@ impl MiscellaneousService {
             }));
         };
         let oidc_issuer_id = match input {
-            RegisterUserInput::Oidc(input) => Some(input),
-            RegisterUserInput::Password(_) => None,
+            AuthUserInput::Oidc(input) => Some(input),
+            AuthUserInput::Password(_) => None,
         };
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
             UserLot::Admin
@@ -5119,8 +5115,9 @@ impl MiscellaneousService {
             UserLot::Normal
         };
         let user = user::ActiveModel {
-            name: ActiveValue::Set(username.unwrap()),
+            name: ActiveValue::Set(username),
             password: ActiveValue::Set(password),
+            oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
             sink_integrations: ActiveValue::Set(vec![]),
@@ -5133,37 +5130,39 @@ impl MiscellaneousService {
         Ok(RegisterResult::Ok(IdObject { id: user.id }))
     }
 
-    async fn login_user(&self, username: &str, password: &str) -> Result<LoginResult> {
-        let user = User::find()
-            .filter(user::Column::Name.eq(username))
-            .one(&self.db)
-            .await
-            .unwrap();
-        if user.is_none() {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::UsernameDoesNotExist,
-            }));
+    async fn login_user(&self, input: AuthUserInput) -> Result<LoginResult> {
+        let filter = match input.clone() {
+            AuthUserInput::Oidc(id) => user::Column::OidcIssuerId.eq(id),
+            AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
         };
-        let user = user.unwrap();
-        if self.config.users.validate_password {
-            if let Some(hashed_password) = user.password {
-                let parsed_hash = PasswordHash::new(&hashed_password).unwrap();
-                if get_password_hasher()
-                    .verify_password(password.as_bytes(), &parsed_hash)
-                    .is_err()
-                {
-                    return Ok(LoginResult::Error(LoginError {
-                        error: LoginErrorVariant::CredentialsMismatch,
-                    }));
+        match User::find().filter(filter).one(&self.db).await.unwrap() {
+            None => Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::UsernameDoesNotExist,
+            })),
+            Some(user) => {
+                if self.config.users.validate_password {
+                    if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
+                        if let Some(hashed_password) = user.password {
+                            let parsed_hash = PasswordHash::new(&hashed_password).unwrap();
+                            if get_password_hasher()
+                                .verify_password(password.as_bytes(), &parsed_hash)
+                                .is_err()
+                            {
+                                return Ok(LoginResult::Error(LoginError {
+                                    error: LoginErrorVariant::CredentialsMismatch,
+                                }));
+                            }
+                        }
+                    }
                 }
+                let jwt_key = jwt::sign(
+                    user.id,
+                    &self.config.users.jwt_secret,
+                    self.config.users.token_valid_for_days,
+                )?;
+                Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }
-        let jwt_key = jwt::sign(
-            user.id,
-            &self.config.users.jwt_secret,
-            self.config.users.token_valid_for_days,
-        )?;
-        Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
     }
 
     // this job is run when a user is created for the first time
