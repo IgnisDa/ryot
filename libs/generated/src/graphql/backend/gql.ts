@@ -64,6 +64,7 @@ const documents = {
     "query ExercisesList($input: ExercisesListInput!) {\n  exercisesList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      lot\n      image\n      muscle\n      numTimesInteracted\n      lastUpdatedOn\n    }\n  }\n}": types.ExercisesListDocument,
     "query GenreDetails($input: GenreDetailsInput!) {\n  genreDetails(input: $input) {\n    details {\n      id\n      name\n      numItems\n    }\n    contents {\n      details {\n        total\n        nextPage\n      }\n      items {\n        details {\n          ...MetadataSearchItemPart\n        }\n        metadataLot\n      }\n    }\n  }\n}": types.GenreDetailsDocument,
     "query GenresList($input: SearchInput!) {\n  genresList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      numItems\n    }\n  }\n}": types.GenresListDocument,
+    "query GetOidcAuthorizationUrl {\n  getOidcAuthorizationUrl {\n    url\n    csrf\n    nonce\n  }\n}": types.GetOidcAuthorizationUrlDocument,
     "query GetPresignedS3Url($key: String!) {\n  getPresignedS3Url(key: $key)\n}": types.GetPresignedS3UrlDocument,
     "query ImportReports {\n  importReports {\n    id\n    source\n    startedOn\n    finishedOn\n    success\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n        error\n      }\n    }\n  }\n}": types.ImportReportsDocument,
     "query LatestUserSummary {\n  latestUserSummary {\n    calculatedOn\n    fitness {\n      measurementsRecorded\n      exercisesInteractedWith\n      workouts {\n        recorded\n        duration\n        weight\n      }\n    }\n    media {\n      metadataOverall {\n        reviewed\n        interactedWith\n      }\n      peopleOverall {\n        reviewed\n        interactedWith\n      }\n      manga {\n        chapters\n        read\n      }\n      books {\n        pages\n        read\n      }\n      movies {\n        runtime\n        watched\n      }\n      anime {\n        episodes\n        watched\n      }\n      podcasts {\n        runtime\n        played\n        playedEpisodes\n      }\n      visualNovels {\n        played\n        runtime\n      }\n      videoGames {\n        played\n      }\n      shows {\n        runtime\n        watchedEpisodes\n        watchedSeasons\n        watched\n      }\n      audioBooks {\n        runtime\n        played\n      }\n    }\n  }\n}": types.LatestUserSummaryDocument,
@@ -316,6 +317,10 @@ export function graphql(source: "query GenreDetails($input: GenreDetailsInput!) 
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query GenresList($input: SearchInput!) {\n  genresList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      numItems\n    }\n  }\n}"): (typeof documents)["query GenresList($input: SearchInput!) {\n  genresList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      numItems\n    }\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query GetOidcAuthorizationUrl {\n  getOidcAuthorizationUrl {\n    url\n    csrf\n    nonce\n  }\n}"): (typeof documents)["query GetOidcAuthorizationUrl {\n  getOidcAuthorizationUrl {\n    url\n    csrf\n    nonce\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
