@@ -99,7 +99,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		personId,
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
-
 			disableReviews: userPreferences.general.disableReviews,
 		},
 		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },

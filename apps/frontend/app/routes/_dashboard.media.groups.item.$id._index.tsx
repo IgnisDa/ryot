@@ -93,7 +93,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
-
 			disableReviews: userPreferences.general.disableReviews,
 		},
 		userDetails,
