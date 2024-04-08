@@ -1,0 +1,3 @@
+query GetOidcToken($input: GetOidcTokenInput!) {
+  getOidcToken($input: $input)
+}

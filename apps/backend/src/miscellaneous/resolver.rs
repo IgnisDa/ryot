@@ -29,7 +29,8 @@ use markdown::{
 use nanoid::nanoid;
 use openidconnect::{
     core::{CoreClient, CoreResponseType},
-    AuthenticationFlow, CsrfToken, Nonce, Scope,
+    reqwest::async_http_client,
+    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope,
 };
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
@@ -694,6 +695,12 @@ struct UserCalendarEventInput {
     month: u32,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+struct GetOidcTokenInput {
+    code: String,
+    state: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 enum UserUpcomingCalendarEventInput {
     /// The number of media to select
@@ -1032,6 +1039,16 @@ impl MiscellaneousQuery {
     ) -> Result<OidcAuthorizationUrl> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.get_oidc_authorization_url().await
+    }
+
+    /// Get an access token using the configured OIDC client.
+    async fn get_oidc_token(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: GetOidcTokenInput,
+    ) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.get_oidc_token(input).await
     }
 }
 
@@ -7462,6 +7479,20 @@ GROUP BY m.id;
                     csrf: csrf.secret().to_string(),
                     nonce: nonce.secret().to_string(),
                 })
+            }
+            _ => Err(Error::new("OIDC client not configured")),
+        }
+    }
+
+    async fn get_oidc_token(&self, input: GetOidcTokenInput) -> Result<String> {
+        match self.oidc_client.as_ref() {
+            Some(client) => {
+                let token = client
+                    .exchange_code(AuthorizationCode::new(input.code))
+                    .request_async(async_http_client)
+                    .await?;
+                dbg!(&token);
+                todo!()
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
