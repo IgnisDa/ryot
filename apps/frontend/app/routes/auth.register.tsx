@@ -24,6 +24,7 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconAt } from "@tabler/icons-react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -162,7 +163,13 @@ export default function Page() {
 					<>
 						<Divider label="OR" />
 						<Form method="post" action="?intent=oidcRegister">
-							<Button variant="outline" color="gray" w="100%" type="submit">
+							<Button
+								variant="outline"
+								color="gray"
+								w="100%"
+								type="submit"
+								leftSection={<IconAt size={16} />}
+							>
 								Register with OpenID Connect
 							</Button>
 						</Form>
