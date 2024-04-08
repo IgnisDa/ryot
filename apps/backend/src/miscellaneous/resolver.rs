@@ -559,6 +559,7 @@ struct CoreDetails {
     page_limit: i32,
     timezone: String,
     token_valid_for_days: i64,
+    oidc_enabled: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
@@ -1399,7 +1400,7 @@ pub struct MiscellaneousService {
     file_storage_service: Arc<FileStorageService>,
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
-    oauth_client: Arc<Option<CoreClient>>,
+    oidc_client: Arc<Option<CoreClient>>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1412,7 +1413,7 @@ impl MiscellaneousService {
         perform_application_job: &SqliteStorage<ApplicationJob>,
         perform_core_application_job: &SqliteStorage<CoreApplicationJob>,
         timezone: Arc<chrono_tz::Tz>,
-        oauth_client: Arc<Option<CoreClient>>,
+        oidc_client: Arc<Option<CoreClient>>,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
         let cache_clone = seen_progress_cache.clone();
@@ -1435,7 +1436,7 @@ impl MiscellaneousService {
             seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
-            oauth_client,
+            oidc_client,
         }
     }
 }
@@ -1480,6 +1481,7 @@ impl MiscellaneousService {
             page_limit: self.config.frontend.page_size,
             item_details_height: self.config.frontend.item_details_height,
             token_valid_for_days: self.config.users.token_valid_for_days,
+            oidc_enabled: self.oidc_client.is_some(),
         })
     }
 

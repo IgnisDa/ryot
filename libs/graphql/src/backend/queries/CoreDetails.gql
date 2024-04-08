@@ -7,5 +7,6 @@ query CoreDetails {
     itemDetailsHeight
     pageLimit
     tokenValidForDays
+    oidcEnabled
   }
 }

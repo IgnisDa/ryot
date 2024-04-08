@@ -59,7 +59,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
-pub const OPENID_SCOPES: [&str; 2] = ["email", "profile"];
+pub const OIDC_SCOPES: [&str; 2] = ["email", "profile"];
 
 const FRONTEND_OAUTH_ENDPOINT: &str = "/oauth";
 
@@ -71,10 +71,10 @@ pub struct AppServices {
     pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
-    pub oauth_client: Arc<Option<CoreClient>>,
+    pub oidc_client: Arc<Option<CoreClient>>,
 }
 
-async fn create_openid_client(config: &config::AppConfig) -> Option<CoreClient> {
+async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
     match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
         Ok(redirect_url) => match IssuerUrl::new(config.server.oauth.issuer_url.clone()) {
             Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
@@ -114,7 +114,7 @@ pub async fn create_app_services(
         file_storage_service.clone(),
         perform_application_job,
     ));
-    let oauth_client = Arc::new(create_openid_client(&config).await);
+    let oidc_client = Arc::new(create_oidc_client(&config).await);
 
     let media_service = Arc::new(
         MiscellaneousService::new(
@@ -124,7 +124,7 @@ pub async fn create_app_services(
             perform_application_job,
             perform_core_application_job,
             timezone.clone(),
-            oauth_client.clone(),
+            oidc_client.clone(),
         )
         .await,
     );
@@ -146,7 +146,7 @@ pub async fn create_app_services(
         exporter_service,
         file_storage_service,
         exercise_service,
-        oauth_client,
+        oidc_client,
     }
 }
 
