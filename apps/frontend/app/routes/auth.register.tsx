@@ -154,7 +154,7 @@ export default function Page() {
 				{loaderData.coreDetails.oidcEnabled ? (
 					<>
 						<Divider label="OR" />
-						<Form method="post" action="/auth/callback">
+						<Form method="post" action="/api/auth">
 							<Button
 								variant="outline"
 								color="gray"
