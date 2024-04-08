@@ -694,12 +694,6 @@ struct UserCalendarEventInput {
     month: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-struct GetOidcTokenInput {
-    code: String,
-    state: String,
-}
-
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 enum UserUpcomingCalendarEventInput {
     /// The number of media to select
@@ -747,6 +741,38 @@ fn get_password_hasher() -> Argon2<'static> {
 
 fn get_id_hasher(salt: &str) -> Harsh {
     Harsh::builder().length(10).salt(salt).build().unwrap()
+}
+
+fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
+    let (show_season_number, show_episode_number) = match rev.show_extra_information {
+        Some(d) => (Some(d.season), Some(d.episode)),
+        None => (None, None),
+    };
+    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
+    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
+    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
+    ImportOrExportItemRating {
+        review: Some(ImportOrExportItemReview {
+            visibility: Some(rev.visibility),
+            date: Some(rev.posted_on),
+            spoiler: Some(rev.spoiler),
+            text: rev.text_original,
+        }),
+        rating: rev.rating,
+        show_season_number,
+        show_episode_number,
+        podcast_episode_number,
+        anime_episode_number,
+        manga_chapter_number,
+        comments: match rev.comments.is_empty() {
+            true => None,
+            false => Some(rev.comments),
+        },
+    }
+}
+
+fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
+    Ok(())
 }
 
 #[derive(Default)]
@@ -1038,13 +1064,9 @@ impl MiscellaneousQuery {
     }
 
     /// Get an access token using the configured OIDC client.
-    async fn get_oidc_token(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: GetOidcTokenInput,
-    ) -> Result<String> {
+    async fn get_oidc_token(&self, gql_ctx: &Context<'_>, code: String) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.get_oidc_token(input).await
+        service.get_oidc_token(code).await
     }
 }
 
@@ -1433,7 +1455,6 @@ pub struct MiscellaneousService {
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
     oidc_client: Arc<Option<CoreClient>>,
-    oidc_state_cache: Arc<Cache<String, String>>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1451,12 +1472,8 @@ impl MiscellaneousService {
         let seen_progress_cache = Arc::new(Cache::new());
         let seen_progress_cache_clone = seen_progress_cache.clone();
 
-        let oidc_state_cache = Arc::new(Cache::new());
-        let oidc_state_cache_clone = oidc_state_cache.clone();
-
         let frequency = ChronoDuration::try_minutes(3).unwrap().to_std().unwrap();
         tokio::spawn(async move { seen_progress_cache_clone.monitor(4, 0.25, frequency).await });
-        tokio::spawn(async move { oidc_state_cache_clone.monitor(4, 0.25, frequency).await });
 
         Self {
             db: db.clone(),
@@ -1467,36 +1484,7 @@ impl MiscellaneousService {
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
             oidc_client,
-            oidc_state_cache,
         }
-    }
-}
-
-fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
-    let (show_season_number, show_episode_number) = match rev.show_extra_information {
-        Some(d) => (Some(d.season), Some(d.episode)),
-        None => (None, None),
-    };
-    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
-    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
-    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
-    ImportOrExportItemRating {
-        review: Some(ImportOrExportItemReview {
-            visibility: Some(rev.visibility),
-            date: Some(rev.posted_on),
-            spoiler: Some(rev.spoiler),
-            text: rev.text_original,
-        }),
-        rating: rev.rating,
-        show_season_number,
-        show_episode_number,
-        podcast_episode_number,
-        anime_episode_number,
-        manga_chapter_number,
-        comments: match rev.comments.is_empty() {
-            true => None,
-            false => Some(rev.comments),
-        },
     }
 }
 
@@ -7455,7 +7443,7 @@ GROUP BY m.id;
     async fn get_oidc_redirect_url(&self) -> Result<OidcRedirectUrl> {
         match self.oidc_client.as_ref() {
             Some(client) => {
-                let (authorize_url, csrf, nonce) = client
+                let (authorize_url, csrf, _) = client
                     .authorize_url(
                         AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
                         CsrfToken::new_random,
@@ -7469,14 +7457,6 @@ GROUP BY m.id;
                     )
                     .url();
                 let csrf = csrf.secret().to_string();
-                let nonce = nonce.secret().to_string();
-                self.oidc_state_cache
-                    .insert(
-                        csrf.clone(),
-                        nonce,
-                        ChronoDuration::try_minutes(2).unwrap().to_std().unwrap(),
-                    )
-                    .await;
                 Ok(OidcRedirectUrl {
                     url: authorize_url.to_string(),
                     csrf,
@@ -7486,25 +7466,17 @@ GROUP BY m.id;
         }
     }
 
-    async fn get_oidc_token(&self, input: GetOidcTokenInput) -> Result<String> {
+    async fn get_oidc_token(&self, code: String) -> Result<String> {
         match self.oidc_client.as_ref() {
             Some(client) => {
-                let nonce = self.oidc_state_cache.get(&input.state).await;
-                match nonce {
-                    Some(nonce) => {
-                        self.oidc_state_cache.remove(&input.state).await;
-                        let nonce = Nonce::new(nonce.to_string());
-                        let token = client
-                            .exchange_code(AuthorizationCode::new(input.code))
-                            .request_async(async_http_client)
-                            .await?;
-                        let id_token = token.id_token().unwrap();
-                        let claims = id_token.claims(&client.id_token_verifier(), &nonce)?;
-                        let access_token = claims.subject().to_string();
-                        Ok(access_token)
-                    }
-                    _ => Err(Error::new("Invalid CSRF token")),
-                }
+                let token = client
+                    .exchange_code(AuthorizationCode::new(code))
+                    .request_async(async_http_client)
+                    .await?;
+                let id_token = token.id_token().unwrap();
+                let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
+                let access_token = claims.subject().to_string();
+                Ok(access_token)
             }
             _ => Err(Error::new("OIDC client not configured")),
         }

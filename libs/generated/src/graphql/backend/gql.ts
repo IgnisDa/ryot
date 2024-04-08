@@ -65,7 +65,7 @@ const documents = {
     "query GenreDetails($input: GenreDetailsInput!) {\n  genreDetails(input: $input) {\n    details {\n      id\n      name\n      numItems\n    }\n    contents {\n      details {\n        total\n        nextPage\n      }\n      items {\n        details {\n          ...MetadataSearchItemPart\n        }\n        metadataLot\n      }\n    }\n  }\n}": types.GenreDetailsDocument,
     "query GenresList($input: SearchInput!) {\n  genresList(input: $input) {\n    details {\n      total\n      nextPage\n    }\n    items {\n      id\n      name\n      numItems\n    }\n  }\n}": types.GenresListDocument,
     "query GetOidcRedirectUrl {\n  getOidcRedirectUrl {\n    url\n    csrf\n  }\n}": types.GetOidcRedirectUrlDocument,
-    "query GetOidcToken($input: GetOidcTokenInput!) {\n  getOidcToken(input: $input)\n}": types.GetOidcTokenDocument,
+    "query GetOidcToken($code: String!) {\n  getOidcToken(code: $code)\n}": types.GetOidcTokenDocument,
     "query GetPresignedS3Url($key: String!) {\n  getPresignedS3Url(key: $key)\n}": types.GetPresignedS3UrlDocument,
     "query ImportReports {\n  importReports {\n    id\n    source\n    startedOn\n    finishedOn\n    success\n    details {\n      import {\n        total\n      }\n      failedItems {\n        lot\n        step\n        identifier\n        error\n      }\n    }\n  }\n}": types.ImportReportsDocument,
     "query LatestUserSummary {\n  latestUserSummary {\n    calculatedOn\n    fitness {\n      measurementsRecorded\n      exercisesInteractedWith\n      workouts {\n        recorded\n        duration\n        weight\n      }\n    }\n    media {\n      metadataOverall {\n        reviewed\n        interactedWith\n      }\n      peopleOverall {\n        reviewed\n        interactedWith\n      }\n      manga {\n        chapters\n        read\n      }\n      books {\n        pages\n        read\n      }\n      movies {\n        runtime\n        watched\n      }\n      anime {\n        episodes\n        watched\n      }\n      podcasts {\n        runtime\n        played\n        playedEpisodes\n      }\n      visualNovels {\n        played\n        runtime\n      }\n      videoGames {\n        played\n      }\n      shows {\n        runtime\n        watchedEpisodes\n        watchedSeasons\n        watched\n      }\n      audioBooks {\n        runtime\n        played\n      }\n    }\n  }\n}": types.LatestUserSummaryDocument,
@@ -325,7 +325,7 @@ export function graphql(source: "query GetOidcRedirectUrl {\n  getOidcRedirectUr
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query GetOidcToken($input: GetOidcTokenInput!) {\n  getOidcToken(input: $input)\n}"): (typeof documents)["query GetOidcToken($input: GetOidcTokenInput!) {\n  getOidcToken(input: $input)\n}"];
+export function graphql(source: "query GetOidcToken($code: String!) {\n  getOidcToken(code: $code)\n}"): (typeof documents)["query GetOidcToken($code: String!) {\n  getOidcToken(code: $code)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
