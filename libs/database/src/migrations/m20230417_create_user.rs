@@ -11,7 +11,6 @@ pub enum User {
     Password,
     IsDemo,
     Lot,
-    Email,
     Preferences,
     // This field can be `NULL` if the user has not enabled any yank integration
     YankIntegrations,
@@ -37,7 +36,6 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(User::Name).unique_key().text().not_null())
-                    .col(ColumnDef::new(User::Email).unique_key().text())
                     .col(ColumnDef::new(User::Password).text())
                     .col(ColumnDef::new(User::Lot).text().not_null())
                     .col(ColumnDef::new(User::Preferences).json_binary().not_null())
