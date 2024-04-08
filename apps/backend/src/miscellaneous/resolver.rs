@@ -30,8 +30,7 @@ use nanoid::nanoid;
 use openidconnect::{
     core::{CoreClient, CoreResponseType},
     reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, OAuth2TokenResponse, Scope,
-    TokenResponse,
+    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
@@ -1434,6 +1433,7 @@ pub struct MiscellaneousService {
     seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
     oidc_client: Arc<Option<CoreClient>>,
+    oidc_state_cache: Arc<Cache<String, String>>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1449,17 +1449,14 @@ impl MiscellaneousService {
         oidc_client: Arc<Option<CoreClient>>,
     ) -> Self {
         let seen_progress_cache = Arc::new(Cache::new());
-        let cache_clone = seen_progress_cache.clone();
+        let seen_progress_cache_clone = seen_progress_cache.clone();
 
-        tokio::spawn(async move {
-            cache_clone
-                .monitor(
-                    4,
-                    0.25,
-                    ChronoDuration::try_minutes(3).unwrap().to_std().unwrap(),
-                )
-                .await
-        });
+        let oidc_state_cache = Arc::new(Cache::new());
+        let oidc_state_cache_clone = oidc_state_cache.clone();
+
+        let frequency = ChronoDuration::try_minutes(3).unwrap().to_std().unwrap();
+        tokio::spawn(async move { seen_progress_cache_clone.monitor(4, 0.25, frequency).await });
+        tokio::spawn(async move { oidc_state_cache_clone.monitor(4, 0.25, frequency).await });
 
         Self {
             db: db.clone(),
@@ -1470,6 +1467,7 @@ impl MiscellaneousService {
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
             oidc_client,
+            oidc_state_cache,
         }
     }
 }
@@ -7457,7 +7455,7 @@ GROUP BY m.id;
     async fn get_oidc_redirect_url(&self) -> Result<OidcRedirectUrl> {
         match self.oidc_client.as_ref() {
             Some(client) => {
-                let (authorize_url, csrf, _) = client
+                let (authorize_url, csrf, nonce) = client
                     .authorize_url(
                         AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
                         CsrfToken::new_random,
@@ -7470,9 +7468,18 @@ GROUP BY m.id;
                             .collect_vec(),
                     )
                     .url();
+                let csrf = csrf.secret().to_string();
+                let nonce = nonce.secret().to_string();
+                self.oidc_state_cache
+                    .insert(
+                        csrf.clone(),
+                        nonce,
+                        ChronoDuration::try_minutes(2).unwrap().to_std().unwrap(),
+                    )
+                    .await;
                 Ok(OidcRedirectUrl {
                     url: authorize_url.to_string(),
-                    csrf: csrf.secret().to_string(),
+                    csrf,
                 })
             }
             _ => Err(Error::new("OIDC client not configured")),
@@ -7482,21 +7489,22 @@ GROUP BY m.id;
     async fn get_oidc_token(&self, input: GetOidcTokenInput) -> Result<String> {
         match self.oidc_client.as_ref() {
             Some(client) => {
-                let token = client
-                    .exchange_code(AuthorizationCode::new(input.code))
-                    .request_async(async_http_client)
-                    .await?;
-                let raw_access_token = token.access_token();
-                // let id_token = token.id_token().unwrap();
-                // let claims = id_token.claims(&client.id_token_verifier(), &input.nonce)?;
-                // let sub = client
-                //     .user_info(raw_access_token.clone(), None)
-                //     .unwrap()
-                //     .request_async(async_http_client)
-                //     .await?;
-                // dbg!(sub);
-                let access_token = raw_access_token.secret().to_owned();
-                Ok(access_token)
+                let nonce = self.oidc_state_cache.get(&input.state).await;
+                match nonce {
+                    Some(nonce) => {
+                        self.oidc_state_cache.remove(&input.state).await;
+                        let nonce = Nonce::new(nonce.to_string());
+                        let token = client
+                            .exchange_code(AuthorizationCode::new(input.code))
+                            .request_async(async_http_client)
+                            .await?;
+                        let id_token = token.id_token().unwrap();
+                        let claims = id_token.claims(&client.id_token_verifier(), &nonce)?;
+                        let access_token = claims.subject().to_string();
+                        Ok(access_token)
+                    }
+                    _ => Err(Error::new("Invalid CSRF token")),
+                }
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
