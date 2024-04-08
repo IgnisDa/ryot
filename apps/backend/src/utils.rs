@@ -61,7 +61,7 @@ pub const AVATAR_URL: &str =
 pub const TEMP_DIR: &str = "tmp";
 pub const OIDC_SCOPES: [&str; 2] = ["email", "profile"];
 
-const FRONTEND_OAUTH_ENDPOINT: &str = "/oauth";
+const FRONTEND_OAUTH_ENDPOINT: &str = "/auth/callback";
 
 /// All the services that are used by the app
 pub struct AppServices {
