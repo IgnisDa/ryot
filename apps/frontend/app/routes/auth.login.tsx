@@ -1,6 +1,14 @@
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { $path } from "@ignisda/remix-routes";
-import { Anchor, Box, Button, PasswordInput, TextInput } from "@mantine/core";
+import {
+	Anchor,
+	Box,
+	Button,
+	Divider,
+	PasswordInput,
+	Stack,
+	TextInput,
+} from "@mantine/core";
 import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
@@ -14,6 +22,7 @@ import {
 	LoginErrorVariant,
 	LoginUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { IconAt } from "@tabler/icons-react";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -45,6 +54,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return json({
 		enabledFeatures: { signupAllowed: enabledFeatures.signupAllowed },
 		tokenValidForDays: coreDetails.tokenValidForDays,
+		oidcEnabled: coreDetails.oidcEnabled,
 	});
 };
 
@@ -109,43 +119,55 @@ export default function Page() {
 
 	return (
 		<>
-			<Box
-				component={Form}
-				m="auto"
-				className={classes.form}
-				method="post"
-				{...getFormProps(form)}
-			>
-				<input
-					type="hidden"
-					name="tokenValidForDays"
-					value={loaderData.tokenValidForDays}
-				/>
-				<TextInput
-					{...getInputProps(fields.username, { type: "text" })}
-					label="Username"
-					autoFocus
-					required
-				/>
-				<PasswordInput
-					label="Password"
-					{...getInputProps(fields.password, { type: "password" })}
-					mt="md"
-					required
-					error={fields.password.errors?.[0]}
-				/>
-				{redirectValue ? (
+			<Stack m="auto" className={classes.form}>
+				<Form method="post" {...getFormProps(form)}>
 					<input
 						type="hidden"
-						name={redirectToQueryParam}
-						value={redirectValue}
+						name="tokenValidForDays"
+						value={loaderData.tokenValidForDays}
 					/>
+					<TextInput
+						{...getInputProps(fields.username, { type: "text" })}
+						label="Username"
+						autoFocus
+						required
+					/>
+					<PasswordInput
+						label="Password"
+						{...getInputProps(fields.password, { type: "password" })}
+						mt="md"
+						required
+						error={fields.password.errors?.[0]}
+					/>
+					{redirectValue ? (
+						<input
+							type="hidden"
+							name={redirectToQueryParam}
+							value={redirectValue}
+						/>
+					) : null}
+					<Button id="submit-button" mt="md" type="submit" w="100%">
+						Login
+					</Button>
+				</Form>
+				{loaderData.oidcEnabled ? (
+					<>
+						<Divider label="OR" />
+						<Form method="post" action="/api/auth">
+							<Button
+								variant="outline"
+								color="gray"
+								w="100%"
+								type="submit"
+								leftSection={<IconAt size={16} />}
+							>
+								Sign in with OpenID Connect
+							</Button>
+						</Form>
+					</>
 				) : null}
-				<Button id="submit-button" mt="md" type="submit" w="100%">
-					Login
-				</Button>
 				{loaderData.enabledFeatures.signupAllowed ? (
-					<Box mt="lg" ta="right">
+					<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
 						Create a{" "}
 						<Anchor to={$path("/auth/register")} component={Link}>
 							new account
@@ -153,7 +175,7 @@ export default function Page() {
 						?
 					</Box>
 				) : null}
-			</Box>
+			</Stack>
 		</>
 	);
 }

@@ -50,7 +50,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			message: "Registration is disabled",
 			type: "error",
 		});
-	return json({ coreDetails: { oidcEnabled: coreDetails.oidcEnabled } });
+	return json({ oidcEnabled: coreDetails.oidcEnabled });
 };
 
 export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
@@ -153,7 +153,7 @@ export default function Page() {
 						Register
 					</Button>
 				</Form>
-				{loaderData.coreDetails.oidcEnabled ? (
+				{loaderData.oidcEnabled ? (
 					<>
 						<Divider label="OR" />
 						<Form method="post" action="/api/auth">
@@ -164,12 +164,12 @@ export default function Page() {
 								type="submit"
 								leftSection={<IconAt size={16} />}
 							>
-								Register with OpenID Connect
+								Sign in with OpenID Connect
 							</Button>
 						</Form>
 					</>
 				) : null}
-				<Box mt="xl" ta="right">
+				<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
 					Already{" "}
 					<Anchor to={$path("/auth/login")} component={Link}>
 						have an account
