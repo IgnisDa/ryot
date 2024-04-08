@@ -15,10 +15,12 @@ import {
 	type LoaderFunctionArgs,
 	type MetaFunction,
 	json,
+	redirect,
 } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetailsDocument,
+	GetOidcAuthorizationUrlDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -49,9 +51,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			message: "Registration is disabled",
 			type: "error",
 		});
-	return json({
-		coreDetails: { oidcEnabled: coreDetails.oidcEnabled },
-	});
+	return json({ coreDetails: { oidcEnabled: coreDetails.oidcEnabled } });
 };
 
 export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
@@ -59,8 +59,14 @@ export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	return namedAction(request, {
+		oidcRegister: async () => {
+			const { getOidcAuthorizationUrl } = await gqlClient.request(
+				GetOidcAuthorizationUrlDocument,
+			);
+			return redirect(getOidcAuthorizationUrl.url);
+		},
 		passwordRegister: async () => {
-			const submission = parseWithZod(formData, { schema });
+			const submission = parseWithZod(formData, { schema: passwordSchema });
 			if (submission.status !== "success")
 				return json(
 					{ status: "error" },
@@ -102,7 +108,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const schema = z
+const passwordSchema = z
 	.object({
 		username: z.string(),
 		password: z
@@ -155,8 +161,8 @@ export default function Page() {
 				{loaderData.coreDetails.oidcEnabled ? (
 					<>
 						<Divider label="OR" />
-						<Form>
-							<Button variant="outline" color="gray" w="100%">
+						<Form method="post" action="?intent=oidcRegister">
+							<Button variant="outline" color="gray" w="100%" type="submit">
 								Register with OpenID Connect
 							</Button>
 						</Form>
