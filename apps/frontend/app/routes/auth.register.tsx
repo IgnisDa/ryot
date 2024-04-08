@@ -76,15 +76,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				);
 			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
 				input: {
-					password: submission.value.password,
-					username: submission.value.username,
+					password: {
+						password: submission.value.password,
+						username: submission.value.username,
+					},
 				},
 			});
 			if (registerUser.__typename === "RegisterError") {
 				const message = match(registerUser.error)
 					.with(RegisterErrorVariant.Disabled, () => "Registration is disabled")
 					.with(
-						RegisterErrorVariant.UsernameAlreadyExists,
+						RegisterErrorVariant.IdentifierAlreadyExists,
 						() => "This username already exists",
 					)
 					.exhaustive();

@@ -80,7 +80,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, registerFormSchema);
 			const { registerUser } = await gqlClient.request(
 				RegisterUserDocument,
-				{ input: submission },
+				{ input: { password: submission } },
 				await getAuthorizationHeader(request),
 			);
 			const success = registerUser.__typename === "IdObject";
@@ -95,7 +95,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 									() => "Registration is disabled",
 								)
 								.with(
-									RegisterErrorVariant.UsernameAlreadyExists,
+									RegisterErrorVariant.IdentifierAlreadyExists,
 									() => "Username already exists",
 								)
 								.exhaustive(),

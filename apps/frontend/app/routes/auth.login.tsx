@@ -54,7 +54,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	const submission = processSubmission(formData, schema);
 	const { loginUser } = await gqlClient.request(LoginUserDocument, {
-		input: { password: submission.password, username: submission.username },
+		input: {
+			password: {
+				password: submission.password,
+				username: submission.username,
+			},
+		},
 	});
 	if (loginUser.__typename === "LoginResponse") {
 		let redirectUrl = $path("/");
