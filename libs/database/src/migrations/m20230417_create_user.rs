@@ -19,6 +19,7 @@ pub enum User {
     SinkIntegrations,
     Notifications,
     Summary,
+    OidcIssuerId,
 }
 
 #[async_trait::async_trait]
@@ -45,6 +46,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Notifications).json_binary())
                     .col(ColumnDef::new(User::Summary).json_binary())
                     .col(ColumnDef::new(User::IsDemo).boolean())
+                    .col(ColumnDef::new(User::OidcIssuerId).text())
                     .to_owned(),
             )
             .await?;
