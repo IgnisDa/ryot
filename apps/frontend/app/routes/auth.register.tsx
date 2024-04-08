@@ -151,13 +151,6 @@ export default function Page() {
 					<Button id="submit-button" mt="md" type="submit" w="100%">
 						Register
 					</Button>
-					<Box mt="lg" ta="right">
-						Already{" "}
-						<Anchor to={$path("/auth/login")} component={Link}>
-							have an account
-						</Anchor>
-						?
-					</Box>
 				</Form>
 				{loaderData.coreDetails.oidcEnabled ? (
 					<>
@@ -169,6 +162,13 @@ export default function Page() {
 						</Form>
 					</>
 				) : null}
+				<Box mt="xl" ta="right">
+					Already{" "}
+					<Anchor to={$path("/auth/login")} component={Link}>
+						have an account
+					</Anchor>
+					?
+				</Box>
 			</Stack>
 		</>
 	);
