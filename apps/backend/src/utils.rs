@@ -11,6 +11,11 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use http_types::headers::HeaderName;
 use itertools::Itertools;
+use openidconnect::{
+    core::{CoreClient, CoreProviderMetadata},
+    reqwest::async_http_client,
+    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
+};
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
@@ -54,6 +59,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
+pub const OPENID_SCOPES: [&str; 2] = ["email", "profile"];
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -63,6 +69,23 @@ pub struct AppServices {
     pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
+}
+
+async fn create_openid_client(config: &config::AppConfig) -> Option<CoreClient> {
+    match IssuerUrl::new(config.server.oauth.issuer_url.clone()) {
+        Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
+            .await
+            .ok()
+            .map(|provider| {
+                CoreClient::from_provider_metadata(
+                    provider,
+                    ClientId::new(config.server.oauth.client_id.clone()),
+                    Some(ClientSecret::new(config.server.oauth.client_secret.clone())),
+                )
+                .set_redirect_uri(RedirectUrl::new(config.frontend.url.clone() + "/oauth").unwrap())
+            }),
+        _ => None,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -85,6 +108,7 @@ pub async fn create_app_services(
         file_storage_service.clone(),
         perform_application_job,
     ));
+    let oauth_client = create_openid_client(&config).await;
 
     let media_service = Arc::new(
         MiscellaneousService::new(
