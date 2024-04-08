@@ -71,7 +71,6 @@ pub struct AppServices {
     pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
-    pub oidc_client: Arc<Option<CoreClient>>,
 }
 
 async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
@@ -146,7 +145,6 @@ pub async fn create_app_services(
         exporter_service,
         file_storage_service,
         exercise_service,
-        oidc_client,
     }
 }
 
