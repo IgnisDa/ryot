@@ -196,11 +196,8 @@ server:
     # @envvar SERVER_OAUTH_CLIENT_SECRET
     client_secret: ""
 
-    # @envvar SERVER_OAUTH_AUTH_ENDPOINT
-    auth_endpoint: ""
-
-    # @envvar SERVER_OAUTH_TOKEN_ENDPOINT
-    token_endpoint: ""
+    # @envvar SERVER_OAUTH_ISSUER_URL
+    issuer_url: ""
 
   # The path where the config file will be written once the server boots up.
   # @envvar SERVER_CONFIG_DUMP_PATH

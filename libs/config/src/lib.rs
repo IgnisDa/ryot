@@ -341,17 +341,7 @@ pub struct SmtpConfig {
 pub struct OAuthConfig {
     pub client_id: String,
     pub client_secret: String,
-    pub auth_endpoint: String,
-    pub token_endpoint: String,
-}
-
-impl IsFeatureEnabled for OAuthConfig {
-    fn is_enabled(&self) -> bool {
-        !self.client_id.is_empty()
-            && !self.client_secret.is_empty()
-            && !self.auth_endpoint.is_empty()
-            && !self.token_endpoint.is_empty()
-    }
+    pub issuer_url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -487,8 +477,7 @@ impl AppConfig {
         cl.server.smtp.mailbox = gt();
         cl.server.oauth.client_id = gt();
         cl.server.oauth.client_secret = gt();
-        cl.server.oauth.auth_endpoint = gt();
-        cl.server.oauth.token_endpoint = gt();
+        cl.server.oauth.issuer_url = gt();
         cl
     }
 }
