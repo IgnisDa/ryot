@@ -15,12 +15,10 @@ import {
 	type LoaderFunctionArgs,
 	type MetaFunction,
 	json,
-	redirect,
 } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetailsDocument,
-	GetOidcRedirectUrlDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -60,12 +58,6 @@ export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	return namedAction(request, {
-		oidcRegister: async () => {
-			const { getOidcRedirectUrl } = await gqlClient.request(
-				GetOidcRedirectUrlDocument,
-			);
-			return redirect(getOidcRedirectUrl.url);
-		},
 		passwordRegister: async () => {
 			const submission = parseWithZod(formData, { schema: passwordSchema });
 			if (submission.status !== "success")
@@ -162,7 +154,7 @@ export default function Page() {
 				{loaderData.coreDetails.oidcEnabled ? (
 					<>
 						<Divider label="OR" />
-						<Form method="post" action="?intent=oidcRegister">
+						<Form method="post" action="/auth/callback">
 							<Button
 								variant="outline"
 								color="gray"
