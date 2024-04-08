@@ -246,7 +246,7 @@ enum RegisterUserInput {
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum RegisterErrorVariant {
-    UsernameAlreadyExists,
+    IdentifierAlreadyExists,
     Disabled,
 }
 
@@ -5092,34 +5092,27 @@ impl MiscellaneousService {
     }
 
     async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
-        let (username, password) = match input.clone() {
-            RegisterUserInput::Oidc(_) => (None, None),
-            RegisterUserInput::Password(input) => (Some(input.username), Some(input.password)),
-        };
-        let oidc_issuer_id = match input {
-            RegisterUserInput::Oidc(input) => Some(input),
-            RegisterUserInput::Password(_) => None,
-        };
         if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
         }
-        if User::find()
-            .apply_if(username.clone(), |q, val| {
-                q.filter(user::Column::Name.eq(val))
-            })
-            .apply_if(oidc_issuer_id, |q, val| {
-                q.filter(user::Column::OidcIssuerId.eq(val))
-            })
-            .count(&self.db)
-            .await
-            .unwrap()
-            != 0
-        {
+        let (filter, username, password) = match input.clone() {
+            RegisterUserInput::Oidc(id) => (user::Column::OidcIssuerId.eq(id), None, None),
+            RegisterUserInput::Password(input) => (
+                user::Column::Name.eq(&input.username),
+                Some(input.username),
+                Some(input.password),
+            ),
+        };
+        if User::find().filter(filter).count(&self.db).await.unwrap() != 0 {
             return Ok(RegisterResult::Error(RegisterError {
-                error: RegisterErrorVariant::UsernameAlreadyExists,
+                error: RegisterErrorVariant::IdentifierAlreadyExists,
             }));
+        };
+        let oidc_issuer_id = match input {
+            RegisterUserInput::Oidc(input) => Some(input),
+            RegisterUserInput::Password(_) => None,
         };
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
             UserLot::Admin
