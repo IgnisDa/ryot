@@ -161,7 +161,7 @@ export default function Page() {
 								type="submit"
 								leftSection={<IconAt size={16} />}
 							>
-								Sign in with OpenID Connect
+								Continue with OpenID Connect
 							</Button>
 						</Form>
 					</>
