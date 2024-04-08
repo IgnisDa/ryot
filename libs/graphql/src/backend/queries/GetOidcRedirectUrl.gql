@@ -1,6 +1,0 @@
-query GetOidcRedirectUrl {
-  getOidcRedirectUrl {
-    url
-    csrf
-  }
-}

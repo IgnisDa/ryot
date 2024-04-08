@@ -1,3 +1,0 @@
-query GetOidcToken($code: String!) {
-  getOidcToken(code: $code)
-}
