@@ -231,11 +231,17 @@ enum UserDetailsResult {
     Error(UserDetailsError),
 }
 
-#[derive(Debug, InputObject)]
-struct UserInput {
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+struct PasswordUserInput {
     username: String,
     #[graphql(secret)]
     password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+enum RegisterUserInput {
+    Password(PasswordUserInput),
+    Oidc(String),
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1232,16 +1238,18 @@ impl MiscellaneousMutation {
     async fn register_user(
         &self,
         gql_ctx: &Context<'_>,
-        input: UserInput,
+        input: RegisterUserInput,
     ) -> Result<RegisterResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service
-            .register_user(&input.username, &input.password)
-            .await
+        service.register_user(input).await
     }
 
     /// Login a user using their username and password and return an auth token.
-    async fn login_user(&self, gql_ctx: &Context<'_>, input: UserInput) -> Result<LoginResult> {
+    async fn login_user(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: PasswordUserInput,
+    ) -> Result<LoginResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.login_user(&input.username, &input.password).await
     }
@@ -5083,14 +5091,27 @@ impl MiscellaneousService {
         Ok(IdObject { id: obj.id })
     }
 
-    async fn register_user(&self, username: &str, password: &str) -> Result<RegisterResult> {
+    async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
+        let (username, password) = match input.clone() {
+            RegisterUserInput::Oidc(_) => (None, None),
+            RegisterUserInput::Password(input) => (Some(input.username), Some(input.password)),
+        };
+        let oidc_issuer_id = match input {
+            RegisterUserInput::Oidc(input) => Some(input),
+            RegisterUserInput::Password(_) => None,
+        };
         if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
         }
         if User::find()
-            .filter(user::Column::Name.eq(username))
+            .apply_if(username.clone(), |q, val| {
+                q.filter(user::Column::Name.eq(val))
+            })
+            .apply_if(oidc_issuer_id, |q, val| {
+                q.filter(user::Column::OidcIssuerId.eq(val))
+            })
             .count(&self.db)
             .await
             .unwrap()
@@ -5106,8 +5127,8 @@ impl MiscellaneousService {
             UserLot::Normal
         };
         let user = user::ActiveModel {
-            name: ActiveValue::Set(username.to_owned()),
-            password: ActiveValue::Set(password.to_owned()),
+            name: ActiveValue::Set(username.unwrap()),
+            password: ActiveValue::Set(password),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
             sink_integrations: ActiveValue::Set(vec![]),
@@ -5133,14 +5154,16 @@ impl MiscellaneousService {
         };
         let user = user.unwrap();
         if self.config.users.validate_password {
-            let parsed_hash = PasswordHash::new(&user.password).unwrap();
-            if get_password_hasher()
-                .verify_password(password.as_bytes(), &parsed_hash)
-                .is_err()
-            {
-                return Ok(LoginResult::Error(LoginError {
-                    error: LoginErrorVariant::CredentialsMismatch,
-                }));
+            if let Some(hashed_password) = user.password {
+                let parsed_hash = PasswordHash::new(&hashed_password).unwrap();
+                if get_password_hasher()
+                    .verify_password(password.as_bytes(), &parsed_hash)
+                    .is_err()
+                {
+                    return Ok(LoginResult::Error(LoginError {
+                        error: LoginErrorVariant::CredentialsMismatch,
+                    }));
+                }
             }
         }
         let jwt_key = jwt::sign(
@@ -5181,9 +5204,7 @@ impl MiscellaneousService {
         if let Some(e) = input.email {
             user_obj.email = ActiveValue::Set(Some(e));
         }
-        if let Some(p) = input.password {
-            user_obj.password = ActiveValue::Set(p);
-        }
+        user_obj.password = ActiveValue::Set(input.password);
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(IdObject { id: user_obj.id })
     }
