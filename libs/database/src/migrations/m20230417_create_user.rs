@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+pub static USER_OIDC_ID_UNIQUE_KEY: &str = "user-oidc-id__unique_index";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -56,6 +58,15 @@ impl MigrationTrait for Migration {
                     .name("user__name__index")
                     .table(User::Table)
                     .col(User::Name)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(USER_OIDC_ID_UNIQUE_KEY)
+                    .table(User::Table)
+                    .col(User::OidcIssuerId)
                     .to_owned(),
             )
             .await?;
