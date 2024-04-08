@@ -67,7 +67,7 @@ const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
 	const t = prefs.general.dashboard.find(
 		(de) => de.section === el,
 	)?.numElements;
-	invariant(t, `No take found for ${el}`);
+	invariant(typeof t === "number", `No take found for ${el}`);
 	return t;
 };
 
