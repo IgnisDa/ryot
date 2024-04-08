@@ -286,7 +286,6 @@ enum LoginResult {
 #[derive(Debug, InputObject)]
 struct UpdateUserInput {
     username: Option<String>,
-    email: Option<String>,
     #[graphql(secret)]
     password: Option<String>,
 }
@@ -5193,9 +5192,6 @@ impl MiscellaneousService {
             .into();
         if let Some(n) = input.username {
             user_obj.name = ActiveValue::Set(n);
-        }
-        if let Some(e) = input.email {
-            user_obj.email = ActiveValue::Set(Some(e));
         }
         user_obj.password = ActiveValue::Set(input.password);
         let user_obj = user_obj.update(&self.db).await.unwrap();

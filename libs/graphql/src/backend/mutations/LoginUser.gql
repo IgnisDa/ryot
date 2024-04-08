@@ -1,4 +1,4 @@
-mutation LoginUser($input: UserInput!) {
+mutation LoginUser($input: PasswordUserInput!) {
   loginUser(input: $input) {
     __typename
     ... on LoginError {
