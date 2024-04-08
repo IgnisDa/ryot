@@ -1,15 +1,13 @@
 # OpenID Authentication
 
-Ryot can be configured to use OpenID Connect (OIDC) for authentication. This guide will
-walk you through the steps to configure Ryot to use OIDC.
-
-The following environment variables need to be set:
+Ryot can be configured to use OpenID Connect (OIDC) for authentication. The following
+environment variables need to be set:
 
 ```bash
-FRONTEND_URL="https://ryot.fly.dev"
-SERVER_OAUTH_CLIENT_ID="384***3-***.apps.googleusercontent.com"
-SERVER_OAUTH_CLIENT_SECRET="GOCSPX-********yDY"
-SERVER_OAUTH_ISSUER_URL="https://accounts.google.com"
+FRONTEND_URL="https://ryot.fly.dev" # The URL of your Ryot instance
+SERVER_OAUTH_CLIENT_ID="********"
+SERVER_OAUTH_CLIENT_SECRET="********"
+SERVER_OAUTH_ISSUER_URL="https://accounts.google.com" # The URL of your OIDC provider
 ```
 
 Once these are set, restart your Ryot instance and you should be able to login using
