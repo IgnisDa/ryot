@@ -53,7 +53,6 @@ lettre = { version = "0.11.4", features = [
 ], default-features = false }
 markdown = "1.0.0-alpha.15"
 nanoid = "0.4.0"
-oauth2 = "4.4.2"
 paginate = "1.1.11"
 rand = "0.8.5"
 regex = "1.10.3"
