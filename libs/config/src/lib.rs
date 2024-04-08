@@ -337,8 +337,8 @@ pub struct SmtpConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "SERVER_OAUTH_")]
-pub struct OAuthConfig {
+#[config(rename_all = "snake_case", env_prefix = "SERVER_OIDC_")]
+pub struct OidcConfig {
     pub client_id: String,
     pub client_secret: String,
     pub issuer_url: String,
@@ -350,9 +350,9 @@ pub struct ServerConfig {
     /// The mailer related settings.
     #[setting(nested)]
     pub smtp: SmtpConfig,
-    /// The OAuth related settings.
+    /// The OIDC related settings.
     #[setting(nested)]
-    pub oauth: OAuthConfig,
+    pub oidc: OidcConfig,
     /// The path where the config file will be written once the server boots up.
     #[setting(default = format!("tmp/{}-config.json", PROJECT_NAME))]
     pub config_dump_path: String,
@@ -475,9 +475,9 @@ impl AppConfig {
         cl.server.smtp.user = gt();
         cl.server.smtp.password = gt();
         cl.server.smtp.mailbox = gt();
-        cl.server.oauth.client_id = gt();
-        cl.server.oauth.client_secret = gt();
-        cl.server.oauth.issuer_url = gt();
+        cl.server.oidc.client_id = gt();
+        cl.server.oidc.client_secret = gt();
+        cl.server.oidc.issuer_url = gt();
         cl
     }
 }

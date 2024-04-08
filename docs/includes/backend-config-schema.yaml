@@ -188,15 +188,15 @@ server:
     # @envvar SERVER_SMTP_MAILBOX
     mailbox: "Ryot <no-reply@mailer.io>"
 
-  # The OAuth related settings.
-  oauth:
-    # @envvar SERVER_OAUTH_CLIENT_ID
+  # The OIDC related settings.
+  oidc:
+    # @envvar SERVER_OIDC_CLIENT_ID
     client_id: ""
 
-    # @envvar SERVER_OAUTH_CLIENT_SECRET
+    # @envvar SERVER_OIDC_CLIENT_SECRET
     client_secret: ""
 
-    # @envvar SERVER_OAUTH_ISSUER_URL
+    # @envvar SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
   # The path where the config file will be written once the server boots up.
