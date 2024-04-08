@@ -122,7 +122,6 @@ export function combineHeaders(
 export type ApplicationUser = {
 	__typename: "User";
 	id: number;
-	email?: string | null | undefined;
 	name: string;
 	lot: UserLot;
 	isDemo: boolean;

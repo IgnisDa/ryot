@@ -76,12 +76,6 @@ export default function Page() {
 							}
 							defaultValue={loaderData.userDetails.name}
 						/>
-						<TextInput
-							label="Email"
-							name="email"
-							autoFocus
-							defaultValue={loaderData.userDetails.email ?? undefined}
-						/>
 						<PasswordInput
 							label="Password"
 							name="password"
