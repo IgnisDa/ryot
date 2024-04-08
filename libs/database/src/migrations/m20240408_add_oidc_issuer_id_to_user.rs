@@ -9,6 +9,7 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         if !manager.has_column("user", "oidc_isser_id").await? {
+            let db = manager.get_connection();
             manager
                 .alter_table(
                     TableAlterStatement::new()
@@ -16,6 +17,8 @@ impl MigrationTrait for Migration {
                         .add_column(ColumnDef::new(User::OidcIssuerId).text())
                         .to_owned(),
                 )
+                .await?;
+            db.execute_unprepared(r#"alter table "user" alter column password drop not null;"#)
                 .await?;
         }
         Ok(())
