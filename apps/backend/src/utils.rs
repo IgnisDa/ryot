@@ -85,7 +85,10 @@ async fn create_openid_client(config: &config::AppConfig) -> Option<CoreClient> 
                 )
                 .set_redirect_uri(RedirectUrl::new(config.frontend.url.clone() + "/oauth").unwrap())
             }),
-        _ => None,
+        _ => {
+            tracing::warn!("Issuer URL is invalid, not creating OAuth client");
+            None
+        }
     }
 }
 
