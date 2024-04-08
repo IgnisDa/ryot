@@ -27,7 +27,10 @@ use markdown::{
     Options,
 };
 use nanoid::nanoid;
-use openidconnect::core::CoreClient;
+use openidconnect::{
+    core::{CoreClient, CoreResponseType},
+    AuthenticationFlow, CsrfToken, Nonce, Scope,
+};
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::{
@@ -124,7 +127,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, OIDC_SCOPES,
     },
 };
 
@@ -679,9 +682,10 @@ struct GraphqlCalendarEvent {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
-struct GroupedCalendarEvent {
-    events: Vec<GraphqlCalendarEvent>,
-    date: NaiveDate,
+struct OidcAuthorizationUrl {
+    url: String,
+    csrf: String,
+    nonce: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
@@ -723,6 +727,12 @@ struct MetadataSearchInput {
     search: SearchInput,
     lot: MediaLot,
     source: MediaSource,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+struct GroupedCalendarEvent {
+    events: Vec<GraphqlCalendarEvent>,
+    date: NaiveDate,
 }
 
 fn get_password_hasher() -> Argon2<'static> {
@@ -1013,6 +1023,15 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.metadata_group_search(user_id, input).await
+    }
+
+    /// Get an authorization URL using the configured OIDC client.
+    async fn get_oidc_authorization_url(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<OidcAuthorizationUrl> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.get_oidc_authorization_url().await
     }
 }
 
@@ -7419,6 +7438,33 @@ GROUP BY m.id;
             url += format!("?defaultTab={}", tab).as_str()
         }
         url
+    }
+
+    async fn get_oidc_authorization_url(&self) -> Result<OidcAuthorizationUrl> {
+        match self.oidc_client.as_ref() {
+            Some(client) => {
+                let (authorize_url, csrf, nonce) = client
+                    .authorize_url(
+                        AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
+                        CsrfToken::new_random,
+                        Nonce::new_random,
+                    )
+                    .add_scopes(
+                        OIDC_SCOPES
+                            .iter()
+                            .map(|s| Scope::new(s.to_string()))
+                            .collect_vec(),
+                    )
+                    .url();
+
+                Ok(OidcAuthorizationUrl {
+                    url: authorize_url.to_string(),
+                    csrf: csrf.secret().to_string(),
+                    nonce: nonce.secret().to_string(),
+                })
+            }
+            _ => Err(Error::new("OIDC client not configured")),
+        }
     }
 
     #[cfg(debug_assertions)]
