@@ -126,6 +126,7 @@ export default function Page() {
 				<Form
 					method="post"
 					action="?intent=passwordRegister"
+					replace
 					{...getFormProps(form)}
 				>
 					<TextInput
@@ -156,7 +157,7 @@ export default function Page() {
 				{loaderData.oidcEnabled ? (
 					<>
 						<Divider label="OR" />
-						<Form method="post" action="/api/auth">
+						<Form method="post" action="/api/auth" replace>
 							<Button
 								variant="outline"
 								color="gray"

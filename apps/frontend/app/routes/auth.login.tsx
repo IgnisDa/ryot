@@ -120,7 +120,7 @@ export default function Page() {
 	return (
 		<>
 			<Stack m="auto" className={classes.form}>
-				<Form method="post" {...getFormProps(form)}>
+				<Form method="post" replace {...getFormProps(form)}>
 					<input
 						type="hidden"
 						name="tokenValidForDays"
@@ -153,7 +153,7 @@ export default function Page() {
 				{loaderData.oidcEnabled ? (
 					<>
 						<Divider label="OR" />
-						<Form method="post" action="/api/auth">
+						<Form method="post" action="/api/auth" replace>
 							<Button
 								variant="outline"
 								color="gray"
