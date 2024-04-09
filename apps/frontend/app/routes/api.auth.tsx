@@ -54,5 +54,5 @@ export const action = async (_args: ActionFunctionArgs) => {
 	const { getOidcRedirectUrl } = await gqlClient.request(
 		GetOidcRedirectUrlDocument,
 	);
-	return redirect(getOidcRedirectUrl.url);
+	return redirect(getOidcRedirectUrl);
 };
