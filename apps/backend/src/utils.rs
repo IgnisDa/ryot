@@ -59,6 +59,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
+pub const OIDC_SCOPES: [&str; 1] = ["email"];
 
 const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 

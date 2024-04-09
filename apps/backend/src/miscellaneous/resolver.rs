@@ -30,7 +30,7 @@ use nanoid::nanoid;
 use openidconnect::{
     core::{CoreClient, CoreResponseType},
     reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, TokenResponse,
+    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
 use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
@@ -128,7 +128,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, OIDC_SCOPES,
     },
 };
 
@@ -7457,6 +7457,12 @@ GROUP BY m.id;
                         AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
                         CsrfToken::new_random,
                         Nonce::new_random,
+                    )
+                    .add_scopes(
+                        OIDC_SCOPES
+                            .iter()
+                            .map(|s| Scope::new(s.to_string()))
+                            .collect_vec(),
                     )
                     .url();
                 let csrf = csrf.secret().to_string();
