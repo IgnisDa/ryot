@@ -687,12 +687,6 @@ struct GraphqlCalendarEvent {
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
-struct OidcRedirectUrl {
-    url: String,
-    csrf: String,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 struct UserCalendarEventInput {
     year: i32,
@@ -1063,7 +1057,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get an authorization URL using the configured OIDC client.
-    async fn get_oidc_redirect_url(&self, gql_ctx: &Context<'_>) -> Result<OidcRedirectUrl> {
+    async fn get_oidc_redirect_url(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.get_oidc_redirect_url().await
     }
@@ -7449,10 +7443,10 @@ GROUP BY m.id;
         url
     }
 
-    async fn get_oidc_redirect_url(&self) -> Result<OidcRedirectUrl> {
+    async fn get_oidc_redirect_url(&self) -> Result<String> {
         match self.oidc_client.as_ref() {
             Some(client) => {
-                let (authorize_url, csrf, _) = client
+                let (authorize_url, _, _) = client
                     .authorize_url(
                         AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
                         CsrfToken::new_random,
@@ -7465,11 +7459,7 @@ GROUP BY m.id;
                             .collect_vec(),
                     )
                     .url();
-                let csrf = csrf.secret().to_string();
-                Ok(OidcRedirectUrl {
-                    url: authorize_url.to_string(),
-                    csrf,
-                })
+                Ok(authorize_url.to_string())
             }
             _ => Err(Error::new("OIDC client not configured")),
         }

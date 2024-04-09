@@ -6,10 +6,7 @@ query CoreEnabledFeatures {
 }
 
 query GetOidcRedirectUrl {
-  getOidcRedirectUrl {
-    url
-    csrf
-  }
+  getOidcRedirectUrl
 }
 
 query GetOidcToken($code: String!) {
