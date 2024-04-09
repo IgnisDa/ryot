@@ -128,7 +128,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, OIDC_SCOPES,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR,
     },
 };
 
@@ -7469,12 +7469,7 @@ GROUP BY m.id;
                         CsrfToken::new_random,
                         Nonce::new_random,
                     )
-                    .add_scopes(
-                        OIDC_SCOPES
-                            .iter()
-                            .map(|s| Scope::new(s.to_string()))
-                            .collect_vec(),
-                    )
+                    .add_scope(Scope::new("email".to_string()))
                     .url();
                 Ok(authorize_url.to_string())
             }
