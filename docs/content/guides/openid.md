@@ -16,3 +16,7 @@ In your OIDC provider, you will need to set the redirect URL to
 Once these are set, restart your Ryot instance and you should be able to see the button to
 "Continue with OpenID Connect" on the authentication pages. New users will have their
 username set to their email address. This can be changed later in the profile settings.
+
+!!! warning
+
+      A user can authenticate using only one provider at a time.
