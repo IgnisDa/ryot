@@ -10,7 +10,10 @@ query GetOidcRedirectUrl {
 }
 
 query GetOidcToken($code: String!) {
-  getOidcToken(code: $code)
+  getOidcToken(code: $code) {
+    subject
+    email
+  }
 }
 
 query GetPresignedS3Url($key: String!) {

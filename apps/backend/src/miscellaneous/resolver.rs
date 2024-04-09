@@ -687,6 +687,12 @@ struct GraphqlCalendarEvent {
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+struct OidcTokenOutput {
+    subject: String,
+    email: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 struct UserCalendarEventInput {
     year: i32,
@@ -1063,7 +1069,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get an access token using the configured OIDC client.
-    async fn get_oidc_token(&self, gql_ctx: &Context<'_>, code: String) -> Result<String> {
+    async fn get_oidc_token(&self, gql_ctx: &Context<'_>, code: String) -> Result<OidcTokenOutput> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.get_oidc_token(code).await
     }
@@ -7465,7 +7471,7 @@ GROUP BY m.id;
         }
     }
 
-    async fn get_oidc_token(&self, code: String) -> Result<String> {
+    async fn get_oidc_token(&self, code: String) -> Result<OidcTokenOutput> {
         match self.oidc_client.as_ref() {
             Some(client) => {
                 let token = client
@@ -7474,8 +7480,12 @@ GROUP BY m.id;
                     .await?;
                 let id_token = token.id_token().unwrap();
                 let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
-                let access_token = claims.subject().to_string();
-                Ok(access_token)
+                let subject = claims.subject().to_string();
+                let email = claims
+                    .email()
+                    .map(|e| e.to_string())
+                    .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
+                Ok(OidcTokenOutput { subject, email })
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
