@@ -238,10 +238,17 @@ struct PasswordUserInput {
     password: String,
 }
 
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+struct OidcUserInput {
+    email: String,
+    #[graphql(secret)]
+    issuer_id: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 enum AuthUserInput {
     Password(PasswordUserInput),
-    Oidc(String),
+    Oidc(OidcUserInput),
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -5093,7 +5100,11 @@ impl MiscellaneousService {
             }));
         }
         let (filter, username, password) = match input.clone() {
-            AuthUserInput::Oidc(id) => (user::Column::OidcIssuerId.eq(&id), id, None),
+            AuthUserInput::Oidc(input) => (
+                user::Column::OidcIssuerId.eq(&input.issuer_id),
+                input.email,
+                None,
+            ),
             AuthUserInput::Password(input) => (
                 user::Column::Name.eq(&input.username),
                 input.username,
@@ -5106,7 +5117,7 @@ impl MiscellaneousService {
             }));
         };
         let oidc_issuer_id = match input {
-            AuthUserInput::Oidc(input) => Some(input),
+            AuthUserInput::Oidc(input) => Some(input.issuer_id),
             AuthUserInput::Password(_) => None,
         };
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
@@ -5132,7 +5143,7 @@ impl MiscellaneousService {
 
     async fn login_user(&self, input: AuthUserInput) -> Result<LoginResult> {
         let filter = match input.clone() {
-            AuthUserInput::Oidc(id) => user::Column::OidcIssuerId.eq(id),
+            AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
             AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
         };
         match User::find().filter(filter).one(&self.db).await.unwrap() {

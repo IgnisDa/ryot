@@ -62,7 +62,7 @@ export type AudioBooksSummary = {
 };
 
 export type AuthUserInput = {
-  oidc?: InputMaybe<Scalars['String']['input']>;
+  oidc?: InputMaybe<OidcUserInput>;
   password?: InputMaybe<PasswordUserInput>;
 };
 
@@ -1268,6 +1268,11 @@ export type MutationRootUpdateUserPreferenceArgs = {
 export type OidcTokenOutput = {
   email: Scalars['String']['output'];
   subject: Scalars['String']['output'];
+};
+
+export type OidcUserInput = {
+  email: Scalars['String']['input'];
+  issuerId: Scalars['String']['input'];
 };
 
 export type PartialMetadata = {
