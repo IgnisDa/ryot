@@ -28,14 +28,16 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const input = zx.parseQuery(request, searchParamsSchema);
 	const { getOidcToken } = await gqlClient.request(GetOidcTokenDocument, input);
+	const oidcInput = {
+		email: getOidcToken.email,
+		issuerId: getOidcToken.subject,
+	};
 	const [{ coreDetails }] = await Promise.all([
 		gqlClient.request(CoreDetailsDocument),
-		gqlClient.request(RegisterUserDocument, {
-			input: { oidc: getOidcToken },
-		}),
+		gqlClient.request(RegisterUserDocument, { input: { oidc: oidcInput } }),
 	]);
 	const { loginUser } = await gqlClient.request(LoginUserDocument, {
-		input: { oidc: getOidcToken },
+		input: { oidc: oidcInput },
 	});
 	if (loginUser.__typename === "LoginResponse") {
 		const cookies = await getCookiesForApplication(loginUser.apiKey);
