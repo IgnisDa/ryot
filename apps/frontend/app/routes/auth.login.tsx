@@ -93,6 +93,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			LoginErrorVariant.UsernameDoesNotExist,
 			() => "The username provided does not exist",
 		)
+		.with(
+			LoginErrorVariant.IncorrectProviderChosen,
+			() => "The provider chosen was incorrect",
+		)
 		.exhaustive();
 	return json({ status: "error", submission, message } as const, {
 		headers: await createToastHeaders({
