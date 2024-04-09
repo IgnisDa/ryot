@@ -97,7 +97,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	return json({
 		query,
 		personId,
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		userPreferences: {
+			reviewScale: userPreferences.general.reviewScale,
+			disableReviews: userPreferences.general.disableReviews,
+		},
 		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userDetails,
 		collections,
@@ -243,7 +246,7 @@ export default function Page() {
 									Overview
 								</Tabs.Tab>
 							) : null}
-							{loaderData.userPersonDetails.reviews.length > 0 ? (
+							{!loaderData.userPreferences.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -404,25 +407,27 @@ export default function Page() {
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						<Tabs.Panel value="reviews">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
-								<Stack>
-									{loaderData.userPersonDetails.reviews.map((r) => (
-										<ReviewItemDisplay
-											review={r}
-											key={r.id}
-											personId={loaderData.personId}
-											title={loaderData.personDetails.details.name}
-											user={loaderData.userDetails}
-											reviewScale={loaderData.userPreferences.reviewScale}
-											entityType="person"
-										/>
-									))}
-								</Stack>
-							</MediaScrollArea>
-						</Tabs.Panel>
+						{!loaderData.userPreferences.disableReviews ? (
+							<Tabs.Panel value="reviews">
+								<MediaScrollArea
+									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+								>
+									<Stack>
+										{loaderData.userPersonDetails.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												personId={loaderData.personId}
+												title={loaderData.personDetails.details.name}
+												user={loaderData.userDetails}
+												reviewScale={loaderData.userPreferences.reviewScale}
+												entityType="person"
+											/>
+										))}
+									</Stack>
+								</MediaScrollArea>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>

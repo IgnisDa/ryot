@@ -77,6 +77,7 @@ file_storage:
 
 # Settings related to frontend storage.
 frontend:
+  # Used as the base URL when generating item links for the frontend.
   # @envvar FRONTEND_URL
   url: "https://ryot.fly.dev"
 
@@ -115,7 +116,7 @@ integration:
   # @envvar INTEGRATION_HASHER_SALT
   hasher_salt: ""
 
-  # The minimum progress limit before which a media is considered to be started.
+  # The minimum progress limit after which a media is considered to be started.
   # @envvar INTEGRATION_MINIMUM_PROGRESS_LIMIT
   minimum_progress_limit: 2
 
@@ -187,6 +188,17 @@ server:
     # @envvar SERVER_SMTP_MAILBOX
     mailbox: "Ryot <no-reply@mailer.io>"
 
+  # The OIDC related settings.
+  oidc:
+    # @envvar SERVER_OIDC_CLIENT_ID
+    client_id: ""
+
+    # @envvar SERVER_OIDC_CLIENT_SECRET
+    client_secret: ""
+
+    # @envvar SERVER_OIDC_ISSUER_URL
+    issuer_url: ""
+
   # The path where the config file will be written once the server boots up.
   # @envvar SERVER_CONFIG_DUMP_PATH
   config_dump_path: ""
@@ -200,10 +212,6 @@ server:
   # it has been already marked as seen in the last `n` hours.
   # @envvar SERVER_PROGRESS_UPDATE_THRESHOLD
   progress_update_threshold: 2
-
-  # The number of days after which details about a person are considered outdated.
-  # @envvar SERVER_PERSON_OUTDATED_THRESHOLD
-  person_outdated_threshold: 30
 
   # The maximum file size in MB for user uploads.
   # @envvar SERVER_MAX_FILE_SIZE
@@ -226,10 +234,6 @@ users:
   # Whether new users will be allowed to sign up to this instance.
   # @envvar USERS_ALLOW_REGISTRATION
   allow_registration: true
-
-  # Whether users will be allowed to post reviews on this instance.
-  # @envvar USERS_REVIEWS_DISABLED
-  reviews_disabled: false
 
   # The number of days till login auth token is valid.
   # @envvar USERS_TOKEN_VALID_FOR_DAYS

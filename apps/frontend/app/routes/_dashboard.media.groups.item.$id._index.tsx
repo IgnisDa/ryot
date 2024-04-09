@@ -91,7 +91,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	return json({
 		query,
 		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		userPreferences: {
+			reviewScale: userPreferences.general.reviewScale,
+			disableReviews: userPreferences.general.disableReviews,
+		},
 		userDetails,
 		collections,
 		metadataGroupId,
@@ -200,7 +203,7 @@ export default function Page() {
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
-							{loaderData.userMetadataGroupDetails.reviews.length > 0 ? (
+							{!loaderData.userPreferences.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -326,25 +329,27 @@ export default function Page() {
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						<Tabs.Panel value="reviews">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
-								<Stack>
-									{loaderData.userMetadataGroupDetails.reviews.map((r) => (
-										<ReviewItemDisplay
-											review={r}
-											key={r.id}
-											metadataGroupId={loaderData.metadataGroupId}
-											reviewScale={loaderData.userPreferences.reviewScale}
-											user={loaderData.userDetails}
-											title={loaderData.metadataGroupDetails.details.title}
-											entityType="metadataGroup"
-										/>
-									))}
-								</Stack>
-							</MediaScrollArea>
-						</Tabs.Panel>
+						{!loaderData.userPreferences.disableReviews ? (
+							<Tabs.Panel value="reviews">
+								<MediaScrollArea
+									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
+								>
+									<Stack>
+										{loaderData.userMetadataGroupDetails.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												metadataGroupId={loaderData.metadataGroupId}
+												reviewScale={loaderData.userPreferences.reviewScale}
+												user={loaderData.userDetails}
+												title={loaderData.metadataGroupDetails.details.title}
+												entityType="metadataGroup"
+											/>
+										))}
+									</Stack>
+								</MediaScrollArea>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</MediaDetailsLayout>
 			</Container>

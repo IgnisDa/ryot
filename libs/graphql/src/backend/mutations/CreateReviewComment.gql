@@ -1,3 +1,0 @@
-mutation CreateReviewComment($input: CreateReviewCommentInput!) {
-  createReviewComment(input: $input)
-}

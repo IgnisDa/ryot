@@ -1,7 +1,0 @@
-query UserNotificationPlatforms {
-  userNotificationPlatforms {
-    id
-    description
-    timestamp
-  }
-}

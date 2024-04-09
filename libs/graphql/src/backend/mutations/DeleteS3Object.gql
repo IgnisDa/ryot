@@ -1,3 +1,0 @@
-mutation DeleteS3Object($key: String!) {
-  deleteS3Object(key: $key)
-}

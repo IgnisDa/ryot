@@ -117,7 +117,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		info,
 		contents: contents.results,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		userPreferences: {
+			reviewScale: userPreferences.general.reviewScale,
+			disableReviews: userPreferences.general.disableReviews,
+		},
 		userDetails,
 	});
 };
@@ -181,7 +184,7 @@ export default function Page() {
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
-							{loaderData.info.reviews.length > 0 ? (
+							{!loaderData.userPreferences.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -334,21 +337,23 @@ export default function Page() {
 								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
-						<Tabs.Panel value="reviews">
-							<Stack>
-								{loaderData.info.reviews.map((r) => (
-									<ReviewItemDisplay
-										title={loaderData.info.details.name}
-										review={r}
-										key={r.id}
-										collectionId={loaderData.id}
-										reviewScale={loaderData.userPreferences.reviewScale}
-										user={loaderData.userDetails}
-										entityType="collection"
-									/>
-								))}
-							</Stack>
-						</Tabs.Panel>
+						{!loaderData.userPreferences.disableReviews ? (
+							<Tabs.Panel value="reviews">
+								<Stack>
+									{loaderData.info.reviews.map((r) => (
+										<ReviewItemDisplay
+											title={loaderData.info.details.name}
+											review={r}
+											key={r.id}
+											collectionId={loaderData.id}
+											reviewScale={loaderData.userPreferences.reviewScale}
+											user={loaderData.userDetails}
+											entityType="collection"
+										/>
+									))}
+								</Stack>
+							</Tabs.Panel>
+						) : null}
 					</Tabs>
 				</Stack>
 			</Container>

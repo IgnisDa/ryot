@@ -1,5 +1,0 @@
-mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {
-  removeEntityFromCollection(input: $input) {
-    id
-  }
-}

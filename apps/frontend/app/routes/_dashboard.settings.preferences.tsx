@@ -146,7 +146,13 @@ export default function Page() {
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<Form method="post" action={`?defaultTab=${defaultTab}`} replace>
 						{toUpdatePreferences.map((pref) => (
-							<input key={pref[0]} hidden name={pref[0]} value={pref[1]} />
+							<input
+								key={pref[0]}
+								hidden
+								name={pref[0]}
+								value={pref[1]}
+								readOnly
+							/>
 						))}
 						<Button
 							color="green"
@@ -287,6 +293,7 @@ export default function Page() {
 										"disableYankIntegrations",
 										"disableNavigationAnimation",
 										"disableVideos",
+										"disableReviews",
 										"disableWatchProviders",
 									] as const
 								).map((name) => (
@@ -307,6 +314,7 @@ export default function Page() {
 												() => "Disable navigation animation",
 											)
 											.with("disableVideos", () => "Do not display videos")
+											.with("disableReviews", () => "Do not display reviews")
 											.with(
 												"disableWatchProviders",
 												() => 'Do not display the "Watch On" tab',

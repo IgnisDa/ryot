@@ -34,7 +34,6 @@ alter table metadata_to_person
 alter table "user"
     alter column lot type text,
     alter column name type text,
-    alter column email type text,
     alter column password type text
 ;
 
@@ -91,6 +90,10 @@ alter table metadata_to_metadata alter column relation type text;
 "#,
         )
         .await?;
+        if manager.has_column("user", "email").await? {
+            db.execute_unprepared(r#"alter table "user" alter column email type text"#)
+                .await?;
+        }
         Ok(())
     }
 

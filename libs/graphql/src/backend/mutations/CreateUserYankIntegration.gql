@@ -1,3 +1,0 @@
-mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {
-  createUserYankIntegration(input: $input)
-}

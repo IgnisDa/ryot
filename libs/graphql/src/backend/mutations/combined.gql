@@ -1,0 +1,187 @@
+mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
+  addEntityToCollection(input: $input)
+}
+
+mutation CommitMetadata($input: CommitMediaInput!) {
+  commitMetadata(input: $input) {
+    id
+  }
+}
+
+mutation CommitMetadataGroup($input: CommitMediaInput!) {
+  commitMetadataGroup(input: $input) {
+    id
+  }
+}
+
+mutation CommitPerson($input: CommitPersonInput!) {
+  commitPerson(input: $input) {
+    id
+  }
+}
+
+mutation CreateCustomExercise($input: ExerciseInput!) {
+  createCustomExercise(input: $input)
+}
+
+mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
+  createCustomMetadata(input: $input) {
+    id
+  }
+}
+
+mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
+  createOrUpdateCollection(input: $input) {
+    id
+  }
+}
+
+mutation CreateMediaReminder($input: CreateMediaReminderInput!) {
+  createMediaReminder(input: $input)
+}
+
+mutation CreateReviewComment($input: CreateReviewCommentInput!) {
+  createReviewComment(input: $input)
+}
+
+mutation CreateUserMeasurement($input: UserMeasurementInput!) {
+  createUserMeasurement(input: $input)
+}
+
+mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {
+  createUserNotificationPlatform(input: $input)
+}
+
+mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {
+  createUserSinkIntegration(input: $input)
+}
+
+mutation CreateUserWorkout($input: UserWorkoutInput!) {
+  createUserWorkout(input: $input)
+}
+
+mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {
+  createUserYankIntegration(input: $input)
+}
+
+mutation DeleteCollection($collectionName: String!) {
+  deleteCollection(collectionName: $collectionName)
+}
+
+mutation DeleteMediaReminder($input: DeleteMediaReminderInput!) {
+  deleteMediaReminder(input: $input)
+}
+
+mutation DeleteReview($reviewId: Int!) {
+  deleteReview(reviewId: $reviewId)
+}
+
+mutation DeleteS3Object($key: String!) {
+  deleteS3Object(key: $key)
+}
+
+mutation DeleteSeenItem($seenId: Int!) {
+  deleteSeenItem(seenId: $seenId) {
+    id
+  }
+}
+
+mutation DeleteUser($toDeleteUserId: Int!) {
+  deleteUser(toDeleteUserId: $toDeleteUserId)
+}
+
+mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {
+  deleteUserIntegration(
+    integrationId: $integrationId
+    integrationLot: $integrationLot
+  )
+}
+
+mutation DeleteUserMeasurement($timestamp: DateTime!) {
+  deleteUserMeasurement(timestamp: $timestamp)
+}
+
+mutation DeleteUserNotificationPlatform($notificationId: Int!) {
+  deleteUserNotificationPlatform(notificationId: $notificationId)
+}
+
+mutation DeleteUserWorkout($workoutId: String!) {
+  deleteUserWorkout(workoutId: $workoutId)
+}
+
+mutation DeployBackgroundJob($jobName: BackgroundJob!) {
+  deployBackgroundJob(jobName: $jobName)
+}
+
+mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {
+  deployBulkProgressUpdate(input: $input)
+}
+
+mutation DeployExportJob($toExport: [ExportItem!]!) {
+  deployExportJob(toExport: $toExport)
+}
+
+mutation DeployImportJob($input: DeployImportJobInput!) {
+  deployImportJob(input: $input)
+}
+
+mutation DeployUpdateMetadataJob($metadataId: Int!) {
+  deployUpdateMetadataJob(metadataId: $metadataId)
+}
+
+mutation DeployUpdatePersonJob($personId: Int!) {
+  deployUpdatePersonJob(personId: $personId)
+}
+
+mutation EditSeenItem($input: EditSeenItemInput!) {
+  editSeenItem(input: $input)
+}
+
+mutation EditUserWorkout($input: EditUserWorkoutInput!) {
+  editUserWorkout(input: $input)
+}
+
+mutation GenerateAuthToken {
+  generateAuthToken
+}
+
+mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {
+  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
+}
+
+mutation PostReview($input: PostReviewInput!) {
+  postReview(input: $input) {
+    id
+  }
+}
+
+mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
+  presignedPutS3Url(input: $input) {
+    key
+    uploadUrl
+  }
+}
+
+mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {
+  removeEntityFromCollection(input: $input) {
+    id
+  }
+}
+
+mutation TestUserNotificationPlatforms {
+  testUserNotificationPlatforms
+}
+
+mutation ToggleMediaOwnership($input: ToggleMediaOwnershipInput!) {
+  toggleMediaOwnership(input: $input)
+}
+
+mutation UpdateUser($input: UpdateUserInput!) {
+  updateUser(input: $input) {
+    id
+  }
+}
+
+mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {
+  updateUserPreference(input: $input)
+}

@@ -1,3 +1,0 @@
-mutation DeleteCollection($collectionName: String!) {
-  deleteCollection(collectionName: $collectionName)
-}

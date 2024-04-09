@@ -11,6 +11,11 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use http_types::headers::HeaderName;
 use itertools::Itertools;
+use openidconnect::{
+    core::{CoreClient, CoreProviderMetadata},
+    reqwest::async_http_client,
+    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
+};
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
@@ -55,6 +60,8 @@ pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
 
+const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
+
 /// All the services that are used by the app
 pub struct AppServices {
     pub config: Arc<config::AppConfig>,
@@ -63,6 +70,26 @@ pub struct AppServices {
     pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
+}
+
+async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
+    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
+        Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
+            Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
+                .await
+                .ok()
+                .map(|provider| {
+                    CoreClient::from_provider_metadata(
+                        provider,
+                        ClientId::new(config.server.oidc.client_id.clone()),
+                        Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+                    )
+                    .set_redirect_uri(redirect_url)
+                }),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -85,6 +112,7 @@ pub async fn create_app_services(
         file_storage_service.clone(),
         perform_application_job,
     ));
+    let oidc_client = Arc::new(create_oidc_client(&config).await);
 
     let media_service = Arc::new(
         MiscellaneousService::new(
@@ -94,6 +122,7 @@ pub async fn create_app_services(
             perform_application_job,
             perform_core_application_job,
             timezone.clone(),
+            oidc_client.clone(),
         )
         .await,
     );

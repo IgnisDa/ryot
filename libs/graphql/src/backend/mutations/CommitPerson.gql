@@ -1,5 +1,0 @@
-mutation CommitPerson($input: CommitPersonInput!) {
-  commitPerson(input: $input) {
-    id
-  }
-}

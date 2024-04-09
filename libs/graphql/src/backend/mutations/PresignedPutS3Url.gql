@@ -1,6 +1,0 @@
-mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
-  presignedPutS3Url(input: $input) {
-    key
-    uploadUrl
-  }
-}

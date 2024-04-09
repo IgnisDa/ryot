@@ -1,0 +1,89 @@
+query CoreEnabledFeatures {
+  coreEnabledFeatures {
+    fileStorage
+    signupAllowed
+  }
+}
+
+query GetOidcRedirectUrl {
+  getOidcRedirectUrl
+}
+
+query GetOidcToken($code: String!) {
+  getOidcToken(code: $code) {
+    subject
+    email
+  }
+}
+
+query GetPresignedS3Url($key: String!) {
+  getPresignedS3Url(key: $key)
+}
+
+query ProvidersLanguageInformation {
+  providersLanguageInformation {
+    supported
+    default
+    source
+  }
+}
+
+query UserExports {
+  userExports {
+    startedAt
+    endedAt
+    url
+    exported
+  }
+}
+
+query UserCollectionsList($name: String) {
+  userCollectionsList(name: $name) {
+    id
+    name
+    description
+    visibility
+    numItems
+  }
+}
+
+query UserIntegrations {
+  userIntegrations {
+    id
+    lot
+    description
+    timestamp
+    slug
+  }
+}
+
+query UserNotificationPlatforms {
+  userNotificationPlatforms {
+    id
+    description
+    timestamp
+  }
+}
+
+query UsersList {
+  usersList {
+    id
+    name
+    lot
+  }
+}
+
+query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
+  userUpcomingCalendarEvents(input: $input) {
+    ...CalendarEventPart
+  }
+}
+
+query UserCalendarEvents($input: UserCalendarEventInput!) {
+  userCalendarEvents(input: $input) {
+    date
+    events {
+      ...CalendarEventPart
+    }
+  }
+}

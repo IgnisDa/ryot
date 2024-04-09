@@ -11,8 +11,9 @@ query UserPreferences {
       disableYankIntegrations
       disableNavigationAnimation
       disableVideos
-      disableWatchProviders
       watchProviders
+      disableReviews
+      disableWatchProviders
     }
     fitness {
       measurements {
