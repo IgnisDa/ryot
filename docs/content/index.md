@@ -20,9 +20,9 @@ services:
     container_name: ryot-db
 
   ryot:
-    image: "ghcr.io/ignisda/ryot:latest"
+    image: ghcr.io/ignisda/ryot:latest
     environment:
-      - DATABASE_URL="postgres://postgres:postgres@ryot-db:5432/postgres"
+      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
     ports:
       - "8000:8000"
     pull_policy: always
