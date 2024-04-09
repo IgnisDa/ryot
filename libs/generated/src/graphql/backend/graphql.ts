@@ -709,6 +709,7 @@ export type LoginError = {
 
 export enum LoginErrorVariant {
   CredentialsMismatch = 'CREDENTIALS_MISMATCH',
+  IncorrectProviderChosen = 'INCORRECT_PROVIDER_CHOSEN',
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 

@@ -272,6 +272,7 @@ enum RegisterResult {
 enum LoginErrorVariant {
     UsernameDoesNotExist,
     CredentialsMismatch,
+    IncorrectProviderChosen,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -5163,6 +5164,10 @@ impl MiscellaneousService {
                                     error: LoginErrorVariant::CredentialsMismatch,
                                 }));
                             }
+                        } else {
+                            return Ok(LoginResult::Error(LoginError {
+                                error: LoginErrorVariant::IncorrectProviderChosen,
+                            }));
                         }
                     }
                 }
