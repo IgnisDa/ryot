@@ -86,7 +86,7 @@ export default function Page() {
 							}
 							description={
 								loaderData.userDetails.oidcIssuerId
-									? "This user has been created via OIDC"
+									? "Not applicable since this user was created via OIDC"
 									: loaderData.userDetails.isDemo
 									  ? "Password can not be changed for the demo user"
 									  : undefined
