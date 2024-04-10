@@ -14,6 +14,10 @@ create unique index if not exists "user__name__index" on "user" (name);
 
 alter table "user" drop constraint if exists "user_oidc_issuer_id_key";
 create unique index if not exists "user__oidc_issuer_id__index" on "user" (oidc_issuer_id);
+
+alter table "genre" drop constraint if exists "genre_name_key";
+drop index if exists "genre_name_index";
+create unique index if not exists "genre_name_index" on "genre" (name);
 "#,
         )
         .await?;
