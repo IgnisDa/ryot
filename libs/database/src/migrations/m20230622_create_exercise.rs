@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Exercise::Table)
                     .col(ColumnDef::new(Exercise::Id).primary_key().text().not_null())
-                    .col(ColumnDef::new(Exercise::Identifier).text().unique_key())
+                    .col(ColumnDef::new(Exercise::Identifier).text())
                     .col(ColumnDef::new(Exercise::Lot).text().not_null())
                     .col(ColumnDef::new(Exercise::Level).text().not_null())
                     .col(ColumnDef::new(Exercise::Force).text())
@@ -39,6 +39,16 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("exercise__identifier__index")
+                    .table(Exercise::Table)
+                    .col(Exercise::Identifier)
                     .to_owned(),
             )
             .await?;

@@ -1069,7 +1069,12 @@ export const CreateOwnershipModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form method="post" action="/actions?intent=toggleMediaOwnership" replace>
+			<Form
+				method="post"
+				action="/actions?intent=toggleMediaOwnership"
+				replace
+				onSubmit={() => events.markAsOwned()}
+			>
 				<HiddenLocationInput />
 				<Stack>
 					<Title order={3}>Mark media as owned</Title>

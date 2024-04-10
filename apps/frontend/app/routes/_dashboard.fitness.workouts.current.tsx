@@ -391,7 +391,6 @@ export default function Page() {
 																action: withQuery(".", {
 																	intent: "createWorkout",
 																}),
-																navigate: true,
 																encType: "multipart/form-data",
 															},
 														);

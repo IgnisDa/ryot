@@ -35,7 +35,7 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(User::Name).unique_key().text().not_null())
+                    .col(ColumnDef::new(User::Name).text().not_null())
                     .col(ColumnDef::new(User::Password).text())
                     .col(ColumnDef::new(User::Lot).text().not_null())
                     .col(ColumnDef::new(User::Preferences).json_binary().not_null())
@@ -44,16 +44,27 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Notifications).json_binary())
                     .col(ColumnDef::new(User::Summary).json_binary())
                     .col(ColumnDef::new(User::IsDemo).boolean())
-                    .col(ColumnDef::new(User::OidcIssuerId).unique_key().text())
+                    .col(ColumnDef::new(User::OidcIssuerId).text())
                     .to_owned(),
             )
             .await?;
         manager
             .create_index(
                 Index::create()
+                    .unique()
                     .name("user__name__index")
                     .table(User::Table)
                     .col(User::Name)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("user__oidc_issuer_id__index")
+                    .table(User::Table)
+                    .col(User::OidcIssuerId)
                     .to_owned(),
             )
             .await?;
