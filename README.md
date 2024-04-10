@@ -35,7 +35,8 @@ You can use the demo account on [Fly.io](https://ryot.fly.dev). Login with the u
 `demo` and password `demo-password`. This instance is automatically deployed from the
 latest release.
 
-**NOTE**: The data in this account can be deleted randomly.
+**NOTE**: The data in this demo account can be deleted randomly. Other accounts are not
+affected.
 
 ## 📝 ELI5
 
@@ -56,6 +57,7 @@ special tool on your computer or phone that lets you keep track of all these dig
   and fitness
 - ✅ Import data from Goodreads, Trakt, Strong App [etc](https://ignisda.github.io/ryot/importing.html)
 - ✅ Integration with Jellyfin, Kodi, Plex, Audiobookshelf [etc](https://ignisda.github.io/ryot/integrations.html)
+- ✅ [Supports](https://ignisda.github.io/ryot/guides/openid.html) OpenID Connect
 - ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
 - ✅ PWA enabled
