@@ -48,15 +48,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("user__name__index")
-                    .table(User::Table)
-                    .col(User::Name)
-                    .to_owned(),
-            )
-            .await?;
         Ok(())
     }
 
