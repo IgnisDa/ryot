@@ -5,9 +5,9 @@ environment variables need to be set:
 
 ```bash
 FRONTEND_URL="https://ryot.fly.dev" # The URL of your Ryot instance
-SERVER_OAUTH_CLIENT_ID="********"
-SERVER_OAUTH_CLIENT_SECRET="********"
-SERVER_OAUTH_ISSUER_URL="https://accounts.google.com" # The URL of your OIDC provider
+SERVER_OIDC_CLIENT_ID="********"
+SERVER_OIDC_CLIENT_SECRET="********"
+SERVER_OIDC_ISSUER_URL="https://accounts.google.com" # The URL of your OIDC provider
 ```
 
 In your OIDC provider, you will need to set the redirect URL to
