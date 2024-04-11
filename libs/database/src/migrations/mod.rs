@@ -16,7 +16,6 @@ mod m20230819_create_workout;
 mod m20230912_create_calendar_event;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
-mod m20231219_change_column_types;
 mod m20231219_create_metadata_relations;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -51,7 +50,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
-            Box::new(m20231219_change_column_types::Migration),
             Box::new(m20231219_create_metadata_relations::Migration),
         ]
     }
