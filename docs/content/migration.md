@@ -3,6 +3,23 @@
 All steps below are required unless otherwise stated. Please follow them in the correct
 order.
 
+## From `v4.*` to `v5.*`
+
+!!! warning "New upgrade strategy"
+
+    Starting from `v5`, the server can be updated without any complicated steps.
+
+1. Upgrade the server to `v4.4.1` to make sure all `v4` migrations are applied. For
+   example, you can make this change: `image: "ghcr.io/ignisda/ryot:v4.4.1"` in your
+   docker-compose file.
+
+2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+   is a guide on how to do this.
+
+3. Now you can upgrade to the latest version (`v5.*`). For example you can make this
+   change: `image: "ghcr.io/ignisda/ryot:latest"` in your docker-compose file. This will
+   automatically apply all migrations.
+
 ## From `v3.*` to `v4.*`
 
 !!! warning "Webhook URL changes"
