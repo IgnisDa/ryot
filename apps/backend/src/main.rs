@@ -132,12 +132,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    match migrate_from_v4(&db).await {
-        Ok(_) => tracing::info!("Migration from v4 successful."),
-        Err(err) => {
-            tracing::error!("Migration from v4 failed: {}", err);
-            bail!("There was an error migrating from v4.")
-        }
+    if let Err(err) = migrate_from_v4(&db).await {
+        tracing::error!("Migration from v4 failed: {}", err);
+        bail!("There was an error migrating from v4.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
