@@ -173,10 +173,12 @@ tool. You can find all the necessary steps [here](https://github.com/SirMartin/T
 
 ## JSON Files
 
-The "Media Json", "Measurements Json", "People Json", "Media Group Json" and "Workouts
-Json" importers can be used to import data from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#type-definition)
-documentation.
+The import format required is described in the
+[exporting](guides/exporting.md#type-definition) documentation.
 
-For example, if you want to import media from a JSON file, the format of the JSON file
-should be `CompleteExport["media"]`.
+- The "Generic Json" can be used to import all possible data from a generic JSON file. The
+  format of the JSON file should be `CompleteExport`.
+- The "Media Json", "Measurements Json", "People Json", "Media Group Json" and "Workouts
+  Json" importers can be used to import the corresponding data from a generic JSON file.
+  For example, if you want to import media from a JSON file, the format of the JSON file
+  should be `CompleteExport["media"]`.
