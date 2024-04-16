@@ -519,7 +519,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 					.otherwise(() => "")} ${
 					numDaysLeft === 0
 						? "Today"
-						: `in ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
+						: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
 								numDaysLeft === 1 ? "" : "s"
 						  }`
 				}`,
