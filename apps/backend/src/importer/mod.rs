@@ -139,9 +139,10 @@ pub struct DeployImportJobInput {
 }
 
 /// The various steps in which media importing can fail
-#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize, Default)]
 pub enum ImportFailStep {
     /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
+    #[default]
     ItemDetailsFromSource,
     /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
@@ -154,7 +155,7 @@ pub enum ImportFailStep {
 }
 
 #[derive(
-    Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
+    Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone, Default,
 )]
 pub struct ImportFailedItem {
     lot: Option<MediaLot>,
@@ -163,7 +164,7 @@ pub struct ImportFailedItem {
     error: Option<String>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone, Default)]
 pub struct ImportDetails {
     pub total: usize,
 }
@@ -180,7 +181,7 @@ pub struct ImportResult {
 }
 
 #[derive(
-    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone, Default,
 )]
 pub struct ImportResultResponse {
     pub import: ImportDetails,
@@ -745,6 +746,76 @@ impl ImporterService {
             failed_items: import.failed_items,
         };
         self.finish_import_job(db_import_job, details).await?;
+        Ok(())
+    }
+
+    pub async fn start_new_importing(
+        &self,
+        user_id: i32,
+        input: Box<DeployImportJobInput>,
+    ) -> Result<()> {
+        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let import = match input.source {
+            ImportSource::StrongApp => {
+                strong_app::import(input.strong_app.unwrap(), self.timezone.clone())
+                    .await
+                    .unwrap()
+            }
+            ImportSource::WorkoutsJson => {
+                json::workouts_import(input.json.unwrap(), &self.exercise_service)
+                    .await
+                    .unwrap()
+            }
+            ImportSource::MeasurementsJson => json::measurements_import(input.json.unwrap())
+                .await
+                .unwrap(),
+            ImportSource::MediaGroupJson => json::media_groups_import(input.json.unwrap())
+                .await
+                .unwrap(),
+            ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
+                .await
+                .unwrap(),
+            ImportSource::MediaJson => json::media_import(input.json.unwrap()).await.unwrap(),
+            ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
+            ImportSource::Goodreads => goodreads::import(
+                input.goodreads.unwrap(),
+                &self.media_service.get_isbn_service().await.unwrap(),
+            )
+            .await
+            .unwrap(),
+            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
+            ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
+            ImportSource::StoryGraph => story_graph::import(
+                input.story_graph.unwrap(),
+                &self.media_service.get_isbn_service().await.unwrap(),
+            )
+            .await
+            .unwrap(),
+            ImportSource::Audiobookshelf => audiobookshelf::import(input.audiobookshelf.unwrap())
+                .await
+                .unwrap(),
+            ImportSource::Imdb => imdb::import(
+                input.imdb.unwrap(),
+                &self
+                    .media_service
+                    .get_tmdb_non_media_service()
+                    .await
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+            _ => unreachable!(),
+        };
+        let details = ImportResultResponse::default();
+        self.finish_import_job(db_import_job, details).await?;
+        self.media_service
+            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
+            .await
+            .ok();
+        self.media_service
+            .deploy_background_job(user_id, BackgroundJob::UpdateAllMetadata)
+            .await
+            .ok();
         Ok(())
     }
 
