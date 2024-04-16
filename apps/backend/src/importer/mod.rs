@@ -139,10 +139,9 @@ pub struct DeployImportJobInput {
 }
 
 /// The various steps in which media importing can fail
-#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
     /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
-    #[default]
     ItemDetailsFromSource,
     /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
@@ -155,7 +154,7 @@ pub enum ImportFailStep {
 }
 
 #[derive(
-    Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone, Default,
+    Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
 )]
 pub struct ImportFailedItem {
     lot: Option<MediaLot>,
@@ -164,7 +163,7 @@ pub struct ImportFailedItem {
     error: Option<String>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone, Default)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct ImportDetails {
     pub total: usize,
 }
@@ -174,14 +173,14 @@ pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
     media: Vec<ImportOrExportMediaItem>,
     media_groups: Vec<ImportOrExportMediaGroupItem>,
-    failed_items: Vec<ImportFailedItem>,
     people: Vec<ImportOrExportPersonItem>,
     workouts: Vec<UserWorkoutInput>,
     measurements: Vec<user_measurement::Model>,
+    failed_items: Vec<ImportFailedItem>,
 }
 
 #[derive(
-    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone, Default,
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
 )]
 pub struct ImportResultResponse {
     pub import: ImportDetails,
@@ -755,7 +754,11 @@ impl ImporterService {
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
         let db_import_job = self.start_import_job(user_id, input.source).await?;
-        let import = match input.source {
+        let preferences =
+            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
+                .await?
+                .preferences;
+        let mut import = match input.source {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), self.timezone.clone())
                     .await
@@ -806,7 +809,292 @@ impl ImporterService {
             .unwrap(),
             _ => unreachable!(),
         };
-        let details = ImportResultResponse::default();
+        for col_details in import.collections.clone() {
+            self.media_service
+                .create_or_update_collection(user_id, col_details)
+                .await?;
+        }
+        for (idx, item) in import.media.iter().enumerate() {
+            tracing::debug!(
+                "Importing media with identifier = {iden}",
+                iden = &item.source_id
+            );
+            let rev_length = item.reviews.len();
+            let identifier = item.internal_identifier.clone().unwrap();
+            let data = match identifier {
+                ImportOrExportItemIdentifier::NeedsDetails { identifier, title } => {
+                    let resp = self
+                        .media_service
+                        .create_partial_metadata(PartialMetadataWithoutId {
+                            identifier,
+                            title,
+                            image: None,
+                            lot: item.lot,
+                            source: item.source,
+                        })
+                        .await;
+                    resp.map(|r| IdObject { id: r.id })
+                }
+                ImportOrExportItemIdentifier::AlreadyFilled(a) => {
+                    self.media_service
+                        .commit_media_internal(*a.clone(), None)
+                        .await
+                }
+            };
+            let metadata = match data {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::error!("{e:?}");
+                    import.failed_items.push(ImportFailedItem {
+                        lot: Some(item.lot),
+                        step: ImportFailStep::MediaDetailsFromProvider,
+                        identifier: item.source_id.to_owned(),
+                        error: Some(e.message),
+                    });
+                    continue;
+                }
+            };
+            for seen in item.seen_history.iter() {
+                let progress = if seen.progress.is_some() {
+                    seen.progress
+                } else {
+                    Some(dec!(100))
+                };
+                if let Err(e) = self
+                    .media_service
+                    .progress_update(
+                        ProgressUpdateInput {
+                            metadata_id: metadata.id,
+                            progress,
+                            date: seen.ended_on.map(|d| d.date_naive()),
+                            show_season_number: seen.show_season_number,
+                            show_episode_number: seen.show_episode_number,
+                            podcast_episode_number: seen.podcast_episode_number,
+                            anime_episode_number: seen.anime_episode_number,
+                            manga_chapter_number: seen.manga_chapter_number,
+                            provider_watched_on: seen.provider_watched_on.clone(),
+                            change_state: None,
+                        },
+                        user_id,
+                        false,
+                    )
+                    .await
+                {
+                    import.failed_items.push(ImportFailedItem {
+                        lot: Some(item.lot),
+                        step: ImportFailStep::SeenHistoryConversion,
+                        identifier: item.source_id.to_owned(),
+                        error: Some(e.message),
+                    });
+                };
+            }
+            for review in item.reviews.iter() {
+                if let Some(input) =
+                    convert_review_into_input(review, &preferences, Some(metadata.id), None, None)
+                {
+                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                        import.failed_items.push(ImportFailedItem {
+                            lot: Some(item.lot),
+                            step: ImportFailStep::ReviewConversion,
+                            identifier: item.source_id.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                }
+            }
+            for col in item.collections.iter() {
+                self.media_service
+                    .create_or_update_collection(
+                        user_id,
+                        CreateOrUpdateCollectionInput {
+                            name: col.to_string(),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                self.media_service
+                    .add_entity_to_collection(
+                        user_id,
+                        ChangeCollectionToEntityInput {
+                            collection_name: col.to_string(),
+                            metadata_id: Some(metadata.id),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .ok();
+            }
+            tracing::debug!(
+                "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
+                idx = idx + 1,
+                total = import.media.len(),
+                lot = item.lot,
+                hist = item.seen_history.len(),
+                rev = rev_length,
+                col = item.collections.len(),
+            );
+        }
+        for (idx, item) in import.media_groups.iter().enumerate() {
+            tracing::debug!(
+                "Importing media group with identifier = {iden}",
+                iden = &item.title
+            );
+            let rev_length = item.reviews.len();
+            let data = self
+                .media_service
+                .commit_metadata_group_internal(&item.identifier, item.lot, item.source)
+                .await;
+            let metadata_id = match data {
+                Ok(r) => r.0,
+                Err(e) => {
+                    tracing::error!("{e:?}");
+                    import.failed_items.push(ImportFailedItem {
+                        lot: Some(item.lot),
+                        step: ImportFailStep::MediaDetailsFromProvider,
+                        identifier: item.title.to_owned(),
+                        error: Some(e.message),
+                    });
+                    continue;
+                }
+            };
+            for review in item.reviews.iter() {
+                if let Some(input) =
+                    convert_review_into_input(review, &preferences, None, None, Some(metadata_id))
+                {
+                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                        import.failed_items.push(ImportFailedItem {
+                            lot: Some(item.lot),
+                            step: ImportFailStep::ReviewConversion,
+                            identifier: item.title.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                }
+            }
+            for col in item.collections.iter() {
+                self.media_service
+                    .create_or_update_collection(
+                        user_id,
+                        CreateOrUpdateCollectionInput {
+                            name: col.to_string(),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                self.media_service
+                    .add_entity_to_collection(
+                        user_id,
+                        ChangeCollectionToEntityInput {
+                            collection_name: col.to_string(),
+                            metadata_id: Some(metadata_id),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .ok();
+            }
+            tracing::debug!(
+                "Imported item: {idx}/{total}, lot: {lot}, review count: {rev}, collection count: {col}",
+                idx = idx + 1,
+                total = import.media.len(),
+                lot = item.lot,
+                rev = rev_length,
+                col = item.collections.len(),
+            );
+        }
+        for (idx, item) in import.people.iter().enumerate() {
+            let person = self
+                .media_service
+                .commit_person(CommitPersonInput {
+                    identifier: item.identifier.clone(),
+                    name: item.name.clone(),
+                    source: item.source,
+                    source_specifics: item.source_specifics.clone(),
+                })
+                .await?;
+            for review in item.reviews.iter() {
+                if let Some(input) =
+                    convert_review_into_input(review, &preferences, None, Some(person.id), None)
+                {
+                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                        import.failed_items.push(ImportFailedItem {
+                            lot: None,
+                            step: ImportFailStep::ReviewConversion,
+                            identifier: item.name.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                }
+            }
+            for col in item.collections.iter() {
+                self.media_service
+                    .create_or_update_collection(
+                        user_id,
+                        CreateOrUpdateCollectionInput {
+                            name: col.to_string(),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                self.media_service
+                    .add_entity_to_collection(
+                        user_id,
+                        ChangeCollectionToEntityInput {
+                            collection_name: col.to_string(),
+                            person_id: Some(person.id),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .ok();
+            }
+            tracing::debug!(
+                "Imported person: {idx}/{total}, name: {name}",
+                idx = idx + 1,
+                total = import.people.len(),
+                name = item.name,
+            );
+        }
+        for workout in import.workouts.clone() {
+            if let Err(err) = self
+                .exercise_service
+                .create_user_workout(user_id, workout)
+                .await
+            {
+                import.failed_items.push(ImportFailedItem {
+                    lot: None,
+                    step: ImportFailStep::InputTransformation,
+                    identifier: "Exercise".to_string(),
+                    error: Some(err.message),
+                });
+            }
+        }
+        for measurement in import.measurements.clone() {
+            if let Err(err) = self
+                .exercise_service
+                .create_user_measurement(user_id, measurement)
+                .await
+            {
+                import.failed_items.push(ImportFailedItem {
+                    lot: None,
+                    step: ImportFailStep::InputTransformation,
+                    identifier: "Measurement".to_string(),
+                    error: Some(err.message),
+                });
+            }
+        }
+
+        let details = ImportResultResponse {
+            import: ImportDetails {
+                total: import.collections.len()
+                    + import.media.len()
+                    + import.media_groups.len()
+                    + import.people.len()
+                    + import.workouts.len()
+                    + import.measurements.len(),
+            },
+            failed_items: import.failed_items,
+        };
         self.finish_import_job(db_import_job, details).await?;
         self.media_service
             .deploy_background_job(user_id, BackgroundJob::CalculateSummary)

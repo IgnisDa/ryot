@@ -249,7 +249,7 @@ pub mod media {
         pub media_count: i64,
     }
 
-    #[derive(Debug, InputObject, Default)]
+    #[derive(Debug, InputObject, Default, Clone)]
     pub struct CreateOrUpdateCollectionInput {
         pub name: String,
         pub description: Option<String>,
