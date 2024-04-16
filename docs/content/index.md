@@ -9,7 +9,7 @@ The docker image is `ghcr.io/ignisda/ryot:latest`.
 ```yaml
 services:
   ryot-db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine # atleast version 15 is required
     restart: unless-stopped
     volumes:
       - postgres_storage:/var/lib/postgresql/data
