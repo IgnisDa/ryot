@@ -3390,7 +3390,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn commit_media_internal(
+    pub async fn commit_metadata_internal(
         &self,
         details: MediaDetails,
         is_partial: Option<bool>,
@@ -3991,7 +3991,7 @@ impl MiscellaneousService {
             let details = self
                 .details_from_provider(input.lot, input.source, &input.identifier)
                 .await?;
-            let media_id = self.commit_media_internal(details, None).await?;
+            let media_id = self.commit_metadata_internal(details, None).await?;
             Ok(media_id)
         }
     }
@@ -5295,7 +5295,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let media = self
-            .commit_media_internal(details, Some(is_partial))
+            .commit_metadata_internal(details, Some(is_partial))
             .await?;
         self.add_entity_to_collection(
             user_id,

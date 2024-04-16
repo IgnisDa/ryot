@@ -366,7 +366,7 @@ impl ImporterService {
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service
-                        .commit_media_internal(*a.clone(), None)
+                        .commit_metadata_internal(*a.clone(), None)
                         .await
                 }
             };
