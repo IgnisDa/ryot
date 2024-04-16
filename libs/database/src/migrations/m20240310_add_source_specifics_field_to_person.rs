@@ -12,10 +12,11 @@ impl MigrationTrait for Migration {
             let db = manager.get_connection();
             db.execute_unprepared(&format!(
                 r#"
-alter table person add column source_specifics jsonb;
-drop index if exists "{}";
+alter table "person" add column source_specifics jsonb;
+alter table "person" drop constraint if exists "{cn}";
+drop index if exists "{cn}";
 "#,
-                PERSON_IDENTIFIER_UNIQUE_KEY
+                cn = PERSON_IDENTIFIER_UNIQUE_KEY
             ))
             .await?;
             manager
