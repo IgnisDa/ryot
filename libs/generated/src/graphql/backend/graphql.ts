@@ -692,16 +692,11 @@ export enum ImportSource {
   Goodreads = 'GOODREADS',
   Imdb = 'IMDB',
   Mal = 'MAL',
-  MeasurementsJson = 'MEASUREMENTS_JSON',
-  MediaGroupJson = 'MEDIA_GROUP_JSON',
-  MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
-  PeopleJson = 'PEOPLE_JSON',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
-  Trakt = 'TRAKT',
-  WorkoutsJson = 'WORKOUTS_JSON'
+  Trakt = 'TRAKT'
 }
 
 export type LoginError = {

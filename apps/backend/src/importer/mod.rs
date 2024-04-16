@@ -301,22 +301,9 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
-            ImportSource::PeopleJson => json::people_import(input.json.unwrap()).await.unwrap(),
-            ImportSource::WorkoutsJson => {
-                json::workouts_import(input.json.unwrap(), &self.exercise_service)
-                    .await
-                    .unwrap()
-            }
-            ImportSource::MeasurementsJson => json::measurements_import(input.json.unwrap())
-                .await
-                .unwrap(),
-            ImportSource::MediaGroupJson => json::media_groups_import(input.json.unwrap())
-                .await
-                .unwrap(),
             ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
                 .await
                 .unwrap(),
-            ImportSource::MediaJson => json::media_import(input.json.unwrap()).await.unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.goodreads.unwrap(),

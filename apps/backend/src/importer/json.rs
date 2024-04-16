@@ -2,95 +2,50 @@ use std::{fs, sync::Arc};
 
 use async_graphql::Result;
 use database::ImportSource;
+use itertools::Itertools;
 
 use crate::{
-    entities::{user_measurement, workout},
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
-    models::media::{
-        ImportOrExportItemIdentifier, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
-        ImportOrExportPersonItem,
-    },
+    models::{media::ImportOrExportItemIdentifier, CompleteExport},
 };
-
-pub async fn media_import(input: DeployJsonImportInput) -> Result<ImportResult> {
-    let export = fs::read_to_string(input.export)?;
-    let mut media = serde_json::from_str::<Vec<ImportOrExportMediaItem>>(&export).unwrap();
-    media.iter_mut().for_each(|m| {
-        m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails {
-            identifier: m.identifier.clone(),
-            title: m.source_id.clone(),
-        });
-        m.seen_history.iter_mut().for_each(|s| {
-            s.provider_watched_on = Some(ImportSource::MediaJson.to_string());
-        });
-    });
-    Ok(ImportResult {
-        media,
-        ..Default::default()
-    })
-}
-
-pub async fn measurements_import(input: DeployJsonImportInput) -> Result<ImportResult> {
-    let export = fs::read_to_string(input.export)?;
-    let measurements = serde_json::from_str::<Vec<user_measurement::Model>>(&export).unwrap();
-    Ok(ImportResult {
-        measurements,
-        ..Default::default()
-    })
-}
-
-pub async fn people_import(input: DeployJsonImportInput) -> Result<ImportResult> {
-    let export = fs::read_to_string(input.export)?;
-    let people = serde_json::from_str::<Vec<ImportOrExportPersonItem>>(&export).unwrap();
-    Ok(ImportResult {
-        people,
-        ..Default::default()
-    })
-}
-
-pub async fn workouts_import(
-    input: DeployJsonImportInput,
-    exercises_service: &Arc<ExerciseService>,
-) -> Result<ImportResult> {
-    let export = fs::read_to_string(input.export)?;
-    let db_workouts = serde_json::from_str::<Vec<workout::Model>>(&export).unwrap();
-    let workouts = db_workouts
-        .into_iter()
-        .map(|w| exercises_service.db_workout_to_workout_input(w))
-        .collect();
-    Ok(ImportResult {
-        workouts,
-        ..Default::default()
-    })
-}
-
-pub async fn media_groups_import(input: DeployJsonImportInput) -> Result<ImportResult> {
-    let export = fs::read_to_string(input.export)?;
-    let media_groups = serde_json::from_str::<Vec<ImportOrExportMediaGroupItem>>(&export).unwrap();
-    Ok(ImportResult {
-        media_groups,
-        ..Default::default()
-    })
-}
 
 pub async fn generic_import(
     input: DeployJsonImportInput,
     exercises_service: &Arc<ExerciseService>,
 ) -> Result<ImportResult> {
-    let media = media_import(input.clone()).await?.media;
-    let measurements = measurements_import(input.clone()).await?.measurements;
-    let people = people_import(input.clone()).await?.people;
-    let workouts = workouts_import(input.clone(), exercises_service)
-        .await?
-        .workouts;
-    let media_groups = media_groups_import(input.clone()).await?.media_groups;
+    let export = fs::read_to_string(input.export)?;
+    let complete_data = serde_json::from_str::<CompleteExport>(&export).unwrap();
+
+    let media = complete_data
+        .media
+        .unwrap_or_default()
+        .iter_mut()
+        .map(|m| {
+            m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails {
+                identifier: m.identifier.clone(),
+                title: m.source_id.clone(),
+            });
+            m.seen_history.iter_mut().for_each(|s| {
+                s.provider_watched_on = Some(ImportSource::GenericJson.to_string());
+            });
+            m.to_owned()
+        })
+        .collect_vec();
+
+    let workouts = complete_data
+        .workouts
+        .unwrap_or_default()
+        .into_iter()
+        .map(|w| exercises_service.db_workout_to_workout_input(w))
+        .collect_vec();
+
     Ok(ImportResult {
         media,
-        media_groups,
-        people,
-        measurements,
         workouts,
+        media_groups: complete_data.media_group.unwrap_or_default(),
+        people: complete_data.people.unwrap_or_default(),
+        measurements: complete_data.measurements.unwrap_or_default(),
         ..Default::default()
     })
 }
