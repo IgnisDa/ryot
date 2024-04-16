@@ -345,6 +345,11 @@ impl ImporterService {
             )
             .await
             .unwrap(),
+            ImportSource::GenericJson => {
+                json::generic_import(input.json.unwrap(), &self.exercise_service)
+                    .await
+                    .unwrap()
+            }
         };
         for col_details in import.collections.clone() {
             self.media_service
