@@ -176,3 +176,5 @@ tool. You can find all the necessary steps [here](https://github.com/SirMartin/T
 The "Generic Json" can be used to import all possible data from a generic JSON file. The
 format of the JSON file should be `CompleteExport`. The import format required is described
 in the [exporting](guides/exporting.md#type-definition) documentation.
+
+You can use this to export all your data from one Ryot instance and import it into another.
