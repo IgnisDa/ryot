@@ -301,6 +301,7 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
+            ImportSource::PeopleJson => json::people_import(input.json.unwrap()).await.unwrap(),
             ImportSource::WorkoutsJson => {
                 json::workouts_import(input.json.unwrap(), &self.exercise_service)
                     .await
@@ -344,7 +345,6 @@ impl ImporterService {
             )
             .await
             .unwrap(),
-            _ => unreachable!(),
         };
         for col_details in import.collections.clone() {
             self.media_service
