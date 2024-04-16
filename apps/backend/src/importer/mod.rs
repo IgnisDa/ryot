@@ -23,9 +23,9 @@ use crate::{
     models::{
         fitness::UserWorkoutInput,
         media::{
-            CommitPersonInput, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-            ImportOrExportItemRating, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
-            ImportOrExportPersonItem, PartialMetadataWithoutId, PostReviewInput,
+            CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
+            ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportMediaGroupItem,
+            ImportOrExportMediaItem, ImportOrExportPersonItem, PostReviewInput,
             ProgressUpdateInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput, IdObject,
@@ -351,13 +351,11 @@ impl ImporterService {
             let rev_length = item.reviews.len();
             let identifier = item.internal_identifier.clone().unwrap();
             let data = match identifier {
-                ImportOrExportItemIdentifier::NeedsDetails { identifier, title } => {
+                ImportOrExportItemIdentifier::NeedsDetails { identifier, .. } => {
                     let resp = self
                         .media_service
-                        .create_partial_metadata(PartialMetadataWithoutId {
+                        .commit_metadata(CommitMediaInput {
                             identifier,
-                            title,
-                            image: None,
                             lot: item.lot,
                             source: item.source,
                         })

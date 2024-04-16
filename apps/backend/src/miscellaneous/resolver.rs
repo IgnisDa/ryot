@@ -3302,7 +3302,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn create_partial_metadata(
+    async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
     ) -> Result<PartialMetadata> {
@@ -3977,7 +3977,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    async fn commit_metadata(&self, input: CommitMediaInput) -> Result<IdObject> {
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<IdObject> {
         if let Some(m) = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
