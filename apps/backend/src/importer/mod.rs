@@ -358,6 +358,7 @@ impl ImporterService {
                             identifier,
                             lot: item.lot,
                             source: item.source,
+                            force_update: Some(true),
                         })
                         .await;
                     resp.map(|r| IdObject { id: r.id })

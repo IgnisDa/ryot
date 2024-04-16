@@ -3986,6 +3986,9 @@ impl MiscellaneousService {
             .await?
             .map(|m| IdObject { id: m.id })
         {
+            if input.force_update.unwrap_or_default() {
+                self.update_metadata_and_notify_users(m.id).await?;
+            }
             Ok(m)
         } else {
             let details = self
@@ -6153,6 +6156,7 @@ impl MiscellaneousService {
                 lot: pu.lot,
                 source: pu.source,
                 identifier: pu.identifier,
+                force_update: None,
             })
             .await?;
         self.progress_update(

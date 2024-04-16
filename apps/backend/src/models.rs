@@ -1366,6 +1366,8 @@ pub mod media {
         pub lot: MediaLot,
         pub source: MediaSource,
         pub identifier: String,
+        #[graphql(skip_input)]
+        pub force_update: Option<bool>,
     }
 }
 

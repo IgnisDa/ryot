@@ -206,6 +206,7 @@ pub async fn perform_application_job(
                 lot,
                 source,
                 identifier,
+                force_update: None,
             })
             .await
             .is_ok(),
