@@ -133,7 +133,7 @@ pub struct DeployImportJobInput {
     pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
-    pub json: Option<DeployJsonImportInput>,
+    pub generic_json: Option<DeployJsonImportInput>,
     pub imdb: Option<DeployImdbImportInput>,
 }
 
@@ -333,7 +333,7 @@ impl ImporterService {
             .await
             .unwrap(),
             ImportSource::GenericJson => {
-                json::generic_import(input.json.unwrap(), &self.exercise_service)
+                json::generic_import(input.generic_json.unwrap(), &self.exercise_service)
                     .await
                     .unwrap()
             }

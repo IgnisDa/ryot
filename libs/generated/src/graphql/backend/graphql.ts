@@ -260,9 +260,9 @@ export type DeployImdbImportInput = {
 
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
+  genericJson?: InputMaybe<DeployJsonImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   imdb?: InputMaybe<DeployImdbImportInput>;
-  json?: InputMaybe<DeployJsonImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
