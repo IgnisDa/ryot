@@ -3987,6 +3987,7 @@ impl MiscellaneousService {
             .map(|m| IdObject { id: m.id })
         {
             if input.force_update.unwrap_or_default() {
+                tracing::debug!("Forcing update of metadata with id {}", m.id);
                 self.update_metadata_and_notify_users(m.id).await?;
             }
             Ok(m)
