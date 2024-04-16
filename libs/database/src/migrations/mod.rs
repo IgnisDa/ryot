@@ -18,7 +18,6 @@ mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
 mod m20231219_create_metadata_relations;
 mod m20240415_is_v5_migration;
-mod m20240416_change_json_to_generic_json;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -54,7 +53,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20231017_create_user_to_entity::Migration),
             Box::new(m20231219_create_metadata_relations::Migration),
             Box::new(m20240415_is_v5_migration::Migration),
-            Box::new(m20240416_change_json_to_generic_json::Migration),
         ]
     }
 }
