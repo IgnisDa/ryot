@@ -158,6 +158,8 @@ pub enum Visibility {
 pub enum ImportSource {
     #[sea_orm(string_value = "AB")]
     Audiobookshelf,
+    #[sea_orm(string_value = "GJ")]
+    GenericJson,
     #[sea_orm(string_value = "GO")]
     Goodreads,
     #[sea_orm(string_value = "IM")]
