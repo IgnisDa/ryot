@@ -173,8 +173,8 @@ pub struct ImportResult {
     media: Vec<ImportOrExportMediaItem>,
     media_groups: Vec<ImportOrExportMediaGroupItem>,
     people: Vec<ImportOrExportPersonItem>,
-    workouts: Vec<UserWorkoutInput>,
     measurements: Vec<user_measurement::Model>,
+    workouts: Vec<UserWorkoutInput>,
     failed_items: Vec<ImportFailedItem>,
 }
 
