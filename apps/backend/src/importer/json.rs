@@ -7,12 +7,9 @@ use crate::{
     entities::{user_measurement, workout},
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
-    models::{
-        media::{
-            ImportOrExportItemIdentifier, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
-            ImportOrExportPersonItem,
-        },
-        CompleteExport,
+    models::media::{
+        ImportOrExportItemIdentifier, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+        ImportOrExportPersonItem,
     },
 };
 
@@ -81,20 +78,18 @@ pub async fn generic_import(
     input: DeployJsonImportInput,
     exercises_service: &Arc<ExerciseService>,
 ) -> Result<ImportResult> {
-    let export = fs::read_to_string(input.export)?;
-    let complete = serde_json::from_str::<CompleteExport>(&export).unwrap();
-    let workouts = complete
-        .workouts
-        .clone()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|w| exercises_service.db_workout_to_workout_input(w))
-        .collect();
+    let media = media_import(input.clone()).await?.media;
+    let measurements = measurements_import(input.clone()).await?.measurements;
+    let people = people_import(input.clone()).await?.people;
+    let workouts = workouts_import(input.clone(), exercises_service)
+        .await?
+        .workouts;
+    let media_groups = media_groups_import(input.clone()).await?.media_groups;
     Ok(ImportResult {
-        media: complete.media.clone().unwrap_or_default(),
-        media_groups: complete.media_group.clone().unwrap_or_default(),
-        people: complete.people.clone().unwrap_or_default(),
-        measurements: complete.measurements.clone().unwrap_or_default(),
+        media,
+        media_groups,
+        people,
+        measurements,
         workouts,
         ..Default::default()
     })
