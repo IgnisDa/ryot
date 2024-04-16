@@ -9,8 +9,9 @@ be of two types:
 
 !!! info
 
-    An item is marked as started when it has more than _2%_ progress and
-    marked as completed when it has more than _95%_ progress.
+    An item is marked as started when it has more than _2%_ progress and marked as
+    completed when it has more than _95%_ progress. This can be changed via the
+    `integration.{minimum,maximum}*` configuration keys.
 
 ## Yank plugins
 
