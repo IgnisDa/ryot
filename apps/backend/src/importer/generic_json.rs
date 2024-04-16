@@ -10,7 +10,7 @@ use crate::{
     models::{media::ImportOrExportItemIdentifier, CompleteExport},
 };
 
-pub async fn generic_import(
+pub async fn import(
     input: DeployJsonImportInput,
     exercises_service: &Arc<ExerciseService>,
 ) -> Result<ImportResult> {

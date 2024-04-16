@@ -36,9 +36,9 @@ use crate::{
 };
 
 mod audiobookshelf;
+mod generic_json;
 mod goodreads;
 mod imdb;
-mod json;
 mod mal;
 mod media_tracker;
 mod movary;
@@ -333,7 +333,7 @@ impl ImporterService {
             .await
             .unwrap(),
             ImportSource::GenericJson => {
-                json::generic_import(input.generic_json.unwrap(), &self.exercise_service)
+                generic_json::import(input.generic_json.unwrap(), &self.exercise_service)
                     .await
                     .unwrap()
             }
