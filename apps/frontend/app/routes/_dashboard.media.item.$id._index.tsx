@@ -2220,7 +2220,9 @@ const AccordionLabel = (props: {
 	publishDate?: string | null;
 }) => {
 	const display = [
-		props.runtime ? humanizeDuration(props.runtime * 1000 * 60) : null,
+		props.runtime
+			? humanizeDuration(props.runtime * 1000 * 60, { units: ["h", "m"] })
+			: null,
 		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
 		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
 	]
