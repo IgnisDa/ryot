@@ -9,8 +9,8 @@ order.
 
     Starting from `v5`, the server can be updated without any complicated steps.
 
-1. Upgrade the server to `v4.4.1` to make sure all `v4` migrations are applied. For
-   example, you can make this change: `image: "ghcr.io/ignisda/ryot:v4.4.1"` in your
+1. Upgrade the server to `v4.4.2` to make sure all `v4` migrations are applied. For
+   example, you can make this change: `image: "ghcr.io/ignisda/ryot:v4.4.2"` in your
    docker-compose file.
 
 2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
