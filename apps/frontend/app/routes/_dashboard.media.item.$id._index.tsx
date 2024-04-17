@@ -2229,6 +2229,8 @@ const AccordionLabel = (props: {
 		.filter(Boolean)
 		.join("; ");
 
+	const isSeen = props.displayIndicator >= 1;
+
 	const DisplayDetails = () => (
 		<>
 			<Text lineClamp={2}>{props.name}</Text>
@@ -2245,7 +2247,7 @@ const AccordionLabel = (props: {
 			<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
 				<Group wrap="nowrap">
 					<Indicator
-						disabled={props.displayIndicator === 0}
+						disabled={!isSeen}
 						label={
 							props.displayIndicator === 1
 								? "Seen"
