@@ -82,6 +82,7 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
+import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, Suspense, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -2333,6 +2334,11 @@ const SeenItem = (props: {
 		.filter(Boolean)
 		.join("; ");
 
+	const timeSpentInMilliseconds = (props.history.totalTimeSpent || 0) * 1000;
+	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
+	const isLessThanAnHour = timeSpentInMilliseconds < 1000 * 60 * 60;
+	if (isLessThanAnHour) units?.push("m");
+
 	return (
 		<>
 			<Flex
@@ -2379,7 +2385,7 @@ const SeenItem = (props: {
 							</Text>
 						) : null}
 					</Flex>
-					<SimpleGrid cols={{ base: 1, md: 2 }} spacing={2}>
+					<SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 2 }}>
 						<Flex gap="xs">
 							<Text size="sm">Started:</Text>
 							<Text size="sm" fw="bold">
@@ -2396,13 +2402,13 @@ const SeenItem = (props: {
 									: "N/A"}
 							</Text>
 						</Flex>
-						{props.history.totalTimeSpent ? (
+						{timeSpentInMilliseconds ? (
 							<Flex gap="xs">
 								<Text size="sm">Time:</Text>
 								<Text size="sm" fw="bold">
-									{humanizeDuration(props.history.totalTimeSpent * 1000, {
+									{humanizeDuration(timeSpentInMilliseconds, {
 										round: true,
-										units: ["mo", "d", "h"],
+										units,
 									})}
 								</Text>
 							</Flex>
