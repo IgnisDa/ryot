@@ -52,7 +52,6 @@ import {
 } from "~/components/media";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
@@ -70,14 +69,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const metadataGroupId = params.id ? Number(params.id) : null;
 	invariant(metadataGroupId, "No ID provided");
 	const [
-		coreDetails,
 		userPreferences,
 		userDetails,
 		{ metadataGroupDetails },
 		{ userMetadataGroupDetails },
 		collections,
 	] = await Promise.all([
-		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(MetadataGroupDetailsDocument, { metadataGroupId }),
@@ -90,7 +87,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	]);
 	return json({
 		query,
-		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
 			disableReviews: userPreferences.general.disableReviews,

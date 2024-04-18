@@ -114,7 +114,6 @@ import { useGetMantineColor } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
@@ -146,13 +145,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const metadataId = Number.parseInt(id);
 	const headers = await getAuthorizationHeader(request);
 	const [
-		coreDetails,
 		userPreferences,
 		userDetails,
 		{ metadataDetails: mediaMainDetails },
 		collections,
 	] = await Promise.all([
-		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(MetadataMainDetailsDocument, { metadataId }),
@@ -179,7 +176,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			watchProviders: userPreferences.general.watchProviders,
 			disableReviews: userPreferences.general.disableReviews,
 		},
-		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userDetails,
 		metadataId,
 		mediaMainDetails,
@@ -604,7 +600,7 @@ export default function Page() {
 									loaderData.mediaMainDetails.publishDate
 										? dayjsLib(loaderData.mediaMainDetails.publishDate).format(
 												"LL",
-											)
+										  )
 										: loaderData.mediaMainDetails.publishYear,
 									loaderData.mediaMainDetails.originalLanguage,
 									loaderData.mediaMainDetails.productionStatus,
@@ -1092,7 +1088,7 @@ export default function Page() {
 														</>
 													) : loaderData.mediaMainDetails.lot !==
 															MediaLot.Show &&
-														loaderData.mediaMainDetails.lot !==
+													  loaderData.mediaMainDetails.lot !==
 															MediaLot.Podcast ? (
 														<>
 															<Menu.Label>Not in progress</Menu.Label>
@@ -1157,13 +1153,13 @@ export default function Page() {
 																loaderData.mediaMainDetails.lot ===
 																MediaLot.Show
 																	? userMetadataDetails?.nextEntry?.episode ??
-																		undefined
+																	  undefined
 																	: null,
 															podcastEpisodeNumber:
 																loaderData.mediaMainDetails.lot ===
 																MediaLot.Podcast
 																	? userMetadataDetails?.nextEntry?.episode ??
-																		undefined
+																	  undefined
 																	: null,
 														});
 													}}
@@ -1832,8 +1828,8 @@ const ProgressUpdateModal = (props: {
 												{props.data.onlySeason
 													? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
 													: props.data.completeShow
-														? "This will mark all episodes for this show as seen"
-														: null}
+													  ? "This will mark all episodes for this show as seen"
+													  : null}
 											</Alert>
 										) : null}
 										{!props.data?.completeShow ? (
@@ -2293,7 +2289,7 @@ const SeenItem = (props: {
 	const podcastExtraInformation = props.history.podcastExtraInformation
 		? props.podcastSpecifics?.episodes.find(
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
-			)
+		  )
 		: null;
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`

@@ -60,7 +60,6 @@ import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
 	getUserPreferences,
 	gqlClient,
@@ -79,13 +78,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	invariant(typeof exerciseId === "string", "id must be a string");
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [
-		coreDetails,
 		userPreferences,
 		{ exerciseDetails },
 		{ userExerciseDetails },
 		collections,
 	] = await Promise.all([
-		getCoreDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
 		gqlClient.request(
@@ -99,7 +96,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		query,
 		exerciseDetails,
 		userExerciseDetails,
-		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},

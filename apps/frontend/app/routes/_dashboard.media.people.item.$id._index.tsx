@@ -57,7 +57,6 @@ import {
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
@@ -76,14 +75,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const personId = params.id ? Number(params.id) : null;
 	invariant(personId, "No ID provided");
 	const [
-		coreDetails,
 		userPreferences,
 		userDetails,
 		{ personDetails },
 		{ userPersonDetails },
 		collections,
 	] = await Promise.all([
-		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(PersonDetailsDocument, { personId }),
@@ -101,7 +98,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			reviewScale: userPreferences.general.reviewScale,
 			disableReviews: userPreferences.general.disableReviews,
 		},
-		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userDetails,
 		collections,
 		userPersonDetails,
