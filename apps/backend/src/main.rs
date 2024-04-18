@@ -380,6 +380,13 @@ BEGIN
             SELECT 1 FROM seaql_migrations
             WHERE version = 'm20240324_perform_v4_migration'
         ) THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM seaql_migrations
+                WHERE version = 'm20240411_perform_v4_4_3_migration'
+            ) THEN
+                RAISE EXCEPTION 'Final migration before v5 does not exist, upgrade aborted.';
+            END IF;
+
             DELETE FROM seaql_migrations;
             INSERT INTO seaql_migrations (version, applied_at) VALUES
                 ('m20230410_create_metadata', 1684693316),
