@@ -249,7 +249,7 @@ pub mod media {
         pub media_count: i64,
     }
 
-    #[derive(Debug, InputObject, Default)]
+    #[derive(Debug, InputObject, Default, Clone)]
     pub struct CreateOrUpdateCollectionInput {
         pub name: String,
         pub description: Option<String>,
@@ -1366,6 +1366,8 @@ pub mod media {
         pub lot: MediaLot,
         pub source: MediaSource,
         pub identifier: String,
+        #[graphql(skip_input)]
+        pub force_update: Option<bool>,
     }
 }
 

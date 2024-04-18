@@ -171,12 +171,10 @@ the "Watchlist" collection.
 All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
 tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
 
-## JSON Files
+## Generic Json
 
-The "Media Json", "Measurements Json", "People Json", "Media Group Json" and "Workouts
-Json" importers can be used to import data from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#type-definition)
-documentation.
+The "Generic Json" can be used to import all possible data from a generic JSON file. The
+format of the JSON file should be `CompleteExport`. The import format required is described
+in the [exporting](guides/exporting.md#type-definition) documentation.
 
-For example, if you want to import media from a JSON file, the format of the JSON file
-should be `CompleteExport["media"]`.
+You can use this to export all your data from one Ryot instance and import it into another.

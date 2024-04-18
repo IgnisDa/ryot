@@ -140,16 +140,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						strongApp: { ...newLocal, mapping: JSON.parse(newLocal.mapping) },
 					};
 				})
-				.with(
-					ImportSource.MediaJson,
-					ImportSource.PeopleJson,
-					ImportSource.WorkoutsJson,
-					ImportSource.MeasurementsJson,
-					ImportSource.MediaGroupJson,
-					async () => ({
-						json: processSubmission(formData, jsonImportFormSchema),
-					}),
-				)
+				.with(ImportSource.GenericJson, async () => ({
+					genericJson: processSubmission(formData, jsonImportFormSchema),
+				}))
 				.exhaustive();
 			await gqlClient.request(
 				DeployImportJobDocument,
@@ -264,14 +257,7 @@ export default function Page() {
 													() => "audiobookshelf",
 												)
 												.with(ImportSource.Imdb, () => "imdb")
-												.with(
-													ImportSource.MediaJson,
-													ImportSource.PeopleJson,
-													ImportSource.WorkoutsJson,
-													ImportSource.MeasurementsJson,
-													ImportSource.MediaGroupJson,
-													() => "json-files",
-												)
+												.with(ImportSource.GenericJson, () => "generic-json")
 												.with(undefined, () => "")
 												.exhaustive(),
 										)}
@@ -424,23 +410,16 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(
-												ImportSource.MediaJson,
-												ImportSource.PeopleJson,
-												ImportSource.WorkoutsJson,
-												ImportSource.MeasurementsJson,
-												ImportSource.MediaGroupJson,
-												() => (
-													<>
-														<FileInput
-															label="JSON export file"
-															accept=".json"
-															required
-															name="export"
-														/>
-													</>
-												),
-											)
+											.with(ImportSource.GenericJson, () => (
+												<>
+													<FileInput
+														label="JSON export file"
+														accept=".json"
+														required
+														name="export"
+													/>
+												</>
+											))
 											.exhaustive()}
 									</ImportSourceElement>
 								) : null}

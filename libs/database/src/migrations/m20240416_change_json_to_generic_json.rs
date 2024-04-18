@@ -7,8 +7,10 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(r#"update import_report set source = 'MJ' where source = 'GJ'"#)
-            .await?;
+        db.execute_unprepared(
+            r#"update import_report set source = 'GJ' where source IN ('MEJ', 'MJ', 'MGJ', 'PJ', 'WJ')"#,
+        )
+        .await?;
         Ok(())
     }
 

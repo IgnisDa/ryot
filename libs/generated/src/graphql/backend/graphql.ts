@@ -260,9 +260,9 @@ export type DeployImdbImportInput = {
 
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
+  genericJson?: InputMaybe<DeployJsonImportInput>;
   goodreads?: InputMaybe<DeployGoodreadsImportInput>;
   imdb?: InputMaybe<DeployImdbImportInput>;
-  json?: InputMaybe<DeployJsonImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
@@ -688,19 +688,15 @@ export type ImportResultResponse = {
 
 export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
+  GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
   Imdb = 'IMDB',
   Mal = 'MAL',
-  MeasurementsJson = 'MEASUREMENTS_JSON',
-  MediaGroupJson = 'MEDIA_GROUP_JSON',
-  MediaJson = 'MEDIA_JSON',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
-  PeopleJson = 'PEOPLE_JSON',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
-  Trakt = 'TRAKT',
-  WorkoutsJson = 'WORKOUTS_JSON'
+  Trakt = 'TRAKT'
 }
 
 export type LoginError = {

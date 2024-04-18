@@ -28,7 +28,9 @@ use database::Migrator;
 use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
 use rs_utils::PROJECT_NAME;
-use sea_orm::{ConnectOptions, Database, EntityTrait, PaginatorTrait};
+use sea_orm::{
+    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
+};
 use sea_orm_migration::MigratorTrait;
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::{join, net::TcpListener};
@@ -129,6 +131,11 @@ async fn main() -> Result<()> {
     let db = Database::connect(opt)
         .await
         .expect("Database connection failed");
+
+    if let Err(err) = migrate_from_v4(&db).await {
+        tracing::error!("Migration from v4 failed: {}", err);
+        bail!("There was an error migrating from v4.")
+    }
 
     if let Err(err) = Migrator::up(&db, None).await {
         tracing::error!("Database migration failed: {}", err);
@@ -356,5 +363,46 @@ fn init_tracing() -> Result<()> {
             .with(fmt::Layer::default().with_writer(writer).with_ansi(false)),
     )
     .expect("Unable to set global tracing subscriber");
+    Ok(())
+}
+
+// upgrade from v4 ONLY IF APPLICABLE
+async fn migrate_from_v4(db: &DatabaseConnection) -> Result<()> {
+    db.execute_unprepared(
+        r#"
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'seaql_migrations'
+    ) THEN
+        IF EXISTS (
+            SELECT 1 FROM seaql_migrations
+            WHERE version = 'm20240324_perform_v4_migration'
+        ) THEN
+            DELETE FROM seaql_migrations;
+            INSERT INTO seaql_migrations (version, applied_at) VALUES
+                ('m20230410_create_metadata', 1684693316),
+                ('m20230413_create_person', 1684693316),
+                ('m20230417_create_user', 1684693316),
+                ('m20230419_create_seen', 1684693316),
+                ('m20230501_create_metadata_group', 1684693316),
+                ('m20230502_create_genre', 1684693316),
+                ('m20230504_create_collection', 1684693316),
+                ('m20230505_create_review', 1684693316),
+                ('m20230509_create_import_report', 1684693316),
+                ('m20230622_create_exercise', 1684693316),
+                ('m20230804_create_user_measurement', 1684693316),
+                ('m20230819_create_workout', 1684693316),
+                ('m20230912_create_calendar_event', 1684693316),
+                ('m20231016_create_collection_to_entity', 1684693316),
+                ('m20231017_create_user_to_entity', 1684693316),
+                ('m20231219_create_metadata_relations', 1684693316);
+        END IF;
+    END IF;
+END $$;
+    "#,
+    )
+    .await?;
     Ok(())
 }

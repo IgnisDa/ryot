@@ -3302,7 +3302,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn create_partial_metadata(
+    async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
     ) -> Result<PartialMetadata> {
@@ -3390,7 +3390,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn commit_media_internal(
+    pub async fn commit_metadata_internal(
         &self,
         details: MediaDetails,
         is_partial: Option<bool>,
@@ -3977,7 +3977,7 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    async fn commit_metadata(&self, input: CommitMediaInput) -> Result<IdObject> {
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<IdObject> {
         if let Some(m) = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
@@ -3986,12 +3986,16 @@ impl MiscellaneousService {
             .await?
             .map(|m| IdObject { id: m.id })
         {
+            if input.force_update.unwrap_or_default() {
+                tracing::debug!("Forcing update of metadata with id {}", m.id);
+                self.update_metadata_and_notify_users(m.id).await?;
+            }
             Ok(m)
         } else {
             let details = self
                 .details_from_provider(input.lot, input.source, &input.identifier)
                 .await?;
-            let media_id = self.commit_media_internal(details, None).await?;
+            let media_id = self.commit_metadata_internal(details, None).await?;
             Ok(media_id)
         }
     }
@@ -5295,7 +5299,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let media = self
-            .commit_media_internal(details, Some(is_partial))
+            .commit_metadata_internal(details, Some(is_partial))
             .await?;
         self.add_entity_to_collection(
             user_id,
@@ -6153,6 +6157,7 @@ impl MiscellaneousService {
                 lot: pu.lot,
                 source: pu.source,
                 identifier: pu.identifier,
+                force_update: None,
             })
             .await?;
         self.progress_update(
