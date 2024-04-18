@@ -266,9 +266,6 @@ pub struct FrontendConfig {
     /// Whether the cookies set are insecure.
     #[setting(default = false)]
     pub insecure_cookies: bool,
-    /// The height of the right section of an item's details page in pixels.
-    #[setting(default = 300)]
-    pub item_details_height: u32,
     /// The number of items to display in a list view.
     #[setting(default = 20)]
     pub page_size: i32,
