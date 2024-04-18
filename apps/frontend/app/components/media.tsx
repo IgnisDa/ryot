@@ -522,7 +522,7 @@ export const BaseDisplayItem = (props: {
 					</Text>
 					<Tooltip
 						label={props.highlightRightText}
-						disabled={props.highlightRightText ? false : true}
+						disabled={!props.highlightRightText}
 						position="right"
 					>
 						<Text c={props.highlightRightText ? "yellow" : "dimmed"} size="sm">
@@ -686,8 +686,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 			}
 			name={props.item.title}
 			nameRight={props.nameRight}
-			children={props.children}
-		/>
+		>
+			{props.children}
+		</BaseDisplayItem>
 	);
 };
 

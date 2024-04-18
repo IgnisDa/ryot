@@ -30,5 +30,5 @@ export default {
 	},
 	markAsOwned: () => {
 		window.umami?.track("Mark As Owned", {});
-	}
+	},
 };
