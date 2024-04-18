@@ -141,7 +141,11 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 };
 
 export const MediaScrollArea = (props: { children: ReactNode }) => {
-	return <ScrollArea.Autosize mah="55vh">{props.children}</ScrollArea.Autosize>;
+	return (
+		<ScrollArea.Autosize mah={{ base: "45vh", "2xl": "55vh" }}>
+			{props.children}
+		</ScrollArea.Autosize>
+	);
 };
 
 export const ReviewItemDisplay = (props: {
@@ -428,7 +432,7 @@ export const ReviewItemDisplay = (props: {
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
-									  ))
+										))
 									: null}
 							</Stack>
 						</Paper>
@@ -672,7 +676,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					? undefined
 					: changeCase(
 							props.lot ? props.lot : props.entityLot ? props.entityLot : "",
-					  )
+						)
 			}
 			highlightRightText={
 				props.hasInteracted ? "This media exists in the database" : undefined
@@ -775,12 +779,12 @@ export const PostReviewModal = (props: {
 						props.entityType === "metadata"
 							? "metadataId"
 							: props.entityType === "metadataGroup"
-							  ? "metadataGroupId"
-							  : props.entityType === "collection"
-								  ? "collectionId"
-								  : props.entityType === "person"
-									  ? "personId"
-									  : undefined
+								? "metadataGroupId"
+								: props.entityType === "collection"
+									? "collectionId"
+									: props.entityType === "person"
+										? "personId"
+										: undefined
 					}
 					value={props.objectId}
 					readOnly
@@ -837,8 +841,8 @@ export const PostReviewModal = (props: {
 										?.season === "number"
 										? props.data.existingReview.showExtraInformation?.season
 										: typeof props.data.showSeasonNumber === "number"
-										  ? props.data.showSeasonNumber
-										  : undefined
+											? props.data.showSeasonNumber
+											: undefined
 								}
 							/>
 							<NumberInput
@@ -1008,8 +1012,8 @@ export const CreateReminderModal = (props: {
 							props.metadataId
 								? "metadataId"
 								: props.personId
-								  ? "personId"
-								  : "metadataGroupId"
+									? "personId"
+									: "metadataGroupId"
 						}
 						value={props.metadataId || props.personId || props.metadataGroupId}
 						readOnly

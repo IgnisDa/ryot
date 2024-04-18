@@ -45,6 +45,14 @@ const theme = createTheme({
 		}),
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
 	},
+	breakpoints: {
+		xs: "30em",
+		sm: "48em",
+		md: "64em",
+		lg: "74em",
+		xl: "90em",
+		"2xl": "120em",
+	},
 });
 
 export const meta: MetaFunction = () => {
