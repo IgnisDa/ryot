@@ -1,8 +1,0 @@
-query UserCalendarEvents($input: UserCalendarEventInput!) {
-  userCalendarEvents(input: $input) {
-    date
-    events {
-      ...CalendarEventPart
-    }
-  }
-}

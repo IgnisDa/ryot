@@ -21,13 +21,16 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
 	SetLot,
-	UserCollectionsListDocument,
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -48,17 +51,20 @@ import { useAtom } from "jotai";
 import { Fragment } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withFragment } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
+import { AddEntityToCollectionModal } from "~/components/common";
 import { DisplayExerciseStats } from "~/components/fitness";
-import {
-	AddEntityToCollectionModal,
-	DisplayCollection,
-	MediaScrollArea,
-} from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	getUserCollectionsList,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const searchParamsSchema = z.object({
@@ -77,9 +83,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		userPreferences,
 		{ exerciseDetails },
 		{ userExerciseDetails },
-		{ userCollectionsList: collections },
+		collections,
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
 		gqlClient.request(
@@ -87,11 +93,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 			{ input: { exerciseId } },
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	return json({
 		query,
@@ -180,18 +182,18 @@ export default function Page() {
 								</Flex>
 							</ScrollArea>
 							<SimpleGrid py="xs" cols={4}>
-								{["level", "force", "mechanic", "equipment"].map((f) => (
-									<Fragment key={f}>
-										{/* biome-ignore lint/suspicious/noExplicitAny: required here */}
-										{(loaderData.exerciseDetails as any)[f] ? (
-											<DisplayData
-												name={f}
-												// biome-ignore lint/suspicious/noExplicitAny: required here
-												data={(loaderData.exerciseDetails as any)[f]}
-											/>
-										) : null}
-									</Fragment>
-								))}
+								{(["level", "force", "mechanic", "equipment"] as const).map(
+									(f) => (
+										<Fragment key={f}>
+											{loaderData.exerciseDetails[f] ? (
+												<DisplayData
+													name={f}
+													data={loaderData.exerciseDetails[f]}
+												/>
+											) : null}
+										</Fragment>
+									),
+								)}
 								{loaderData.exerciseDetails.lot ? (
 									<DisplayData
 										name="Type"
@@ -203,6 +205,15 @@ export default function Page() {
 									<DisplayData
 										name="Times done"
 										data={`${loaderData.userExerciseDetails.details.exerciseNumTimesInteracted} times`}
+										noCasing
+									/>
+								) : null}
+								{loaderData.userExerciseDetails.details?.createdOn ? (
+									<DisplayData
+										name="First done on"
+										data={dayjsLib(
+											loaderData.userExerciseDetails.details.createdOn,
+										).format("ll")}
 										noCasing
 									/>
 								) : null}
@@ -255,10 +266,10 @@ export default function Page() {
 									<Paper key={h.workoutId} withBorder p="xs">
 										<Anchor
 											component={Link}
-											to={`${$path("/fitness/workouts/:id", {
-												id: h.workoutId,
-												// FIXME: Use the `withFragment` helper from ufo
-											})}#${loaderData.exerciseDetails.id}__${h.index}`}
+											to={withFragment(
+												$path("/fitness/workouts/:id", { id: h.workoutId }),
+												`${loaderData.exerciseDetails.id}__${h.index}`,
+											)}
 											fw="bold"
 										>
 											{h.workoutName}
@@ -267,7 +278,7 @@ export default function Page() {
 											{dayjsLib(h.workoutTime).format("LLLL")}
 										</Text>
 										{h.sets.map((s, idx) => (
-											<Flex key={`${idx}`} align="center">
+											<Flex key={`${idx}-${s.lot}`} align="center">
 												<Text
 													fz="sm"
 													c={getSetColor(s.lot)}
@@ -387,12 +398,12 @@ export default function Page() {
 																	</Text>
 																	<Anchor
 																		component={Link}
-																		to={`${$path("/fitness/workouts/:id", {
-																			id: s.workoutId,
-																			// FIXME: Use the `withFragment` helper from ufo
-																		})}#${loaderData.exerciseDetails.id}__${
-																			s.exerciseIdx
-																		}`}
+																		to={withFragment(
+																			$path("/fitness/workouts/:id", {
+																				id: s.workoutId,
+																			}),
+																			`${loaderData.exerciseDetails.id}__${s.exerciseIdx}`,
+																		)}
 																		fw="bold"
 																	>
 																		<IconExternalLink size={16} />
@@ -460,7 +471,7 @@ export default function Page() {
 
 const DisplayData = (props: {
 	name: string;
-	data: string;
+	data?: string | null;
 	noCasing?: boolean;
 }) => {
 	return (
@@ -469,7 +480,7 @@ const DisplayData = (props: {
 				{startCase(props.name)}
 			</Text>
 			<Text ta="center" fz={{ base: "sm", md: "md" }}>
-				{props.noCasing ? props.data : startCase(props.data.toLowerCase())}
+				{props.noCasing ? props.data : startCase(props.data?.toLowerCase())}
 			</Text>
 		</Box>
 	);
@@ -479,7 +490,7 @@ const DisplayLifetimeStatistic = (props: {
 	val: string | number;
 	stat: string;
 }) => {
-	return parseFloat(props.val.toString()) !== 0 ? (
+	return Number.parseFloat(props.val.toString()) !== 0 ? (
 		<Flex mt={6} align="center" justify="space-between">
 			<Text size="sm">Total {props.stat}</Text>
 			<Text size="sm">{props.val}</Text>

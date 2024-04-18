@@ -260,8 +260,12 @@ pub struct FrontendUmamiConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
+    /// Used as the base URL when generating item links for the frontend.
     #[setting(default = "https://ryot.fly.dev")]
     pub url: String,
+    /// Whether the cookies set are insecure.
+    #[setting(default = false)]
+    pub insecure_cookies: bool,
     /// The height of the right section of an item's details page in pixels.
     #[setting(default = 300)]
     pub item_details_height: u32,
@@ -283,7 +287,7 @@ pub struct IntegrationConfig {
     /// The salt used to hash user IDs.
     #[setting(default = format!("{}", PROJECT_NAME))]
     pub hasher_salt: String,
-    /// The minimum progress limit before which a media is considered to be started.
+    /// The minimum progress limit after which a media is considered to be started.
     #[setting(default = 2)]
     pub minimum_progress_limit: i32,
     /// The maximum progress limit after which a media is considered to be completed.
@@ -321,41 +325,54 @@ pub struct SchedulerConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "SERVER_SMTP_")]
+pub struct SmtpConfig {
+    pub server: String,
+    #[setting(default = 587)]
+    pub port: u16,
+    pub user: String,
+    pub password: String,
+    #[setting(default = "Ryot <no-reply@mailer.io>")]
+    pub mailbox: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "SERVER_OIDC_")]
+pub struct OidcConfig {
+    pub client_id: String,
+    pub client_secret: String,
+    pub issuer_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
+    /// The mailer related settings.
+    #[setting(nested)]
+    pub smtp: SmtpConfig,
+    /// The OIDC related settings.
+    #[setting(nested)]
+    pub oidc: OidcConfig,
     /// The path where the config file will be written once the server boots up.
     #[setting(default = format!("tmp/{}-config.json", PROJECT_NAME))]
     pub config_dump_path: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
-    /// Whether default credentials will be populated on the login page of the
-    /// instance.
-    pub default_credentials: bool,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
     #[setting(default = 2)]
     pub progress_update_threshold: i64,
-    /// The number of days after which details about a person are considered outdated.
-    #[setting(default = 30)]
-    pub person_outdated_threshold: i64,
-    /// Admin jobs take a lot of resources, so they can be disabled completely from being
-    /// triggered manually. They still run as background jobs.
-    #[setting(default = true)]
-    pub deploy_admin_jobs_allowed: bool,
     /// The maximum file size in MB for user uploads.
     #[setting(default = 70)]
     pub max_file_size: usize,
-    /// Whether videos will be displayed in the media details.
-    #[setting(default = false)]
-    pub videos_disabled: bool,
-    /// Whether monitored media will be updated.
-    #[setting(default = true)]
-    pub update_monitored_media: bool,
     /// Whether the graphql playground will be enabled.
     #[setting(default = true)]
     pub graphql_playground_enabled: bool,
+    /// Disable all background jobs.
+    #[setting(default = false)]
+    pub disable_background_jobs: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -364,20 +381,9 @@ pub struct UsersConfig {
     /// The secret used for generating JWT tokens.
     #[setting(default = format!("{}", PROJECT_NAME))]
     pub jwt_secret: String,
-    /// Whether users will be allowed to change their preferences in their profile
-    /// settings.
-    #[setting(default = true)]
-    pub allow_changing_preferences: bool,
-    /// Whether users will be allowed to change their username and password in their
-    /// profile settings.
-    #[setting(default = true)]
-    pub allow_changing_credentials: bool,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
-    /// Whether users will be allowed to post reviews on this instance.
-    #[setting(default = false)]
-    pub reviews_disabled: bool,
     /// The number of days till login auth token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i64,
@@ -465,6 +471,13 @@ impl AppConfig {
         cl.server.config_dump_path = gt();
         cl.server.cors_origins = vec![gt()];
         cl.users.jwt_secret = gt();
+        cl.server.smtp.server = gt();
+        cl.server.smtp.user = gt();
+        cl.server.smtp.password = gt();
+        cl.server.smtp.mailbox = gt();
+        cl.server.oidc.client_id = gt();
+        cl.server.oidc.client_secret = gt();
+        cl.server.oidc.issuer_url = gt();
         cl
     }
 }

@@ -1,3 +1,0 @@
-mutation ToggleMediaOwnership($metadataId: Int!, $ownedOn: NaiveDate) {
-  toggleMediaOwnership(metadataId: $metadataId, ownedOn: $ownedOn)
-}

@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
-use database::{MetadataLot, MetadataSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::Display;
@@ -80,17 +80,19 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
             let metadata = item.media.unwrap().metadata.unwrap();
             match item.media_type.unwrap() {
                 MediaType::Book => {
-                    let lot = MetadataLot::AudioBook;
+                    let lot = MediaLot::AudioBook;
                     if let Some(asin) = metadata.asin {
                         media.push(ImportOrExportMediaItem {
-                            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                                asin,
-                            )),
+                            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                                identifier: asin,
+                                title: metadata.title.clone().unwrap_or_default(),
+                            }),
                             lot,
-                            source: MetadataSource::Audible,
+                            source: MediaSource::Audible,
                             source_id: metadata.title.unwrap_or_default(),
-                            identifier: item.id,
+                            identifier: "".to_string(),
                             seen_history: vec![ImportOrExportMediaItemSeen {
+                                provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
                                 ..Default::default()
                             }],
                             collections: vec![],
@@ -119,7 +121,6 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
     Ok(ImportResult {
         media,
         failed_items,
-        workouts: vec![],
-        collections: vec![],
+        ..Default::default()
     })
 }

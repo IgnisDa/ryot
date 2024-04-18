@@ -22,10 +22,11 @@ import { DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
+	redirect,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -46,13 +47,16 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
-import { ApplicationKey, dayjsLib } from "~/lib/generals";
-import { getUserPreferences } from "~/lib/graphql.server";
+import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
-import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getUserPreferences,
+	gqlClient,
+	processSubmission,
+} from "~/lib/utilities.server";
 
 enum TimeSpan {
 	Last7Days = "Last 7 days",
@@ -63,15 +67,19 @@ enum TimeSpan {
 }
 
 const searchParamsSchema = z.object({
-	timeSpan: z.nativeEnum(TimeSpan).default(TimeSpan.Last30Days),
+	timeSpan: z.nativeEnum(TimeSpan).optional(),
+	openModal: zx.BoolAsString.optional(),
+	[redirectToQueryParam]: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
+const defaultTimeSpan = TimeSpan.Last30Days;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
-	const [startTime, endTime] = match(query.timeSpan)
+	const [startTime, endTime] = match(query.timeSpan || defaultTimeSpan)
 		.with(TimeSpan.Last7Days, () => [now, now.subtract(7, "days")])
 		.with(TimeSpan.Last30Days, () => [now, now.subtract(30, "days")])
 		.with(TimeSpan.Last90Days, () => [now, now.subtract(90, "days")])
@@ -107,20 +115,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return namedAction(request, {
 		create: async () => {
 			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
-			const submission: any = {};
-			for (const [name, value] of formData.entries())
-				if (value !== "") set(submission, name, value);
+			const input: any = {};
+			for (const [name, value] of formData.entries()) {
+				if (value !== "" && name !== redirectToQueryParam)
+					set(input, name, value);
+			}
 			await gqlClient.request(
 				CreateUserMeasurementDocument,
-				{ input: submission },
+				{ input },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			const toastHeaders = {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Measurement submitted successfully",
 				}),
-			});
+			};
+			const redirectTo = formData.get(redirectToQueryParam);
+			if (redirectTo) return redirect(redirectTo.toString(), toastHeaders);
+			return json(
+				{ status: "success", submission: input } as const,
+				toastHeaders,
+			);
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
@@ -158,14 +174,17 @@ export default function Page() {
 			timestamp: tickFormatter(m.timestamp),
 		};
 	});
-	const [opened, { open, close }] = useDisclosure(false);
+	const [opened, { open, close }] = useDisclosure(
+		loaderData.query.openModal || false,
+	);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
-		key: ApplicationKey.SavedMeasurementsDisplaySelectedStats,
+		key: "SavedMeasurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
-	const [_, { setP }] = useSearchParam();
+	const [searchParams, { setP }] = useSearchParam();
 
+	const redirectToFormEntry = searchParams.get(redirectToQueryParam);
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
@@ -178,6 +197,13 @@ export default function Page() {
 						close();
 					}}
 				>
+					{redirectToFormEntry ? (
+						<input
+							type="hidden"
+							name={redirectToQueryParam}
+							value={redirectToFormEntry}
+						/>
+					) : null}
 					<Stack>
 						<DateTimePicker
 							label="Timestamp"
@@ -230,7 +256,7 @@ export default function Page() {
 				<SimpleGrid cols={{ base: 1, md: 2 }}>
 					<Select
 						label="Time span"
-						defaultValue={loaderData.query.timeSpan}
+						defaultValue={loaderData.query.timeSpan || defaultTimeSpan}
 						data={Object.values(TimeSpan)}
 						onChange={(v) => {
 							if (v) setP("timeSpan", v);

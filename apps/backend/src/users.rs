@@ -3,40 +3,34 @@ use kinded::Kinded;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::EnumString;
+use strum::{EnumString, IntoEnumIterator};
 
-use crate::models::fitness::UserUnitSystem;
+use crate::models::{fitness::UserUnitSystem, MediaStateChanged};
+
+const WATCH_PROVIDERS: [&str; 8] = [
+    "Netflix",
+    "Amazon Prime",
+    "Disney+",
+    "HBO Max",
+    "Apple TV",
+    "Peacock",
+    "Hulu",
+    "Crunchyroll",
+];
 
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserNotificationsPreferences {
-    #[serde(default)] // FIXME: remove in the next major release
-    pub media_published: bool,
-    pub status_changed: bool,
-    pub episode_released: bool,
-    pub release_date_changed: bool,
-    pub episode_images_changed: bool,
-    // Show
-    pub episode_name_changed: bool,
-    pub number_of_seasons_changed: bool,
-    // Anime and Manga
-    pub number_of_chapters_or_episodes_changed: bool,
-    pub new_review_posted: bool,
+    pub to_send: Vec<MediaStateChanged>,
+    pub enabled: bool,
 }
 
 impl Default for UserNotificationsPreferences {
     fn default() -> Self {
         Self {
-            media_published: true,
-            status_changed: true,
-            episode_released: true,
-            episode_name_changed: true,
-            episode_images_changed: true,
-            release_date_changed: true,
-            number_of_seasons_changed: true,
-            number_of_chapters_or_episodes_changed: true,
-            new_review_posted: true,
+            to_send: MediaStateChanged::iter().collect(),
+            enabled: true,
         }
     }
 }
@@ -55,6 +49,9 @@ pub struct UserMediaFeaturesEnabledPreferences {
     pub show: bool,
     pub video_game: bool,
     pub visual_novel: bool,
+    pub people: bool,
+    pub groups: bool,
+    pub genres: bool,
 }
 
 impl Default for UserMediaFeaturesEnabledPreferences {
@@ -70,6 +67,26 @@ impl Default for UserMediaFeaturesEnabledPreferences {
             show: true,
             video_game: true,
             visual_novel: true,
+            people: true,
+            groups: true,
+            genres: true,
+        }
+    }
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+pub struct UserOthersFeaturesEnabledPreferences {
+    pub collections: bool,
+    pub calendar: bool,
+}
+
+impl Default for UserOthersFeaturesEnabledPreferences {
+    fn default() -> Self {
+        Self {
+            calendar: true,
+            collections: true,
         }
     }
 }
@@ -215,6 +232,7 @@ impl Default for UserMeasurementsPreferences {
 pub struct UserFeaturesEnabledPreferences {
     pub media: UserMediaFeaturesEnabledPreferences,
     pub fitness: UserFitnessFeaturesEnabledPreferences,
+    pub others: UserOthersFeaturesEnabledPreferences,
 }
 
 #[derive(
@@ -270,8 +288,13 @@ pub struct UserGeneralDashboardElement {
 pub struct UserGeneralPreferences {
     pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
-    pub disable_yank_integrations: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
+    pub disable_yank_integrations: bool,
+    pub disable_navigation_animation: bool,
+    pub disable_videos: bool,
+    pub disable_watch_providers: bool,
+    pub watch_providers: Vec<String>,
+    pub disable_reviews: bool,
 }
 
 impl Default for UserGeneralPreferences {
@@ -279,7 +302,6 @@ impl Default for UserGeneralPreferences {
         Self {
             review_scale: UserReviewScale::default(),
             display_nsfw: true,
-            disable_yank_integrations: false,
             dashboard: vec![
                 UserGeneralDashboardElement {
                     section: DashboardElementLot::Upcoming,
@@ -297,6 +319,12 @@ impl Default for UserGeneralPreferences {
                     num_elements: None,
                 },
             ],
+            disable_yank_integrations: false,
+            disable_navigation_animation: false,
+            disable_videos: false,
+            disable_watch_providers: false,
+            watch_providers: WATCH_PROVIDERS.into_iter().map(|s| s.to_owned()).collect(),
+            disable_reviews: false,
         }
     }
 }
@@ -374,6 +402,9 @@ pub enum UserNotificationSetting {
     },
     PushSafer {
         key: String,
+    },
+    Email {
+        email: String,
     },
 }
 

@@ -1,3 +1,0 @@
-mutation ToggleMediaMonitor($metadataId: Int!) {
-  toggleMediaMonitor(metadataId: $metadataId)
-}

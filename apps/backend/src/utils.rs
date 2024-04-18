@@ -11,12 +11,16 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use http_types::headers::HeaderName;
 use itertools::Itertools;
+use openidconnect::{
+    core::{CoreClient, CoreProviderMetadata},
+    reqwest::async_http_client,
+    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
+};
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
-use sea_query::{BinOper, Expr, Func, SimpleExpr, Value};
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -35,7 +39,7 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::{ChangeCollectionToEntityInput, EntityLot, StoredUrl},
+    models::{ChangeCollectionToEntityInput, StoredUrl},
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -56,6 +60,8 @@ pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
 
+const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
+
 /// All the services that are used by the app
 pub struct AppServices {
     pub config: Arc<config::AppConfig>,
@@ -64,6 +70,26 @@ pub struct AppServices {
     pub exporter_service: Arc<ExporterService>,
     pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
+}
+
+async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
+    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
+        Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
+            Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
+                .await
+                .ok()
+                .map(|provider| {
+                    CoreClient::from_provider_metadata(
+                        provider,
+                        ClientId::new(config.server.oidc.client_id.clone()),
+                        Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+                    )
+                    .set_redirect_uri(redirect_url)
+                }),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -86,6 +112,7 @@ pub async fn create_app_services(
         file_storage_service.clone(),
         perform_application_job,
     ));
+    let oidc_client = Arc::new(create_oidc_client(&config).await);
 
     let media_service = Arc::new(
         MiscellaneousService::new(
@@ -95,6 +122,7 @@ pub async fn create_app_services(
             perform_application_job,
             perform_core_application_job,
             timezone.clone(),
+            oidc_client.clone(),
         )
         .await,
     );
@@ -119,9 +147,12 @@ pub async fn create_app_services(
     }
 }
 
-pub async fn get_user_and_metadata_association<C>(
+pub async fn get_user_to_entity_association<C>(
     user_id: &i32,
-    metadata_id: &i32,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+    exercise_id: Option<String>,
+    metadata_group_id: Option<i32>,
     db: &C,
 ) -> Option<user_to_entity::Model>
 where
@@ -129,32 +160,60 @@ where
 {
     UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-        .filter(user_to_entity::Column::MetadataId.eq(metadata_id.to_owned()))
+        .filter(
+            user_to_entity::Column::MetadataId
+                .eq(metadata_id.to_owned())
+                .or(user_to_entity::Column::PersonId
+                    .eq(person_id.to_owned())
+                    .or(user_to_entity::Column::ExerciseId.eq(exercise_id.to_owned()))
+                    .or(user_to_entity::Column::MetadataGroupId.eq(metadata_group_id.to_owned()))),
+        )
         .one(db)
         .await
         .ok()
         .flatten()
 }
 
-pub async fn associate_user_with_metadata<C>(
+pub async fn associate_user_with_entity<C>(
     user_id: &i32,
-    metadata_id: &i32,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+    exercise_id: Option<String>,
+    metadata_group_id: Option<i32>,
     db: &C,
 ) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
-    let user_to_meta = get_user_and_metadata_association(user_id, metadata_id, db).await;
+    let user_to_meta = get_user_to_entity_association(
+        user_id,
+        metadata_id,
+        person_id,
+        exercise_id.clone(),
+        metadata_group_id,
+        db,
+    )
+    .await;
     Ok(match user_to_meta {
         None => {
             let user_to_meta = user_to_entity::ActiveModel {
                 user_id: ActiveValue::Set(*user_id),
-                metadata_id: ActiveValue::Set(Some(*metadata_id)),
+                metadata_id: ActiveValue::Set(metadata_id),
+                person_id: ActiveValue::Set(person_id),
+                exercise_id: ActiveValue::Set(exercise_id),
+                metadata_group_id: ActiveValue::Set(metadata_group_id),
+                last_updated_on: ActiveValue::Set(Utc::now()),
+                needs_to_be_updated: ActiveValue::Set(Some(true)),
                 ..Default::default()
             };
             user_to_meta.insert(db).await.unwrap()
         }
-        Some(u) => u,
+        Some(u) => {
+            let mut to_update: user_to_entity::ActiveModel = u.into();
+            to_update.last_updated_on = ActiveValue::Set(Utc::now());
+            to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
+            to_update.update(db).await.unwrap()
+        }
     })
 }
 
@@ -180,17 +239,6 @@ pub fn get_base_http_client(
         .unwrap()
 }
 
-pub fn get_ilike_query<E>(expr: E, v: &str) -> SimpleExpr
-where
-    E: Into<SimpleExpr>,
-{
-    SimpleExpr::Binary(
-        Box::new(Func::lower(expr.into()).into()),
-        BinOper::Like,
-        Box::new(Func::lower(Expr::val(format!("%{}%", v))).into()),
-    )
-}
-
 pub async fn get_stored_asset(
     url: StoredUrl,
     file_storage_service: &Arc<FileStorageService>,
@@ -201,43 +249,37 @@ pub async fn get_stored_asset(
     }
 }
 
+type CteCol = collection_to_entity::Column;
+
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: i32,
-    entity_id: String,
-    entity_lot: EntityLot,
+    metadata_id: Option<i32>,
+    person_id: Option<i32>,
+    media_group_id: Option<i32>,
+    exercise_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
         .filter(collection::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
-    let target_column = match entity_lot {
-        EntityLot::Media => collection_to_entity::Column::MetadataId,
-        EntityLot::Person => collection_to_entity::Column::PersonId,
-        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
-        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
-        EntityLot::Collection => unreachable!(),
-    };
     let mtc = CollectionToEntity::find()
         .filter(
-            collection_to_entity::Column::CollectionId
-                .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
+            CteCol::CollectionId.is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(target_column.eq(match entity_id.parse::<i32>() {
-            Ok(id) => Value::Int(Some(id)),
-            Err(_) => Value::String(Some(Box::new(entity_id))),
-        }))
+        .filter(
+            CteCol::MetadataId
+                .eq(metadata_id)
+                .or(CteCol::PersonId.eq(person_id))
+                .or(CteCol::MetadataGroupId.eq(media_group_id))
+                .or(CteCol::ExerciseId.eq(exercise_id)),
+        )
         .find_also_related(Collection)
         .all(db)
         .await
         .unwrap();
-    let mut resp = vec![];
-    mtc.into_iter().for_each(|(_, b)| {
-        if let Some(m) = b {
-            resp.push(m);
-        }
-    });
+    let resp = mtc.into_iter().flat_map(|(_, b)| b).collect_vec();
     Ok(resp)
 }
 
@@ -246,13 +288,6 @@ pub async fn add_entity_to_collection(
     user_id: i32,
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
-    let target_column = match input.entity_lot {
-        EntityLot::Media => collection_to_entity::Column::MetadataId,
-        EntityLot::Person => collection_to_entity::Column::PersonId,
-        EntityLot::MediaGroup => collection_to_entity::Column::MetadataGroupId,
-        EntityLot::Exercise => collection_to_entity::Column::ExerciseId,
-        EntityLot::Collection => unreachable!(),
-    };
     let collection = Collection::find()
         .filter(collection::Column::UserId.eq(user_id.to_owned()))
         .filter(collection::Column::Name.eq(input.collection_name))
@@ -264,12 +299,13 @@ pub async fn add_entity_to_collection(
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(db).await.unwrap();
     let resp = if let Some(etc) = CollectionToEntity::find()
-        .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+        .filter(CteCol::CollectionId.eq(collection.id))
         .filter(
-            target_column.eq(match input.entity_id.clone().parse::<i32>() {
-                Ok(id) => Value::Int(Some(id)),
-                Err(_) => Value::String(Some(Box::new(input.entity_id.clone()))),
-            }),
+            CteCol::MetadataId
+                .eq(input.metadata_id)
+                .or(CteCol::PersonId.eq(input.person_id))
+                .or(CteCol::MetadataGroupId.eq(input.metadata_group_id))
+                .or(CteCol::ExerciseId.eq(input.exercise_id.clone())),
         )
         .one(db)
         .await?
@@ -282,24 +318,10 @@ pub async fn add_entity_to_collection(
             collection_id: ActiveValue::Set(collection.id),
             ..Default::default()
         };
-        match input.entity_lot {
-            EntityLot::Media => {
-                created_collection.metadata_id =
-                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
-            }
-            EntityLot::Person => {
-                created_collection.person_id =
-                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
-            }
-            EntityLot::MediaGroup => {
-                created_collection.metadata_group_id =
-                    ActiveValue::Set(Some(input.entity_id.parse().unwrap()))
-            }
-            EntityLot::Exercise => {
-                created_collection.exercise_id = ActiveValue::Set(Some(input.entity_id))
-            }
-            EntityLot::Collection => unreachable!(),
-        };
+        created_collection.metadata_id = ActiveValue::Set(input.metadata_id);
+        created_collection.person_id = ActiveValue::Set(input.person_id);
+        created_collection.metadata_group_id = ActiveValue::Set(input.metadata_group_id);
+        created_collection.exercise_id = ActiveValue::Set(input.exercise_id);
         created_collection.insert(db).await.is_ok()
     };
     Ok(resp)
@@ -349,7 +371,7 @@ where
         };
         if let Some(h) = parts.headers.get(AUTHORIZATION) {
             ctx.auth_token = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
-        } else if let Some(h) = parts.headers.get("X-Auth-Token") {
+        } else if let Some(h) = parts.headers.get("x-auth-token") {
             ctx.auth_token = h.to_str().map(String::from).ok();
         }
         if let Some(auth_token) = ctx.auth_token.as_ref() {
@@ -363,4 +385,8 @@ where
         }
         Ok(ctx)
     }
+}
+
+pub fn ilike_sql(value: &str) -> String {
+    format!("%{value}%")
 }

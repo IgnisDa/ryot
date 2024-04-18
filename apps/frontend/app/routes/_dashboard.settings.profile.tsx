@@ -7,9 +7,9 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
@@ -17,23 +17,17 @@ import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useRef } from "react";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails, getUserDetails } from "~/lib/graphql.server";
-import { createToastHeaders } from "~/lib/toast.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getUserDetails,
+	gqlClient,
+} from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [coreDetails, userDetails] = await Promise.all([
-		getCoreDetails(),
-		getUserDetails(request),
-	]);
-	return json({
-		coreDetails: {
-			usernameChangeAllowed: coreDetails.credentialsChangeAllowed,
-			passwordChangeAllowed: coreDetails.credentialsChangeAllowed,
-		},
-		userDetails,
-	});
+	const [userDetails] = await Promise.all([getUserDetails(request)]);
+	return json({ userDetails });
 };
 
 export const meta: MetaFunction = () => {
@@ -50,7 +44,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	);
 	return json({ status: "success", submission } as const, {
 		headers: await createToastHeaders({
-			message: "Profile updated",
+			message:
+				"Profile updated. Please login again for changes to take effect.",
 		}),
 	});
 };
@@ -75,26 +70,26 @@ export default function Page() {
 						<TextInput
 							label="Username"
 							name="username"
-							disabled={!loaderData.coreDetails.usernameChangeAllowed}
+							disabled={Boolean(loaderData.userDetails.isDemo)}
 							description={
-								!loaderData.coreDetails.usernameChangeAllowed &&
-								"Username can not be changed on this instance"
+								loaderData.userDetails.isDemo &&
+								"Username can not be changed for the demo user"
 							}
 							defaultValue={loaderData.userDetails.name}
-						/>
-						<TextInput
-							label="Email"
-							name="email"
-							autoFocus
-							defaultValue={loaderData.userDetails.email ?? undefined}
 						/>
 						<PasswordInput
 							label="Password"
 							name="password"
-							disabled={!loaderData.coreDetails.passwordChangeAllowed}
+							disabled={
+								Boolean(loaderData.userDetails.isDemo) ||
+								Boolean(loaderData.userDetails.oidcIssuerId)
+							}
 							description={
-								!loaderData.coreDetails.passwordChangeAllowed &&
-								"Password can not be changed on this instance"
+								loaderData.userDetails.oidcIssuerId
+									? "Not applicable since this user was created via OIDC"
+									: loaderData.userDetails.isDemo
+									  ? "Password can not be changed for the demo user"
+									  : undefined
 							}
 						/>
 						<Button

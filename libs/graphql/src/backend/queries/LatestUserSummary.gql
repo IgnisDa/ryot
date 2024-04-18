@@ -11,8 +11,14 @@ query LatestUserSummary {
       }
      }
     media {
-      reviewsPosted
-      mediaInteractedWith
+      metadataOverall {
+        reviewed
+        interactedWith
+      }
+      peopleOverall {
+        reviewed
+        interactedWith
+      }
       manga {
         chapters
         read

@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::media::SeenOrReviewOrCalendarEventExtraInformation;
+use crate::models::media::{SeenPodcastExtraInformation, SeenShowExtraInformation};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "calendar_event")]
@@ -13,7 +13,8 @@ pub struct Model {
     pub id: i32,
     pub date: NaiveDate,
     pub metadata_id: Option<i32>,
-    pub metadata_extra_information: SeenOrReviewOrCalendarEventExtraInformation,
+    pub metadata_show_extra_information: Option<SeenShowExtraInformation>,
+    pub metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

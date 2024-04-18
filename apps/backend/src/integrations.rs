@@ -1,29 +1,32 @@
 use anyhow::{anyhow, bail, Result};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaLot, MediaSource};
 use regex::Regex;
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use sea_query::{Alias, Expr, Func};
+use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
 use tracing::instrument;
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    utils::{get_base_http_client, get_ilike_query},
+    utils::{get_base_http_client, ilike_sql},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegrationMedia {
     pub identifier: String,
-    pub lot: MetadataLot,
+    pub lot: MediaLot,
     #[serde(default)]
-    pub source: MetadataSource,
-    pub progress: i32,
+    pub source: MediaSource,
+    pub progress: Decimal,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<i32>,
+    pub provider_watched_on: Option<String>,
 }
 
 #[derive(Debug)]
@@ -97,18 +100,21 @@ impl IntegrationService {
         let runtime = payload.item.run_time_ticks.unwrap();
         let position = payload.session.play_state.position_ticks.unwrap();
         let lot = match payload.item.item_type.as_str() {
-            "Episode" => MetadataLot::Show,
-            "Movie" => MetadataLot::Movie,
+            "Episode" => MediaLot::Show,
+            "Movie" => MediaLot::Movie,
             _ => bail!("Only movies and shows supported"),
         };
         Ok(IntegrationMedia {
             identifier,
             lot,
-            source: MetadataSource::Tmdb,
-            progress: (position / runtime * dec!(100)).to_i32().unwrap(),
-            podcast_episode_number: None,
+            source: MediaSource::Tmdb,
+            progress: position / runtime * dec!(100),
             show_season_number: payload.item.season_number,
             show_episode_number: payload.item.episode_number,
+            provider_watched_on: Some("Jellyfin".to_string()),
+            podcast_episode_number: None,
+            manga_chapter_number: None,
+            anime_episode_number: None,
         })
     }
 
@@ -193,33 +199,34 @@ impl IntegrationService {
         let tmdb_guid = tmdb_guid.unwrap();
         let identifier = &tmdb_guid.id[7..];
         let (identifier, lot) = match payload.metadata.item_type.as_str() {
-            "movie" => (identifier.to_owned(), MetadataLot::Movie),
+            "movie" => (identifier.to_owned(), MediaLot::Movie),
             "episode" => {
                 // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
                 // TMDB ID sent by Plex (which is actually the episode ID) is also present
                 // in the media specifics we have in DB.
                 let db_show = Metadata::find()
-                    .filter(metadata::Column::Lot.eq(MetadataLot::Show))
-                    .filter(metadata::Column::Source.eq(MetadataSource::Tmdb))
-                    .filter(get_ilike_query(
-                        Func::cast_as(Expr::col(metadata::Column::Specifics), Alias::new("text")),
-                        identifier,
-                    ))
+                    .filter(metadata::Column::Lot.eq(MediaLot::Show))
+                    .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
+                    .filter(
+                        Expr::expr(Func::cast_as(
+                            Expr::col(metadata::Column::ShowSpecifics),
+                            Alias::new("text"),
+                        ))
+                        .ilike(ilike_sql(identifier)),
+                    )
                     .one(db)
                     .await?;
                 if db_show.is_none() {
                     bail!("No show found with TMDb ID {}", identifier);
                 }
-                (db_show.unwrap().identifier, MetadataLot::Show)
+                (db_show.unwrap().identifier, MediaLot::Show)
             }
             _ => bail!("Only movies and shows supported"),
         };
         let progress = match payload.metadata.view_offset {
-            Some(offset) => (offset / payload.metadata.duration * dec!(100))
-                .to_i32()
-                .unwrap(),
+            Some(offset) => offset / payload.metadata.duration * dec!(100),
             None => match payload.event_type.as_str() {
-                "media.scrobble" => 100,
+                "media.scrobble" => dec!(100),
                 _ => bail!("No position associated with this media"),
             },
         };
@@ -227,11 +234,14 @@ impl IntegrationService {
         Ok(IntegrationMedia {
             identifier,
             lot,
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             progress,
-            podcast_episode_number: None,
+            provider_watched_on: Some("Plex".to_string()),
             show_season_number: payload.metadata.season_number,
             show_episode_number: payload.metadata.episode_number,
+            podcast_episode_number: None,
+            anime_episode_number: None,
+            manga_chapter_number: None,
         })
     }
 
@@ -240,7 +250,8 @@ impl IntegrationService {
             Result::Ok(val) => val,
             Result::Err(err) => bail!(err),
         };
-        payload.source = MetadataSource::Tmdb;
+        payload.source = MediaSource::Tmdb;
+        payload.provider_watched_on = Some("Kodi".to_string());
         Ok(payload)
     }
 
@@ -302,12 +313,15 @@ impl IntegrationService {
                 tracing::debug!("Got response for individual item progress {:#?}", resp);
                 media_items.push(IntegrationMedia {
                     identifier: asin,
-                    lot: MetadataLot::AudioBook,
-                    source: MetadataSource::Audible,
-                    progress: (resp.progress * dec!(100)).to_i32().unwrap(),
+                    lot: MediaLot::AudioBook,
+                    source: MediaSource::Audible,
+                    progress: resp.progress * dec!(100),
+                    provider_watched_on: Some("Audiobookshelf".to_string()),
                     show_season_number: None,
                     show_episode_number: None,
                     podcast_episode_number: None,
+                    anime_episode_number: None,
+                    manga_chapter_number: None,
                 });
             }
         }

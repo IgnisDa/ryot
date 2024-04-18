@@ -14,16 +14,20 @@ import {
 	Indicator,
 	MantineThemeProvider,
 	Modal,
+	Pagination,
 	Select,
 	SimpleGrid,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 	rem,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure, useListState } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import { useDisclosure, useListState } from "@mantine/hooks";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	ExerciseEquipment,
@@ -35,7 +39,6 @@ import {
 	ExerciseParametersDocument,
 	ExerciseSortBy,
 	ExercisesListDocument,
-	UserCollectionsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -44,22 +47,21 @@ import {
 	IconFilter,
 	IconFilterOff,
 	IconPlus,
-	IconSearch,
-	IconX,
 } from "@tabler/icons-react";
 import { useAtom } from "jotai";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationPagination } from "~/components/common";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { DebouncedSearchInput } from "~/components/common";
 import { dayjsLib } from "~/lib/generals";
+import { useSearchParam } from "~/lib/hooks";
 import {
+	getAuthorizationHeader,
 	getCoreDetails,
+	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { useSearchParam } from "~/lib/hooks";
+	gqlClient,
+} from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 const defaultFiltersValue = {
@@ -100,9 +102,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userDetails,
 		{ exerciseParameters },
 		{ exercisesList },
-		{ userCollectionsList },
+		userCollectionsList,
 	] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		gqlClient.request(ExerciseParametersDocument, {}),
@@ -128,11 +130,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			},
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+		getUserCollectionsList(request),
 	]);
 	return json({
 		coreDetails: { pageLimit: coreDetails.pageLimit },
@@ -157,15 +155,12 @@ export default function Page() {
 		name: string;
 		lot: ExerciseLot;
 	}>([]);
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
@@ -203,22 +198,9 @@ export default function Page() {
 				) : (
 					<>
 						<Group wrap="nowrap">
-							<TextInput
-								name="query"
+							<DebouncedSearchInput
 								placeholder="Search for exercises by name or instructions"
-								leftSection={<IconSearch />}
-								onChange={(e) => setQuery(e.currentTarget.value)}
-								value={query}
-								rightSection={
-									query ? (
-										<ActionIcon onClick={() => setQuery("")}>
-											<IconX size={16} />
-										</ActionIcon>
-									) : null
-								}
-								style={{ flexGrow: 1 }}
-								autoCapitalize="none"
-								autoComplete="off"
+								initialValue={loaderData.query.query}
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}
@@ -400,9 +382,9 @@ export default function Page() {
 						)}
 						{loaderData.exercisesList.details.total > 0 ? (
 							<Center>
-								<ApplicationPagination
+								<Pagination
 									size="sm"
-									defaultValue={loaderData.query.page}
+									value={loaderData.query.page}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.exercisesList.details.total /
@@ -428,6 +410,7 @@ export default function Page() {
 								setCurrentWorkout,
 								selectedExercises,
 								navigate,
+								loaderData.userPreferences.fitness.exercises.defaultTimer,
 							);
 						}}
 					>

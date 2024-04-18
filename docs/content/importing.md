@@ -12,8 +12,11 @@ You can go to the reports page by clicking on "Reports" link on the imports page
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
-- You can see the descriptions of the failing importing steps by reviewing the
-  documentation of the `ImportFailStep` enum in the `/backend/graphql` endpoint.
+- You can see description of the importing steps by going to `<your instance
+  url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
+- I recommend turning on debug logging for the duration of the import using the
+  `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
+  progress.
 
 ## Goodreads
 
@@ -45,12 +48,6 @@ the following caveats:
 - Enter a name and click on "Add token".
 - Copy the token that was just generated.
 - Enter the details in the inputs.
-
-## Generic JSON
-
-This can be used to import data from a generic JSON file. The import format
-required is described in the [exporting](guides/exporting.md#type-definition)
-documentation.
 
 ## Movary
 
@@ -136,6 +133,17 @@ their ratings, history, comments and lists. A few points to note.
   going to your profile page, and checking the URL.
 - Enter this username in the input.
 
+## IMDb
+
+You can import your watchlist from [IMDb](https://www.imdb.com). They will be added to
+the "Watchlist" collection.
+
+### Steps
+
+- Go to your account and select your watchlist.
+- Go the bottom and click on the "Export this list" button.
+- Upload the csv file in the input.
+
 ## Audiobookshelf
 
 !!! warning
@@ -162,3 +170,11 @@ their ratings, history, comments and lists. A few points to note.
 
 All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
 tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
+
+## Generic Json
+
+The "Generic Json" can be used to import all possible data from a generic JSON file. The
+format of the JSON file should be `CompleteExport`. The import format required is described
+in the [exporting](guides/exporting.md#type-definition) documentation.
+
+You can use this to export all your data from one Ryot instance and import it into another.

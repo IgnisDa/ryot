@@ -1,0 +1,26 @@
+query MediaSearchQuery(
+  $search: String!
+  $page: Int!
+  $type: MediaType!
+  $perPage: Int!
+) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+    }
+    media(search: $search, type: $type) {
+      id
+      title {
+        english
+        userPreferred
+      }
+      coverImage {
+        extraLarge
+      }
+      startDate {
+        year
+      }
+      bannerImage
+    }
+  }
+}

@@ -1,40 +1,63 @@
+use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
-    m20230410_create_metadata::Metadata, m20230417_create_user::User,
+    m20230410_create_metadata::Metadata, m20230413_create_person::Person,
+    m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
     m20230622_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
+pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
+pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
+pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
+pub static CONSTRAINT_SQL: &str = indoc! { r#"
+ALTER TABLE "user_to_entity"
+ADD CONSTRAINT "user_to_entity__ensure_one_entity"
+CHECK (
+    (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END) +
+    (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END)
+    = 1
+);
+"# };
+
 /// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it
-/// - added to their monitored media
+/// - owns it
 /// - added a reminder
 #[derive(Iden)]
 pub enum UserToEntity {
     Table,
     Id,
     UserId,
+    CreatedOn,
     LastUpdatedOn,
+    NeedsToBeUpdated,
     // the entities that can be associated
     MetadataId,
     ExerciseId,
+    PersonId,
+    MetadataGroupId,
     // specifics
-    MetadataMonitored,
-    MetadataReminder,
+    MediaReminder,
     MetadataUnitsConsumed,
-    MetadataOwnership,
     ExerciseExtraInformation,
     ExerciseNumTimesInteracted,
+    MediaReason,
+    MediaOwnership,
 }
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
         manager
             .create_table(
                 Table::create()
@@ -53,16 +76,22 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
-                    .col(ColumnDef::new(UserToEntity::MetadataMonitored).boolean())
-                    .col(ColumnDef::new(UserToEntity::MetadataReminder).json_binary())
-                    .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
-                    .col(ColumnDef::new(UserToEntity::MetadataOwnership).json_binary())
-                    .col(
-                        ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted)
-                            .integer()
-                            .default(1),
-                    )
+                    .col(ColumnDef::new(UserToEntity::MediaReminder).json_binary())
+                    .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
+                    .col(ColumnDef::new(UserToEntity::MetadataId).integer())
+                    .col(ColumnDef::new(UserToEntity::ExerciseId).text())
+                    .col(ColumnDef::new(UserToEntity::MediaOwnership).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
+                    .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
+                    .col(ColumnDef::new(UserToEntity::MediaReason).array(ColumnType::Text))
+                    .col(
+                        ColumnDef::new(UserToEntity::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(ColumnDef::new(UserToEntity::PersonId).integer())
+                    .col(ColumnDef::new(UserToEntity::NeedsToBeUpdated).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")
@@ -71,7 +100,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserToEntity::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk2")
@@ -80,12 +108,28 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserToEntity::ExerciseId).string())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk3")
                             .from(UserToEntity::Table, UserToEntity::ExerciseId)
                             .to(Exercise::Table, Exercise::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(PERSON_FK_NAME)
+                            .from(UserToEntity::Table, UserToEntity::PersonId)
+                            .to(Person::Table, Person::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(UserToEntity::MetadataGroupId).integer())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(METADATA_GROUP_FK_NAME)
+                            .from(UserToEntity::Table, UserToEntity::MetadataGroupId)
+                            .to(MetadataGroup::Table, MetadataGroup::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -114,6 +158,29 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(PERSON_INDEX_NAME)
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::PersonId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(METADATA_GROUP_INDEX_NAME)
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::MetadataGroupId)
+                    .to_owned(),
+            )
+            .await?;
+        db.execute_unprepared(CONSTRAINT_SQL).await?;
         Ok(())
     }
 

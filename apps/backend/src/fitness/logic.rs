@@ -101,6 +101,14 @@ impl UserWorkoutInput {
         if input.exercises.is_empty() {
             bail!("This workout has no associated exercises")
         }
+        let mut set_confirmed_at = input
+            .exercises
+            .first()
+            .unwrap()
+            .sets
+            .first()
+            .unwrap()
+            .confirmed_at;
         for (exercise_idx, ex) in input.exercises.iter_mut().enumerate() {
             if ex.sets.is_empty() {
                 bail!("This exercise has no associated sets")
@@ -143,7 +151,7 @@ impl UserWorkoutInput {
                 }
                 Some(e) => {
                     let performed = e.exercise_num_times_interacted.unwrap_or_default();
-                    let mut extra_info = e.exercise_extra_information.clone().unwrap();
+                    let mut extra_info = e.exercise_extra_information.clone().unwrap_or_default();
                     extra_info.history.insert(0, history_item);
                     let mut up: user_to_entity::ActiveModel = e.into();
                     up.exercise_num_times_interacted = ActiveValue::Set(Some(performed + 1));
@@ -158,6 +166,12 @@ impl UserWorkoutInput {
             ex.sets
                 .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
             for set in ex.sets.iter_mut() {
+                let mut actual_rest_time = None;
+                if exercise_idx != 0 && set.confirmed_at.is_some() && set_confirmed_at.is_some() {
+                    actual_rest_time =
+                        Some((set.confirmed_at.unwrap() - set_confirmed_at.unwrap()).num_seconds());
+                }
+                set_confirmed_at = set.confirmed_at;
                 set.remove_invalids(&db_ex.lot);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
@@ -181,6 +195,7 @@ impl UserWorkoutInput {
                     confirmed_at: set.confirmed_at,
                     totals,
                     personal_bests: vec![],
+                    actual_rest_time,
                 };
                 value.statistic.one_rm = value.calculate_one_rm();
                 value.statistic.pace = value.calculate_pace();
@@ -190,7 +205,7 @@ impl UserWorkoutInput {
             let mut personal_bests = association
                 .exercise_extra_information
                 .clone()
-                .unwrap()
+                .unwrap_or_default()
                 .personal_bests;
             let types_of_prs = match db_ex.lot {
                 ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
@@ -245,8 +260,10 @@ impl UserWorkoutInput {
                     }
                 }
             }
-            let mut association_extra_information =
-                association.exercise_extra_information.clone().unwrap();
+            let mut association_extra_information = association
+                .exercise_extra_information
+                .clone()
+                .unwrap_or_default();
             let mut association: user_to_entity::ActiveModel = association.into();
             association_extra_information.lifetime_stats += total.clone();
             association_extra_information.personal_bests = personal_bests;
@@ -313,7 +330,10 @@ impl workout::Model {
                 None => continue,
                 Some(assoc) => assoc,
             };
-            let mut ei = association.exercise_extra_information.clone().unwrap();
+            let mut ei = association
+                .exercise_extra_information
+                .clone()
+                .unwrap_or_default();
             if let Some(ex_idx) = ei
                 .history
                 .iter()

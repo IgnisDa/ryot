@@ -20,14 +20,14 @@ use crate::{
 )]
 #[sea_orm(table_name = "workout")]
 #[graphql(name = "Workout")]
-#[schematic(rename = "Workout")]
+#[schematic(rename = "Workout", rename_all = "snake_case")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    #[serde(skip)]
     pub repeated_from: Option<String>,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
-    #[schema(exclude)]
     #[graphql(skip)]
     #[serde(skip)]
     pub user_id: i32,

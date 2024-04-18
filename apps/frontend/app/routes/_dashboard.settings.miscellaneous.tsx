@@ -6,12 +6,11 @@ import {
 	Stack,
 	Text,
 	Title,
-	Tooltip,
 } from "@mantine/core";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
@@ -20,22 +19,18 @@ import {
 	DeployBackgroundJobDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { ReactNode } from "react";
 import { z } from "zod";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails, getUserDetails } from "~/lib/graphql.server";
-import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getUserDetails,
+	gqlClient,
+	processSubmission,
+} from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [coreDetails, userDetails] = await Promise.all([
-		getCoreDetails(),
-		getUserDetails(request),
-	]);
-	return json({
-		coreDetails: { deployAdminJobsAllowed: coreDetails.deployAdminJobsAllowed },
-		userDetails,
-	});
+	const [userDetails] = await Promise.all([getUserDetails(request)]);
+	return json({ userDetails });
 };
 
 export const meta: MetaFunction = () => {
@@ -86,18 +81,13 @@ export default function Page() {
 											providers.
 										</Text>
 									</Box>
-									<DisabledNotice
-										enabled={!loaderData.coreDetails.deployAdminJobsAllowed}
+									<Button
+										{...buttonProps}
+										name="jobName"
+										value={BackgroundJob.UpdateAllMetadata}
 									>
-										<Button
-											disabled={!loaderData.coreDetails.deployAdminJobsAllowed}
-											{...buttonProps}
-											name="jobName"
-											value={BackgroundJob.UpdateAllMetadata}
-										>
-											Update metadata
-										</Button>
-									</DisabledNotice>
+										Update metadata
+									</Button>
 								</Stack>
 								<Stack>
 									<Box>
@@ -109,18 +99,13 @@ export default function Page() {
 											automatically.
 										</Text>
 									</Box>
-									<DisabledNotice
-										enabled={!loaderData.coreDetails.deployAdminJobsAllowed}
+									<Button
+										{...buttonProps}
+										name="jobName"
+										value={BackgroundJob.RecalculateCalendarEvents}
 									>
-										<Button
-											disabled={!loaderData.coreDetails.deployAdminJobsAllowed}
-											{...buttonProps}
-											name="jobName"
-											value={BackgroundJob.RecalculateCalendarEvents}
-										>
-											Update calendar events
-										</Button>
-									</DisabledNotice>
+										Update calendar events
+									</Button>
 								</Stack>
 								<Stack>
 									<Box>
@@ -131,18 +116,13 @@ export default function Page() {
 											job when there are new exercises available.
 										</Text>
 									</Box>
-									<DisabledNotice
-										enabled={!loaderData.coreDetails.deployAdminJobsAllowed}
+									<Button
+										{...buttonProps}
+										name="jobName"
+										value={BackgroundJob.UpdateAllExercises}
 									>
-										<Button
-											disabled={!loaderData.coreDetails.deployAdminJobsAllowed}
-											{...buttonProps}
-											name="jobName"
-											value={BackgroundJob.UpdateAllExercises}
-										>
-											Update exercises
-										</Button>
-									</DisabledNotice>
+										Update exercises
+									</Button>
 								</Stack>
 							</>
 						) : null}
@@ -205,15 +185,3 @@ export default function Page() {
 }
 
 const buttonProps = { variant: "light", type: "submit" as const };
-
-const DisabledNotice = (props: {
-	children: ReactNode;
-	enabled: boolean;
-}) => (
-	<Tooltip
-		label="Deploying this job is disabled on this instance"
-		disabled={!props.enabled}
-	>
-		{props.children}
-	</Tooltip>
-);

@@ -5,13 +5,14 @@ import {
 	SetLot,
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
-	WorkoutSetStatistic,
+	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { Dayjs } from "dayjs";
+import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
-import { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
-import { ApplicationKey } from "./generals";
+import { v4 as randomUUID } from "uuid";
+import type { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
+import { CurrentWorkoutKey } from "./generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
@@ -22,6 +23,8 @@ export type ExerciseSet = {
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
+type Media = { imageSrc: string; key: string };
+
 export type Exercise = {
 	identifier: string;
 	exerciseId: string;
@@ -31,8 +34,8 @@ export type Exercise = {
 	sets: Array<ExerciseSet>;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 	restTimer?: { enabled: boolean; duration: number } | null;
-	videos: string[];
-	images: string[];
+	videos: Media[];
+	images: Media[];
 	supersetWith: Array<string>;
 };
 
@@ -50,7 +53,7 @@ export type InProgressWorkout = {
 type CurrentWorkout = InProgressWorkout | null;
 
 export const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
-	ApplicationKey.CurrentWorkout,
+	CurrentWorkoutKey,
 	null,
 );
 
@@ -107,7 +110,7 @@ export const duplicateOldWorkout = async (
 		}));
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
-			identifier: crypto.randomUUID(),
+			identifier: randomUUID(),
 			exerciseDetails: { images: exerciseDetails.details.images },
 			images: [],
 			videos: [],
@@ -136,12 +139,13 @@ export const addExerciseToWorkout = async (
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: { name: string; lot: ExerciseLot }[],
 	navigate: (path: string) => void,
+	defaultTimer?: number | null,
 ) => {
 	const draft = createDraft(currentWorkout);
 	for (const ex of selectedExercises) {
 		const userExerciseDetails = await getExerciseDetails(ex.name);
 		draft.exercises.push({
-			identifier: crypto.randomUUID(),
+			identifier: randomUUID(),
 			exerciseId: ex.name,
 			exerciseDetails: { images: userExerciseDetails.details.images },
 			lot: ex.lot,
@@ -158,7 +162,10 @@ export const addExerciseToWorkout = async (
 					// biome-ignore lint/suspicious/noExplicitAny: required here
 					statistic: s.statistic as any,
 				})) || [],
-			restTimer: null,
+			restTimer:
+				typeof defaultTimer === "number"
+					? { duration: defaultTimer, enabled: true }
+					: null,
 			notes: [],
 			images: [],
 			videos: [],
@@ -214,7 +221,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 			sets,
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			supersetWith: exercise.supersetWith as any,
-			assets: { images: [...exercise.images], videos: [...exercise.videos] },
+			assets: {
+				images: exercise.images.map((m) => m.key),
+				videos: exercise.videos.map((m) => m.key),
+			},
 			restTime: exercise.restTimer?.enabled
 				? exercise.restTimer.duration
 				: undefined,
@@ -227,8 +237,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			input.input.exercises.findIndex((e: any) => e.identifier === identifier),
 		);
 		supersetWith = supersetWith.filter((idx) => idx !== -1);
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		ex.supersetWith = supersetWith as any;
+		ex.supersetWith = supersetWith;
 	}
 	for (const ex of input.input.exercises) {
 		// biome-ignore lint/suspicious/noExplicitAny: required here

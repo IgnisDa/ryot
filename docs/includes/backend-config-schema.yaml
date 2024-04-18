@@ -77,8 +77,13 @@ file_storage:
 
 # Settings related to frontend storage.
 frontend:
+  # Used as the base URL when generating item links for the frontend.
   # @envvar FRONTEND_URL
   url: "https://ryot.fly.dev"
+
+  # Whether the cookies set are insecure.
+  # @envvar FRONTEND_INSECURE_COOKIES
+  insecure_cookies: false
 
   # The height of the right section of an item's details page in pixels.
   # @envvar FRONTEND_ITEM_DETAILS_HEIGHT
@@ -111,7 +116,7 @@ integration:
   # @envvar INTEGRATION_HASHER_SALT
   hasher_salt: ""
 
-  # The minimum progress limit before which a media is considered to be started.
+  # The minimum progress limit after which a media is considered to be started.
   # @envvar INTEGRATION_MINIMUM_PROGRESS_LIMIT
   minimum_progress_limit: 2
 
@@ -166,6 +171,34 @@ scheduler:
 
 # Settings related to server.
 server:
+  # The mailer related settings.
+  smtp:
+    # @envvar SERVER_SMTP_SERVER
+    server: ""
+
+    # @envvar SERVER_SMTP_PORT
+    port: 587
+
+    # @envvar SERVER_SMTP_USER
+    user: ""
+
+    # @envvar SERVER_SMTP_PASSWORD
+    password: ""
+
+    # @envvar SERVER_SMTP_MAILBOX
+    mailbox: "Ryot <no-reply@mailer.io>"
+
+  # The OIDC related settings.
+  oidc:
+    # @envvar SERVER_OIDC_CLIENT_ID
+    client_id: ""
+
+    # @envvar SERVER_OIDC_CLIENT_SECRET
+    client_secret: ""
+
+    # @envvar SERVER_OIDC_ISSUER_URL
+    issuer_url: ""
+
   # The path where the config file will be written once the server boots up.
   # @envvar SERVER_CONFIG_DUMP_PATH
   config_dump_path: ""
@@ -174,41 +207,23 @@ server:
   # @envvar SERVER_CORS_ORIGINS
   cors_origins: []
 
-  # Whether default credentials will be populated on the login page of the
-  # instance.
-  # @envvar SERVER_DEFAULT_CREDENTIALS
-  default_credentials: false
-
   # The hours in which a media can be marked as seen again for a user. This
   # is used so that the same media can not be used marked as started when
   # it has been already marked as seen in the last `n` hours.
   # @envvar SERVER_PROGRESS_UPDATE_THRESHOLD
   progress_update_threshold: 2
 
-  # The number of days after which details about a person are considered outdated.
-  # @envvar SERVER_PERSON_OUTDATED_THRESHOLD
-  person_outdated_threshold: 30
-
-  # Admin jobs take a lot of resources, so they can be disabled completely from being
-  # triggered manually. They still run as background jobs.
-  # @envvar SERVER_DEPLOY_ADMIN_JOBS_ALLOWED
-  deploy_admin_jobs_allowed: true
-
   # The maximum file size in MB for user uploads.
   # @envvar SERVER_MAX_FILE_SIZE
   max_file_size: 70
 
-  # Whether videos will be displayed in the media details.
-  # @envvar SERVER_VIDEOS_DISABLED
-  videos_disabled: false
-
-  # Whether monitored media will be updated.
-  # @envvar SERVER_UPDATE_MONITORED_MEDIA
-  update_monitored_media: true
-
   # Whether the graphql playground will be enabled.
   # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
   graphql_playground_enabled: true
+
+  # Disable all background jobs.
+  # @envvar SERVER_DISABLE_BACKGROUND_JOBS
+  disable_background_jobs: false
 
 # Settings related to users.
 users:
@@ -216,23 +231,9 @@ users:
   # @envvar USERS_JWT_SECRET
   jwt_secret: ""
 
-  # Whether users will be allowed to change their preferences in their profile
-  # settings.
-  # @envvar USERS_ALLOW_CHANGING_PREFERENCES
-  allow_changing_preferences: true
-
-  # Whether users will be allowed to change their username and password in their
-  # profile settings.
-  # @envvar USERS_ALLOW_CHANGING_CREDENTIALS
-  allow_changing_credentials: true
-
   # Whether new users will be allowed to sign up to this instance.
   # @envvar USERS_ALLOW_REGISTRATION
   allow_registration: true
-
-  # Whether users will be allowed to post reviews on this instance.
-  # @envvar USERS_REVIEWS_DISABLED
-  reviews_disabled: false
 
   # The number of days till login auth token is valid.
   # @envvar USERS_TOKEN_VALID_FOR_DAYS

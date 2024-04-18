@@ -1,5 +1,0 @@
-mutation DeleteSeenItem($seenId: Int!) {
-  deleteSeenItem(seenId: $seenId) {
-    id
-  }
-}

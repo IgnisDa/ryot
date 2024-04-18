@@ -29,13 +29,19 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
+## IMPORTANT NOTE FOR `v4.*` USERS
+
+If you were using `v4.*` of Ryot, please read the [migration
+guide](https://ignisda.github.io/ryot/migration.html#from-v4-to-v5) for instructions.
+
 ## 💻 Demo
 
-You can use the demo instance hosted on [Fly.io](https://ryot.fly.dev). Login
-and register with the username `demo` and password `demo-password`. This instance
-is automatically deployed from the latest release.
+You can use the demo account on [Fly.io](https://ryot.fly.dev). Login with the username
+`demo` and password `demo-password`. This instance is automatically deployed from the
+latest release.
 
-**NOTE**: The data in this instance can be deleted randomly.
+**NOTE**: The data in this demo account is not recommended to be used for any production
+usage. Please create a new account for that.
 
 ## 📝 ELI5
 
@@ -56,6 +62,7 @@ special tool on your computer or phone that lets you keep track of all these dig
   and fitness
 - ✅ Import data from Goodreads, Trakt, Strong App [etc](https://ignisda.github.io/ryot/importing.html)
 - ✅ Integration with Jellyfin, Kodi, Plex, Audiobookshelf [etc](https://ignisda.github.io/ryot/integrations.html)
+- ✅ [Supports](https://ignisda.github.io/ryot/guides/openid.html) OpenID Connect
 - ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
 - ✅ PWA enabled

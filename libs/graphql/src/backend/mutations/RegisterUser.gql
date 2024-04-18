@@ -1,4 +1,4 @@
-mutation RegisterUser($input: UserInput!) {
+mutation RegisterUser($input: AuthUserInput!) {
   registerUser(input: $input){
     __typename
     ... on RegisterError {

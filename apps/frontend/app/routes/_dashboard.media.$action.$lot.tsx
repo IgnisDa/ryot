@@ -7,29 +7,43 @@ import {
 	Container,
 	Flex,
 	Group,
+	Menu,
 	Modal,
+	Pagination,
 	Select,
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate, useDisclosure } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { useDisclosure } from "@mantine/hooks";
 import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
+import {
+	Link,
+	useLoaderData,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
+import {
+	EntityLot,
 	GraphqlSortOrder,
+	LatestUserSummaryDocument,
 	MediaGeneralFilter,
-	MediaListDocument,
-	MediaSearchDocument,
+	MediaLot,
 	MediaSortBy,
-	MediaSourcesForLotDocument,
-	MetadataSource,
-	UserCollectionsListDocument,
+	MediaSource,
+	MetadataListDocument,
+	MetadataSearchDocument,
+	type UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconBoxMultiple,
+	IconDotsVertical,
 	IconFilter,
 	IconFilterOff,
 	IconListCheck,
@@ -37,22 +51,34 @@ import {
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
-	IconX,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery, withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
 import {
+	AddEntityToCollectionModal,
+	ApplicationGrid,
+	DebouncedSearchInput,
+} from "~/components/common";
+import {
+	type Item,
 	MediaItemWithoutUpdateModal,
-	MediaSearchItem,
+	NewUserGuideAlert,
+	commitMedia,
 } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getLot } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import events from "~/lib/events";
+import { Verb, getLot, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	getUserCollectionsList,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 
 export type SearchParams = {
 	query?: string;
@@ -66,14 +92,41 @@ const defaultFilters = {
 };
 
 enum Action {
-	Search = "search",
 	List = "list",
+	Search = "search",
 }
 
+const metadataMapping = {
+	[MediaLot.AudioBook]: [MediaSource.Audible],
+	[MediaLot.Book]: [MediaSource.Openlibrary, MediaSource.GoogleBooks],
+	[MediaLot.Podcast]: [MediaSource.Itunes, MediaSource.Listennotes],
+	[MediaLot.VideoGame]: [MediaSource.Igdb],
+	[MediaLot.Anime]: [MediaSource.Anilist, MediaSource.Mal],
+	[MediaLot.Manga]: [
+		MediaSource.Anilist,
+		MediaSource.MangaUpdates,
+		MediaSource.Mal,
+	],
+	[MediaLot.Movie]: [MediaSource.Tmdb],
+	[MediaLot.Show]: [MediaSource.Tmdb],
+	[MediaLot.VisualNovel]: [MediaSource.Vndb],
+} as const;
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
+	const [
+		coreDetails,
+		userPreferences,
+		{ latestUserSummary },
+		userCollectionsList,
+	] = await Promise.all([
+		getCoreDetails(request),
 		getUserPreferences(request),
+		gqlClient.request(
+			LatestUserSummaryDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+		getUserCollectionsList(request),
 	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
@@ -99,8 +152,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.mineGeneralFilter),
 				collectionFilter: zx.IntAsString.optional(),
 			});
-			const { mediaList } = await gqlClient.request(
-				MediaListDocument,
+			const { metadataList } = await gqlClient.request(
+				MetadataListDocument,
 				{
 					input: {
 						lot,
@@ -114,59 +167,54 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 				await getAuthorizationHeader(request),
 			);
-			const { userCollectionsList } = await gqlClient.request(
-				UserCollectionsListDocument,
-				{},
-				await getAuthorizationHeader(request),
-			);
-			return [
-				{ list: mediaList, collections: userCollectionsList, url: urlParse },
-				undefined,
-			] as const;
+			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
-			const { mediaSourcesForLot } = await gqlClient.request(
-				MediaSourcesForLotDocument,
-				{ lot },
-			);
+			const metadataSourcesForLot = metadataMapping[lot];
 			const urlParse = zx.parseQuery(request, {
-				source: z.nativeEnum(MetadataSource).default(mediaSourcesForLot[0]),
+				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { mediaSearch } = await gqlClient.request(
-				MediaSearchDocument,
+			const { metadataSearch } = await gqlClient.request(
+				MetadataSearchDocument,
 				{
-					lot,
-					input: { page, query: query || "" },
-					source: urlParse.source,
+					input: {
+						lot,
+						search: { page, query },
+						source: urlParse.source,
+					},
 				},
 				await getAuthorizationHeader(request),
 			);
 			return [
 				undefined,
 				{
-					search: mediaSearch,
+					search: metadataSearch,
 					url: urlParse,
-					mediaSources: mediaSourcesForLot,
+					mediaSources: metadataSourcesForLot,
 				},
 			] as const;
 		})
 		.exhaustive();
+	const url = new URL(request.url);
 	return json({
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		lot,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
+		query,
 		action,
+		numPage,
 		mediaList,
 		mediaSearch,
-		query,
-		numPage,
+		url: withoutHost(url.href),
+		collections: userCollectionsList,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
+		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
+		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 	});
 };
 
 export const meta: MetaFunction = ({ params }) => {
 	return [
 		{
-			title: `${params.action === "list" ? "List" : "Search"} ${changeCase(
+			title: `${changeCase(params.action || "")} ${changeCase(
 				params.lot?.toLowerCase() || "",
 			)}s | Ryot`,
 		},
@@ -181,9 +229,6 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
-	const [query, setQuery] = useState(loaderData.query || "");
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -193,32 +238,12 @@ export default function Page() {
 		loaderData.mediaList?.url.collectionFilter !==
 			defaultFilters.mineCollectionFilter;
 
-	const ClearButton = () => (
-		<ActionIcon onClick={() => setQuery("")} disabled={query === ""}>
-			<IconX size={16} />
-		</ActionIcon>
-	);
-
-	const SearchInput = (props: { placeholder: string }) => {
-		return (
-			<TextInput
-				name="query"
-				placeholder={props.placeholder}
-				leftSection={<IconSearch />}
-				onChange={(e) => setQuery(e.currentTarget.value)}
-				value={query}
-				rightSection={<ClearButton />}
-				style={{ flexGrow: 1 }}
-				autoCapitalize="none"
-				autoComplete="off"
-			/>
-		);
-	};
-
 	return (
 		<Container>
+			{loaderData.mediaInteractedWith === 0 ? <NewUserGuideAlert /> : null}
 			<Tabs
 				variant="default"
+				mt="sm"
 				value={loaderData.action}
 				onChange={(v) => {
 					if (v)
@@ -255,11 +280,12 @@ export default function Page() {
 				{loaderData.mediaList ? (
 					<>
 						<Group wrap="nowrap">
-							{SearchInput({
-								placeholder: `Sift through your ${changeCase(
+							<DebouncedSearchInput
+								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
-								).toLowerCase()}s`,
-							})}
+								).toLowerCase()}s`}
+								initialValue={loaderData.query}
+							/>
 							<ActionIcon
 								onClick={openFiltersModal}
 								color={isFilterChanged ? "blue" : "gray"}
@@ -334,14 +360,14 @@ export default function Page() {
 											)}
 										</ActionIcon>
 									</Flex>
-									{loaderData.mediaList.collections.length > 0 ? (
+									{loaderData.collections.length > 0 ? (
 										<Select
 											placeholder="Select a collection"
 											defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
 											data={[
 												{
 													group: "My collections",
-													items: loaderData.mediaList.collections.map((c) => ({
+													items: loaderData.collections.map((c) => ({
 														value: c.id.toString(),
 														label: c.name,
 													})),
@@ -385,9 +411,9 @@ export default function Page() {
 						)}
 						{loaderData.mediaList.list ? (
 							<Center>
-								<ApplicationPagination
+								<Pagination
 									size="sm"
-									defaultValue={loaderData.numPage}
+									value={loaderData.numPage}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaList.list.details.total /
@@ -401,14 +427,14 @@ export default function Page() {
 				{loaderData.mediaSearch ? (
 					<>
 						<Flex gap="xs">
-							{SearchInput({
-								placeholder: `Search for ${changeCase(
+							<DebouncedSearchInput
+								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
-								).toLowerCase()}s`,
-							})}
+								).toLowerCase()}s`}
+								initialValue={loaderData.query}
+							/>
 							{loaderData.mediaSearch.mediaSources.length > 1 ? (
 								<Select
-									w="37%"
 									value={loaderData.mediaSearch.url.source}
 									data={loaderData.mediaSearch.mediaSources.map((o) => ({
 										value: o.toString(),
@@ -440,11 +466,10 @@ export default function Page() {
 											}}
 											maybeItemId={b.databaseId ?? undefined}
 											hasInteracted={b.hasInteracted}
-											query={query || ""}
 											lot={loaderData.lot}
 											source={
 												loaderData.mediaSearch?.url.source ||
-												MetadataSource.Anilist
+												MediaSource.Anilist
 											}
 											reviewScale={loaderData.userPreferences.reviewScale}
 										/>
@@ -456,9 +481,9 @@ export default function Page() {
 						)}
 						{loaderData.mediaSearch.search ? (
 							<Center>
-								<ApplicationPagination
+								<Pagination
 									size="sm"
-									defaultValue={loaderData.numPage}
+									value={loaderData.numPage}
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaSearch.search.details.total /
@@ -473,3 +498,149 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const MediaSearchItem = (props: {
+	item: Item;
+	idx: number;
+	lot: MediaLot;
+	source: MediaSource;
+	action: "search" | "list";
+	hasInteracted: boolean;
+	reviewScale: UserReviewScale;
+	maybeItemId?: number;
+}) => {
+	const navigate = useNavigate();
+	const loaderData = useLoaderData<typeof loader>();
+	const [isLoading, setIsLoading] = useState(false);
+	const revalidator = useRevalidator();
+	const basicCommit = async (e: React.MouseEvent) => {
+		if (props.maybeItemId) return props.maybeItemId;
+		e.preventDefault();
+		setIsLoading(true);
+		const response = await commitMedia(
+			props.item.identifier,
+			props.lot,
+			props.source,
+		);
+		setIsLoading(false);
+		return response;
+	};
+	const [
+		isAddMediaToCollectionModalOpened,
+		{
+			open: openIsAddMediaToCollectionModalOpened,
+			close: closeIsAddMediaToCollectionModalOpened,
+		},
+	] = useDisclosure(false);
+	const [appItemId, setAppItemId] = useState(props.maybeItemId);
+
+	const isShowOrPodcast =
+		props.lot === MediaLot.Show || props.lot === MediaLot.Podcast;
+
+	return (
+		<MediaItemWithoutUpdateModal
+			item={props.item}
+			lot={props.lot}
+			reviewScale={props.reviewScale}
+			hasInteracted={props.hasInteracted}
+			imageOverlayForLoadingIndicator={isLoading}
+			noRatingLink
+			noHref
+			onClick={async (e) => {
+				setIsLoading(true);
+				const id = await basicCommit(e);
+				setIsLoading(false);
+				return navigate($path("/media/item/:id", { id }));
+			}}
+			nameRight={
+				<>
+					<Menu shadow="md">
+						<Menu.Target>
+							<ActionIcon size="xs">
+								<IconDotsVertical />
+							</ActionIcon>
+						</Menu.Target>
+						<Menu.Dropdown>
+							<Menu.Item
+								leftSection={<IconBoxMultiple size={14} />}
+								onClick={async (e) => {
+									if (!appItemId) {
+										const id = await basicCommit(e);
+										setAppItemId(id);
+									}
+									openIsAddMediaToCollectionModalOpened();
+								}}
+							>
+								Add to collections
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
+					{appItemId ? (
+						<AddEntityToCollectionModal
+							opened={isAddMediaToCollectionModalOpened}
+							onClose={closeIsAddMediaToCollectionModalOpened}
+							entityId={appItemId.toString()}
+							entityLot={EntityLot.Media}
+							collections={loaderData.collections.map((c) => c.name)}
+						/>
+					) : null}
+				</>
+			}
+		>
+			<>
+				<Button
+					variant="outline"
+					w="100%"
+					size="compact-md"
+					onClick={async (e) => {
+						const id = await basicCommit(e);
+						return navigate(
+							$path(
+								"/media/item/:id",
+								{ id },
+								!isShowOrPodcast
+									? {
+											defaultTab: "actions",
+											openProgressModal: true,
+											[redirectToQueryParam]: loaderData.url,
+									  }
+									: { defaultTab: "seasons" },
+							),
+						);
+					}}
+				>
+					{!isShowOrPodcast
+						? `Mark as ${getVerb(Verb.Read, props.lot)}`
+						: "Show details"}
+				</Button>
+				<Button
+					mt="xs"
+					variant="outline"
+					w="100%"
+					size="compact-md"
+					onClick={async (e) => {
+						setIsLoading(true);
+						const id = await basicCommit(e);
+						const form = new FormData();
+						form.append("entityId", id);
+						form.append("entityLot", EntityLot.Media);
+						form.append("collectionName", "Watchlist");
+						await fetch(
+							withQuery($path("/actions"), { intent: "addEntityToCollection" }),
+							{
+								body: form,
+								method: "POST",
+								credentials: "include",
+							},
+						);
+						events.addToCollection(EntityLot.Media);
+						setIsLoading(false);
+						revalidator.revalidate();
+					}}
+				>
+					Add to Watchlist
+				</Button>
+			</>
+		</MediaItemWithoutUpdateModal>
+	);
+};

@@ -11,20 +11,27 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	UserCalendarEventsDocument,
-	UserCalendarEventsQuery,
+	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
-import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	gqlClient,
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	date: z
@@ -38,7 +45,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { userCalendarEvents }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(
 			UserCalendarEventsDocument,
 			{ input: { month: query.date.month() + 1, year: query.date.year() } },
@@ -145,15 +152,15 @@ const CalendarEvent = (props: {
 						>
 							{evt.metadataTitle}
 						</Anchor>{" "}
-						{typeof evt.showSeasonNumber === "number" ? (
+						{typeof evt.showExtraInformation?.season === "number" ? (
 							<Text span c="dimmed" size="sm">
-								(S{evt.showSeasonNumber}-E
-								{evt.showEpisodeNumber})
+								(S{evt.showExtraInformation.season}-E
+								{evt.showExtraInformation.episode})
 							</Text>
 						) : null}
-						{typeof evt.podcastEpisodeNumber === "number" ? (
+						{typeof evt.podcastExtraInformation?.episode === "number" ? (
 							<Text span c="dimmed" size="sm">
-								(EP-{evt.podcastEpisodeNumber})
+								(EP-{evt.podcastExtraInformation.episode})
 							</Text>
 						) : null}
 					</Text>

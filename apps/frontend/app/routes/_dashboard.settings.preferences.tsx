@@ -16,6 +16,7 @@ import {
 	Stack,
 	Switch,
 	Tabs,
+	TagsInput,
 	Text,
 	Title,
 	rem,
@@ -23,19 +24,20 @@ import {
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
-	DashboardElementLot,
+	type DashboardElementLot,
+	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import { camelCase, changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconCheckbox } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
@@ -45,12 +47,19 @@ import {
 } from "@tabler/icons-react";
 import clsx from "clsx";
 import { Fragment, useState } from "react";
-import { flushSync } from "react-dom";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import {
+	authCookie,
+	combineHeaders,
+	createToastHeaders,
+	getAuthorizationHeader,
+	getCookiesForApplication,
+	getUserDetails,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
 const searchSchema = z.object({
@@ -59,15 +68,13 @@ const searchSchema = z.object({
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchSchema);
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
+	const [userPreferences, userDetails] = await Promise.all([
 		getUserPreferences(request),
+		getUserDetails(request),
 	]);
 	return json({
 		query,
-		coreDetails: {
-			preferencesChangeAllowed: coreDetails.preferencesChangeAllowed,
-		},
+		userDetails: { isDemo: userDetails.isDemo },
 		userPreferences,
 	});
 };
@@ -79,7 +86,8 @@ export const meta: MetaFunction = () => {
 const notificationContent = {
 	title: "Invalid action",
 	color: "red",
-	message: "Changing preferences is disabled on this instance.",
+	message:
+		"Changing preferences is disabled for demo users. Please create an account to save your preferences.",
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -102,12 +110,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		);
 	}
-	return json({ status: "success", submission } as const);
+	const token = await authCookie.parse(request.headers.get("cookie"));
+	const applicationHeaders = await getCookiesForApplication(token);
+	const toastHeaders = await createToastHeaders({
+		message: "Preferences updated",
+		type: "success",
+	});
+	return json(
+		{},
+		{ headers: combineHeaders(applicationHeaders, toastHeaders) },
+	);
 };
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [dashboardElements, dashboardElementsHandlers] = useListState(
+	const [dashboardElements, setDashboardElements] = useState(
 		loaderData.userPreferences.general.dashboard,
 	);
 	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
@@ -127,17 +144,14 @@ export default function Page() {
 		<Container size="xs">
 			{toUpdatePreferences.length > 0 ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<Form
-						method="post"
-						reloadDocument
-						action={`?defaultTab=${defaultTab}`}
-					>
+					<Form method="post" action={`?defaultTab=${defaultTab}`} replace>
 						{toUpdatePreferences.map((pref) => (
 							<input
 								key={pref[0]}
 								hidden
 								name={pref[0]}
-								defaultValue={pref[1]}
+								value={pref[1]}
+								readOnly
 							/>
 						))}
 						<Button
@@ -159,7 +173,7 @@ export default function Page() {
 							color="red"
 							variant="outline"
 							onClick={async (e) => {
-								if (loaderData.coreDetails.preferencesChangeAllowed) {
+								if (!loaderData.userDetails.isDemo) {
 									if (
 										!confirm(
 											"This will reset all your preferences to default. Are you sure you want to continue?",
@@ -182,7 +196,7 @@ export default function Page() {
 						</ActionIcon>
 					</Form>
 				</Group>
-				{!loaderData.coreDetails.preferencesChangeAllowed ? (
+				{loaderData.userDetails.isDemo ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						{notificationContent.message}
 					</Alert>
@@ -193,28 +207,24 @@ export default function Page() {
 						if (value) setDefaultTab(value);
 					}}
 				>
-					<Tabs.List>
+					<Tabs.List mb="md">
 						<Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
+						<Tabs.Tab value="features">Features</Tabs.Tab>
 						<Tabs.Tab value="general">General</Tabs.Tab>
 						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
 						<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 					</Tabs.List>
-					<Tabs.Panel value="dashboard" mt="md">
+					<Tabs.Panel value="dashboard">
 						<Text mb="md">The different sections on the dashboard.</Text>
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
-								if (loaderData.coreDetails.preferencesChangeAllowed) {
-									flushSync(() => {
-										dashboardElementsHandlers.reorder({
-											from: source.index,
-											to: destination?.index || 0,
-										});
+								if (!loaderData.userDetails.isDemo) {
+									const newOrder = reorder(dashboardElements, {
+										from: source.index,
+										to: destination?.index || 0,
 									});
-									// FIXME: https://github.com/mantinedev/mantine/issues/5362
-									appendPref(
-										"general.dashboard",
-										JSON.stringify(dashboardElements),
-									);
+									setDashboardElements(newOrder);
+									appendPref("general.dashboard", JSON.stringify(newOrder));
 								} else notifications.show(notificationContent);
 							}}
 						>
@@ -235,28 +245,22 @@ export default function Page() {
 							</Droppable>
 						</DragDropContext>
 					</Tabs.Panel>
-					<Tabs.Panel value="general" mt="md">
+					<Tabs.Panel value="features">
 						<Stack>
 							<Text>Features that you want to use.</Text>
-							{["media", "fitness"].map((facet) => (
+							{(["media", "fitness", "others"] as const).map((facet) => (
 								<Fragment key={facet}>
 									<Title order={4}>{startCase(facet)}</Title>
 									<SimpleGrid cols={2}>
 										{Object.entries(
-											// biome-ignore lint/suspicious/noExplicitAny: required here
-											(loaderData.userPreferences.featuresEnabled as any)[
-												facet
-											],
+											loaderData.userPreferences.featuresEnabled[facet],
 										).map(([name, isEnabled]) => (
 											<Switch
 												key={name}
 												size="xs"
 												label={changeCase(snakeCase(name))}
-												// biome-ignore lint/suspicious/noExplicitAny: required here
-												defaultChecked={isEnabled as any}
-												disabled={
-													!loaderData.coreDetails.preferencesChangeAllowed
-												}
+												defaultChecked={isEnabled}
+												disabled={!!loaderData.userDetails.isDemo}
 												onChange={(ev) => {
 													const lot = snakeCase(name);
 													appendPref(
@@ -269,11 +273,63 @@ export default function Page() {
 									</SimpleGrid>
 								</Fragment>
 							))}
-							<Divider />
-							<Title order={3} mb={-10}>
-								General
-							</Title>
+						</Stack>
+					</Tabs.Panel>
+					<Tabs.Panel value="general">
+						<Stack gap="xl">
+							<TagsInput
+								label="Watch providers"
+								placeholder="Enter more providers"
+								defaultValue={loaderData.userPreferences.general.watchProviders}
+								disabled={!!loaderData.userDetails.isDemo}
+								onChange={(val) => {
+									appendPref("general.watch_providers", JSON.stringify(val));
+								}}
+							/>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
+								{(
+									[
+										"displayNsfw",
+										"disableYankIntegrations",
+										"disableNavigationAnimation",
+										"disableVideos",
+										"disableReviews",
+										"disableWatchProviders",
+									] as const
+								).map((name) => (
+									<Switch
+										key={name}
+										size="xs"
+										label={match(name)
+											.with(
+												"displayNsfw",
+												() => "Whether NSFW will be displayed",
+											)
+											.with(
+												"disableYankIntegrations",
+												() => "Disable yank integrations",
+											)
+											.with(
+												"disableNavigationAnimation",
+												() => "Disable navigation animation",
+											)
+											.with("disableVideos", () => "Do not display videos")
+											.with("disableReviews", () => "Do not display reviews")
+											.with(
+												"disableWatchProviders",
+												() => 'Do not display the "Watch On" tab',
+											)
+											.exhaustive()}
+										defaultChecked={loaderData.userPreferences.general[name]}
+										disabled={!!loaderData.userDetails.isDemo}
+										onChange={(ev) => {
+											appendPref(
+												`general.${snakeCase(name)}`,
+												String(ev.currentTarget.checked),
+											);
+										}}
+									/>
+								))}
 								<Select
 									size="xs"
 									label="Scale used for rating in reviews"
@@ -282,106 +338,112 @@ export default function Page() {
 										value: c,
 									}))}
 									defaultValue={loaderData.userPreferences.general.reviewScale}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(val) => {
 										if (val) appendPref("general.review_scale", val);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Whether NSFW will be displayed"
-									defaultChecked={
-										loaderData.userPreferences.general.displayNsfw
-									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
-									onChange={(ev) => {
-										appendPref(
-											"general.display_nsfw",
-											String(ev.currentTarget.checked),
-										);
-									}}
-								/>
-								<Switch
-									size="xs"
-									mt="md"
-									label="Disable yank integrations"
-									defaultChecked={
-										loaderData.userPreferences.general.disableYankIntegrations
-									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
-									onChange={(ev) => {
-										appendPref(
-											"general.disable_yank_integrations",
-											String(ev.currentTarget.checked),
-										);
 									}}
 								/>
 							</SimpleGrid>
 						</Stack>
 					</Tabs.Panel>
-					<Tabs.Panel value="notifications" mt="md">
+					<Tabs.Panel value="notifications">
 						<Stack>
+							<Switch
+								size="xs"
+								label="Whether notifications will be sent"
+								defaultChecked={
+									loaderData.userPreferences.notifications.enabled
+								}
+								disabled={!!loaderData.userDetails.isDemo}
+								onChange={(ev) => {
+									appendPref(
+										"notifications.enabled",
+										String(ev.currentTarget.checked),
+									);
+								}}
+							/>
+							<Divider />
 							<Text>
 								The notifications you want to receive in your configured
 								providers.
 							</Text>
 							<SimpleGrid cols={2}>
-								{Object.entries(loaderData.userPreferences.notifications).map(
-									([name, isEnabled]) => (
-										<Switch
-											key={name}
-											size="xs"
-											label={match(name)
-												.with(
-													"episodeNameChanged",
-													() => "Name of an episode changes",
-												)
-												.with(
-													"episodeImagesChanged",
-													() => "Images for an episode changes",
-												)
-												.with(
-													"episodeReleased",
-													() => "Number of episodes changes",
-												)
-												.with("mediaPublished", () => "A media is published")
-												.with("statusChanged", () => "Status changes")
-												.with(
-													"releaseDateChanged",
-													() => "Release date changes",
-												)
-												.with(
-													"numberOfSeasonsChanged",
-													() => "Number of seasons changes",
-												)
-												.with(
-													"numberOfChaptersOrEpisodesChanged",
-													() =>
-														"Number of chapters/episodes changes for manga/anime",
-												)
-												.with(
-													"newReviewPosted",
-													() => "A new public review is posted",
-												)
-												.otherwise(() => undefined)}
-											defaultChecked={isEnabled}
-											disabled={
-												!loaderData.coreDetails.preferencesChangeAllowed
-											}
-											onChange={(ev) => {
-												appendPref(
-													`notifications.${snakeCase(name)}`,
-													String(ev.currentTarget.checked),
-												);
-											}}
-										/>
-									),
-								)}
+								{Object.values(MediaStateChanged).map((name) => (
+									<Switch
+										key={name}
+										size="xs"
+										label={match(name)
+											.with(
+												MediaStateChanged.MetadataEpisodeNameChanged,
+												() => "Name of an episode changes",
+											)
+											.with(
+												MediaStateChanged.MetadataEpisodeImagesChanged,
+												() => "Images for an episode changes",
+											)
+											.with(
+												MediaStateChanged.MetadataEpisodeReleased,
+												() => "Number of episodes changes",
+											)
+											.with(
+												MediaStateChanged.MetadataPublished,
+
+												() => "A media is published",
+											)
+											.with(
+												MediaStateChanged.MetadataStatusChanged,
+												() => "Status changes",
+											)
+											.with(
+												MediaStateChanged.MetadataReleaseDateChanged,
+												() => "Release date changes",
+											)
+											.with(
+												MediaStateChanged.MetadataNumberOfSeasonsChanged,
+												() => "Number of seasons changes",
+											)
+											.with(
+												MediaStateChanged.MetadataChaptersOrEpisodesChanged,
+												() =>
+													"Number of chapters/episodes changes for manga/anime",
+											)
+											.with(
+												MediaStateChanged.ReviewPosted,
+												() =>
+													"A new public review is posted for media/people you monitor",
+											)
+											.with(
+												MediaStateChanged.PersonMediaAssociated,
+												() => "New media is associated with a person",
+											)
+											.exhaustive()}
+										defaultChecked={loaderData.userPreferences.notifications.toSend.includes(
+											name,
+										)}
+										disabled={
+											!!loaderData.userDetails.isDemo ||
+											!loaderData.userPreferences.notifications.enabled
+										}
+										onChange={() => {
+											const alreadyToSend = new Set(
+												loaderData.userPreferences.notifications.toSend,
+											);
+											const alreadyHas = alreadyToSend.has(name);
+											if (!alreadyHas) alreadyToSend.add(name);
+											else alreadyToSend.delete(name);
+											const val = Array.from(alreadyToSend).map((v) => {
+												const n = camelCase(v.toLowerCase());
+												return n[0].toUpperCase() + n.slice(1);
+											});
+											appendPref("notifications.to_send", JSON.stringify(val));
+										}}
+										styles={{ track: { flex: "none" } }}
+									/>
+								))}
 							</SimpleGrid>
 						</Stack>
 					</Tabs.Panel>
-					<Tabs.Panel value="fitness" mt="md">
+					<Tabs.Panel value="fitness">
 						<Stack>
 							<SimpleGrid
 								cols={{ base: 1, md: 2 }}
@@ -394,7 +456,7 @@ export default function Page() {
 										loaderData.userPreferences.fitness.exercises.defaultTimer ||
 										undefined
 									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(num) => {
 										appendPref("fitness.exercises.default_timer", String(num));
 									}}
@@ -405,7 +467,7 @@ export default function Page() {
 									defaultValue={
 										loaderData.userPreferences.fitness.exercises.saveHistory
 									}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(num) => {
 										if (num)
 											appendPref("fitness.exercises.save_history", String(num));
@@ -417,14 +479,12 @@ export default function Page() {
 											if (Notification.permission !== "granted") {
 												await Notification.requestPermission();
 												window.location.reload();
-											}
+											} else
+												notifications.show({
+													color: "yellow",
+													message: "You have already granted permissions",
+												});
 										}}
-										color={
-											typeof window !== "undefined" &&
-											Notification.permission === "granted"
-												? "green"
-												: "red"
-										}
 									>
 										<IconBellRinging />
 									</ActionIcon>
@@ -440,7 +500,7 @@ export default function Page() {
 										label: startCase(c.toLowerCase()),
 									}))}
 									defaultValue={loaderData.userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+									disabled={!!loaderData.userDetails.isDemo}
 									onChange={(val) => {
 										if (val) appendPref("fitness.exercises.unit_system", val);
 									}}
@@ -456,7 +516,7 @@ export default function Page() {
 										key={name}
 										label={changeCase(snakeCase(name))}
 										defaultChecked={isEnabled}
-										disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+										disabled={!!loaderData.userDetails.isDemo}
 										onChange={(ev) => {
 											appendPref(
 												`fitness.measurements.inbuilt.${snakeCase(name)}`,
@@ -474,7 +534,7 @@ export default function Page() {
 									null,
 									4,
 								)}
-								disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+								disabled={!!loaderData.userDetails.isDemo}
 								autosize
 								formatOnBlur
 								onChange={(v) => {
@@ -534,7 +594,7 @@ const EditDashboardElement = (props: {
 							label="Hidden"
 							labelPosition="left"
 							defaultChecked={focusedElement.hidden}
-							disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+							disabled={!!loaderData.userDetails.isDemo}
 							onChange={(ev) => {
 								const newValue = ev.currentTarget.checked;
 								const newDashboardData = Array.from(
@@ -554,7 +614,7 @@ const EditDashboardElement = (props: {
 								label="Number of elements"
 								size="xs"
 								defaultValue={focusedElement.numElements}
-								disabled={!loaderData.coreDetails.preferencesChangeAllowed}
+								disabled={!!loaderData.userDetails.isDemo}
 								onChange={(num) => {
 									if (typeof num === "number") {
 										const newDashboardData = Array.from(
@@ -575,3 +635,11 @@ const EditDashboardElement = (props: {
 		</Draggable>
 	);
 };
+
+function reorder<T>(array: T[], { from, to }: { from: number; to: number }) {
+	const cloned = [...array];
+	const item = array[from];
+	cloned.splice(from, 1);
+	cloned.splice(to, 0, item);
+	return cloned;
+}

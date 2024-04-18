@@ -1,28 +1,13 @@
-use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
-use serde::{Deserialize, Serialize};
+
+use crate::SeenState;
 
 use super::{m20230410_create_metadata::Metadata, m20230417_create_user::User};
 
+pub static TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL: &str = "GENERATED ALWAYS AS (CASE WHEN array_length(updated_at, 1) < 2 THEN NULL ELSE EXTRACT(EPOCH FROM (updated_at[array_length(updated_at, 1)] - updated_at[1])) END) STORED";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
-
-// The different possible states of a seen item.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-pub enum SeenState {
-    #[sea_orm(string_value = "CO")]
-    Completed,
-    #[sea_orm(string_value = "DR")]
-    Dropped,
-    #[sea_orm(string_value = "IP")]
-    InProgress,
-    #[sea_orm(string_value = "OH")]
-    OnAHold,
-}
 
 #[derive(Iden)]
 pub enum Seen {
@@ -36,9 +21,13 @@ pub enum Seen {
     MetadataId,
     LastUpdatedOn,
     UpdatedAt,
-    // for the time being this stores the `season` and `episode` numbers
-    ExtraInformation,
     NumTimesUpdated,
+    ShowExtraInformation,
+    PodcastExtraInformation,
+    AnimeExtraInformation,
+    MangaExtraInformation,
+    ProviderWatchedOn,
+    TotalTimeSpent,
 }
 
 #[async_trait::async_trait]
@@ -57,7 +46,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Seen::Progress)
-                            .integer()
+                            .decimal()
                             .not_null()
                             .default(0),
                     )
@@ -67,7 +56,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::MetadataId).integer().not_null())
                     .col(
                         ColumnDef::new(Seen::State)
-                            .string_len(2)
+                            .text()
                             .not_null()
                             .default(SeenState::InProgress),
                     )
@@ -89,7 +78,10 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra("GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED")
                     )
-                    .col(ColumnDef::new(Seen::ExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::ShowExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::PodcastExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::AnimeExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::MangaExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")
@@ -105,6 +97,12 @@ impl MigrationTrait for Migration {
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
+                    .col(
+                        ColumnDef::new(Seen::TotalTimeSpent)
+                            .integer()
+                            .extra(TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL)
                     )
                     .to_owned(),
             )

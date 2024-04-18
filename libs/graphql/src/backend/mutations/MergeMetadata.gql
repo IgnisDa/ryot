@@ -1,3 +1,0 @@
-mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {
-  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
-}

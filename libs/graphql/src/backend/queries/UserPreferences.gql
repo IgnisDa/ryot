@@ -3,12 +3,17 @@ query UserPreferences {
     general {
       reviewScale
       displayNsfw
-      disableYankIntegrations
       dashboard {
         section
         hidden
         numElements
       }
+      disableYankIntegrations
+      disableNavigationAnimation
+      disableVideos
+      watchProviders
+      disableReviews
+      disableWatchProviders
     }
     fitness {
       measurements {
@@ -49,17 +54,14 @@ query UserPreferences {
       }
     }
     notifications {
-      mediaPublished
-      episodeReleased
-      episodeNameChanged
-      episodeImagesChanged
-      statusChanged
-      releaseDateChanged
-      numberOfSeasonsChanged
-      numberOfChaptersOrEpisodesChanged
-      newReviewPosted
+      toSend
+      enabled
     }
     featuresEnabled {
+      others {
+        calendar
+        collections
+      }
       fitness {
         enabled
         workouts
@@ -76,6 +78,9 @@ query UserPreferences {
         show
         videoGame
         visualNovel
+        people
+        groups
+        genres
       }
     }
   }

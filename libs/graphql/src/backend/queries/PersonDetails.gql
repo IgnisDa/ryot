@@ -5,6 +5,7 @@ query PersonDetails($personId: Int!) {
       id
       name
       source
+      isPartial
       description
       birthDate
       deathDate

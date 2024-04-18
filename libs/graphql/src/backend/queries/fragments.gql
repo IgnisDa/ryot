@@ -1,3 +1,20 @@
+fragment SeenPodcastExtraInformationPart on SeenPodcastExtraInformation {
+  episode
+}
+
+fragment SeenShowExtraInformationPart on SeenShowExtraInformation {
+  episode
+  season
+}
+
+fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
+  episode
+}
+
+fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
+  chapter
+}
+
 fragment CalendarEventPart on GraphqlCalendarEvent {
   calendarEventId
   metadataId
@@ -5,29 +22,39 @@ fragment CalendarEventPart on GraphqlCalendarEvent {
   metadataLot
   metadataImage
   date
-  showSeasonNumber
-  showEpisodeNumber
-  podcastEpisodeNumber
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
+  }
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
+  }
 }
 
 fragment SeenPart on Seen {
   id
   progress
+  providerWatchedOn
   state
   startedOn
   finishedOn
   lastUpdatedOn
+  totalTimeSpent
   numTimesUpdated
-  showInformation {
-    episode
-    season
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
   }
-  podcastInformation {
-    episode
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
+  }
+  animeExtraInformation {
+    ...SeenAnimeExtraInformationPart
+  }
+  mangaExtraInformation {
+    ...SeenMangaExtraInformationPart
   }
 }
 
-fragment MediaSearchItemPart on MediaSearchItem {
+fragment MetadataSearchItemPart on MetadataSearchItem {
   identifier
   title
   image
@@ -93,12 +120,10 @@ fragment CollectionPart on Collection {
 fragment ReviewItemPart on ReviewItem {
   id
   rating
-  text
+  textOriginal
+  textRendered
   spoiler
   visibility
-  showSeason
-  showEpisode
-  podcastEpisode
   postedOn
   postedBy {
     id
@@ -114,4 +139,26 @@ fragment ReviewItemPart on ReviewItem {
     }
     likedBy
   }
+  showExtraInformation {
+    ...SeenShowExtraInformationPart
+  }
+  podcastExtraInformation {
+    ...SeenPodcastExtraInformationPart
+  }
+  animeExtraInformation {
+    ...SeenAnimeExtraInformationPart
+  }
+  mangaExtraInformation {
+    ...SeenMangaExtraInformationPart
+  }
+}
+
+fragment UserMediaReminderPart on UserMediaReminder {
+  remindOn
+  message
+}
+
+fragment UserMediaOwnershipPart on UserMediaOwnership {
+  markedOn
+  ownedOn
 }

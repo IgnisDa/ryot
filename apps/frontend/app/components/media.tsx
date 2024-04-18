@@ -1,71 +1,99 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
+	Alert,
 	Anchor,
 	Avatar,
 	Badge,
 	Box,
 	Button,
+	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
 	Group,
 	Image,
+	Input,
 	Loader,
+	Menu,
 	Modal,
+	NumberInput,
 	Paper,
+	Rating,
 	ScrollArea,
-	Select,
+	SegmentedControl,
+	SimpleGrid,
 	Stack,
+	type StyleProp,
 	Text,
 	TextInput,
+	Textarea,
 	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
+import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	Form,
 	Link,
 	useFetcher,
 	useNavigate,
-	useRevalidator,
+	useSubmit,
 } from "@remix-run/react";
 import {
 	EntityLot,
-	MetadataLot,
-	MetadataSource,
+	MediaLot,
+	type MediaSource,
 	type PartialMetadata,
 	type ReviewItem,
+	type UserMediaReminderPartFragment,
 	UserReviewScale,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/ts-utils";
+import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
+	IconAlertCircle,
 	IconArrowBigUp,
+	IconArrowsRight,
+	IconBackpack,
 	IconCheck,
+	IconCloudDownload,
 	IconEdit,
+	IconPercentage,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { ReactNode, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { Verb, dayjsLib, getFallbackImageUrl, getVerb } from "~/lib/generals";
+import { withQuery, withoutHost } from "ufo";
+import events from "~/lib/events";
+import {
+	dayjsLib,
+	getFallbackImageUrl,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import { ApplicationUser } from "~/lib/utilities.server";
-import classes from "~/styles/media-components.module.css";
+import type { ApplicationUser } from "~/lib/utilities.server";
+import classes from "~/styles/common.module.css";
+import { HiddenLocationInput } from "./common";
 import { confirmWrapper } from "./confirmation";
 
-const commitMedia = async (
+export const commitMedia = async (
 	identifier: string,
-	lot: MetadataLot,
-	source: MetadataSource,
+	lot: MediaLot,
+	source: MediaSource,
 ) => {
 	const data = new FormData();
+	const location = withoutHost(window.location.href);
 	data.append("identifier", identifier);
 	data.append("lot", lot);
 	data.append("source", source);
-	const resp = await fetch("/actions?intent=commitMedia", {
+	data.append(redirectToQueryParam, location);
+	const resp = await fetch(withQuery("/actions", { intent: "commitMedia" }), {
 		method: "POST",
 		body: data,
 	});
@@ -125,28 +153,44 @@ export const MediaScrollArea = (props: {
 
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
+	entityType: EntityType;
 	user: ApplicationUser;
 	reviewScale: UserReviewScale;
 	title: string;
-	isShow?: boolean;
-	isPodcast?: boolean;
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
 	collectionId?: number;
+	lot?: MediaLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
-	const createReviewCommentFormRef = useRef<HTMLFormElement>(null);
-	const createReviewCommentFetcher = useFetcher();
-	const deleteReviewCommentFormRef = useRef<HTMLFormElement>(null);
-	const deleteReviewCommentFetcher = useFetcher();
-	const changeScoreFormRef = useRef<HTMLFormElement>(null);
-	const changeScoreFetcher = useFetcher();
+	const [postReviewModalData, setPostReviewModalData] = useState<
+		PostReview | undefined
+	>(undefined);
+	const deleteReviewFetcher = useFetcher();
+
+	const submit = useSubmit();
 
 	return (
 		<>
+			<PostReviewModal
+				onClose={() => setPostReviewModalData(undefined)}
+				opened={postReviewModalData !== undefined}
+				data={postReviewModalData}
+				entityType={props.entityType}
+				objectId={
+					props.metadataId ||
+					props.metadataGroupId ||
+					props.collectionId ||
+					props.personId ||
+					-1
+				}
+				reviewScale={props.reviewScale}
+				title={props.title}
+				lot={props.lot}
+			/>
 			<Box key={props.review.id} data-review-id={props.review.id}>
 				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
@@ -157,52 +201,77 @@ export const ReviewItemDisplay = (props: {
 						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 					</Box>
 					{props.user && props.user.id === props.review.postedBy?.id ? (
-						<Anchor
-							component={Link}
-							to={$path(
-								"/media/:id/post-review",
-								{
-									id: String(
-										props.metadataId ||
-											props.metadataGroupId ||
-											props.collectionId ||
-											props.personId ||
-											props.review.id,
-									),
-								},
-								{
-									entityType: props.metadataId
-										? "metadata"
-										: props.metadataGroupId
-										  ? "metadataGroup"
-										  : props.collectionId
-											  ? "collection"
-											  : "person",
-									existingReviewId: props.review.id,
-									title: props.title,
-									podcastEpisodeNumber: props.review.podcastEpisode,
-									showEpisodeNumber: props.review.showEpisode,
-									showSeasonNumber: props.review.showSeason,
-									isPodcast: props.isPodcast,
-									isShow: props.isShow,
-								},
-							)}
-						>
-							<ActionIcon>
+						<>
+							<ActionIcon
+								onClick={() => {
+									setPostReviewModalData({
+										existingReview: props.review,
+										showSeasonNumber: props.review.showExtraInformation?.season,
+										showEpisodeNumber:
+											props.review.showExtraInformation?.episode,
+										podcastEpisodeNumber:
+											props.review.podcastExtraInformation?.episode,
+										animeEpisodeNumber:
+											props.review.animeExtraInformation?.episode,
+										mangaChapterNumber:
+											props.review.mangaExtraInformation?.chapter,
+									});
+								}}
+							>
 								<IconEdit size={16} />
 							</ActionIcon>
-						</Anchor>
+							<ActionIcon
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this review? This action cannot be undone.",
+									});
+									if (conf)
+										deleteReviewFetcher.submit(
+											{
+												[redirectToQueryParam]: withoutHost(
+													window.location.href,
+												),
+												shouldDelete: "true",
+												reviewId: props.review.id?.toString(),
+												// biome-ignore lint/suspicious/noExplicitAny: otherwise an error here
+											} as any,
+											{
+												method: "post",
+												action: withQuery("/actions", {
+													intent: "performReviewAction",
+												}),
+											},
+										);
+								}}
+								color="red"
+							>
+								<IconTrash size={16} />
+							</ActionIcon>
+						</>
 					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
-					{typeof props.review.showSeason === "number" ? (
+					{typeof props.review.showExtraInformation?.season === "number" ? (
 						<Text c="dimmed">
-							S{props.review.showSeason}-E
-							{props.review.showEpisode}
+							S{props.review.showExtraInformation.season}-E
+							{props.review.showExtraInformation.episode}
 						</Text>
 					) : null}
-					{typeof props.review.podcastEpisode === "number" ? (
-						<Text c="dimmed">EP-{props.review.podcastEpisode}</Text>
+					{typeof props.review.podcastExtraInformation?.episode === "number" ? (
+						<Text c="dimmed">
+							EP-{props.review.podcastExtraInformation.episode}
+						</Text>
+					) : null}
+					{typeof props.review.animeExtraInformation?.episode === "number" ? (
+						<Text c="dimmed">
+							EP-{props.review.animeExtraInformation.episode}
+						</Text>
+					) : null}
+					{typeof props.review.mangaExtraInformation?.chapter === "number" ? (
+						<Text c="dimmed">
+							Ch-{props.review.mangaExtraInformation.chapter}
+						</Text>
 					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
@@ -215,11 +284,15 @@ export const ReviewItemDisplay = (props: {
 							</Text>
 						</Flex>
 					) : null}
-					{props.review.text ? (
+					{props.review.textRendered ? (
 						!props.review.spoiler ? (
 							<>
-								{/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely */}
-								<div dangerouslySetInnerHTML={{ __html: props.review.text }} />
+								<div
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+									dangerouslySetInnerHTML={{
+										__html: props.review.textRendered,
+									}}
+								/>
 							</>
 						) : (
 							<>
@@ -231,38 +304,33 @@ export const ReviewItemDisplay = (props: {
 								<Collapse in={opened}>
 									<Text
 										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-										dangerouslySetInnerHTML={{ __html: props.review.text }}
+										dangerouslySetInnerHTML={{
+											__html: props.review.textRendered,
+										}}
 									/>
 								</Collapse>
 							</>
 						)
 					) : null}
 					{openedLeaveComment ? (
-						<createReviewCommentFetcher.Form
+						<Form
 							action="/actions?intent=createReviewComment"
 							method="post"
-							ref={createReviewCommentFormRef}
+							onSubmit={() => toggleLeaveComment()}
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
+							<HiddenLocationInput />
 							<Group>
 								<TextInput
 									name="text"
 									placeholder="Enter comment"
 									style={{ flex: 1 }}
 								/>
-								<ActionIcon
-									color="green"
-									onClick={() => {
-										createReviewCommentFetcher.submit(
-											createReviewCommentFormRef.current,
-										);
-										toggleLeaveComment();
-									}}
-								>
+								<ActionIcon color="green" type="submit">
 									<IconCheck />
 								</ActionIcon>
 							</Group>
-						</createReviewCommentFetcher.Form>
+						</Form>
 					) : null}
 					{!openedLeaveComment ? (
 						<Button
@@ -291,10 +359,9 @@ export const ReviewItemDisplay = (props: {
 														) : null}
 													</Box>
 													{props.user.id === c?.user?.id ? (
-														<deleteReviewCommentFetcher.Form
+														<Form
 															action="/actions?intent=createReviewComment"
 															method="post"
-															ref={deleteReviewCommentFormRef}
 														>
 															<input
 																hidden
@@ -311,28 +378,29 @@ export const ReviewItemDisplay = (props: {
 																name="shouldDelete"
 																defaultValue="true"
 															/>
+															<HiddenLocationInput />
 															<ActionIcon
 																color="red"
-																onClick={async () => {
+																type="submit"
+																onClick={async (e) => {
+																	const form = e.currentTarget.form;
+																	e.preventDefault();
 																	const conf = await confirmWrapper({
 																		confirmation:
 																			"Are you sure you want to delete this comment?",
 																	});
-																	if (conf)
-																		deleteReviewCommentFetcher.submit(
-																			deleteReviewCommentFormRef.current,
-																		);
+																	if (conf) submit(form);
 																}}
 															>
 																<IconTrash size={16} />
 															</ActionIcon>
-														</deleteReviewCommentFetcher.Form>
+														</Form>
 													) : null}
-													<changeScoreFetcher.Form
+													<Form
 														action="/actions?intent=createReviewComment"
 														method="post"
-														ref={changeScoreFormRef}
 													>
+														<HiddenLocationInput />
 														<input
 															hidden
 															name="reviewId"
@@ -346,28 +414,24 @@ export const ReviewItemDisplay = (props: {
 														<input
 															hidden
 															name="incrementLikes"
-															defaultValue={String(
+															value={String(
 																!c?.likedBy?.includes(props.user.id),
 															)}
+															readOnly
 														/>
 														<input
 															hidden
 															name="decrementLikes"
-															defaultValue={String(
+															value={String(
 																c?.likedBy?.includes(props.user.id),
 															)}
+															readOnly
 														/>
-														<ActionIcon
-															onClick={() => {
-																changeScoreFetcher.submit(
-																	changeScoreFormRef.current,
-																);
-															}}
-														>
+														<ActionIcon type="submit">
 															<IconArrowBigUp size={16} />
 															<Text>{c?.likedBy?.length}</Text>
 														</ActionIcon>
-													</changeScoreFetcher.Form>
+													</Form>
 												</Flex>
 												<Text ml="xs">{c?.text}</Text>
 											</Stack>
@@ -392,11 +456,32 @@ export const BaseDisplayItem = (props: {
 	topLeft?: ReactNode;
 	bottomLeft?: string | number | null;
 	bottomRight?: string | number | null;
-	href: string;
+	href?: string;
 	highlightRightText?: string;
 	children?: ReactNode;
+	nameRight?: JSX.Element;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
+
+	const SurroundingElement = (iProps: {
+		children: ReactNode;
+		style: React.CSSProperties;
+		pos: StyleProp<React.CSSProperties["position"]>;
+	}) =>
+		props.href ? (
+			<Anchor
+				component={Link}
+				to={props.href}
+				style={iProps.style}
+				pos={iProps.pos}
+			>
+				{iProps.children}
+			</Anchor>
+		) : (
+			<Box onClick={props.onClick} style={iProps.style} pos={iProps.pos}>
+				{iProps.children}
+			</Box>
+		);
 
 	return (
 		<Flex
@@ -407,13 +492,7 @@ export const BaseDisplayItem = (props: {
 			pos="relative"
 		>
 			{props.topLeft}
-			<Anchor
-				component={Link}
-				to={props.href}
-				style={{ flex: "none" }}
-				pos="relative"
-				onClick={props.onClick}
-			>
+			<SurroundingElement style={{ flex: "none" }} pos="relative">
 				<Image
 					src={props.imageLink}
 					radius="md"
@@ -435,7 +514,7 @@ export const BaseDisplayItem = (props: {
 					)}
 				/>
 				{props.topRight}
-			</Anchor>
+			</SurroundingElement>
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				<Flex justify="space-between" direction="row" w="100%">
 					<Text c="dimmed" size="sm">
@@ -451,18 +530,21 @@ export const BaseDisplayItem = (props: {
 						</Text>
 					</Tooltip>
 				</Flex>
-				<Tooltip label={props.name} position="right">
-					<Text w="100%" truncate fw="bold" mb="xs">
-						{props.name}
-					</Text>
-				</Tooltip>
+				<Flex justify="space-between" align="center" mb="xs">
+					<Tooltip label={props.name} position="top">
+						<Text w="100%" truncate fw="bold">
+							{props.name}
+						</Text>
+					</Tooltip>
+					{props.nameRight}
+				</Flex>
 				{props.children}
 			</Flex>
 		</Flex>
 	);
 };
 
-type Item = {
+export type Item = {
 	identifier: string;
 	title: string;
 	image?: string | null;
@@ -474,14 +556,16 @@ export const MediaItemWithoutUpdateModal = (props: {
 	reviewScale: UserReviewScale;
 	entityLot?: EntityLot | null;
 	href?: string;
-	lot?: MetadataLot | null;
+	lot?: MediaLot | null;
 	children?: ReactNode;
 	imageOverlayForLoadingIndicator?: boolean;
 	hasInteracted?: boolean;
 	averageRating?: string;
 	noRatingLink?: boolean;
 	noBottomRight?: boolean;
+	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
+	nameRight?: JSX.Element;
 }) => {
 	const navigate = useNavigate();
 
@@ -489,25 +573,33 @@ export const MediaItemWithoutUpdateModal = (props: {
 		<BaseDisplayItem
 			onClick={props.onClick}
 			href={
-				props.href
+				!props.noHref
 					? props.href
-					: match(props.entityLot)
-							.with(EntityLot.Media, undefined, null, () =>
-								$path("/media/item/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.MediaGroup, () =>
-								$path("/media/groups/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Person, () =>
-								$path("/media/people/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Exercise, () =>
-								$path("/fitness/exercises/:id", { id: props.item.identifier }),
-							)
-							.with(EntityLot.Collection, () =>
-								$path("/collections/:id", { id: props.item.identifier }),
-							)
-							.exhaustive()
+						? props.href
+						: match(props.entityLot)
+								.with(EntityLot.Media, undefined, null, () =>
+									$path("/media/item/:id", { id: props.item.identifier }),
+								)
+								.with(EntityLot.MediaGroup, () =>
+									$path("/media/groups/item/:id", {
+										id: props.item.identifier,
+									}),
+								)
+								.with(EntityLot.Person, () =>
+									$path("/media/people/item/:id", {
+										id: props.item.identifier,
+									}),
+								)
+								.with(EntityLot.Exercise, () =>
+									$path("/fitness/exercises/:id", {
+										id: props.item.identifier,
+									}),
+								)
+								.with(EntityLot.Collection, () =>
+									$path("/collections/:id", { id: props.item.identifier }),
+								)
+								.exhaustive()
+					: undefined
 			}
 			imageLink={props.item.image}
 			imagePlaceholder={getInitials(props.item?.title || "")}
@@ -542,7 +634,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 								{match(props.reviewScale)
 									.with(UserReviewScale.OutOfFive, () =>
 										// biome-ignore lint/style/noNonNullAssertion: it is validated above
-										parseFloat(props.averageRating!.toString()).toFixed(1),
+										Number.parseFloat(props.averageRating!.toString()).toFixed(
+											1,
+										),
 									)
 									.with(UserReviewScale.OutOfHundred, () => props.averageRating)
 									.exhaustive()}{" "}
@@ -566,14 +660,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 							e.preventDefault();
 							navigate(
 								$path(
-									"/media/:id/post-review",
+									"/media/item/:id",
 									{ id: props.item.identifier },
-									{
-										entityType: "metadata",
-										title: props.item.title,
-										isShow: props.lot === MetadataLot.Show,
-										isPodcast: props.lot === MetadataLot.Podcast,
-									},
+									{ openReviewModal: true },
 								),
 							);
 						}}
@@ -596,146 +685,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.hasInteracted ? "This media exists in the database" : undefined
 			}
 			name={props.item.title}
+			nameRight={props.nameRight}
 			children={props.children}
 		/>
-	);
-};
-
-export const MediaSearchItem = (props: {
-	item: Item;
-	idx: number;
-	query: string;
-	lot: MetadataLot;
-	source: MetadataSource;
-	action: "search" | "list";
-	hasInteracted: boolean;
-	reviewScale: UserReviewScale;
-	maybeItemId?: number;
-}) => {
-	const navigate = useNavigate();
-	const [isLoading, setIsLoading] = useState(false);
-	const revalidator = useRevalidator();
-	const basicCommit = async (e: React.MouseEvent) => {
-		if (props.maybeItemId) return props.maybeItemId;
-		e.preventDefault();
-		return await commitMedia(props.item.identifier, props.lot, props.source);
-	};
-
-	return (
-		<MediaItemWithoutUpdateModal
-			item={props.item}
-			lot={props.lot}
-			reviewScale={props.reviewScale}
-			hasInteracted={props.hasInteracted}
-			imageOverlayForLoadingIndicator={isLoading}
-			noRatingLink
-			onClick={async (e) => {
-				setIsLoading(true);
-				const id = await basicCommit(e);
-				setIsLoading(false);
-				return navigate($path("/media/item/:id", { id }));
-			}}
-		>
-			<>
-				<Button
-					variant="outline"
-					w="100%"
-					size="compact-md"
-					onClick={async (e) => {
-						const id = await basicCommit(e);
-						return navigate(
-							$path(
-								"/media/item/:id",
-								{ id },
-								props.lot !== MetadataLot.Show
-									? { defaultTab: "actions", openProgressModal: true }
-									: { defaultTab: "seasons" },
-							),
-						);
-					}}
-				>
-					{props.lot !== MetadataLot.Show
-						? `Mark as ${getVerb(Verb.Read, props.lot)}`
-						: "Show details"}
-				</Button>
-				<Button
-					mt="xs"
-					variant="outline"
-					w="100%"
-					size="compact-md"
-					onClick={async () => {
-						setIsLoading(true);
-						const id = await commitMedia(
-							props.item.identifier,
-							props.lot,
-							props.source,
-						);
-						const form = new FormData();
-						form.append("intent", "addEntityToCollection");
-						form.append("entityId", id);
-						form.append("entityLot", EntityLot.Media);
-						form.append("collectionName", "Watchlist");
-						await fetch($path("/actions"), {
-							body: form,
-							method: "POST",
-							credentials: "include",
-						});
-						setIsLoading(false);
-						revalidator.revalidate();
-					}}
-				>
-					Add to Watchlist
-				</Button>
-			</>
-		</MediaItemWithoutUpdateModal>
-	);
-};
-
-export const AddEntityToCollectionModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	entityId: string;
-	entityLot: EntityLot;
-	collections: string[];
-}) => {
-	const addEntityToCollectionFormRef = useRef<HTMLFormElement>(null);
-	const addEntityToCollectionFetcher = useFetcher();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<addEntityToCollectionFetcher.Form
-				action="/actions?intent=addEntityToCollection"
-				method="post"
-				ref={addEntityToCollectionFormRef}
-			>
-				<input hidden name="entityId" defaultValue={props.entityId} />
-				<input hidden name="entityLot" defaultValue={props.entityLot} />
-				<Stack>
-					<Title order={3}>Select collection</Title>
-					<Select data={props.collections} searchable name="collectionName" />
-					<Button
-						data-autofocus
-						variant="outline"
-						onClick={() => {
-							addEntityToCollectionFetcher.submit(
-								addEntityToCollectionFormRef.current,
-							);
-							props.onClose();
-						}}
-					>
-						Set
-					</Button>
-					<Button variant="outline" color="red" onClick={props.onClose}>
-						Cancel
-					</Button>
-				</Stack>
-			</addEntityToCollectionFetcher.Form>
-		</Modal>
 	);
 };
 
@@ -745,16 +697,11 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const removeEntityFromCollectionFormRef = useRef<HTMLFormElement>(null);
-	const removeEntityFromCollection = useFetcher();
+	const submit = useSubmit();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<removeEntityFromCollection.Form
-				action="/actions?intent=removeEntityFromCollection"
-				method="post"
-				ref={removeEntityFromCollectionFormRef}
-			>
+			<Form action="/actions?intent=removeEntityFromCollection" method="post">
 				<Flex gap={2}>
 					<Anchor
 						component={Link}
@@ -769,23 +716,443 @@ export const DisplayCollection = (props: {
 					<input hidden name="entityId" defaultValue={props.entityId} />
 					<input hidden name="entityLot" defaultValue={props.entityLot} />
 					<input hidden name="collectionName" defaultValue={props.col.name} />
+					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
-						onClick={async () => {
+						onClick={async (e) => {
+							const form = e.currentTarget.form;
+							e.preventDefault();
 							const conf = await confirmWrapper({
 								confirmation:
 									"Are you sure you want to remove this media from this collection?",
 							});
-							if (conf)
-								removeEntityFromCollection.submit(
-									removeEntityFromCollectionFormRef.current,
-								);
+							if (conf) submit(form);
 						}}
 					>
 						<IconX />
 					</ActionIcon>
 				</Flex>
-			</removeEntityFromCollection.Form>
+			</Form>
 		</Badge>
+	);
+};
+
+export type PostReview = {
+	showSeasonNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	animeEpisodeNumber?: number | null;
+	mangaChapterNumber?: number | null;
+	podcastEpisodeNumber?: number | null;
+	existingReview?: DeepPartial<ReviewItem>;
+};
+
+type EntityType = "metadata" | "metadataGroup" | "collection" | "person";
+
+export const PostReviewModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	objectId: number;
+	entityType: EntityType;
+	title: string;
+	reviewScale: UserReviewScale;
+	data?: PostReview;
+	lot?: MediaLot;
+}) => {
+	if (!props.data) return <></>;
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form
+				method="post"
+				action="/actions?intent=performReviewAction"
+				replace
+				onSubmit={() => {
+					events.postReview(props.title);
+					props.onClose();
+				}}
+			>
+				<input
+					hidden
+					name={
+						props.entityType === "metadata"
+							? "metadataId"
+							: props.entityType === "metadataGroup"
+							  ? "metadataGroupId"
+							  : props.entityType === "collection"
+								  ? "collectionId"
+								  : props.entityType === "person"
+									  ? "personId"
+									  : undefined
+					}
+					value={props.objectId}
+					readOnly
+				/>
+				<HiddenLocationInput />
+				{props.data.existingReview?.id ? (
+					<input hidden name="reviewId" value={props.data.existingReview.id} />
+				) : null}
+				<Stack>
+					<Flex align="center" gap="xl">
+						{match(props.reviewScale)
+							.with(UserReviewScale.OutOfFive, () => (
+								<Flex gap="sm" mt="lg">
+									<Input.Label>Rating:</Input.Label>
+									<Rating
+										name="rating"
+										defaultValue={
+											props.data?.existingReview?.rating
+												? Number(props.data.existingReview.rating)
+												: undefined
+										}
+										fractions={2}
+									/>
+								</Flex>
+							))
+							.with(UserReviewScale.OutOfHundred, () => (
+								<NumberInput
+									label="Rating"
+									name="rating"
+									min={0}
+									max={100}
+									step={1}
+									w="40%"
+									hideControls
+									rightSection={<IconPercentage size={16} />}
+									defaultValue={
+										props.data?.existingReview?.rating
+											? Number(props.data.existingReview.rating)
+											: undefined
+									}
+								/>
+							))
+							.exhaustive()}
+						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
+					</Flex>
+					{props.lot === MediaLot.Show ? (
+						<Flex gap="md">
+							<NumberInput
+								label="Season"
+								name="showSeasonNumber"
+								hideControls
+								defaultValue={
+									typeof props.data?.existingReview?.showExtraInformation
+										?.season === "number"
+										? props.data.existingReview.showExtraInformation?.season
+										: typeof props.data.showSeasonNumber === "number"
+										  ? props.data.showSeasonNumber
+										  : undefined
+								}
+							/>
+							<NumberInput
+								label="Episode"
+								name="showEpisodeNumber"
+								hideControls
+								defaultValue={
+									props.data?.existingReview?.showExtraInformation?.episode
+										? props.data.existingReview.showExtraInformation?.episode
+										: props.data.showEpisodeNumber || undefined
+								}
+							/>
+						</Flex>
+					) : null}
+					{props.lot === MediaLot.Podcast ? (
+						<NumberInput
+							label="Episode"
+							name="podcastEpisodeNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.podcastExtraInformation?.episode
+									? props.data.existingReview.podcastExtraInformation?.episode
+									: props.data.podcastEpisodeNumber || undefined
+							}
+						/>
+					) : null}
+					{props.lot === MediaLot.Anime ? (
+						<NumberInput
+							label="Episode"
+							name="animeEpisodeNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.animeExtraInformation?.episode
+									? props.data.existingReview.animeExtraInformation?.episode
+									: props.data.animeEpisodeNumber || undefined
+							}
+						/>
+					) : null}
+					{props.lot === MediaLot.Manga ? (
+						<NumberInput
+							label="Chapter"
+							name="mangaChapterNumber"
+							hideControls
+							defaultValue={
+								props.data?.existingReview?.mangaExtraInformation?.chapter
+									? props.data.existingReview.mangaExtraInformation?.chapter
+									: props.data.mangaChapterNumber || undefined
+							}
+						/>
+					) : null}
+					<Textarea
+						label="Review"
+						name="text"
+						description="Markdown is supported"
+						autoFocus
+						minRows={10}
+						maxRows={20}
+						autosize
+						defaultValue={props.data.existingReview?.textOriginal ?? undefined}
+					/>
+					<Box>
+						<Input.Label>Visibility</Input.Label>
+						<SegmentedControl
+							fullWidth
+							data={[
+								{
+									label: Visibility.Public,
+									value: Visibility.Public,
+								},
+								{
+									label: Visibility.Private,
+									value: Visibility.Private,
+								},
+							]}
+							defaultValue={
+								props.data.existingReview?.visibility ?? Visibility.Public
+							}
+							name="visibility"
+						/>
+					</Box>
+					<Button mt="md" type="submit" w="100%">
+						{props.data.existingReview?.id ? "Update" : "Submit"}
+					</Button>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+export const NewUserGuideAlert = () => {
+	return (
+		<Alert icon={<IconArrowsRight />} variant="outline" color="teal">
+			<Text>
+				To get started, select a media type from the sidebar, enter a query in
+				the search tab, and add a media to your seen history or watchlist.
+			</Text>
+			<Text mt="xs">
+				This notice will disappear once your summary is re-calculated.
+			</Text>
+		</Alert>
+	);
+};
+
+export const MediaIsPartial = (props: { mediaType: string }) => {
+	return (
+		<Flex align="center" gap={4}>
+			<IconCloudDownload size={20} />
+			<Text size="xs">
+				Details of this {props.mediaType} are being downloaded
+			</Text>
+		</Flex>
+	);
+};
+
+export const CreateReminderModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	defaultText: string;
+	metadataId?: number;
+	personId?: number;
+	metadataGroupId?: number;
+}) => {
+	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form method="post" action="/actions?intent=createMediaReminder">
+				<input
+					hidden
+					name="remindOn"
+					value={formatDateToNaiveDate(remindOn)}
+					readOnly
+				/>
+				<HiddenLocationInput />
+				<Stack>
+					<Title order={3}>Create a reminder</Title>
+					<Text>
+						A notification will be sent to all your configured{" "}
+						<Anchor to={$path("/settings/notifications")} component={Link}>
+							platforms
+						</Anchor>
+						.
+					</Text>
+					<TextInput
+						name="message"
+						label="Message"
+						required
+						defaultValue={props.defaultText}
+					/>
+					<DateInput
+						label="Remind on"
+						popoverProps={{ withinPortal: true }}
+						required
+						onChange={(v) => {
+							if (v) setRemindOn(v);
+						}}
+						value={remindOn}
+					/>
+					<input
+						hidden
+						name={
+							props.metadataId
+								? "metadataId"
+								: props.personId
+								  ? "personId"
+								  : "metadataGroupId"
+						}
+						value={props.metadataId || props.personId || props.metadataGroupId}
+						readOnly
+					/>
+					<Button
+						data-autofocus
+						variant="outline"
+						onClick={() => props.onClose()}
+						type="submit"
+					>
+						Submit
+					</Button>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+export const DisplayMediaReminder = (props: {
+	reminderData: UserMediaReminderPartFragment;
+}) => {
+	return (
+		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
+			Reminder for {props.reminderData.remindOn}
+			<Text c="green">{props.reminderData.message}</Text>
+		</Alert>
+	);
+};
+
+export const DisplayMediaOwned = () => {
+	return (
+		<Flex align="center" gap={2}>
+			<IconBackpack size={20} />
+			<Text size="xs">You own this media</Text>
+		</Flex>
+	);
+};
+
+export const CreateOwnershipModal = (props: {
+	opened: boolean;
+	metadataId?: number;
+	metadataGroupId?: number;
+	onClose: () => void;
+}) => {
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+
+	return (
+		<Modal
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
+			centered
+		>
+			<Form
+				method="post"
+				action="/actions?intent=toggleMediaOwnership"
+				replace
+				onSubmit={() => events.markAsOwned()}
+			>
+				<HiddenLocationInput />
+				<Stack>
+					<Title order={3}>Mark media as owned</Title>
+					<DateInput
+						label="When did you get this media?"
+						clearable
+						popoverProps={{ withinPortal: true }}
+						onChange={setOwnedOn}
+						value={ownedOn}
+					/>
+					{props.metadataId ? (
+						<input hidden name="metadataId" defaultValue={props.metadataId} />
+					) : null}
+					{props.metadataGroupId ? (
+						<input
+							hidden
+							name="metadataGroupId"
+							defaultValue={props.metadataGroupId}
+						/>
+					) : null}
+					<input
+						hidden
+						name="ownedOn"
+						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
+					/>
+					<SimpleGrid cols={2}>
+						<Button
+							variant="outline"
+							onClick={props.onClose}
+							disabled={!!ownedOn}
+							data-autofocus
+							type="submit"
+						>
+							I don't remember
+						</Button>
+						<Button
+							disabled={!ownedOn}
+							variant="outline"
+							type="submit"
+							onClick={props.onClose}
+						>
+							Submit
+						</Button>
+					</SimpleGrid>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+export const ToggleMediaMonitorMenuItem = (props: {
+	entityLot: EntityLot;
+	inCollections: string[];
+	formValue: number;
+}) => {
+	const isMonitored = props.inCollections.includes("Monitoring");
+	const action = isMonitored
+		? "removeEntityFromCollection"
+		: "addEntityToCollection";
+
+	return (
+		<Form action={`/actions?intent=${action}`} method="post" replace>
+			<HiddenLocationInput />
+			<input hidden name="collectionName" value="Monitoring" />
+			<input hidden name="entityLot" value={props.entityLot} />
+			<Menu.Item
+				type="submit"
+				color={isMonitored ? "red" : undefined}
+				name="entityId"
+				value={props.formValue}
+				onClick={(e) => {
+					if (isMonitored)
+						if (!confirm("Are you sure you want to stop monitoring?"))
+							e.preventDefault();
+				}}
+			>
+				{isMonitored ? "Stop" : "Start"} monitoring
+			</Menu.Item>
+		</Form>
 	);
 };

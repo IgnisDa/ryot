@@ -7,8 +7,11 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    models::media::{ImportOrExportItemReviewComment, SeenOrReviewOrCalendarEventExtraInformation},
-    utils::associate_user_with_metadata,
+    models::media::{
+        ImportOrExportItemReviewComment, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+        SeenPodcastExtraInformation, SeenShowExtraInformation,
+    },
+    utils::associate_user_with_entity,
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
@@ -26,7 +29,10 @@ pub struct Model {
     pub person_id: Option<i32>,
     pub metadata_group_id: Option<i32>,
     pub collection_id: Option<i32>,
-    pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
+    pub show_extra_information: Option<SeenShowExtraInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub anime_extra_information: Option<SeenAnimeExtraInformation>,
+    pub manga_extra_information: Option<SeenMangaExtraInformation>,
     #[sea_orm(column_type = "Json")]
     pub comments: Vec<ImportOrExportItemReviewComment>,
 }
@@ -112,11 +118,16 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if insert {
-            if let Some(metadata_id) = model.metadata_id {
-                associate_user_with_metadata(&model.user_id, &metadata_id, db)
-                    .await
-                    .ok();
-            }
+            associate_user_with_entity(
+                &model.user_id,
+                model.metadata_id,
+                model.person_id,
+                None,
+                model.metadata_group_id,
+                db,
+            )
+            .await
+            .ok();
         }
         Ok(model)
     }

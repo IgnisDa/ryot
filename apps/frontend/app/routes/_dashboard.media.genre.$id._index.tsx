@@ -1,17 +1,28 @@
 import { $path } from "@ignisda/remix-routes";
-import { Box, Center, Container, Stack, Text, Title } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	Box,
+	Center,
+	Container,
+	Pagination,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
+import { ApplicationGrid } from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
-import { gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
 import { useSearchParam } from "~/lib/hooks";
+import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -24,7 +35,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const genreId = params.id ? Number(params.id) : null;
 	invariant(genreId, "No ID provided");
 	const [coreDetails, { genreDetails }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },
 		}),
@@ -72,9 +83,9 @@ export default function Page() {
 					))}
 				</ApplicationGrid>
 				<Center>
-					<ApplicationPagination
+					<Pagination
 						size="sm"
-						defaultValue={loaderData.query.page}
+						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
 							loaderData.genreDetails.contents.details.total /

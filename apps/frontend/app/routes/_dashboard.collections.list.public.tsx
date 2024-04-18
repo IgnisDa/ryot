@@ -1,28 +1,27 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	ActionIcon,
 	Anchor,
 	Box,
 	Center,
 	Container,
 	Group,
+	Pagination,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { PublicCollectionsListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { IconSearch, IconX } from "@tabler/icons-react";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
-import { gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
+import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
+import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.optional(),
@@ -34,7 +33,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { publicCollectionsList }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(PublicCollectionsListDocument, { input: query }),
 	]);
 	return json({
@@ -51,32 +50,16 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const getMantineColor = useGetMantineColor();
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<>
 			<Container>
 				<Stack>
 					<Title>Public collections</Title>
-					<TextInput
-						name="query"
-						placeholder="Search for collections"
-						leftSection={<IconSearch />}
-						onChange={(e) => setQuery(e.currentTarget.value)}
-						value={query}
-						rightSection={
-							query ? (
-								<ActionIcon onClick={() => setQuery("")}>
-									<IconX size={16} />
-								</ActionIcon>
-							) : null
-						}
-						style={{ flexGrow: 1 }}
-						autoCapitalize="none"
-						autoComplete="off"
+					<DebouncedSearchInput
+						placeholder="Search in the collection"
+						initialValue={loaderData.query.query}
 					/>
 					{loaderData.publicCollectionsList.details.total > 0 ? (
 						<>
@@ -88,7 +71,7 @@ export default function Page() {
 							</Box>
 							<ApplicationGrid>
 								{loaderData.publicCollectionsList.items.map((c) => (
-									<Group key={c.id}>
+									<Group key={c.id} wrap="nowrap">
 										<Box
 											h={11}
 											w={11}
@@ -100,7 +83,9 @@ export default function Page() {
 												component={Link}
 												to={$path("/collections/:id", { id: c.id })}
 											>
-												<Title order={4}>{c.name}</Title>
+												<Title order={4} lineClamp={1}>
+													{c.name}
+												</Title>
 											</Anchor>
 											<Text c="dimmed" size="xs">
 												by {c.username}
@@ -115,9 +100,9 @@ export default function Page() {
 					)}
 					{loaderData.publicCollectionsList ? (
 						<Center mt="xl">
-							<ApplicationPagination
+							<Pagination
 								size="sm"
-								defaultValue={loaderData.query.page}
+								value={loaderData.query.page}
 								onChange={(v) => setP("page", v.toString())}
 								total={Math.ceil(
 									loaderData.publicCollectionsList.details.total /

@@ -1,3 +1,5 @@
+// biome-ignore lint/style/useNodejsImportProtocol: This is a browser import
+import { Buffer } from "buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { $path } from "@ignisda/remix-routes";
@@ -32,19 +34,24 @@ import {
 	UnstyledButton,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useInterval, useListState } from "@mantine/hooks";
+import {
+	useDebouncedState,
+	useDidUpdate,
+	useDisclosure,
+	useInterval,
+	useListState,
+} from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 	redirect,
 } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
-	DeleteS3ObjectDocument,
 	ExerciseLot,
 	ExerciseSortBy,
 	SetLot,
@@ -52,6 +59,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	displayWeightWithUnit,
+	isEqual,
 	snakeCase,
 	startCase,
 	sum,
@@ -68,7 +76,6 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
@@ -78,38 +85,35 @@ import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
+import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import events from "~/lib/events";
+import { CurrentWorkoutKey, dayjsLib, getSetColor } from "~/lib/generals";
 import {
-	ApplicationKey,
-	dayjsLib,
-	getPresignedGetUrl,
-	getSetColor,
-	gqlClientSide,
-	uploadFileAndGetKey,
-} from "~/lib/generals";
-import {
+	createToastHeaders,
+	getAuthorizationHeader,
 	getCoreDetails,
 	getCoreEnabledFeatures,
 	getUserPreferences,
-} from "~/lib/graphql.server";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
+	gqlClient,
+	redirectWithToast,
+} from "~/lib/utilities.server";
 import {
-	Exercise,
-	ExerciseSet,
+	type Exercise,
+	type ExerciseSet,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/workout";
 
-const workoutCookieName = ApplicationKey.CurrentWorkout;
-const defaultTimerLocalStorageKey = ApplicationKey.DefaultExerciseRestTimer;
+const workoutCookieName = CurrentWorkoutKey;
+const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const cookies = request.headers.get("Cookie");
+	const cookies = request.headers.get("cookie");
 	const inProgress = parse(cookies || "")[workoutCookieName] === "true";
 	if (!inProgress)
 		return redirectWithToast($path("/"), {
@@ -117,12 +121,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			message: "No workout in progress",
 		});
 	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
-		[getCoreDetails(), getUserPreferences(request), getCoreEnabledFeatures()],
+		[
+			getCoreDetails(request),
+			getUserPreferences(request),
+			getCoreEnabledFeatures(),
+		],
 	);
 	return json({
 		coreDetails,
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
+			isMeasurementEnabled:
+				userPreferences.featuresEnabled.fitness.measurements,
 		},
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
 	});
@@ -134,17 +144,33 @@ export const meta: MetaFunction = () => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	const workout = JSON.parse(formData.get("workout") as string);
-	const { createUserWorkout } = await gqlClient.request(
-		CreateUserWorkoutDocument,
-		workout,
-		await getAuthorizationHeader(request),
-	);
-	return redirect($path("/fitness/workouts/:id", { id: createUserWorkout }), {
-		headers: await createToastHeaders({
-			message: "Workout completed successfully",
-			type: "success",
-		}),
+	return namedAction(request, {
+		createWorkout: async () => {
+			const workout = JSON.parse(formData.get("workout") as string);
+			const { createUserWorkout } = await gqlClient.request(
+				CreateUserWorkoutDocument,
+				workout,
+				await getAuthorizationHeader(request),
+			);
+			return redirect(
+				$path("/fitness/workouts/:id", { id: createUserWorkout }),
+				{
+					headers: await createToastHeaders({
+						message: "Workout completed successfully",
+						type: "success",
+					}),
+				},
+			);
+		},
+	});
+};
+
+const deleteUploadedAsset = (key: string) => {
+	const formData = new FormData();
+	formData.append("key", key);
+	fetch(withQuery("/actions", { intent: "deleteS3Asset" }), {
+		method: "POST",
+		body: formData,
 	});
 };
 
@@ -360,7 +386,13 @@ export default function Page() {
 														Cookies.remove(workoutCookieName);
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
-															{ method: "post" },
+															{
+																method: "post",
+																action: withQuery(".", {
+																	intent: "createWorkout",
+																}),
+																encType: "multipart/form-data",
+															},
 														);
 													}
 												}}
@@ -380,6 +412,11 @@ export default function Page() {
 													"Are you sure you want to cancel this workout?",
 											});
 											if (yes) {
+												for (const e of currentWorkout.exercises) {
+													const assets = [...e.images, ...e.videos];
+													for (const asset of assets)
+														deleteUploadedAsset(asset.key);
+												}
 												navigate($path("/"));
 												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
@@ -401,6 +438,19 @@ export default function Page() {
 									/>
 								))}
 								<Group justify="center">
+									{loaderData.userPreferences.isMeasurementEnabled ? (
+										<Button
+											component={Link}
+											variant="subtle"
+											color="teal"
+											to={$path("/fitness/measurements/list", {
+												openModal: true,
+												redirectTo: $path("/fitness/workouts/current"),
+											})}
+										>
+											Add measurement
+										</Button>
+									) : null}
 									<Button
 										component={Link}
 										variant="subtle"
@@ -410,7 +460,7 @@ export default function Page() {
 											sortBy: ExerciseSortBy.LastPerformed,
 										})}
 									>
-										Add exercise
+										Add an exercise
 									</Button>
 								</Group>
 							</Stack>
@@ -467,6 +517,27 @@ const StatInput = (props: {
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [value, setValue] = useDebouncedState(
+		currentWorkout?.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+			props.stat
+		] ?? undefined,
+		500,
+	);
+
+	useDidUpdate(() => {
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const val = value === "" ? undefined : Number(value);
+					draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+						props.stat
+					] = val as unknown as null;
+					if (val === undefined)
+						draft.exercises[props.exerciseIdx].sets[props.setIdx].confirmed =
+							false;
+				}),
+			);
+	}, [value]);
 
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
@@ -475,20 +546,7 @@ const StatInput = (props: {
 					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
 						.statistic[props.stat] ?? undefined
 				}
-				onChange={(v) => {
-					setCurrentWorkout(
-						produce(currentWorkout, (draft) => {
-							const value = v === "" ? undefined : Number(v);
-							draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
-								props.stat
-							] = value as unknown as null;
-							if (value === undefined)
-								draft.exercises[props.exerciseIdx].sets[
-									props.setIdx
-								].confirmed = false;
-						}),
-					);
-				}}
+				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
 				size="xs"
 				styles={{
@@ -510,20 +568,12 @@ const StatInput = (props: {
 const fileType = "image/jpeg";
 
 const ImageDisplay = (props: {
-	imageKey: string;
-	removeImage: (imageKey: string) => void;
+	imageSrc: string;
+	removeImage: () => void;
 }) => {
-	const imageUrl = useQuery({
-		queryKey: ["presignedUrl", props.imageKey],
-		queryFn: async () => {
-			return await getPresignedGetUrl(props.imageKey);
-		},
-		staleTime: Infinity,
-	});
-
-	return imageUrl.data ? (
+	return (
 		<Box pos="relative">
-			<Avatar src={imageUrl.data} size="lg" />
+			<Avatar src={props.imageSrc} size="lg" />
 			<ActionIcon
 				pos="absolute"
 				top={0}
@@ -532,19 +582,13 @@ const ImageDisplay = (props: {
 				size="xs"
 				onClick={async () => {
 					const yes = confirm("Are you sure you want to remove this image?");
-					if (yes) {
-						const { deleteS3Object } = await gqlClientSide.request(
-							DeleteS3ObjectDocument,
-							{ key: props.imageKey },
-						);
-						if (deleteS3Object) props.removeImage(props.imageKey);
-					}
+					if (yes) props.removeImage();
 				}}
 			>
 				<IconTrash />
 			</ActionIcon>
 		</Box>
-	) : null;
+	);
 };
 
 const SupersetExerciseModal = (props: {
@@ -683,7 +727,7 @@ const ExerciseDisplay = (props: {
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
-									const defaultDuration = parseInt(
+									const defaultDuration = Number.parseInt(
 										localStorage.getItem(defaultTimerLocalStorageKey) || "20",
 									);
 									draft.exercises[props.exerciseIdx].restTimer = {
@@ -745,17 +789,18 @@ const ExerciseDisplay = (props: {
 						<>
 							{props.exercise.images.length > 0 ? (
 								<Avatar.Group spacing="xs">
-									{props.exercise.images.map((i) => (
+									{props.exercise.images.map((i, imgIdx) => (
 										<ImageDisplay
-											key={i}
-											imageKey={i}
+											key={i.key}
+											imageSrc={i.imageSrc}
 											removeImage={() => {
+												deleteUploadedAsset(i.key);
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images =
-															draft.exercises[props.exerciseIdx].images.filter(
-																(image) => image !== i,
-															);
+														const images =
+															draft.exercises[props.exerciseIdx].images;
+														images.splice(imgIdx, 1);
+														draft.exercises[props.exerciseIdx].images = images;
 													}),
 												);
 											}}
@@ -793,17 +838,24 @@ const ExerciseDisplay = (props: {
 													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
 													"base64",
 												);
-												const uploadedKey = await uploadFileAndGetKey(
-													"image.jpeg",
-													"workouts",
-													fileType,
-													buffer,
+												const fileObj = new File([buffer], "image.jpg", {
+													type: fileType,
+												});
+												const toSubmitForm = new FormData();
+												toSubmitForm.append("file", fileObj, "image.jpg");
+												const resp = await fetch(
+													withQuery("/actions", {
+														intent: "uploadWorkoutAsset",
+													}),
+													{ method: "POST", body: toSubmitForm },
 												);
+												const data = await resp.json();
 												setCurrentWorkout(
 													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images.push(
-															uploadedKey,
-														);
+														draft.exercises[props.exerciseIdx].images.push({
+															imageSrc,
+															key: data.key,
+														});
 													}),
 												);
 											}
@@ -827,7 +879,7 @@ const ExerciseDisplay = (props: {
 			<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
-						<Stack>
+						<Stack ref={parent}>
 							<Group justify="space-between" pos="relative" wrap="nowrap">
 								<Anchor
 									component={Link}
@@ -863,55 +915,15 @@ const ExerciseDisplay = (props: {
 								) : null}
 							</Group>
 							{currentWorkout.exercises[props.exerciseIdx].notes.map(
-								(n, idx) => (
-									<Flex
+								(note, idx) => (
+									<NoteInput
 										key={`${
 											currentWorkout.exercises[props.exerciseIdx].identifier
 										}-${idx}`}
-										align="center"
-										gap="xs"
-									>
-										<Textarea
-											style={{ flexGrow: 1 }}
-											placeholder="Add a note"
-											size="xs"
-											minRows={1}
-											maxRows={4}
-											autosize
-											value={n}
-											onChange={(e) => {
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].notes[idx] =
-															e.currentTarget.value;
-													}),
-												);
-											}}
-										/>
-										<ActionIcon
-											color="red"
-											onClick={() => {
-												if (
-													currentWorkout.exercises[props.exerciseIdx].notes[idx]
-												) {
-													const yes = confirm(
-														"This note will be deleted. Are you sure you want to continue?",
-													);
-													if (yes)
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																draft.exercises[props.exerciseIdx].notes.splice(
-																	idx,
-																	1,
-																);
-															}),
-														);
-												}
-											}}
-										>
-											<IconTrash size={20} />
-										</ActionIcon>
-									</Flex>
+										exerciseIdx={props.exerciseIdx}
+										noteIdx={idx}
+										note={note}
+									/>
 								),
 							)}
 						</Stack>
@@ -983,12 +995,18 @@ const ExerciseDisplay = (props: {
 									const yes = confirm(
 										`This removes '${props.exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 									);
-									if (yes)
+									if (yes) {
+										const assets = [
+											...props.exercise.images,
+											...props.exercise.videos,
+										];
+										for (const asset of assets) deleteUploadedAsset(asset.key);
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
 												draft.exercises.splice(props.exerciseIdx, 1);
 											}),
 										);
+									}
 								}}
 							>
 								Remove
@@ -1117,13 +1135,51 @@ const ExerciseDisplay = (props: {
 								</Menu>
 								<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
 									{props.exercise.alreadyDoneSets[idx] ? (
-										<DisplayExerciseStats
-											statistic={props.exercise.alreadyDoneSets[idx].statistic}
-											lot={props.exercise.lot}
-											hideExtras
-											centerText
-											unit={loaderData.userPreferences.unitSystem}
-										/>
+										<Box
+											onClick={() => {
+												if (props.exercise.sets[idx].confirmed) return;
+												const convertStringValuesToNumbers = (
+													obj: Record<string, unknown>,
+												) => {
+													const newObject = { ...obj };
+													for (const key in newObject)
+														if (
+															typeof newObject[key] === "string" &&
+															!Number.isNaN(newObject[key])
+														)
+															newObject[key] = Number.parseFloat(
+																newObject[key] as string,
+															);
+													return newObject;
+												};
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														if (draft) {
+															draft.exercises[props.exerciseIdx].sets[
+																idx
+															].statistic = convertStringValuesToNumbers(
+																props.exercise.alreadyDoneSets[idx].statistic,
+															);
+														}
+													}),
+												);
+											}}
+											style={
+												!props.exercise.sets[idx].confirmed
+													? { cursor: "pointer" }
+													: undefined
+											}
+										>
+											<DisplayExerciseStats
+												statistic={
+													props.exercise.alreadyDoneSets[idx].statistic
+												}
+												lot={props.exercise.lot}
+												hideExtras
+												centerText
+												unit={loaderData.userPreferences.unitSystem}
+											/>
+										</Box>
 									) : (
 										"—"
 									)}
@@ -1228,6 +1284,7 @@ const ExerciseDisplay = (props: {
 														}),
 													);
 												}}
+												data-statistics={JSON.stringify(s.statistic)}
 											>
 												<IconCheck />
 											</ActionIcon>
@@ -1401,7 +1458,7 @@ const TimerDrawer = (props: {
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
 								if (!input) return;
-								const intInput = parseInt(input);
+								const intInput = Number.parseInt(input);
 								if (intInput) props.startTimer(intInput);
 								else alert("Invalid input");
 							}}
@@ -1426,17 +1483,22 @@ const ReorderDrawer = (props: {
 	);
 
 	useEffect(() => {
-		setCurrentWorkout(
-			// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-			produce(currentWorkout, (draft: any) => {
-				if (draft) {
-					draft.exercises = exerciseElements.map((de) =>
-						// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-						draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
-					);
-				}
-			}),
-		);
+		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
+		const newOrder = exerciseElements.map((e) => e.exerciseId);
+		if (!isEqual(oldOrder, newOrder)) {
+			setCurrentWorkout(
+				// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+				produce(currentWorkout, (draft: any) => {
+					if (draft) {
+						draft.exercises = exerciseElements.map((de) =>
+							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+							draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
+						);
+					}
+				}),
+			);
+			props.onClose();
+		}
 	}, [exerciseElements]);
 
 	return currentWorkout ? (
@@ -1452,7 +1514,6 @@ const ReorderDrawer = (props: {
 						from: source.index,
 						to: destination?.index || 0,
 					});
-					props.onClose();
 				}}
 			>
 				<Droppable droppableId="dnd-list">
@@ -1500,4 +1561,57 @@ const ReorderDrawer = (props: {
 			</DragDropContext>
 		</Drawer>
 	) : null;
+};
+
+const NoteInput = (props: {
+	exerciseIdx: number;
+	noteIdx: number;
+	note: string;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [value, setValue] = useDebouncedState(props.note, 500);
+
+	useDidUpdate(() => {
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
+				}),
+			);
+	}, [value]);
+
+	return (
+		<Flex align="center" gap="xs">
+			<Textarea
+				style={{ flexGrow: 1 }}
+				placeholder="Add a note"
+				size="xs"
+				minRows={1}
+				maxRows={4}
+				autosize
+				defaultValue={props.note}
+				onChange={(e) => setValue(e.currentTarget.value)}
+			/>
+			<ActionIcon
+				color="red"
+				onClick={() => {
+					const yes = confirm(
+						"This note will be deleted. Are you sure you want to continue?",
+					);
+					if (yes)
+						setCurrentWorkout(
+							produce(currentWorkout, (draft) => {
+								if (draft)
+									draft.exercises[props.exerciseIdx].notes.splice(
+										props.noteIdx,
+										1,
+									);
+							}),
+						);
+				}}
+			>
+				<IconTrash size={20} />
+			</ActionIcon>
+		</Flex>
+	);
 };

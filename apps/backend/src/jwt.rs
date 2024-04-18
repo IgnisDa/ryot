@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -13,7 +13,7 @@ pub struct Claims {
 impl Claims {
     pub fn new(sub: String, token_valid_for_days: i64) -> Self {
         let iat = Utc::now();
-        let exp = iat + Duration::days(token_valid_for_days);
+        let exp = iat + Duration::try_days(token_valid_for_days).unwrap();
 
         Self {
             sub,
@@ -24,7 +24,7 @@ impl Claims {
 }
 
 pub fn sign(id: i32, jwt_secret: &str, token_valid_for_days: i64) -> Result<String> {
-    let tokens = jsonwebtoken::encode(
+    let tokens = encode(
         &Header::default(),
         &Claims::new(id.to_string(), token_valid_for_days),
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
@@ -33,7 +33,7 @@ pub fn sign(id: i32, jwt_secret: &str, token_valid_for_days: i64) -> Result<Stri
 }
 
 pub fn verify(token: &str, jwt_secret: &str) -> Result<Claims> {
-    let claims = jsonwebtoken::decode(
+    let claims = decode(
         token,
         &DecodingKey::from_secret(jwt_secret.as_bytes()),
         &Validation::default(),

@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use database::{MetadataLot, MetadataSource, Visibility};
+use database::{ImportSource, MediaLot, MediaSource, Visibility};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -17,7 +17,7 @@ use crate::{
         media::{
             BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
             ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
-            MediaDetails, MediaSpecifics, MetadataFreeCreator,
+            MediaDetails, MetadataFreeCreator,
         },
         IdObject,
     },
@@ -35,7 +35,7 @@ enum MediaType {
     Audiobook,
 }
 
-impl From<MediaType> for MetadataLot {
+impl From<MediaType> for MediaLot {
     fn from(value: MediaType) -> Self {
         match value {
             MediaType::Book => Self::Book,
@@ -161,7 +161,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         .unwrap();
     let mut lists: Vec<ListResponse> = rsp.body_json().await.unwrap();
 
-    let all_collections = lists
+    let collections = lists
         .iter()
         .map(|l| CreateOrUpdateCollectionInput {
             name: l.name.clone(),
@@ -222,7 +222,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 continue;
             }
         };
-        let lot = MetadataLot::from(media_type.clone());
+        let lot = MediaLot::from(media_type.clone());
         let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
         let details: ItemDetails = match rsp.body_json().await {
             Ok(s) => s,
@@ -240,18 +240,18 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
-                    (Uuid::new_v4().to_string(), MetadataSource::Custom)
+                    (Uuid::new_v4().to_string(), MediaSource::Custom)
                 } else {
                     (
                         get_key(&details.openlibrary_id.clone().unwrap()),
-                        MetadataSource::Openlibrary,
+                        MediaSource::Openlibrary,
                     )
                 }
             }
-            MediaType::Movie => (details.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
-            MediaType::Tv => (details.tmdb_id.unwrap().to_string(), MetadataSource::Tmdb),
-            MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MetadataSource::Igdb),
-            MediaType::Audiobook => (details.audible_id.clone().unwrap(), MetadataSource::Audible),
+            MediaType::Movie => (details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb),
+            MediaType::Tv => (details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb),
+            MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MediaSource::Igdb),
+            MediaType::Audiobook => (details.audible_id.clone().unwrap(), MediaSource::Audible),
         };
         tracing::debug!(
             "Got details for {type:?}, with {seen} seen history: {id} ({idx}/{total})",
@@ -289,7 +289,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     title: details.title,
                     description: details.overview,
                     lot,
-                    source: MetadataSource::Custom,
+                    source: MediaSource::Custom,
                     creators: details
                         .authors
                         .unwrap_or_default()
@@ -300,7 +300,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                             image: None,
                         })
                         .collect(),
-                    specifics: MediaSpecifics::Book(BookSpecifics { pages: num_pages }),
                     provider_rating: None,
                     genres: vec![],
                     url_images: vec![],
@@ -314,8 +313,13 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     people: vec![],
                     s3_images: vec![],
                     original_language: None,
+                    book_specifics: Some(BookSpecifics { pages: num_pages }),
+                    ..Default::default()
                 })),
-                true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
+                true => ImportOrExportItemIdentifier::NeedsDetails {
+                    identifier,
+                    title: details.title,
+                },
             }),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
@@ -353,6 +357,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                         ended_on: s.date,
                         show_season_number: season_number,
                         show_episode_number: episode_number,
+                        provider_watched_on: Some(ImportSource::MediaTracker.to_string()),
                         ..Default::default()
                     }
                 })
@@ -363,7 +368,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
     Ok(ImportResult {
         media: final_data,
         failed_items,
-        collections: all_collections,
-        workouts: vec![],
+        collections,
+        ..Default::default()
     })
 }

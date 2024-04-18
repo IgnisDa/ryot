@@ -1,6 +1,6 @@
 procs:
   Reverse Proxy:
-    shell: "caddy run --config config/Caddyfile"
+    shell: "caddy run --config ci/Caddyfile"
   Backend:
     shell: "cargo watch --ignore 'docs/includes' --ignore 'libs/generated' -qx 'run --package ryot'"
   Frontend:

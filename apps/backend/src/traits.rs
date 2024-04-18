@@ -9,8 +9,8 @@ use crate::{
     file_storage::FileStorageService,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MetadataPerson, PartialMetadataPerson,
-            PartialMetadataWithoutId,
+            MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
         },
         SearchResults,
     },
@@ -19,32 +19,59 @@ use crate::{
 
 #[async_trait]
 pub trait MediaProvider {
-    /// Search for a query.
+    /// Search for media via a query.
     #[allow(unused_variables)]
-    async fn search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         bail!("This provider does not support searching media")
     }
 
     /// Get details about a media item.
     #[allow(unused_variables)]
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         bail!("This provider does not support getting media details")
+    }
+
+    /// Search for people via a query.
+    #[allow(unused_variables)]
+    async fn people_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        source_specifics: &Option<PersonSourceSpecifics>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<PeopleSearchItem>> {
+        bail!("This provider does not support searching people")
     }
 
     /// Get details about a person.
     #[allow(unused_variables)]
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
+    async fn person_details(
+        &self,
+        identity: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
         bail!("This provider does not support getting person details")
+    }
+
+    /// Search for metadata groups via a query.
+    #[allow(unused_variables)]
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        bail!("This provider does not support searching metadata groups")
     }
 
     /// Get details about a group/collection.
     #[allow(unused_variables)]
-    async fn group_details(
+    async fn metadata_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {

@@ -1,10 +1,10 @@
-import { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "@remix-run/node";
 import {
 	ExerciseDetailsDocument,
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import invariant from "tiny-invariant";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
+import { getAuthorizationHeader, gqlClient } from "~/lib/utilities.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const exerciseId = params.id;

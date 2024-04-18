@@ -2,19 +2,19 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use chrono::{NaiveDate, Utc};
+use chrono::NaiveDate;
 use database::SeenState;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{entity::prelude::*, ActiveValue};
-use sea_query::Expr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{prelude::UserToEntity, user_to_entity},
     models::media::{
-        SeenOrReviewOrCalendarEventExtraInformation, SeenPodcastExtraInformation,
+        SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
         SeenShowExtraInformation,
     },
-    utils::associate_user_with_metadata,
+    utils::associate_user_with_entity,
 };
 
 // When updating a media item's progress, here are the things that should happen:
@@ -26,25 +26,24 @@ use crate::{
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub progress: i32,
+    pub progress: Decimal,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
     pub user_id: i32,
     pub metadata_id: i32,
     pub state: SeenState,
+    pub provider_watched_on: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
     pub updated_at: Vec<DateTimeUtc>,
-    #[graphql(skip)]
-    #[serde(skip)]
-    pub extra_information: Option<SeenOrReviewOrCalendarEventExtraInformation>,
-    #[sea_orm(ignore)]
-    pub show_information: Option<SeenShowExtraInformation>,
-    #[sea_orm(ignore)]
-    pub podcast_information: Option<SeenPodcastExtraInformation>,
+    pub show_extra_information: Option<SeenShowExtraInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub anime_extra_information: Option<SeenAnimeExtraInformation>,
+    pub manga_extra_information: Option<SeenMangaExtraInformation>,
     // Generated columns
     pub last_updated_on: DateTimeUtc,
     pub num_times_updated: i32,
+    pub total_time_spent: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -87,7 +86,7 @@ impl ActiveModelBehavior for ActiveModel {
     {
         let state = self.state.clone().unwrap();
         let progress = self.progress.clone().unwrap();
-        if progress == 100 && state == SeenState::InProgress {
+        if progress == dec!(100) && state == SeenState::InProgress {
             self.state = ActiveValue::Set(SeenState::Completed);
         }
         Ok(self)
@@ -98,19 +97,17 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if insert {
-            associate_user_with_metadata(&model.user_id, &model.metadata_id, db)
-                .await
-                .ok();
-        }
-        UserToEntity::update_many()
-            .filter(user_to_entity::Column::UserId.eq(model.user_id))
-            .filter(user_to_entity::Column::MetadataId.eq(model.metadata_id))
-            .col_expr(
-                user_to_entity::Column::LastUpdatedOn,
-                Expr::value(Utc::now()),
+            associate_user_with_entity(
+                &model.user_id,
+                Some(model.metadata_id),
+                None,
+                None,
+                None,
+                db,
             )
-            .exec(db)
-            .await?;
+            .await
+            .ok();
+        }
         Ok(model)
     }
 }

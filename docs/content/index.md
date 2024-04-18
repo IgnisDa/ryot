@@ -7,11 +7,9 @@
 The docker image is `ghcr.io/ignisda/ryot:latest`.
 
 ```yaml
-version: "3.9"
-
 services:
   ryot-db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine # atleast version 15 is required
     restart: unless-stopped
     volumes:
       - postgres_storage:/var/lib/postgresql/data
@@ -22,9 +20,10 @@ services:
     container_name: ryot-db
 
   ryot:
-    image: "ghcr.io/ignisda/ryot:latest"
+    image: ghcr.io/ignisda/ryot:latest
     environment:
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
+      # - FRONTEND_INSECURE_COOKIES=true # if running on HTTP
     ports:
       - "8000:8000"
     pull_policy: always

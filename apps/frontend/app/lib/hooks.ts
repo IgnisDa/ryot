@@ -3,8 +3,8 @@ import { useMantineTheme } from "@mantine/core";
 import { useNavigate, useSearchParams } from "@remix-run/react";
 import { useAtom } from "jotai";
 import Cookies from "js-cookie";
-import { ApplicationKey, getStringAsciiValue } from "./generals";
-import { InProgressWorkout, currentWorkoutAtom } from "./workout";
+import { CurrentWorkoutKey, getStringAsciiValue } from "./generals";
+import { type InProgressWorkout, currentWorkoutAtom } from "./workout";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();
@@ -44,10 +44,9 @@ export function getWorkoutStarter() {
 
 	const fn = (wkt: InProgressWorkout) => {
 		setCurrentWorkout(wkt);
-		Cookies.set(ApplicationKey.CurrentWorkout, "true", {
+		Cookies.set(CurrentWorkoutKey, "true", {
 			expires: 2,
 			sameSite: "Strict",
-			secure: true,
 		});
 		navigate($path("/fitness/workouts/current"));
 	};

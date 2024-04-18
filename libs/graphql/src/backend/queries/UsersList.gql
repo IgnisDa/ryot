@@ -1,7 +1,0 @@
-query UsersList {
-  usersList {
-    id
-    name
-    lot
-  }
-}

@@ -1,21 +1,20 @@
-use std::{sync::Arc, time::Instant};
+use std::{env, sync::Arc, time::Instant};
 
 use apalis::prelude::{Job, JobContext, JobError};
 use chrono::DateTime;
 use chrono_tz::Tz;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use crate::{
-    entities::metadata,
     exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::resolver::MiscellaneousService,
     models::{
         fitness::Exercise,
-        media::{PartialMetadataPerson, ProgressUpdateInput, ReviewPostedEvent},
+        media::{CommitMediaInput, ProgressUpdateInput, ReviewPostedEvent},
         ExportItem,
     },
 };
@@ -35,27 +34,44 @@ impl Job for ScheduledJob {
 }
 
 pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
-    tracing::trace!("Invalidating invalid media import jobs");
-    ctx.data::<Arc<ImporterService>>()
-        .unwrap()
-        .invalidate_import_jobs()
-        .await
-        .unwrap();
     let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    tracing::trace!("Checking for updates for media in Watchlist");
-    service
-        .update_watchlist_media_and_send_notifications()
-        .await
-        .unwrap();
-    tracing::trace!("Checking and sending any pending reminders");
-    service.send_pending_media_reminders().await.unwrap();
-    tracing::trace!("Recalculating calendar events");
-    service.recalculate_calendar_events().await.unwrap();
-    tracing::trace!("Sending notifications for released media");
-    service
-        .send_notifications_for_released_media()
-        .await
-        .unwrap();
+    if env::var("DISABLE_INVALIDATE_IMPORT_JOBS").is_err() {
+        tracing::trace!("Invalidating invalid media import jobs");
+        ctx.data::<Arc<ImporterService>>()
+            .unwrap()
+            .invalidate_import_jobs()
+            .await
+            .unwrap();
+    }
+    if env::var("DISABLE_UPDATE_WATCHLIST_MEDIA").is_err() {
+        tracing::trace!("Checking for updates for media in Watchlist");
+        service
+            .update_watchlist_metadata_and_send_notifications()
+            .await
+            .unwrap();
+    }
+    if env::var("DISABLE_UPDATE_MONITORED_PEOPLE").is_err() {
+        tracing::trace!("Checking for updates for monitored people");
+        service
+            .update_monitored_people_and_send_notifications()
+            .await
+            .unwrap();
+    }
+    if env::var("DISABLE_SEND_PENDING_REMINDERS").is_err() {
+        tracing::trace!("Checking and sending any pending reminders");
+        service.send_pending_media_reminders().await.unwrap();
+    }
+    if env::var("DISABLE_RECALCULATE_CALENDAR_EVENTS").is_err() {
+        tracing::trace!("Recalculating calendar events");
+        service.recalculate_calendar_events().await.unwrap();
+    }
+    if env::var("DISABLE_SEND_NOTIFICATIONS_FOR_RELEASED_MEDIA").is_err() {
+        tracing::trace!("Sending notifications for released media");
+        service
+            .send_notifications_for_released_media()
+            .await
+            .unwrap();
+    }
     Ok(())
 }
 
@@ -128,16 +144,16 @@ pub async fn perform_core_application_job(
     Ok(())
 }
 
-// The background jobs which can be throttled.
+// The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
-    ImportFromExternalSource(i32, DeployImportJobInput),
+    ImportFromExternalSource(i32, Box<DeployImportJobInput>),
     ReEvaluateUserWorkouts(i32),
-    UpdateMetadata(metadata::Model),
+    UpdateMetadata(i32),
     UpdateExerciseJob(Exercise),
+    UpdatePerson(i32),
     RecalculateCalendarEvents,
-    AssociatePersonWithMetadata(i32, PartialMetadataPerson, usize),
-    AssociateGroupWithMetadata(MetadataLot, MetadataSource, String),
+    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ReviewPosted(ReviewPostedEvent),
     PerformExport(i32, Vec<ExportItem>),
     RecalculateUserSummary(i32),
@@ -171,42 +187,27 @@ pub async fn perform_application_job(
             .re_evaluate_user_workouts(user_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdateMetadata(metadata) => {
-            let notifications = misc_service.update_metadata(metadata.id).await.unwrap();
-            if !notifications.is_empty() {
-                let users_to_notify = misc_service
-                    .users_to_be_notified_for_state_changes()
-                    .await
-                    .unwrap()
-                    .get(&metadata.id)
-                    .cloned()
-                    .unwrap_or_default();
-                for notification in notifications {
-                    for user_id in users_to_notify.iter() {
-                        misc_service
-                            .send_media_state_changed_notification_for_user(
-                                user_id.to_owned(),
-                                &notification,
-                            )
-                            .await
-                            .ok();
-                    }
-                }
-            }
-            true
-        }
+        ApplicationJob::UpdateMetadata(metadata_id) => misc_service
+            .update_metadata_and_notify_users(metadata_id)
+            .await
+            .is_ok(),
+        ApplicationJob::UpdatePerson(person_id) => misc_service
+            .update_person_and_notify_users(person_id)
+            .await
+            .is_ok(),
         ApplicationJob::UpdateExerciseJob(exercise) => {
             exercise_service.update_exercise(exercise).await.is_ok()
         }
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
         }
-        ApplicationJob::AssociatePersonWithMetadata(metadata_id, person, index) => misc_service
-            .associate_person_with_metadata(metadata_id, person, index)
-            .await
-            .is_ok(),
-        ApplicationJob::AssociateGroupWithMetadata(lot, source, group_identifier) => misc_service
-            .associate_group_with_metadata(lot, source, group_identifier)
+        ApplicationJob::AssociateGroupWithMetadata(lot, source, identifier) => misc_service
+            .commit_metadata_group(CommitMediaInput {
+                lot,
+                source,
+                identifier,
+                force_update: None,
+            })
             .await
             .is_ok(),
         ApplicationJob::ReviewPosted(event) => {

@@ -1,18 +1,12 @@
 query CoreDetails {
   coreDetails {
-    version
     timezone
     authorName
     repositoryLink
     docsLink
-    defaultCredentials
-    credentialsChangeAllowed
-    preferencesChangeAllowed
     itemDetailsHeight
-    reviewsDisabled
-    videosDisabled
-    upgrade
     pageLimit
-    deployAdminJobsAllowed
+    tokenValidForDays
+    oidcEnabled
   }
 }

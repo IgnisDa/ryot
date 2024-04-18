@@ -1,9 +1,7 @@
 import type { MantineColorScheme } from "@mantine/core";
 import {
-	GetPresignedS3UrlDocument,
-	MetadataLot,
-	MetadataSource,
-	PresignedPutS3UrlDocument,
+	MediaLot,
+	MediaSource,
 	SetLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -21,32 +19,13 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { GraphQLClient } from "graphql-request";
 import { match } from "ts-pattern";
 
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
 
-export const getApplicationKeyAccessor = (keyName: number) => {
-	const base1 = btoa(keyName.toString());
-	const base2 = btoa(base1);
-	return `ryot_${base2}`.replaceAll(/=/g, "eq");
-};
-
-export const ApplicationKey = {
-	Auth: getApplicationKeyAccessor(0),
-	ColorScheme: getApplicationKeyAccessor(1),
-	IsWorkoutInProgress: getApplicationKeyAccessor(2),
-	SavedMeasurementsDisplaySelectedStats: getApplicationKeyAccessor(3),
-	SavedOpenedLinkGroups: getApplicationKeyAccessor(4),
-	DefaultExerciseRestTimer: getApplicationKeyAccessor(5),
-	CurrentWorkout: getApplicationKeyAccessor(6),
-};
-
-export const gqlClientSide = new GraphQLClient("/backend/graphql", {
-	credentials: "include",
-});
+export const CurrentWorkoutKey = "CurrentWorkout";
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
@@ -71,16 +50,16 @@ export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;
 	const newLot = (lot as string).toLowerCase();
 	return match(newLot)
-		.with("anime", "animes", () => MetadataLot.Anime)
-		.with("manga", "mangas", () => MetadataLot.Manga)
-		.with("books", "book", () => MetadataLot.Book)
-		.with("movies", "movie", () => MetadataLot.Movie)
-		.with("tv", "show", "shows", () => MetadataLot.Show)
+		.with("anime", "animes", () => MediaLot.Anime)
+		.with("manga", "mangas", () => MediaLot.Manga)
+		.with("books", "book", () => MediaLot.Book)
+		.with("movies", "movie", () => MediaLot.Movie)
+		.with("tv", "show", "shows", () => MediaLot.Show)
 		.with(
 			"visual_novel",
 			"visualnovel",
 			"visual novel",
-			() => MetadataLot.VisualNovel,
+			() => MediaLot.VisualNovel,
 		)
 		.with(
 			"games",
@@ -89,7 +68,7 @@ export const getLot = (lot: unknown) => {
 			"video_game",
 			"video game",
 			"video_games",
-			() => MetadataLot.VideoGame,
+			() => MediaLot.VideoGame,
 		)
 		.with(
 			"audio book",
@@ -97,35 +76,35 @@ export const getLot = (lot: unknown) => {
 			"audiobook",
 			"audio_book",
 			"audio_books",
-			() => MetadataLot.AudioBook,
+			() => MediaLot.AudioBook,
 		)
-		.with("podcast", "podcasts", () => MetadataLot.Podcast)
+		.with("podcast", "podcasts", () => MediaLot.Podcast)
 		.otherwise(() => undefined);
 };
 
-export const getLotGradient = (lot: MetadataLot) =>
+export const getLotGradient = (lot: MediaLot) =>
 	match(lot)
-		.with(MetadataLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
-		.with(MetadataLot.Book, () => ({ from: "teal", to: "lime" }))
-		.with(MetadataLot.Movie, () => ({ from: "teal", to: "blue" }))
-		.with(MetadataLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MetadataLot.VideoGame, () => ({
+		.with(MediaLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
+		.with(MediaLot.Book, () => ({ from: "teal", to: "lime" }))
+		.with(MediaLot.Movie, () => ({ from: "teal", to: "blue" }))
+		.with(MediaLot.Show, () => ({ from: "orange", to: "red" }))
+		.with(MediaLot.VideoGame, () => ({
 			from: "purple",
 			to: "blue",
 		}))
-		.with(MetadataLot.Anime, () => ({
+		.with(MediaLot.Anime, () => ({
 			from: "red",
 			to: "blue",
 		}))
-		.with(MetadataLot.Manga, () => ({
+		.with(MediaLot.Manga, () => ({
 			from: "red",
 			to: "green",
 		}))
-		.with(MetadataLot.Podcast, () => ({
+		.with(MediaLot.Podcast, () => ({
 			from: "yellow",
 			to: "purple",
 		}))
-		.with(MetadataLot.VisualNovel, () => ({
+		.with(MediaLot.VisualNovel, () => ({
 			from: "green",
 			to: "yellow",
 		}))
@@ -138,13 +117,13 @@ export const getSource = (source: unknown) => {
 	if (!source) return undefined;
 	const newLot = (source as string).toLowerCase();
 	return match(newLot)
-		.with("anilist", () => MetadataSource.Anilist)
-		.with("audible", () => MetadataSource.Audible)
-		.with("custom", () => MetadataSource.Custom)
-		.with("igdb", () => MetadataSource.Igdb)
-		.with("listennotes", () => MetadataSource.Listennotes)
-		.with("openlibrary", () => MetadataSource.Openlibrary)
-		.with("tmdb", () => MetadataSource.Tmdb)
+		.with("anilist", () => MediaSource.Anilist)
+		.with("audible", () => MediaSource.Audible)
+		.with("custom", () => MediaSource.Custom)
+		.with("igdb", () => MediaSource.Igdb)
+		.with("listennotes", () => MediaSource.Listennotes)
+		.with("openlibrary", () => MediaSource.Openlibrary)
+		.with("tmdb", () => MediaSource.Tmdb)
 		.otherwise(() => undefined);
 };
 
@@ -152,22 +131,22 @@ export enum Verb {
 	Read = 0,
 }
 
-export const getVerb = (verb: Verb, lot: MetadataLot) => {
+export const getVerb = (verb: Verb, lot: MediaLot) => {
 	return match(verb)
 		.with(Verb.Read, () => {
 			return match(lot)
-				.with(MetadataLot.Book, MetadataLot.Manga, () => "read")
+				.with(MediaLot.Book, MediaLot.Manga, () => "read")
 				.with(
-					MetadataLot.Movie,
-					MetadataLot.Show,
-					MetadataLot.Anime,
-					MetadataLot.VisualNovel,
+					MediaLot.Movie,
+					MediaLot.Show,
+					MediaLot.Anime,
+					MediaLot.VisualNovel,
 					() => "watch",
 				)
 				.with(
-					MetadataLot.AudioBook,
-					MetadataLot.VideoGame,
-					MetadataLot.Podcast,
+					MediaLot.AudioBook,
+					MediaLot.VideoGame,
+					MediaLot.Podcast,
 					() => "play",
 				)
 				.otherwise(() => {
@@ -201,77 +180,18 @@ export const getStringAsciiValue = (input: string) => {
 	return total;
 };
 
-export const getMetadataIcon = (lot: MetadataLot) => {
+export const getMetadataIcon = (lot: MediaLot) => {
 	return match(lot)
-		.with(MetadataLot.Book, () => IconBook)
-		.with(MetadataLot.Movie, () => IconDeviceTv)
-		.with(MetadataLot.Show, () => IconDeviceDesktop)
-		.with(MetadataLot.VideoGame, () => IconBrandAppleArcade)
-		.with(MetadataLot.AudioBook, () => IconHeadphones)
-		.with(MetadataLot.Podcast, () => IconMicrophone)
-		.with(MetadataLot.Manga, () => IconDeviceTvOld)
-		.with(MetadataLot.Anime, () => IconBooks)
-		.with(MetadataLot.VisualNovel, () => IconBook2)
+		.with(MediaLot.Book, () => IconBook)
+		.with(MediaLot.Movie, () => IconDeviceTv)
+		.with(MediaLot.Show, () => IconDeviceDesktop)
+		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
+		.with(MediaLot.AudioBook, () => IconHeadphones)
+		.with(MediaLot.Podcast, () => IconMicrophone)
+		.with(MediaLot.Manga, () => IconDeviceTvOld)
+		.with(MediaLot.Anime, () => IconBooks)
+		.with(MediaLot.VisualNovel, () => IconBook2)
 		.exhaustive();
-};
-
-export const uploadFileAndGetKey = async (
-	fileName: string,
-	prefix: string,
-	contentType: string,
-	body: ArrayBuffer | Buffer,
-) => {
-	const { presignedPutS3Url } = await gqlClientSide.request(
-		PresignedPutS3UrlDocument,
-		{ input: { fileName, prefix } },
-	);
-	await fetch(presignedPutS3Url.uploadUrl, {
-		method: "PUT",
-		body,
-		headers: { "Content-Type": contentType },
-	});
-	return presignedPutS3Url.key;
-};
-
-export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await gqlClientSide.request(
-		GetPresignedS3UrlDocument,
-		{ key },
-	);
-	return getPresignedS3Url;
-};
-
-export const uploadFileToServiceAndGetPath = async (
-	file: File,
-	onProgress: (event: ProgressEvent<XMLHttpRequestEventTarget>) => void,
-	onLoad: () => void,
-) => {
-	const formData = new FormData();
-	formData.append("files[]", file, file.name);
-	const data: string = await new Promise((resolve) => {
-		const xhr = new XMLHttpRequest();
-		xhr.upload.addEventListener("progress", (event) => {
-			if (event.lengthComputable) onProgress(event);
-		});
-		xhr.addEventListener("load", () => {
-			onLoad();
-			const data: string[] = JSON.parse(xhr.responseText);
-			resolve(data[0]);
-		});
-		xhr.open("POST", "/backend/upload", true);
-		xhr.send(formData);
-	});
-	return data;
-};
-
-export const deserializeLocalStorage = (value: string | undefined) => {
-	if (value === "__undefined") return undefined;
-	return value;
-};
-
-export const serializeLocalStorage = (value: string | undefined) => {
-	if (typeof value === "undefined") return "__undefined";
-	return value;
 };
 
 export { dayjs as dayjsLib };

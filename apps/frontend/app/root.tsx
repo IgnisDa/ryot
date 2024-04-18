@@ -1,4 +1,3 @@
-import type Umami from "@bitprojects/umami-logger-typescript";
 import {
 	ActionIcon,
 	Alert,
@@ -11,14 +10,13 @@ import {
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import {
-	LinksFunction,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type LinksFunction,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import {
 	Links,
-	LiveReload,
 	Meta,
 	Outlet,
 	Scripts,
@@ -29,21 +27,12 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
 import { Toaster } from "~/components/toaster";
-import { getToast } from "~/lib/toast.server";
 import {
+	colorSchemeCookie,
 	combineHeaders,
-	expectedEnvironmentVariables,
+	getToast,
 } from "~/lib/utilities.server";
 import { MountPoint } from "./components/confirmation";
-import { colorSchemeCookie } from "./lib/cookies.server";
-
-declare global {
-	interface Window {
-		umami?: {
-			track: typeof Umami.trackEvent;
-		};
-	}
-}
 
 const theme = createTheme({
 	fontFamily: "Poppins",
@@ -95,14 +84,13 @@ export const links: LinksFunction = () => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const envData = expectedEnvironmentVariables.parse(process.env);
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
-		request.headers.get("Cookie") || "",
+		request.headers.get("cookie") || "",
 	);
 	const defaultColorScheme = colorScheme || "light";
 	return json(
-		{ envData, toast, defaultColorScheme },
+		{ toast, defaultColorScheme },
 		{ headers: combineHeaders(toastHeaders) },
 	);
 };
@@ -125,16 +113,6 @@ export default function App() {
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
-				{loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL &&
-				loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID &&
-				!loaderData.envData.DISABLE_TELEMETRY ? (
-					<script
-						defer
-						src={loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL}
-						data-website-id={loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID}
-						data-domains={loaderData.envData.FRONTEND_UMAMI_DOMAINS}
-					/>
-				) : null}
 			</head>
 			<body>
 				<QueryClientProvider client={queryClient}>
@@ -152,6 +130,7 @@ export default function App() {
 								top={10}
 								size="sm"
 								color="yellow"
+								style={{ zIndex: 10 }}
 							/>
 						) : null}
 						<Toaster toast={loaderData.toast} />
@@ -159,7 +138,6 @@ export default function App() {
 							<Outlet />
 						</Flex>
 						<ScrollRestoration />
-						<LiveReload />
 						<Scripts />
 					</MantineProvider>
 				</QueryClientProvider>

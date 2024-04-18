@@ -29,6 +29,8 @@ theme:
     - navigation.instant
     - navigation.tracking
     - content.code.copy
+    - search.highlight
+    - search.share
 
 plugins:
   - awesome-pages

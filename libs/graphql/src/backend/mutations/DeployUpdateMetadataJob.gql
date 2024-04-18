@@ -1,3 +1,0 @@
-mutation DeployUpdateMetadataJob($metadataId: Int!) {
-  deployUpdateMetadataJob(metadataId: $metadataId)
-}

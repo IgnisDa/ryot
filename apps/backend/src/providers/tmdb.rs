@@ -1,9 +1,13 @@
-use std::{fs, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MetadataLot, MetadataSource};
+use database::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -17,10 +21,11 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MediaSearchItem, MediaSpecifics, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson, MetadataVideo,
+            MediaDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-            ShowEpisode, ShowSeason, ShowSpecifics,
+            PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -30,7 +35,7 @@ use crate::{
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";
-static POSSIBLE_ROLES: [&str; 4] = ["Acting", "Production", "Directing", "Director"];
+static POSSIBLE_ROLES: [&str; 5] = ["Acting", "Directing", "Director", "Production", "Writer"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -76,23 +81,23 @@ struct TmdbImagesResponse {
     profiles: Option<Vec<TmdbImage>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct TmdbEntry {
     id: i32,
+    #[serde(alias = "logo_path", alias = "profile_path")]
     poster_path: Option<String>,
-    backdrop_path: Option<String>,
     overview: Option<String>,
+    #[serde(alias = "name")]
     title: Option<String>,
-    name: Option<String>,
     release_date: Option<String>,
     first_air_date: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct TmdbListResponse<T = TmdbEntry> {
+struct TmdbListResponse {
     page: i32,
     total_results: i32,
-    results: Vec<T>,
+    results: Vec<TmdbEntry>,
     total_pages: i32,
 }
 
@@ -133,6 +138,31 @@ struct TmdbMediaEntry {
     videos: Option<TmdbVideoResults>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbWatchProviderDetails {
+    provider_id: i32,
+    provider_name: String,
+    logo_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbWatchProviderList {
+    rent: Option<Vec<TmdbWatchProviderDetails>>,
+    buy: Option<Vec<TmdbWatchProviderDetails>>,
+    flatrate: Option<Vec<TmdbWatchProviderDetails>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbWatchProviderResponse {
+    results: HashMap<String, TmdbWatchProviderList>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct TmdbFindByExernalSourceResponse {
+    movie_results: Vec<TmdbEntry>,
+    tv_results: Vec<TmdbEntry>,
+}
+
 #[derive(Debug, Clone)]
 pub struct TmdbService {
     language: String,
@@ -140,7 +170,7 @@ pub struct TmdbService {
 }
 
 impl TmdbService {
-    fn get_cover_image_url(&self, c: String) -> String {
+    fn get_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.settings.image_url, "original", c)
     }
 
@@ -185,30 +215,73 @@ impl NonMediaTmdbService {
 
 #[async_trait]
 impl MediaProvider for NonMediaTmdbService {
-    async fn person_details(&self, identity: &PartialMetadataPerson) -> Result<MetadataPerson> {
-        let typ = "person".to_owned();
-        let details: TmdbNonMediaEntity = self
+    async fn people_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        source_specifics: &Option<PersonSourceSpecifics>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<PeopleSearchItem>> {
+        let typ = match source_specifics {
+            Some(PersonSourceSpecifics {
+                is_tmdb_company: Some(true),
+                ..
+            }) => "company",
+            _ => "person",
+        };
+        let page = page.unwrap_or(1);
+        let mut rsp = self
             .client
-            .get(format!("{}/{}", typ, identity.identifier))
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json()
+            .get(format!("search/{}", typ))
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": self.base.language,
+                "include_adult": display_nsfw,
+            }))
+            .unwrap()
             .await
             .map_err(|e| anyhow!(e))?;
-        let mut images = vec![];
-        self.base
-            .save_all_images(&self.client, &typ, &identity.identifier, &mut images)
-            .await?;
-        let images = images
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = search
+            .results
             .into_iter()
-            .unique()
-            .map(|p| self.base.get_cover_image_url(p))
-            .collect();
-        let description = details.description.or(details.biography);
-        let mut related = vec![];
-        let cred_det: TmdbCreditsResponse = self
+            .map(|d| PeopleSearchItem {
+                identifier: d.id.to_string(),
+                name: d.title.unwrap(),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                birth_year: None,
+            })
+            .collect_vec();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
+            items: resp.to_vec(),
+        })
+    }
+
+    async fn person_details(
+        &self,
+        identity: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
+        let typ = match source_specifics {
+            Some(PersonSourceSpecifics {
+                is_tmdb_company: Some(true),
+                ..
+            }) => "company",
+            _ => "person",
+        };
+        let details: TmdbNonMediaEntity = self
             .client
-            .get(format!("{}/{}/combined_credits", typ, identity.identifier))
+            .get(format!("{}/{}", typ, identity))
             .query(&json!({ "language": self.base.language }))
             .unwrap()
             .await
@@ -216,24 +289,79 @@ impl MediaProvider for NonMediaTmdbService {
             .body_json()
             .await
             .map_err(|e| anyhow!(e))?;
-        for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
-            if let Some(title) = media.title.or(media.name) {
-                if let Some(job) = media.character {
-                    if POSSIBLE_ROLES.contains(&job.as_str()) {
-                        related.push((
-                            job,
-                            PartialMetadataWithoutId {
-                                identifier: media.id.unwrap().to_string(),
-                                title,
-                                image: media.poster_path.map(|p| self.base.get_cover_image_url(p)),
-                                lot: match media.media_type.unwrap().as_ref() {
-                                    "movie" => MetadataLot::Movie,
-                                    "tv" => MetadataLot::Show,
-                                    _ => continue,
-                                },
-                                source: MetadataSource::Tmdb,
+        let mut images = vec![];
+        self.base
+            .save_all_images(&self.client, typ, identity, &mut images)
+            .await?;
+        let images = images
+            .into_iter()
+            .unique()
+            .map(|p| self.base.get_image_url(p))
+            .collect();
+        let description = details.description.or(details.biography);
+        let mut related = vec![];
+        if typ == "person" {
+            let cred_det: TmdbCreditsResponse = self
+                .client
+                .get(format!("{}/{}/combined_credits", typ, identity))
+                .query(&json!({ "language": self.base.language }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
+                if let Some(job) = media.job {
+                    related.push((
+                        job,
+                        PartialMetadataWithoutId {
+                            identifier: media.id.unwrap().to_string(),
+                            title: media.title.or(media.name).unwrap_or_default(),
+                            image: media.poster_path.map(|p| self.base.get_image_url(p)),
+                            lot: match media.media_type.unwrap().as_ref() {
+                                "movie" => MediaLot::Movie,
+                                "tv" => MediaLot::Show,
+                                _ => continue,
                             },
-                        ));
+                            source: MediaSource::Tmdb,
+                        },
+                    ));
+                }
+            }
+        } else {
+            for m_typ in ["movie", "tv"] {
+                for i in 1.. {
+                    let cred_det: TmdbListResponse = self
+                        .client
+                        .get(format!("discover/{}", m_typ))
+                        .query(
+                            &json!({ "with_companies": identity, "page": i, "language": self.base.language }),
+                        )
+                        .unwrap()
+                        .await
+                        .map_err(|e| anyhow!(e))?
+                        .body_json()
+                        .await
+                        .map_err(|e| anyhow!(e))?;
+                    related.extend(cred_det.results.into_iter().map(|m| {
+                        (
+                            "Production Company".to_owned(),
+                            PartialMetadataWithoutId {
+                                identifier: m.id.to_string(),
+                                title: m.title.unwrap_or_default(),
+                                image: m.poster_path.map(|p| self.base.get_image_url(p)),
+                                lot: match m_typ {
+                                    "movie" => MediaLot::Movie,
+                                    "tv" => MediaLot::Show,
+                                    _ => unreachable!(),
+                                },
+                                source: MediaSource::Tmdb,
+                            },
+                        )
+                    }));
+                    if cred_det.page == cred_det.total_pages {
+                        break;
                     }
                 }
             }
@@ -243,7 +371,7 @@ impl MediaProvider for NonMediaTmdbService {
             images: Some(images),
             identifier: details.id.to_string(),
             description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             place: details.origin_country.or(details.place_of_birth),
             website: details.homepage,
             birth_date: details.birthday,
@@ -254,9 +382,36 @@ impl MediaProvider for NonMediaTmdbService {
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
+            source_specifics: source_specifics.to_owned(),
             related,
         };
         Ok(resp)
+    }
+}
+
+impl NonMediaTmdbService {
+    pub async fn find_by_external_id(
+        &self,
+        external_id: &str,
+        external_source: &str,
+    ) -> Result<String> {
+        let details: TmdbFindByExernalSourceResponse = self
+            .client
+            .get(format!("find/{}", external_id))
+            .query(&json!({ "language": self.base.language, "external_source": external_source }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        if !details.movie_results.is_empty() {
+            Ok(details.movie_results[0].id.to_string())
+        } else if !details.tv_results.is_empty() {
+            Ok(details.tv_results[0].id.to_string())
+        } else {
+            Err(anyhow!("No results found"))
+        }
     }
 }
 
@@ -281,7 +436,254 @@ impl TmdbMovieService {
 
 #[async_trait]
 impl MediaProvider for TmdbMovieService {
-    async fn group_details(
+    async fn metadata_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataSearchItem>> {
+        let page = page.unwrap_or(1);
+        let mut rsp = self
+            .client
+            .get("search/movie")
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": self.base.language,
+                "include_adult": display_nsfw,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+
+        let resp = search
+            .results
+            .into_iter()
+            .map(|d| MetadataSearchItem {
+                identifier: d.id.to_string(),
+                title: d.title.unwrap(),
+                publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+            })
+            .collect_vec();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
+            items: resp.to_vec(),
+        })
+    }
+
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+        let mut rsp = self
+            .client
+            .get(format!("movie/{}", &identifier))
+            .query(&json!({
+                "language": self.base.language,
+                "append_to_response": "videos",
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut videos = vec![];
+        if let Some(vid) = data.videos {
+            videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
+                identifier: StoredUrl::Url(vid.key),
+                source: MetadataVideoSource::Youtube,
+            }))
+        }
+        let mut rsp = self
+            .client
+            .get(format!("movie/{}/credits", identifier))
+            .query(&json!({
+                "language": self.base.language,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut people = vec![];
+        people.extend(
+            credits
+                .cast
+                .clone()
+                .into_iter()
+                .flat_map(|g| {
+                    g.id.and_then(|id| {
+                        g.known_for_department
+                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
+                            .map(|r| PartialMetadataPerson {
+                                identifier: id.to_string(),
+                                name: g.name.unwrap_or_default(),
+                                role: r,
+                                source: MediaSource::Tmdb,
+                                character: g.character,
+                                source_specifics: None,
+                            })
+                    })
+                })
+                .unique()
+                .collect_vec(),
+        );
+        people.extend(
+            credits
+                .crew
+                .clone()
+                .into_iter()
+                .flat_map(|g| {
+                    g.id.and_then(|id| {
+                        g.known_for_department
+                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
+                            .map(|r| PartialMetadataPerson {
+                                identifier: id.to_string(),
+                                name: g.name.unwrap_or_default(),
+                                role: r,
+                                source: MediaSource::Tmdb,
+                                character: g.character,
+                                source_specifics: None,
+                            })
+                    })
+                })
+                .unique()
+                .collect_vec(),
+        );
+        people.extend(
+            data.production_companies
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| PartialMetadataPerson {
+                    identifier: p.id.to_string(),
+                    name: p.name,
+                    role: "Production Company".to_owned(),
+                    source: MediaSource::Tmdb,
+                    character: None,
+                    source_specifics: Some(PersonSourceSpecifics {
+                        is_tmdb_company: Some(true),
+                        ..Default::default()
+                    }),
+                })
+                .collect_vec(),
+        );
+        let mut image_ids = Vec::from_iter(data.poster_path);
+        if let Some(u) = data.backdrop_path {
+            image_ids.push(u);
+        }
+        self.base
+            .save_all_images(&self.client, "movie", identifier, &mut image_ids)
+            .await?;
+        let suggestions = self
+            .base
+            .get_all_suggestions(&self.client, "movie", identifier)
+            .await?;
+        let watch_providers = self
+            .base
+            .get_all_watch_providers(&self.client, "movie", identifier)
+            .await?;
+        Ok(MediaDetails {
+            identifier: data.id.to_string(),
+            is_nsfw: data.adult,
+            original_language: self.base.get_language_name(data.original_language),
+            lot: MediaLot::Movie,
+            source: MediaSource::Tmdb,
+            production_status: data.status,
+            title: data.title.unwrap(),
+            genres: data
+                .genres
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| g.name)
+                .collect(),
+            people,
+            url_images: image_ids
+                .into_iter()
+                .unique()
+                .map(|p| MetadataImageForMediaDetails {
+                    image: self.base.get_image_url(p),
+                    lot: MetadataImageLot::Poster,
+                })
+                .collect(),
+            videos,
+            publish_year: data
+                .release_date
+                .as_ref()
+                .and_then(|r| convert_date_to_year(r)),
+            publish_date: data.release_date.and_then(|r| convert_string_to_date(&r)),
+            description: data.overview,
+            movie_specifics: Some(MovieSpecifics {
+                runtime: data.runtime,
+            }),
+            suggestions,
+            provider_rating: if let Some(av) = data.vote_average {
+                if av != dec!(0) {
+                    Some(av * dec!(10))
+                } else {
+                    None
+                }
+            } else {
+                None
+            },
+            group_identifiers: Vec::from_iter(data.belongs_to_collection)
+                .into_iter()
+                .map(|c| c.id.to_string())
+                .collect(),
+            watch_providers,
+            ..Default::default()
+        })
+    }
+
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let page = page.unwrap_or(1);
+        let mut rsp = self
+            .client
+            .get("search/collection")
+            .query(&json!({
+                "query": query.to_owned(),
+                "page": page,
+                "language": self.base.language,
+                "include_adult": display_nsfw,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let resp = search
+            .results
+            .into_iter()
+            .map(|d| MetadataGroupSearchItem {
+                identifier: d.id.to_string(),
+                name: d.title.unwrap(),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                parts: None,
+            })
+            .collect_vec();
+        let next_page = if page < search.total_pages {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: search.total_results,
+                next_page,
+            },
+            items: resp,
+        })
+    }
+
+    async fn metadata_group_details(
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
@@ -320,9 +722,9 @@ impl MediaProvider for TmdbMovieService {
             .map(|p| PartialMetadataWithoutId {
                 title: p.title.unwrap(),
                 identifier: p.id.to_string(),
-                source: MetadataSource::Tmdb,
-                lot: MetadataLot::Movie,
-                image: p.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                source: MediaSource::Tmdb,
+                lot: MediaLot::Movie,
+                image: p.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
         Ok((
@@ -336,222 +738,15 @@ impl MediaProvider for TmdbMovieService {
                     .into_iter()
                     .unique()
                     .map(|p| MetadataImage {
-                        url: StoredUrl::Url(self.base.get_cover_image_url(p)),
+                        url: StoredUrl::Url(self.base.get_image_url(p)),
                         lot: MetadataImageLot::Poster,
                     })
                     .collect(),
-                lot: MetadataLot::Movie,
-                source: MetadataSource::Tmdb,
+                lot: MediaLot::Movie,
+                source: MediaSource::Tmdb,
             },
             parts,
         ))
-    }
-
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self
-            .client
-            .get(format!("movie/{}", &identifier))
-            .query(&json!({
-                "language": self.base.language,
-                "append_to_response": "videos",
-            }))
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut videos = vec![];
-        if let Some(vid) = data.videos {
-            videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
-                identifier: StoredUrl::Url(vid.key),
-                source: MetadataVideoSource::Youtube,
-            }))
-        }
-        let mut rsp = self
-            .client
-            .get(format!("movie/{}/credits", identifier))
-            .query(&json!({
-                "language": self.base.language,
-            }))
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let mut people = vec![];
-        people.extend(
-            credits
-                .cast
-                .clone()
-                .into_iter()
-                .flat_map(|g| {
-                    if let Some(id) = g.id {
-                        if let Some(r) = g.known_for_department {
-                            if POSSIBLE_ROLES.contains(&r.as_str()) {
-                                Some(PartialMetadataPerson {
-                                    identifier: id.to_string(),
-                                    role: r,
-                                    source: MetadataSource::Tmdb,
-                                    character: g.character,
-                                })
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .unique()
-                .collect_vec(),
-        );
-        people.extend(
-            credits
-                .crew
-                .clone()
-                .into_iter()
-                .flat_map(|g| {
-                    if let Some(id) = g.id {
-                        if let Some(r) = g.known_for_department {
-                            if POSSIBLE_ROLES.contains(&r.as_str()) {
-                                Some(PartialMetadataPerson {
-                                    identifier: id.to_string(),
-                                    role: r,
-                                    source: MetadataSource::Tmdb,
-                                    character: g.character,
-                                })
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .unique()
-                .collect_vec(),
-        );
-        people.extend(
-            data.production_companies
-                .unwrap_or_default()
-                .into_iter()
-                .map(|p| PartialMetadataPerson {
-                    identifier: p.id.to_string(),
-                    role: "Production".to_owned(),
-                    source: MetadataSource::Tmdb,
-                    character: None,
-                })
-                .collect_vec(),
-        );
-        let mut image_ids = Vec::from_iter(data.poster_path);
-        if let Some(u) = data.backdrop_path {
-            image_ids.push(u);
-        }
-        self.base
-            .save_all_images(&self.client, "movie", identifier, &mut image_ids)
-            .await?;
-        let suggestions = self
-            .base
-            .save_all_suggestions(&self.client, "movie", identifier)
-            .await?;
-
-        Ok(MediaDetails {
-            identifier: data.id.to_string(),
-            is_nsfw: data.adult,
-            original_language: self.base.get_language_name(data.original_language),
-            lot: MetadataLot::Movie,
-            source: MetadataSource::Tmdb,
-            production_status: data.status,
-            title: data.title.unwrap(),
-            genres: data
-                .genres
-                .unwrap_or_default()
-                .into_iter()
-                .map(|g| g.name)
-                .collect(),
-            people,
-            url_images: image_ids
-                .into_iter()
-                .unique()
-                .map(|p| MetadataImageForMediaDetails {
-                    image: self.base.get_cover_image_url(p),
-                    lot: MetadataImageLot::Poster,
-                })
-                .collect(),
-            videos,
-            publish_year: data
-                .release_date
-                .as_ref()
-                .and_then(|r| convert_date_to_year(r)),
-            publish_date: data.release_date.and_then(|r| convert_string_to_date(&r)),
-            description: data.overview,
-            specifics: MediaSpecifics::Movie(MovieSpecifics {
-                runtime: data.runtime,
-            }),
-            suggestions,
-            provider_rating: if let Some(av) = data.vote_average {
-                if av != dec!(0) {
-                    Some(av * dec!(10))
-                } else {
-                    None
-                }
-            } else {
-                None
-            },
-            creators: vec![],
-            s3_images: vec![],
-            group_identifiers: Vec::from_iter(data.belongs_to_collection)
-                .into_iter()
-                .map(|c| c.id.to_string())
-                .collect(),
-        })
-    }
-
-    async fn search(
-        &self,
-        query: &str,
-        page: Option<i32>,
-        display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
-        let page = page.unwrap_or(1);
-        let mut rsp = self
-            .client
-            .get("search/movie")
-            .query(&json!({
-                "query": query.to_owned(),
-                "page": page,
-                "language": self.base.language,
-                "include_adult": display_nsfw,
-            }))
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-
-        let resp = search
-            .results
-            .into_iter()
-            .map(|d| MediaSearchItem {
-                identifier: d.id.to_string(),
-                title: d.title.unwrap(),
-                publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
-                image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
-            })
-            .collect_vec();
-        let next_page = if page < search.total_pages {
-            Some(page + 1)
-        } else {
-            None
-        };
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: search.total_results,
-                next_page,
-            },
-            items: resp.to_vec(),
-        })
     }
 }
 
@@ -576,7 +771,7 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
             .get(format!("tv/{}", &identifier))
@@ -604,7 +799,7 @@ impl MediaProvider for TmdbShowService {
             .await?;
         let suggestions = self
             .base
-            .save_all_suggestions(&self.client, "tv", identifier)
+            .get_all_suggestions(&self.client, "tv", identifier)
             .await?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -678,16 +873,16 @@ impl MediaProvider for TmdbShowService {
                             .clone()
                             .into_iter()
                             .flat_map(|g| {
-                                if let Some(id) = g.id {
+                                g.id.and_then(|id| {
                                     g.known_for_department.map(|r| PartialMetadataPerson {
                                         identifier: id.to_string(),
+                                        name: g.name.unwrap_or_default(),
                                         role: r,
-                                        source: MetadataSource::Tmdb,
+                                        source: MediaSource::Tmdb,
                                         character: g.character,
+                                        source_specifics: None,
                                     })
-                                } else {
-                                    None
-                                }
+                                })
                             })
                             .collect_vec()
                     })
@@ -701,9 +896,14 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .map(|p| PartialMetadataPerson {
                     identifier: p.id.to_string(),
-                    role: "Production".to_owned(),
-                    source: MetadataSource::Tmdb,
+                    name: p.name,
+                    role: "Production Company".to_owned(),
+                    source: MediaSource::Tmdb,
                     character: None,
+                    source_specifics: Some(PersonSourceSpecifics {
+                        is_tmdb_company: Some(true),
+                        ..Default::default()
+                    }),
                 })
                 .collect_vec(),
         );
@@ -721,14 +921,27 @@ impl MediaProvider for TmdbShowService {
             .flat_map(|s| s.episodes.iter())
             .map(|e| e.runtime.unwrap_or_default())
             .sum();
+        let seasons_without_specials = seasons
+            .iter()
+            .filter(|s| s.name != "Specials")
+            .collect_vec();
+        let total_seasons = seasons_without_specials.len();
+        let total_episodes = seasons_without_specials
+            .iter()
+            .flat_map(|s| s.episodes.iter())
+            .count();
+        let watch_providers = self
+            .base
+            .get_all_watch_providers(&self.client, "tv", identifier)
+            .await?;
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,
             original_language: self.base.get_language_name(show_data.original_language),
-            lot: MetadataLot::Show,
+            lot: MediaLot::Show,
             production_status: show_data.status,
-            source: MetadataSource::Tmdb,
+            source: MediaSource::Tmdb,
             description: show_data.overview,
             people,
             genres: show_data
@@ -745,26 +958,35 @@ impl MediaProvider for TmdbShowService {
                 .into_iter()
                 .unique()
                 .map(|p| MetadataImageForMediaDetails {
-                    image: self.base.get_cover_image_url(p),
+                    image: self.base.get_image_url(p),
                     lot: MetadataImageLot::Poster,
                 })
                 .collect(),
             videos,
             publish_year: convert_date_to_year(&show_data.first_air_date.unwrap_or_default()),
-            specifics: MediaSpecifics::Show(ShowSpecifics {
+            show_specifics: Some(ShowSpecifics {
                 runtime: if total_runtime == 0 {
                     None
                 } else {
                     Some(total_runtime)
                 },
+                total_seasons: if total_seasons == 0 {
+                    None
+                } else {
+                    Some(total_seasons)
+                },
+                total_episodes: if total_episodes == 0 {
+                    None
+                } else {
+                    Some(total_episodes)
+                },
                 seasons: seasons
                     .into_iter()
                     .map(|s| {
                         let poster_images =
-                            Vec::from_iter(s.poster_path.map(|p| self.base.get_cover_image_url(p)));
-                        let backdrop_images = Vec::from_iter(
-                            s.backdrop_path.map(|p| self.base.get_cover_image_url(p)),
-                        );
+                            Vec::from_iter(s.poster_path.map(|p| self.base.get_image_url(p)));
+                        let backdrop_images =
+                            Vec::from_iter(s.backdrop_path.map(|p| self.base.get_image_url(p)));
                         ShowSeason {
                             id: s.id,
                             name: s.name,
@@ -778,7 +1000,7 @@ impl MediaProvider for TmdbShowService {
                                 .into_iter()
                                 .map(|e| {
                                     let poster_images = Vec::from_iter(
-                                        e.still_path.map(|p| self.base.get_cover_image_url(p)),
+                                        e.still_path.map(|p| self.base.get_image_url(p)),
                                     );
                                     ShowEpisode {
                                         id: e.id,
@@ -798,6 +1020,7 @@ impl MediaProvider for TmdbShowService {
                     .collect(),
             }),
             suggestions,
+            watch_providers,
             provider_rating: if let Some(av) = show_data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))
@@ -807,18 +1030,16 @@ impl MediaProvider for TmdbShowService {
             } else {
                 None
             },
-            group_identifiers: vec![],
-            creators: vec![],
-            s3_images: vec![],
+            ..Default::default()
         })
     }
 
-    async fn search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
             .client
@@ -836,11 +1057,11 @@ impl MediaProvider for TmdbShowService {
         let resp = search
             .results
             .into_iter()
-            .map(|d| MediaSearchItem {
+            .map(|d| MetadataSearchItem {
                 identifier: d.id.to_string(),
-                title: d.name.unwrap(),
+                title: d.title.unwrap_or_default(),
                 publish_year: convert_date_to_year(&d.first_air_date.unwrap()),
-                image: d.poster_path.map(|p| self.base.get_cover_image_url(p)),
+                image: d.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
         let next_page = if page < search.total_pages {
@@ -939,15 +1160,15 @@ impl TmdbService {
         Ok(())
     }
 
-    async fn save_all_suggestions(
+    async fn get_all_suggestions(
         &self,
         client: &Client,
         typ: &str,
         identifier: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
         let lot = match typ {
-            "movie" => MetadataLot::Movie,
-            "tv" => MetadataLot::Show,
+            "movie" => MediaLot::Movie,
+            "tv" => MediaLot::Show,
             _ => unreachable!(),
         };
         let mut suggestions = vec![];
@@ -962,18 +1183,15 @@ impl TmdbService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for entry in new_recs.results.into_iter() {
-                let name = if let Some(n) = entry.name {
-                    n
-                } else if let Some(n) = entry.title {
-                    n
-                } else {
-                    continue;
+                let name = match entry.title {
+                    Some(n) => n,
+                    _ => continue,
                 };
                 suggestions.push(PartialMetadataWithoutId {
                     title: name,
-                    image: entry.poster_path.map(|p| self.get_cover_image_url(p)),
+                    image: entry.poster_path.map(|p| self.get_image_url(p)),
                     identifier: entry.id.to_string(),
-                    source: MetadataSource::Tmdb,
+                    source: MediaSource::Tmdb,
                     lot,
                 });
             }
@@ -982,6 +1200,66 @@ impl TmdbService {
             }
         }
         Ok(suggestions)
+    }
+
+    async fn get_all_watch_providers(
+        &self,
+        client: &Client,
+        typ: &str,
+        identifier: &str,
+    ) -> Result<Vec<WatchProvider>> {
+        let watch_providers_with_langs: TmdbWatchProviderResponse = client
+            .get(format!("{}/{}/watch/providers", typ, identifier))
+            .query(&json!({ "language": self.language }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut watch_providers = Vec::<WatchProvider>::new();
+        for (country, lang_providers) in watch_providers_with_langs.results {
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.rent,
+                country.clone(),
+            );
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.buy,
+                country.clone(),
+            );
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.flatrate,
+                country.clone(),
+            );
+        }
+        Ok(watch_providers)
+    }
+
+    fn append_to_watch_provider(
+        &self,
+        watch_providers: &mut Vec<WatchProvider>,
+        maybe_provider: Option<Vec<TmdbWatchProviderDetails>>,
+        country: String,
+    ) {
+        if let Some(provider) = maybe_provider {
+            for provider in provider {
+                let posn = watch_providers
+                    .iter()
+                    .position(|p| p.name == provider.provider_name);
+                if let Some(posn) = posn {
+                    watch_providers[posn].languages.insert(country.clone());
+                } else {
+                    watch_providers.push(WatchProvider {
+                        name: provider.provider_name,
+                        image: provider.logo_path.map(|i| self.get_image_url(i)),
+                        languages: HashSet::from_iter(vec![country.clone()]),
+                    });
+                }
+            }
+        }
     }
 }
 

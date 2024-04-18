@@ -18,9 +18,9 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import {
@@ -33,27 +33,27 @@ import {
 import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
-	UserCollectionsListDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
+import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getUserCollectionsList,
+	gqlClient,
+	processSubmission,
+} from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [{ userCollectionsList }] = await Promise.all([
-		gqlClient.request(
-			UserCollectionsListDocument,
-			{},
-			await getAuthorizationHeader(request),
-		),
+	const [userCollectionsList] = await Promise.all([
+		getUserCollectionsList(request),
 	]);
 	return json({ collections: userCollectionsList });
 };
@@ -67,22 +67,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
-			await gqlClient.request(
-				CreateOrUpdateCollectionDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			return json(
-				{},
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: submission.updateId
-							? "Collection updated"
-							: "Collection created",
-					}),
-				},
-			);
+			try {
+				await gqlClient.request(
+					CreateOrUpdateCollectionDocument,
+					{ input: submission },
+					await getAuthorizationHeader(request),
+				);
+				return json(
+					{},
+					{
+						headers: await createToastHeaders({
+							type: "success",
+							message: submission.updateId
+								? "Collection updated"
+								: "Collection created",
+						}),
+					},
+				);
+			} catch (e) {
+				let message = "An error occurred";
+				if (e instanceof ClientError) {
+					const err = e.response.errors?.[0].message;
+					if (err) message = err;
+				}
+				return json(
+					{},
+					{
+						status: 400,
+						headers: await createToastHeaders({ type: "error", message }),
+					},
+				);
+			}
 		},
 		delete: async () => {
 			const submission = processSubmission(

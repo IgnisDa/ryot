@@ -13,9 +13,9 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, useFetcher, useLoaderData } from "@remix-run/react";
@@ -33,14 +33,17 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
-import { createToastHeaders } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getCoreDetails,
+	gqlClient,
+	processSubmission,
+} from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [coreDetails, { usersList }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(
 			UsersListDocument,
 			undefined,
@@ -77,7 +80,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const submission = processSubmission(formData, registerFormSchema);
 			const { registerUser } = await gqlClient.request(
 				RegisterUserDocument,
-				{ input: submission },
+				{ input: { password: submission } },
 				await getAuthorizationHeader(request),
 			);
 			const success = registerUser.__typename === "IdObject";
@@ -92,7 +95,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 									() => "Registration is disabled",
 								)
 								.with(
-									RegisterErrorVariant.UsernameAlreadyExists,
+									RegisterErrorVariant.IdentifierAlreadyExists,
 									() => "Username already exists",
 								)
 								.exhaustive(),

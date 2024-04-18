@@ -4,7 +4,7 @@ use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use database::{MetadataLot, MetadataSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -55,8 +55,8 @@ pub async fn import(
     input: DeployStoryGraphImportInput,
     isbn_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
-    let lot = MetadataLot::Book;
-    let source = MetadataSource::GoogleBooks;
+    let lot = MediaLot::Book;
+    let source = MediaSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
     let export = fs::read_to_string(&input.export)?;
@@ -87,6 +87,7 @@ pub async fn import(
                     ImportOrExportMediaItemSeen {
                         started_on: None,
                         ended_on: None,
+                        provider_watched_on: Some(ImportSource::StoryGraph.to_string()),
                         ..Default::default()
                     };
                     record.read_count
@@ -109,13 +110,14 @@ pub async fn import(
                     collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
                 }
                 media.push(ImportOrExportMediaItem {
-                    source_id: record.title,
+                    source_id: record.title.clone(),
                     lot,
                     source,
                     identifier: "".to_string(),
-                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
                         identifier,
-                    )),
+                        title: record.title,
+                    }),
                     seen_history,
                     reviews: vec![ImportOrExportItemRating {
                         rating: record
@@ -153,9 +155,8 @@ pub async fn import(
         }
     }
     Ok(ImportResult {
-        collections: vec![],
         media,
         failed_items,
-        workouts: vec![],
+        ..Default::default()
     })
 }

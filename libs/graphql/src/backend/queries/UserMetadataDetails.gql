@@ -1,0 +1,30 @@
+query UserMetadataDetails($metadataId: Int!) {
+  userMetadataDetails(metadataId: $metadataId) {
+    collections {
+      ...CollectionPart
+    }
+    inProgress {
+      ...SeenPart
+    }
+    history {
+      ...SeenPart
+    }
+    averageRating
+    unitsConsumed
+    reviews {
+      ...ReviewItemPart
+    }
+    reminder {
+      ...UserMediaReminderPart
+    }
+    ownership {
+      ...UserMediaOwnershipPart
+    }
+    seenBy
+    nextEntry {
+      season
+      episode
+      chapter
+    }
+  }
+}

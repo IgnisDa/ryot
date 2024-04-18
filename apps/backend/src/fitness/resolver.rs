@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{BufWriter, Write},
-    sync::Arc,
-};
+use std::{fs::File, sync::Arc};
 
 use apalis::{prelude::Storage, sqlite::SqliteStorage};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -18,10 +14,11 @@ use sea_orm::{
     EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
     RelationTrait,
 };
-use sea_query::{Alias, Condition, Expr, Func, JoinType};
+use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use strum::IntoEnumIterator;
+use struson::writer::{JsonStreamWriter, JsonWriter};
 use tracing::instrument;
 
 use crate::{
@@ -41,17 +38,15 @@ use crate::{
             GithubExerciseAttributes, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
             WorkoutListItem, WorkoutSetRecord,
         },
-        ChangeCollectionToEntityInput, EntityLot, SearchDetails, SearchInput, SearchResults,
-        StoredUrl,
+        ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
-    utils::{add_entity_to_collection, entity_in_collections, get_ilike_query, partial_user_by_id},
+    utils::{add_entity_to_collection, entity_in_collections, ilike_sql, partial_user_by_id},
 };
 
-static JSON_URL: &str =
-    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
-static IMAGES_PREFIX_URL: &str =
-    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
+const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
+const JSON_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/dist/exercises.json");
+const IMAGES_PREFIX_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/exercises");
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct ExerciseListFilter {
@@ -153,7 +148,7 @@ impl ExerciseQuery {
     ) -> Result<SearchResults<ExerciseListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.exercises_list(input, user_id).await
+        service.exercises_list(user_id, input).await
     }
 
     /// Get a paginated list of workouts done by the user.
@@ -185,7 +180,7 @@ impl ExerciseQuery {
     ) -> Result<workout::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.workout_details(workout_id, user_id).await
+        service.workout_details(user_id, workout_id).await
     }
 
     /// Get information about an exercise for a user.
@@ -353,7 +348,7 @@ impl ExerciseService {
         }
     }
 
-    async fn workout_details(&self, workout_id: String, user_id: i32) -> Result<workout::Model> {
+    async fn workout_details(&self, user_id: i32, workout_id: String) -> Result<workout::Model> {
         let maybe_workout = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(user_id))
             .one(&self.db)
@@ -374,8 +369,10 @@ impl ExerciseService {
         let collections = entity_in_collections(
             &self.db,
             user_id,
-            input.exercise_id.clone(),
-            EntityLot::Exercise,
+            None,
+            None,
+            None,
+            Some(input.exercise_id.clone()),
         )
         .await?;
         let mut resp = UserExerciseDetails {
@@ -389,8 +386,10 @@ impl ExerciseService {
             .one(&self.db)
             .await?
         {
-            let user_to_exercise_extra_information =
-                association.exercise_extra_information.clone().unwrap();
+            let user_to_exercise_extra_information = association
+                .exercise_extra_information
+                .clone()
+                .unwrap_or_default();
             let workouts = Workout::find()
                 .filter(
                     workout::Column::Id.is_in(
@@ -436,7 +435,7 @@ impl ExerciseService {
         let query = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
-                query.filter(get_ilike_query(Expr::col(workout::Column::Name), &v))
+                query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
             })
             .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.db).await?;
@@ -458,8 +457,8 @@ impl ExerciseService {
 
     async fn exercises_list(
         &self,
-        input: ExercisesListInput,
         user_id: i32,
+        input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
         let ex = Alias::new("exercise");
         let etu = Alias::new("user_to_entity");
@@ -500,10 +499,13 @@ impl ExerciseService {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
                     .apply_if(q.muscle, |q, v| {
-                        q.filter(get_ilike_query(
-                            Func::cast_as(Expr::col(exercise::Column::Muscles), Alias::new("text")),
-                            &v.to_string(),
-                        ))
+                        q.filter(
+                            Expr::expr(Func::cast_as(
+                                Expr::col(exercise::Column::Muscles),
+                                Alias::new("text"),
+                            ))
+                            .ilike(ilike_sql(&v.to_string())),
+                        )
                     })
                     .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
                     .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
@@ -514,26 +516,23 @@ impl ExerciseService {
                         q.filter(exercise::Column::Equipment.eq(v))
                     })
                     .apply_if(q.collection, |q, v| {
-                        q.filter(collection_to_entity::Column::CollectionId.eq(v))
+                        q.join(
+                            JoinType::LeftJoin,
+                            exercise::Relation::CollectionToEntity.def(),
+                        )
+                        .filter(collection_to_entity::Column::CollectionId.eq(v))
                     })
             })
             .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::any()
-                        .add(get_ilike_query(
-                            Expr::col((AliasedExercise::Table, exercise::Column::Id)),
-                            &v,
-                        ))
-                        .add(get_ilike_query(
-                            Expr::col(exercise::Column::Identifier),
-                            &slugify(v),
-                        )),
+                        .add(
+                            Expr::col((AliasedExercise::Table, exercise::Column::Id))
+                                .ilike(ilike_sql(&v)),
+                        )
+                        .add(Expr::col(exercise::Column::Identifier).ilike(slugify(v))),
                 )
             })
-            .join(
-                JoinType::LeftJoin,
-                exercise::Relation::CollectionToEntity.def(),
-            )
             .join(
                 JoinType::LeftJoin,
                 user_to_entity::Relation::Exercise
@@ -581,7 +580,6 @@ impl ExerciseService {
                 .clone()
                 .push(ApplicationJob::UpdateExerciseJob(exercise))
                 .await?;
-            tracing::debug!(job_id = ?job, "Deployed job to update exercise library.");
             job_ids.push(job.to_string());
         }
         Ok(job_ids.len().try_into().unwrap())
@@ -647,9 +645,9 @@ impl ExerciseService {
     pub async fn export_measurements(
         &self,
         user_id: i32,
-        writer: &mut BufWriter<File>,
+        writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
-        let resp = self
+        let measurements = self
             .user_measurements_list(
                 user_id,
                 UserMeasurementsListInput {
@@ -658,10 +656,9 @@ impl ExerciseService {
                 },
             )
             .await?;
-        let mut to_write = serde_json::to_string(&resp).unwrap();
-        to_write.remove(0);
-        to_write.pop();
-        writer.write_all(to_write.as_bytes()).unwrap();
+        for measurement in measurements {
+            writer.serialize_value(&measurement).unwrap();
+        }
         Ok(true)
     }
 
@@ -684,7 +681,7 @@ impl ExerciseService {
         Ok(resp)
     }
 
-    async fn create_user_measurement(
+    pub async fn create_user_measurement(
         &self,
         user_id: i32,
         mut input: user_measurement::Model,
@@ -769,8 +766,8 @@ impl ExerciseService {
             user_id,
             ChangeCollectionToEntityInput {
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: exercise.id.clone(),
-                entity_lot: EntityLot::Exercise,
+                exercise_id: Some(exercise.id.clone()),
+                ..Default::default()
             },
         )
         .await?;
@@ -780,7 +777,7 @@ impl ExerciseService {
     pub async fn export_workouts(
         &self,
         user_id: i32,
-        writer: &mut BufWriter<File>,
+        writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
         let workout_ids = Workout::find()
             .select_only()
@@ -790,14 +787,10 @@ impl ExerciseService {
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
-        let mut workouts = vec![];
         for workout_id in workout_ids {
-            workouts.push(self.workout_details(workout_id, user_id).await?);
+            let details = self.workout_details(user_id, workout_id).await?;
+            writer.serialize_value(&details).unwrap();
         }
-        let mut to_write = serde_json::to_string(&workouts).unwrap();
-        to_write.remove(0);
-        to_write.pop();
-        writer.write_all(to_write.as_bytes()).unwrap();
         Ok(true)
     }
 
@@ -829,36 +822,7 @@ impl ExerciseService {
         let total = workouts.len();
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
-            let workout_input = UserWorkoutInput {
-                id: Some(workout.id),
-                name: workout.name,
-                comment: workout.comment,
-                start_time: workout.start_time,
-                repeated_from: workout.repeated_from,
-                end_time: workout.end_time,
-                exercises: workout
-                    .information
-                    .exercises
-                    .into_iter()
-                    .map(|e| UserExerciseInput {
-                        exercise_id: e.name,
-                        sets: e
-                            .sets
-                            .into_iter()
-                            .map(|s| UserWorkoutSetRecord {
-                                statistic: s.statistic,
-                                lot: s.lot,
-                                confirmed_at: s.confirmed_at,
-                            })
-                            .collect(),
-                        notes: e.notes,
-                        rest_time: e.rest_time,
-                        assets: e.assets,
-                        superset_with: e.superset_with,
-                    })
-                    .collect(),
-                assets: workout.information.assets,
-            };
+            let workout_input = self.db_workout_to_workout_input(workout);
             self.create_user_workout(user_id, workout_input).await?;
             tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
         }
@@ -871,11 +835,11 @@ impl ExerciseService {
                 association
                     .exercise_extra_information
                     .clone()
-                    .unwrap()
+                    .unwrap_or_default()
                     .history
                     .first()
                     .cloned()
-                    .unwrap()
+                    .unwrap_or_default()
                     .workout_id,
             )
             .one(&self.db)
@@ -886,6 +850,66 @@ impl ExerciseService {
             association.last_updated_on = ActiveValue::Set(workout_date);
             association.update(&self.db).await?;
         }
+        let mut all_user_to_entity = UserToEntity::find()
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .stream(&self.db)
+            .await?;
+        while let Some(association) = all_user_to_entity.try_next().await? {
+            let first_workout_in_history = association
+                .exercise_extra_information
+                .clone()
+                .unwrap()
+                .history
+                .last()
+                .cloned()
+                .unwrap()
+                .workout_id;
+            let time_performed = Workout::find()
+                .select_only()
+                .column(workout::Column::StartTime)
+                .filter(workout::Column::Id.eq(first_workout_in_history))
+                .into_tuple::<DateTimeUtc>()
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let mut association: user_to_entity::ActiveModel = association.into();
+            association.created_on = ActiveValue::Set(time_performed);
+            association.update(&self.db).await?;
+        }
         Ok(())
+    }
+
+    pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
+        UserWorkoutInput {
+            id: Some(user_workout.id),
+            name: user_workout.name,
+            comment: user_workout.comment,
+            start_time: user_workout.start_time,
+            repeated_from: user_workout.repeated_from,
+            end_time: user_workout.end_time,
+            exercises: user_workout
+                .information
+                .exercises
+                .into_iter()
+                .map(|e| UserExerciseInput {
+                    exercise_id: e.name,
+                    sets: e
+                        .sets
+                        .into_iter()
+                        .map(|s| UserWorkoutSetRecord {
+                            statistic: s.statistic,
+                            lot: s.lot,
+                            confirmed_at: s.confirmed_at,
+                        })
+                        .collect(),
+                    notes: e.notes,
+                    rest_time: e.rest_time,
+                    assets: e.assets,
+                    superset_with: e.superset_with,
+                })
+                .collect(),
+            assets: user_workout.information.assets,
+        }
     }
 }

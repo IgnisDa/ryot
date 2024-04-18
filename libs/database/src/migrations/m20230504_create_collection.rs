@@ -1,6 +1,10 @@
 use sea_orm_migration::prelude::*;
 
-use super::{m20230417_create_user::User, m20230505_create_review::Visibility};
+use crate::Visibility;
+
+use super::m20230417_create_user::User;
+
+pub static COLLECTION_NAME_INDEX: &str = "collection__name__index";
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -37,20 +41,20 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(Collection::Name).text().not_null())
+                    .col(ColumnDef::new(Collection::UserId).integer().not_null())
+                    .col(ColumnDef::new(Collection::Description).text())
+                    .col(
+                        ColumnDef::new(Collection::Visibility)
+                            .text()
+                            .not_null()
+                            .default(Visibility::Private),
+                    )
                     .col(
                         ColumnDef::new(Collection::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
-                    )
-                    .col(ColumnDef::new(Collection::Name).string().not_null())
-                    .col(ColumnDef::new(Collection::Description).string())
-                    .col(ColumnDef::new(Collection::UserId).integer().not_null())
-                    .col(
-                        ColumnDef::new(Collection::Visibility)
-                            .string_len(2)
-                            .not_null()
-                            .default(Visibility::Private),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -66,7 +70,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("collection__name__index")
+                    .name(COLLECTION_NAME_INDEX)
                     .table(Collection::Table)
                     .col(Collection::Name)
                     .to_owned(),

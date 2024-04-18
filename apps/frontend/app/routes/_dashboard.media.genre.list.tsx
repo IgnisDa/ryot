@@ -1,30 +1,29 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	ActionIcon,
 	Anchor,
 	Box,
 	Center,
 	Container,
 	Flex,
 	Group,
+	Pagination,
 	Paper,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { IconSearch, IconX } from "@tabler/icons-react";
-import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, ApplicationPagination } from "~/components/common";
-import { gqlClient } from "~/lib/api.server";
-import { getCoreDetails } from "~/lib/graphql.server";
+import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
+import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -36,7 +35,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { genresList }] = await Promise.all([
-		getCoreDetails(),
+		getCoreDetails(request),
 		gqlClient.request(GenresListDocument, {
 			input: { page: query.page, query: query.query },
 		}),
@@ -52,9 +51,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container>
@@ -62,22 +58,9 @@ export default function Page() {
 				<Flex align="center" gap="md">
 					<Title>Genres</Title>
 				</Flex>
-				<TextInput
-					name="query"
+				<DebouncedSearchInput
 					placeholder="Search for genres"
-					leftSection={<IconSearch />}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-					value={query}
-					rightSection={
-						query ? (
-							<ActionIcon onClick={() => setQuery("")}>
-								<IconX size={16} />
-							</ActionIcon>
-						) : null
-					}
-					style={{ flexGrow: 1 }}
-					autoCapitalize="none"
-					autoComplete="off"
+					initialValue={loaderData.query.query}
 				/>
 				{loaderData.listGenres.details.total > 0 ? (
 					<>
@@ -119,9 +102,9 @@ export default function Page() {
 				)}
 				{loaderData.listGenres ? (
 					<Center mt="xl">
-						<ApplicationPagination
+						<Pagination
 							size="sm"
-							defaultValue={loaderData.query.page}
+							value={loaderData.query.page}
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(
 								loaderData.listGenres.details.total /

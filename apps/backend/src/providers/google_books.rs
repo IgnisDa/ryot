@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use rs_utils::convert_date_to_year;
@@ -12,8 +12,8 @@ use surf::{http::headers::ACCEPT, Client};
 use crate::{
     models::{
         media::{
-            BookSpecifics, MediaDetails, MediaSearchItem, MediaSpecifics, MetadataFreeCreator,
-            MetadataImageForMediaDetails, MetadataImageLot,
+            BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+            MetadataImageLot, MetadataSearchItem,
         },
         SearchDetails, SearchResults,
     },
@@ -93,19 +93,19 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
-    async fn details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
         let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let d = self.google_books_response_to_search_response(data.volume_info, data.id);
         Ok(d)
     }
 
-    async fn search(
+    async fn metadata_search(
         &self,
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MediaSearchItem>> {
+    ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * self.page_limit;
         let mut rsp = self
@@ -137,7 +137,7 @@ impl MediaProvider for GoogleBooksService {
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
                 let image = url_images.first().map(|i| i.image.clone());
-                MediaSearchItem {
+                MetadataSearchItem {
                     identifier,
                     title,
                     image,
@@ -219,28 +219,20 @@ impl GoogleBooksService {
         }
         MediaDetails {
             identifier: id,
-            lot: MetadataLot::Book,
-            source: MetadataSource::GoogleBooks,
+            lot: MediaLot::Book,
+            source: MediaSource::GoogleBooks,
             title: item.title,
             description: item.description,
             creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             publish_date: None,
-            specifics: MediaSpecifics::Book(BookSpecifics {
+            book_specifics: Some(BookSpecifics {
                 pages: item.page_count,
             }),
             url_images: images.unique().collect(),
             provider_rating: item.average_rating,
-            // DEV: I could not find a way to get similar books from the API
-            suggestions: vec![],
-            group_identifiers: vec![],
-            videos: vec![],
-            is_nsfw: None,
-            people: vec![],
-            s3_images: vec![],
-            production_status: None,
-            original_language: None,
+            ..Default::default()
         }
     }
 

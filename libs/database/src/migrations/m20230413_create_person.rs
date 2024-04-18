@@ -25,6 +25,8 @@ pub enum Person {
     Place,
     Website,
     Images,
+    IsPartial,
+    SourceSpecifics,
 }
 
 #[derive(Iden)]
@@ -52,8 +54,8 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Person::Identifier).string().not_null())
-                    .col(ColumnDef::new(Person::Source).string_len(2).not_null())
+                    .col(ColumnDef::new(Person::Identifier).text().not_null())
+                    .col(ColumnDef::new(Person::Source).text().not_null())
                     .col(
                         ColumnDef::new(Person::CreatedOn)
                             .timestamp_with_time_zone()
@@ -66,14 +68,16 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Person::Name).string().not_null())
-                    .col(ColumnDef::new(Person::Images).json_binary())
+                    .col(ColumnDef::new(Person::Name).text().not_null())
                     .col(ColumnDef::new(Person::Description).text())
-                    .col(ColumnDef::new(Person::Gender).string())
+                    .col(ColumnDef::new(Person::Gender).text())
                     .col(ColumnDef::new(Person::BirthDate).date())
                     .col(ColumnDef::new(Person::DeathDate).date())
-                    .col(ColumnDef::new(Person::Place).string())
-                    .col(ColumnDef::new(Person::Website).string())
+                    .col(ColumnDef::new(Person::Place).text())
+                    .col(ColumnDef::new(Person::Website).text())
+                    .col(ColumnDef::new(Person::Images).json_binary())
+                    .col(ColumnDef::new(Person::IsPartial).boolean())
+                    .col(ColumnDef::new(Person::SourceSpecifics).json_binary())
                     .to_owned(),
             )
             .await?;
@@ -85,6 +89,8 @@ impl MigrationTrait for Migration {
                     .table(Person::Table)
                     .col(Person::Identifier)
                     .col(Person::Source)
+                    .col(Person::SourceSpecifics)
+                    .nulls_not_distinct()
                     .to_owned(),
             )
             .await?;
@@ -110,8 +116,8 @@ impl MigrationTrait for Migration {
                             .col(MetadataToPerson::PersonId)
                             .col(MetadataToPerson::Role),
                     )
-                    .col(ColumnDef::new(MetadataToPerson::Role).string().not_null())
-                    .col(ColumnDef::new(MetadataToPerson::Character).string())
+                    .col(ColumnDef::new(MetadataToPerson::Role).text().not_null())
+                    .col(ColumnDef::new(MetadataToPerson::Character).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-media-item_media-person_id")

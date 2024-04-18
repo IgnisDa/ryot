@@ -3,7 +3,7 @@ use std::fs;
 use async_graphql::Result;
 use chrono::NaiveDate;
 use csv::Reader;
-use database::{MetadataLot, MetadataSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -48,8 +48,8 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
     let ratings = fs::read_to_string(&input.ratings)?;
     let history = fs::read_to_string(&input.history)?;
     let watchlist = fs::read_to_string(&input.watchlist)?;
-    let lot = MetadataLot::Movie;
-    let source = MetadataSource::Tmdb;
+    let lot = MediaLot::Movie;
+    let source = MediaSource::Tmdb;
     let mut media = vec![];
     let mut failed_items = vec![];
     let mut ratings_reader = Reader::from_reader(ratings.as_bytes());
@@ -67,12 +67,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             }
         };
         media.push(ImportOrExportMediaItem {
-            source_id: record.common.title,
+            source_id: record.common.title.clone(),
             lot,
             source,
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                record.common.tmdb_id.to_string(),
-            )),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                identifier: record.common.tmdb_id.to_string(),
+                title: record.common.title,
+            }),
             identifier: "".to_string(),
             seen_history: vec![],
             reviews: vec![ImportOrExportItemRating {
@@ -98,12 +99,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             }
         };
         media.push(ImportOrExportMediaItem {
-            source_id: record.title,
+            source_id: record.title.clone(),
             lot,
             source,
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                record.tmdb_id.to_string(),
-            )),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                identifier: record.tmdb_id.to_string(),
+                title: record.title,
+            }),
             identifier: "".to_string(),
             seen_history: vec![],
             reviews: vec![],
@@ -128,6 +130,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let seen_item = ImportOrExportMediaItemSeen {
             started_on: None,
             ended_on: watched_at,
+            provider_watched_on: Some(ImportSource::Movary.to_string()),
             ..Default::default()
         };
         let review = record.comment.map(|c| ImportOrExportItemReview {
@@ -160,13 +163,14 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 })
             }
             media.push(ImportOrExportMediaItem {
-                source_id: record.common.title,
+                source_id: record.common.title.clone(),
                 lot,
                 source,
                 identifier: "".to_string(),
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                    record.common.tmdb_id.to_string(),
-                )),
+                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                    identifier: record.common.tmdb_id.to_string(),
+                    title: record.common.title,
+                }),
                 seen_history: vec![seen_item],
                 reviews,
                 collections: vec![],
@@ -174,9 +178,8 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         }
     }
     Ok(ImportResult {
-        collections: vec![],
         media,
         failed_items,
-        workouts: vec![],
+        ..Default::default()
     })
 }

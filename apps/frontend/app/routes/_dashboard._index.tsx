@@ -13,67 +13,78 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
-	CalendarEventPartFragment,
+	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
-	MetadataLot,
-	UserCollectionsListDocument,
-	UserMediaFeaturesEnabledPreferences,
+	MediaLot,
+	type UserMediaFeaturesEnabledPreferences,
+	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
-	IconArrowsRight,
 	IconBarbell,
 	IconFriends,
 	IconScaleOutline,
+	IconServer,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
-import { MediaItemWithoutUpdateModal } from "~/components/media";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import {
-	ApplicationKey,
+	MediaItemWithoutUpdateModal,
+	NewUserGuideAlert,
+} from "~/components/media";
+import {
+	CurrentWorkoutKey,
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
 } from "~/lib/generals";
-import { getUserPreferences } from "~/lib/graphql.server";
 import { useGetMantineColor } from "~/lib/hooks";
+import {
+	getAuthorizationHeader,
+	getUserCollectionsList,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 
-const cookieName = ApplicationKey.CurrentWorkout;
+const cookieName = CurrentWorkoutKey;
+
+const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
+	const t = prefs.general.dashboard.find(
+		(de) => de.section === el,
+	)?.numElements;
+	invariant(typeof t === "number", `No take found for ${el}`);
+	return t;
+};
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const userPreferences = await getUserPreferences(request);
-	const getTake = (el: DashboardElementLot) => {
-		const t = userPreferences.general.dashboard.find(
-			(de) => de.section === el,
-		)?.numElements;
-		invariant(t, `No take found for ${el}`);
-		return t;
-	};
-	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(DashboardElementLot.InProgress);
-	const { userCollectionsList } = await gqlClient.request(
-		UserCollectionsListDocument,
-		{ name: "In Progress" },
-		await getAuthorizationHeader(request),
+	const prefs = await getUserPreferences(request);
+	const takeUpcoming = getTake(prefs, DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(prefs, DashboardElementLot.InProgress);
+	const userCollectionsList = await getUserCollectionsList(request);
+	const foundCollection = userCollectionsList.find(
+		(c) => c.name === "In Progress",
 	);
-	const collectionId = userCollectionsList[0].id;
+	invariant(foundCollection, 'No collection found for "In Progress"');
 	const { collectionContents } = await gqlClient.request(
 		CollectionContentsDocument,
 		{
 			input: {
-				collectionId,
+				collectionId: foundCollection.id,
 				take: takeInProgress,
 				sort: { order: GraphqlSortOrder.Desc },
 			},
@@ -90,16 +101,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		undefined,
 		await getAuthorizationHeader(request),
 	);
-	const cookies = request.headers.get("Cookie");
+	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return json({
 		workoutInProgress,
 		userPreferences: {
-			reviewScale: userPreferences.general.reviewScale,
-			dashboard: userPreferences.general.dashboard,
-			media: userPreferences.featuresEnabled.media,
-			fitness: userPreferences.featuresEnabled.fitness,
-			unitSystem: userPreferences.fitness.exercises.unitSystem,
+			reviewScale: prefs.general.reviewScale,
+			dashboard: prefs.general.dashboard,
+			media: prefs.featuresEnabled.media,
+			fitness: prefs.featuresEnabled.fitness,
+			unitSystem: prefs.fitness.exercises.unitSystem,
 		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
@@ -129,17 +140,9 @@ export default function Page() {
 						</Text>
 					</Alert>
 				) : null}
-				{loaderData.latestUserSummary.media.mediaInteractedWith === 0 ? (
-					<Alert icon={<IconArrowsRight />} variant="outline" color="teal">
-						<Text>
-							To get started, select a media type from the sidebar, enter a
-							query in the search tab, and add a media to your seen history or
-							watchlist.
-						</Text>
-						<Text mt="xs">
-							This notice will disappear once your summary is re-calculated.
-						</Text>
-					</Alert>
+				{loaderData.latestUserSummary.media.metadataOverall.interactedWith ===
+				0 ? (
+					<NewUserGuideAlert />
 				) : null}
 				{loaderData.userPreferences.dashboard.map((de) =>
 					match([de.section, de.hidden])
@@ -193,7 +196,7 @@ export default function Page() {
 								>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Movie}
+										lot={MediaLot.Movie}
 										data={[
 											{
 												label: "Movies",
@@ -211,7 +214,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Show}
+										lot={MediaLot.Show}
 										data={[
 											{
 												label: "Shows",
@@ -241,7 +244,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.VideoGame}
+										lot={MediaLot.VideoGame}
 										data={[
 											{
 												label: "Video games",
@@ -253,7 +256,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.VisualNovel}
+										lot={MediaLot.VisualNovel}
 										data={[
 											{
 												label: "Visual Novels",
@@ -273,7 +276,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.AudioBook}
+										lot={MediaLot.AudioBook}
 										data={[
 											{
 												label: "Audiobooks",
@@ -291,7 +294,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Book}
+										lot={MediaLot.Book}
 										data={[
 											{
 												label: "Books",
@@ -307,7 +310,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Podcast}
+										lot={MediaLot.Podcast}
 										data={[
 											{
 												label: "Podcasts",
@@ -332,7 +335,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Manga}
+										lot={MediaLot.Manga}
 										data={[
 											{
 												label: "Manga",
@@ -349,7 +352,7 @@ export default function Page() {
 									/>
 									<DisplayStatForMediaType
 										media={loaderData.userPreferences.media}
-										lot={MetadataLot.Anime}
+										lot={MediaLot.Anime}
 										data={[
 											{
 												label: "Anime",
@@ -365,27 +368,54 @@ export default function Page() {
 										]}
 									/>
 									{loaderData.userPreferences.media.enabled ? (
-										<ActualDisplayStat
-											icon={<IconFriends />}
-											lot="General stats"
-											color={theme.colors.grape[8]}
-											data={[
-												{
-													label: "Media",
-													value:
-														loaderData.latestUserSummary.media
-															.mediaInteractedWith,
-													type: "number",
-												},
-												{
-													label: "Reviews",
-													value:
-														loaderData.latestUserSummary.media.reviewsPosted,
-													type: "number",
-													hideIfZero: true,
-												},
-											]}
-										/>
+										<>
+											<ActualDisplayStat
+												icon={<IconServer />}
+												lot="Metadata stats"
+												color={theme.colors.grape[8]}
+												data={[
+													{
+														label: "Media",
+														value:
+															loaderData.latestUserSummary.media.metadataOverall
+																.interactedWith,
+														type: "number",
+													},
+													{
+														label: "Reviews",
+														value:
+															loaderData.latestUserSummary.media.metadataOverall
+																.reviewed,
+														type: "number",
+														hideIfZero: true,
+													},
+												]}
+											/>
+											{loaderData.userPreferences.media.people ? (
+												<ActualDisplayStat
+													icon={<IconFriends />}
+													lot="People stats"
+													color={theme.colors.red[9]}
+													data={[
+														{
+															label: "People",
+															value:
+																loaderData.latestUserSummary.media.peopleOverall
+																	.interactedWith,
+															type: "number",
+														},
+														{
+															label: "Reviews",
+															value:
+																loaderData.latestUserSummary.media.peopleOverall
+																	.reviewed,
+															type: "number",
+															hideIfZero: true,
+														},
+													]}
+												/>
+											) : null}
+										</>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
 									loaderData.latestUserSummary.fitness.workouts.duration +
@@ -441,6 +471,7 @@ export default function Page() {
 														loaderData.latestUserSummary.fitness
 															.measurementsRecorded,
 													type: "number",
+													hideIfZero: true,
 												},
 												{
 													label: "Exercises",
@@ -477,10 +508,14 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 				image: um.metadataImage,
 				publishYear: `${match(um.metadataLot)
 					.with(
-						MetadataLot.Show,
-						() => `S${um.showSeasonNumber}E${um.showEpisodeNumber}`,
+						MediaLot.Show,
+						() =>
+							`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
 					)
-					.with(MetadataLot.Podcast, () => `EP${um.podcastEpisodeNumber}`)
+					.with(
+						MediaLot.Podcast,
+						() => `EP-${um.podcastExtraInformation?.episode}`,
+					)
 					.otherwise(() => "")} ${
 					numDaysLeft === 0
 						? "Today"
@@ -522,7 +557,11 @@ const ActualDisplayStat = (props: {
 			<Flex wrap="wrap" ml="xs">
 				{props.data.map((d, idx) =>
 					d.type === "number" && d.value === 0 && d.hideIfZero ? undefined : (
-						<Box key={idx.toString()} mx="xs">
+						<Box
+							key={idx.toString()}
+							mx="xs"
+							data-stat-stringified={JSON.stringify(d)}
+						>
 							<Text
 								fw={d.label !== "Runtime" ? "bold" : undefined}
 								display="inline"
@@ -559,7 +598,7 @@ const ActualDisplayStat = (props: {
 };
 
 const DisplayStatForMediaType = (props: {
-	lot: MetadataLot;
+	lot: MediaLot;
 	data: { type: "duration" | "number"; label: string; value: number }[];
 	media: UserMediaFeaturesEnabledPreferences;
 }) => {

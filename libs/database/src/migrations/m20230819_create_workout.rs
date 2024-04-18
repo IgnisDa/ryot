@@ -29,12 +29,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Workout::Table)
-                    .col(
-                        ColumnDef::new(Workout::Id)
-                            .primary_key()
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Workout::Id).primary_key().text().not_null())
                     .col(
                         ColumnDef::new(Workout::StartTime)
                             .timestamp_with_time_zone()
@@ -54,15 +49,15 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(Workout::Name).text().not_null())
+                    .col(ColumnDef::new(Workout::Comment).text())
                     .col(ColumnDef::new(Workout::Summary).json_binary().not_null())
                     .col(
                         ColumnDef::new(Workout::Information)
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Workout::Name).string().not_null())
-                    .col(ColumnDef::new(Workout::Comment).string())
-                    .col(ColumnDef::new(Workout::RepeatedFrom).string())
+                    .col(ColumnDef::new(Workout::RepeatedFrom).text())
                     .to_owned(),
             )
             .await?;

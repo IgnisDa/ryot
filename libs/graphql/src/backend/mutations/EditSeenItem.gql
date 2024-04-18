@@ -1,3 +1,0 @@
-mutation EditSeenItem($input: EditSeenItemInput!) {
-  editSeenItem(input: $input)
-}

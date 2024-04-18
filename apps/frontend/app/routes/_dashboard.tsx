@@ -19,11 +19,17 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { LoaderFunctionArgs, json } from "@remix-run/node";
-import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
+import { type LoaderFunctionArgs, json } from "@remix-run/node";
 import {
-	CoreDetails,
-	UpgradeType,
+	Form,
+	Link,
+	NavLink,
+	Outlet,
+	type ShouldRevalidateFunction,
+	useLoaderData,
+} from "@remix-run/react";
+import {
+	type CoreDetails,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -41,22 +47,31 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { match } from "ts-pattern";
 import { joinURL } from "ufo";
-import { redirectIfNotAuthenticated } from "~/lib/api.server";
-import { colorSchemeCookie } from "~/lib/cookies.server";
-import { ApplicationKey, getLot } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
+import { HiddenLocationInput } from "~/components/common";
+import { getLot } from "~/lib/generals";
+import {
+	redirectIfNotAuthenticatedOrUpdated,
+	serverVariables,
+} from "~/lib/utilities.server";
+import {
+	colorSchemeCookie,
+	getCoreDetails,
+	getUserPreferences,
+} from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const userDetails = await redirectIfNotAuthenticated(request);
-	const userPreferences = await getUserPreferences(request);
-	const coreDetails = await getCoreDetails();
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	const [userPreferences, coreDetails] = await Promise.all([
+		getUserPreferences(request),
+		getCoreDetails(request),
+	]);
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
 			.filter(([v, _]) => v !== "enabled")
+			.filter(([name, _]) => getLot(name) !== undefined)
 			.map(([name, enabled]) => {
 				// biome-ignore lint/style/noNonNullAssertion: required here
 				return { name: getLot(name)!, enabled };
@@ -68,18 +83,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 					href: undefined,
 				};
 			}) || []),
-		{ label: "Groups", href: $path("/media/groups/list") },
-		{ label: "People", href: $path("/media/people/list") },
-		{ label: "Genres", href: $path("/media/genre/list") },
-	].map((link, _index) => ({
-		label: link.label,
-		link: link.href
-			? link.href
-			: $path("/media/:action/:lot", {
-					action: "list",
-					lot: link.label.toLowerCase(),
-			  }),
-	}));
+		userPreferences.featuresEnabled.media.groups
+			? {
+					label: "Groups",
+					href: $path("/media/groups/:action", { action: "list" }),
+			  }
+			: undefined,
+		userPreferences.featuresEnabled.media.people
+			? {
+					label: "People",
+					href: $path("/media/people/:action", { action: "list" }),
+			  }
+			: undefined,
+		userPreferences.featuresEnabled.media.genres
+			? {
+					label: "Genres",
+					href: $path("/media/genre/list"),
+			  }
+			: undefined,
+	]
+		.filter(Boolean)
+		.map((link, _index) =>
+			link
+				? {
+						label: link.label,
+						link: link.href
+							? link.href
+							: $path("/media/:action/:lot", {
+									action: "list",
+									lot: link.label.toLowerCase(),
+							  }),
+				  }
+				: undefined,
+		);
 
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
@@ -120,22 +156,37 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	];
 
 	const currentColorScheme = await colorSchemeCookie.parse(
-		request.headers.get("Cookie") || "",
+		request.headers.get("cookie") || "",
 	);
+
+	const shouldHaveUmami =
+		serverVariables.FRONTEND_UMAMI_SCRIPT_URL &&
+		serverVariables.FRONTEND_UMAMI_WEBSITE_ID &&
+		!serverVariables.DISABLE_TELEMETRY &&
+		!userDetails.isDemo;
+
 	return json({
+		envData: serverVariables,
 		mediaLinks,
+		userDetails,
+		coreDetails,
 		fitnessLinks,
+		settingsLinks,
+		shouldHaveUmami,
+		collectionLinks,
+		currentColorScheme,
 		userPreferences: {
 			media: userPreferences.featuresEnabled.media,
 			fitness: userPreferences.featuresEnabled.fitness,
+			disableNavigationAnimation:
+				userPreferences.general.disableNavigationAnimation,
+			collectionsEnabled: userPreferences.featuresEnabled.others.collections,
+			calendarEnabled: userPreferences.featuresEnabled.others.calendar,
 		},
-		userDetails,
-		coreDetails,
-		currentColorScheme,
-		settingsLinks,
-		collectionLinks,
 	});
 };
+
+export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -149,7 +200,7 @@ export default function Layout() {
 		  }
 		| undefined
 	>({
-		key: ApplicationKey.SavedOpenedLinkGroups,
+		key: "SavedOpenedLinkGroups",
 		defaultValue: {
 			fitness: false,
 			media: false,
@@ -163,183 +214,208 @@ export default function Layout() {
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 
 	return (
-		<AppShell
-			w="100%"
-			padding={0}
-			layout="alt"
-			navbar={{
-				width: { sm: 220, lg: 250 },
-				breakpoint: "sm",
-				collapsed: { mobile: !opened },
-			}}
-		>
-			<AppShell.Navbar py="md" px="md" className={classes.navbar}>
-				<Flex justify="end" hiddenFrom="sm">
-					<Burger
-						opened={opened}
-						onClick={toggle}
-						color={theme.colors.gray[6]}
-					/>
-				</Flex>
-				<Box component={ScrollArea} style={{ flexGrow: 1 }}>
-					<LinksGroup
-						label="Dashboard"
-						icon={IconHome2}
-						href={$path("/")}
-						opened={false}
-						toggle={toggle}
-						setOpened={() => {}}
-					/>
-					{loaderData.userPreferences.media.enabled ? (
+		<>
+			<AppShell
+				w="100%"
+				padding={0}
+				layout="alt"
+				navbar={{
+					width: { sm: 220, lg: 250 },
+					breakpoint: "sm",
+					collapsed: { mobile: !opened },
+				}}
+			>
+				<AppShell.Navbar py="md" px="md" className={classes.navbar}>
+					<Flex justify="end" hiddenFrom="sm">
+						<Burger
+							opened={opened}
+							onClick={toggle}
+							color={theme.colors.gray[6]}
+						/>
+					</Flex>
+					<Box component={ScrollArea} style={{ flexGrow: 1 }}>
 						<LinksGroup
-							label="Media"
-							icon={IconDeviceSpeaker}
-							links={loaderData.mediaLinks}
-							opened={openedLinkGroups?.media || false}
+							label="Dashboard"
+							icon={IconHome2}
+							href={$path("/")}
+							opened={false}
+							toggle={toggle}
+							setOpened={() => {}}
+						/>
+						{loaderData.userPreferences.media.enabled ? (
+							<LinksGroup
+								label="Media"
+								icon={IconDeviceSpeaker}
+								links={loaderData.mediaLinks}
+								opened={openedLinkGroups?.media || false}
+								toggle={toggle}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.media = k;
+										}),
+									)
+								}
+							/>
+						) : undefined}
+						{loaderData.userPreferences.fitness.enabled ? (
+							<LinksGroup
+								label="Fitness"
+								icon={IconStretching}
+								opened={openedLinkGroups?.fitness || false}
+								toggle={toggle}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.fitness = k;
+										}),
+									)
+								}
+								links={loaderData.fitnessLinks}
+							/>
+						) : undefined}
+						{loaderData.userPreferences.calendarEnabled ? (
+							<LinksGroup
+								label="Calendar"
+								icon={IconCalendar}
+								href={$path("/calendar")}
+								opened={false}
+								toggle={toggle}
+								setOpened={() => {}}
+							/>
+						) : null}
+						{loaderData.userPreferences.collectionsEnabled ? (
+							<LinksGroup
+								label="Collections"
+								icon={IconArchive}
+								opened={openedLinkGroups?.collection || false}
+								toggle={toggle}
+								setOpened={(k) => {
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.collection = k;
+										}),
+									);
+								}}
+								links={loaderData.collectionLinks}
+							/>
+						) : null}
+						<LinksGroup
+							label="Settings"
+							icon={IconSettings}
+							opened={openedLinkGroups?.settings || false}
 							toggle={toggle}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.media = k;
+										if (draft) draft.settings = k;
 									}),
 								)
 							}
+							links={loaderData.settingsLinks}
 						/>
-					) : undefined}
-					{loaderData.userPreferences.fitness.enabled ? (
-						<LinksGroup
-							label="Fitness"
-							icon={IconStretching}
-							opened={openedLinkGroups?.fitness || false}
-							toggle={toggle}
-							setOpened={(k) =>
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.fitness = k;
-									}),
-								)
-							}
-							links={loaderData.fitnessLinks}
-						/>
-					) : undefined}
-					<LinksGroup
-						label="Calendar"
-						icon={IconCalendar}
-						href={$path("/calendar")}
-						opened={false}
-						toggle={toggle}
-						setOpened={() => {}}
-					/>
-					<LinksGroup
-						label="Collections"
-						icon={IconArchive}
-						opened={openedLinkGroups?.collection || false}
-						toggle={toggle}
-						setOpened={(k) => {
-							setOpenedLinkGroups(
-								produce(openedLinkGroups, (draft) => {
-									if (draft) draft.collection = k;
-								}),
-							);
-						}}
-						links={loaderData.collectionLinks}
-					/>
-					<LinksGroup
-						label="Settings"
-						icon={IconSettings}
-						opened={openedLinkGroups?.settings || false}
-						toggle={toggle}
-						setOpened={(k) =>
-							setOpenedLinkGroups(
-								produce(openedLinkGroups, (draft) => {
-									if (draft) draft.settings = k;
-								}),
-							)
-						}
-						links={loaderData.settingsLinks}
-					/>
-				</Box>
-				<Stack gap="xs">
-					<Flex direction="column" justify="center" gap="md">
-						<Form method="post" action="/actions?intent=toggleColorScheme">
-							<Group justify="center">
+					</Box>
+					<Stack gap="xs">
+						<Flex direction="column" justify="center" gap="md">
+							<Form method="post" action="/actions?intent=toggleColorScheme">
+								<HiddenLocationInput />
+								<Group justify="center">
+									<UnstyledButton
+										aria-label="Toggle theme"
+										className={classes.control2}
+										type="submit"
+									>
+										<Center className={classes.iconWrapper}>
+											<Icon size={16.8} stroke={1.5} />
+										</Center>
+										<Text size="sm" className={classes.value}>
+											{upperFirst(
+												loaderData.currentColorScheme === "dark"
+													? "light"
+													: "dark",
+											)}{" "}
+											theme
+										</Text>
+									</UnstyledButton>
+								</Group>
+							</Form>
+							<Form
+								method="post"
+								action="/actions?intent=logout"
+								style={{ display: "flex" }}
+							>
 								<UnstyledButton
-									aria-label="Toggle theme"
-									className={classes.control2}
+									mx="auto"
+									className={classes.oldLink}
 									type="submit"
 								>
-									<Center className={classes.iconWrapper}>
-										<Icon size={16.8} stroke={1.5} />
-									</Center>
-									<Text size="sm" className={classes.value}>
-										{upperFirst(
-											loaderData.currentColorScheme === "dark"
-												? "light"
-												: "dark",
-										)}{" "}
-										theme
-									</Text>
+									<Group>
+										<IconLogout size={19.2} />
+										<Text>Logout</Text>
+									</Group>
 								</UnstyledButton>
+							</Form>
+						</Flex>
+					</Stack>
+				</AppShell.Navbar>
+				<Flex direction="column" h="90%">
+					<Flex justify="space-between" p="md" hiddenFrom="sm">
+						<Link to={$path("/")} style={{ all: "unset" }}>
+							<Group>
+								<Image
+									src="/icon-512x512.png"
+									h={40}
+									w={40}
+									radius="md"
+									darkHidden
+								/>
+								<Image
+									src="/logo-light.png"
+									h={40}
+									w={40}
+									radius="md"
+									lightHidden
+								/>
+								<Text size="xl" className={classes.logoText}>
+									Ryot
+								</Text>
 							</Group>
-						</Form>
-						<Form
-							method="post"
-							action="/actions?intent=logout"
-							style={{ display: "flex" }}
-						>
-							<UnstyledButton
-								mx="auto"
-								className={classes.oldLink}
-								type="submit"
-							>
-								<Group>
-									<IconLogout size={19.2} />
-									<Text>Logout</Text>
-								</Group>
-							</UnstyledButton>
-						</Form>
+						</Link>
+						<Burger
+							opened={opened}
+							onClick={toggle}
+							color={theme.colors.gray[6]}
+						/>
 					</Flex>
-				</Stack>
-			</AppShell.Navbar>
-			<Flex direction="column" h="90%">
-				<Flex justify="space-between" p="md" hiddenFrom="sm">
-					<Link to={$path("/")} style={{ all: "unset" }}>
-						<Group>
-							<Image
-								src="/icon-512x512.png"
-								h={40}
-								w={40}
-								radius="md"
-								darkHidden
-							/>
-							<Image
-								src="/logo-light.png"
-								h={40}
-								w={40}
-								radius="md"
-								lightHidden
-							/>
-							<Text size="xl" className={classes.logoText}>
-								Ryot
-							</Text>
-						</Group>
-					</Link>
-					<Burger
-						opened={opened}
-						onClick={toggle}
-						color={theme.colors.gray[6]}
-					/>
+					<AppShell.Main py={{ sm: "xl" }}>
+						<Box
+							mt="md"
+							style={{ flexGrow: 1 }}
+							pb={40}
+							mih="90%"
+							ref={
+								loaderData.userPreferences.disableNavigationAnimation
+									? undefined
+									: parent
+							}
+						>
+							<Outlet />
+						</Box>
+						<Box className={classes.shellFooter}>
+							<Footer coreDetails={loaderData.coreDetails} />
+						</Box>
+					</AppShell.Main>
 				</Flex>
-				<AppShell.Main py={{ sm: "xl" }}>
-					<Box mt="md" style={{ flexGrow: 1 }} pb={40} mih="90%" ref={parent}>
-						<Outlet />
-					</Box>
-					<Box className={classes.shellFooter}>
-						<Footer coreDetails={loaderData.coreDetails} />
-					</Box>
-				</AppShell.Main>
-			</Flex>
-		</AppShell>
+			</AppShell>
+			{loaderData.shouldHaveUmami ? (
+				<script
+					defer
+					src={loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL}
+					data-website-id={loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID}
+					data-domains={loaderData.envData.FRONTEND_UMAMI_DOMAINS}
+				/>
+			) : null}
+		</>
 	);
 }
 
@@ -421,47 +497,9 @@ function LinksGroup({
 }
 
 const Footer = (props: { coreDetails: CoreDetails }) => {
-	const [color, text] = match(props.coreDetails.upgrade)
-		.with(undefined, null, () => [undefined, undefined])
-		.with(
-			UpgradeType.Minor,
-			() => ["blue", "There is an update available."] as const,
-		)
-		.with(
-			UpgradeType.Major,
-			() =>
-				[
-					"red",
-					<>
-						There is a major upgrade, please follow the{" "}
-						<Anchor
-							href="https://ignisda.github.io/ryot/migration.html"
-							target="_blank"
-						>
-							migration
-						</Anchor>{" "}
-						docs.
-					</>,
-				] as const,
-		)
-		.exhaustive();
-
 	return (
 		<Stack>
-			{props.coreDetails.upgrade ? (
-				<Text ta="center" c={color}>
-					{text}
-				</Text>
-			) : undefined}
 			<Flex gap={80} justify="center">
-				<Anchor
-					href={`${props.coreDetails.repositoryLink}/releases/v${props.coreDetails.version}`}
-					target="_blank"
-				>
-					<Text c="red" fw="bold">
-						v{props.coreDetails.version}
-					</Text>
-				</Anchor>
 				<Anchor href="https://diptesh.me" target="_blank">
 					<Text c="indigo" fw="bold">
 						{props.coreDetails.authorName}

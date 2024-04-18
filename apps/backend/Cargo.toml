@@ -1,9 +1,9 @@
 [package]
 name = "ryot"
-version = "4.1.14"
+version = "5.0.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
-license = "GPL-V3"
+license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -15,13 +15,13 @@ apalis = { version = "0.4.9", features = [
 ] }
 argon2 = "0.5.3"
 async-graphql = { workspace = true }
-async-graphql-axum = "7.0.1"
+async-graphql-axum = "7.0.2"
 async-trait = "0.1.77"
-aws-sdk-s3 = { version = "1.12.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.15.0", features = ["behavior-version-latest"] }
 axum = { version = "0.7.4", features = ["macros", "multipart"] }
 boilermates = "0.3.0"
 chrono = { workspace = true }
-chrono-tz = "0.8.5"
+chrono-tz = "0.8.6"
 config = { path = "../../libs/config" }
 convert_case = "0.6.0"
 const-str = "0.5.6"
@@ -39,39 +39,46 @@ flate2 = "1.0.28"
 futures = "0.3.30"
 graphql_client = "0.13.0"
 harsh = "0.2.2"
-hashbag = "0.1.11"
+hashbag = "0.1.12"
 http = "1.0.0"
 http-types = "2.12.0"
 isolang = { version = "2.4.0", features = ["list_languages"] }
-itertools = "0.12.0"
+itertools = "0.12.1"
 jsonwebtoken = { version = "9.2.0", default-features = false }
 kinded = "0.3.0"
+lettre = { version = "0.11.4", features = [
+    "rustls-tls",
+    "smtp-transport",
+    "builder",
+], default-features = false }
 markdown = "1.0.0-alpha.15"
 nanoid = "0.4.0"
+openidconnect = "3.5.0"
+paginate = "1.1.11"
 rand = "0.8.5"
 regex = "1.10.3"
 retainer = "0.3.0"
 rs-utils = { path = "../../libs/rs-utils" }
-rust_decimal = "1.33.1"
-rust_decimal_macros = "1.33.1"
+rust_decimal = "1.34.3"
+rust_decimal_macros = "1.34.2"
 rust_iso3166 = "0.1.11"
 schematic = { workspace = true }
-scraper = "0.18.1"
+scraper = "0.19.0"
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 sea-query = "0.30.7"
-semver = "1.0.21"
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { version = "3.5.0", features = ["chrono_0_4"] }
+serde_with = { version = "3.6.1", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
 slug = "0.1.5"
-sqlx = { version = "0.7.3", default-features = false }
+sqlx = { version = "0.7.4", default-features = false }
 strum = { workspace = true }
+struson = { version = "0.5.0", features = ["serde"] }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
-tokio = { version = "1.34.0", features = ["full"] }
+tokio = { version = "1.36.0", features = ["full"] }
 tower-http = { version = "0.5.1", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "0.3.18"

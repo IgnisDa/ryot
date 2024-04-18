@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_graphql::Result;
-use database::{MetadataLot, MetadataSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use rs_utils::{convert_naive_to_utc, convert_string_to_date};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -40,15 +40,17 @@ fn get_date(date: String) -> Option<DateTimeUtc> {
     }
 }
 
-fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
-    let progress = if item.done != 0 && item.total != 0 {
-        Some(item.done / item.total)
+fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
+    let progress = if item.done != dec!(0) && item.total != 0 {
+        item.done
+            .checked_div(Decimal::from_i32(item.total).unwrap())
     } else {
         None
     };
     let seen_item = ImportOrExportMediaItemSeen {
         started_on: get_date(item.my_start_date),
         ended_on: get_date(item.my_finish_date),
+        provider_watched_on: Some(ImportSource::Mal.to_string()),
         progress,
         ..Default::default()
     };
@@ -62,13 +64,14 @@ fn convert_to_format(item: Item, lot: MetadataLot) -> ImportOrExportMediaItem {
         ..Default::default()
     };
     ImportOrExportMediaItem {
-        source_id: item.title,
+        source_id: item.title.clone(),
         lot,
-        source: MetadataSource::Mal,
+        source: MediaSource::Mal,
         identifier: "".to_string(),
-        internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-            item.identifier.to_string(),
-        )),
+        internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+            identifier: item.identifier.to_string(),
+            title: item.title,
+        }),
         seen_history: vec![seen_item],
         reviews: vec![review_item],
         collections: vec![],
@@ -80,16 +83,14 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     let manga_data = decode_data::<DataRoot>(&input.manga_path)?;
     let mut media = vec![];
     for item in anime_data.items.into_iter() {
-        media.push(convert_to_format(item, MetadataLot::Anime));
+        media.push(convert_to_format(item, MediaLot::Anime));
     }
     for item in manga_data.items.into_iter() {
-        media.push(convert_to_format(item, MetadataLot::Manga));
+        media.push(convert_to_format(item, MediaLot::Manga));
     }
     Ok(ImportResult {
-        collections: vec![],
-        failed_items: vec![],
         media,
-        workouts: vec![],
+        ..Default::default()
     })
 }
 
@@ -108,7 +109,7 @@ struct Item {
     #[serde(alias = "series_episodes", alias = "manga_chapters")]
     total: i32,
     #[serde(alias = "my_watched_episodes", alias = "my_read_chapters")]
-    done: i32,
+    done: Decimal,
     my_start_date: String,
     my_finish_date: String,
     my_score: u32,

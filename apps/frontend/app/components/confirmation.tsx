@@ -1,6 +1,6 @@
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
 import {
-	ConfirmDialogProps,
+	type ConfirmDialogProps,
 	confirmable,
 	createConfirmationCreater,
 	createMountPoint,

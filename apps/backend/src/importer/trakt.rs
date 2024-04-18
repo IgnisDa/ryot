@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
-use database::{MetadataLot, MetadataSource};
+use database::{ImportSource, MediaLot, MediaSource};
 use http_types::mime;
 use itertools::Itertools;
 use rust_decimal::Decimal;
@@ -59,7 +59,7 @@ struct ListResponse {
 }
 
 pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
-    let mut media_items = vec![];
+    let mut media = vec![];
     let mut failed_items = vec![];
 
     let client = get_base_http_client(
@@ -100,14 +100,14 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             match process_item(i) {
                 Ok(mut d) => {
                     d.collections.push(l.name.to_case(Case::Title));
-                    media_items.push(d)
+                    media.push(d)
                 }
                 Err(d) => failed_items.push(d),
             }
         }
     }
 
-    let all_collections = lists
+    let collections = lists
         .iter()
         .map(|l| CreateOrUpdateCollectionInput {
             name: l.name.to_case(Case::Title),
@@ -141,10 +141,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         }),
                         ..Default::default()
                     });
-                    if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
+                    if let Some(a) = media.iter_mut().find(|i| i.source_id == d.source_id) {
                         a.reviews = d.reviews;
                     } else {
-                        media_items.push(d)
+                        media.push(d)
                     }
                 }
                 Err(d) => failed_items.push(d),
@@ -187,7 +187,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     } else {
                         (None, None)
                     };
-                if d.lot == MetadataLot::Show
+                if d.lot == MediaLot::Show
                     && (show_season_number.is_none() || show_episode_number.is_none())
                 {
                     failed_items.push(ImportFailedItem {
@@ -204,33 +204,34 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                 d.seen_history.push(ImportOrExportMediaItemSeen {
                     ended_on: item.watched_at,
                     show_season_number,
+                    provider_watched_on: Some(ImportSource::Trakt.to_string()),
                     show_episode_number,
                     ..Default::default()
                 });
-                if let Some(a) = media_items.iter_mut().find(|i| i.source_id == d.source_id) {
+                if let Some(a) = media.iter_mut().find(|i| i.source_id == d.source_id) {
                     a.seen_history.extend(d.seen_history);
                 } else {
-                    media_items.push(d)
+                    media.push(d)
                 }
             }
             Err(d) => failed_items.push(d),
         }
     }
     Ok(ImportResult {
-        collections: all_collections,
-        media: media_items,
+        collections,
+        media,
         failed_items,
-        workouts: vec![],
+        ..Default::default()
     })
 }
 
 fn process_item(
     i: &ListItemResponse,
 ) -> std::result::Result<ImportOrExportMediaItem, ImportFailedItem> {
-    let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MetadataLot::Movie)
+    let (source_id, identifier, lot, title) = if let Some(d) = i.movie.as_ref() {
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Movie, d.title.clone())
     } else if let Some(d) = i.show.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MetadataLot::Show)
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Show, d.title.clone())
     } else {
         return Err(ImportFailedItem {
             lot: None,
@@ -239,13 +240,17 @@ fn process_item(
             error: Some("Item is neither a movie or a show".to_owned()),
         });
     };
+    let title = title.unwrap_or_default();
     match identifier {
         Some(i) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),
             lot,
             identifier: "".to_string(),
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(i.to_string())),
-            source: MetadataSource::Tmdb,
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
+                identifier: i.to_string(),
+                title,
+            }),
+            source: MediaSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],
             collections: vec![],

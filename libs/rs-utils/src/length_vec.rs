@@ -10,7 +10,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// # Examples
 /// ```
-/// use length_vec::LengthVec;
+/// use rs_utils::LengthVec;
 ///
 /// let mut length_vec = LengthVec::new(5);
 /// length_vec.push(1);

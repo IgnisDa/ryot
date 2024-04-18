@@ -8,38 +8,43 @@ import {
 	Container,
 	Flex,
 	Group,
+	Pagination,
 	Stack,
 	Text,
-	TextInput,
 	Title,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
-import { LoaderFunctionArgs, MetaFunction, json } from "@remix-run/node";
+import {
+	type LoaderFunctionArgs,
+	type MetaFunction,
+	json,
+} from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
-	UserUnitSystem,
+	type UserUnitSystem,
 	UserWorkoutListDocument,
-	UserWorkoutListQuery,
+	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
 	IconPlus,
-	IconSearch,
 	IconTrophy,
 	IconWeight,
-	IconX,
 } from "@tabler/icons-react";
-import { ReactElement, useState } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationPagination } from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib } from "~/lib/generals";
-import { getCoreDetails, getUserPreferences } from "~/lib/graphql.server";
 import { getWorkoutStarter, useSearchParam } from "~/lib/hooks";
+import {
+	getAuthorizationHeader,
+	getCoreDetails,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 import { getDefaultWorkout } from "~/lib/workout";
 
 const searchParamsSchema = z.object({
@@ -54,7 +59,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [userPreferences, coreDetails, { userWorkoutList }] = await Promise.all(
 		[
 			getUserPreferences(request),
-			getCoreDetails(),
+			getCoreDetails(request),
 			gqlClient.request(
 				UserWorkoutListDocument,
 				{
@@ -81,10 +86,7 @@ export const meta: MetaFunction = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useSearchParam();
-	const [query, setQuery] = useState(loaderData.query.query || "");
 	const startWorkout = getWorkoutStarter();
-
-	useDidUpdate(() => setP("query", query), [query]);
 
 	return (
 		<Container size="xs">
@@ -101,22 +103,9 @@ export default function Page() {
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
-				<TextInput
-					name="query"
+				<DebouncedSearchInput
 					placeholder="Search for workouts"
-					leftSection={<IconSearch />}
-					onChange={(e) => setQuery(e.currentTarget.value)}
-					value={query}
-					rightSection={
-						query ? (
-							<ActionIcon onClick={() => setQuery("")}>
-								<IconX size={16} />
-							</ActionIcon>
-						) : null
-					}
-					style={{ flexGrow: 1 }}
-					autoCapitalize="none"
-					autoComplete="off"
+					initialValue={loaderData.query.query}
 				/>
 				{loaderData.userWorkoutList.items.length > 0 ? (
 					<>
@@ -154,10 +143,14 @@ export default function Page() {
 															workout.summary.total.weight,
 														)}
 													/>
-													<DisplayStat
-														icon={<IconTrophy size={16} />}
-														data={`${workout.summary.total.personalBestsAchieved.toString()} PRs`}
-													/>
+													{Number(
+														workout.summary.total.personalBestsAchieved,
+													) !== 0 ? (
+														<DisplayStat
+															icon={<IconTrophy size={16} />}
+															data={`${workout.summary.total.personalBestsAchieved} PRs`}
+														/>
+													) : null}
 												</Group>
 											</Stack>
 										</Accordion.Control>
@@ -201,9 +194,9 @@ export default function Page() {
 					<Text>No workouts found</Text>
 				)}
 				<Center>
-					<ApplicationPagination
+					<Pagination
 						size="sm"
-						defaultValue={loaderData.query.page}
+						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
 							loaderData.userWorkoutList.details.total /

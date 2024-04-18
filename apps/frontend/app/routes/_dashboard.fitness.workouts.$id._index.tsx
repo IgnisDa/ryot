@@ -25,19 +25,19 @@ import { DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaFunction,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaFunction,
 	json,
 } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
 	EditUserWorkoutDocument,
-	ExerciseLot,
+	type ExerciseLot,
 	SetLot,
 	WorkoutDetailsDocument,
-	WorkoutDetailsQuery,
+	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	displayDistanceWithUnit,
@@ -60,18 +60,23 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withFragment } from "ufo";
 import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
-import { getAuthorizationHeader, gqlClient } from "~/lib/api.server";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { getUserPreferences } from "~/lib/graphql.server";
 import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
-import { createToastHeaders, redirectWithToast } from "~/lib/toast.server";
-import { processSubmission } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getUserPreferences,
+	gqlClient,
+	processSubmission,
+	redirectWithToast,
+} from "~/lib/utilities.server";
 import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -175,7 +180,12 @@ export default function Page() {
 				withCloseButton={false}
 				centered
 			>
-				<Form replace action="?intent=edit" method="post">
+				<Form
+					replace
+					action="?intent=edit"
+					method="post"
+					onSubmit={() => adjustTimeModalClose()}
+				>
 					<Stack>
 						<Title order={3}>Adjust times</Title>
 						<DateTimePicker
@@ -286,21 +296,36 @@ export default function Page() {
 									{ round: true, units: ["h", "m"] },
 								)}
 							/>
-							<DisplayStat
-								icon={<IconWeight size={16} />}
-								data={displayWeightWithUnit(
-									loaderData.userPreferences.unitSystem,
-									loaderData.workoutDetails.summary.total.weight,
-								)}
-							/>
+							{Number(loaderData.workoutDetails.summary.total.weight) !== 0 ? (
+								<DisplayStat
+									icon={<IconWeight size={16} />}
+									data={displayWeightWithUnit(
+										loaderData.userPreferences.unitSystem,
+										loaderData.workoutDetails.summary.total.weight,
+									)}
+								/>
+							) : null}
+							{Number(loaderData.workoutDetails.summary.total.distance) > 0 ? (
+								<DisplayStat
+									icon={<IconRun size={16} />}
+									data={displayDistanceWithUnit(
+										loaderData.userPreferences.unitSystem,
+										loaderData.workoutDetails.summary.total.distance,
+									)}
+								/>
+							) : null}
 							<DisplayStat
 								icon={<IconBarbell size={16} />}
 								data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
 							/>
-							<DisplayStat
-								icon={<IconTrophy size={16} />}
-								data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved.toString()} PRs`}
-							/>
+							{Number(
+								loaderData.workoutDetails.summary.total.personalBestsAchieved,
+							) !== 0 ? (
+								<DisplayStat
+									icon={<IconTrophy size={16} />}
+									data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved} PRs`}
+								/>
+							) : null}
 							{loaderData.workoutDetails.summary.total.restTime > 0 ? (
 								<DisplayStat
 									icon={<IconZzz size={16} />}
@@ -354,7 +379,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 			const exerciseDetails = await getExerciseDetails(props.exercise.name);
 			return exerciseDetails;
 		},
-		staleTime: Infinity,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 	const supersetLinks =
@@ -364,8 +389,10 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						<Anchor
 							key={otherExerciseIdx}
 							fz="xs"
-							// FIXME: Use `withFragment` from ufo
-							href={`#${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`}
+							href={withFragment(
+								"",
+								`${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
+							)}
 						>
 							{
 								loaderData.workoutDetails.information.exercises[
@@ -430,7 +457,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 										)}
 									</Text>
 								</Flex>
-							) : null}{" "}
+							) : null}
 							{Number(props.exercise.total.distance) > 0 ? (
 								<Flex align="center" gap="xs">
 									<IconRun size={14} />
@@ -475,7 +502,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 			</Stack>
 			{props.exercise.sets.map((s, idx) => (
 				<DisplaySet
-					key={`${idx}`}
+					key={s.confirmedAt}
 					set={s}
 					idx={idx}
 					exerciseLot={props.exercise.lot}
