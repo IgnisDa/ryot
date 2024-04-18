@@ -165,7 +165,7 @@ export function ErrorBoundary() {
 			<body>
 				<div>
 					We encountered an error. If you recently upgraded the server, you may
-					have to logout and login again. If the issue still persists, please
+					have to logout and login again. If the error still persists, please
 					create a new issue on{" "}
 					<a
 						href="https://github.com/ignisda/ryot/issues"
