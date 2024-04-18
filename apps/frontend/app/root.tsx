@@ -167,7 +167,14 @@ export function ErrorBoundary() {
 					We encountered an error. If you recently upgraded the server, you may
 					have to logout and login again. If the issue still persists, please
 					create a new issue on{" "}
-					<a href="https://github.com/ignisda/ryot">GitHub</a>.
+					<a
+						href="https://github.com/ignisda/ryot/issues"
+						target="_blank"
+						rel="noreferrer noopener"
+					>
+						GitHub
+					</a>
+					.
 				</div>
 				<form action={$path("/actions", { intent: "logout" })} method="POST">
 					<button type="submit">Logout</button>
