@@ -2,7 +2,7 @@ app = "ryot"
 primary_region = "ord"
 
 [build]
-image = "ghcr.io/ignisda/ryot:unstable"
+image = "ghcr.io/ignisda/ryot:latest"
 
 [http_service]
 internal_port = 8000

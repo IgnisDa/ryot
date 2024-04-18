@@ -32,6 +32,3 @@ services:
 volumes:
   postgres_storage:
 ```
-
-In addition to the `latest` tag, we also publish an `unstable` tag from the latest
-pre-release or release, whichever is newer.
