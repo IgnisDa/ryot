@@ -106,6 +106,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 const queryClient = new QueryClient();
 
+const DefaultHeadTags = () => {
+	return (
+		<>
+			<meta charSet="utf-8" />
+			<meta
+				name="viewport"
+				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
+			/>
+			<link rel="manifest" href="/manifest.json" />
+		</>
+	);
+};
+
 export default function App() {
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
@@ -113,12 +126,7 @@ export default function App() {
 	return (
 		<html lang="en">
 			<head>
-				<meta charSet="utf-8" />
-				<meta
-					name="viewport"
-					content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
-				/>
-				<link rel="manifest" href="/manifest.json" />
+				<DefaultHeadTags />
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
@@ -159,6 +167,7 @@ export function ErrorBoundary() {
 	return (
 		<html lang="en">
 			<head>
+				<DefaultHeadTags />
 				<Meta />
 				<Links />
 			</head>
