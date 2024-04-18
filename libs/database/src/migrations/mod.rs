@@ -81,6 +81,7 @@ mod m20240408_0_add_disable_reviews_to_preferences;
 mod m20240408_1_add_oidc_issuer_id_to_user;
 mod m20240408_2_cleanup_user;
 mod m20240410_change_unique_constraints_to_indices;
+mod m20240411_perform_v4_4_3_migration;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -181,6 +182,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240408_1_add_oidc_issuer_id_to_user::Migration),
             Box::new(m20240408_2_cleanup_user::Migration),
             Box::new(m20240410_change_unique_constraints_to_indices::Migration),
+            Box::new(m20240411_perform_v4_4_3_migration::Migration),
         ]
     }
 }
