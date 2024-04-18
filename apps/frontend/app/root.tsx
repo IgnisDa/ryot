@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Alert,
@@ -149,6 +150,29 @@ export default function App() {
 						<Scripts />
 					</MantineProvider>
 				</QueryClientProvider>
+			</body>
+		</html>
+	);
+}
+
+export function ErrorBoundary() {
+	return (
+		<html lang="en">
+			<head>
+				<Meta />
+				<Links />
+			</head>
+			<body>
+				<div>
+					We encountered an error. If you recently upgraded the server, you may
+					have to logout and login again. If the issue still persists, please
+					create a new issue on{" "}
+					<a href="https://github.com/ignisda/ryot">GitHub</a>.
+				</div>
+				<form action={$path("/actions", { intent: "logout" })} method="POST">
+					<button type="submit">Logout</button>
+				</form>
+				<Scripts />
 			</body>
 		</html>
 	);

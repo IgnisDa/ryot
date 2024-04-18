@@ -168,7 +168,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const deleteUploadedAsset = (key: string) => {
 	const formData = new FormData();
 	formData.append("key", key);
-	fetch(withQuery("/actions", { intent: "deleteS3Asset" }), {
+	fetch($path("/actions", { intent: "deleteS3Asset" }), {
 		method: "POST",
 		body: formData,
 	});
@@ -844,9 +844,7 @@ const ExerciseDisplay = (props: {
 												const toSubmitForm = new FormData();
 												toSubmitForm.append("file", fileObj, "image.jpg");
 												const resp = await fetch(
-													withQuery("/actions", {
-														intent: "uploadWorkoutAsset",
-													}),
+													$path("/actions", { intent: "uploadWorkoutAsset" }),
 													{ method: "POST", body: toSubmitForm },
 												);
 												const data = await resp.json();

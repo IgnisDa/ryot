@@ -24,7 +24,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
-import { withQuery, withoutHost } from "ufo";
+import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
@@ -72,19 +72,16 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
 	const nextUrl = withoutHost(request.url);
 	if (!isAuthenticated || userDetails.__typename !== "User") {
-		throw redirect(
-			withQuery($path("/auth/login"), { [redirectToQueryParam]: nextUrl }),
-			{
-				status: 302,
-				headers: combineHeaders(
-					await createToastHeaders({
-						type: "error",
-						message: "You must be logged in to view this page",
-					}),
-					await getLogoutCookies(),
-				),
-			},
-		);
+		throw redirect($path("/auth/login", { [redirectToQueryParam]: nextUrl }), {
+			status: 302,
+			headers: combineHeaders(
+				await createToastHeaders({
+					type: "error",
+					message: "You must be logged in to view this page",
+				}),
+				await getLogoutCookies(),
+			),
+		});
 	}
 	return userDetails;
 };

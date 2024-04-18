@@ -40,7 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { match } from "ts-pattern";
-import { withQuery, withoutHost } from "ufo";
+import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
@@ -427,7 +427,7 @@ const commitPerson = async (
 	if (isTmdbCompany) data.append("isTmdbCompany", String(isTmdbCompany));
 	if (isAnilistStudio) data.append("isAnilistStudio", String(isAnilistStudio));
 	data.append(redirectToQueryParam, location);
-	const resp = await fetch(withQuery("/actions", { intent: "commitPerson" }), {
+	const resp = await fetch($path("/actions", { intent: "commitPerson" }), {
 		method: "POST",
 		body: data,
 	});

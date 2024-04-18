@@ -69,7 +69,7 @@ import {
 import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery, withoutHost } from "ufo";
+import { withoutHost } from "ufo";
 import events from "~/lib/events";
 import {
 	dayjsLib,
@@ -93,7 +93,7 @@ export const commitMedia = async (
 	data.append("lot", lot);
 	data.append("source", source);
 	data.append(redirectToQueryParam, location);
-	const resp = await fetch(withQuery("/actions", { intent: "commitMedia" }), {
+	const resp = await fetch($path("/actions", { intent: "commitMedia" }), {
 		method: "POST",
 		body: data,
 	});
@@ -235,7 +235,7 @@ export const ReviewItemDisplay = (props: {
 											} as any,
 											{
 												method: "post",
-												action: withQuery("/actions", {
+												action: $path("/actions", {
 													intent: "performReviewAction",
 												}),
 											},
