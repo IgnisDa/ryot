@@ -604,7 +604,7 @@ export default function Page() {
 									loaderData.mediaMainDetails.publishDate
 										? dayjsLib(loaderData.mediaMainDetails.publishDate).format(
 												"LL",
-										  )
+											)
 										: loaderData.mediaMainDetails.publishYear,
 									loaderData.mediaMainDetails.originalLanguage,
 									loaderData.mediaMainDetails.productionStatus,
@@ -832,9 +832,7 @@ export default function Page() {
 							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="overview">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
+							<MediaScrollArea>
 								<Stack gap="sm">
 									<SimpleGrid
 										cols={{ base: 3, xl: 4 }}
@@ -928,9 +926,7 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
+							<MediaScrollArea>
 								<UserMetadataDetailsSuspenseLoader>
 									{(userMetadataDetails) => (
 										<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
@@ -1096,7 +1092,7 @@ export default function Page() {
 														</>
 													) : loaderData.mediaMainDetails.lot !==
 															MediaLot.Show &&
-													  loaderData.mediaMainDetails.lot !==
+														loaderData.mediaMainDetails.lot !==
 															MediaLot.Podcast ? (
 														<>
 															<Menu.Label>Not in progress</Menu.Label>
@@ -1161,13 +1157,13 @@ export default function Page() {
 																loaderData.mediaMainDetails.lot ===
 																MediaLot.Show
 																	? userMetadataDetails?.nextEntry?.episode ??
-																	  undefined
+																		undefined
 																	: null,
 															podcastEpisodeNumber:
 																loaderData.mediaMainDetails.lot ===
 																MediaLot.Podcast
 																	? userMetadataDetails?.nextEntry?.episode ??
-																	  undefined
+																		undefined
 																	: null,
 														});
 													}}
@@ -1300,11 +1296,7 @@ export default function Page() {
 												userMetadataDetails.history.length > 0 ||
 												userMetadataDetails.unitsConsumed ||
 												userMetadataDetails.ownership ? (
-													<MediaScrollArea
-														itemDetailsHeight={
-															loaderData.coreDetails.itemDetailsHeight
-														}
-													>
+													<MediaScrollArea>
 														<Stack>
 															<Box>
 																<Text fz={{ base: "sm", md: "md" }}>
@@ -1386,11 +1378,7 @@ export default function Page() {
 										<>
 											{mediaAdditionalDetails.showSpecifics ? (
 												<Tabs.Panel value="seasons">
-													<MediaScrollArea
-														itemDetailsHeight={
-															loaderData.coreDetails.itemDetailsHeight
-														}
-													>
+													<MediaScrollArea>
 														<Accordion
 															// do not show the chevron at all
 															chevron={<Box />}
@@ -1512,11 +1500,7 @@ export default function Page() {
 										<>
 											{mediaAdditionalDetails.podcastSpecifics ? (
 												<Tabs.Panel value="episodes">
-													<MediaScrollArea
-														itemDetailsHeight={
-															loaderData.coreDetails.itemDetailsHeight
-														}
-													>
+													<MediaScrollArea>
 														<Stack ml="md">
 															{mediaAdditionalDetails.podcastSpecifics.episodes.map(
 																(e) => (
@@ -1562,11 +1546,7 @@ export default function Page() {
 									{!loaderData.userPreferences.disableReviews ? (
 										<Tabs.Panel value="reviews">
 											{userMetadataDetails.reviews.length > 0 ? (
-												<MediaScrollArea
-													itemDetailsHeight={
-														loaderData.coreDetails.itemDetailsHeight
-													}
-												>
+												<MediaScrollArea>
 													<Stack>
 														{userMetadataDetails.reviews.map((r) => (
 															<ReviewItemDisplay
@@ -1596,11 +1576,7 @@ export default function Page() {
 							<MediaAdditionalDetailsSuspenseLoader>
 								{(mediaAdditionalDetails) =>
 									mediaAdditionalDetails.suggestions.length > 0 ? (
-										<MediaScrollArea
-											itemDetailsHeight={
-												loaderData.coreDetails.itemDetailsHeight
-											}
-										>
+										<MediaScrollArea>
 											<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 												{mediaAdditionalDetails.suggestions.map((sug) => (
 													<PartialMetadataDisplay
@@ -1618,9 +1594,7 @@ export default function Page() {
 						</Tabs.Panel>
 						{!loaderData.userPreferences.videosDisabled ? (
 							<Tabs.Panel value="videos">
-								<MediaScrollArea
-									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-								>
+								<MediaScrollArea>
 									<Stack>
 										{loaderData.mediaMainDetails.assets.videos.map((v) => (
 											<Box key={v.videoId}>
@@ -1655,11 +1629,7 @@ export default function Page() {
 								<MediaAdditionalDetailsSuspenseLoader>
 									{(mediaAdditionalDetails) =>
 										mediaAdditionalDetails.watchProviders.length > 0 ? (
-											<MediaScrollArea
-												itemDetailsHeight={
-													loaderData.coreDetails.itemDetailsHeight
-												}
-											>
+											<MediaScrollArea>
 												<Stack gap="sm">
 													<Text>
 														JustWatch makes it easy to find out where you can
@@ -1862,8 +1832,8 @@ const ProgressUpdateModal = (props: {
 												{props.data.onlySeason
 													? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
 													: props.data.completeShow
-													  ? "This will mark all episodes for this show as seen"
-													  : null}
+														? "This will mark all episodes for this show as seen"
+														: null}
 											</Alert>
 										) : null}
 										{!props.data?.completeShow ? (
@@ -2005,11 +1975,17 @@ const IndividualProgressModal = (props: {
 	const [value, setValue] = useState<number | undefined>(props.progress);
 
 	const [updateIcon, text] = match(props.lot)
-		.with(MediaLot.Book, () => [<IconBook size={24} />, "Pages"])
-		.with(MediaLot.Anime, () => [<IconDeviceTv size={24} />, "Episodes"])
-		.with(MediaLot.Manga, () => [<IconBrandPagekit size={24} />, "Chapters"])
+		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
+		.with(MediaLot.Anime, () => [
+			<IconDeviceTv size={24} key="element" />,
+			"Episodes",
+		])
+		.with(MediaLot.Manga, () => [
+			<IconBrandPagekit size={24} key="element" />,
+			"Chapters",
+		])
 		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
-			<IconClock size={24} />,
+			<IconClock size={24} key="element" />,
 			"Minutes",
 		])
 		.otherwise(() => [null, null]);
@@ -2317,7 +2293,7 @@ const SeenItem = (props: {
 	const podcastExtraInformation = props.history.podcastExtraInformation
 		? props.podcastSpecifics?.episodes.find(
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
-		  )
+			)
 		: null;
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`

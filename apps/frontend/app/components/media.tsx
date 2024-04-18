@@ -140,15 +140,8 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 	);
 };
 
-export const MediaScrollArea = (props: {
-	children: ReactNode;
-	itemDetailsHeight: number;
-}) => {
-	return (
-		<ScrollArea.Autosize mah={props.itemDetailsHeight}>
-			{props.children}
-		</ScrollArea.Autosize>
-	);
+export const MediaScrollArea = (props: { children: ReactNode }) => {
+	return <ScrollArea.Autosize mah="55vh">{props.children}</ScrollArea.Autosize>;
 };
 
 export const ReviewItemDisplay = (props: {

@@ -213,9 +213,7 @@ export default function Page() {
 							) : null}
 						</Tabs.List>
 						<Tabs.Panel value="media">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
+							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 									{loaderData.metadataGroupDetails.contents.map((media) => (
 										<PartialMetadataDisplay
@@ -227,9 +225,7 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
-							<MediaScrollArea
-								itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-							>
+							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									<Button
 										variant="outline"
@@ -331,9 +327,7 @@ export default function Page() {
 						</Tabs.Panel>
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
-								<MediaScrollArea
-									itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-								>
+								<MediaScrollArea>
 									<Stack>
 										{loaderData.userMetadataGroupDetails.reviews.map((r) => (
 											<ReviewItemDisplay

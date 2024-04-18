@@ -360,7 +360,10 @@ export default function Page() {
 													</Text>
 													<Stack gap={0}>
 														{pb.sets.map((s) => (
-															<Group justify="space-between">
+															<Group
+																justify="space-between"
+																key={`${s.workoutId}-${s.setIdx}`}
+															>
 																<Text size="sm">
 																	{match(pb.lot)
 																		.with(WorkoutSetPersonalBest.OneRm, () =>
@@ -421,9 +424,7 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					<Tabs.Panel value="actions">
-						<MediaScrollArea
-							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-						>
+						<MediaScrollArea>
 							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 								<Button variant="outline" onClick={collectionModalOpen}>
 									Add to collection
