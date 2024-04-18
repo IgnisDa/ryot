@@ -572,7 +572,6 @@ struct CoreDetails {
     docs_link: String,
     author_name: String,
     repository_link: String,
-    item_details_height: u32,
     page_limit: i32,
     timezone: String,
     token_valid_for_days: i64,
@@ -1509,7 +1508,6 @@ impl MiscellaneousService {
             docs_link: "https://ignisda.github.io/ryot".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             page_limit: self.config.frontend.page_size,
-            item_details_height: self.config.frontend.item_details_height,
             token_valid_for_days: self.config.users.token_valid_for_days,
             oidc_enabled: self.oidc_client.is_some(),
         })

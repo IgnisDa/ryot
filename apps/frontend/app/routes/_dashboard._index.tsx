@@ -609,22 +609,20 @@ const DisplayStatForMediaType = (props: {
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size={24} stroke={1.5} />;
 
-	return isEnabled ? (
-		isEnabled[1] && props.media.enabled ? (
-			<UnstyledLink
-				to={$path("/media/:action/:lot", {
-					action: "list",
-					lot: props.lot.toLowerCase(),
-				})}
-			>
-				<ActualDisplayStat
-					data={props.data}
-					icon={icon}
-					lot={props.lot.toString()}
-					color={getMantineColor(props.lot)}
-				/>
-			</UnstyledLink>
-		) : null
+	return isEnabled?.[1] && props.media.enabled ? (
+		<UnstyledLink
+			to={$path("/media/:action/:lot", {
+				action: "list",
+				lot: props.lot.toLowerCase(),
+			})}
+		>
+			<ActualDisplayStat
+				data={props.data}
+				icon={icon}
+				lot={props.lot.toString()}
+				color={getMantineColor(props.lot)}
+			/>
+		</UnstyledLink>
 	) : null;
 };
 

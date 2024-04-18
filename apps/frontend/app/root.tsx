@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Alert,
@@ -44,6 +45,14 @@ const theme = createTheme({
 			},
 		}),
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
+	},
+	breakpoints: {
+		xs: "30em",
+		sm: "48em",
+		md: "64em",
+		lg: "74em",
+		xl: "90em",
+		"2xl": "120em",
 	},
 });
 
@@ -97,6 +106,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 const queryClient = new QueryClient();
 
+const DefaultHeadTags = () => {
+	return (
+		<>
+			<meta charSet="utf-8" />
+			<meta
+				name="viewport"
+				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
+			/>
+			<link rel="manifest" href="/manifest.json" />
+		</>
+	);
+};
+
 export default function App() {
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
@@ -104,12 +126,7 @@ export default function App() {
 	return (
 		<html lang="en">
 			<head>
-				<meta charSet="utf-8" />
-				<meta
-					name="viewport"
-					content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
-				/>
-				<link rel="manifest" href="/manifest.json" />
+				<DefaultHeadTags />
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
@@ -141,6 +158,37 @@ export default function App() {
 						<Scripts />
 					</MantineProvider>
 				</QueryClientProvider>
+			</body>
+		</html>
+	);
+}
+
+export function ErrorBoundary() {
+	return (
+		<html lang="en">
+			<head>
+				<DefaultHeadTags />
+				<Meta />
+				<Links />
+			</head>
+			<body>
+				<div>
+					We encountered an error. If you recently upgraded the server, you may
+					have to logout and login again. If the error still persists, please
+					create a new issue on{" "}
+					<a
+						href="https://github.com/ignisda/ryot/issues"
+						target="_blank"
+						rel="noreferrer noopener"
+					>
+						GitHub
+					</a>
+					.
+				</div>
+				<form action={$path("/actions", { intent: "logout" })} method="POST">
+					<button type="submit">Logout</button>
+				</form>
+				<Scripts />
 			</body>
 		</html>
 	);

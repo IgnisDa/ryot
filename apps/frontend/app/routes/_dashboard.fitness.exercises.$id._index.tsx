@@ -60,7 +60,6 @@ import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
 	getUserPreferences,
 	gqlClient,
@@ -79,13 +78,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	invariant(typeof exerciseId === "string", "id must be a string");
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [
-		coreDetails,
 		userPreferences,
 		{ exerciseDetails },
 		{ userExerciseDetails },
 		collections,
 	] = await Promise.all([
-		getCoreDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
 		gqlClient.request(
@@ -99,7 +96,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		query,
 		exerciseDetails,
 		userExerciseDetails,
-		coreDetails: { itemDetailsHeight: coreDetails.itemDetailsHeight },
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
@@ -360,7 +356,10 @@ export default function Page() {
 													</Text>
 													<Stack gap={0}>
 														{pb.sets.map((s) => (
-															<Group justify="space-between">
+															<Group
+																justify="space-between"
+																key={`${s.workoutId}-${s.setIdx}`}
+															>
 																<Text size="sm">
 																	{match(pb.lot)
 																		.with(WorkoutSetPersonalBest.OneRm, () =>
@@ -421,9 +420,7 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					<Tabs.Panel value="actions">
-						<MediaScrollArea
-							itemDetailsHeight={loaderData.coreDetails.itemDetailsHeight}
-						>
+						<MediaScrollArea>
 							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 								<Button variant="outline" onClick={collectionModalOpen}>
 									Add to collection

@@ -28,7 +28,7 @@ import { IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery, withoutHost } from "ufo";
+import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
@@ -293,7 +293,7 @@ const commitGroup = async (
 	data.append("lot", lot);
 	data.append(redirectToQueryParam, location);
 	const resp = await fetch(
-		withQuery("/actions", { intent: "commitMetadataGroup" }),
+		$path("/actions", { intent: "commitMetadataGroup" }),
 		{ method: "POST", body: data },
 	);
 	const json = await resp.json();

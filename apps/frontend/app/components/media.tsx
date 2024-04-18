@@ -69,7 +69,7 @@ import {
 import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery, withoutHost } from "ufo";
+import { withoutHost } from "ufo";
 import events from "~/lib/events";
 import {
 	dayjsLib,
@@ -93,7 +93,7 @@ export const commitMedia = async (
 	data.append("lot", lot);
 	data.append("source", source);
 	data.append(redirectToQueryParam, location);
-	const resp = await fetch(withQuery("/actions", { intent: "commitMedia" }), {
+	const resp = await fetch($path("/actions", { intent: "commitMedia" }), {
 		method: "POST",
 		body: data,
 	});
@@ -140,12 +140,9 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 	);
 };
 
-export const MediaScrollArea = (props: {
-	children: ReactNode;
-	itemDetailsHeight: number;
-}) => {
+export const MediaScrollArea = (props: { children: ReactNode }) => {
 	return (
-		<ScrollArea.Autosize mah={props.itemDetailsHeight}>
+		<ScrollArea.Autosize mah={{ base: "45vh", "2xl": "55vh" }}>
 			{props.children}
 		</ScrollArea.Autosize>
 	);
@@ -238,7 +235,7 @@ export const ReviewItemDisplay = (props: {
 											} as any,
 											{
 												method: "post",
-												action: withQuery("/actions", {
+												action: $path("/actions", {
 													intent: "performReviewAction",
 												}),
 											},
@@ -522,7 +519,7 @@ export const BaseDisplayItem = (props: {
 					</Text>
 					<Tooltip
 						label={props.highlightRightText}
-						disabled={props.highlightRightText ? false : true}
+						disabled={!props.highlightRightText}
 						position="right"
 					>
 						<Text c={props.highlightRightText ? "yellow" : "dimmed"} size="sm">
@@ -686,8 +683,9 @@ export const MediaItemWithoutUpdateModal = (props: {
 			}
 			name={props.item.title}
 			nameRight={props.nameRight}
-			children={props.children}
-		/>
+		>
+			{props.children}
+		</BaseDisplayItem>
 	);
 };
 

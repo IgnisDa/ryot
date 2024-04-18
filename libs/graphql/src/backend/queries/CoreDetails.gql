@@ -4,7 +4,6 @@ query CoreDetails {
     authorName
     repositoryLink
     docsLink
-    itemDetailsHeight
     pageLimit
     tokenValidForDays
     oidcEnabled
