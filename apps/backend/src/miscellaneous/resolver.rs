@@ -2606,6 +2606,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
+                tracing::debug!("Progress update meta = {:?}", meta.title);
 
                 let show_ei = if matches!(meta.lot, MediaLot::Show) {
                     let season = input.show_season_number.ok_or_else(|| {
@@ -2670,6 +2671,7 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
+        tracing::debug!("Progress update = {:?}", seen);
         let id = seen.id;
         if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache
