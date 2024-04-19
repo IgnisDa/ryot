@@ -3,10 +3,12 @@
 The frontend is a Remix app, the backend is an Axum server. All these run behind a Caddy
 reverse proxy and are managed by `concurrently`.
 
-## Logs
+## Releases
 
-Logs are written to both stdout and `ryot.log.*` in `/home/ryot/tmp/*`. If you
-are reporting a bug, please attach the latest log.
+Each version of Ryot is released as a docker image. Then it is associated with the latest
+Github release of the major version. For example, if the latest release is `v5.2.1`, then
+the Github release will be called `Version 5` and the docker image will be tagged as
+`:v5.2.1` and `:latest`.
 
 ## Development
 
