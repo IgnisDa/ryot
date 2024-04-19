@@ -22,23 +22,10 @@ In development, both servers are started independently running on `:3000` and `:
 respectively and reverse proxied at `:8000`. To get them running, install
 [mprocs](https://github.com/pvolok/mprocs), and run `mprocs` in the project root.
 
-Here is the minimal configuration required in development mode:
-
-```json title="config/ryot.json"
-{
-  "database": {
-    "url": "postgres://postgres:postgres@postgres:5432/postgres"
-  },
-  "server": {
-    "cors_origins": ["http://localhost:3000"],
-    "config_dump_path": "/tmp/ryot.json"
-  }
-}
-```
-
 I also recommend the following environment file:
 
 ```bash title=".env"
+DATABASE_URL="postgres://postgres:postgres@postgres:5432/postgres"
 RUST_LOG="ryot=trace,sea_orm=debug"
 ```
 
