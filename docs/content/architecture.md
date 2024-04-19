@@ -6,7 +6,7 @@ reverse proxy and are managed by `concurrently`.
 ## Releases
 
 Each version of Ryot is released as a docker image. Then it is associated with the latest
-Github release of the major version. For example, if the latest release is `v5.2.1`, then
+Github release of the major version. For example, if the latest tag is `v5.2.1`, then
 the Github release will be called `Version 5` and the docker image will be tagged as
 `:v5.2.1` and `:latest`.
 
