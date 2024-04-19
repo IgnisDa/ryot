@@ -36,14 +36,10 @@ Here is the minimal configuration required in development mode:
 }
 ```
 
-I also recommend the following environment files:
+I also recommend the following environment file:
 
 ```bash title=".env"
 RUST_LOG="ryot=trace,sea_orm=debug"
-```
-
-```bash title="apps/frontend/.env"
-API_URL=http://localhost:5000
 ```
 
 Your website would be available at `http://localhost:8000`.
