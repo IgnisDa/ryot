@@ -6284,26 +6284,21 @@ impl MiscellaneousService {
                         .await
                         .ok();
                     } else {
-                        self.add_entity_to_collection(
-                            seen.user_id,
-                            ChangeCollectionToEntityInput {
-                                collection_name: DefaultCollection::InProgress.to_string(),
-                                metadata_id: Some(seen.metadata_id),
-                                ..Default::default()
-                            },
-                        )
-                        .await
-                        .ok();
-                        self.add_entity_to_collection(
-                            seen.user_id,
-                            ChangeCollectionToEntityInput {
-                                collection_name: DefaultCollection::Monitoring.to_string(),
-                                metadata_id: Some(seen.metadata_id),
-                                ..Default::default()
-                            },
-                        )
-                        .await
-                        .ok();
+                        for col in &[
+                            DefaultCollection::InProgress.to_string(),
+                            DefaultCollection::Monitoring.to_string(),
+                        ] {
+                            self.add_entity_to_collection(
+                                seen.user_id,
+                                ChangeCollectionToEntityInput {
+                                    collection_name: col.to_string(),
+                                    metadata_id: Some(seen.metadata_id),
+                                    ..Default::default()
+                                },
+                            )
+                            .await
+                            .ok();
+                        }
                     }
                 } else {
                     self.remove_entity_from_collection(

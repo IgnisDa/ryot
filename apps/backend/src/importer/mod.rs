@@ -338,6 +338,13 @@ impl ImporterService {
                     .unwrap()
             }
         };
+        for m in import.media.iter_mut() {
+            m.seen_history.sort_by(|a, b| {
+                a.ended_on
+                    .unwrap_or_default()
+                    .cmp(&b.ended_on.unwrap_or_default())
+            });
+        }
         for col_details in import.collections.clone() {
             self.media_service
                 .create_or_update_collection(user_id, col_details)

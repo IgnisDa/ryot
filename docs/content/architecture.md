@@ -3,10 +3,12 @@
 The frontend is a Remix app, the backend is an Axum server. All these run behind a Caddy
 reverse proxy and are managed by `concurrently`.
 
-## Logs
+## Releases
 
-Logs are written to both stdout and `ryot.log.*` in `/home/ryot/tmp/*`. If you
-are reporting a bug, please attach the latest log.
+Each version of Ryot is released as a docker image. Then it is associated with the latest
+Github release of the major version. For example, if the latest tag is `v5.2.1`, then
+the Github release will be called `Version 5` and the docker image will be tagged as
+`:v5.2.1` and `:latest`.
 
 ## Development
 
@@ -20,28 +22,11 @@ In development, both servers are started independently running on `:3000` and `:
 respectively and reverse proxied at `:8000`. To get them running, install
 [mprocs](https://github.com/pvolok/mprocs), and run `mprocs` in the project root.
 
-Here is the minimal configuration required in development mode:
-
-```json title="config/ryot.json"
-{
-  "database": {
-    "url": "postgres://postgres:postgres@postgres:5432/postgres"
-  },
-  "server": {
-    "cors_origins": ["http://localhost:3000"],
-    "config_dump_path": "/tmp/ryot.json"
-  }
-}
-```
-
-I also recommend the following environment files:
+I also recommend the following environment file:
 
 ```bash title=".env"
+DATABASE_URL="postgres://postgres:postgres@postgres:5432/postgres"
 RUST_LOG="ryot=trace,sea_orm=debug"
-```
-
-```bash title="apps/frontend/.env"
-API_URL=http://localhost:5000
 ```
 
 Your website would be available at `http://localhost:8000`.
@@ -59,14 +44,3 @@ in Jellyfin etc. to test events sent to your local Ryot instance.
 
 Another helpful tool is [Webhook.site](https://webhook.site/). It can be used to inspect
 the requests sent to your server.
-
-### Version Control
-
-Unless it is a very small change, I prefer creating a separate branch and merging it via an
-MR when it is done. The changelog is generated using
-[git-chglog](https://github.com/git-chglog/git-chglog). Once all changes are done, run the
-following command to update the changelog.
-
-```bash
-git-chglog --next-tag <tag-name> -o CHANGELOG.md
-```

@@ -51,8 +51,7 @@ targets = [
     "aarch64-apple-darwin",
 ]
 
-[profile.dist]
-inherits = "release"
+[profile.release]
 opt-level = 's'
 strip = true
 lto = "thin"

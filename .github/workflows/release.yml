@@ -1,124 +1,90 @@
 name: Release
 
-permissions:
-  contents: write
-  packages: write
-
-env:
-  REGISTRY: ghcr.io
-
 on:
   push:
     tags:
       - "*-?v[0-9]+*"
 
+env:
+  REGISTRY: ghcr.io
+
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    outputs:
-      has-releases: ${{ steps.create-release.outputs.has-releases }}
-      is-prerelease: ${{ steps.create-release.outputs.is-prerelease }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Install cargo-dist
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-      - id: create-release
-        run: |
-          cargo dist plan --tag=${{ github.ref_name }} --output-format=json > dist-manifest.json
-          echo "dist plan ran successfully"
-          cat dist-manifest.json
+      - uses: actions/checkout@v4
 
-          # Create the Github Release™ based on what cargo-dist thinks it should be
-          ANNOUNCEMENT_TITLE=$(jq --raw-output ".announcement_title" dist-manifest.json)
-          IS_PRERELEASE=$(jq --raw-output ".announcement_is_prerelease" dist-manifest.json)
-          jq --raw-output ".announcement_github_body" dist-manifest.json > new_dist_announcement.md
-          gh release create ${{ github.ref_name }} --draft --prerelease="$IS_PRERELEASE" --title="$ANNOUNCEMENT_TITLE" --notes-file=new_dist_announcement.md
-          echo "created announcement!"
-          echo "is-prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
-
-          # Upload the manifest to the Github Release™
-          gh release upload ${{ github.ref_name }} dist-manifest.json
-          echo "uploaded manifest!"
-
-          # Disable all the upload-artifacts tasks if we have no actual releases
-          HAS_RELEASES=$(jq --raw-output ".releases != null" dist-manifest.json)
-          echo "has-releases=$HAS_RELEASES" >> "$GITHUB_OUTPUT"
-
-  upload-artifacts:
-    needs: create-release
-    if: ${{ needs.create-release.outputs.has-releases == 'true' }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-20.04
-            dist-args: --artifacts=global
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-          - os: macos-11
-            dist-args: --artifacts=local --target=aarch64-apple-darwin --target=x86_64-apple-darwin
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-          - os: ubuntu-20.04
-            dist-args: --artifacts=local --target=x86_64-unknown-linux-gnu
-            install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
-
-    runs-on: ${{ matrix.os }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Create or update release
+        uses: actions/github-script@v7
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         with:
-          fetch-depth: 0
-      - name: Install nodejs dependencies
-        run: yarn install --immutable
-      - name: Setup Moon
-        uses: moonrepo/setup-moon-action@v1.2.0
-      - name: Install cargo-dist
-        run: ${{ matrix.install-dist }}
-      - name: Build the frontend
-        run: moon run frontend:build
-      - name: Run cargo-dist
-        run: |
-          # Actually do builds and make zips and whatnot
-          cargo dist build --tag=${{ github.ref_name }} --output-format=json ${{ matrix.dist-args }} > dist-manifest.json
-          echo "dist ran successfully"
-          cat dist-manifest.json
+          script: |
+            const tag = process.env.TAG_NAME || github.ref_name;
+            const repo = context.repo;
+            const majorVersion = tag.match(/v(\d+)\.\d+\.\d+/)[1];
+            const releaseName = `Version ${majorVersion}`;
+            const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const dynamicBody = `<!-- DYNAMIC START -->\n*Created from tag*: \`${tag}\`\n*Created from git revision*: \`${context.sha}\`\n*Published on*: \`${date}\`\n<!-- DYNAMIC END -->`;
 
-          # Parse out what we just built and upload it to the Github Release™
-          jq --raw-output ".artifacts[]?.path | select( . != null )" dist-manifest.json > uploads.txt
-          echo "uploading..."
-          cat uploads.txt
-          gh release upload ${{ github.ref_name }} $(cat uploads.txt)
-          echo "uploaded!"
+            async function findOrCreateRelease() {
+              const { data: releases } = await github.rest.repos.listReleases(repo);
+              let existingRelease = releases.find(release => release.name === releaseName);
+
+              if (existingRelease) {
+                const existingBody = existingRelease.body;
+                const newBody = existingBody.replace(/<!-- DYNAMIC START -->[^]*<!-- DYNAMIC END -->/, dynamicBody);
+                await github.rest.repos.updateRelease({
+                  ...repo,
+                  release_id: existingRelease.id,
+                  tag_name: tag,
+                  body: newBody
+                });
+                console.log("Release updated to associate with new tag.");
+              } else {
+                const fullBody = `${dynamicBody}\n\n## Release Notes\n\n- Some bug fixes.`;
+                await github.rest.repos.createRelease({
+                  ...repo,
+                  tag_name: tag,
+                  name: releaseName,
+                  body: fullBody,
+                  draft: false,
+                  prerelease: false
+                });
+                console.log("Release created successfully.");
+              }
+            }
+
+            findOrCreateRelease();
 
   upload-kodi-plugin:
-    needs: create-release
     runs-on: ubuntu-20.04
+    needs: create-release
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Install nodejs dependencies
-        run: yarn install --immutable
+      - uses: actions/checkout@v4
+
       - name: Setup Moon
-        uses: moonrepo/setup-moon-action@v1.2.0
+        uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
       - name: Build plugin
-        run: |
-          moon run kodi:build
+        run: moon run kodi:build
+
       - name: Upload plugin to releases
-        run: |
-          gh release upload ${{ github.ref_name }} "tmp/script.ryot.zip"
+        run: gh release upload --clobber ${{ github.ref_name }} "tmp/script.ryot.zip"
 
   docker-release:
     runs-on: ubuntu-latest
     needs: create-release
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -126,7 +92,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Log in to the Container registry
+      - name: Log in to the container registry
         uses: docker/login-action@v2
         with:
           registry: ${{ env.REGISTRY }}
@@ -137,10 +103,7 @@ jobs:
         id: required_args
         run: |
           image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
-          image_names="$image_name:${{ github.ref_name }},$image_name:unstable"
-          if [ "${{ needs.create-release.outputs.is-prerelease }}" = "false" ]; then
-            image_names="$image_names,$image_name:latest"
-          fi
+          image_names="$image_name:${{ github.ref_name }},$image_name:latest"
           # lowercase the name
           image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
           echo "image_names=$image_names" >> $GITHUB_OUTPUT
@@ -153,27 +116,11 @@ jobs:
           push: true
           tags: ${{ steps.required_args.outputs.image_names }}
 
-  # Mark the Github Release™ as a non-draft now that everything has succeeded!
-  publish-release:
-    # Only run after all the other tasks, but it's ok if upload-artifacts was skipped
-    needs:
-      [create-release, upload-artifacts, docker-release, upload-kodi-plugin]
-    if: ${{ always() && needs.create-release.result == 'success' && (needs.upload-artifacts.result == 'skipped' || needs.upload-artifacts.result == 'success') }}
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: mark release as non-draft
-        run: |
-          gh release edit ${{ github.ref_name }} --draft=false
-
-  deploy:
+  deploy-demo-instance:
     runs-on: ubuntu-latest
     needs: docker-release
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
@@ -184,20 +131,23 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   deploy-docs:
-    # otherwise the docs dislay the incorrect version
-    needs: publish-release
     runs-on: ubuntu-latest
+    needs: create-release
     defaults:
       run:
         working-directory: docs
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
           python-version: 3.x
+
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
+
       - name: Install dependencies
         run: poetry install
+
       - name: Deploy to github pages
         run: poetry run mkdocs gh-deploy --force
