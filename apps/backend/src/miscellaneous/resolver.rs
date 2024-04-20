@@ -6273,21 +6273,16 @@ impl MiscellaneousService {
                         });
                     let is_complete = bag.values().all(|&e| e == 1);
                     if is_complete {
-                        for col in &[
-                            DefaultCollection::InProgress.to_string(),
-                            DefaultCollection::Monitoring.to_string(),
-                        ] {
-                            self.remove_entity_from_collection(
-                                seen.user_id,
-                                ChangeCollectionToEntityInput {
-                                    collection_name: col.to_string(),
-                                    metadata_id: Some(seen.metadata_id),
-                                    ..Default::default()
-                                },
-                            )
-                            .await
-                            .ok();
-                        }
+                        self.remove_entity_from_collection(
+                            seen.user_id,
+                            ChangeCollectionToEntityInput {
+                                collection_name: DefaultCollection::InProgress.to_string(),
+                                metadata_id: Some(seen.metadata_id),
+                                ..Default::default()
+                            },
+                        )
+                        .await
+                        .ok();
                     } else {
                         for col in &[
                             DefaultCollection::InProgress.to_string(),
