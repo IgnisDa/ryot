@@ -1,5 +1,7 @@
 <h1 align="center">Ryot</h1>
 
+<img align="left" src="docs/logo.png" width="150">
+
 <h3 align="center">
   A self hosted platform for tracking various facets of your life - media, fitness etc.
 </h3>
@@ -76,6 +78,3 @@ special tool on your computer or phone that lets you keep track of all these dig
 Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
 similar projects. Also a massive thanks to all the
 [contributors](https://github.com/IgnisDa/ryot/graphs/contributors).
-
-The logo is taken from
-[Flaticon](https://www.flaticon.com/free-icon/mess_4789882?term=chaos&page=1&position=2&origin=tag&related_id=4789882).
