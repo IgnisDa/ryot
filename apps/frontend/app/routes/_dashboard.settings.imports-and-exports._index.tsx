@@ -101,12 +101,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		deployImport: async () => {
 			const source = formData.get("source") as ImportSource;
 			const values = await match(source)
-				.with(ImportSource.Goodreads, () => ({
-					goodreads: processSubmission(formData, goodreadsImportFormSchema),
-				}))
-				.with(ImportSource.Imdb, () => ({
-					imdb: processSubmission(formData, goodreadsImportFormSchema),
-				}))
+				.with(
+					ImportSource.StoryGraph,
+					ImportSource.Imdb,
+					ImportSource.Goodreads,
+					ImportSource.OpenScale,
+					() => ({
+						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
+					}),
+				)
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, traktImportFormSchema),
 				}))
@@ -124,9 +127,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}))
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
-				}))
-				.with(ImportSource.StoryGraph, async () => ({
-					storyGraph: processSubmission(formData, storyGraphImportFormSchema),
 				}))
 				.with(ImportSource.Mal, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
@@ -185,15 +185,13 @@ const audiobookshelfImportFormSchema = z.object({
 
 const traktImportFormSchema = z.object({ username: z.string() });
 
-const goodreadsImportFormSchema = z.object({ csvPath: z.string() });
+const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
 const movaryImportFormSchema = z.object({
 	ratings: z.string(),
 	history: z.string(),
 	watchlist: z.string(),
 });
-
-const storyGraphImportFormSchema = z.object({ export: z.string() });
 
 const strongAppImportFormSchema = z.object({
 	exportPath: z.string(),
@@ -258,6 +256,7 @@ export default function Page() {
 												)
 												.with(ImportSource.Imdb, () => "imdb")
 												.with(ImportSource.GenericJson, () => "generic-json")
+												.with(ImportSource.OpenScale, () => "open-scale")
 												.with(undefined, () => "")
 												.exhaustive(),
 										)}
@@ -311,16 +310,22 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.Goodreads, ImportSource.Imdb, () => (
-												<>
-													<FileInput
-														label="CSV file"
-														accept=".csv"
-														required
-														name="csvPath"
-													/>
-												</>
-											))
+											.with(
+												ImportSource.OpenScale,
+												ImportSource.Goodreads,
+												ImportSource.Imdb,
+												ImportSource.StoryGraph,
+												() => (
+													<>
+														<FileInput
+															label="CSV file"
+															accept=".csv"
+															required
+															name="csvPath"
+														/>
+													</>
+												),
+											)
 											.with(ImportSource.Trakt, () => (
 												<>
 													<TextInput
@@ -352,17 +357,6 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.StoryGraph, () => (
-												<>
-													<FileInput
-														label="CSV export file"
-														accept=".csv"
-														required
-														name="export"
-													/>
-												</>
-											))
-
 											.with(ImportSource.Mal, () => (
 												<>
 													<FileInput

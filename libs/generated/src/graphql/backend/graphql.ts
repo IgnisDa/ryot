@@ -249,24 +249,18 @@ export type DeployAudiobookshelfImportInput = {
   apiUrl: Scalars['String']['input'];
 };
 
-export type DeployGoodreadsImportInput = {
-  csvPath: Scalars['String']['input'];
-};
-
-export type DeployImdbImportInput = {
+export type DeployGenericCsvImportInput = {
   csvPath: Scalars['String']['input'];
 };
 
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
+  genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
   genericJson?: InputMaybe<DeployJsonImportInput>;
-  goodreads?: InputMaybe<DeployGoodreadsImportInput>;
-  imdb?: InputMaybe<DeployImdbImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
-  storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
 };
@@ -293,10 +287,6 @@ export type DeployMovaryImportInput = {
   history: Scalars['String']['input'];
   ratings: Scalars['String']['input'];
   watchlist: Scalars['String']['input'];
-};
-
-export type DeployStoryGraphImportInput = {
-  export: Scalars['String']['input'];
 };
 
 export type DeployStrongAppImportInput = {
@@ -693,6 +683,7 @@ export enum ImportSource {
   Mal = 'MAL',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
+  OpenScale = 'OPEN_SCALE',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT'

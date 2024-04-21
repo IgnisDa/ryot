@@ -166,16 +166,18 @@ pub enum ImportSource {
     Imdb,
     #[sea_orm(string_value = "MA")]
     Mal,
-    #[sea_orm(string_value = "MT")]
-    MediaTracker,
-    #[sea_orm(string_value = "TR")]
-    Trakt,
     #[sea_orm(string_value = "MO")]
     Movary,
-    #[sea_orm(string_value = "ST")]
-    StoryGraph,
+    #[sea_orm(string_value = "MT")]
+    MediaTracker,
+    #[sea_orm(string_value = "OP")]
+    OpenScale,
     #[sea_orm(string_value = "SA")]
     StrongApp,
+    #[sea_orm(string_value = "ST")]
+    StoryGraph,
+    #[sea_orm(string_value = "TR")]
+    Trakt,
 }
 
 #[derive(

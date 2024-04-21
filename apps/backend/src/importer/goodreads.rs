@@ -1,5 +1,3 @@
-use std::fs;
-
 use async_graphql::Result;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use convert_case::{Case, Casing};
@@ -11,7 +9,7 @@ use rust_decimal_macros::dec;
 use serde::Deserialize;
 
 use crate::{
-    importer::{DeployGoodreadsImportInput, ImportFailStep, ImportFailedItem, ImportResult},
+    importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
     models::media::{
         ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
         ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
@@ -38,15 +36,15 @@ struct Book {
 }
 
 pub async fn import(
-    input: DeployGoodreadsImportInput,
+    input: DeployGenericCsvImportInput,
     isbn_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
     let source = MediaSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
-    let export = fs::read_to_string(&input.csv_path)?;
-    let ratings_reader = Reader::from_reader(export.as_bytes())
+    let ratings_reader = Reader::from_path(input.csv_path)
+        .unwrap()
         .deserialize()
         .collect_vec();
     let total = ratings_reader.len();

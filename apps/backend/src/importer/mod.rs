@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::Storage;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use database::{ImportSource, MediaLot};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -42,6 +42,7 @@ mod imdb;
 mod mal;
 mod media_tracker;
 mod movary;
+mod open_scale;
 mod story_graph;
 mod strong_app;
 mod trakt;
@@ -55,13 +56,7 @@ pub struct DeployMediaTrackerImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployGoodreadsImportInput {
-    // The file path of the uploaded CSV export file.
-    csv_path: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployImdbImportInput {
+pub struct DeployGenericCsvImportInput {
     // The file path of the uploaded CSV export file.
     csv_path: String,
 }
@@ -88,12 +83,6 @@ pub struct DeployMalImportInput {
     anime_path: String,
     /// The manga export file path (uploaded via temporary upload).
     manga_path: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployStoryGraphImportInput {
-    // The file path of the uploaded CSV export file.
-    export: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -126,15 +115,13 @@ pub struct DeployAudiobookshelfImportInput {
 pub struct DeployImportJobInput {
     pub source: ImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
-    pub goodreads: Option<DeployGoodreadsImportInput>,
+    pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub mal: Option<DeployMalImportInput>,
-    pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
-    pub imdb: Option<DeployImdbImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -306,7 +293,7 @@ impl ImporterService {
                 .unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
-                input.goodreads.unwrap(),
+                input.generic_csv.unwrap(),
                 &self.media_service.get_isbn_service().await.unwrap(),
             )
             .await
@@ -314,7 +301,7 @@ impl ImporterService {
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
-                input.story_graph.unwrap(),
+                input.generic_csv.unwrap(),
                 &self.media_service.get_isbn_service().await.unwrap(),
             )
             .await
@@ -323,7 +310,7 @@ impl ImporterService {
                 .await
                 .unwrap(),
             ImportSource::Imdb => imdb::import(
-                input.imdb.unwrap(),
+                input.generic_csv.unwrap(),
                 &self
                     .media_service
                     .get_tmdb_non_media_service()
@@ -334,6 +321,11 @@ impl ImporterService {
             .unwrap(),
             ImportSource::GenericJson => {
                 generic_json::import(input.generic_json.unwrap(), &self.exercise_service)
+                    .await
+                    .unwrap()
+            }
+            ImportSource::OpenScale => {
+                open_scale::import(input.generic_csv.unwrap(), self.timezone.clone())
                     .await
                     .unwrap()
             }
@@ -700,4 +692,20 @@ fn convert_review_into_input(
         manga_chapter_number: review.manga_chapter_number,
         ..Default::default()
     })
+}
+
+pub mod utils {
+    use super::*;
+
+    pub fn get_date_time_with_offset(
+        date_time: NaiveDateTime,
+        timezone: Arc<chrono_tz::Tz>,
+    ) -> DateTime<Utc> {
+        let offset = timezone
+            .offset_from_utc_datetime(&Utc::now().naive_utc())
+            .fix()
+            .local_minus_utc();
+        let offset = Duration::try_seconds(offset.into()).unwrap();
+        DateTime::<Utc>::from_naive_utc_and_offset(date_time, Utc) - offset
+    }
 }
