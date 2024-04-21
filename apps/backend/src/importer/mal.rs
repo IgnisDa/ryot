@@ -41,9 +41,8 @@ fn get_date(date: String) -> Option<DateTimeUtc> {
 }
 
 fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
-    let progress = if item.done != dec!(0) && item.total != 0 {
-        item.done
-            .checked_div(Decimal::from_i32(item.total).unwrap())
+    let progress = if item.done != 0 && item.total != 0 {
+        item.done.checked_div(item.total)
     } else {
         None
     };
@@ -51,7 +50,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         started_on: get_date(item.my_start_date),
         ended_on: get_date(item.my_finish_date),
         provider_watched_on: Some(ImportSource::Mal.to_string()),
-        progress,
+        progress: progress.map(|p| Decimal::from_i32(p).unwrap()),
         ..Default::default()
     };
     let review_item = ImportOrExportItemRating {
@@ -109,7 +108,7 @@ struct Item {
     #[serde(alias = "series_episodes", alias = "manga_chapters")]
     total: i32,
     #[serde(alias = "my_watched_episodes", alias = "my_read_chapters")]
-    done: Decimal,
+    done: i32,
     my_start_date: String,
     my_finish_date: String,
     my_score: u32,
