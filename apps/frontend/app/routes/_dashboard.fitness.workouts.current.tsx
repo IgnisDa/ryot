@@ -306,7 +306,7 @@ export default function Page() {
 													.flatMap((s) =>
 														s.confirmed
 															? Number(s.statistic.reps || 0) *
-															  Number(s.statistic.weight || 0)
+																Number(s.statistic.weight || 0)
 															: 0,
 													),
 											).toFixed(),

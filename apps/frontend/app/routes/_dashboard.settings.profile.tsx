@@ -88,8 +88,8 @@ export default function Page() {
 								loaderData.userDetails.oidcIssuerId
 									? "Not applicable since this user was created via OIDC"
 									: loaderData.userDetails.isDemo
-									  ? "Password can not be changed for the demo user"
-									  : undefined
+										? "Password can not be changed for the demo user"
+										: undefined
 							}
 						/>
 						<Button

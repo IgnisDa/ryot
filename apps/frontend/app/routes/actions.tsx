@@ -127,7 +127,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						? "Score changed successfully"
 						: `Comment ${
 								submission.shouldDelete ? "deleted" : "posted"
-						  } successfully`,
+							} successfully`,
 				type: "success",
 			});
 		})
