@@ -16,7 +16,7 @@ You can go to the reports page by clicking on "Reports" link on the imports page
   url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
 - I recommend turning on debug logging for the duration of the import using the
   `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
-  progress.
+  progress in the docker logs.
 
 ## Goodreads
 
