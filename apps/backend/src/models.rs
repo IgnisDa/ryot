@@ -1451,6 +1451,7 @@ pub mod fitness {
         SimpleObject,
         InputObject,
         Schematic,
+        Default,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
     #[schematic(rename_all = "snake_case")]

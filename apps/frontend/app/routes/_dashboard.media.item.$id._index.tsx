@@ -1442,22 +1442,23 @@ export default function Page() {
 																								key={e.episodeNumber}
 																								name={`${e.episodeNumber}. ${e.name}`}
 																								publishDate={e.publishDate}
-																								displayIndicator={
-																									userMetadataDetails.history.filter(
-																										(h) =>
-																											h.progress === "100" &&
-																											h.showExtraInformation &&
-																											h.showExtraInformation
-																												.episode ===
-																												e.episodeNumber &&
-																											h.showExtraInformation
-																												.season ===
-																												s.seasonNumber,
-																									).length || 0
-																								}
+																								displayIndicator={getNumTimesShowEpisodeSeen(
+																									userMetadataDetails.history,
+																									e.episodeNumber,
+																									s.seasonNumber,
+																								)}
 																							>
 																								<Button
-																									variant="outline"
+																									variant={
+																										getNumTimesShowEpisodeSeen(
+																											userMetadataDetails.history,
+																											e.episodeNumber,
+																											s.seasonNumber,
+																										) > 0
+																											? "default"
+																											: "outline"
+																									}
+																									color="blue"
 																									onClick={() => {
 																										setUpdateProgressModalData({
 																											showSeasonNumber:
@@ -1467,7 +1468,13 @@ export default function Page() {
 																										});
 																									}}
 																								>
-																									Mark as seen
+																									{getNumTimesShowEpisodeSeen(
+																										userMetadataDetails.history,
+																										e.episodeNumber,
+																										s.seasonNumber,
+																									) > 0
+																										? "Rewatch this"
+																										: "Mark as seen"}
 																								</Button>
 																							</AccordionLabel>
 																						</Box>
@@ -2414,3 +2421,19 @@ const FallbackForDefer = () => (
 		<Skeleton height={16} />
 	</>
 );
+
+const getNumTimesShowEpisodeSeen = (
+	history: UserMetadataDetailsQuery["userMetadataDetails"]["history"],
+	episodeNumber: number,
+	seasonNumber: number,
+) => {
+	return (
+		history.filter(
+			(h) =>
+				h.progress === "100" &&
+				h.showExtraInformation &&
+				h.showExtraInformation.episode === episodeNumber &&
+				h.showExtraInformation.season === seasonNumber,
+		).length || 0
+	);
+};

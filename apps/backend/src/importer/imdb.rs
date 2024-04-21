@@ -1,5 +1,3 @@
-use std::fs;
-
 use async_graphql::Result;
 use csv::Reader;
 use database::{MediaLot, MediaSource};
@@ -7,7 +5,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 
 use crate::{
-    importer::{DeployImdbImportInput, ImportFailStep, ImportFailedItem, ImportResult},
+    importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
     miscellaneous::DefaultCollection,
     models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
     providers::tmdb::NonMediaTmdbService,
@@ -24,14 +22,14 @@ struct Item {
 }
 
 pub async fn import(
-    input: DeployImdbImportInput,
+    input: DeployGenericCsvImportInput,
     tmdb_service: &NonMediaTmdbService,
 ) -> Result<ImportResult> {
     let source = MediaSource::Tmdb;
     let mut media = vec![];
     let mut failed_items = vec![];
-    let export = fs::read_to_string(input.csv_path)?;
-    let ratings_reader = Reader::from_reader(export.as_bytes())
+    let ratings_reader = Reader::from_path(input.csv_path)
+        .unwrap()
         .deserialize()
         .collect_vec();
     let total = ratings_reader.len();
