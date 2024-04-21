@@ -11,13 +11,12 @@ use itertools::Itertools;
 use nanoid::nanoid;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
-    EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
-    RelationTrait,
+    EntityTrait, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait, RelationTrait,
 };
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
-use strum::IntoEnumIterator;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use tracing::instrument;
 

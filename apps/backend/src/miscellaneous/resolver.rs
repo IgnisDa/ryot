@@ -50,6 +50,7 @@ use sea_query::{
     PgFunc, PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use tracing::instrument;
 use uuid::Uuid;

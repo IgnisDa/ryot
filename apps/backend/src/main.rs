@@ -176,7 +176,7 @@ async fn main() -> Result<()> {
     }
 
     if cfg!(debug_assertions) {
-        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
+        use schematic::schema::{SchemaGenerator, TypeScriptRenderer};
 
         // FIXME: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)

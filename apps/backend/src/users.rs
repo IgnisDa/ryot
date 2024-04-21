@@ -1,9 +1,9 @@
 use async_graphql::{Enum, SimpleObject};
 use kinded::Kinded;
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::{EnumString, IntoEnumIterator};
+use strum::EnumString;
 
 use crate::models::{fitness::UserUnitSystem, MediaStateChanged};
 
