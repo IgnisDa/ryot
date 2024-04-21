@@ -5,6 +5,3 @@ edition = "2021"
 
 [dependencies]
 chrono = { workspace = true }
-
-[package.metadata.dist]
-dist = false
