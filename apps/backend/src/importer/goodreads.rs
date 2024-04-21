@@ -11,7 +11,7 @@ use rust_decimal_macros::dec;
 use serde::Deserialize;
 
 use crate::{
-    importer::{DeployGoodreadsImportInput, ImportFailStep, ImportFailedItem, ImportResult},
+    importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
     models::media::{
         ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
         ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
@@ -38,7 +38,7 @@ struct Book {
 }
 
 pub async fn import(
-    input: DeployGoodreadsImportInput,
+    input: DeployGenericCsvImportInput,
     isbn_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;

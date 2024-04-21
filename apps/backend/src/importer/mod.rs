@@ -42,6 +42,7 @@ mod imdb;
 mod mal;
 mod media_tracker;
 mod movary;
+mod open_scale;
 mod story_graph;
 mod strong_app;
 mod trakt;
@@ -55,7 +56,7 @@ pub struct DeployMediaTrackerImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployGoodreadsImportInput {
+pub struct DeployGenericCsvImportInput {
     // The file path of the uploaded CSV export file.
     csv_path: String,
 }
@@ -126,7 +127,7 @@ pub struct DeployAudiobookshelfImportInput {
 pub struct DeployImportJobInput {
     pub source: ImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
-    pub goodreads: Option<DeployGoodreadsImportInput>,
+    pub goodreads: Option<DeployGenericCsvImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub mal: Option<DeployMalImportInput>,
@@ -135,6 +136,7 @@ pub struct DeployImportJobInput {
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
     pub imdb: Option<DeployImdbImportInput>,
+    pub open_scale: Option<DeployGenericCsvImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -337,6 +339,7 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
+            ImportSource::OpenScale => open_scale::import(input.open_scale.unwrap()).await.unwrap(),
         };
         for m in import.media.iter_mut() {
             m.seen_history.sort_by(|a, b| {

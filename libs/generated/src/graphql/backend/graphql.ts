@@ -249,7 +249,7 @@ export type DeployAudiobookshelfImportInput = {
   apiUrl: Scalars['String']['input'];
 };
 
-export type DeployGoodreadsImportInput = {
+export type DeployGenericCsvImportInput = {
   csvPath: Scalars['String']['input'];
 };
 
@@ -260,11 +260,12 @@ export type DeployImdbImportInput = {
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
   genericJson?: InputMaybe<DeployJsonImportInput>;
-  goodreads?: InputMaybe<DeployGoodreadsImportInput>;
+  goodreads?: InputMaybe<DeployGenericCsvImportInput>;
   imdb?: InputMaybe<DeployImdbImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
+  openScale?: InputMaybe<DeployGenericCsvImportInput>;
   source: ImportSource;
   storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
@@ -693,6 +694,7 @@ export enum ImportSource {
   Mal = 'MAL',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
+  OpenScale = 'OPEN_SCALE',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT'
