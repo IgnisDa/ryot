@@ -7,7 +7,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 
 use crate::{
-    importer::{DeployImdbImportInput, ImportFailStep, ImportFailedItem, ImportResult},
+    importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
     miscellaneous::DefaultCollection,
     models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
     providers::tmdb::NonMediaTmdbService,
@@ -24,7 +24,7 @@ struct Item {
 }
 
 pub async fn import(
-    input: DeployImdbImportInput,
+    input: DeployGenericCsvImportInput,
     tmdb_service: &NonMediaTmdbService,
 ) -> Result<ImportResult> {
     let source = MediaSource::Tmdb;

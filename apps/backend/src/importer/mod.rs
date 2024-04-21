@@ -62,12 +62,6 @@ pub struct DeployGenericCsvImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployImdbImportInput {
-    // The file path of the uploaded CSV export file.
-    csv_path: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployTraktImportInput {
     // The public username in Trakt.
     username: String,
@@ -89,12 +83,6 @@ pub struct DeployMalImportInput {
     anime_path: String,
     /// The manga export file path (uploaded via temporary upload).
     manga_path: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployStoryGraphImportInput {
-    // The file path of the uploaded CSV export file.
-    export: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -127,16 +115,13 @@ pub struct DeployAudiobookshelfImportInput {
 pub struct DeployImportJobInput {
     pub source: ImportSource,
     pub media_tracker: Option<DeployMediaTrackerImportInput>,
-    pub goodreads: Option<DeployGenericCsvImportInput>,
+    pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub mal: Option<DeployMalImportInput>,
-    pub story_graph: Option<DeployStoryGraphImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub audiobookshelf: Option<DeployAudiobookshelfImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
-    pub imdb: Option<DeployImdbImportInput>,
-    pub open_scale: Option<DeployGenericCsvImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -308,7 +293,7 @@ impl ImporterService {
                 .unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
-                input.goodreads.unwrap(),
+                input.generic_csv.unwrap(),
                 &self.media_service.get_isbn_service().await.unwrap(),
             )
             .await
@@ -316,7 +301,7 @@ impl ImporterService {
             ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
-                input.story_graph.unwrap(),
+                input.generic_csv.unwrap(),
                 &self.media_service.get_isbn_service().await.unwrap(),
             )
             .await
@@ -325,7 +310,7 @@ impl ImporterService {
                 .await
                 .unwrap(),
             ImportSource::Imdb => imdb::import(
-                input.imdb.unwrap(),
+                input.generic_csv.unwrap(),
                 &self
                     .media_service
                     .get_tmdb_non_media_service()
@@ -339,7 +324,9 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
-            ImportSource::OpenScale => open_scale::import(input.open_scale.unwrap()).await.unwrap(),
+            ImportSource::OpenScale => open_scale::import(input.generic_csv.unwrap())
+                .await
+                .unwrap(),
         };
         for m in import.media.iter_mut() {
             m.seen_history.sort_by(|a, b| {

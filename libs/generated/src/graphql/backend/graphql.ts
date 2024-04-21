@@ -253,21 +253,14 @@ export type DeployGenericCsvImportInput = {
   csvPath: Scalars['String']['input'];
 };
 
-export type DeployImdbImportInput = {
-  csvPath: Scalars['String']['input'];
-};
-
 export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployAudiobookshelfImportInput>;
+  genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
   genericJson?: InputMaybe<DeployJsonImportInput>;
-  goodreads?: InputMaybe<DeployGenericCsvImportInput>;
-  imdb?: InputMaybe<DeployImdbImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployMediaTrackerImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
-  openScale?: InputMaybe<DeployGenericCsvImportInput>;
   source: ImportSource;
-  storyGraph?: InputMaybe<DeployStoryGraphImportInput>;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
 };
@@ -294,10 +287,6 @@ export type DeployMovaryImportInput = {
   history: Scalars['String']['input'];
   ratings: Scalars['String']['input'];
   watchlist: Scalars['String']['input'];
-};
-
-export type DeployStoryGraphImportInput = {
-  export: Scalars['String']['input'];
 };
 
 export type DeployStrongAppImportInput = {

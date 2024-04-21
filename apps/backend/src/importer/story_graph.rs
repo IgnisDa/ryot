@@ -12,14 +12,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployStoryGraphImportInput, ImportFailStep, ImportFailedItem,
-        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportResult,
+        ImportFailStep, ImportFailedItem, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
+        ImportResult,
     },
     models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
     },
     providers::google_books::GoogleBooksService,
 };
+
+use super::DeployGenericCsvImportInput;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -52,14 +54,14 @@ struct History {
 }
 
 pub async fn import(
-    input: DeployStoryGraphImportInput,
+    input: DeployGenericCsvImportInput,
     isbn_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
     let source = MediaSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
-    let export = fs::read_to_string(&input.export)?;
+    let export = fs::read_to_string(&input.csv_path)?;
     let ratings_reader = Reader::from_reader(export.as_bytes())
         .deserialize()
         .collect_vec();
