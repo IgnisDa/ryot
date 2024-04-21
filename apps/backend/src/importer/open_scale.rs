@@ -1,7 +1,5 @@
-use std::fs;
-
 use async_graphql::Result;
-use csv::Reader;
+use csv::{Reader, ReaderBuilder};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
@@ -13,6 +11,8 @@ use crate::importer::{
 
 #[derive(Debug, Deserialize)]
 struct Record {
+    #[serde(rename = "dateTime")]
+    date_time: String,
     biceps: Option<Decimal>,
     bone: Option<Decimal>,
     caliper1: Option<Decimal>,
@@ -21,8 +21,6 @@ struct Record {
     calories: Option<Decimal>,
     chest: Option<Decimal>,
     comment: Option<String>,
-    #[serde(rename = "dateTime", with = "chrono::serde::ts_seconds_option")]
-    date_time: Option<DateTimeUtc>,
     fat: Option<Decimal>,
     hip: Option<Decimal>,
     lbm: Option<Decimal>,
@@ -39,8 +37,9 @@ struct Record {
 pub async fn import(input: DeployGenericCsvImportInput) -> Result<ImportResult> {
     let mut measurements = vec![];
     let mut failed_items = vec![];
-    let export = fs::read_to_string(&input.csv_path)?;
-    let ratings_reader = Reader::from_reader(export.as_bytes())
+    let ratings_reader = ReaderBuilder::new()
+        .from_path(input.csv_path)
+        .unwrap()
         .deserialize()
         .collect_vec();
     for (idx, result) in ratings_reader.into_iter().enumerate() {
