@@ -1,5 +1,3 @@
-use std::fs;
-
 use async_graphql::Result;
 use chrono::NaiveDate;
 use csv::Reader;
@@ -45,14 +43,11 @@ struct History {
 }
 
 pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
-    let ratings = fs::read_to_string(&input.ratings)?;
-    let history = fs::read_to_string(&input.history)?;
-    let watchlist = fs::read_to_string(&input.watchlist)?;
     let lot = MediaLot::Movie;
     let source = MediaSource::Tmdb;
     let mut media = vec![];
     let mut failed_items = vec![];
-    let mut ratings_reader = Reader::from_reader(ratings.as_bytes());
+    let mut ratings_reader = Reader::from_path(input.ratings).unwrap();
     for (idx, result) in ratings_reader.deserialize().enumerate() {
         let record: Rating = match result {
             Ok(r) => r,
@@ -84,7 +79,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             collections: vec![],
         })
     }
-    let mut watchlist_reader = Reader::from_reader(watchlist.as_bytes());
+    let mut watchlist_reader = Reader::from_path(input.watchlist).unwrap();
     for (idx, result) in watchlist_reader.deserialize().enumerate() {
         let record: Common = match result {
             Ok(r) => r,
@@ -112,7 +107,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             collections: vec![DefaultCollection::Watchlist.to_string()],
         })
     }
-    let mut history_reader = Reader::from_reader(history.as_bytes());
+    let mut history_reader = Reader::from_path(input.history).unwrap();
     for (idx, result) in history_reader.deserialize().enumerate() {
         let record: History = match result {
             Ok(r) => r,
