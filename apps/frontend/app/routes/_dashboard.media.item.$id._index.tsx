@@ -1449,7 +1449,16 @@ export default function Page() {
 																								)}
 																							>
 																								<Button
-																									variant="outline"
+																									variant={
+																										getNumTimesShowEpisodeSeen(
+																											userMetadataDetails.history,
+																											e.episodeNumber,
+																											s.seasonNumber,
+																										) > 0
+																											? "default"
+																											: "outline"
+																									}
+																									color="blue"
 																									onClick={() => {
 																										setUpdateProgressModalData({
 																											showSeasonNumber:
@@ -1459,7 +1468,13 @@ export default function Page() {
 																										});
 																									}}
 																								>
-																									Mark as seen
+																									{getNumTimesShowEpisodeSeen(
+																										userMetadataDetails.history,
+																										e.episodeNumber,
+																										s.seasonNumber,
+																									) > 0
+																										? "Rewatch this"
+																										: "Mark as seen"}
 																								</Button>
 																							</AccordionLabel>
 																						</Box>
