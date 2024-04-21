@@ -1,12 +1,18 @@
+use std::sync::Arc;
+
 use async_graphql::Result;
-use csv::{Reader, ReaderBuilder};
+use chrono::NaiveDateTime;
+use csv::ReaderBuilder;
 use itertools::Itertools;
 use rust_decimal::Decimal;
-use sea_orm::prelude::DateTimeUtc;
 use serde::Deserialize;
 
-use crate::importer::{
-    DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
+use crate::{
+    entities::user_measurement,
+    importer::{
+        utils, DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
+    },
+    models::fitness::UserMeasurementStats,
 };
 
 #[derive(Debug, Deserialize)]
@@ -34,7 +40,10 @@ struct Record {
     weight: Option<Decimal>,
 }
 
-pub async fn import(input: DeployGenericCsvImportInput) -> Result<ImportResult> {
+pub async fn import(
+    input: DeployGenericCsvImportInput,
+    timezone: Arc<chrono_tz::Tz>,
+) -> Result<ImportResult> {
     let mut measurements = vec![];
     let mut failed_items = vec![];
     let ratings_reader = ReaderBuilder::new()
@@ -55,7 +64,35 @@ pub async fn import(input: DeployGenericCsvImportInput) -> Result<ImportResult> 
                 continue;
             }
         };
-        dbg!(&record);
+        let ndt = NaiveDateTime::parse_from_str(&record.date_time, "%Y-%m-%d %H:%M")
+            .expect("Failed to parse input string");
+        let timestamp = utils::get_date_time_with_offset(ndt, timezone.clone());
+        measurements.push(user_measurement::Model {
+            timestamp,
+            user_id: 0,
+            name: None,
+            comment: record.comment,
+            stats: UserMeasurementStats {
+                weight: record.weight,
+                biceps_circumference: record.biceps,
+                bone_mass: record.bone,
+                chest_skinfold: record.caliper1,
+                abdominal_skinfold: record.caliper2,
+                thigh_skinfold: record.caliper3,
+                calories: record.calories,
+                chest_circumference: record.chest,
+                body_fat: record.fat,
+                hip_circumference: record.hip,
+                lean_body_mass: record.lbm,
+                muscle: record.muscle,
+                neck_circumference: record.neck,
+                thigh_circumference: record.thigh,
+                visceral_fat: record.visceral_fat,
+                waist_circumference: record.waist,
+                total_body_water: record.water,
+                ..Default::default()
+            },
+        });
     }
     Ok(ImportResult {
         measurements,
