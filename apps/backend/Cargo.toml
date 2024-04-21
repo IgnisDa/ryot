@@ -7,12 +7,7 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
-apalis = { version = "0.4.9", features = [
-    "cron",
-    "extensions",
-    "limit",
-    "sqlite",
-] }
+apalis = { version = "0.5.1", features = ["cron", "limit", "sqlite"] }
 argon2 = "0.5.3"
 async-graphql = { workspace = true }
 async-graphql-axum = "7.0.3"

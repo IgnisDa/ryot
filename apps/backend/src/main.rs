@@ -11,10 +11,9 @@ use anyhow::{bail, Result};
 use apalis::{
     cron::{CronStream, Schedule},
     layers::{
-        Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
-        TraceLayer as ApalisTraceLayer,
+        limit::RateLimitLayer as ApalisRateLimitLayer, tracing::TraceLayer as ApalisTraceLayer,
     },
-    prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
+    prelude::{Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
 use aws_sdk_s3::config::Region;
@@ -32,6 +31,7 @@ use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
 use sea_orm_migration::MigratorTrait;
+use serde::{de::DeserializeOwned, Serialize};
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::{join, net::TcpListener};
 use tower_http::{
@@ -255,67 +255,69 @@ async fn main() -> Result<()> {
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
-        Monitor::new()
+        Monitor::<TokioExecutor>::new()
             // cron jobs
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("general_user_cleanup-{c}"))
+            .register_with_count(1, {
+                WorkerBuilder::new("general_user_cleanup")
                     .stream(
-                        CronStream::new(
+                        CronStream::new_with_timezone(
                             Schedule::from_str(&format!("0 0 */{} ? * *", user_cleanup_every))
                                 .unwrap(),
+                            tz,
                         )
-                        .timer(SleepTimer)
-                        .to_stream_with_timezone(tz),
+                        .into_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_1.clone()))
+                    .data(media_service_1.clone())
                     .build_fn(user_jobs)
             })
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
+            .register_with_count(1, {
+                WorkerBuilder::new("general_media_cleanup_job")
                     .stream(
                         // every day
-                        CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
-                            .timer(SleepTimer)
-                            .to_stream_with_timezone(tz),
+                        CronStream::new_with_timezone(
+                            Schedule::from_str("0 0 0 * * *").unwrap(),
+                            tz,
+                        )
+                        .into_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(importer_service_2.clone()))
-                    .layer(ApalisExtension(media_service_2.clone()))
+                    .data(importer_service_2.clone())
+                    .data(media_service_2.clone())
                     .build_fn(media_jobs)
             })
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("yank_integrations_data-{c}"))
+            .register_with_count(1, {
+                WorkerBuilder::new("yank_integrations_data")
                     .stream(
-                        CronStream::new(
+                        CronStream::new_with_timezone(
                             Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
+                            tz,
                         )
-                        .timer(SleepTimer)
-                        .to_stream_with_timezone(tz),
+                        .into_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_3.clone()))
+                    .data(media_service_3.clone())
                     .build_fn(yank_integrations_data)
             })
             // application jobs
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("perform_core_application_job-{c}"))
+            .register_with_count(1, {
+                WorkerBuilder::new("perform_core_application_job")
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_5.clone()))
+                    .data(media_service_5.clone())
                     .with_storage(perform_core_application_job_storage.clone())
                     .build_fn(perform_core_application_job)
             })
-            .register_with_count(3, move |c| {
-                WorkerBuilder::new(format!("perform_application_job-{c}"))
-                    .layer(ApalisTraceLayer::new())
+            .register_with_count(1, {
+                WorkerBuilder::new("perform_application_job")
                     .layer(ApalisRateLimitLayer::new(
                         rate_limit_num,
                         Duration::new(5, 0),
                     ))
-                    .layer(ApalisExtension(importer_service_1.clone()))
-                    .layer(ApalisExtension(exporter_service_1.clone()))
-                    .layer(ApalisExtension(media_service_4.clone()))
-                    .layer(ApalisExtension(exercise_service_1.clone()))
+                    .layer(ApalisTraceLayer::new())
+                    .data(importer_service_1.clone())
+                    .data(exporter_service_1.clone())
+                    .data(media_service_4.clone())
+                    .data(exercise_service_1.clone())
                     .with_storage(perform_application_job_storage.clone())
                     .build_fn(perform_application_job)
             })
@@ -339,10 +341,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn create_storage<T: ApalisJob>(pool: SqlitePool) -> SqliteStorage<T> {
-    let st = SqliteStorage::new(pool);
-    st.setup().await.unwrap();
-    st
+async fn create_storage<T: ApalisJob + DeserializeOwned + Serialize>(
+    pool: SqlitePool,
+) -> SqliteStorage<T> {
+    SqliteStorage::setup(&pool).await.unwrap();
+    SqliteStorage::new(pool)
 }
 
 fn init_tracing() -> Result<()> {
