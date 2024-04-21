@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::Storage;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use database::{ImportSource, MediaLot};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -324,9 +324,11 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
-            ImportSource::OpenScale => open_scale::import(input.generic_csv.unwrap())
-                .await
-                .unwrap(),
+            ImportSource::OpenScale => {
+                open_scale::import(input.generic_csv.unwrap(), self.timezone.clone())
+                    .await
+                    .unwrap()
+            }
         };
         for m in import.media.iter_mut() {
             m.seen_history.sort_by(|a, b| {
@@ -690,4 +692,20 @@ fn convert_review_into_input(
         manga_chapter_number: review.manga_chapter_number,
         ..Default::default()
     })
+}
+
+pub mod utils {
+    use super::*;
+
+    pub fn get_date_time_with_offset(
+        date_time: NaiveDateTime,
+        timezone: Arc<chrono_tz::Tz>,
+    ) -> DateTime<Utc> {
+        let offset = timezone
+            .offset_from_utc_datetime(&Utc::now().naive_utc())
+            .fix()
+            .local_minus_utc();
+        let offset = Duration::try_seconds(offset.into()).unwrap();
+        DateTime::<Utc>::from_naive_utc_and_offset(date_time, Utc) - offset
+    }
 }
