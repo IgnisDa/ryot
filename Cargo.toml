@@ -21,7 +21,6 @@ schematic = { version = "0.15.1", features = [
     "type_chrono",
     "type_rust_decimal",
     "url",
-    "renderer_template",
 ], default-features = false }
 sea-orm = { version = "0.12.15", features = [
     "debug-print",
