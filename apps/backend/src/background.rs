@@ -21,7 +21,7 @@ use crate::{
 
 // Cron Jobs
 
-pub struct ScheduledJob(DateTime<Tz>);
+pub struct ScheduledJob(pub DateTime<Tz>);
 
 impl From<DateTime<Tz>> for ScheduledJob {
     fn from(value: DateTime<Tz>) -> Self {
