@@ -6253,10 +6253,10 @@ impl MiscellaneousService {
                             .collect_vec()
                     } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes)
                     {
-                        (0..e + 1).map(|e| format!("{}", e)).collect_vec()
+                        (1..e + 1).map(|e| format!("{}", e)).collect_vec()
                     } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters)
                     {
-                        (0..c + 1).map(|e| format!("{}", e)).collect_vec()
+                        (1..c + 1).map(|e| format!("{}", e)).collect_vec()
                     } else {
                         vec![]
                     };
