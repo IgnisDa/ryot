@@ -21,6 +21,28 @@ use crate::{
     },
 };
 
+pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
+    let anime_data = input
+        .anime_path
+        .map(|p| decode_data::<DataRoot>(&p).unwrap())
+        .unwrap_or_default();
+    let manga_data = input
+        .manga_path
+        .map(|p| decode_data::<DataRoot>(&p).unwrap())
+        .unwrap_or_default();
+    let mut media = vec![];
+    for item in anime_data.items.into_iter() {
+        media.push(convert_to_format(item, MediaLot::Anime));
+    }
+    for item in manga_data.items.into_iter() {
+        media.push(convert_to_format(item, MediaLot::Manga));
+    }
+    Ok(ImportResult {
+        media,
+        ..Default::default()
+    })
+}
+
 fn decode_data<T>(path: &str) -> Result<T>
 where
     T: DeserializeOwned,
@@ -80,22 +102,6 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         reviews: vec![review_item],
         collections: vec![],
     }
-}
-
-pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
-    let anime_data = decode_data::<DataRoot>(&input.anime_path)?;
-    let manga_data = decode_data::<DataRoot>(&input.manga_path)?;
-    let mut media = vec![];
-    for item in anime_data.items.into_iter() {
-        media.push(convert_to_format(item, MediaLot::Anime));
-    }
-    for item in manga_data.items.into_iter() {
-        media.push(convert_to_format(item, MediaLot::Manga));
-    }
-    Ok(ImportResult {
-        media,
-        ..Default::default()
-    })
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
