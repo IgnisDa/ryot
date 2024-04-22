@@ -34,6 +34,7 @@ use sea_orm_migration::MigratorTrait;
 use serde::{de::DeserializeOwned, Serialize};
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::{join, net::TcpListener};
+use tower::buffer::BufferLayer;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -92,7 +93,7 @@ async fn main() -> Result<()> {
         .iter()
         .map(|f| f.parse().unwrap())
         .collect_vec();
-    let rate_limit_num = config.scheduler.rate_limit_num;
+    let rate_limit_count = config.scheduler.rate_limit_num;
     let user_cleanup_every = config.scheduler.user_cleanup_every;
     let pull_every = config.integration.pull_every;
     let max_file_size = config.server.max_file_size;
@@ -307,20 +308,24 @@ async fn main() -> Result<()> {
                     .with_storage(perform_core_application_job_storage.clone())
                     .build_fn(perform_core_application_job)
             })
-            .register_with_count(1, {
+            .register_with_count(
+                1,
                 WorkerBuilder::new("perform_application_job")
-                    .layer(ApalisRateLimitLayer::new(
-                        rate_limit_num,
-                        Duration::new(5, 0),
-                    ))
-                    .layer(ApalisTraceLayer::new())
                     .data(importer_service_1.clone())
                     .data(exporter_service_1.clone())
                     .data(media_service_4.clone())
                     .data(exercise_service_1.clone())
                     .with_storage(perform_application_job_storage.clone())
-                    .build_fn(perform_application_job)
-            })
+                    .chain(|s| {
+                        s.layer(BufferLayer::new(1024))
+                            .layer(ApalisRateLimitLayer::new(
+                                rate_limit_count,
+                                Duration::new(5, 0),
+                            ))
+                            .layer(ApalisTraceLayer::new())
+                    })
+                    .build_fn(perform_application_job),
+            )
             .run()
             .await
             .unwrap();
