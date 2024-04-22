@@ -228,10 +228,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 fn process_item(
     i: &ListItemResponse,
 ) -> std::result::Result<ImportOrExportMediaItem, ImportFailedItem> {
-    let (source_id, identifier, lot, title) = if let Some(d) = i.movie.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MediaLot::Movie, d.title.clone())
+    let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MediaLot::Show, d.title.clone())
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Show)
     } else {
         return Err(ImportFailedItem {
             lot: None,
