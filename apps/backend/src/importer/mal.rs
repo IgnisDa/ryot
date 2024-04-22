@@ -50,6 +50,8 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
                 _ => unreachable!(),
             };
             ImportOrExportMediaItemSeen {
+                started_on: get_date(item.my_start_date.clone()),
+                ended_on: get_date(item.my_finish_date.clone()),
                 anime_episode_number: anime_episode,
                 manga_chapter_number: manga_chapter,
                 provider_watched_on: Some(ImportSource::Mal.to_string()),
@@ -112,5 +114,7 @@ struct Item {
     total: i32,
     #[serde(alias = "my_watched_episodes", alias = "my_read_chapters")]
     done: i32,
+    my_start_date: String,
+    my_finish_date: String,
     my_score: u32,
 }
