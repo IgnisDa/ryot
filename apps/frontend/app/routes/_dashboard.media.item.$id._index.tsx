@@ -2301,10 +2301,14 @@ const SeenItem = (props: {
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
 		: null;
-	const displayAnimeExtraInformation =
-		props.history.animeExtraInformation?.episode;
-	const displayMangaExtraInformation =
-		props.history.mangaExtraInformation?.chapter;
+	const displayAnimeExtraInformation = props.history.animeExtraInformation
+		?.episode
+		? `EP-${props.history.animeExtraInformation?.episode}`
+		: null;
+	const displayMangaExtraInformation = props.history.mangaExtraInformation
+		?.chapter
+		? `CH-${props.history.mangaExtraInformation?.chapter}`
+		: null;
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const displayAllInformation = [
