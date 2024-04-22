@@ -74,6 +74,7 @@ surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
 tokio = { version = "1.37.0", features = ["full"] }
+tower = { version = "0.4.13", features = ["buffer"] }
 tower-http = { version = "0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "0.3.18"
