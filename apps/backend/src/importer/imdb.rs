@@ -78,10 +78,7 @@ pub async fn import(
         media.push(ImportOrExportMediaItem {
             collections: vec![DefaultCollection::Watchlist.to_string()],
             identifier: "".to_string(),
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
-                identifier: tmdb_identifier,
-                title: record.title,
-            }),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(tmdb_identifier)),
             lot,
             source,
             source_id: record.id,

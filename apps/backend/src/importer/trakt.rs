@@ -246,10 +246,7 @@ fn process_item(
             source_id: source_id.to_string(),
             lot,
             identifier: "".to_string(),
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
-                identifier: i.to_string(),
-                title,
-            }),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(i.to_string())),
             source: MediaSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],

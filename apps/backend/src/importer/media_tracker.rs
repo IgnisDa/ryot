@@ -316,10 +316,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                     book_specifics: Some(BookSpecifics { pages: num_pages }),
                     ..Default::default()
                 })),
-                true => ImportOrExportItemIdentifier::NeedsDetails {
-                    identifier,
-                    title: details.title,
-                },
+                true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
             }),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {

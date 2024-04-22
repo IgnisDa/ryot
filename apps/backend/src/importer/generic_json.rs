@@ -22,10 +22,9 @@ pub async fn import(
         .unwrap_or_default()
         .iter_mut()
         .map(|m| {
-            m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails {
-                identifier: m.identifier.clone(),
-                title: m.source_id.clone(),
-            });
+            m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails(
+                m.identifier.clone(),
+            ));
             m.seen_history.iter_mut().for_each(|s| {
                 s.provider_watched_on = Some(ImportSource::GenericJson.to_string());
             });
