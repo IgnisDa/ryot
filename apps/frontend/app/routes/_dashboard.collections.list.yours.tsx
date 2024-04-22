@@ -33,6 +33,7 @@ import {
 import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
+	type UserCollectionsListQuery,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
@@ -136,19 +137,20 @@ const createOrUpdateSchema = z.object({
 	updateId: zx.IntAsString.optional(),
 });
 
+type UpdateCollectionInput = {
+	name: string;
+	id: number;
+	description?: string | null;
+	visibility: Visibility;
+};
+
 export default function Page() {
 	const transition = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
-	const [toUpdateCollection, setToUpdateCollection] = useState<{
-		name: string;
-		id: number;
-		description?: string | null;
-		visibility: Visibility;
-	}>();
-	const [opened, { open, close }] = useDisclosure(false);
-	const fetcher = useFetcher();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
 
+	const [toUpdateCollection, setToUpdateCollection] =
+		useState<UpdateCollectionInput>();
+	const [opened, { open, close }] = useDisclosure(false);
 	useEffect(() => {
 		if (transition.state !== "submitting") {
 			close();
@@ -175,67 +177,11 @@ export default function Page() {
 					</Flex>
 					<SimpleGrid cols={{ base: 1, md: 2 }}>
 						{loaderData.collections.map((c) => (
-							<Flex
+							<DisplayCollection
 								key={c.id}
-								align="center"
-								justify="space-between"
-								gap="md"
-								mr="lg"
-							>
-								<Box>
-									<Flex align="center" gap="xs">
-										<Anchor
-											component={Link}
-											to={$path("/collections/:id", { id: c.id })}
-										>
-											<Title order={4}>{c.name}</Title>
-										</Anchor>
-										<Text c="dimmed" size="xs">
-											{c.numItems} items, {changeCase(c.visibility || "")}
-										</Text>
-									</Flex>
-									{c.description ? (
-										<Text lineClamp={3}>{c.description}</Text>
-									) : null}
-								</Box>
-								<Flex gap="sm" style={{ flex: 0 }}>
-									<ActionIcon
-										color="blue"
-										variant="outline"
-										onClick={() => {
-											setToUpdateCollection({
-												name: c.name,
-												id: c.id,
-												description: c.description,
-												visibility: c.visibility,
-											});
-											open();
-										}}
-									>
-										<IconEdit size={18} />
-									</ActionIcon>
-									<fetcher.Form
-										action="?intent=delete"
-										method="post"
-										ref={deleteFormRef}
-									>
-										<input hidden name="collectionName" defaultValue={c.name} />
-										<ActionIcon
-											color="red"
-											variant="outline"
-											onClick={async () => {
-												const conf = await confirmWrapper({
-													confirmation:
-														"Are you sure you want to delete this collection?",
-												});
-												if (conf) fetcher.submit(deleteFormRef.current);
-											}}
-										>
-											<IconTrashFilled size={18} />
-										</ActionIcon>
-									</fetcher.Form>
-								</Flex>
-							</Flex>
+								collection={c}
+								setToUpdateCollection={setToUpdateCollection}
+							/>
 						))}
 					</SimpleGrid>
 				</Stack>
@@ -299,3 +245,72 @@ export default function Page() {
 		</>
 	);
 }
+
+type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+
+const DisplayCollection = (props: {
+	collection: Collection;
+	setToUpdateCollection: (c: UpdateCollectionInput) => void;
+}) => {
+	const fetcher = useFetcher();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
+
+	return (
+		<Flex align="center" justify="space-between" gap="md" mr="lg">
+			<Box>
+				<Flex align="center" gap="xs">
+					<Anchor
+						component={Link}
+						to={$path("/collections/:id", { id: props.collection.id })}
+					>
+						<Title order={4}>{props.collection.name}</Title>
+					</Anchor>
+					<Text c="dimmed" size="xs">
+						{props.collection.numItems} items,{" "}
+						{changeCase(props.collection.visibility || "")}
+					</Text>
+				</Flex>
+				{props.collection.description ? (
+					<Text lineClamp={3}>{props.collection.description}</Text>
+				) : null}
+			</Box>
+			<Flex gap="sm" style={{ flex: 0 }}>
+				<ActionIcon
+					color="blue"
+					variant="outline"
+					onClick={() => {
+						props.setToUpdateCollection({
+							name: props.collection.name,
+							id: props.collection.id,
+							description: props.collection.description,
+							visibility: props.collection.visibility,
+						});
+						open();
+					}}
+				>
+					<IconEdit size={18} />
+				</ActionIcon>
+				<fetcher.Form action="?intent=delete" method="post" ref={deleteFormRef}>
+					<input
+						hidden
+						name="collectionName"
+						defaultValue={props.collection.name}
+					/>
+					<ActionIcon
+						color="red"
+						variant="outline"
+						onClick={async () => {
+							const conf = await confirmWrapper({
+								confirmation:
+									"Are you sure you want to delete this collection?",
+							});
+							if (conf) fetcher.submit(deleteFormRef.current);
+						}}
+					>
+						<IconTrashFilled size={18} />
+					</ActionIcon>
+				</fetcher.Form>
+			</Flex>
+		</Flex>
+	);
+};
