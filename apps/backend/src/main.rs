@@ -316,6 +316,7 @@ async fn main() -> Result<()> {
                     .data(media_service_4.clone())
                     .data(exercise_service_1.clone())
                     .with_storage(perform_application_job_storage.clone())
+                    // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
                     .chain(|s| {
                         s.layer(BufferLayer::new(1024))
                             .layer(ApalisRateLimitLayer::new(
