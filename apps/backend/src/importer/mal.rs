@@ -6,6 +6,7 @@ use std::{
 use async_graphql::Result;
 use database::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
+use itertools::Itertools;
 use rs_utils::{convert_naive_to_utc, convert_string_to_date};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -41,18 +42,23 @@ fn get_date(date: String) -> Option<DateTimeUtc> {
 }
 
 fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
-    let progress = if item.done != 0 && item.total != 0 {
-        item.done.checked_div(item.total)
-    } else {
-        None
-    };
-    let seen_item = ImportOrExportMediaItemSeen {
-        started_on: get_date(item.my_start_date),
-        ended_on: get_date(item.my_finish_date),
-        provider_watched_on: Some(ImportSource::Mal.to_string()),
-        progress: progress.map(|p| Decimal::from_i32(p).unwrap()),
-        ..Default::default()
-    };
+    let seen_history = (1..item.done + 1)
+        .map(|i| {
+            let (anime_episode, manga_chapter) = match lot {
+                MediaLot::Anime => (Some(i), None),
+                MediaLot::Manga => (None, Some(i)),
+                _ => unreachable!(),
+            };
+            ImportOrExportMediaItemSeen {
+                started_on: get_date(item.my_start_date.clone()),
+                ended_on: get_date(item.my_finish_date.clone()),
+                anime_episode_number: anime_episode,
+                manga_chapter_number: manga_chapter,
+                provider_watched_on: Some(ImportSource::Mal.to_string()),
+                ..Default::default()
+            }
+        })
+        .collect_vec();
     let review_item = ImportOrExportItemRating {
         review: None,
         rating: if item.my_score == 0 {
@@ -71,7 +77,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
             identifier: item.identifier.to_string(),
             title: item.title,
         }),
-        seen_history: vec![seen_item],
+        seen_history,
         reviews: vec![review_item],
         collections: vec![],
     }
