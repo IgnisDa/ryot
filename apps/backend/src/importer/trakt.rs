@@ -228,10 +228,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 fn process_item(
     i: &ListItemResponse,
 ) -> std::result::Result<ImportOrExportMediaItem, ImportFailedItem> {
-    let (source_id, identifier, lot, title) = if let Some(d) = i.movie.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MediaLot::Movie, d.title.clone())
+    let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
-        (d.ids.trakt, d.ids.tmdb, MediaLot::Show, d.title.clone())
+        (d.ids.trakt, d.ids.tmdb, MediaLot::Show)
     } else {
         return Err(ImportFailedItem {
             lot: None,
@@ -240,16 +240,12 @@ fn process_item(
             error: Some("Item is neither a movie or a show".to_owned()),
         });
     };
-    let title = title.unwrap_or_default();
     match identifier {
         Some(i) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),
             lot,
             identifier: "".to_string(),
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
-                identifier: i.to_string(),
-                title,
-            }),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(i.to_string())),
             source: MediaSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],

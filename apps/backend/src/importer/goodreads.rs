@@ -132,10 +132,7 @@ pub async fn import(
                 lot,
                 source,
                 identifier: "".to_string(),
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
-                    identifier,
-                    title: record.title,
-                }),
+                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(identifier)),
                 seen_history,
                 reviews,
                 collections,

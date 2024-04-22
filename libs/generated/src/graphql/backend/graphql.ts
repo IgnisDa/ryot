@@ -271,9 +271,9 @@ export type DeployJsonImportInput = {
 
 export type DeployMalImportInput = {
   /** The anime export file path (uploaded via temporary upload). */
-  animePath: Scalars['String']['input'];
+  animePath?: InputMaybe<Scalars['String']['input']>;
   /** The manga export file path (uploaded via temporary upload). */
-  mangaPath: Scalars['String']['input'];
+  mangaPath?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type DeployMediaTrackerImportInput = {

@@ -39,7 +39,7 @@ import {
 	IconServer,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
@@ -521,7 +521,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 						? "Today"
 						: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
 								numDaysLeft === 1 ? "" : "s"
-						  }`
+							}`
 				}`,
 			}}
 			lot={um.metadataLot}
@@ -555,43 +555,43 @@ const ActualDisplayStat = (props: {
 				rootColor={props.color ?? colors[11]}
 			/>
 			<Flex wrap="wrap" ml="xs">
-				{props.data.map((d, idx) =>
-					d.type === "number" && d.value === 0 && d.hideIfZero ? undefined : (
-						<Box
-							key={idx.toString()}
-							mx="xs"
-							data-stat-stringified={JSON.stringify(d)}
-						>
-							<Text
-								fw={d.label !== "Runtime" ? "bold" : undefined}
-								display="inline"
-								fz={{ base: "md", md: "sm", xl: "md" }}
-							>
-								{match(d.type)
-									.with("string", () => d.value)
-									.with("duration", () =>
-										humanizeDuration(Number(d.value) * 1000 * 60, {
-											round: true,
-											largest: 3,
-										}),
-									)
-									.with("number", () =>
-										new Intl.NumberFormat("en-US", {
-											notation: "compact",
-										}).format(Number(d.value)),
-									)
-									.exhaustive()}
-							</Text>
-							<Text
-								display="inline"
-								ml="4px"
-								fz={{ base: "md", md: "sm", xl: "md" }}
-							>
-								{d.label === "Runtime" ? "" : d.label}
-							</Text>
-						</Box>
-					),
-				)}
+				{props.data.map((d, idx) => (
+					<Fragment key={idx.toString()}>
+						{d.type === "number" &&
+						d.value === 0 &&
+						d.hideIfZero ? undefined : (
+							<Box mx="xs" data-stat-stringified={JSON.stringify(d)}>
+								<Text
+									fw={d.label !== "Runtime" ? "bold" : undefined}
+									display="inline"
+									fz={{ base: "md", md: "sm", xl: "md" }}
+								>
+									{match(d.type)
+										.with("string", () => d.value)
+										.with("duration", () =>
+											humanizeDuration(Number(d.value) * 1000 * 60, {
+												round: true,
+												largest: 3,
+											}),
+										)
+										.with("number", () =>
+											new Intl.NumberFormat("en-US", {
+												notation: "compact",
+											}).format(Number(d.value)),
+										)
+										.exhaustive()}
+								</Text>
+								<Text
+									display="inline"
+									ml="4px"
+									fz={{ base: "md", md: "sm", xl: "md" }}
+								>
+									{d.label === "Runtime" ? "" : d.label}
+								</Text>
+							</Box>
+						)}
+					</Fragment>
+				))}
 			</Flex>
 		</Flex>
 	);

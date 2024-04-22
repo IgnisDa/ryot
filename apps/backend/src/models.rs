@@ -1030,7 +1030,7 @@ pub mod media {
     #[serde(untagged)]
     pub enum ImportOrExportItemIdentifier {
         // the identifier in case we need to fetch details
-        NeedsDetails { identifier: String, title: String },
+        NeedsDetails(String),
         // details are already filled and just need to be committed to database
         AlreadyFilled(Box<MediaDetails>),
     }

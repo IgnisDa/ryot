@@ -201,8 +201,8 @@ const strongAppImportFormSchema = z.object({
 const jsonImportFormSchema = z.object({ export: z.string() });
 
 const malImportFormSchema = z.object({
-	animePath: z.string(),
-	mangaPath: z.string(),
+	animePath: z.string().optional(),
+	mangaPath: z.string().optional(),
 });
 
 const deployExportForm = z.object({
@@ -361,12 +361,10 @@ export default function Page() {
 												<>
 													<FileInput
 														label="Anime export file"
-														required
 														name="animePath"
 													/>
 													<FileInput
 														label="Manga export file"
-														required
 														name="mangaPath"
 													/>
 												</>

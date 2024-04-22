@@ -317,7 +317,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 		typeof window !== "undefined"
 			? `${
 					window.location.origin
-			  }/backend/webhooks/integrations/${props.integration.description
+				}/backend/webhooks/integrations/${props.integration.description
 					.toLowerCase()
 					.split(" ")
 					.at(0)}/${props.integration.slug}`

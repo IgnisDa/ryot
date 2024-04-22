@@ -16,7 +16,7 @@ You can go to the reports page by clicking on "Reports" link on the imports page
   url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
 - I recommend turning on debug logging for the duration of the import using the
   `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
-  progress.
+  progress in the docker logs.
 
 ## Goodreads
 
@@ -178,3 +178,12 @@ format of the JSON file should be `CompleteExport`. The import format required i
 in the [exporting](guides/exporting.md#type-definition) documentation.
 
 You can use this to export all your data from one Ryot instance and import it into another.
+
+## Open Scale
+
+You can import your measurements from [Open Scale](https://github.com/oliexdev/openScale)
+app.
+
+This can be done by clicking on the three dots on the top right corner of the app, and then
+clicking on "Export". This will save a CSV file to your file system. Upload this file in
+the input.

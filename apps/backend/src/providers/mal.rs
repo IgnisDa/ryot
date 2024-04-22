@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use convert_case::{Case, Casing};
 use database::{MediaLot, MediaSource};
 use rand::{seq::SliceRandom, thread_rng};
 use rs_utils::{convert_date_to_year, convert_string_to_date};
@@ -263,7 +264,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
         description: details.synopsis,
         lot,
         is_nsfw,
-        production_status: details.status,
+        production_status: details.status.map(|s| s.to_case(Case::Title)),
         genres: details
             .genres
             .unwrap_or_default()

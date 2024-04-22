@@ -1,30 +1,25 @@
 [package]
 name = "ryot"
-version = "5.0.4"
+version = "5.0.5"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
-apalis = { version = "0.4.9", features = [
-    "cron",
-    "extensions",
-    "limit",
-    "sqlite",
-] }
+apalis = { version = "0.5.1", features = ["cron", "limit", "sqlite"] }
 argon2 = "0.5.3"
 async-graphql = { workspace = true }
-async-graphql-axum = "7.0.2"
-async-trait = "0.1.77"
-aws-sdk-s3 = { version = "1.15.0", features = ["behavior-version-latest"] }
-axum = { version = "0.7.4", features = ["macros", "multipart"] }
+async-graphql-axum = "7.0.3"
+async-trait = "0.1.80"
+aws-sdk-s3 = { version = "1.23.0", features = ["behavior-version-latest"] }
+axum = { version = "0.7.5", features = ["macros", "multipart"] }
 boilermates = "0.3.0"
 chrono = { workspace = true }
-chrono-tz = "0.8.6"
+chrono-tz = "0.9.0"
 config = { path = "../../libs/config" }
 convert_case = "0.6.0"
-const-str = "0.5.6"
+const-str = "0.5.7"
 csv = "1.3.0"
 database = { path = "../../libs/database" }
 data-encoding = "2.5.0"
@@ -37,16 +32,16 @@ dotenvy = "0.15.7"
 enum_meta = "0.6.0"
 flate2 = "1.0.28"
 futures = "0.3.30"
-graphql_client = "0.13.0"
+graphql_client = "0.14.0"
 harsh = "0.2.2"
 hashbag = "0.1.12"
-http = "1.0.0"
+http = "1.1.0"
 http-types = "2.12.0"
 isolang = { version = "2.4.0", features = ["list_languages"] }
 itertools = "0.12.1"
-jsonwebtoken = { version = "9.2.0", default-features = false }
+jsonwebtoken = { version = "9.3.0", default-features = false }
 kinded = "0.3.0"
-lettre = { version = "0.11.4", features = [
+lettre = { version = "0.11.6", features = [
     "rustls-tls",
     "smtp-transport",
     "builder",
@@ -56,12 +51,12 @@ nanoid = "0.4.0"
 openidconnect = "3.5.0"
 paginate = "1.1.11"
 rand = "0.8.5"
-regex = "1.10.3"
+regex = "1.10.4"
 retainer = "0.3.0"
 rs-utils = { path = "../../libs/rs-utils" }
-rust_decimal = "1.34.3"
+rust_decimal = "1.35.0"
 rust_decimal_macros = "1.34.2"
-rust_iso3166 = "0.1.11"
+rust_iso3166 = "0.1.12"
 schematic = { workspace = true }
 scraper = "0.19.0"
 sea-orm = { workspace = true }
@@ -69,7 +64,7 @@ sea-orm-migration = { workspace = true }
 sea-query = "0.30.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { version = "3.6.1", features = ["chrono_0_4"] }
+serde_with = { version = "3.7.0", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
 slug = "0.1.5"
 sqlx = { version = "0.7.4", default-features = false }
@@ -78,9 +73,10 @@ struson = { version = "0.5.0", features = ["serde"] }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
-tokio = { version = "1.36.0", features = ["full"] }
-tower-http = { version = "0.5.1", features = ["catch-panic", "cors", "trace"] }
+tokio = { version = "1.37.0", features = ["full"] }
+tower = { version = "0.4.13", features = ["buffer"] }
+tower-http = { version = "0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "0.3.18"
 logs-wheel = "0.3.1"
-uuid = "1.7.0"
+uuid = "1.8.0"

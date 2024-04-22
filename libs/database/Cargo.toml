@@ -14,8 +14,5 @@ serde_json = { workspace = true }
 strum = { workspace = true }
 tracing = { workspace = true }
 
-[package.metadata.dist]
-dist = false
-
 [package.metadata.cargo-machete]
-ignored = ["serde_json"]
+ignored = ["serde_json", "tracing"]

@@ -83,10 +83,9 @@ pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResu
                     let lot = MediaLot::AudioBook;
                     if let Some(asin) = metadata.asin {
                         media.push(ImportOrExportMediaItem {
-                            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails {
-                                identifier: asin,
-                                title: metadata.title.clone().unwrap_or_default(),
-                            }),
+                            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                                asin,
+                            )),
                             lot,
                             source: MediaSource::Audible,
                             source_id: metadata.title.unwrap_or_default(),

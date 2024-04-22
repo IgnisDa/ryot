@@ -80,9 +80,9 @@ pub struct DeployMovaryImportInput {
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployMalImportInput {
     /// The anime export file path (uploaded via temporary upload).
-    anime_path: String,
+    anime_path: Option<String>,
     /// The manga export file path (uploaded via temporary upload).
-    manga_path: String,
+    manga_path: Option<String>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -350,7 +350,7 @@ impl ImporterService {
             let rev_length = item.reviews.len();
             let identifier = item.internal_identifier.clone().unwrap();
             let data = match identifier {
-                ImportOrExportItemIdentifier::NeedsDetails { identifier, .. } => {
+                ImportOrExportItemIdentifier::NeedsDetails(identifier) => {
                     let resp = self
                         .media_service
                         .commit_metadata(CommitMediaInput {

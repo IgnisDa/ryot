@@ -600,7 +600,7 @@ export default function Page() {
 									loaderData.mediaMainDetails.publishDate
 										? dayjsLib(loaderData.mediaMainDetails.publishDate).format(
 												"LL",
-										  )
+											)
 										: loaderData.mediaMainDetails.publishYear,
 									loaderData.mediaMainDetails.originalLanguage,
 									loaderData.mediaMainDetails.productionStatus,
@@ -1088,7 +1088,7 @@ export default function Page() {
 														</>
 													) : loaderData.mediaMainDetails.lot !==
 															MediaLot.Show &&
-													  loaderData.mediaMainDetails.lot !==
+														loaderData.mediaMainDetails.lot !==
 															MediaLot.Podcast ? (
 														<>
 															<Menu.Label>Not in progress</Menu.Label>
@@ -1153,13 +1153,13 @@ export default function Page() {
 																loaderData.mediaMainDetails.lot ===
 																MediaLot.Show
 																	? userMetadataDetails?.nextEntry?.episode ??
-																	  undefined
+																		undefined
 																	: null,
 															podcastEpisodeNumber:
 																loaderData.mediaMainDetails.lot ===
 																MediaLot.Podcast
 																	? userMetadataDetails?.nextEntry?.episode ??
-																	  undefined
+																		undefined
 																	: null,
 														});
 													}}
@@ -1835,8 +1835,8 @@ const ProgressUpdateModal = (props: {
 												{props.data.onlySeason
 													? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
 													: props.data.completeShow
-													  ? "This will mark all episodes for this show as seen"
-													  : null}
+														? "This will mark all episodes for this show as seen"
+														: null}
 											</Alert>
 										) : null}
 										{!props.data?.completeShow ? (
@@ -2296,15 +2296,19 @@ const SeenItem = (props: {
 	const podcastExtraInformation = props.history.podcastExtraInformation
 		? props.podcastSpecifics?.episodes.find(
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
-		  )
+			)
 		: null;
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
 		: null;
-	const displayAnimeExtraInformation =
-		props.history.animeExtraInformation?.episode;
-	const displayMangaExtraInformation =
-		props.history.mangaExtraInformation?.chapter;
+	const displayAnimeExtraInformation = props.history.animeExtraInformation
+		?.episode
+		? `EP-${props.history.animeExtraInformation?.episode}`
+		: null;
+	const displayMangaExtraInformation = props.history.mangaExtraInformation
+		?.chapter
+		? `CH-${props.history.mangaExtraInformation?.chapter}`
+		: null;
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const displayAllInformation = [

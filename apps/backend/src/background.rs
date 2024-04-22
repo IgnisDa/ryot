@@ -1,6 +1,6 @@
 use std::{env, sync::Arc, time::Instant};
 
-use apalis::prelude::{Job, JobContext, JobError};
+use apalis::prelude::*;
 use chrono::DateTime;
 use chrono_tz::Tz;
 use database::{MediaLot, MediaSource};
@@ -21,7 +21,7 @@ use crate::{
 
 // Cron Jobs
 
-pub struct ScheduledJob(DateTime<Tz>);
+pub struct ScheduledJob(pub DateTime<Tz>);
 
 impl From<DateTime<Tz>> for ScheduledJob {
     fn from(value: DateTime<Tz>) -> Self {
@@ -33,41 +33,40 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
-    let service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+pub async fn media_jobs(
+    _information: ScheduledJob,
+    misc_service: Data<Arc<MiscellaneousService>>,
+    importer_service: Data<Arc<ImporterService>>,
+) -> Result<(), Error> {
     if env::var("DISABLE_INVALIDATE_IMPORT_JOBS").is_err() {
         tracing::trace!("Invalidating invalid media import jobs");
-        ctx.data::<Arc<ImporterService>>()
-            .unwrap()
-            .invalidate_import_jobs()
-            .await
-            .unwrap();
+        importer_service.invalidate_import_jobs().await.unwrap();
     }
     if env::var("DISABLE_UPDATE_WATCHLIST_MEDIA").is_err() {
         tracing::trace!("Checking for updates for media in Watchlist");
-        service
+        misc_service
             .update_watchlist_metadata_and_send_notifications()
             .await
             .unwrap();
     }
     if env::var("DISABLE_UPDATE_MONITORED_PEOPLE").is_err() {
         tracing::trace!("Checking for updates for monitored people");
-        service
+        misc_service
             .update_monitored_people_and_send_notifications()
             .await
             .unwrap();
     }
     if env::var("DISABLE_SEND_PENDING_REMINDERS").is_err() {
         tracing::trace!("Checking and sending any pending reminders");
-        service.send_pending_media_reminders().await.unwrap();
+        misc_service.send_pending_media_reminders().await.unwrap();
     }
     if env::var("DISABLE_RECALCULATE_CALENDAR_EVENTS").is_err() {
         tracing::trace!("Recalculating calendar events");
-        service.recalculate_calendar_events().await.unwrap();
+        misc_service.recalculate_calendar_events().await.unwrap();
     }
     if env::var("DISABLE_SEND_NOTIFICATIONS_FOR_RELEASED_MEDIA").is_err() {
         tracing::trace!("Sending notifications for released media");
-        service
+        misc_service
             .send_notifications_for_released_media()
             .await
             .unwrap();
@@ -75,32 +74,26 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
     Ok(())
 }
 
-pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
+pub async fn user_jobs(
+    _information: ScheduledJob,
+    service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     tracing::trace!("Cleaning up user and metadata association");
-    ctx.data::<Arc<MiscellaneousService>>()
-        .unwrap()
+    service
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
     tracing::trace!("Removing old user summaries and regenerating them");
-    ctx.data::<Arc<MiscellaneousService>>()
-        .unwrap()
-        .regenerate_user_summaries()
-        .await
-        .unwrap();
+    service.regenerate_user_summaries().await.unwrap();
     Ok(())
 }
 
 pub async fn yank_integrations_data(
     _information: ScheduledJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
+    service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     tracing::trace!("Getting data from yanked integrations for all users");
-    ctx.data::<Arc<MiscellaneousService>>()
-        .unwrap()
-        .yank_integrations_data()
-        .await
-        .unwrap();
+    service.yank_integrations_data().await.unwrap();
     Ok(())
 }
 
@@ -119,11 +112,10 @@ impl Job for CoreApplicationJob {
 
 pub async fn perform_core_application_job(
     information: CoreApplicationJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let start = Instant::now();
     let status = match information {
         CoreApplicationJob::YankIntegrationsData(user_id) => misc_service
@@ -165,14 +157,13 @@ impl Job for ApplicationJob {
 
 pub async fn perform_application_job(
     information: ApplicationJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
+    misc_service: Data<Arc<MiscellaneousService>>,
+    importer_service: Data<Arc<ImporterService>>,
+    exporter_service: Data<Arc<ExporterService>>,
+    exercise_service: Data<Arc<ExerciseService>>,
+) -> Result<(), Error> {
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
-    let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
-    let exporter_service = ctx.data::<Arc<ExporterService>>().unwrap();
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
     let start = Instant::now();
     let status = match information {
         ApplicationJob::ImportFromExternalSource(user_id, input) => importer_service

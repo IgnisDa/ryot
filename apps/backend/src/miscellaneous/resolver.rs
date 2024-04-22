@@ -50,6 +50,7 @@ use sea_query::{
     PgFunc, PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use tracing::instrument;
 use uuid::Uuid;
@@ -6227,7 +6228,11 @@ impl MiscellaneousService {
             }
             SeenState::Completed => {
                 let metadata = self.generic_metadata(seen.metadata_id).await?;
-                if metadata.model.lot == MediaLot::Podcast || metadata.model.lot == MediaLot::Show {
+                if metadata.model.lot == MediaLot::Podcast
+                    || metadata.model.lot == MediaLot::Show
+                    || metadata.model.lot == MediaLot::Anime
+                    || metadata.model.lot == MediaLot::Manga
+                {
                     // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
                     // correspond to each episode exactly once, it means the show can be removed
                     // from the "In Progress" collection.
@@ -6246,6 +6251,12 @@ impl MiscellaneousService {
                             .into_iter()
                             .map(|e| format!("{}", e.number))
                             .collect_vec()
+                    } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes)
+                    {
+                        (1..e + 1).map(|e| format!("{}", e)).collect_vec()
+                    } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters)
+                    {
+                        (1..c + 1).map(|e| format!("{}", e)).collect_vec()
                     } else {
                         vec![]
                     };
@@ -6263,6 +6274,14 @@ impl MiscellaneousService {
                                 format!("{}-{}", s.season, s.episode)
                             } else if let Some(p) = h.podcast_extra_information {
                                 format!("{}", p.episode)
+                            } else if let Some(a) =
+                                h.anime_extra_information.and_then(|a| a.episode)
+                            {
+                                format!("{}", a)
+                            } else if let Some(m) =
+                                h.manga_extra_information.and_then(|m| m.chapter)
+                            {
+                                format!("{}", m)
                             } else {
                                 String::new()
                             }

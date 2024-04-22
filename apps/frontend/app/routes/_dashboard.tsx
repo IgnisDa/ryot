@@ -87,19 +87,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			? {
 					label: "Groups",
 					href: $path("/media/groups/:action", { action: "list" }),
-			  }
+				}
 			: undefined,
 		userPreferences.featuresEnabled.media.people
 			? {
 					label: "People",
 					href: $path("/media/people/:action", { action: "list" }),
-			  }
+				}
 			: undefined,
 		userPreferences.featuresEnabled.media.genres
 			? {
 					label: "Genres",
 					href: $path("/media/genre/list"),
-			  }
+				}
 			: undefined,
 	]
 		.filter(Boolean)
@@ -112,8 +112,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 							: $path("/media/:action/:lot", {
 									action: "list",
 									lot: link.label.toLowerCase(),
-							  }),
-				  }
+								}),
+					}
 				: undefined,
 		);
 
