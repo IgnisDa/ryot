@@ -240,7 +240,6 @@ fn process_item(
             error: Some("Item is neither a movie or a show".to_owned()),
         });
     };
-    let title = title.unwrap_or_default();
     match identifier {
         Some(i) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),

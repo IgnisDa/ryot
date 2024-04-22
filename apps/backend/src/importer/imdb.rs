@@ -16,7 +16,6 @@ use crate::{
 struct Item {
     #[serde(rename = "Const")]
     id: String,
-    title: String,
     #[serde(rename = "Title Type")]
     title_type: String,
 }
