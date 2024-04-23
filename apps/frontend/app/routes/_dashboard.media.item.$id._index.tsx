@@ -53,6 +53,7 @@ import {
 	type MetadataAdditionalDetailsQuery,
 	MetadataMainDetailsDocument,
 	MetadataVideoSource,
+	type PodcastEpisode,
 	SeenState,
 	type ShowEpisode,
 	type ShowSeason,
@@ -1413,35 +1414,13 @@ export default function Page() {
 														<Stack ml="md">
 															{mediaAdditionalDetails.podcastSpecifics.episodes.map(
 																(e, podcastEpisodeIdx) => (
-																	<Fragment key={e.number}>
-																		{podcastEpisodeIdx !== 0 ? (
-																			<Divider />
-																		) : null}
-																		<AccordionLabel
-																			{...e}
-																			name={e.title}
-																			posterImages={[e.thumbnail || ""]}
-																			publishDate={e.publishDate}
-																			displayIndicator={
-																				userMetadataDetails.history.filter(
-																					(h) =>
-																						h.podcastExtraInformation
-																							?.episode === e.number,
-																				).length || 0
-																			}
-																		>
-																			<Button
-																				variant="outline"
-																				onClick={() => {
-																					setUpdateProgressModalData({
-																						podcastEpisodeNumber: e.number,
-																					});
-																				}}
-																			>
-																				Mark as seen
-																			</Button>
-																		</AccordionLabel>
-																	</Fragment>
+																	<DisplayPodcastEpisode
+																		key={e.number}
+																		episode={e}
+																		idx={podcastEpisodeIdx}
+																		history={userMetadataDetails.history}
+																		setData={setUpdateProgressModalData}
+																	/>
 																),
 															)}
 														</Stack>
@@ -2102,7 +2081,7 @@ const MergeMetadataModal = (props: {
 
 const AccordionLabel = (props: {
 	name: string;
-	id?: number | null;
+	id?: number | string | null;
 	numEpisodes?: number | null;
 	posterImages: string[];
 	overview?: string | null;
@@ -2445,6 +2424,39 @@ const DisplayShowEpisode = (props: {
 					</Button>
 				</AccordionLabel>
 			</Box>
+		</Fragment>
+	);
+};
+
+const DisplayPodcastEpisode = (props: {
+	episode: PodcastEpisode;
+	idx: number;
+	history: AllUserHistory;
+	setData: (data: UpdateProgress) => void;
+}) => {
+	return (
+		<Fragment>
+			{props.idx !== 0 ? <Divider /> : null}
+			<AccordionLabel
+				{...props.episode}
+				name={props.episode.title}
+				posterImages={[props.episode.thumbnail || ""]}
+				publishDate={props.episode.publishDate}
+				displayIndicator={
+					props.history.filter(
+						(h) => h.podcastExtraInformation?.episode === props.episode.number,
+					).length || 0
+				}
+			>
+				<Button
+					variant="outline"
+					onClick={() => {
+						props.setData({ podcastEpisodeNumber: props.episode.number });
+					}}
+				>
+					Mark as seen
+				</Button>
+			</AccordionLabel>
 		</Fragment>
 	);
 };
