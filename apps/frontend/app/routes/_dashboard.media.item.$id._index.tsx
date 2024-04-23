@@ -1412,32 +1412,36 @@ export default function Page() {
 													<MediaScrollArea>
 														<Stack ml="md">
 															{mediaAdditionalDetails.podcastSpecifics.episodes.map(
-																(e) => (
-																	<AccordionLabel
-																		{...e}
-																		name={e.title}
-																		posterImages={[e.thumbnail || ""]}
-																		key={e.number}
-																		publishDate={e.publishDate}
-																		displayIndicator={
-																			userMetadataDetails.history.filter(
-																				(h) =>
-																					h.podcastExtraInformation?.episode ===
-																					e.number,
-																			).length || 0
-																		}
-																	>
-																		<Button
-																			variant="outline"
-																			onClick={() => {
-																				setUpdateProgressModalData({
-																					podcastEpisodeNumber: e.number,
-																				});
-																			}}
+																(e, podcastEpisodeIdx) => (
+																	<Fragment key={e.number}>
+																		{podcastEpisodeIdx !== 0 ? (
+																			<Divider />
+																		) : null}
+																		<AccordionLabel
+																			{...e}
+																			name={e.title}
+																			posterImages={[e.thumbnail || ""]}
+																			publishDate={e.publishDate}
+																			displayIndicator={
+																				userMetadataDetails.history.filter(
+																					(h) =>
+																						h.podcastExtraInformation
+																							?.episode === e.number,
+																				).length || 0
+																			}
 																		>
-																			Mark as seen
-																		</Button>
-																	</AccordionLabel>
+																			<Button
+																				variant="outline"
+																				onClick={() => {
+																					setUpdateProgressModalData({
+																						podcastEpisodeNumber: e.number,
+																					});
+																				}}
+																			>
+																				Mark as seen
+																			</Button>
+																		</AccordionLabel>
+																	</Fragment>
 																),
 															)}
 														</Stack>
