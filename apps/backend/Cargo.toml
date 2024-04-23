@@ -15,7 +15,7 @@ async-trait = "0.1.80"
 aws-sdk-s3 = { version = "1.23.0", features = ["behavior-version-latest"] }
 axum = { version = "0.7.5", features = ["macros", "multipart"] }
 boilermates = "0.3.0"
-cached = { version = "0.49.3" }
+cached = { version = "0.49.3", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = "0.9.0"
 config = { path = "../../libs/config" }
