@@ -1411,7 +1411,7 @@ export default function Page() {
 											{mediaAdditionalDetails.podcastSpecifics ? (
 												<Tabs.Panel value="podcastEpisodes">
 													<MediaScrollArea>
-														<Stack ml="md">
+														<Stack mx="md">
 															{mediaAdditionalDetails.podcastSpecifics.episodes.map(
 																(e, podcastEpisodeIdx) => (
 																	<DisplayPodcastEpisode
@@ -2434,6 +2434,11 @@ const DisplayPodcastEpisode = (props: {
 	history: AllUserHistory;
 	setData: (data: UpdateProgress) => void;
 }) => {
+	const numTimesEpisodeSeen =
+		props.history.filter(
+			(h) => h.podcastExtraInformation?.episode === props.episode.number,
+		).length || 0;
+
 	return (
 		<Fragment>
 			{props.idx !== 0 ? <Divider /> : null}
@@ -2442,19 +2447,16 @@ const DisplayPodcastEpisode = (props: {
 				name={props.episode.title}
 				posterImages={[props.episode.thumbnail || ""]}
 				publishDate={props.episode.publishDate}
-				displayIndicator={
-					props.history.filter(
-						(h) => h.podcastExtraInformation?.episode === props.episode.number,
-					).length || 0
-				}
+				displayIndicator={numTimesEpisodeSeen}
 			>
 				<Button
-					variant="outline"
+					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
+					color="blue"
 					onClick={() => {
 						props.setData({ podcastEpisodeNumber: props.episode.number });
 					}}
 				>
-					Mark as seen
+					{numTimesEpisodeSeen > 0 ? "Rewatch this" : "Mark as seen"}
 				</Button>
 			</AccordionLabel>
 		</Fragment>
