@@ -150,10 +150,13 @@ export default function Page() {
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
-	const [opened, { open, close }] = useDisclosure(false);
+	const [
+		createOrUpdateModalOpened,
+		{ open: createOrUpdateModalOpen, close: createOrUpdateModalClose },
+	] = useDisclosure(false);
 	useEffect(() => {
 		if (transition.state !== "submitting") {
-			close();
+			createOrUpdateModalClose();
 			setToUpdateCollection(undefined);
 		}
 	}, [transition.state]);
@@ -169,7 +172,7 @@ export default function Page() {
 							variant="outline"
 							onClick={() => {
 								setToUpdateCollection(undefined);
-								open();
+								createOrUpdateModalOpen();
 							}}
 						>
 							<IconPlus size={20} />
@@ -181,13 +184,18 @@ export default function Page() {
 								key={c.id}
 								collection={c}
 								setToUpdateCollection={setToUpdateCollection}
-								openModal={open}
+								openModal={createOrUpdateModalOpen}
 							/>
 						))}
 					</SimpleGrid>
 				</Stack>
 			</Container>
-			<Modal opened={opened} onClose={close} withCloseButton={false} centered>
+			<Modal
+				opened={createOrUpdateModalOpened}
+				onClose={createOrUpdateModalClose}
+				withCloseButton={false}
+				centered
+			>
 				<Box component={Form} method="post" action="?intent=createOrUpdate">
 					<Stack>
 						<Title order={3}>
