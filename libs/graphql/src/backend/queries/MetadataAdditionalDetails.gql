@@ -36,6 +36,7 @@ query MetadataAdditionalDetails($metadataId: Int!) {
     }
     podcastSpecifics {
       episodes {
+        id
         title
         overview
         thumbnail
