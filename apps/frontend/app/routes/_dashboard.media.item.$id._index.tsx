@@ -55,6 +55,7 @@ import {
 	MetadataVideoSource,
 	SeenState,
 	type ShowEpisode,
+	type ShowSeason,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -1384,72 +1385,12 @@ export default function Page() {
 														>
 															{mediaAdditionalDetails.showSpecifics.seasons.map(
 																(s) => (
-																	<Accordion.Item
-																		value={s.seasonNumber.toString()}
-																		key={s.seasonNumber}
-																	>
-																		<Accordion.Control>
-																			<AccordionLabel
-																				{...s}
-																				name={`${s.seasonNumber}. ${s.name}`}
-																				numEpisodes={s.episodes.length}
-																				displayIndicator={
-																					s.episodes.length > 0 &&
-																					s.episodes.every((e) =>
-																						userMetadataDetails.history.some(
-																							(h) =>
-																								h.progress === "100" &&
-																								h.showExtraInformation &&
-																								h.showExtraInformation
-																									.episode ===
-																									e.episodeNumber &&
-																								h.showExtraInformation
-																									.season === s.seasonNumber,
-																						),
-																					)
-																						? 1
-																						: 0
-																				}
-																				runtime={s.episodes
-																					.map((e) => e.runtime || 0)
-																					.reduce((i, a) => i + a, 0)}
-																			>
-																				<>
-																					{s.episodes.length > 0 ? (
-																						<Button
-																							variant="outline"
-																							onClick={() => {
-																								setUpdateProgressModalData({
-																									showSeasonNumber:
-																										s.seasonNumber,
-																									onlySeason: true,
-																								});
-																							}}
-																						>
-																							Mark as seen
-																						</Button>
-																					) : null}
-																				</>
-																			</AccordionLabel>
-																		</Accordion.Control>
-																		<Accordion.Panel>
-																			{s.episodes.length > 0 ? (
-																				s.episodes.map((e) => (
-																					<DisplayShowEpisode
-																						key={e.id}
-																						episode={e}
-																						seasonNumber={s.seasonNumber}
-																						history={
-																							userMetadataDetails.history
-																						}
-																						setData={setUpdateProgressModalData}
-																					/>
-																				))
-																			) : (
-																				<Text>No episodes in this season</Text>
-																			)}
-																		</Accordion.Panel>
-																	</Accordion.Item>
+																	<DisplayShowSeason
+																		key={s.id}
+																		history={userMetadataDetails.history}
+																		s={s}
+																		setData={setUpdateProgressModalData}
+																	/>
 																),
 															)}
 														</Accordion>
@@ -2393,6 +2334,72 @@ const FallbackForDefer = () => (
 		<Skeleton height={16} />
 	</>
 );
+
+const DisplayShowSeason = (props: {
+	s: ShowSeason;
+	history: AllUserHistory;
+	setData: (data: UpdateProgress) => void;
+}) => {
+	return (
+		<Accordion.Item value={props.s.seasonNumber.toString()}>
+			<Accordion.Control>
+				<AccordionLabel
+					{...props.s}
+					name={`${props.s.seasonNumber}. ${props.s.name}`}
+					numEpisodes={props.s.episodes.length}
+					displayIndicator={
+						props.s.episodes.length > 0 &&
+						props.s.episodes.every((e) =>
+							props.history.some(
+								(h) =>
+									h.progress === "100" &&
+									h.showExtraInformation &&
+									h.showExtraInformation.episode === e.episodeNumber &&
+									h.showExtraInformation.season === props.s.seasonNumber,
+							),
+						)
+							? 1
+							: 0
+					}
+					runtime={props.s.episodes
+						.map((e) => e.runtime || 0)
+						.reduce((i, a) => i + a, 0)}
+				>
+					<>
+						{props.s.episodes.length > 0 ? (
+							<Button
+								variant="outline"
+								onClick={() => {
+									props.setData({
+										showSeasonNumber: props.s.seasonNumber,
+										onlySeason: true,
+									});
+								}}
+							>
+								Mark as seen
+							</Button>
+						) : null}
+					</>
+				</AccordionLabel>
+			</Accordion.Control>
+			<Accordion.Panel>
+				{props.s.episodes.length > 0 ? (
+					props.s.episodes.map((e) => (
+						<DisplayShowEpisode
+							key={e.id}
+							episode={e}
+							seasonNumber={props.s.seasonNumber}
+							history={props.history}
+							setData={props.setData}
+						/>
+					))
+				) : (
+					<Text>No episodes in this season</Text>
+				)}
+			</Accordion.Panel>
+		</Accordion.Item>
+	);
+};
 
 const DisplayShowEpisode = (props: {
 	episode: ShowEpisode;
