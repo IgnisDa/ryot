@@ -222,7 +222,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d82227972a1bb6f5f5c4444b8228aaed79e28d6ad411e5f88ad46dc04cf066bb"
 dependencies = [
  "async-oneshot",
- "async-timer 1.0.0-beta.13",
+ "async-timer",
  "futures",
  "pin-project-lite",
  "serde",
@@ -621,17 +621,6 @@ name = "async-task"
 version = "4.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbb36e985947064623dbd357f727af08ffd077f93d696782f3c56365fa2e2799"
-
-[[package]]
-name = "async-timer"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba5fa6ed76cb2aa820707b4eb9ec46f42da9ce70b0eafab5e5e34942b38a44d5"
-dependencies = [
- "libc",
- "wasm-bindgen",
- "winapi",
-]
 
 [[package]]
 name = "async-timer"
@@ -4656,18 +4645,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "retainer"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df8c01a8276c14d0f8d51ebcf8a48f0748f9f73f5f6b29e688126e6a52bcb145"
-dependencies = [
- "async-lock 2.8.0",
- "async-timer 0.7.4",
- "log",
- "rand 0.8.5",
-]
-
-[[package]]
 name = "rfc6979"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5033,7 +5010,6 @@ dependencies = [
  "paginate",
  "rand 0.8.5",
  "regex",
- "retainer",
  "rs-utils",
  "rust_decimal",
  "rust_decimal_macros",
