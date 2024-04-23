@@ -1,9 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt,
     fs::File,
     iter::zip,
+    path::PathBuf,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use anyhow::anyhow;
@@ -12,7 +14,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
-use cached::{Cached, TimedCache};
+use cached::{DiskCache, IOCached};
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
@@ -129,7 +131,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR,
     },
 };
 
@@ -588,6 +590,12 @@ struct ProgressUpdateCache {
     podcast_episode_number: Option<i32>,
     anime_episode_number: Option<i32>,
     manga_chapter_number: Option<i32>,
+}
+
+impl fmt::Display for ProgressUpdateCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#?}", self)
+    }
 }
 
 #[derive(SimpleObject)]
@@ -1465,8 +1473,7 @@ pub struct MiscellaneousService {
     file_storage_service: Arc<FileStorageService>,
     config: Arc<config::AppConfig>,
     oidc_client: Arc<Option<CoreClient>>,
-
-    seen_progress_cache: Mutex<TimedCache<ProgressUpdateCache, ()>>,
+    seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1481,13 +1488,19 @@ impl MiscellaneousService {
         timezone: Arc<chrono_tz::Tz>,
         oidc_client: Arc<Option<CoreClient>>,
     ) -> Self {
-        let seen_progress_cache = Mutex::new(TimedCache::with_lifespan(
-            ChronoDuration::try_hours(config.server.progress_update_threshold)
-                .unwrap()
-                .num_seconds()
-                .try_into()
-                .unwrap(),
-        ));
+        let cache_name = "seen_progress_cache";
+        let path = PathBuf::new().join(TEMP_DIR);
+        let seen_progress_cache = DiskCache::new(cache_name)
+            .set_lifespan(
+                ChronoDuration::try_hours(config.server.progress_update_threshold)
+                    .unwrap()
+                    .num_seconds()
+                    .try_into()
+                    .unwrap(),
+            )
+            .set_disk_directory(path)
+            .build()
+            .unwrap();
 
         Self {
             db: db.clone(),
@@ -2498,8 +2511,8 @@ impl MiscellaneousService {
             anime_episode_number: input.anime_episode_number,
             manga_chapter_number: input.manga_chapter_number,
         };
-        let mut service_cache = self.seen_progress_cache.lock().unwrap();
-        if respect_cache && service_cache.cache_get(&cache).is_some() {
+        let in_cache = self.seen_progress_cache.cache_get(&cache).unwrap();
+        if respect_cache && in_cache.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
@@ -2679,7 +2692,7 @@ impl MiscellaneousService {
         tracing::debug!("Progress update = {:?}", seen);
         let id = seen.id;
         if seen.state == SeenState::Completed && respect_cache {
-            service_cache.cache_set(cache, ());
+            self.seen_progress_cache.cache_set(cache, ()).unwrap();
         }
         self.after_media_seen_tasks(seen).await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
@@ -4710,8 +4723,7 @@ impl MiscellaneousService {
                 anime_episode_number: aen,
                 manga_chapter_number: mcn,
             };
-            let mut service_cache = self.seen_progress_cache.lock().unwrap();
-            service_cache.cache_remove(&cache);
+            self.seen_progress_cache.cache_remove(&cache).unwrap();
             let seen_id = si.id;
             let progress = si.progress;
             let metadata_id = si.metadata_id;
