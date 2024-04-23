@@ -1415,7 +1415,7 @@ export default function Page() {
 															{mediaAdditionalDetails.podcastSpecifics.episodes.map(
 																(e, podcastEpisodeIdx) => (
 																	<DisplayPodcastEpisode
-																		key={e.number}
+																		key={e.id}
 																		episode={e}
 																		idx={podcastEpisodeIdx}
 																		history={userMetadataDetails.history}
