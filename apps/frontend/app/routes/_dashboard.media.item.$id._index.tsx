@@ -786,7 +786,7 @@ export default function Page() {
 							</Tabs.Tab>
 							{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
 								<Tabs.Tab
-									value="seasons"
+									value="showSeasons"
 									leftSection={<IconPlayerPlay size={16} />}
 								>
 									Seasons
@@ -794,7 +794,7 @@ export default function Page() {
 							) : null}
 							{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
 								<Tabs.Tab
-									value="episodes"
+									value="podcastEpisodes"
 									leftSection={<IconPlayerPlay size={16} />}
 								>
 									Episodes
@@ -1375,7 +1375,7 @@ export default function Page() {
 									{(mediaAdditionalDetails) => (
 										<>
 											{mediaAdditionalDetails.showSpecifics ? (
-												<Tabs.Panel value="seasons">
+												<Tabs.Panel value="showSeasons">
 													<MediaScrollArea>
 														<Accordion
 															// do not show the chevron at all
@@ -1408,7 +1408,7 @@ export default function Page() {
 									{(mediaAdditionalDetails) => (
 										<>
 											{mediaAdditionalDetails.podcastSpecifics ? (
-												<Tabs.Panel value="episodes">
+												<Tabs.Panel value="podcastEpisodes">
 													<MediaScrollArea>
 														<Stack ml="md">
 															{mediaAdditionalDetails.podcastSpecifics.episodes.map(
