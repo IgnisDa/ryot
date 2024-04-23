@@ -1388,7 +1388,7 @@ export default function Page() {
 																	<DisplayShowSeason
 																		key={s.id}
 																		history={userMetadataDetails.history}
-																		s={s}
+																		season={s}
 																		setData={setUpdateProgressModalData}
 																	/>
 																),
@@ -2336,59 +2336,59 @@ const FallbackForDefer = () => (
 );
 
 const DisplayShowSeason = (props: {
-	s: ShowSeason;
+	season: ShowSeason;
 	history: AllUserHistory;
 	setData: (data: UpdateProgress) => void;
 }) => {
+	const isSeen =
+		props.season.episodes.length > 0 &&
+		props.season.episodes.every((e) =>
+			props.history.some(
+				(h) =>
+					h.progress === "100" &&
+					h.showExtraInformation &&
+					h.showExtraInformation.episode === e.episodeNumber &&
+					h.showExtraInformation.season === props.season.seasonNumber,
+			),
+		);
+
 	return (
-		<Accordion.Item value={props.s.seasonNumber.toString()}>
+		<Accordion.Item value={props.season.seasonNumber.toString()}>
 			<Accordion.Control>
 				<AccordionLabel
-					{...props.s}
-					name={`${props.s.seasonNumber}. ${props.s.name}`}
-					numEpisodes={props.s.episodes.length}
-					displayIndicator={
-						props.s.episodes.length > 0 &&
-						props.s.episodes.every((e) =>
-							props.history.some(
-								(h) =>
-									h.progress === "100" &&
-									h.showExtraInformation &&
-									h.showExtraInformation.episode === e.episodeNumber &&
-									h.showExtraInformation.season === props.s.seasonNumber,
-							),
-						)
-							? 1
-							: 0
-					}
-					runtime={props.s.episodes
+					{...props.season}
+					name={`${props.season.seasonNumber}. ${props.season.name}`}
+					numEpisodes={props.season.episodes.length}
+					displayIndicator={isSeen ? 1 : 0}
+					runtime={props.season.episodes
 						.map((e) => e.runtime || 0)
 						.reduce((i, a) => i + a, 0)}
 				>
 					<>
-						{props.s.episodes.length > 0 ? (
+						{props.season.episodes.length > 0 ? (
 							<Button
-								variant="outline"
+								variant={isSeen ? "default" : "outline"}
+								color="blue"
 								onClick={() => {
 									props.setData({
-										showSeasonNumber: props.s.seasonNumber,
+										showSeasonNumber: props.season.seasonNumber,
 										onlySeason: true,
 									});
 								}}
 							>
-								Mark as seen
+								{isSeen ? "Rewatch this" : "Mark as seen"}
 							</Button>
 						) : null}
 					</>
 				</AccordionLabel>
 			</Accordion.Control>
 			<Accordion.Panel>
-				{props.s.episodes.length > 0 ? (
-					props.s.episodes.map((e) => (
+				{props.season.episodes.length > 0 ? (
+					props.season.episodes.map((e) => (
 						<DisplayShowEpisode
 							key={e.id}
 							episode={e}
-							seasonNumber={props.s.seasonNumber}
+							seasonNumber={props.season.seasonNumber}
 							history={props.history}
 							setData={props.setData}
 						/>
