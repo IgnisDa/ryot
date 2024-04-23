@@ -54,6 +54,7 @@ import {
 	MetadataMainDetailsDocument,
 	MetadataVideoSource,
 	SeenState,
+	type ShowEpisode,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -1434,51 +1435,15 @@ export default function Page() {
 																		<Accordion.Panel>
 																			{s.episodes.length > 0 ? (
 																				s.episodes.map((e) => (
-																					<Fragment key={e.id}>
-																						<Divider />
-																						<Box my="xs" ml="md">
-																							<AccordionLabel
-																								{...e}
-																								key={e.episodeNumber}
-																								name={`${e.episodeNumber}. ${e.name}`}
-																								publishDate={e.publishDate}
-																								displayIndicator={getNumTimesShowEpisodeSeen(
-																									userMetadataDetails.history,
-																									e.episodeNumber,
-																									s.seasonNumber,
-																								)}
-																							>
-																								<Button
-																									variant={
-																										getNumTimesShowEpisodeSeen(
-																											userMetadataDetails.history,
-																											e.episodeNumber,
-																											s.seasonNumber,
-																										) > 0
-																											? "default"
-																											: "outline"
-																									}
-																									color="blue"
-																									onClick={() => {
-																										setUpdateProgressModalData({
-																											showSeasonNumber:
-																												s.seasonNumber,
-																											showEpisodeNumber:
-																												e.episodeNumber,
-																										});
-																									}}
-																								>
-																									{getNumTimesShowEpisodeSeen(
-																										userMetadataDetails.history,
-																										e.episodeNumber,
-																										s.seasonNumber,
-																									) > 0
-																										? "Rewatch this"
-																										: "Mark as seen"}
-																								</Button>
-																							</AccordionLabel>
-																						</Box>
-																					</Fragment>
+																					<DisplayShowEpisode
+																						key={e.id}
+																						episode={e}
+																						seasonNumber={s.seasonNumber}
+																						history={
+																							userMetadataDetails.history
+																						}
+																						setData={setUpdateProgressModalData}
+																					/>
 																				))
 																			) : (
 																				<Text>No episodes in this season</Text>
@@ -1964,13 +1929,16 @@ const ProgressUpdateModal = (props: {
 	);
 };
 
+type AllUserHistory =
+	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
+
 const IndividualProgressModal = (props: {
 	title: string;
 	opened: boolean;
 	onClose: () => void;
 	metadataId: number;
 	progress: number;
-	inProgress: UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
+	inProgress: AllUserHistory[number];
 	total?: number | null;
 	lot: MediaLot;
 }) => {
@@ -2426,18 +2394,46 @@ const FallbackForDefer = () => (
 	</>
 );
 
-const getNumTimesShowEpisodeSeen = (
-	history: UserMetadataDetailsQuery["userMetadataDetails"]["history"],
-	episodeNumber: number,
-	seasonNumber: number,
-) => {
-	return (
-		history.filter(
+const DisplayShowEpisode = (props: {
+	episode: ShowEpisode;
+	history: AllUserHistory;
+	seasonNumber: number;
+	setData: (data: UpdateProgress) => void;
+}) => {
+	const numTimesEpisodeSeen =
+		props.history.filter(
 			(h) =>
 				h.progress === "100" &&
 				h.showExtraInformation &&
-				h.showExtraInformation.episode === episodeNumber &&
-				h.showExtraInformation.season === seasonNumber,
-		).length || 0
+				h.showExtraInformation.episode === props.episode.episodeNumber &&
+				h.showExtraInformation.season === props.seasonNumber,
+		).length || 0;
+
+	return (
+		<Fragment>
+			<Divider />
+			<Box my="xs" ml="md">
+				<AccordionLabel
+					{...props.episode}
+					key={props.episode.episodeNumber}
+					name={`${props.episode.episodeNumber}. ${props.episode.name}`}
+					publishDate={props.episode.publishDate}
+					displayIndicator={numTimesEpisodeSeen}
+				>
+					<Button
+						variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
+						color="blue"
+						onClick={() => {
+							props.setData({
+								showSeasonNumber: props.seasonNumber,
+								showEpisodeNumber: props.episode.episodeNumber,
+							});
+						}}
+					>
+						{numTimesEpisodeSeen > 0 ? "Rewatch this" : "Mark as seen"}
+					</Button>
+				</AccordionLabel>
+			</Box>
+		</Fragment>
 	);
 };
