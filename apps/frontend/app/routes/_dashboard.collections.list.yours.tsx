@@ -181,6 +181,7 @@ export default function Page() {
 								key={c.id}
 								collection={c}
 								setToUpdateCollection={setToUpdateCollection}
+								openModal={open}
 							/>
 						))}
 					</SimpleGrid>
@@ -251,6 +252,7 @@ type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 const DisplayCollection = (props: {
 	collection: Collection;
 	setToUpdateCollection: (c: UpdateCollectionInput) => void;
+	openModal: () => void;
 }) => {
 	const fetcher = useFetcher();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
@@ -285,7 +287,7 @@ const DisplayCollection = (props: {
 							description: props.collection.description,
 							visibility: props.collection.visibility,
 						});
-						open();
+						props.openModal();
 					}}
 				>
 					<IconEdit size={18} />
