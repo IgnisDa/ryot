@@ -139,12 +139,13 @@ struct ItemDetails {
 }
 
 pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
+    let api_url = input.api_url.trim_end_matches('/');
     let client: Client = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
         .unwrap()
         .add_header("Access-Token", input.api_key)
         .unwrap()
-        .set_base_url(Url::parse(&format!("{}/api/", input.api_url)).unwrap())
+        .set_base_url(Url::parse(&format!("{}/api/", api_url)).unwrap())
         .try_into()
         .unwrap();
 
