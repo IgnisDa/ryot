@@ -36,6 +36,7 @@ query MetadataAdditionalDetails($metadataId: Int!) {
     }
     podcastSpecifics {
       episodes {
+        id
         title
         overview
         thumbnail
@@ -50,6 +51,7 @@ query MetadataAdditionalDetails($metadataId: Int!) {
       totalEpisodes
       runtime
       seasons {
+        id
         seasonNumber
         name
         overview

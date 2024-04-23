@@ -2889,7 +2889,7 @@ impl MiscellaneousService {
                 let collections_part_of = CollectionToEntity::find()
                     .select_only()
                     .column(collection_to_entity::Column::CollectionId)
-                    .filter(collection_to_entity::Column::MetadataId.eq(u.metadata_id.unwrap()))
+                    .filter(collection_to_entity::Column::PersonId.eq(u.person_id.unwrap()))
                     .filter(collection_to_entity::Column::CollectionId.is_not_null())
                     .into_tuple::<i32>()
                     .all(&self.db)

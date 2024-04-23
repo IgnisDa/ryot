@@ -604,7 +604,7 @@ const MediaSearchItem = (props: {
 											openProgressModal: true,
 											[redirectToQueryParam]: loaderData.url,
 										}
-									: { defaultTab: "seasons" },
+									: { defaultTab: "showSeasons" },
 							),
 						);
 					}}
