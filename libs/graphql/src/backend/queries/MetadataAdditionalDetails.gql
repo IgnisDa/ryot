@@ -50,6 +50,7 @@ query MetadataAdditionalDetails($metadataId: Int!) {
       totalEpisodes
       runtime
       seasons {
+        id
         seasonNumber
         name
         overview
