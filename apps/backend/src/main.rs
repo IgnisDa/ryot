@@ -11,9 +11,10 @@ use anyhow::{bail, Result};
 use apalis::{
     cron::{CronStream, Schedule},
     layers::{
-        limit::RateLimitLayer as ApalisRateLimitLayer, tracing::TraceLayer as ApalisTraceLayer,
+        Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
+        TraceLayer as ApalisTraceLayer,
     },
-    prelude::{Job as ApalisJob, *},
+    prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
     sqlite::SqliteStorage,
 };
 use aws_sdk_s3::config::Region;
@@ -34,7 +35,6 @@ use sea_orm_migration::MigratorTrait;
 use serde::{de::DeserializeOwned, Serialize};
 use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::{join, net::TcpListener};
-use tower::buffer::BufferLayer;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -256,77 +256,70 @@ async fn main() -> Result<()> {
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
-        Monitor::<TokioExecutor>::new()
+        Monitor::new()
             // cron jobs
-            .register_with_count(1, {
-                WorkerBuilder::new("general_user_cleanup")
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("general_user_cleanup-{c}"))
                     .stream(
-                        CronStream::new_with_timezone(
+                        CronStream::new(
                             Schedule::from_str(&format!("0 0 */{} ? * *", user_cleanup_every))
                                 .unwrap(),
-                            tz,
                         )
-                        .into_stream(),
+                        .timer(SleepTimer)
+                        .to_stream_with_timezone(tz),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .data(media_service_1.clone())
+                    .layer(ApalisExtension(media_service_1.clone()))
                     .build_fn(user_jobs)
             })
-            .register_with_count(1, {
-                WorkerBuilder::new("general_media_cleanup_job")
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
                     .stream(
                         // every day
-                        CronStream::new_with_timezone(
-                            Schedule::from_str("0 0 0 * * *").unwrap(),
-                            tz,
-                        )
-                        .into_stream(),
+                        CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
+                            .timer(SleepTimer)
+                            .to_stream_with_timezone(tz),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .data(importer_service_2.clone())
-                    .data(media_service_2.clone())
+                    .layer(ApalisExtension(importer_service_2.clone()))
+                    .layer(ApalisExtension(media_service_2.clone()))
                     .build_fn(media_jobs)
             })
-            .register_with_count(1, {
-                WorkerBuilder::new("yank_integrations_data")
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("yank_integrations_data-{c}"))
                     .stream(
-                        CronStream::new_with_timezone(
+                        CronStream::new(
                             Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
-                            tz,
                         )
-                        .into_stream(),
+                        .timer(SleepTimer)
+                        .to_stream_with_timezone(tz),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .data(media_service_3.clone())
+                    .layer(ApalisExtension(media_service_3.clone()))
                     .build_fn(yank_integrations_data)
             })
             // application jobs
-            .register_with_count(1, {
-                WorkerBuilder::new("perform_core_application_job")
+            .register_with_count(1, move |c| {
+                WorkerBuilder::new(format!("perform_core_application_job-{c}"))
                     .layer(ApalisTraceLayer::new())
-                    .data(media_service_5.clone())
+                    .layer(ApalisExtension(media_service_5.clone()))
                     .with_storage(perform_core_application_job_storage.clone())
                     .build_fn(perform_core_application_job)
             })
-            .register_with_count(
-                1,
-                WorkerBuilder::new("perform_application_job")
-                    .data(importer_service_1.clone())
-                    .data(exporter_service_1.clone())
-                    .data(media_service_4.clone())
-                    .data(exercise_service_1.clone())
+            .register_with_count(3, move |c| {
+                WorkerBuilder::new(format!("perform_application_job-{c}"))
+                    .layer(ApalisTraceLayer::new())
+                    .layer(ApalisRateLimitLayer::new(
+                        rate_limit_count,
+                        Duration::new(5, 0),
+                    ))
+                    .layer(ApalisExtension(importer_service_1.clone()))
+                    .layer(ApalisExtension(exporter_service_1.clone()))
+                    .layer(ApalisExtension(media_service_4.clone()))
+                    .layer(ApalisExtension(exercise_service_1.clone()))
                     .with_storage(perform_application_job_storage.clone())
-                    // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
-                    .chain(|s| {
-                        s.layer(BufferLayer::new(1024))
-                            .layer(ApalisRateLimitLayer::new(
-                                rate_limit_count,
-                                Duration::new(5, 0),
-                            ))
-                            .layer(ApalisTraceLayer::new())
-                    })
-                    .build_fn(perform_application_job),
-            )
+                    .build_fn(perform_application_job)
+            })
             .run()
             .await
             .unwrap();
@@ -350,8 +343,9 @@ async fn main() -> Result<()> {
 async fn create_storage<T: ApalisJob + DeserializeOwned + Serialize>(
     pool: SqlitePool,
 ) -> SqliteStorage<T> {
-    SqliteStorage::setup(&pool).await.unwrap();
-    SqliteStorage::new(pool)
+    let st = SqliteStorage::new(pool);
+    st.setup().await.unwrap();
+    st
 }
 
 fn init_tracing() -> Result<()> {
