@@ -33,11 +33,9 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-pub async fn media_jobs(
-    _information: ScheduledJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
-    importer_service: Data<Arc<ImporterService>>,
-) -> Result<(), Error> {
+pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
+    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
     if env::var("DISABLE_INVALIDATE_IMPORT_JOBS").is_err() {
         tracing::trace!("Invalidating invalid media import jobs");
         importer_service.invalidate_import_jobs().await.unwrap();
@@ -74,26 +72,25 @@ pub async fn media_jobs(
     Ok(())
 }
 
-pub async fn user_jobs(
-    _information: ScheduledJob,
-    service: Data<Arc<MiscellaneousService>>,
-) -> Result<(), Error> {
+pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
+    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     tracing::trace!("Cleaning up user and metadata association");
-    service
+    misc_service
         .cleanup_user_and_metadata_association()
         .await
         .unwrap();
     tracing::trace!("Removing old user summaries and regenerating them");
-    service.regenerate_user_summaries().await.unwrap();
+    misc_service.regenerate_user_summaries().await.unwrap();
     Ok(())
 }
 
 pub async fn yank_integrations_data(
     _information: ScheduledJob,
-    service: Data<Arc<MiscellaneousService>>,
-) -> Result<(), Error> {
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     tracing::trace!("Getting data from yanked integrations for all users");
-    service.yank_integrations_data().await.unwrap();
+    misc_service.yank_integrations_data().await.unwrap();
     Ok(())
 }
 
@@ -112,8 +109,9 @@ impl Job for CoreApplicationJob {
 
 pub async fn perform_core_application_job(
     information: CoreApplicationJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
-) -> Result<(), Error> {
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();
@@ -157,11 +155,12 @@ impl Job for ApplicationJob {
 
 pub async fn perform_application_job(
     information: ApplicationJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
-    importer_service: Data<Arc<ImporterService>>,
-    exporter_service: Data<Arc<ExporterService>>,
-    exercise_service: Data<Arc<ExerciseService>>,
-) -> Result<(), Error> {
+    ctx: JobContext,
+) -> Result<(), JobError> {
+    let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
+    let exporter_service = ctx.data::<Arc<ExporterService>>().unwrap();
+    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();

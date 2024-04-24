@@ -227,22 +227,19 @@ impl ImporterService {
     pub async fn deploy_import_job(
         &self,
         user_id: i32,
-        mut input: DeployImportJobInput,
+        input: DeployImportJobInput,
     ) -> Result<String> {
-        if let Some(s) = input.media_tracker.as_mut() {
-            s.api_url = s.api_url.trim_end_matches('/').to_owned()
-        }
-        let job = self
+        let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
+        let task = self
             .media_service
             .perform_application_job
             .clone()
-            .push(ApplicationJob::ImportFromExternalSource(
-                user_id,
-                Box::new(input),
-            ))
+            .push(job)
             .await
             .unwrap();
-        Ok(job.to_string())
+        let job_id = task.to_string();
+        tracing::debug!("Deployed import job with id = {id}", id = job_id);
+        Ok(job_id)
     }
 
     pub async fn invalidate_import_jobs(&self) -> Result<()> {

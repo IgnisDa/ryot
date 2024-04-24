@@ -1,7 +1,9 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt,
     fs::File,
     iter::zip,
+    path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
@@ -12,6 +14,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
+use cached::{DiskCache, IOCached};
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
@@ -32,7 +35,6 @@ use openidconnect::{
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
-use retainer::Cache;
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::{
     prelude::{FromPrimitive, ToPrimitive},
@@ -129,7 +131,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR,
     },
 };
 
@@ -579,7 +581,7 @@ struct CoreDetails {
     oidc_enabled: bool,
 }
 
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone)]
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
 struct ProgressUpdateCache {
     user_id: i32,
     metadata_id: i32,
@@ -588,6 +590,12 @@ struct ProgressUpdateCache {
     podcast_episode_number: Option<i32>,
     anime_episode_number: Option<i32>,
     manga_chapter_number: Option<i32>,
+}
+
+impl fmt::Display for ProgressUpdateCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#?}", self)
+    }
 }
 
 #[derive(SimpleObject)]
@@ -1463,9 +1471,9 @@ pub struct MiscellaneousService {
     pub perform_core_application_job: SqliteStorage<CoreApplicationJob>,
     timezone: Arc<chrono_tz::Tz>,
     file_storage_service: Arc<FileStorageService>,
-    seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     config: Arc<config::AppConfig>,
     oidc_client: Arc<Option<CoreClient>>,
+    seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
 }
 
 impl AuthProvider for MiscellaneousService {}
@@ -1480,21 +1488,29 @@ impl MiscellaneousService {
         timezone: Arc<chrono_tz::Tz>,
         oidc_client: Arc<Option<CoreClient>>,
     ) -> Self {
-        let seen_progress_cache = Arc::new(Cache::new());
-        let seen_progress_cache_clone = seen_progress_cache.clone();
-
-        let frequency = ChronoDuration::try_minutes(3).unwrap().to_std().unwrap();
-        tokio::spawn(async move { seen_progress_cache_clone.monitor(4, 0.25, frequency).await });
+        let cache_name = "seen_progress_cache";
+        let path = PathBuf::new().join(TEMP_DIR);
+        let seen_progress_cache = DiskCache::new(cache_name)
+            .set_lifespan(
+                ChronoDuration::try_hours(config.server.progress_update_threshold)
+                    .unwrap()
+                    .num_seconds()
+                    .try_into()
+                    .unwrap(),
+            )
+            .set_disk_directory(path)
+            .build()
+            .unwrap();
 
         Self {
             db: db.clone(),
             config,
             timezone,
             file_storage_service,
-            seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
             oidc_client,
+            seen_progress_cache,
         }
     }
 }
@@ -2495,7 +2511,8 @@ impl MiscellaneousService {
             anime_episode_number: input.anime_episode_number,
             manga_chapter_number: input.manga_chapter_number,
         };
-        if respect_cache && self.seen_progress_cache.get(&cache).await.is_some() {
+        let in_cache = self.seen_progress_cache.cache_get(&cache).unwrap();
+        if respect_cache && in_cache.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
@@ -2675,16 +2692,7 @@ impl MiscellaneousService {
         tracing::debug!("Progress update = {:?}", seen);
         let id = seen.id;
         if seen.state == SeenState::Completed && respect_cache {
-            self.seen_progress_cache
-                .insert(
-                    cache,
-                    (),
-                    ChronoDuration::try_hours(self.config.server.progress_update_threshold)
-                        .unwrap()
-                        .to_std()
-                        .unwrap(),
-                )
-                .await;
+            self.seen_progress_cache.cache_set(cache, ()).unwrap();
         }
         self.after_media_seen_tasks(seen).await?;
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
@@ -4715,7 +4723,7 @@ impl MiscellaneousService {
                 anime_episode_number: aen,
                 manga_chapter_number: mcn,
             };
-            self.seen_progress_cache.remove(&cache).await;
+            self.seen_progress_cache.cache_remove(&cache).unwrap();
             let seen_id = si.id;
             let progress = si.progress;
             let metadata_id = si.metadata_id;
@@ -6032,6 +6040,7 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         for user_id in users_with_integrations {
+            tracing::debug!("Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(user_id).await?;
         }
         Ok(())
