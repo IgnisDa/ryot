@@ -2369,6 +2369,7 @@ impl MiscellaneousService {
                             _ => unreachable!(),
                         };
                         let filtered_ids = Seen::find()
+                            .distinct()
                             .select_only()
                             .column(seen::Column::MetadataId)
                             .filter(seen::Column::UserId.eq(user_id))
