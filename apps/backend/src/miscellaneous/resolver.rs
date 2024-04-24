@@ -6040,6 +6040,7 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         for user_id in users_with_integrations {
+            tracing::debug!("Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(user_id).await?;
         }
         Ok(())
