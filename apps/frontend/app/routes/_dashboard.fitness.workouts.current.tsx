@@ -689,8 +689,6 @@ const ExerciseDisplay = (props: {
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
-	const [exerciseDetailsOpened, { toggle: exerciseDetailsToggle }] =
-		useDisclosure(false);
 	const [
 		supersetModalOpened,
 		{ close: supersetModalClose, toggle: supersetModalToggle },
@@ -985,9 +983,16 @@ const ExerciseDisplay = (props: {
 							{props.exercise.exerciseDetails.images.length > 0 ? (
 								<Menu.Item
 									leftSection={<IconInfoCircle size={14} />}
-									onClick={exerciseDetailsToggle}
+									onClick={() => {
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.exerciseIdx].isShowDetailsOpen =
+													!draft.exercises[props.exerciseIdx].isShowDetailsOpen;
+											}),
+										);
+									}}
 								>
-									{exerciseDetailsOpened ? "Hide" : "Show"} details
+									{props.exercise.isShowDetailsOpen ? "Hide" : "Show"} details
 								</Menu.Item>
 							) : null}
 							<Menu.Item
@@ -1016,7 +1021,7 @@ const ExerciseDisplay = (props: {
 						</Menu.Dropdown>
 					</Menu>
 					<Box ref={parent}>
-						{exerciseDetailsOpened ? (
+						{props.exercise.isShowDetailsOpen ? (
 							<ScrollArea mb="md" type="scroll">
 								<Group wrap="nowrap">
 									{props.exercise.exerciseDetails.images.map((i) => (
