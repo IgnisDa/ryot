@@ -93,7 +93,7 @@ export const duplicateOldWorkout = async (
 	const inProgress = getDefaultWorkout();
 	inProgress.name = workout.name;
 	inProgress.repeatedFrom = workout.id;
-	for (const [exerciseIdx, ex] of workout.information.exercises.entries()) {
+	for (const [_exerciseIdx, ex] of workout.information.exercises.entries()) {
 		const sets = ex.sets.map((s) => ({
 			confirmed: false,
 			lot: s.lot,
@@ -112,7 +112,7 @@ export const duplicateOldWorkout = async (
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: exerciseIdx === 0,
+			isShowDetailsOpen: false,
 			exerciseDetails: { images: exerciseDetails.details.images },
 			images: [],
 			videos: [],
@@ -144,11 +144,11 @@ export const addExerciseToWorkout = async (
 	defaultTimer?: number | null,
 ) => {
 	const draft = createDraft(currentWorkout);
-	for (const [exerciseIdx, ex] of selectedExercises.entries()) {
+	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const userExerciseDetails = await getExerciseDetails(ex.name);
 		draft.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: exerciseIdx === 0,
+			isShowDetailsOpen: false,
 			exerciseId: ex.name,
 			exerciseDetails: { images: userExerciseDetails.details.images },
 			lot: ex.lot,
