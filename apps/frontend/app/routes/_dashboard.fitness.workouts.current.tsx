@@ -70,12 +70,12 @@ import {
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
+	IconDroplet,
+	IconDropletFilled,
+	IconDropletHalf2Filled,
 	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
-	IconSquare,
-	IconSquareF0Filled,
-	IconSquareHalf,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -110,7 +110,7 @@ import {
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
-	InProgressWorkout,
+	type InProgressWorkout,
 } from "~/lib/workout";
 
 const workoutCookieName = CurrentWorkoutKey;
@@ -1554,11 +1554,13 @@ const ReorderDrawer = (props: {
 										>
 											<Group justify="space-between" wrap="nowrap">
 												<Text size="sm">{de.exerciseId}</Text>
-												<ThemeIcon size="sm" variant="transparent" color="gray">
+												<ThemeIcon size="xs" variant="transparent" color="gray">
 													{match(getProgressOfExercise(currentWorkout, index))
-														.with("complete", () => <IconSquareF0Filled />)
-														.with("in-progress", () => <IconSquareHalf />)
-														.with("not-started", () => <IconSquare />)
+														.with("complete", () => <IconDropletFilled />)
+														.with("in-progress", () => (
+															<IconDropletHalf2Filled />
+														))
+														.with("not-started", () => <IconDroplet />)
 														.exhaustive()}
 												</ThemeIcon>
 											</Group>
