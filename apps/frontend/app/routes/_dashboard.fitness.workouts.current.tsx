@@ -181,9 +181,7 @@ export default function Page() {
 	const [time, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const playCompleteTimerSound = () => {
-		const sound = new Howl({
-			src: ["/timer-completed.mp3"],
-		});
+		const sound = new Howl({ src: ["/timer-completed.mp3"] });
 		sound.play();
 	};
 	const [
@@ -668,9 +666,11 @@ const ExerciseDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [currentTimer] = useAtom(timerAtom);
 	const playCheckSound = () => {
-		const sound = new Howl({
-			src: ["/check.mp3"],
-		});
+		const sound = new Howl({ src: ["/check.mp3"] });
+		sound.play();
+	};
+	const playAddSetSound = () => {
+		const sound = new Howl({ src: ["/add-set.mp3"] });
 		sound.play();
 	};
 	const [
@@ -1295,6 +1295,7 @@ const ExerciseDisplay = (props: {
 					<Button
 						variant="subtle"
 						onClick={() => {
+							playAddSetSound();
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
 									const currentSet =
