@@ -73,6 +73,7 @@ import {
 	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
+	IconProgress,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -1541,13 +1542,15 @@ const ReorderDrawer = (props: {
 										>
 											<Group justify="space-between" wrap="nowrap">
 												<Text size="sm">{de.exerciseId}</Text>
-												{currentWorkout.exercises[index].sets.every(
-													(s) => s.confirmed,
-												) ? (
-													<ThemeIcon color="green" variant="transparent">
+												<ThemeIcon color="green" variant="transparent">
+													{currentWorkout.exercises[index].sets.every(
+														(s) => s.confirmed,
+													) ? (
 														<IconCheck />
-													</ThemeIcon>
-												) : null}
+													) : (
+														<IconProgress />
+													)}
+												</ThemeIcon>
 											</Group>
 										</Paper>
 									)}
