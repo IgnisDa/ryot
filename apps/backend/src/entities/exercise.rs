@@ -44,6 +44,8 @@ pub struct Model {
     #[sea_orm(column_type = "Json")]
     pub muscles: Vec<ExerciseMuscle>,
     pub attributes: ExerciseAttributes,
+    #[graphql(skip)]
+    pub created_by_user_id: Option<i32>,
 }
 
 #[async_trait]
@@ -90,6 +92,14 @@ impl GraphqlRepresentation for ExerciseListItem {
 pub enum Relation {
     #[sea_orm(has_many = "super::collection_to_entity::Entity")]
     CollectionToEntity,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::CreatedByUserId",
+        to = "super::user::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    User,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
     UserToEntity,
 }
@@ -97,6 +107,12 @@ pub enum Relation {
 impl Related<super::collection_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CollectionToEntity.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
     }
 }
 

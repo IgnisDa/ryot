@@ -634,6 +634,7 @@ impl ExerciseService {
                 force: ActiveValue::Set(ex.attributes.force),
                 equipment: ActiveValue::Set(ex.attributes.equipment),
                 mechanic: ActiveValue::Set(ex.attributes.mechanic),
+                created_by_user_id: ActiveValue::Set(None),
             };
             let created_exercise = db_exercise.insert(&self.db).await?;
             tracing::debug!("Created new exercise with id: {}", created_exercise.id);
@@ -749,6 +750,7 @@ impl ExerciseService {
 
     async fn create_custom_exercise(&self, user_id: i32, input: exercise::Model) -> Result<String> {
         let mut input = input;
+        input.created_by_user_id = Some(user_id);
         input.source = ExerciseSource::Custom;
         input.attributes.internal_images = input
             .attributes
