@@ -140,11 +140,13 @@ export default function Page() {
 							data={Object.values(ExerciseLevel)}
 							required
 							name="level"
+							w={{ base: "100%", md: "50%" }}
 						/>
 						<Select
 							label="Force"
 							data={Object.values(ExerciseForce)}
 							name="force"
+							w={{ base: "100%", md: "50%" }}
 						/>
 					</Group>
 					<Group wrap="nowrap">
@@ -152,11 +154,13 @@ export default function Page() {
 							label="Equipment"
 							data={Object.values(ExerciseEquipment)}
 							name="equipment"
+							w={{ base: "100%", md: "50%" }}
 						/>
 						<Select
 							label="Mechanic"
 							data={Object.values(ExerciseMechanic)}
 							name="mechanic"
+							w={{ base: "100%", md: "50%" }}
 						/>
 					</Group>
 					<MultiSelect
