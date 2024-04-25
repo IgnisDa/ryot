@@ -73,7 +73,9 @@ import {
 	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
-	IconProgress,
+	IconSquare,
+	IconSquareF0Filled,
+	IconSquareHalf,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -108,6 +110,7 @@ import {
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
+	InProgressWorkout,
 } from "~/lib/workout";
 
 const workoutCookieName = CurrentWorkoutKey;
@@ -1501,6 +1504,15 @@ const ReorderDrawer = (props: {
 		}
 	}, [exerciseElements]);
 
+	const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
+		const isCompleted = cw.exercises[index].sets.every((s) => s.confirmed);
+		return isCompleted
+			? ("complete" as const)
+			: cw.exercises[index].sets.some((s) => s.confirmed)
+				? ("in-progress" as const)
+				: ("not-started" as const);
+	};
+
 	return currentWorkout ? (
 		<Drawer
 			onClose={props.onClose}
@@ -1542,14 +1554,12 @@ const ReorderDrawer = (props: {
 										>
 											<Group justify="space-between" wrap="nowrap">
 												<Text size="sm">{de.exerciseId}</Text>
-												<ThemeIcon color="green" variant="transparent">
-													{currentWorkout.exercises[index].sets.every(
-														(s) => s.confirmed,
-													) ? (
-														<IconCheck />
-													) : (
-														<IconProgress />
-													)}
+												<ThemeIcon size="sm" variant="transparent" color="gray">
+													{match(getProgressOfExercise(currentWorkout, index))
+														.with("complete", () => <IconSquareF0Filled />)
+														.with("in-progress", () => <IconSquareHalf />)
+														.with("not-started", () => <IconSquare />)
+														.exhaustive()}
 												</ThemeIcon>
 											</Group>
 										</Paper>
