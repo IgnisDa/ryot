@@ -16,6 +16,7 @@ pub enum Exercise {
     Identifier,
     Attributes,
     Source,
+    CreatedByUserId,
 }
 
 #[async_trait::async_trait]
@@ -39,6 +40,7 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Exercise::CreatedByUserId).integer())
                     .to_owned(),
             )
             .await?;
