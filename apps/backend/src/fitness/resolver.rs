@@ -577,7 +577,7 @@ impl ExerciseService {
             let job = self
                 .perform_application_job
                 .clone()
-                .push(ApplicationJob::UpdateExerciseJob(exercise))
+                .push(ApplicationJob::UpdateGithubExerciseJob(exercise))
                 .await?;
             job_ids.push(job.to_string());
         }
@@ -585,7 +585,7 @@ impl ExerciseService {
     }
 
     #[instrument(skip(self, ex))]
-    pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {
+    pub async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
             internal_images: ex
