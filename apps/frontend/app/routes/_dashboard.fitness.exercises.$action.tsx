@@ -33,8 +33,10 @@ import {
 import { cloneDeep, startCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
+import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -101,28 +103,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			instructions: instructions?.split("\n") || [],
 		},
 	};
-	try {
-		const { createCustomExercise } = await gqlClient.request(
-			CreateCustomExerciseDocument,
-			{ input },
-			await getAuthorizationHeader(request),
-		);
-		return redirect(
-			$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
-		);
-	} catch (e) {
-		if (e instanceof ClientError && e.response.errors) {
-			const message = e.response.errors[0].message;
-			return json(
-				{ error: e.message },
-				{
-					status: 400,
-					headers: await createToastHeaders({ message, type: "error" }),
-				},
-			);
-		}
-		throw e;
-	}
+	return namedAction(request, {
+		[Action.Create]: async () => {
+			try {
+				const { createCustomExercise } = await gqlClient.request(
+					CreateCustomExerciseDocument,
+					{ input },
+					await getAuthorizationHeader(request),
+				);
+				return redirect(
+					$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
+				);
+			} catch (e) {
+				if (e instanceof ClientError && e.response.errors) {
+					const message = e.response.errors[0].message;
+					return json(
+						{ error: e.message },
+						{
+							status: 400,
+							headers: await createToastHeaders({ message, type: "error" }),
+						},
+					);
+				}
+				throw e;
+			}
+		},
+	});
 };
 
 const optionalString = z.string().optional();
@@ -148,7 +154,12 @@ export default function Page() {
 
 	return (
 		<Container>
-			<Form method="post" replace encType="multipart/form-data">
+			<Form
+				method="post"
+				replace
+				encType="multipart/form-data"
+				action={withQuery(".", { intent: loaderData.action })}
+			>
 				<Stack>
 					<Title>{title} Exercise</Title>
 					{loaderData.details?.id ? (
@@ -218,6 +229,7 @@ export default function Page() {
 						defaultValue={loaderData.details?.attributes.instructions.join(
 							"\n",
 						)}
+						autosize
 					/>
 					<FileInput
 						label="Images"
