@@ -939,19 +939,25 @@ impl ExerciseService {
         input: EditCustomExerciseInput,
     ) -> Result<bool> {
         if input.should_delete.unwrap_or_default() {
-            let entity = UserToEntity::find()
+            let entities = UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(user_id))
                 .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
-                .one(&self.db)
+                .all(&self.db)
                 .await?;
-            if entity.is_none() {
-                Exercise::delete_by_id(input.old_name.clone())
-                    .exec(&self.db)
-                    .await?;
-                return Ok(true);
-            } else {
-                return Err(Error::new("Exercise is associated with a workout."));
+            for entity in entities {
+                if !entity
+                    .exercise_extra_information
+                    .unwrap_or_default()
+                    .history
+                    .is_empty()
+                {
+                    return Err(Error::new("Exercise is associated with a workout."));
+                }
             }
+            Exercise::delete_by_id(input.old_name.clone())
+                .exec(&self.db)
+                .await?;
+            return Ok(true);
         }
         Ok(true)
     }
