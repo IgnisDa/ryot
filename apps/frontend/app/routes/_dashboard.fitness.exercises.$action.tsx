@@ -106,9 +106,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			instructions: instructions?.split("\n").map((s) => s.trim()) || [],
 		},
 	};
-	return namedAction(request, {
-		[Action.Create]: async () => {
-			try {
+	try {
+		return await namedAction(request, {
+			[Action.Create]: async () => {
 				const { createCustomExercise } = await gqlClient.request(
 					CreateCustomExerciseDocument,
 					{ input },
@@ -117,44 +117,30 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				return redirect(
 					$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
 				);
-			} catch (e) {
-				if (e instanceof ClientError && e.response.errors) {
-					const message = e.response.errors[0].message;
-					return json(
-						{ error: e.message },
-						{
-							status: 400,
-							headers: await createToastHeaders({ message, type: "error" }),
-						},
-					);
-				}
-				throw e;
-			}
-		},
-		[Action.Update]: async () => {
-			invariant(submission.oldName, "Old name is required");
-			try {
+			},
+			[Action.Update]: async () => {
+				invariant(submission.oldName, "Old name is required");
 				await gqlClient.request(
 					EditCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },
 					await getAuthorizationHeader(request),
 				);
 				return redirect($path("/fitness/exercises/list"));
-			} catch (e) {
-				if (e instanceof ClientError && e.response.errors) {
-					const message = e.response.errors[0].message;
-					return json(
-						{ error: e.message },
-						{
-							status: 400,
-							headers: await createToastHeaders({ message, type: "error" }),
-						},
-					);
-				}
-				throw e;
-			}
-		},
-	});
+			},
+		});
+	} catch (e) {
+		if (e instanceof ClientError && e.response.errors) {
+			const message = e.response.errors[0].message;
+			return json(
+				{ error: e.message },
+				{
+					status: 400,
+					headers: await createToastHeaders({ message, type: "error" }),
+				},
+			);
+		}
+		throw e;
+	}
 };
 
 const optionalString = z.string().optional();
