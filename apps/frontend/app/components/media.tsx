@@ -588,7 +588,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 									}),
 								)
 								.with(EntityLot.Exercise, () =>
-									$path("/fitness/exercises/:id", {
+									$path("/fitness/exercises/item/:id", {
 										id: props.item.identifier,
 									}),
 								)

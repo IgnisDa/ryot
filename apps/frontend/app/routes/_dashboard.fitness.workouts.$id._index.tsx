@@ -411,7 +411,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 					<Anchor
 						id={`${props.exercise.name}__${props.idx}`}
 						component={Link}
-						to={$path("/fitness/exercises/:id", {
+						to={$path("/fitness/exercises/item/:id", {
 							id: props.exercise.name,
 						})}
 						fw="bold"

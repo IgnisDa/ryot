@@ -42,9 +42,16 @@ import {
 	s3FileUploader,
 } from "~/lib/utilities.server";
 
-export const loader = async (_args: LoaderFunctionArgs) => {
+enum Action {
+	Create = "create",
+	Update = "update",
+}
+
+export const loader = async ({ params }: LoaderFunctionArgs) => {
+	const action = params.action as Action;
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
 	return json({
+		action,
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
 	});
 };
@@ -80,7 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		);
 		return redirect(
-			$path("/fitness/exercises/:id", { id: createCustomExercise }),
+			$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
 		);
 	} catch (e) {
 		if (e instanceof ClientError && e.response.errors) {

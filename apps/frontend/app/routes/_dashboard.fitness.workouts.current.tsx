@@ -883,7 +883,7 @@ const ExerciseDisplay = (props: {
 							<Group justify="space-between" pos="relative" wrap="nowrap">
 								<Anchor
 									component={Link}
-									to={$path("/fitness/exercises/:id", {
+									to={$path("/fitness/exercises/item/:id", {
 										id: props.exercise.exerciseId,
 									})}
 									fw="bold"
