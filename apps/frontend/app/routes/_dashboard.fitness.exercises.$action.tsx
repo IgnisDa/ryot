@@ -129,6 +129,7 @@ const optionalString = z.string().optional();
 const optionalStringArray = z.array(z.string()).optional();
 
 const schema = z.object({
+	oldName: optionalString,
 	id: z.string(),
 	lot: z.nativeEnum(ExerciseLot),
 	level: z.nativeEnum(ExerciseLevel),
@@ -142,15 +143,28 @@ const schema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-
 	const fileUploadNowAllowed = !loaderData.coreEnabledFeatures.fileStorage;
+	const title = startCase(loaderData.action);
 
 	return (
 		<Container>
 			<Form method="post" replace encType="multipart/form-data">
 				<Stack>
-					<Title>{startCase(loaderData.action)} Exercise</Title>
-					<TextInput label="Name" required autoFocus name="id" />
+					<Title>{title} Exercise</Title>
+					{loaderData.details?.id ? (
+						<input
+							type="hidden"
+							name="oldName"
+							defaultValue={loaderData.details.id}
+						/>
+					) : null}
+					<TextInput
+						label="Name"
+						required
+						autoFocus
+						name="id"
+						defaultValue={loaderData.details?.id}
+					/>
 					<Select
 						label="Type"
 						data={Object.values(ExerciseLot).map((l) => ({
@@ -159,6 +173,7 @@ export default function Page() {
 						}))}
 						required
 						name="lot"
+						defaultValue={loaderData.details?.lot}
 					/>
 					<Group wrap="nowrap">
 						<Select
@@ -167,12 +182,14 @@ export default function Page() {
 							required
 							name="level"
 							w={{ base: "100%", md: "50%" }}
+							defaultValue={loaderData.details?.level}
 						/>
 						<Select
 							label="Force"
 							data={Object.values(ExerciseForce)}
 							name="force"
 							w={{ base: "100%", md: "50%" }}
+							defaultValue={loaderData.details?.force}
 						/>
 					</Group>
 					<Group wrap="nowrap">
@@ -181,23 +198,29 @@ export default function Page() {
 							data={Object.values(ExerciseEquipment)}
 							name="equipment"
 							w={{ base: "100%", md: "50%" }}
+							defaultValue={loaderData.details?.equipment}
 						/>
 						<Select
 							label="Mechanic"
 							data={Object.values(ExerciseMechanic)}
 							name="mechanic"
 							w={{ base: "100%", md: "50%" }}
+							defaultValue={loaderData.details?.mechanic}
 						/>
 					</Group>
 					<MultiSelect
 						label="Muscles"
 						data={Object.values(ExerciseMuscle)}
 						name="muscles"
+						defaultValue={loaderData.details?.muscles}
 					/>
 					<Textarea
 						label="Instructions"
 						description="Separate each instruction with a newline"
 						name="instructions"
+						defaultValue={loaderData.details?.attributes.instructions.join(
+							"\n",
+						)}
 					/>
 					<FileInput
 						label="Images"
@@ -211,7 +234,7 @@ export default function Page() {
 						accept="image/png,image/jpeg,image/jpg"
 						leftSection={<IconPhoto />}
 					/>
-					<Button type="submit">Create</Button>
+					<Button type="submit">{title}</Button>
 				</Stack>
 			</Form>
 		</Container>
