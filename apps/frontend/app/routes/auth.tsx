@@ -3,12 +3,12 @@ import { parseWithZod } from "@conform-to/zod";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
+	Anchor,
 	Box,
 	Button,
 	Divider,
 	PasswordInput,
 	Stack,
-	Text,
 	TextInput,
 } from "@mantine/core";
 import {
@@ -18,7 +18,7 @@ import {
 	json,
 	redirect,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetailsDocument,
 	GetOidcRedirectUrlDocument,
@@ -36,7 +36,6 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
 import {
 	authCookie,
 	combineHeaders,
@@ -199,7 +198,6 @@ const passwordLoginSchema = z.object({
 export default function Page() {
 	const [form, fields] = useForm({});
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useSearchParam();
 	const [parent] = useAutoAnimate();
 	const defaultForm = loaderData.defaultForm;
 
@@ -263,13 +261,11 @@ export default function Page() {
 				</>
 			) : null}
 			<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
-				<Text
-					td="underline"
-					span
-					style={{ cursor: "pointer" }}
-					onClick={() =>
-						setP("defaultForm", defaultForm === "login" ? "register" : "login")
-					}
+				<Anchor
+					component={Link}
+					to={withQuery(".", {
+						defaultForm: defaultForm === "login" ? "register" : "login",
+					})}
 				>
 					{
 						{
@@ -278,7 +274,7 @@ export default function Page() {
 						}[defaultForm]
 					}
 					?
-				</Text>
+				</Anchor>
 			</Box>
 		</Stack>
 	);
