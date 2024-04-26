@@ -1,13 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	json,
-	redirect,
-} from "@remix-run/node";
+import { type LoaderFunctionArgs, json, redirect } from "@remix-run/node";
 import {
 	CoreDetailsDocument,
-	GetOidcRedirectUrlDocument,
 	GetOidcTokenDocument,
 	LoginUserDocument,
 	RegisterUserDocument,
@@ -50,11 +44,4 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		});
 	}
 	return json({ input });
-};
-
-export const action = async (_args: ActionFunctionArgs) => {
-	const { getOidcRedirectUrl } = await gqlClient.request(
-		GetOidcRedirectUrlDocument,
-	);
-	return redirect(getOidcRedirectUrl);
 };

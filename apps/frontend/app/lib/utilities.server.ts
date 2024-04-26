@@ -72,7 +72,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
 	const nextUrl = withoutHost(request.url);
 	if (!isAuthenticated || userDetails.__typename !== "User") {
-		throw redirect($path("/auth/login", { [redirectToQueryParam]: nextUrl }), {
+		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
 			status: 302,
 			headers: combineHeaders(
 				await createToastHeaders({
