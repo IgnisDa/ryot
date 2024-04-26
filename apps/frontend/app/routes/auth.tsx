@@ -3,12 +3,12 @@ import { parseWithZod } from "@conform-to/zod";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
-	Text,
 	Box,
 	Button,
 	Divider,
 	PasswordInput,
 	Stack,
+	Text,
 	TextInput,
 } from "@mantine/core";
 import {
@@ -18,7 +18,7 @@ import {
 	json,
 	redirect,
 } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CoreDetailsDocument,
 	GetOidcRedirectUrlDocument,
@@ -29,7 +29,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
-import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
@@ -37,6 +36,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
+import { useSearchParam } from "~/lib/hooks";
 import {
 	authCookie,
 	combineHeaders,
@@ -50,7 +50,15 @@ import {
 } from "~/lib/utilities.server";
 import classes from "~/styles/auth.module.css";
 
+const searchParamsSchema = z.object({
+	defaultForm: z.enum(["login", "register"]).optional(),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema> &
+	Record<string, string>;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const query = zx.parseQuery(request, searchParamsSchema);
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
 		return redirectWithToast($path("/"), {
@@ -61,6 +69,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		gqlClient.request(CoreDetailsDocument),
 	]);
 	return json({
+		defaultForm: query.defaultForm || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
 		tokenValidForDays: coreDetails.tokenValidForDays,
 		signupAllowed: enabledFeatures.signupAllowed,
@@ -77,7 +86,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				schema: passwordRegisterSchema,
 			});
 			if (submission.status !== "success")
-				return json({ defaultOpenedForm: "register" } as const, {
+				return json({} as const, {
 					status: 400,
 					headers: await createToastHeaders({
 						type: "error",
@@ -103,12 +112,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						() => "This username already exists",
 					)
 					.exhaustive();
-				return json({ defaultOpenedForm: "register" } as const, {
+				return json({} as const, {
 					status: 400,
 					headers: await createToastHeaders({ message, type: "error" }),
 				});
 			}
-			return json({ defaultOpenedForm: "login" } as const, {
+			return json({} as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Please login with your new credentials",
@@ -154,7 +163,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					() => "The provider chosen was incorrect",
 				)
 				.exhaustive();
-			return json({ defaultOpenedForm: "login" } as const, {
+			return json({} as const, {
 				headers: await createToastHeaders({ message, type: "error" }),
 			});
 		},
@@ -190,91 +199,87 @@ const passwordLoginSchema = z.object({
 export default function Page() {
 	const [form, fields] = useForm({});
 	const loaderData = useLoaderData<typeof loader>();
-	const actionData = useActionData<typeof action>();
-	const [openedForm, setOpenedForm] = useState<"login" | "register">(
-		actionData?.defaultOpenedForm ?? "login",
-	);
+	const [_, { setP }] = useSearchParam();
 	const [parent] = useAutoAnimate();
+	const defaultForm = loaderData.defaultForm;
 
 	return (
-		<>
-			<Stack m="auto" className={classes.form}>
-				<Form
-					method="post"
-					action={withQuery(".", {
-						intent:
-							openedForm === "login" ? "passwordLogin" : "passwordRegister",
-					})}
-					{...getFormProps(form)}
-					ref={parent}
-				>
-					<input
-						type="hidden"
-						name="tokenValidForDays"
-						value={loaderData.tokenValidForDays}
-					/>
-					<TextInput
-						{...getInputProps(fields.username, { type: "text" })}
-						label="Username"
-						autoFocus
-						required
-						error={fields.username.errors?.[0]}
-					/>
+		<Stack m="auto" className={classes.form}>
+			<Form
+				method="post"
+				action={withQuery(".", {
+					intent:
+						defaultForm === "login" ? "passwordLogin" : "passwordRegister",
+				})}
+				{...getFormProps(form)}
+				ref={parent}
+			>
+				<input
+					type="hidden"
+					name="tokenValidForDays"
+					value={loaderData.tokenValidForDays}
+				/>
+				<TextInput
+					{...getInputProps(fields.username, { type: "text" })}
+					label="Username"
+					autoFocus
+					required
+					error={fields.username.errors?.[0]}
+				/>
+				<PasswordInput
+					label="Password"
+					{...getInputProps(fields.password, { type: "password" })}
+					mt="md"
+					required
+					error={fields.password.errors?.[0]}
+				/>
+				{defaultForm === "register" ? (
 					<PasswordInput
-						label="Password"
-						{...getInputProps(fields.password, { type: "password" })}
+						label="Confirm password"
 						mt="md"
+						{...getInputProps(fields.confirm, { type: "password" })}
 						required
-						error={fields.password.errors?.[0]}
+						error={fields.confirm.errors?.[0]}
 					/>
-					{openedForm === "register" ? (
-						<PasswordInput
-							label="Confirm password"
-							mt="md"
-							{...getInputProps(fields.confirm, { type: "password" })}
-							required
-							error={fields.confirm.errors?.[0]}
-						/>
-					) : null}
-					<Button id="submit-button" mt="md" type="submit" w="100%">
-						{startCase(openedForm)}
-					</Button>
-				</Form>
-				{loaderData.oidcEnabled ? (
-					<>
-						<Divider label="OR" />
-						<Form method="post" action="?intent=getOauthRedirectUrl" replace>
-							<Button
-								variant="outline"
-								color="gray"
-								w="100%"
-								type="submit"
-								leftSection={<IconAt size={16} />}
-							>
-								Continue with OpenID Connect
-							</Button>
-						</Form>
-					</>
 				) : null}
-				<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
-					<Text
-						td="underline"
-						span
-						style={{ cursor: "pointer" }}
-						onClick={() =>
-							setOpenedForm(openedForm === "login" ? "register" : "login")
-						}
-					>
+				<Button id="submit-button" mt="md" type="submit" w="100%">
+					{startCase(defaultForm)}
+				</Button>
+			</Form>
+			{loaderData.oidcEnabled ? (
+				<>
+					<Divider label="OR" />
+					<Form method="post" action="?intent=getOauthRedirectUrl" replace>
+						<Button
+							variant="outline"
+							color="gray"
+							w="100%"
+							type="submit"
+							leftSection={<IconAt size={16} />}
+						>
+							Continue with OpenID Connect
+						</Button>
+					</Form>
+				</>
+			) : null}
+			<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
+				<Text
+					td="underline"
+					span
+					style={{ cursor: "pointer" }}
+					onClick={() =>
+						setP("defaultForm", defaultForm === "login" ? "register" : "login")
+					}
+				>
+					{
 						{
-							{
-								login: "Create a new account",
-								register: "Already have an account",
-							}[openedForm]
-						}
-						?
-					</Text>
-				</Box>
-			</Stack>
-		</>
+							login: "Create a new account",
+							register: "Already have an account",
+						}[defaultForm]
+					}
+					?
+				</Text>
+			</Box>
+		</Stack>
 	);
 }
