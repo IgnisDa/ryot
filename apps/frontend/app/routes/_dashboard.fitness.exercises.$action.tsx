@@ -22,6 +22,7 @@ import {
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomExerciseDocument,
+	ExerciseDetailsDocument,
 	ExerciseEquipment,
 	ExerciseForce,
 	ExerciseLevel,
@@ -29,10 +30,13 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep } from "@ryot/ts-utils";
+import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
+import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { z } from "zod";
+import { zx } from "zodix";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -42,16 +46,33 @@ import {
 	s3FileUploader,
 } from "~/lib/utilities.server";
 
+const searchParamsSchema = z.object({
+	name: z.string().optional(),
+});
+
 enum Action {
 	Create = "create",
 	Update = "update",
 }
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const action = params.action as Action;
+	const query = zx.parseQuery(request, searchParamsSchema);
+	const details = await match(action)
+		.with(Action.Create, () => undefined)
+		.with(Action.Update, async () => {
+			invariant(query.name, "Exercise name is required");
+			const { exerciseDetails } = await gqlClient.request(
+				ExerciseDetailsDocument,
+				{ exerciseId: query.name },
+			);
+			return exerciseDetails;
+		})
+		.run();
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
 	return json({
 		action,
+		details,
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
 	});
 };
@@ -128,7 +149,7 @@ export default function Page() {
 		<Container>
 			<Form method="post" replace encType="multipart/form-data">
 				<Stack>
-					<Title>Create Exercise</Title>
+					<Title>{startCase(loaderData.action)} Exercise</Title>
 					<TextInput label="Name" required autoFocus name="id" />
 					<Select
 						label="Type"
