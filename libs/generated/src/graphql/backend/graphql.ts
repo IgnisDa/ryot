@@ -299,8 +299,15 @@ export type DeployTraktImportInput = {
 };
 
 export type EditCustomExerciseInput = {
-  name: Scalars['String']['input'];
-  update: ExerciseInput;
+  attributes: ExerciseAttributesInput;
+  equipment?: InputMaybe<ExerciseEquipment>;
+  force?: InputMaybe<ExerciseForce>;
+  id: Scalars['String']['input'];
+  level: ExerciseLevel;
+  lot: ExerciseLot;
+  mechanic?: InputMaybe<ExerciseMechanic>;
+  muscles: Array<ExerciseMuscle>;
+  oldName: Scalars['String']['input'];
 };
 
 export type EditSeenItemInput = {

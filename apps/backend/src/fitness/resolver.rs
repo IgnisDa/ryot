@@ -130,7 +130,8 @@ struct EditUserWorkoutInput {
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 struct EditCustomExerciseInput {
-    name: String,
+    old_name: String,
+    #[graphql(flatten)]
     update: exercise::Model,
 }
 
