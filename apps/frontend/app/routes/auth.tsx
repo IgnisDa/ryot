@@ -17,7 +17,7 @@ import {
 	json,
 	redirect,
 } from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
 import {
 	CoreDetailsDocument,
 	GetOidcRedirectUrlDocument,
@@ -198,6 +198,8 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [parent] = useAutoAnimate();
 	const defaultForm = loaderData.defaultForm;
+	const [searchParams] = useSearchParams();
+	const redirectValue = searchParams.get(redirectToQueryParam);
 
 	return (
 		<Stack
@@ -216,8 +218,15 @@ export default function Page() {
 				<input
 					type="hidden"
 					name="tokenValidForDays"
-					value={loaderData.tokenValidForDays}
+					defaultValue={loaderData.tokenValidForDays}
 				/>
+				{redirectValue ? (
+					<input
+						type="hidden"
+						name={redirectToQueryParam}
+						defaultValue={redirectValue}
+					/>
+				) : null}
 				<TextInput
 					{...getInputProps(fields.username, { type: "text" })}
 					label="Username"
