@@ -308,6 +308,7 @@ export type EditCustomExerciseInput = {
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   oldName: Scalars['String']['input'];
+  shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type EditSeenItemInput = {

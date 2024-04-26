@@ -131,6 +131,7 @@ struct EditUserWorkoutInput {
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 struct EditCustomExerciseInput {
     old_name: String,
+    should_delete: Option<bool>,
     #[graphql(flatten)]
     update: exercise::Model,
 }
@@ -937,7 +938,21 @@ impl ExerciseService {
         user_id: i32,
         input: EditCustomExerciseInput,
     ) -> Result<bool> {
-        dbg!(&input);
+        if input.should_delete.unwrap_or_default() {
+            let entity = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
+                .one(&self.db)
+                .await?;
+            if entity.is_none() {
+                Exercise::delete_by_id(input.old_name.clone())
+                    .exec(&self.db)
+                    .await?;
+                return Ok(true);
+            } else {
+                return Err(Error::new("Exercise is associated with a workout."));
+            }
+        }
         Ok(true)
     }
 }
