@@ -30,7 +30,7 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
+import { cloneDeep, startCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import invariant from "tiny-invariant";
@@ -167,10 +167,7 @@ export default function Page() {
 					/>
 					<Select
 						label="Type"
-						data={Object.values(ExerciseLot).map((l) => ({
-							value: l,
-							label: changeCase(l),
-						}))}
+						data={Object.values(ExerciseLot)}
 						required
 						name="lot"
 						defaultValue={loaderData.details?.lot}
