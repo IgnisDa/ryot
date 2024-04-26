@@ -40,11 +40,12 @@ pub struct Model {
     pub force: Option<ExerciseForce>,
     pub mechanic: Option<ExerciseMechanic>,
     pub equipment: Option<ExerciseEquipment>,
+    #[graphql(skip_input)]
     pub source: ExerciseSource,
     #[sea_orm(column_type = "Json")]
     pub muscles: Vec<ExerciseMuscle>,
     pub attributes: ExerciseAttributes,
-    #[graphql(skip)]
+    #[graphql(skip_input)]
     pub created_by_user_id: Option<i32>,
 }
 

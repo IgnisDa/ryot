@@ -325,12 +325,23 @@ pub enum ExerciseLot {
 }
 
 #[derive(
-    Clone, Debug, Deserialize, Serialize, DeriveActiveEnum, Eq, PartialEq, Enum, Copy, EnumIter,
+    Default,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    DeriveActiveEnum,
+    Eq,
+    PartialEq,
+    Enum,
+    Copy,
+    EnumIter,
 )]
 #[sea_orm(rs_type = "String", db_type = "String(None)")]
 pub enum ExerciseSource {
     #[sea_orm(string_value = "GH")]
     Github,
+    #[default]
     #[sea_orm(string_value = "CU")]
     Custom,
 }
