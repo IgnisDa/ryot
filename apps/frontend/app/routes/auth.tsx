@@ -260,22 +260,24 @@ export default function Page() {
 					</Form>
 				</>
 			) : null}
-			<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
-				<Anchor
-					component={Link}
-					to={withQuery(".", {
-						defaultForm: defaultForm === "login" ? "register" : "login",
-					})}
-				>
-					{
+			{loaderData.signupAllowed ? (
+				<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
+					<Anchor
+						component={Link}
+						to={withQuery(".", {
+							defaultForm: defaultForm === "login" ? "register" : "login",
+						})}
+					>
 						{
-							login: "Create a new account",
-							register: "Already have an account",
-						}[defaultForm]
-					}
-					?
-				</Anchor>
-			</Box>
+							{
+								login: "Create a new account",
+								register: "Already have an account",
+							}[defaultForm]
+						}
+						?
+					</Anchor>
+				</Box>
+			) : null}
 		</Stack>
 	);
 }
