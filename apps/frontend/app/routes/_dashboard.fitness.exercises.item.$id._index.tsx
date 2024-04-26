@@ -30,6 +30,7 @@ import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
+	ExerciseSource,
 	SetLot,
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
@@ -61,6 +62,7 @@ import { dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	getAuthorizationHeader,
 	getUserCollectionsList,
+	getUserDetails,
 	getUserPreferences,
 	gqlClient,
 } from "~/lib/utilities.server";
@@ -78,11 +80,13 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	invariant(typeof exerciseId === "string", "id must be a string");
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [
+		userDetails,
 		userPreferences,
 		{ exerciseDetails },
 		{ userExerciseDetails },
 		collections,
 	] = await Promise.all([
+		getUserDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
 		gqlClient.request(
@@ -92,15 +96,17 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		),
 		getUserCollectionsList(request),
 	]);
+	const canCurrentUserUpdate =
+		exerciseDetails.source === ExerciseSource.Custom &&
+		userDetails.id === exerciseDetails.createdByUserId;
 	return json({
 		query,
 		exerciseDetails,
 		userExerciseDetails,
-		userPreferences: {
-			unitSystem: userPreferences.fitness.exercises.unitSystem,
-		},
+		unitSystem: userPreferences.fitness.exercises.unitSystem,
 		exerciseId,
 		collections,
+		canCurrentUserUpdate,
 	});
 };
 
@@ -301,7 +307,7 @@ export default function Page() {
 													<DisplayExerciseStats
 														lot={loaderData.exerciseDetails.lot}
 														statistic={s.statistic}
-														unit={loaderData.userPreferences.unitSystem}
+														unit={loaderData.unitSystem}
 													/>
 												</Flex>
 											))}
@@ -322,7 +328,7 @@ export default function Page() {
 											<DisplayLifetimeStatistic
 												stat="weight"
 												val={displayWeightWithUnit(
-													loaderData.userPreferences.unitSystem,
+													loaderData.unitSystem,
 													loaderData.userExerciseDetails.details
 														.exerciseExtraInformation.lifetimeStats.weight,
 												)}
@@ -330,7 +336,7 @@ export default function Page() {
 											<DisplayLifetimeStatistic
 												stat="distance"
 												val={displayDistanceWithUnit(
-													loaderData.userPreferences.unitSystem,
+													loaderData.unitSystem,
 													loaderData.userExerciseDetails.details
 														.exerciseExtraInformation.lifetimeStats.distance,
 												)}
@@ -391,13 +397,13 @@ export default function Page() {
 																			)
 																			.with(WorkoutSetPersonalBest.Volume, () =>
 																				displayWeightWithUnit(
-																					loaderData.userPreferences.unitSystem,
+																					loaderData.unitSystem,
 																					s.data.statistic.volume,
 																				),
 																			)
 																			.with(WorkoutSetPersonalBest.Weight, () =>
 																				displayWeightWithUnit(
-																					loaderData.userPreferences.unitSystem,
+																					loaderData.unitSystem,
 																					s.data.statistic.weight,
 																				),
 																			)
@@ -441,6 +447,19 @@ export default function Page() {
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
+									{loaderData.canCurrentUserUpdate ? (
+										<Button
+											variant="outline"
+											component={Link}
+											to={$path(
+												"/fitness/exercises/:action",
+												{ action: "update" },
+												{ name: loaderData.exerciseDetails.id },
+											)}
+										>
+											Edit exercise
+										</Button>
+									) : null}
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
