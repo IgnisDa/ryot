@@ -22,6 +22,7 @@ import {
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomExerciseDocument,
+	EditCustomExerciseDocument,
 	ExerciseDetailsDocument,
 	ExerciseEquipment,
 	ExerciseForce,
@@ -100,7 +101,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		muscles,
 		attributes: {
 			images: submission.images || [],
-			instructions: instructions?.split("\n") || [],
+			instructions: instructions?.split("\n").map((s) => s.trim()) || [],
 		},
 	};
 	return namedAction(request, {
@@ -127,6 +128,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}
 				throw e;
 			}
+		},
+		[Action.Update]: async () => {
+			invariant(submission.oldName, "Old name is required");
+			await gqlClient.request(
+				EditCustomExerciseDocument,
+				{ input: { ...input, oldName: submission.oldName } },
+				await getAuthorizationHeader(request),
+			);
+			return redirect(
+				$path("/fitness/exercises/item/:id", { id: submission.id }),
+			);
 		},
 	});
 };
