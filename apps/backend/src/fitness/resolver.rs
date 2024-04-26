@@ -128,6 +128,12 @@ struct EditUserWorkoutInput {
     end_time: Option<DateTimeUtc>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+struct EditCustomExerciseInput {
+    name: String,
+    update: exercise::Model,
+}
+
 #[derive(Default)]
 pub struct ExerciseQuery;
 
@@ -270,6 +276,17 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_custom_exercise(user_id, input).await
+    }
+
+    /// Edit a custom exercise.
+    async fn edit_custom_exercise(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: EditCustomExerciseInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.edit_custom_exercise(user_id, input).await
     }
 }
 
@@ -912,5 +929,14 @@ impl ExerciseService {
                 .collect(),
             assets: user_workout.information.assets,
         }
+    }
+
+    async fn edit_custom_exercise(
+        &self,
+        user_id: i32,
+        input: EditCustomExerciseInput,
+    ) -> Result<bool> {
+        dbg!(&input);
+        Ok(true)
     }
 }
