@@ -107,10 +107,10 @@ import {
 import {
 	type Exercise,
 	type ExerciseSet,
+	type InProgressWorkout,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
-	type InProgressWorkout,
 } from "~/lib/workout";
 
 const workoutCookieName = CurrentWorkoutKey;
