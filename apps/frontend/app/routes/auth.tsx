@@ -4,7 +4,6 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
-	Box,
 	Button,
 	Divider,
 	PasswordInput,
@@ -261,22 +260,21 @@ export default function Page() {
 				</>
 			) : null}
 			{loaderData.signupAllowed ? (
-				<Box mt={loaderData.oidcEnabled ? "xl" : undefined} ta="right">
-					<Anchor
-						component={Link}
-						to={withQuery(".", {
-							defaultForm: defaultForm === "login" ? "register" : "login",
-						})}
-					>
+				<Anchor
+					ta="right"
+					component={Link}
+					to={withQuery(".", {
+						defaultForm: defaultForm === "login" ? "register" : "login",
+					})}
+				>
+					{
 						{
-							{
-								login: "Create a new account",
-								register: "Already have an account",
-							}[defaultForm]
-						}
-						?
-					</Anchor>
-				</Box>
+							login: "Create a new account",
+							register: "Already have an account",
+						}[defaultForm]
+					}
+					?
+				</Anchor>
 			) : null}
 		</Stack>
 	);
