@@ -37,7 +37,6 @@ import { ClientError } from "graphql-request";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -86,7 +85,10 @@ export const meta: MetaFunction = () => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const uploaders = s3FileUploader("exercises");
-	const formData = await unstable_parseMultipartFormData(request, uploaders);
+	const formData = await unstable_parseMultipartFormData(
+		request.clone(),
+		uploaders,
+	);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as ExerciseMuscle[])
@@ -131,14 +133,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 		[Action.Update]: async () => {
 			invariant(submission.oldName, "Old name is required");
-			await gqlClient.request(
-				EditCustomExerciseDocument,
-				{ input: { ...input, oldName: submission.oldName } },
-				await getAuthorizationHeader(request),
-			);
-			return redirect(
-				$path("/fitness/exercises/item/:id", { id: submission.id }),
-			);
+			try {
+				await gqlClient.request(
+					EditCustomExerciseDocument,
+					{ input: { ...input, oldName: submission.oldName } },
+					await getAuthorizationHeader(request),
+				);
+				return redirect($path("/fitness/exercises/list"));
+			} catch (e) {
+				if (e instanceof ClientError && e.response.errors) {
+					const message = e.response.errors[0].message;
+					return json(
+						{ error: e.message },
+						{
+							status: 400,
+							headers: await createToastHeaders({ message, type: "error" }),
+						},
+					);
+				}
+				throw e;
+			}
 		},
 	});
 };
@@ -167,12 +181,7 @@ export default function Page() {
 
 	return (
 		<Container>
-			<Form
-				method="post"
-				replace
-				encType="multipart/form-data"
-				action={withQuery(".", { intent: loaderData.action })}
-			>
+			<Form method="post" encType="multipart/form-data">
 				<Stack>
 					<Title>{title} Exercise</Title>
 					{loaderData.details?.id ? (
@@ -182,6 +191,7 @@ export default function Page() {
 							defaultValue={loaderData.details.id}
 						/>
 					) : null}
+					<input type="hidden" name="intent" value={loaderData.action} />
 					<TextInput
 						label="Name"
 						required
