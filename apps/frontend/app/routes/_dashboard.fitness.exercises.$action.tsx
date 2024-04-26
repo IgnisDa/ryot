@@ -157,6 +157,7 @@ const schema = z.object({
 	muscles: optionalString,
 	instructions: optionalString,
 	images: optionalStringArray,
+	shouldDelete: zx.BoolAsString.optional(),
 });
 
 export default function Page() {
@@ -255,7 +256,19 @@ export default function Page() {
 						accept="image/png,image/jpeg,image/jpg"
 						leftSection={<IconPhoto />}
 					/>
-					<Button type="submit">{title}</Button>
+					<Group w="100%" grow>
+						{loaderData.details ? (
+							<Button
+								color="red"
+								type="submit"
+								name="shouldDelete"
+								value="true"
+							>
+								Delete
+							</Button>
+						) : null}
+						<Button type="submit">{title}</Button>
+					</Group>
 				</Stack>
 			</Form>
 		</Container>
