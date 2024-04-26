@@ -28,7 +28,6 @@ import {
 	ExerciseLot,
 	ExerciseMechanic,
 	ExerciseMuscle,
-	ExerciseSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, cloneDeep } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
@@ -67,7 +66,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	newInput.instructions = undefined;
 	newInput.images = undefined;
 	const input = {
-		source: ExerciseSource.Custom,
 		...newInput,
 		muscles,
 		attributes: {
