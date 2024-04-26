@@ -46,7 +46,6 @@ import {
 	processSubmission,
 	redirectWithToast,
 } from "~/lib/utilities.server";
-import classes from "~/styles/auth.module.css";
 
 const searchParamsSchema = z.object({
 	defaultForm: z.enum(["login", "register"]).optional(),
@@ -201,7 +200,10 @@ export default function Page() {
 	const defaultForm = loaderData.defaultForm;
 
 	return (
-		<Stack m="auto" className={classes.form}>
+		<Stack
+			m="auto"
+			w={{ base: "80%", sm: "60%", md: "50%", lg: "40%", xl: "30%" }}
+		>
 			<Form
 				method="post"
 				action={withQuery(".", {
