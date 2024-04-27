@@ -954,6 +954,10 @@ impl ExerciseService {
             .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
             .all(&self.db)
             .await?;
+        let old_exercise = Exercise::find_by_id(input.old_name.clone())
+            .one(&self.db)
+            .await?
+            .unwrap();
         if input.should_delete.unwrap_or_default() {
             for entity in entities {
                 if !entity
@@ -967,9 +971,7 @@ impl ExerciseService {
                     ));
                 }
             }
-            Exercise::delete_by_id(input.old_name.clone())
-                .exec(&self.db)
-                .await?;
+            old_exercise.delete(&self.db).await?;
             return Ok(true);
         }
         if input.old_name != input.update.id {
@@ -1000,6 +1002,14 @@ impl ExerciseService {
                     db_workout.information = ActiveValue::Set(information);
                     db_workout.update(&self.db).await?;
                 }
+            }
+        }
+        for image in old_exercise.attributes.internal_images {
+            match image {
+                StoredUrl::S3(key) => {
+                    self.file_storage_service.delete_object(key).await;
+                }
+                _ => continue,
             }
         }
         self.create_custom_exercise(user_id, input.update.clone())
