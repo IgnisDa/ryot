@@ -976,7 +976,22 @@ impl ExerciseService {
                 .filter(exercise::Column::Id.eq(input.old_name.clone()))
                 .exec(&self.db)
                 .await?;
-            for entity in entities {}
+            for entity in entities {
+                for workout in entity.exercise_extra_information.unwrap().history {
+                    let db_workout = Workout::find_by_id(workout.workout_id)
+                        .one(&self.db)
+                        .await?
+                        .unwrap();
+                    let mut summary = db_workout.summary.clone();
+                    let mut information = db_workout.information.clone();
+                    summary.exercises[workout.idx].id = input.update.id.clone();
+                    information.exercises[workout.idx].name = input.update.id.clone();
+                    let mut db_workout: workout::ActiveModel = db_workout.into();
+                    db_workout.summary = ActiveValue::Set(summary);
+                    db_workout.information = ActiveValue::Set(information);
+                    db_workout.update(&self.db).await?;
+                }
+            }
         }
         self.create_custom_exercise(user_id, input.update.clone())
             .await?;
