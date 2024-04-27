@@ -962,7 +962,9 @@ impl ExerciseService {
                     .history
                     .is_empty()
                 {
-                    return Err(Error::new("Exercise is associated with a workout."));
+                    return Err(Error::new(
+                        "Exercise is associated with one or more workouts.",
+                    ));
                 }
             }
             Exercise::delete_by_id(input.old_name.clone())
@@ -971,6 +973,13 @@ impl ExerciseService {
             return Ok(true);
         }
         if input.old_name != input.update.id {
+            if Exercise::find_by_id(input.update.id.clone())
+                .one(&self.db)
+                .await?
+                .is_some()
+            {
+                return Err(Error::new("Exercise with the new name already exists."));
+            }
             Exercise::update_many()
                 .col_expr(exercise::Column::Id, Expr::value(input.update.id.clone()))
                 .filter(exercise::Column::Id.eq(input.old_name.clone()))
