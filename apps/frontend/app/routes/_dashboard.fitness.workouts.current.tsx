@@ -70,6 +70,9 @@ import {
 	IconCheck,
 	IconClipboard,
 	IconDotsVertical,
+	IconDroplet,
+	IconDropletFilled,
+	IconDropletHalf2Filled,
 	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
@@ -104,6 +107,7 @@ import {
 import {
 	type Exercise,
 	type ExerciseSet,
+	type InProgressWorkout,
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
@@ -181,9 +185,7 @@ export default function Page() {
 	const [time, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const playCompleteTimerSound = () => {
-		const sound = new Howl({
-			src: ["/timer-completed.mp3"],
-		});
+		const sound = new Howl({ src: ["/timer-completed.mp3"] });
 		sound.play();
 	};
 	const [
@@ -668,9 +670,11 @@ const ExerciseDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [currentTimer] = useAtom(timerAtom);
 	const playCheckSound = () => {
-		const sound = new Howl({
-			src: ["/check.mp3"],
-		});
+		const sound = new Howl({ src: ["/check.mp3"] });
+		sound.play();
+	};
+	const playAddSetSound = () => {
+		const sound = new Howl({ src: ["/add-set.mp3"] });
 		sound.play();
 	};
 	const [
@@ -685,8 +689,6 @@ const ExerciseDisplay = (props: {
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
-	const [exerciseDetailsOpened, { toggle: exerciseDetailsToggle }] =
-		useDisclosure(false);
 	const [
 		supersetModalOpened,
 		{ close: supersetModalClose, toggle: supersetModalToggle },
@@ -881,7 +883,7 @@ const ExerciseDisplay = (props: {
 							<Group justify="space-between" pos="relative" wrap="nowrap">
 								<Anchor
 									component={Link}
-									to={$path("/fitness/exercises/:id", {
+									to={$path("/fitness/exercises/item/:id", {
 										id: props.exercise.exerciseId,
 									})}
 									fw="bold"
@@ -981,9 +983,16 @@ const ExerciseDisplay = (props: {
 							{props.exercise.exerciseDetails.images.length > 0 ? (
 								<Menu.Item
 									leftSection={<IconInfoCircle size={14} />}
-									onClick={exerciseDetailsToggle}
+									onClick={() => {
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.exerciseIdx].isShowDetailsOpen =
+													!draft.exercises[props.exerciseIdx].isShowDetailsOpen;
+											}),
+										);
+									}}
 								>
-									{exerciseDetailsOpened ? "Hide" : "Show"} details
+									{props.exercise.isShowDetailsOpen ? "Hide" : "Show"} details
 								</Menu.Item>
 							) : null}
 							<Menu.Item
@@ -1012,7 +1021,7 @@ const ExerciseDisplay = (props: {
 						</Menu.Dropdown>
 					</Menu>
 					<Box ref={parent}>
-						{exerciseDetailsOpened ? (
+						{props.exercise.isShowDetailsOpen ? (
 							<ScrollArea mb="md" type="scroll">
 								<Group wrap="nowrap">
 									{props.exercise.exerciseDetails.images.map((i) => (
@@ -1295,6 +1304,7 @@ const ExerciseDisplay = (props: {
 					<Button
 						variant="subtle"
 						onClick={() => {
+							playAddSetSound();
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
 									const currentSet =
@@ -1499,6 +1509,15 @@ const ReorderDrawer = (props: {
 		}
 	}, [exerciseElements]);
 
+	const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
+		const isCompleted = cw.exercises[index].sets.every((s) => s.confirmed);
+		return isCompleted
+			? ("complete" as const)
+			: cw.exercises[index].sets.some((s) => s.confirmed)
+				? ("in-progress" as const)
+				: ("not-started" as const);
+	};
+
 	return currentWorkout ? (
 		<Drawer
 			onClose={props.onClose}
@@ -1540,13 +1559,15 @@ const ReorderDrawer = (props: {
 										>
 											<Group justify="space-between" wrap="nowrap">
 												<Text size="sm">{de.exerciseId}</Text>
-												{currentWorkout.exercises[index].sets.every(
-													(s) => s.confirmed,
-												) ? (
-													<ThemeIcon color="green" variant="transparent">
-														<IconCheck />
-													</ThemeIcon>
-												) : null}
+												<ThemeIcon size="xs" variant="transparent" color="gray">
+													{match(getProgressOfExercise(currentWorkout, index))
+														.with("complete", () => <IconDropletFilled />)
+														.with("in-progress", () => (
+															<IconDropletHalf2Filled />
+														))
+														.with("not-started", () => <IconDroplet />)
+														.exhaustive()}
+												</ThemeIcon>
 											</Group>
 										</Paper>
 									)}

@@ -178,7 +178,7 @@ export default function Page() {
 						color="green"
 						component={Link}
 						variant="outline"
-						to={$path("/fitness/exercises/create")}
+						to={$path("/fitness/exercises/:action", { action: "create" })}
 					>
 						<IconPlus size={16} />
 					</ActionIcon>
@@ -346,7 +346,7 @@ export default function Page() {
 											</Indicator>
 											<Link
 												to={$path(
-													"/fitness/exercises/:id",
+													"/fitness/exercises/item/:id",
 													{ id: exercise.id },
 													{
 														selectionEnabled: loaderData.query.selectionEnabled,

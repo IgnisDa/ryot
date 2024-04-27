@@ -72,7 +72,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
 	const nextUrl = withoutHost(request.url);
 	if (!isAuthenticated || userDetails.__typename !== "User") {
-		throw redirect($path("/auth/login", { [redirectToQueryParam]: nextUrl }), {
+		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
 			status: 302,
 			headers: combineHeaders(
 				await createToastHeaders({
@@ -91,12 +91,8 @@ const expectedServerVariables = z.object({
 		.string()
 		.optional()
 		.transform((v) => v === "true"),
-	FRONTEND_UMAMI_SCRIPT_URL: z
-		.string()
-		.default("https://umami.diptesh.me/script.js"),
-	FRONTEND_UMAMI_WEBSITE_ID: z
-		.string()
-		.default("5ecd6915-d542-4fda-aa5f-70f09f04e2e0"),
+	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
+	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
 	FRONTEND_INSECURE_COOKIES: zx.BoolAsString.optional(),
 });

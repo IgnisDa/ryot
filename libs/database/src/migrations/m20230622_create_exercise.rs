@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+use super::m20230417_create_user::User;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -16,6 +18,7 @@ pub enum Exercise {
     Identifier,
     Attributes,
     Source,
+    CreatedByUserId,
 }
 
 #[async_trait::async_trait]
@@ -38,6 +41,15 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Exercise::Attributes)
                             .json_binary()
                             .not_null(),
+                    )
+                    .col(ColumnDef::new(Exercise::CreatedByUserId).integer())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("workout_to_user_foreign_key")
+                            .from(Exercise::Table, Exercise::CreatedByUserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

@@ -140,7 +140,7 @@ pub enum ApplicationJob {
     ImportFromExternalSource(i32, Box<DeployImportJobInput>),
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(i32),
-    UpdateExerciseJob(Exercise),
+    UpdateGithubExerciseJob(Exercise),
     UpdatePerson(i32),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
@@ -185,9 +185,10 @@ pub async fn perform_application_job(
             .update_person_and_notify_users(person_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdateExerciseJob(exercise) => {
-            exercise_service.update_exercise(exercise).await.is_ok()
-        }
+        ApplicationJob::UpdateGithubExerciseJob(exercise) => exercise_service
+            .update_github_exercise(exercise)
+            .await
+            .is_ok(),
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
         }

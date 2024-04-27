@@ -128,6 +128,14 @@ struct EditUserWorkoutInput {
     end_time: Option<DateTimeUtc>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+struct EditCustomExerciseInput {
+    old_name: String,
+    should_delete: Option<bool>,
+    #[graphql(flatten)]
+    update: exercise::Model,
+}
+
 #[derive(Default)]
 pub struct ExerciseQuery;
 
@@ -270,6 +278,17 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_custom_exercise(user_id, input).await
+    }
+
+    /// Edit a custom exercise.
+    async fn edit_custom_exercise(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: EditCustomExerciseInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.edit_custom_exercise(user_id, input).await
     }
 }
 
@@ -577,7 +596,7 @@ impl ExerciseService {
             let job = self
                 .perform_application_job
                 .clone()
-                .push(ApplicationJob::UpdateExerciseJob(exercise))
+                .push(ApplicationJob::UpdateGithubExerciseJob(exercise))
                 .await?;
             job_ids.push(job.to_string());
         }
@@ -585,7 +604,7 @@ impl ExerciseService {
     }
 
     #[instrument(skip(self, ex))]
-    pub async fn update_exercise(&self, ex: GithubExercise) -> Result<()> {
+    pub async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
             internal_images: ex
@@ -634,6 +653,7 @@ impl ExerciseService {
                 force: ActiveValue::Set(ex.attributes.force),
                 equipment: ActiveValue::Set(ex.attributes.equipment),
                 mechanic: ActiveValue::Set(ex.attributes.mechanic),
+                created_by_user_id: ActiveValue::Set(None),
             };
             let created_exercise = db_exercise.insert(&self.db).await?;
             tracing::debug!("Created new exercise with id: {}", created_exercise.id);
@@ -748,7 +768,9 @@ impl ExerciseService {
     }
 
     async fn create_custom_exercise(&self, user_id: i32, input: exercise::Model) -> Result<String> {
+        let exercise_id = input.id.clone();
         let mut input = input;
+        input.created_by_user_id = Some(user_id);
         input.source = ExerciseSource::Custom;
         input.attributes.internal_images = input
             .attributes
@@ -759,7 +781,17 @@ impl ExerciseService {
             .collect();
         input.attributes.images = vec![];
         let input: exercise::ActiveModel = input.into();
-        let exercise = input.insert(&self.db).await?;
+        let exercise = match Exercise::find_by_id(exercise_id)
+            .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
+            .one(&self.db)
+            .await?
+        {
+            None => input.insert(&self.db).await?,
+            Some(_) => {
+                let input = input.reset_all();
+                input.update(&self.db).await?
+            }
+        };
         add_entity_to_collection(
             &self.db,
             user_id,
@@ -910,5 +942,78 @@ impl ExerciseService {
                 .collect(),
             assets: user_workout.information.assets,
         }
+    }
+
+    async fn edit_custom_exercise(
+        &self,
+        user_id: i32,
+        input: EditCustomExerciseInput,
+    ) -> Result<bool> {
+        let entities = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
+            .all(&self.db)
+            .await?;
+        let old_exercise = Exercise::find_by_id(input.old_name.clone())
+            .one(&self.db)
+            .await?
+            .unwrap();
+        if input.should_delete.unwrap_or_default() {
+            for entity in entities {
+                if !entity
+                    .exercise_extra_information
+                    .unwrap_or_default()
+                    .history
+                    .is_empty()
+                {
+                    return Err(Error::new(
+                        "Exercise is associated with one or more workouts.",
+                    ));
+                }
+            }
+            old_exercise.delete(&self.db).await?;
+            return Ok(true);
+        }
+        if input.old_name != input.update.id {
+            if Exercise::find_by_id(input.update.id.clone())
+                .one(&self.db)
+                .await?
+                .is_some()
+            {
+                return Err(Error::new("Exercise with the new name already exists."));
+            }
+            Exercise::update_many()
+                .col_expr(exercise::Column::Id, Expr::value(input.update.id.clone()))
+                .filter(exercise::Column::Id.eq(input.old_name.clone()))
+                .exec(&self.db)
+                .await?;
+            for entity in entities {
+                for workout in entity.exercise_extra_information.unwrap().history {
+                    let db_workout = Workout::find_by_id(workout.workout_id)
+                        .one(&self.db)
+                        .await?
+                        .unwrap();
+                    let mut summary = db_workout.summary.clone();
+                    let mut information = db_workout.information.clone();
+                    summary.exercises[workout.idx].id = input.update.id.clone();
+                    information.exercises[workout.idx].name = input.update.id.clone();
+                    let mut db_workout: workout::ActiveModel = db_workout.into();
+                    db_workout.summary = ActiveValue::Set(summary);
+                    db_workout.information = ActiveValue::Set(information);
+                    db_workout.update(&self.db).await?;
+                }
+            }
+        }
+        for image in old_exercise.attributes.internal_images {
+            match image {
+                StoredUrl::S3(key) => {
+                    self.file_storage_service.delete_object(key).await;
+                }
+                _ => continue,
+            }
+        }
+        self.create_custom_exercise(user_id, input.update.clone())
+            .await?;
+        Ok(true)
     }
 }

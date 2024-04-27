@@ -8,6 +8,7 @@ query ExerciseDetails($exerciseId: String!) {
     mechanic
     equipment
     muscles
+    createdByUserId
     attributes {
       instructions
       images

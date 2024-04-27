@@ -111,7 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			};
 		})
 		.with("logout", async () => {
-			redirectTo = $path("/auth/login");
+			redirectTo = $path("/auth");
 			headers = await getLogoutCookies();
 		})
 		.with("createReviewComment", async () => {

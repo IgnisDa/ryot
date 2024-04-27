@@ -24,6 +24,10 @@ mutation CreateCustomExercise($input: ExerciseInput!) {
   createCustomExercise(input: $input)
 }
 
+mutation EditCustomExercise($input: EditCustomExerciseInput!) {
+  editCustomExercise(input: $input)
+}
+
 mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
   createCustomMetadata(input: $input) {
     id
