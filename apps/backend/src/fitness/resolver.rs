@@ -768,6 +768,7 @@ impl ExerciseService {
     }
 
     async fn create_custom_exercise(&self, user_id: i32, input: exercise::Model) -> Result<String> {
+        let exercise_id = input.id.clone();
         let mut input = input;
         input.created_by_user_id = Some(user_id);
         input.source = ExerciseSource::Custom;
@@ -780,7 +781,17 @@ impl ExerciseService {
             .collect();
         input.attributes.images = vec![];
         let input: exercise::ActiveModel = input.into();
-        let exercise = input.insert(&self.db).await?;
+        let exercise = match Exercise::find_by_id(exercise_id)
+            .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
+            .one(&self.db)
+            .await?
+        {
+            None => input.insert(&self.db).await?,
+            Some(_) => {
+                let input = input.reset_all();
+                input.update(&self.db).await?
+            }
+        };
         add_entity_to_collection(
             &self.db,
             user_id,
@@ -938,12 +949,12 @@ impl ExerciseService {
         user_id: i32,
         input: EditCustomExerciseInput,
     ) -> Result<bool> {
+        let entities = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
+            .all(&self.db)
+            .await?;
         if input.should_delete.unwrap_or_default() {
-            let entities = UserToEntity::find()
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
-                .all(&self.db)
-                .await?;
             for entity in entities {
                 if !entity
                     .exercise_extra_information
@@ -959,6 +970,8 @@ impl ExerciseService {
                 .await?;
             return Ok(true);
         }
+        self.create_custom_exercise(user_id, input.update.clone())
+            .await?;
         Ok(true)
     }
 }
