@@ -73,14 +73,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = () => [{ title: "Register | Ryot" }];
+export const meta: MetaFunction = () => [{ title: "Authentication | Ryot" }];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	return namedAction(request, {
-		passwordRegister: async () => {
+		register: async () => {
 			const submission = parseWithZod(formData, {
-				schema: passwordRegisterSchema,
+				schema: registerSchema,
 			});
 			if (submission.status !== "success")
 				return json({} as const, {
@@ -121,8 +121,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		},
-		passwordLogin: async () => {
-			const submission = processSubmission(formData, passwordLoginSchema);
+		login: async () => {
+			const submission = processSubmission(formData, loginSchema);
 			const { loginUser } = await gqlClient.request(LoginUserDocument, {
 				input: {
 					password: {
@@ -173,7 +173,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const passwordRegisterSchema = z
+const registerSchema = z
 	.object({
 		username: z.string(),
 		password: z
@@ -186,7 +186,7 @@ const passwordRegisterSchema = z
 		path: ["confirm"],
 	});
 
-const passwordLoginSchema = z.object({
+const loginSchema = z.object({
 	username: z.string(),
 	password: z.string(),
 	[redirectToQueryParam]: z.string().optional(),
@@ -197,9 +197,9 @@ export default function Page() {
 	const [form, fields] = useForm({});
 	const loaderData = useLoaderData<typeof loader>();
 	const [parent] = useAutoAnimate();
-	const defaultForm = loaderData.defaultForm;
 	const [searchParams] = useSearchParams();
 	const redirectValue = searchParams.get(redirectToQueryParam);
+	const intent = loaderData.defaultForm;
 
 	return (
 		<Stack
@@ -208,10 +208,7 @@ export default function Page() {
 		>
 			<Form
 				method="post"
-				action={withQuery(".", {
-					intent:
-						defaultForm === "login" ? "passwordLogin" : "passwordRegister",
-				})}
+				action={withQuery(".", { intent })}
 				{...getFormProps(form)}
 				ref={parent}
 			>
@@ -241,7 +238,7 @@ export default function Page() {
 					required
 					error={fields.password.errors?.[0]}
 				/>
-				{defaultForm === "register" ? (
+				{intent === "register" ? (
 					<PasswordInput
 						label="Confirm password"
 						mt="md"
@@ -251,7 +248,7 @@ export default function Page() {
 					/>
 				) : null}
 				<Button id="submit-button" mt="md" type="submit" w="100%">
-					{startCase(defaultForm)}
+					{startCase(intent)}
 				</Button>
 			</Form>
 			{loaderData.oidcEnabled ? (
@@ -275,14 +272,14 @@ export default function Page() {
 					ta="right"
 					component={Link}
 					to={withQuery(".", {
-						defaultForm: defaultForm === "login" ? "register" : "login",
+						defaultForm: intent === "login" ? "register" : "login",
 					})}
 				>
 					{
 						{
 							login: "Create a new account",
 							register: "Already have an account",
-						}[defaultForm]
+						}[intent]
 					}
 					?
 				</Anchor>
