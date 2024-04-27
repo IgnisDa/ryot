@@ -240,18 +240,19 @@ export default function Page() {
 						)}
 						autosize
 					/>
-					<FileInput
-						label="Images"
-						name="images"
-						multiple
-						disabled={fileUploadNowAllowed}
-						description={
-							fileUploadNowAllowed &&
-							"Please set the S3 variables required to enable file uploading"
-						}
-						accept="image/png,image/jpeg,image/jpg"
-						leftSection={<IconPhoto />}
-					/>
+					{!fileUploadNowAllowed ? (
+						<FileInput
+							label="Images"
+							name="images"
+							multiple
+							description={
+								loaderData.details &&
+								"Please re-upload the images while updating the exercise, old ones will be deleted"
+							}
+							accept="image/png,image/jpeg,image/jpg"
+							leftSection={<IconPhoto />}
+						/>
+					) : null}
 					<Group w="100%" grow>
 						{loaderData.details ? (
 							<Button
