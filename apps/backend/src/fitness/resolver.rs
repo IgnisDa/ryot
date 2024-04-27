@@ -970,6 +970,14 @@ impl ExerciseService {
                 .await?;
             return Ok(true);
         }
+        if input.old_name != input.update.id {
+            Exercise::update_many()
+                .col_expr(exercise::Column::Id, Expr::value(input.update.id.clone()))
+                .filter(exercise::Column::Id.eq(input.old_name.clone()))
+                .exec(&self.db)
+                .await?;
+            for entity in entities {}
+        }
         self.create_custom_exercise(user_id, input.update.clone())
             .await?;
         Ok(true)
