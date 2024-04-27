@@ -153,8 +153,16 @@ async fn main() -> Result<()> {
     let perform_core_application_job_storage = create_storage(pool.clone()).await;
 
     let tz: chrono_tz::Tz = env::var("TZ")
-        .map(|s| s.parse().unwrap())
-        .unwrap_or_else(|_| chrono_tz::Etc::GMT);
+        .ok()
+        .and_then(|s| {
+            if let Ok(tz_parsed) = s.parse::<chrono_tz::Tz>() {
+                Some(tz_parsed)
+            } else {
+                tracing::info!("Invalid timezone: {}", s);
+                None
+            }
+        })
+        .unwrap_or_else(|| chrono_tz::Etc::GMT);
     tracing::info!("Using timezone: {}", tz);
 
     let app_services = create_app_services(
