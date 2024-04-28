@@ -1,30 +1,29 @@
 {
 	"meta": {
-		"title": "Luna Landing your perfect landing page",
-		"description": "Landing page template",
+		"title": "Ryot",
+		"description": "Track all facets of your life with Ryot!",
 		"lang": "en",
 		"charset": "UTF-8",
 		"ldJson": {
 			"@context": "http://schema.org",
 			"@type": "Organization",
-			"name": "Luna Landing",
-			"description": "Fictitious company that seeks to elevate and simplify the lives of web developers.",
+			"name": "Ryot",
+			"description": "Track all facets of your life with Ryot!",
 			"url": "https://luna-landing-rust.vercel.app/",
 			"logo": "./public/favicon.svg",
 			"contactPoint": {
 				"@type": "ContactPoint",
-				"email": "luna-landing@luna.com",
+				"email": "ignisda2001@gmail.com",
 				"contactType": "Client Service"
 			},
 			"sameAs": [
-				"https://www.twitter.com/yourpage",
-				"https://www.instagram.com/yourpage",
-				"https://www.linkedin.com/company/yourpage"
+				"https://www.twitter.com/ignisda",
+				"https://www.linkedin.com/in/diptesh-choudhuri-0647501b9"
 			]
 		}
 	},
 	"headerData": {
-		"logo": "Luna Landing",
+		"logo": "Ryot",
 		"links": [
 			{ "label": "About", "href": "#" },
 			{ "label": "Services", "href": "#" },
@@ -34,11 +33,11 @@
 		]
 	},
 	"heroData": {
-		"title": "Open Your Mind to the Universe: Welcome to",
+		"title": "Welcome to the only tracker you will ever need:",
 		"subTitle": "Discover the Beauty of the Cosmos: Explore the Infinite Wonders of Space with Us",
 		"primaryCta": "Github Repo",
 		"secondaryCta": "See our pricing",
-		"highlightedTitle": "Luna Landing"
+		"highlightedTitle": "Ryot"
 	},
 	"servicesData": {
 		"title": "Everything you need to build a website",
@@ -65,7 +64,7 @@
 			}
 		]
 	},
-	"adventajesData": {
+	"advantagesData": {
 		"title": "    Unlock the Power of Luna Landing: Discover the Key Benefits",
 		"adventajes": [
 			{

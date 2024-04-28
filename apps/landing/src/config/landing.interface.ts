@@ -3,7 +3,7 @@ export interface LandingPageData {
 	headerData: HeaderData;
 	heroData: HeroData;
 	servicesData: ServicesData;
-	adventajesData: AdventajesData;
+	advantagesData: AdvantagesData;
 	brandsData: BrandsData;
 	pricingData: PricingData;
 	footerData: FooterData;
@@ -33,7 +33,7 @@ export interface Service {
 	description: string;
 }
 
-export interface AdventajesData {
+export interface AdvantagesData {
 	title: string;
 	adventajes: Adventaje[];
 }

@@ -1,6 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
-import Adventajes from "@/sections/Adventajes.astro";
+import Advantages from "@/sections/Advantages.astro";
 import Brands from "@/sections/Brands.astro";
 import Footer from "@/sections/Footer.astro";
 import Header from "@/sections/Header.astro";
@@ -18,7 +18,7 @@ const data = await getLandingData();
     <div class="w-3/4">
       <Hero data={data.heroData} />
       <Services data={data.servicesData} />
-      <Adventajes data={data.adventajesData} />
+      <Advantages data={data.advantagesData} />
       <Brands data={data.brandsData} />
       <Pricing data={data.pricingData} />
     </div>
