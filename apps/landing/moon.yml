@@ -7,7 +7,7 @@ fileGroups:
 
 tasks:
   dev:
-    command: 'astro dev --port 3100'
+    command: 'astro dev --port 4200 --host'
     local: true
 
   check:
