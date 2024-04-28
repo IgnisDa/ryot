@@ -25,11 +25,10 @@
 	"headerData": {
 		"logo": "Ryot",
 		"links": [
-			{ "label": "About", "href": "#" },
+			{ "label": "Docs", "href": "https://ignisda.github.io/ryot" },
 			{ "label": "Services", "href": "#" },
 			{ "label": "Prices", "href": "#" },
-			{ "label": "FAQs", "href": "#" },
-			{ "label": "Blog", "href": "#" }
+			{ "label": "FAQs", "href": "#" }
 		]
 	},
 	"heroData": {
