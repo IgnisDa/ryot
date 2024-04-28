@@ -1,0 +1,85 @@
+---
+import Action from "@/components/Action.astro";
+
+interface Props {
+	data: {
+		title: string;
+		subTitle: string;
+		primaryCta: string;
+		secondaryCta: string;
+		highlightedTitle?: string;
+	};
+}
+
+const { data } = Astro.props;
+---
+
+<section id="hero-section" class="flex justify-center mt-48 h-screen">
+  <div class="md:w-1/2">
+    <h1 class="text-4xl text-center font-semibold md:text-6xl">
+      {data.title}
+      <span class="text-primary"> {data.highlightedTitle} </span>
+    </h1>
+    <h2 class="mt-10 text-lg text-center opacity-80 md:text-2xl">
+      {data.subTitle}
+    </h2>
+    <div class="flex justify-evenly mt-10">
+      <Action
+        as="a"
+        type="button"
+        class="bg-black text-white"
+        href="https://github.com/JimmyCamus/luna-landing"
+        target="_blank"
+      >
+        {data.primaryCta}
+      </Action>
+      <Action
+        as="a"
+        class="bg-transparent text-black border border-black"
+        type="button"
+        href="https://github.com/JimmyCamus/luna-landing"
+        target="_blank"
+      >
+        {data.secondaryCta}
+      </Action>
+    </div>
+    <div class="flex justify-center">
+      <Action
+        as="a"
+        class="flex justify-center items-center animate-bounce border-2 border-transparent bg-primary text-white rounded-full w-14 h-14 mt-32 hover:bg-white hover:text-primary hover:border-primary transition"
+        href="#services-section"
+        title="arrow down icon"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="w-8 h-8"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3"></path>
+        </svg>
+      </Action>
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  #hero-section {
+    opacity: 0;
+    animation: fadeIn 0.8s ease-in-out forwards;
+  }
+</style>
