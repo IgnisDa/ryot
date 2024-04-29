@@ -1,3 +1,6 @@
+dependsOn:
+  - 'assets'
+
 fileGroups:
   remix:
     - app/**/*
