@@ -1,7 +1,7 @@
 {
 	"name": "@ryot/landing",
 	"type": "module",
-	"version": "0.0.1",
+	"private": true,
 	"devDependencies": {
 		"tailwind-scrollbar": "3.1.0"
 	},
