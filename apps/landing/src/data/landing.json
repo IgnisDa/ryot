@@ -10,7 +10,7 @@
 			"name": "Ryot",
 			"description": "Track all facets of your life with Ryot!",
 			"url": "https://luna-landing-rust.vercel.app/",
-			"logo": "./public/favicon.svg",
+			"logo": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
 			"contactPoint": {
 				"@type": "ContactPoint",
 				"email": "ignisda2001@gmail.com",
