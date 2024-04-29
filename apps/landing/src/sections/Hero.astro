@@ -1,15 +1,9 @@
 ---
 import Action from "@/components/Action.astro";
+import type { HeroData } from "@/config/landing.interface";
 
 interface Props {
-  data: {
-    title: string;
-    subTitle: string;
-    primaryCta: string;
-    secondaryCta: string;
-    ctaLink: string;
-    highlightedTitle?: string;
-  };
+  data: HeroData;
 }
 
 const { data } = Astro.props;
