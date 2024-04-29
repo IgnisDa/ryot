@@ -76,14 +76,14 @@ export const links: LinksFunction = () => {
 		{
 			rel: "icon",
 			type: "image/png",
-			sizes: "32x32",
-			href: "/favicon-32x32.png",
+			sizes: "16x16",
+			href: "/favicon-16x16.png",
 		},
 		{
 			rel: "icon",
 			type: "image/png",
-			sizes: "16x16",
-			href: "/favicon-16x16.png",
+			sizes: "32x32",
+			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
 		},
 		{
 			rel: "stylesheet",
