@@ -2,13 +2,14 @@
 import Action from "@/components/Action.astro";
 
 interface Props {
-	data: {
-		title: string;
-		subTitle: string;
-		primaryCta: string;
-		secondaryCta: string;
-		highlightedTitle?: string;
-	};
+  data: {
+    title: string;
+    subTitle: string;
+    primaryCta: string;
+    secondaryCta: string;
+    ctaLink: string;
+    highlightedTitle?: string;
+  };
 }
 
 const { data } = Astro.props;
@@ -28,7 +29,7 @@ const { data } = Astro.props;
         as="a"
         type="button"
         class="bg-black text-white"
-        href="https://github.com/JimmyCamus/luna-landing"
+        href={data.ctaLink}
         target="_blank"
       >
         {data.primaryCta}
@@ -37,7 +38,7 @@ const { data } = Astro.props;
         as="a"
         class="bg-transparent text-black border border-black"
         type="button"
-        href="https://github.com/JimmyCamus/luna-landing"
+        href={data.ctaLink}
         target="_blank"
       >
         {data.secondaryCta}

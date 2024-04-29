@@ -1,14 +1,14 @@
 {
 	"meta": {
 		"title": "Ryot",
-		"description": "Track all facets of your life with Ryot!",
+		"description": "A self hosted platform for tracking various facets of your life - media, fitness and much more!",
 		"lang": "en",
 		"charset": "UTF-8",
 		"ldJson": {
 			"@context": "http://schema.org",
 			"@type": "Organization",
 			"name": "Ryot",
-			"description": "Track all facets of your life with Ryot!",
+			"description": "A self hosted platform for tracking various facets of your life - media, fitness and much more!",
 			"url": "https://luna-landing-rust.vercel.app/",
 			"logo": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
 			"contactPoint": {
@@ -34,10 +34,11 @@
 	},
 	"heroData": {
 		"title": "Welcome to the only tracker you will ever need:",
-		"subTitle": "Discover the Beauty of the Cosmos: Explore the Infinite Wonders of Space with Us",
+		"subTitle": "A self hosted platform for tracking various facets of your life - media, fitness and much more!",
 		"primaryCta": "Github Repo",
 		"secondaryCta": "See our pricing",
-		"highlightedTitle": "Ryot"
+		"highlightedTitle": "Ryot",
+		"ctaLink": "https://github.com/IgnisDa/ryot"
 	},
 	"servicesData": {
 		"title": "Everything you need to build a website",
