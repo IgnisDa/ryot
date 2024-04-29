@@ -24,7 +24,7 @@
 	},
 	"headerData": {
 		"logo": "Ryot",
-		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png",
+		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		"links": [
 			{ "label": "Docs", "href": "https://ignisda.github.io/ryot" },
 			{ "label": "Services", "href": "#" },

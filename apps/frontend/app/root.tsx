@@ -29,6 +29,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
 import { Toaster } from "~/components/toaster";
 import {
+	IMAGE_URL,
 	colorSchemeCookie,
 	combineHeaders,
 	getToast,
@@ -65,8 +66,7 @@ export const meta: MetaFunction = () => {
 		},
 		{
 			property: "og:image",
-			content:
-				"https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png",
+			content: IMAGE_URL,
 		},
 	];
 };
