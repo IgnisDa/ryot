@@ -163,7 +163,7 @@ jobs:
         with:
           auto-install: true
 
-      - name: Build plugin
+      - name: Build landing page
         run: moon run landing:build
 
       - name: Deploy to cloudflare pages
