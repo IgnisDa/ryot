@@ -27,14 +27,14 @@ import {
 } from "@remix-run/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
+import { MountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
+import { LOGO_IMAGE_URL } from "~/lib/generals";
 import {
-	IMAGE_URL,
 	colorSchemeCookie,
 	combineHeaders,
 	getToast,
 } from "~/lib/utilities.server";
-import { MountPoint } from "./components/confirmation";
 
 const theme = createTheme({
 	fontFamily: "Poppins",
@@ -66,7 +66,7 @@ export const meta: MetaFunction = () => {
 		},
 		{
 			property: "og:image",
-			content: IMAGE_URL,
+			content: LOGO_IMAGE_URL,
 		},
 	];
 };

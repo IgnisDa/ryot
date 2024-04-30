@@ -3,8 +3,8 @@ import { useMantineTheme } from "@mantine/core";
 import { useNavigate, useSearchParams } from "@remix-run/react";
 import { useAtom } from "jotai";
 import Cookies from "js-cookie";
-import { CurrentWorkoutKey, getStringAsciiValue } from "./generals";
-import { type InProgressWorkout, currentWorkoutAtom } from "./workout";
+import { CurrentWorkoutKey, getStringAsciiValue } from "~/lib/generals";
+import { type InProgressWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();

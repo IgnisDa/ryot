@@ -28,11 +28,9 @@ import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "./generals";
+import { redirectToQueryParam } from "~/lib/generals";
 
 const isProduction = process.env.NODE_ENV === "production";
-export const IMAGE_URL =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
 export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {

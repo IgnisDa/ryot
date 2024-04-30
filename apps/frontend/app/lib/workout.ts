@@ -11,8 +11,8 @@ import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
+import { CurrentWorkoutKey } from "~/lib/generals";
 import type { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
-import { CurrentWorkoutKey } from "./generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;

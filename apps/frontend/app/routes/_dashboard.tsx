@@ -49,9 +49,8 @@ import {
 import { produce } from "immer";
 import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
-import { getLot } from "~/lib/generals";
+import { LOGO_IMAGE_URL, getLot } from "~/lib/generals";
 import {
-	IMAGE_URL,
 	redirectIfNotAuthenticatedOrUpdated,
 	serverVariables,
 } from "~/lib/utilities.server";
@@ -363,7 +362,13 @@ export default function Layout() {
 					<Flex justify="space-between" p="md" hiddenFrom="sm">
 						<Link to={$path("/")} style={{ all: "unset" }}>
 							<Group>
-								<Image src={IMAGE_URL} h={40} w={40} radius="md" darkHidden />
+								<Image
+									src={LOGO_IMAGE_URL}
+									h={40}
+									w={40}
+									radius="md"
+									darkHidden
+								/>
 								<Image
 									src="/logo-light.png"
 									h={40}

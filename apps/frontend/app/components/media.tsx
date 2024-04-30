@@ -70,6 +70,8 @@ import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
+import { HiddenLocationInput } from "~/components/common";
+import { confirmWrapper } from "~/components/confirmation";
 import events from "~/lib/events";
 import {
 	dayjsLib,
@@ -79,8 +81,6 @@ import {
 import { useGetMantineColor } from "~/lib/hooks";
 import type { ApplicationUser } from "~/lib/utilities.server";
 import classes from "~/styles/common.module.css";
-import { HiddenLocationInput } from "./common";
-import { confirmWrapper } from "./confirmation";
 
 export const commitMedia = async (
 	identifier: string,
