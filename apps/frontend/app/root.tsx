@@ -27,13 +27,14 @@ import {
 } from "@remix-run/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
+import { MountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
+import { LOGO_IMAGE_URL } from "~/lib/generals";
 import {
 	colorSchemeCookie,
 	combineHeaders,
 	getToast,
 } from "~/lib/utilities.server";
-import { MountPoint } from "./components/confirmation";
 
 const theme = createTheme({
 	fontFamily: "Poppins",
@@ -65,8 +66,7 @@ export const meta: MetaFunction = () => {
 		},
 		{
 			property: "og:image",
-			content:
-				"https://raw.githubusercontent.com/IgnisDa/ryot/main/apps/frontend/public/icon-512x512.png",
+			content: LOGO_IMAGE_URL,
 		},
 	];
 };
@@ -76,14 +76,14 @@ export const links: LinksFunction = () => {
 		{
 			rel: "icon",
 			type: "image/png",
-			sizes: "32x32",
-			href: "/favicon-32x32.png",
+			sizes: "16x16",
+			href: "/favicon-16x16.png",
 		},
 		{
 			rel: "icon",
 			type: "image/png",
-			sizes: "16x16",
-			href: "/favicon-16x16.png",
+			sizes: "32x32",
+			href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
 		},
 		{
 			rel: "stylesheet",

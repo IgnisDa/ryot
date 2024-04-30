@@ -24,7 +24,7 @@
 			"type": "image/png"
 		},
 		{
-			"src": "/icon-512x512.png",
+			"src": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 			"sizes": "512x512",
 			"type": "image/png"
 		}

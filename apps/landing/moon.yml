@@ -1,0 +1,28 @@
+dependsOn:
+  - 'assets'
+
+fileGroups:
+  astro:
+    - src/**/*
+    - public/**/*
+    - astro.config.*
+    - tailwind.config.*
+
+tasks:
+  dev:
+    command: 'astro dev --port 4200 --host'
+    local: true
+
+  check:
+    command: 'astro check'
+    inputs:
+      - '@group(astro)'
+
+  build:
+    command: 'astro build'
+    deps:
+      - ~:check
+    inputs:
+      - '@group(astro)'
+    outputs:
+      - dist

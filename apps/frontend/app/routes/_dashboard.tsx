@@ -49,7 +49,7 @@ import {
 import { produce } from "immer";
 import { joinURL } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
-import { getLot } from "~/lib/generals";
+import { LOGO_IMAGE_URL, getLot } from "~/lib/generals";
 import {
 	redirectIfNotAuthenticatedOrUpdated,
 	serverVariables,
@@ -363,7 +363,7 @@ export default function Layout() {
 						<Link to={$path("/")} style={{ all: "unset" }}>
 							<Group>
 								<Image
-									src="/icon-512x512.png"
+									src={LOGO_IMAGE_URL}
 									h={40}
 									w={40}
 									radius="md"

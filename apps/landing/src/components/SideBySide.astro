@@ -1,0 +1,37 @@
+---
+import Icon from "@/components/Icon.astro";
+import IconWrapper from "@/components/IconWrapper.astro";
+import { ASSET_PREFIX } from "@/config/constants";
+import type { Adventaje } from "@/config/landing.interface";
+
+interface Props {
+	data: Adventaje;
+	reversed: boolean;
+}
+
+const { data, reversed } = Astro.props;
+---
+
+<article
+  class=`flex justify-between gap-x-32 flex-col mb-20 md:mb-40 ${reversed ? "md:flex-row-reverse" : "md:flex-row"}`
+>
+  <div class="md:w-3/4">
+    <img src={ASSET_PREFIX + data.img} alt={data.imageAlt} class="w-fit" />
+  </div>
+  <div class="flex flex-col md:w-5/6 gap-y-8">
+    <h3 class="text-xl md:text-4xl">{data.title}</h3>
+    <p class="md:text-xl">{data.description}</p>
+    <ul class="flex flex-col gap-y-8">
+      {
+        data.checks.map((check) => (
+          <li class="flex flex-row items-center gap-x-4 md:text-2xl">
+            <IconWrapper>
+              <Icon icon="CheckIcon" />
+            </IconWrapper>
+            {check}
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</article>

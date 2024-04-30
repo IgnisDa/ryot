@@ -26,6 +26,8 @@ dayjs.extend(duration);
 dayjs.extend(localizedFormat);
 
 export const CurrentWorkoutKey = "CurrentWorkout";
+export const LOGO_IMAGE_URL =
+	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
