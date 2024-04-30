@@ -46,7 +46,7 @@ pub async fn import(
             }
         };
         let lot = match record.title_type.as_str() {
-            "Movie" | "Video" | "movie" => MediaLot::Movie,
+            "Movie" | "Video" | "movie" | "video" => MediaLot::Movie,
             "TV Series" | "TV Mini Series" | "tvSeries" | "tvMiniSeries" => MediaLot::Show,
             tt => {
                 failed_items.push(ImportFailedItem {
