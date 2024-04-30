@@ -8,6 +8,6 @@ import robotsTxt from "astro-robots-txt";
 export default defineConfig({
 	site: import.meta.env.DEV
 		? "http://localhost:3000"
-		: "https://luna-landing-rust.vercel.app/",
+		: "https://ryot.pages.dev/",
 	integrations: [tailwind(), sitemap(), robotsTxt()],
 });
