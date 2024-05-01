@@ -4131,6 +4131,7 @@ __metadata:
   dependencies:
     "@ryot/generated": "workspace:*"
     "@types/lodash": "npm:^4.17.0"
+    dayjs: "npm:1.11.10"
     humanize-duration-ts: "npm:2.1.1"
     lodash: "npm:4.17.21"
   languageName: unknown
