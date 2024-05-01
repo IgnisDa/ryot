@@ -1,4 +1,5 @@
 import { UserUnitSystem } from "@ryot/generated/graphql/backend/graphql";
+import dayjs from "dayjs";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
@@ -56,7 +57,7 @@ export const displayDistanceWithUnit = (
  * Format a `Date` into a Rust `NaiveDate`
  */
 export const formatDateToNaiveDate = (t: Date) => {
-	return t.toISOString().split("T")[0];
+	return dayjs(t).format("YYYY-MM-DD");
 };
 
 /**
