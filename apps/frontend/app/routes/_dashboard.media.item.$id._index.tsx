@@ -1823,7 +1823,6 @@ const ProgressUpdateModal = (props: {
 						<DatePickerInput
 							label="Enter exact date"
 							dropdownType="modal"
-							maxDate={new Date()}
 							onChange={setSelectedDate}
 							clearable
 						/>
