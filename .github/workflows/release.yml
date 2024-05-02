@@ -133,9 +133,6 @@ jobs:
   deploy-docs:
     runs-on: ubuntu-latest
     needs: docker-release
-    defaults:
-      run:
-        working-directory: docs
     steps:
       - uses: actions/checkout@v4
 
@@ -147,16 +144,16 @@ jobs:
         uses: abatilo/actions-poetry@v2
 
       - name: Install dependencies
-        run: poetry install
+        run: cd docs && poetry install
 
       - name: Build docs
-        run: poetry run mkdocs build
+        run: cd docs && poetry run mkdocs build
 
-      - name: Push to branch
+      - name: Push to deployment branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: site
+          publish_dir: docs/site
           publish_branch: nf-docs
           force_orphan: true
 
@@ -174,7 +171,7 @@ jobs:
       - name: Build landing page
         run: moon run landing:build
 
-      - name: Deploy to cloudflare pages
+      - name: Push to deployment branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
