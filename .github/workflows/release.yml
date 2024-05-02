@@ -149,8 +149,16 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
-      - name: Deploy to github pages
-        run: poetry run mkdocs gh-deploy --force
+      - name: Build docs
+        run: poetry run mkdocs build
+
+      - name: Push to branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          publish_branch: nf-docs
+          force_orphan: true
 
   deploy-landing:
     runs-on: ubuntu-latest
@@ -171,5 +179,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: apps/landing/dist
-          publish_branch: cf-pages
+          publish_branch: nf-landing
           force_orphan: true
