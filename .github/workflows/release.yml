@@ -149,7 +149,7 @@ jobs:
       - name: Build docs
         run: cd docs && poetry run mkdocs build
 
-      - name: Push to deploy branch
+      - name: Push to deployment branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -171,7 +171,7 @@ jobs:
       - name: Build landing page
         run: moon run landing:build
 
-      - name: Push to deploy branch
+      - name: Push to deployment branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
