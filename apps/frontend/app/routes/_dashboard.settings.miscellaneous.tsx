@@ -124,6 +124,23 @@ export default function Page() {
 										Update exercises
 									</Button>
 								</Stack>
+								<Stack>
+									<Box>
+										<Title order={4}>Jobs for all users</Title>
+										<Text>
+											Update the user summaries. Also recalculate the media
+											associations for all users. The more users you have, the
+											longer this will take.
+										</Text>
+									</Box>
+									<Button
+										{...buttonProps}
+										name="jobName"
+										value={BackgroundJob.PerformUserBackgroundTasks}
+									>
+										Perform user tasks
+									</Button>
+								</Stack>
 							</>
 						) : null}
 						<Stack>
