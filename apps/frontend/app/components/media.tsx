@@ -468,7 +468,7 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[];
+	mediaReason?: UserToMediaReason[] | null;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -606,7 +606,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[];
+	mediaReason?: UserToMediaReason[] | null;
 }) => {
 	const navigate = useNavigate();
 	const id = props.item.identifier;
