@@ -2,6 +2,7 @@
 import Layout from "@/layouts/Layout.astro";
 import Advantages from "@/sections/Advantages.astro";
 import Brands from "@/sections/Brands.astro";
+import Contact from "@/sections/Contact.astro";
 import Footer from "@/sections/Footer.astro";
 import Header from "@/sections/Header.astro";
 import Hero from "@/sections/Hero.astro";
@@ -15,12 +16,13 @@ const data = await getLandingData();
 <Layout meta={data.meta}>
   <Header data={data.headerData} />
   <main class="flex flex-col justify-center items-center">
-    <div class="w-3/4">
+    <div class="w-4/5">
       <Hero data={data.heroData} />
       <Services data={data.servicesData} />
       <Advantages data={data.advantagesData} />
       <Brands data={data.brandsData} />
       <Pricing data={data.pricingData} />
+      <Contact />
     </div>
     <Footer data={data.footerData} />
   </main>
