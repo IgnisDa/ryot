@@ -15,6 +15,7 @@ import {
 	Image,
 	Input,
 	Loader,
+	type MantineStyleProp,
 	Menu,
 	Modal,
 	NumberInput,
@@ -28,11 +29,10 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	ThemeIcon,
 	Title,
 	Tooltip,
 	useComputedColorScheme,
-	ThemeIcon,
-	type MantineStyleProp,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
@@ -52,8 +52,8 @@ import {
 	type ReviewItem,
 	type UserMediaReminderPartFragment,
 	UserReviewScale,
-	Visibility,
 	UserToMediaReason,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
