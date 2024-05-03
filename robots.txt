@@ -1,3 +1,0 @@
-User-agent: *
-Allow: /
-Sitemap: https://ryot.pages.dev/sitemap-index.xml

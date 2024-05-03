@@ -7,6 +7,6 @@ import robotsTxt from "astro-robots-txt";
 export default defineConfig({
 	site: import.meta.env.DEV
 		? "http://localhost:4200"
-		: "https://ryot.pages.dev/",
+		: "https://ryot.io/",
 	integrations: [tailwind(), sitemap(), robotsTxt()],
 });
