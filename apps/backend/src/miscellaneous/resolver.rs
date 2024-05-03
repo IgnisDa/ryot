@@ -2884,13 +2884,18 @@ impl MiscellaneousService {
                 }
                 let previous_reasons =
                     HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
-                let mut u: user_to_entity::ActiveModel = u.into();
-                if new_reasons != previous_reasons {
-                    tracing::debug!("Updating user_to_entity = {id:?}", id = (&u.id));
-                    u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                if new_reasons.is_empty() {
+                    tracing::debug!("Deleting user_to_entity = {id:?}", id = (&u.id));
+                    u.delete(&self.db).await.unwrap();
+                } else {
+                    let mut u: user_to_entity::ActiveModel = u.into();
+                    if new_reasons != previous_reasons {
+                        tracing::debug!("Updating user_to_entity = {id:?}", id = (&u.id));
+                        u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                    }
+                    u.needs_to_be_updated = ActiveValue::Set(None);
+                    u.update(&self.db).await.unwrap();
                 }
-                u.needs_to_be_updated = ActiveValue::Set(None);
-                u.update(&self.db).await.unwrap();
             }
         }
         Ok(())
