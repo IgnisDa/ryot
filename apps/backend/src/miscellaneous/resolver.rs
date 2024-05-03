@@ -2813,12 +2813,12 @@ impl MiscellaneousService {
                 .all(&self.db)
                 .await
                 .unwrap();
-            for u in all_user_to_entities {
+            for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
-                if u.metadata_id.is_some() {
+                if ute.metadata_id.is_some() {
                     if Seen::find()
-                        .filter(seen::Column::UserId.eq(u.user_id))
-                        .filter(seen::Column::MetadataId.eq(u.metadata_id))
+                        .filter(seen::Column::UserId.eq(ute.user_id))
+                        .filter(seen::Column::MetadataId.eq(ute.metadata_id))
                         .count(&self.db)
                         .await
                         .unwrap()
@@ -2826,9 +2826,9 @@ impl MiscellaneousService {
                     {
                         new_reasons.insert(UserToMediaReason::Seen);
                     }
-                } else if u.person_id.is_some() || u.metadata_group_id.is_some() {
+                } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
                 } else {
-                    tracing::debug!("Skipping user_to_entity = {:?}", u.id);
+                    tracing::debug!("Skipping user_to_entity = {:?}", ute.id);
                     continue;
                 };
 
@@ -2837,10 +2837,10 @@ impl MiscellaneousService {
                     .column(collection_to_entity::Column::CollectionId)
                     .filter(
                         collection_to_entity::Column::MetadataId
-                            .eq(u.metadata_id)
-                            .or(collection_to_entity::Column::PersonId.eq(u.person_id))
+                            .eq(ute.metadata_id)
+                            .or(collection_to_entity::Column::PersonId.eq(ute.person_id))
                             .or(collection_to_entity::Column::MetadataGroupId
-                                .eq(u.metadata_group_id)),
+                                .eq(ute.metadata_group_id)),
                     )
                     .filter(collection_to_entity::Column::CollectionId.is_not_null())
                     .into_tuple::<i32>()
@@ -2848,12 +2848,12 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 if Review::find()
-                    .filter(review::Column::UserId.eq(u.user_id))
+                    .filter(review::Column::UserId.eq(ute.user_id))
                     .filter(
                         review::Column::MetadataId
-                            .eq(u.metadata_id)
-                            .or(review::Column::MetadataGroupId.eq(u.metadata_group_id))
-                            .or(review::Column::PersonId.eq(u.person_id)),
+                            .eq(ute.metadata_id)
+                            .or(review::Column::MetadataGroupId.eq(ute.metadata_group_id))
+                            .or(review::Column::PersonId.eq(ute.person_id)),
                     )
                     .count(&self.db)
                     .await
@@ -2864,8 +2864,8 @@ impl MiscellaneousService {
                 }
                 let is_in_collection = !collections_part_of.is_empty();
                 let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
-                let is_reminder_active = u.media_reminder.is_some();
-                let is_owned = u.media_ownership.is_some();
+                let is_reminder_active = ute.media_reminder.is_some();
+                let is_owned = ute.media_ownership.is_some();
                 let is_watchlist = collections_part_of.contains(&watchlist_collection_id);
                 if is_in_collection {
                     new_reasons.insert(UserToMediaReason::Collection);
@@ -2883,18 +2883,19 @@ impl MiscellaneousService {
                     new_reasons.insert(UserToMediaReason::Watchlist);
                 }
                 let previous_reasons =
-                    HashSet::from_iter(u.media_reason.clone().unwrap_or_default().into_iter());
+                    HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons.is_empty() {
-                    tracing::debug!("Deleting user_to_entity = {id:?}", id = (&u.id));
-                    u.delete(&self.db).await.unwrap();
+                    tracing::debug!("Deleting user_to_entity = {id:?}", id = (&ute.id));
+                    ute.delete(&self.db).await.unwrap();
                 } else {
-                    let mut u: user_to_entity::ActiveModel = u.into();
+                    let mut ute: user_to_entity::ActiveModel = ute.into();
                     if new_reasons != previous_reasons {
-                        tracing::debug!("Updating user_to_entity = {id:?}", id = (&u.id));
-                        u.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
+                        tracing::debug!("Updating user_to_entity = {id:?}", id = (&ute.id));
+                        ute.media_reason =
+                            ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
-                    u.needs_to_be_updated = ActiveValue::Set(None);
-                    u.update(&self.db).await.unwrap();
+                    ute.needs_to_be_updated = ActiveValue::Set(None);
+                    ute.update(&self.db).await.unwrap();
                 }
             }
         }
