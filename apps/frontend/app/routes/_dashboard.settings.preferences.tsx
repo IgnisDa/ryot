@@ -19,6 +19,7 @@ import {
 	TagsInput,
 	Text,
 	Title,
+	Tooltip,
 	rem,
 } from "@mantine/core";
 import { useListState } from "@mantine/hooks";
@@ -169,31 +170,33 @@ export default function Page() {
 				<Group justify="space-between">
 					<Title>Preferences</Title>
 					<Form method="post" reloadDocument>
-						<ActionIcon
-							color="red"
-							variant="outline"
-							onClick={async (e) => {
-								if (!loaderData.userDetails.isDemo) {
-									if (
-										!confirm(
-											"This will reset all your preferences to default. Are you sure you want to continue?",
+						<Tooltip label="Reset preferences">
+							<ActionIcon
+								color="red"
+								variant="outline"
+								onClick={async (e) => {
+									if (!loaderData.userDetails.isDemo) {
+										if (
+											!confirm(
+												"This will reset all your preferences to default. Are you sure you want to continue?",
+											)
 										)
-									)
-										e.preventDefault();
-									else
-										notifications.show({
-											message:
-												"Preferences have been reset. Please reload the page.",
-											color: "green",
-										});
-								} else notifications.show(notificationContent);
-							}}
-							type="submit"
-							name="reset"
-							value="reset"
-						>
-							<IconRotate360 size={20} />
-						</ActionIcon>
+											e.preventDefault();
+										else
+											notifications.show({
+												message:
+													"Preferences have been reset. Please reload the page.",
+												color: "green",
+											});
+									} else notifications.show(notificationContent);
+								}}
+								type="submit"
+								name="reset"
+								value="reset"
+							>
+								<IconRotate360 size={20} />
+							</ActionIcon>
+						</Tooltip>
 					</Form>
 				</Group>
 				{loaderData.userDetails.isDemo ? (

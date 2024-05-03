@@ -21,8 +21,8 @@
 </div>
 
 <p align="center">
-    <a href="https://ignisda.github.io/ryot" target="_blank">Installation</a> •
-    <a href="https://ignisda.github.io/ryot/configuration" target="_blank">Configuration</a> •
+    <a href="https://docs.ryot.io" target="_blank">Installation</a> •
+    <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
     <a href="https://ryot.fly.dev" target="_blank">Demo</a>
 </p>
 
@@ -34,7 +34,7 @@ hosted tracker you will ever need!
 ## IMPORTANT NOTE FOR `v4.*` USERS
 
 If you were using `v4.*` of Ryot, please read the [migration
-guide](https://ignisda.github.io/ryot/migration.html#from-v4-to-v5) for instructions.
+guide](https://docs.ryot.io/migration.html#from-v4-to-v5) for instructions.
 
 ## 💻 Demo
 
@@ -62,9 +62,9 @@ special tool on your computer or phone that lets you keep track of all these dig
 
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
   and fitness
-- ✅ Import data from Goodreads, Trakt, Strong App [etc](https://ignisda.github.io/ryot/importing.html)
-- ✅ Integration with Jellyfin, Kodi, Plex, Audiobookshelf [etc](https://ignisda.github.io/ryot/integrations.html)
-- ✅ [Supports](https://ignisda.github.io/ryot/guides/openid.html) OpenID Connect
+- ✅ Import data from Goodreads, Trakt, Strong App [etc](https://docs.ryot.io/importing.html)
+- ✅ Integration with Jellyfin, Kodi, Plex, Audiobookshelf [etc](https://docs.ryot.io/integrations.html)
+- ✅ [Supports](https://docs.ryot.io/guides/openid.html) OpenID Connect
 - ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
 - ✅ PWA enabled

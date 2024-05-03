@@ -488,7 +488,7 @@ export default function Page() {
 								<Group>
 									<Anchor
 										size="xs"
-										href="https://ignisda.github.io/ryot/guides/exporting.html"
+										href={`${loaderData.coreDetails.docsLink}/guides/exporting.html`}
 										target="_blank"
 									>
 										Docs

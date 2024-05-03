@@ -9,7 +9,7 @@
 			"@type": "Organization",
 			"name": "Ryot",
 			"description": "A self hosted platform for tracking various facets of your life - media, fitness and much more!",
-			"url": "https://ryot.pages.dev/",
+			"url": "https://ryot.io/",
 			"logo": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
 			"contactPoint": {
 				"@type": "ContactPoint",
@@ -26,10 +26,10 @@
 		"logo": "Ryot",
 		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		"links": [
-			{ "label": "Docs", "href": "https://ignisda.github.io/ryot" },
+			{ "label": "Docs", "href": "https://docs.ryot.io" },
 			{ "label": "Services", "href": "#" },
 			{ "label": "Prices", "href": "#" },
-			{ "label": "FAQs", "href": "#" }
+			{ "label": "Contact", "href": "#contact-section" }
 		]
 	},
 	"heroData": {
