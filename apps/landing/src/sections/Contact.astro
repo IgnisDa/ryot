@@ -101,7 +101,15 @@
       </div>
       <div class="w-full px-4 lg:w-1/2 xl:w-5/12">
         <div class="relative p-2 bg-white rounded-lg shadow-lg sm:p-12">
-          <form name="contact" method="POST" data-netlify="true">
+          <form
+            name="contact"
+            method="POST"
+            data-netlify="true"
+            netlify-honeypot="bot-field"
+          >
+            <label class="hidden">
+              Don't fill this out if you're human: <input name="bot-field" />
+            </label>
             <div class="mb-6">
               <input
                 name="email"
