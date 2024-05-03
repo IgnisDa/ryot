@@ -908,6 +908,8 @@ pub mod media {
         Owned,
         #[sea_orm(string_value = "Monitoring")]
         Monitoring,
+        #[sea_orm(string_value = "Watchlist")]
+        Watchlist,
     }
 
     #[derive(Debug, SimpleObject)]
