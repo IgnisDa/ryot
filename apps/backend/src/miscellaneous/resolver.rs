@@ -1522,7 +1522,7 @@ impl MiscellaneousService {
         Ok(CoreDetails {
             timezone: self.timezone.to_string(),
             author_name: AUTHOR.to_owned(),
-            docs_link: "https://ignisda.github.io/ryot".to_owned(),
+            docs_link: "https://ryot-docs.netlify.app".to_owned(),
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             page_limit: self.config.frontend.page_size,
             token_valid_for_days: self.config.users.token_valid_for_days,

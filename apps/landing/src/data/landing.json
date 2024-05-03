@@ -26,7 +26,7 @@
 		"logo": "Ryot",
 		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		"links": [
-			{ "label": "Docs", "href": "https://ignisda.github.io/ryot" },
+			{ "label": "Docs", "href": "https://ryot-docs.netlify.app" },
 			{ "label": "Services", "href": "#" },
 			{ "label": "Prices", "href": "#" },
 			{ "label": "FAQs", "href": "#" }
