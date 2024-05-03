@@ -32,6 +32,7 @@ import {
 	Tooltip,
 	useComputedColorScheme,
 	ThemeIcon,
+	type MantineStyleProp,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
@@ -451,7 +452,8 @@ export const ReviewItemDisplay = (props: {
 const blackBgStyles = {
 	backgroundColor: "rgba(0, 0, 0, 0.75)",
 	borderRadius: 3,
-};
+	padding: 2,
+} satisfies MantineStyleProp;
 
 export const BaseDisplayItem = (props: {
 	name: string;
@@ -530,7 +532,6 @@ export const BaseDisplayItem = (props: {
 				</Box>
 				{props.mediaReason ? (
 					<Group
-						p={2}
 						style={blackBgStyles}
 						pos="absolute"
 						bottom={5}
@@ -653,7 +654,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			mediaReason={props.mediaReason}
 			topRight={
 				props.averageRating ? (
-					<Box p={2} style={blackBgStyles}>
+					<Box style={blackBgStyles}>
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 							<Text c="white" size="xs" fw="bold" pr={4}>
