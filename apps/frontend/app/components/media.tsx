@@ -670,14 +670,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					</Box>
 				) : props.noRatingLink ? undefined : (
 					<Box
-						p={3}
-						pos="absolute"
-						top={5}
-						right={5}
-						style={{
-							backgroundColor: "rgba(0, 0, 0, 0.75)",
-							borderRadius: 3,
-						}}
+						style={blackBgStyles}
 						onClick={(e) => {
 							e.preventDefault();
 							navigate(
