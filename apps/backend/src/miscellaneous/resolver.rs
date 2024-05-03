@@ -2828,7 +2828,7 @@ impl MiscellaneousService {
                     }
                 } else if u.person_id.is_some() || u.metadata_group_id.is_some() {
                 } else {
-                    tracing::debug!("Skipping ute = {:?}", u);
+                    tracing::debug!("Skipping user_to_entity = {:?}", u.id);
                     continue;
                 };
 
