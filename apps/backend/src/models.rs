@@ -261,7 +261,7 @@ pub mod media {
     pub struct MediaListItem {
         pub data: MetadataSearchItem,
         pub average_rating: Option<Decimal>,
-        pub media_reason: Vec<UserToMediaReason>,
+        pub media_reason: Option<Vec<UserToMediaReason>>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]

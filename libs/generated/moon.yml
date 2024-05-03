@@ -1,18 +1,17 @@
-type: library
+type: 'library'
 
 tasks:
   backend-graphql:
     command:
-      - graphql-codegen
+      - 'graphql-codegen'
       - '--config'
-      - src/graphql/backend/codegen.ts
-    outputs:
-      - src/graphql/backend
+      - 'src/graphql/backend/codegen.ts'
+    outputs: ['src/graphql/backend']
     local: true
 
 workspace:
   inheritedTasks:
     exclude:
-      - build
-      - lint
-      - format
+      - 'build'
+      - 'lint'
+      - 'format'

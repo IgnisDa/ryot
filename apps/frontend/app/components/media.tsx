@@ -61,7 +61,7 @@ import {
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconBackpack,
-	IconBookmarksFilled,
+	IconBookmarks,
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
@@ -468,7 +468,7 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[];
+	mediaReason?: UserToMediaReason[] | null;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -492,6 +492,10 @@ export const BaseDisplayItem = (props: {
 			</Box>
 		);
 
+	const reasons = props.mediaReason?.filter((r) =>
+		[UserToMediaReason.Seen, UserToMediaReason.Watchlist].includes(r),
+	);
+
 	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
 		<ThemeIcon variant="transparent" size="sm" color="lime" key={idx}>
 			{icon}
@@ -505,7 +509,6 @@ export const BaseDisplayItem = (props: {
 			justify="center"
 			direction="column"
 		>
-			{props.topLeft}
 			<SurroundingElement style={{ flex: "none" }} pos="relative">
 				<Image
 					src={props.imageLink}
@@ -527,29 +530,29 @@ export const BaseDisplayItem = (props: {
 						getInitials(props.name),
 					)}
 				/>
+				<Box pos="absolute" style={{ zIndex: 999 }} top={10} left={10}>
+					{props.topLeft}
+				</Box>
 				<Box pos="absolute" top={5} right={5}>
 					{props.topRight}
 				</Box>
-				{props.mediaReason ? (
+				{reasons && reasons.length > 0 ? (
 					<Group
 						style={blackBgStyles}
 						pos="absolute"
 						bottom={5}
 						left={5}
-						gap="xs"
+						gap={3}
 					>
-						{props.mediaReason
+						{reasons
 							.map((r) =>
 								match(r)
 									.with(UserToMediaReason.Seen, () => (
 										<IconRosetteDiscountCheck />
 									))
-									.with(UserToMediaReason.Watchlist, () => (
-										<IconBookmarksFilled />
-									))
-									.otherwise(() => undefined),
+									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
+									.run(),
 							)
-							.filter(Boolean)
 							.map((icon, idx) => themeIconSurrounder(idx, icon))}
 					</Group>
 				) : null}
@@ -605,7 +608,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[];
+	mediaReason?: UserToMediaReason[] | null;
 }) => {
 	const navigate = useNavigate();
 	const id = props.item.identifier;
@@ -640,15 +643,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			imagePlaceholder={getInitials(props.item?.title || "")}
 			topLeft={
 				props.imageOverlayForLoadingIndicator ? (
-					<Loader
-						pos="absolute"
-						style={{ zIndex: 999 }}
-						top={10}
-						left={10}
-						color="red"
-						variant="bars"
-						size="sm"
-					/>
+					<Loader color="red" variant="bars" size="sm" />
 				) : null
 			}
 			mediaReason={props.mediaReason}
@@ -675,14 +670,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					</Box>
 				) : props.noRatingLink ? undefined : (
 					<Box
-						p={3}
-						pos="absolute"
-						top={5}
-						right={5}
-						style={{
-							backgroundColor: "rgba(0, 0, 0, 0.75)",
-							borderRadius: 3,
-						}}
+						style={blackBgStyles}
 						onClick={(e) => {
 							e.preventDefault();
 							navigate(
