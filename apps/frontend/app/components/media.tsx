@@ -15,6 +15,7 @@ import {
 	Image,
 	Input,
 	Loader,
+	type MantineStyleProp,
 	Menu,
 	Modal,
 	NumberInput,
@@ -28,6 +29,7 @@ import {
 	Text,
 	TextInput,
 	Textarea,
+	ThemeIcon,
 	Title,
 	Tooltip,
 	useComputedColorScheme,
@@ -50,6 +52,7 @@ import {
 	type ReviewItem,
 	type UserMediaReminderPartFragment,
 	UserReviewScale,
+	UserToMediaReason,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
@@ -58,10 +61,12 @@ import {
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconBackpack,
+	IconBookmarksFilled,
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
 	IconPercentage,
+	IconRosetteDiscountCheck,
 	IconStarFilled,
 	IconTrash,
 	IconX,
@@ -444,6 +449,12 @@ export const ReviewItemDisplay = (props: {
 	);
 };
 
+const blackBgStyles = {
+	backgroundColor: "rgba(0, 0, 0, 0.75)",
+	borderRadius: 3,
+	padding: 2,
+} satisfies MantineStyleProp;
+
 export const BaseDisplayItem = (props: {
 	name: string;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
@@ -457,6 +468,7 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
+	mediaReason?: UserToMediaReason[];
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -480,13 +492,18 @@ export const BaseDisplayItem = (props: {
 			</Box>
 		);
 
+	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
+		<ThemeIcon variant="transparent" size="sm" color="lime" key={idx}>
+			{icon}
+		</ThemeIcon>
+	);
+
 	return (
 		<Flex
 			key={`${props.bottomLeft}-${props.bottomRight}-${props.name}`}
 			align="center"
 			justify="center"
 			direction="column"
-			pos="relative"
 		>
 			{props.topLeft}
 			<SurroundingElement style={{ flex: "none" }} pos="relative">
@@ -510,7 +527,32 @@ export const BaseDisplayItem = (props: {
 						getInitials(props.name),
 					)}
 				/>
-				{props.topRight}
+				<Box pos="absolute" top={5} right={5}>
+					{props.topRight}
+				</Box>
+				{props.mediaReason ? (
+					<Group
+						style={blackBgStyles}
+						pos="absolute"
+						bottom={5}
+						left={5}
+						gap="xs"
+					>
+						{props.mediaReason
+							.map((r) =>
+								match(r)
+									.with(UserToMediaReason.Seen, () => (
+										<IconRosetteDiscountCheck />
+									))
+									.with(UserToMediaReason.Watchlist, () => (
+										<IconBookmarksFilled />
+									))
+									.otherwise(() => undefined),
+							)
+							.filter(Boolean)
+							.map((icon, idx) => themeIconSurrounder(idx, icon))}
+					</Group>
+				) : null}
 			</SurroundingElement>
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				<Flex justify="space-between" direction="row" w="100%">
@@ -563,8 +605,10 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
+	mediaReason?: UserToMediaReason[];
 }) => {
 	const navigate = useNavigate();
+	const id = props.item.identifier;
 
 	return (
 		<BaseDisplayItem
@@ -575,25 +619,19 @@ export const MediaItemWithoutUpdateModal = (props: {
 						? props.href
 						: match(props.entityLot)
 								.with(EntityLot.Media, undefined, null, () =>
-									$path("/media/item/:id", { id: props.item.identifier }),
+									$path("/media/item/:id", { id }),
 								)
 								.with(EntityLot.MediaGroup, () =>
-									$path("/media/groups/item/:id", {
-										id: props.item.identifier,
-									}),
+									$path("/media/groups/item/:id", { id }),
 								)
 								.with(EntityLot.Person, () =>
-									$path("/media/people/item/:id", {
-										id: props.item.identifier,
-									}),
+									$path("/media/people/item/:id", { id }),
 								)
 								.with(EntityLot.Exercise, () =>
-									$path("/fitness/exercises/item/:id", {
-										id: props.item.identifier,
-									}),
+									$path("/fitness/exercises/item/:id", { id }),
 								)
 								.with(EntityLot.Collection, () =>
-									$path("/collections/:id", { id: props.item.identifier }),
+									$path("/collections/:id", { id }),
 								)
 								.exhaustive()
 					: undefined
@@ -613,18 +651,10 @@ export const MediaItemWithoutUpdateModal = (props: {
 					/>
 				) : null
 			}
+			mediaReason={props.mediaReason}
 			topRight={
 				props.averageRating ? (
-					<Box
-						p={2}
-						pos="absolute"
-						top={5}
-						right={5}
-						style={{
-							backgroundColor: "rgba(0, 0, 0, 0.75)",
-							borderRadius: 3,
-						}}
-					>
+					<Box style={blackBgStyles}>
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 							<Text c="white" size="xs" fw="bold" pr={4}>
@@ -656,11 +686,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						onClick={(e) => {
 							e.preventDefault();
 							navigate(
-								$path(
-									"/media/item/:id",
-									{ id: props.item.identifier },
-									{ openReviewModal: true },
-								),
+								$path("/media/item/:id", { id }, { openReviewModal: true }),
 							);
 						}}
 					>

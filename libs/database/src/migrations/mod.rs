@@ -20,6 +20,7 @@ mod m20231219_create_metadata_relations;
 mod m20240415_is_v5_migration;
 mod m20240416_change_json_to_generic_json;
 mod m20240425_add_created_by_user_id_column_to_execise;
+mod m20240503_update_user_to_entity_to_recalculate;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -57,6 +58,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240415_is_v5_migration::Migration),
             Box::new(m20240416_change_json_to_generic_json::Migration),
             Box::new(m20240425_add_created_by_user_id_column_to_execise::Migration),
+            Box::new(m20240503_update_user_to_entity_to_recalculate::Migration),
         ]
     }
 }

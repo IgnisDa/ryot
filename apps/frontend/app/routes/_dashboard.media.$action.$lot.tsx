@@ -397,6 +397,7 @@ export default function Page() {
 												publishYear: lm.data.publishYear?.toString(),
 											}}
 											averageRating={lm.averageRating ?? undefined}
+											mediaReason={lm.mediaReason}
 											lot={loaderData.lot}
 											href={$path("/media/item/:id", {
 												id: lm.data.identifier,

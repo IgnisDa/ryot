@@ -261,6 +261,7 @@ pub mod media {
     pub struct MediaListItem {
         pub data: MetadataSearchItem,
         pub average_rating: Option<Decimal>,
+        pub media_reason: Vec<UserToMediaReason>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
@@ -892,7 +893,17 @@ pub mod media {
     }
 
     #[derive(
-        Copy, Clone, Debug, PartialEq, Eq, DeriveActiveEnum, EnumIter, Serialize, Deserialize, Hash,
+        Copy,
+        Clone,
+        Debug,
+        Enum,
+        PartialEq,
+        Eq,
+        DeriveActiveEnum,
+        EnumIter,
+        Serialize,
+        Deserialize,
+        Hash,
     )]
     #[sea_orm(rs_type = "String", db_type = "String(None)")]
     pub enum UserToMediaReason {
@@ -908,6 +919,8 @@ pub mod media {
         Owned,
         #[sea_orm(string_value = "Monitoring")]
         Monitoring,
+        #[sea_orm(string_value = "Watchlist")]
+        Watchlist,
     }
 
     #[derive(Debug, SimpleObject)]
