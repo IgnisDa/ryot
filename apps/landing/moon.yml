@@ -3,10 +3,10 @@ dependsOn:
 
 fileGroups:
   astro:
-    - src/**/*
-    - public/**/*
-    - astro.config.*
-    - tailwind.config.*
+    - 'src/**/*'
+    - 'public/**/*'
+    - 'astro.config.*'
+    - 'tailwind.config.*'
 
 tasks:
   dev:
@@ -15,14 +15,10 @@ tasks:
 
   check:
     command: 'astro check'
-    inputs:
-      - '@group(astro)'
+    inputs: ['@group(astro)']
 
   build:
     command: 'astro build'
-    deps:
-      - ~:check
-    inputs:
-      - '@group(astro)'
-    outputs:
-      - dist
+    deps: ['~:check']
+    inputs: ['@group(astro)']
+    outputs: ['dist']

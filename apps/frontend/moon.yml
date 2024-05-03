@@ -3,36 +3,29 @@ dependsOn:
 
 fileGroups:
   remix:
-    - app/**/*
-    - public/**/*
-    - env.d.ts
-    - remix.config.*
+    - 'app/**/*'
+    - 'public/**/*'
+    - 'env.d.ts'
+    - 'remix.config.*'
 
 tasks:
   routes:
-    command: remix-routes
-    inputs:
-      - '@group(remix)'
-    outputs:
-      - app/remix-routes.d.ts
+    command: 'remix-routes'
+    inputs: ['@group(remix)']
+    outputs: ['app/remix-routes.d.ts']
 
   dev:
     command: 'remix vite:dev --port 3000 --host'
     local: true
-    deps:
-      - routes
+    deps: ['~:routes']
 
   build:
-    deps:
-      - routes
     command: 'remix vite:build'
-    inputs:
-      - '@group(remix)'
-    outputs:
-      - build
+    inputs: ['@group(remix)']
+    outputs: ['build']
+    deps: ['~:routes']
     options:
       runDepsInParallel: false
 
   typecheck:
-    inputs:
-      - '@group(remix)'
+    inputs: ['@group(remix)']

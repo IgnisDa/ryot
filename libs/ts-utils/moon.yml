@@ -1,6 +1,6 @@
-type: library
+type: 'library'
 
 workspace:
   inheritedTasks:
     exclude:
-      - build
+      - 'build'
