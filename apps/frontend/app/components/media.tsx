@@ -488,7 +488,6 @@ export const BaseDisplayItem = (props: {
 			align="center"
 			justify="center"
 			direction="column"
-			pos="relative"
 		>
 			{props.topLeft}
 			<SurroundingElement style={{ flex: "none" }} pos="relative">
