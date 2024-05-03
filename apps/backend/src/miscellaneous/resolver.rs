@@ -2733,18 +2733,16 @@ impl MiscellaneousService {
         let core_sqlite_storage = &mut self.perform_core_application_job.clone();
         let sqlite_storage = &mut self.perform_application_job.clone();
         match job_name {
-            BackgroundJob::YankIntegrationsData => {
-                core_sqlite_storage
-                    .push(CoreApplicationJob::YankIntegrationsData(user_id))
-                    .await?;
-            }
-            BackgroundJob::CalculateSummary => {
-                sqlite_storage
-                    .push(ApplicationJob::RecalculateUserSummary(user_id))
-                    .await?;
-            }
-            BackgroundJob::UpdateAllMetadata => {
+            BackgroundJob::UpdateAllMetadata
+            | BackgroundJob::UpdateAllExercises
+            | BackgroundJob::RecalculateCalendarEvents
+            | BackgroundJob::PerformUserBackgroundTasks => {
                 self.admin_account_guard(user_id).await?;
+            }
+            _ => {}
+        }
+        match job_name {
+            BackgroundJob::UpdateAllMetadata => {
                 let many_metadata = Metadata::find()
                     .select_only()
                     .column(metadata::Column::Id)
@@ -2758,7 +2756,6 @@ impl MiscellaneousService {
                 }
             }
             BackgroundJob::UpdateAllExercises => {
-                self.admin_account_guard(user_id).await?;
                 let service = ExerciseService::new(
                     &self.db,
                     self.config.clone(),
@@ -2768,9 +2765,23 @@ impl MiscellaneousService {
                 service.deploy_update_exercise_library_job().await?;
             }
             BackgroundJob::RecalculateCalendarEvents => {
-                self.admin_account_guard(user_id).await?;
                 sqlite_storage
                     .push(ApplicationJob::RecalculateCalendarEvents)
+                    .await?;
+            }
+            BackgroundJob::PerformUserBackgroundTasks => {
+                sqlite_storage
+                    .push(ApplicationJob::PerformUserBackgroundTasks)
+                    .await?;
+            }
+            BackgroundJob::YankIntegrationsData => {
+                core_sqlite_storage
+                    .push(CoreApplicationJob::YankIntegrationsData(user_id))
+                    .await?;
+            }
+            BackgroundJob::CalculateSummary => {
+                sqlite_storage
+                    .push(ApplicationJob::RecalculateUserSummary(user_id))
                     .await?;
             }
             BackgroundJob::EvaluateWorkouts => {
@@ -7415,6 +7426,14 @@ GROUP BY m.id;
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
+    }
+
+    pub async fn perform_user_jobs(&self) -> Result<()> {
+        tracing::trace!("Cleaning up user and metadata association");
+        self.cleanup_user_and_metadata_association().await?;
+        tracing::trace!("Removing old user summaries and regenerating them");
+        self.regenerate_user_summaries().await?;
+        Ok(())
     }
 
     #[cfg(debug_assertions)]

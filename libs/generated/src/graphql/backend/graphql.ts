@@ -69,6 +69,7 @@ export type AuthUserInput = {
 export enum BackgroundJob {
   CalculateSummary = 'CALCULATE_SUMMARY',
   EvaluateWorkouts = 'EVALUATE_WORKOUTS',
+  PerformUserBackgroundTasks = 'PERFORM_USER_BACKGROUND_TASKS',
   RecalculateCalendarEvents = 'RECALCULATE_CALENDAR_EVENTS',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
   UpdateAllMetadata = 'UPDATE_ALL_METADATA',

@@ -74,13 +74,7 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
 
 pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    tracing::trace!("Cleaning up user and metadata association");
-    misc_service
-        .cleanup_user_and_metadata_association()
-        .await
-        .unwrap();
-    tracing::trace!("Removing old user summaries and regenerating them");
-    misc_service.regenerate_user_summaries().await.unwrap();
+    misc_service.perform_user_jobs().await.unwrap();
     Ok(())
 }
 
@@ -147,6 +141,7 @@ pub enum ApplicationJob {
     ReviewPosted(ReviewPostedEvent),
     PerformExport(i32, Vec<ExportItem>),
     RecalculateUserSummary(i32),
+    PerformUserBackgroundTasks,
 }
 
 impl Job for ApplicationJob {
@@ -191,6 +186,9 @@ pub async fn perform_application_job(
             .is_ok(),
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
+        }
+        ApplicationJob::PerformUserBackgroundTasks => {
+            misc_service.perform_user_jobs().await.is_ok()
         }
         ApplicationJob::AssociateGroupWithMetadata(lot, source, identifier) => misc_service
             .commit_metadata_group(CommitMediaInput {

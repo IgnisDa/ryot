@@ -41,6 +41,7 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     RecalculateCalendarEvents,
     YankIntegrationsData,
+    PerformUserBackgroundTasks,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
