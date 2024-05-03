@@ -61,7 +61,7 @@ import {
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconBackpack,
-	IconBookmarksFilled,
+	IconBookmarks,
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
@@ -492,6 +492,10 @@ export const BaseDisplayItem = (props: {
 			</Box>
 		);
 
+	const reasons = props.mediaReason?.filter((r) =>
+		[UserToMediaReason.Seen, UserToMediaReason.Watchlist].includes(r),
+	);
+
 	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
 		<ThemeIcon variant="transparent" size="sm" color="lime" key={idx}>
 			{icon}
@@ -530,26 +534,23 @@ export const BaseDisplayItem = (props: {
 				<Box pos="absolute" top={5} right={5}>
 					{props.topRight}
 				</Box>
-				{props.mediaReason ? (
+				{reasons && reasons.length > 0 ? (
 					<Group
 						style={blackBgStyles}
 						pos="absolute"
 						bottom={5}
 						left={5}
-						gap="xs"
+						gap={3}
 					>
-						{props.mediaReason
+						{reasons
 							.map((r) =>
 								match(r)
 									.with(UserToMediaReason.Seen, () => (
 										<IconRosetteDiscountCheck />
 									))
-									.with(UserToMediaReason.Watchlist, () => (
-										<IconBookmarksFilled />
-									))
-									.otherwise(() => undefined),
+									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
+									.run(),
 							)
-							.filter(Boolean)
 							.map((icon, idx) => themeIconSurrounder(idx, icon))}
 					</Group>
 				) : null}
