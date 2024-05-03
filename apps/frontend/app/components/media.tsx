@@ -51,6 +51,7 @@ import {
 	type UserMediaReminderPartFragment,
 	UserReviewScale,
 	Visibility,
+	type UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
@@ -457,6 +458,7 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
+	mediaReason?: UserToMediaReason[];
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -563,6 +565,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
+	mediaReason?: UserToMediaReason[];
 }) => {
 	const navigate = useNavigate();
 	const id = props.item.identifier;
@@ -608,6 +611,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 					/>
 				) : null
 			}
+			mediaReason={props.mediaReason}
 			topRight={
 				props.averageRating ? (
 					<Box
