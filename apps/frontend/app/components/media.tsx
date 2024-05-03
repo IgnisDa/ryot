@@ -31,6 +31,7 @@ import {
 	Title,
 	Tooltip,
 	useComputedColorScheme,
+	ThemeIcon,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
@@ -51,7 +52,7 @@ import {
 	type UserMediaReminderPartFragment,
 	UserReviewScale,
 	Visibility,
-	type UserToMediaReason,
+	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
 import {
@@ -59,10 +60,12 @@ import {
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconBackpack,
+	IconBookmarksFilled,
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
 	IconPercentage,
+	IconRosetteDiscountCheck,
 	IconStarFilled,
 	IconTrash,
 	IconX,
@@ -445,6 +448,11 @@ export const ReviewItemDisplay = (props: {
 	);
 };
 
+const blackBgStyles = {
+	backgroundColor: "rgba(0, 0, 0, 0.75)",
+	borderRadius: 3,
+};
+
 export const BaseDisplayItem = (props: {
 	name: string;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
@@ -482,6 +490,12 @@ export const BaseDisplayItem = (props: {
 			</Box>
 		);
 
+	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
+		<ThemeIcon variant="transparent" size="sm" color="lime" key={idx}>
+			{icon}
+		</ThemeIcon>
+	);
+
 	return (
 		<Flex
 			key={`${props.bottomLeft}-${props.bottomRight}-${props.name}`}
@@ -514,6 +528,30 @@ export const BaseDisplayItem = (props: {
 				<Box pos="absolute" top={5} right={5}>
 					{props.topRight}
 				</Box>
+				{props.mediaReason ? (
+					<Group
+						p={2}
+						style={blackBgStyles}
+						pos="absolute"
+						bottom={5}
+						left={5}
+						gap="xs"
+					>
+						{props.mediaReason
+							.map((r) =>
+								match(r)
+									.with(UserToMediaReason.Seen, () => (
+										<IconRosetteDiscountCheck />
+									))
+									.with(UserToMediaReason.Watchlist, () => (
+										<IconBookmarksFilled />
+									))
+									.otherwise(() => undefined),
+							)
+							.filter(Boolean)
+							.map((icon, idx) => themeIconSurrounder(idx, icon))}
+					</Group>
+				) : null}
 			</SurroundingElement>
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				<Flex justify="space-between" direction="row" w="100%">
@@ -615,13 +653,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			mediaReason={props.mediaReason}
 			topRight={
 				props.averageRating ? (
-					<Box
-						p={2}
-						style={{
-							backgroundColor: "rgba(0, 0, 0, 0.75)",
-							borderRadius: 3,
-						}}
-					>
+					<Box p={2} style={blackBgStyles}>
 						<Flex align="center" gap={4}>
 							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 							<Text c="white" size="xs" fw="bold" pr={4}>
