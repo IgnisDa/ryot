@@ -772,7 +772,7 @@ export enum MediaGeneralFilter {
 export type MediaListItem = {
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   data: MetadataSearchItem;
-  mediaReason: Array<UserToMediaReason>;
+  mediaReason?: Maybe<Array<UserToMediaReason>>;
 };
 
 export type MediaListResults = {
@@ -2843,7 +2843,7 @@ export type MetadataListQueryVariables = Exact<{
 }>;
 
 
-export type MetadataListQuery = { metadataList: { details: { total: number, nextPage?: number | null }, items: Array<{ averageRating?: string | null, mediaReason: Array<UserToMediaReason>, data: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } };
+export type MetadataListQuery = { metadataList: { details: { total: number, nextPage?: number | null }, items: Array<{ averageRating?: string | null, mediaReason?: Array<UserToMediaReason> | null, data: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } };
 
 export type MetadataMainDetailsQueryVariables = Exact<{
   metadataId: Scalars['Int']['input'];

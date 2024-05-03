@@ -2410,7 +2410,7 @@ impl MiscellaneousService {
             title: String,
             publish_year: Option<i32>,
             images: Option<serde_json::Value>,
-            media_reason: Vec<UserToMediaReason>,
+            media_reason: Option<Vec<UserToMediaReason>>,
         }
 
         let count_select = Query::select()
