@@ -29,7 +29,7 @@
 			{ "label": "Docs", "href": "https://ryot-docs.netlify.app" },
 			{ "label": "Services", "href": "#" },
 			{ "label": "Prices", "href": "#" },
-			{ "label": "FAQs", "href": "#" }
+			{ "label": "Contact", "href": "#contact-section" }
 		]
 	},
 	"heroData": {
