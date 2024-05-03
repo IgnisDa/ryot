@@ -511,7 +511,9 @@ export const BaseDisplayItem = (props: {
 						getInitials(props.name),
 					)}
 				/>
-				{props.topRight}
+				<Box pos="absolute" top={5} right={5}>
+					{props.topRight}
+				</Box>
 			</SurroundingElement>
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				<Flex justify="space-between" direction="row" w="100%">
@@ -615,9 +617,6 @@ export const MediaItemWithoutUpdateModal = (props: {
 				props.averageRating ? (
 					<Box
 						p={2}
-						pos="absolute"
-						top={5}
-						right={5}
 						style={{
 							backgroundColor: "rgba(0, 0, 0, 0.75)",
 							borderRadius: 3,
