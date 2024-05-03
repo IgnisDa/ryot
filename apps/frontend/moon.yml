@@ -13,6 +13,8 @@ tasks:
     command: remix-routes
     inputs:
       - '@group(remix)'
+    outputs:
+      - app/remix-routes.d.ts
 
   dev:
     command: 'remix vite:dev --port 3000 --host'
