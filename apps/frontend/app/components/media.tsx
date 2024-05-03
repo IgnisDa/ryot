@@ -509,7 +509,6 @@ export const BaseDisplayItem = (props: {
 			justify="center"
 			direction="column"
 		>
-			{props.topLeft}
 			<SurroundingElement style={{ flex: "none" }} pos="relative">
 				<Image
 					src={props.imageLink}
@@ -531,6 +530,9 @@ export const BaseDisplayItem = (props: {
 						getInitials(props.name),
 					)}
 				/>
+				<Box pos="absolute" style={{ zIndex: 999 }} top={10} left={10}>
+					{props.topLeft}
+				</Box>
 				<Box pos="absolute" top={5} right={5}>
 					{props.topRight}
 				</Box>
@@ -641,15 +643,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 			imagePlaceholder={getInitials(props.item?.title || "")}
 			topLeft={
 				props.imageOverlayForLoadingIndicator ? (
-					<Loader
-						pos="absolute"
-						style={{ zIndex: 999 }}
-						top={10}
-						left={10}
-						color="red"
-						variant="bars"
-						size="sm"
-					/>
+					<Loader color="red" variant="bars" size="sm" />
 				) : null
 			}
 			mediaReason={props.mediaReason}
