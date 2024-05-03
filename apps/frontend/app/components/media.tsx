@@ -565,6 +565,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	nameRight?: JSX.Element;
 }) => {
 	const navigate = useNavigate();
+	const id = props.item.identifier;
 
 	return (
 		<BaseDisplayItem
@@ -575,25 +576,19 @@ export const MediaItemWithoutUpdateModal = (props: {
 						? props.href
 						: match(props.entityLot)
 								.with(EntityLot.Media, undefined, null, () =>
-									$path("/media/item/:id", { id: props.item.identifier }),
+									$path("/media/item/:id", { id }),
 								)
 								.with(EntityLot.MediaGroup, () =>
-									$path("/media/groups/item/:id", {
-										id: props.item.identifier,
-									}),
+									$path("/media/groups/item/:id", { id }),
 								)
 								.with(EntityLot.Person, () =>
-									$path("/media/people/item/:id", {
-										id: props.item.identifier,
-									}),
+									$path("/media/people/item/:id", { id }),
 								)
 								.with(EntityLot.Exercise, () =>
-									$path("/fitness/exercises/item/:id", {
-										id: props.item.identifier,
-									}),
+									$path("/fitness/exercises/item/:id", { id }),
 								)
 								.with(EntityLot.Collection, () =>
-									$path("/collections/:id", { id: props.item.identifier }),
+									$path("/collections/:id", { id }),
 								)
 								.exhaustive()
 					: undefined
@@ -656,11 +651,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						onClick={(e) => {
 							e.preventDefault();
 							navigate(
-								$path(
-									"/media/item/:id",
-									{ id: props.item.identifier },
-									{ openReviewModal: true },
-								),
+								$path("/media/item/:id", { id }, { openReviewModal: true }),
 							);
 						}}
 					>
