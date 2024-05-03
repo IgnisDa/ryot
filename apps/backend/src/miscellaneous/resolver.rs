@@ -2165,6 +2165,10 @@ impl MiscellaneousService {
 
         let mut main_select = Query::select()
             .expr(Expr::col((metadata_alias.clone(), Asterisk)))
+            .expr(Expr::col((
+                mtu_alias.clone(),
+                AliasedUserToEntity::MediaReason,
+            )))
             .from_as(AliasedMetadata::Table, metadata_alias.clone())
             .and_where_option(match preferences.general.display_nsfw {
                 true => None,
@@ -2406,6 +2410,7 @@ impl MiscellaneousService {
             title: String,
             publish_year: Option<i32>,
             images: Option<serde_json::Value>,
+            media_reason: Vec<UserToMediaReason>,
         }
 
         let count_select = Query::select()
@@ -2478,6 +2483,7 @@ impl MiscellaneousService {
                     publish_year: met.publish_year,
                 },
                 average_rating: avg,
+                media_reason: met.media_reason,
             };
             items.push(m_small);
         }
