@@ -2179,6 +2179,14 @@ impl MiscellaneousService {
                 Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                     .is_in(distinct_meta_ids.clone()),
             )
+            .join_as(
+                JoinType::LeftJoin,
+                AliasedUserToEntity::Table,
+                mtu_alias.clone(),
+                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
+                    .equals((mtu_alias.clone(), AliasedUserToEntity::MetadataId))
+                    .and(Expr::col((mtu_alias.clone(), AliasedUserToEntity::UserId)).eq(user_id)),
+            )
             .to_owned();
 
         if let Some(v) = input.search.query {
@@ -2262,17 +2270,6 @@ impl MiscellaneousService {
                     }
                     MediaSortBy::LastUpdated => {
                         main_select = main_select
-                            .join_as(
-                                JoinType::LeftJoin,
-                                AliasedUserToEntity::Table,
-                                mtu_alias.clone(),
-                                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
-                                    .equals((mtu_alias.clone(), AliasedUserToEntity::MetadataId))
-                                    .and(
-                                        Expr::col((mtu_alias.clone(), AliasedUserToEntity::UserId))
-                                            .eq(user_id),
-                                    ),
-                            )
                             .order_by(
                                 (mtu_alias.clone(), AliasedUserToEntity::LastUpdatedOn),
                                 order_by,
