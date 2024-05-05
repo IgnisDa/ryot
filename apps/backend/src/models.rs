@@ -1384,12 +1384,12 @@ pub mod media {
         pub force_update: Option<bool>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
     pub struct MetadataStateChanges {}
 
-    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
     pub struct PersonStateChanges {
-        media_associated: HashSet<i32>,
+        pub media_associated: HashSet<(i32, String)>,
     }
 }
 
