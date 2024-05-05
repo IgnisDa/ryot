@@ -23,7 +23,7 @@
 <p align="center">
     <a href="https://docs.ryot.io" target="_blank">Installation</a> •
     <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
-    <a href="https://ryot.fly.dev" target="_blank">Demo</a>
+    <a href="https://demo.ryot.io" target="_blank">Demo</a>
 </p>
 
 <br/>
@@ -31,16 +31,10 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
-## IMPORTANT NOTE FOR `v4.*` USERS
-
-If you were using `v4.*` of Ryot, please read the [migration
-guide](https://docs.ryot.io/migration.html#from-v4-to-v5) for instructions.
-
 ## 💻 Demo
 
-You can use the demo account on [Fly.io](https://ryot.fly.dev). Login with the username
-`demo` and password `demo-password`. This instance is automatically deployed from the
-latest release.
+You can use the demo account on the Ryot website. Login with the username `demo` and
+password `demo-password`. This instance is automatically deployed from the latest release.
 
 **NOTE**: The data in this demo account is not recommended to be used for any production
 usage. Please create a new account for that.

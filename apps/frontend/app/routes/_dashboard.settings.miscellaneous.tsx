@@ -81,11 +81,7 @@ export default function Page() {
 											providers.
 										</Text>
 									</Box>
-									<Button
-										{...buttonProps}
-										name="jobName"
-										value={BackgroundJob.UpdateAllMetadata}
-									>
+									<Button {...btnProps} value={BackgroundJob.UpdateAllMetadata}>
 										Update metadata
 									</Button>
 								</Stack>
@@ -100,8 +96,7 @@ export default function Page() {
 										</Text>
 									</Box>
 									<Button
-										{...buttonProps}
-										name="jobName"
+										{...btnProps}
 										value={BackgroundJob.RecalculateCalendarEvents}
 									>
 										Update calendar events
@@ -117,11 +112,26 @@ export default function Page() {
 										</Text>
 									</Box>
 									<Button
-										{...buttonProps}
-										name="jobName"
+										{...btnProps}
 										value={BackgroundJob.UpdateAllExercises}
 									>
 										Update exercises
+									</Button>
+								</Stack>
+								<Stack>
+									<Box>
+										<Title order={4}>Jobs for all users</Title>
+										<Text>
+											Update the user summaries. Also recalculate the media
+											associations for all users. The more users you have, the
+											longer this will take.
+										</Text>
+									</Box>
+									<Button
+										{...btnProps}
+										value={BackgroundJob.PerformUserBackgroundTasks}
+									>
+										Perform user tasks
 									</Button>
 								</Stack>
 							</>
@@ -135,11 +145,7 @@ export default function Page() {
 									preconditions have changed. This may take some time.
 								</Text>
 							</Box>
-							<Button
-								{...buttonProps}
-								name="jobName"
-								value={BackgroundJob.CalculateSummary}
-							>
+							<Button {...btnProps} value={BackgroundJob.CalculateSummary}>
 								Clean and regenerate
 							</Button>
 						</Stack>
@@ -152,11 +158,7 @@ export default function Page() {
 									deleted.
 								</Text>
 							</Box>
-							<Button
-								{...buttonProps}
-								name="jobName"
-								value={BackgroundJob.EvaluateWorkouts}
-							>
+							<Button {...btnProps} value={BackgroundJob.EvaluateWorkouts}>
 								Re-evaluate workouts
 							</Button>
 						</Stack>
@@ -169,11 +171,7 @@ export default function Page() {
 									longer this will take.
 								</Text>
 							</Box>
-							<Button
-								{...buttonProps}
-								name="jobName"
-								value={BackgroundJob.YankIntegrationsData}
-							>
+							<Button {...btnProps} value={BackgroundJob.YankIntegrationsData}>
 								Synchronize
 							</Button>
 						</Stack>
@@ -184,4 +182,8 @@ export default function Page() {
 	);
 }
 
-const buttonProps = { variant: "light", type: "submit" as const };
+const btnProps = {
+	variant: "light",
+	type: "submit" as const,
+	name: "jobName",
+};

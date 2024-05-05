@@ -52,6 +52,7 @@ pub enum Metadata {
     VideoGameSpecifics,
     VisualNovelSpecifics,
     WatchProviders,
+    StateChanges,
 }
 
 #[async_trait::async_trait]
@@ -105,6 +106,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::VideoGameSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::VisualNovelSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::WatchProviders).json_binary())
+                    .col(ColumnDef::new(Metadata::StateChanges).json_binary())
                     .to_owned(),
             )
             .await?;

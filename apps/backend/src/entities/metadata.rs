@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::media::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataFreeCreator,
-    MetadataImage, MetadataVideo, MovieSpecifics, PodcastSpecifics, ShowSpecifics,
-    VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+    MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics, PodcastSpecifics,
+    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
@@ -48,6 +48,7 @@ pub struct Model {
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
+    pub state_changes: Option<MetadataStateChanges>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

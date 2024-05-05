@@ -27,6 +27,7 @@ pub enum Person {
     Images,
     IsPartial,
     SourceSpecifics,
+    StateChanges,
 }
 
 #[derive(Iden)]
@@ -78,6 +79,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::Images).json_binary())
                     .col(ColumnDef::new(Person::IsPartial).boolean())
                     .col(ColumnDef::new(Person::SourceSpecifics).json_binary())
+                    .col(ColumnDef::new(Person::StateChanges).json_binary())
                     .to_owned(),
             )
             .await?;

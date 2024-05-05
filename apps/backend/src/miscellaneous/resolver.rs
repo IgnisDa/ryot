@@ -2733,18 +2733,16 @@ impl MiscellaneousService {
         let core_sqlite_storage = &mut self.perform_core_application_job.clone();
         let sqlite_storage = &mut self.perform_application_job.clone();
         match job_name {
-            BackgroundJob::YankIntegrationsData => {
-                core_sqlite_storage
-                    .push(CoreApplicationJob::YankIntegrationsData(user_id))
-                    .await?;
-            }
-            BackgroundJob::CalculateSummary => {
-                sqlite_storage
-                    .push(ApplicationJob::RecalculateUserSummary(user_id))
-                    .await?;
-            }
-            BackgroundJob::UpdateAllMetadata => {
+            BackgroundJob::UpdateAllMetadata
+            | BackgroundJob::UpdateAllExercises
+            | BackgroundJob::RecalculateCalendarEvents
+            | BackgroundJob::PerformUserBackgroundTasks => {
                 self.admin_account_guard(user_id).await?;
+            }
+            _ => {}
+        }
+        match job_name {
+            BackgroundJob::UpdateAllMetadata => {
                 let many_metadata = Metadata::find()
                     .select_only()
                     .column(metadata::Column::Id)
@@ -2758,7 +2756,6 @@ impl MiscellaneousService {
                 }
             }
             BackgroundJob::UpdateAllExercises => {
-                self.admin_account_guard(user_id).await?;
                 let service = ExerciseService::new(
                     &self.db,
                     self.config.clone(),
@@ -2768,9 +2765,23 @@ impl MiscellaneousService {
                 service.deploy_update_exercise_library_job().await?;
             }
             BackgroundJob::RecalculateCalendarEvents => {
-                self.admin_account_guard(user_id).await?;
                 sqlite_storage
                     .push(ApplicationJob::RecalculateCalendarEvents)
+                    .await?;
+            }
+            BackgroundJob::PerformUserBackgroundTasks => {
+                sqlite_storage
+                    .push(ApplicationJob::PerformUserBackgroundTasks)
+                    .await?;
+            }
+            BackgroundJob::YankIntegrationsData => {
+                core_sqlite_storage
+                    .push(CoreApplicationJob::YankIntegrationsData(user_id))
+                    .await?;
+            }
+            BackgroundJob::CalculateSummary => {
+                sqlite_storage
+                    .push(ApplicationJob::RecalculateUserSummary(user_id))
                     .await?;
             }
             BackgroundJob::EvaluateWorkouts => {
@@ -7203,6 +7214,7 @@ impl MiscellaneousService {
                 })
                 .collect()
         });
+        let mut default_state_changes = person.clone().state_changes.unwrap_or_default();
         let mut to_update_person: person::ActiveModel = person.clone().into();
         to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
         to_update_person.description = ActiveValue::Set(provider_person.description);
@@ -7214,7 +7226,6 @@ impl MiscellaneousService {
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.name = ActiveValue::Set(provider_person.name);
-        to_update_person.update(&self.db).await.unwrap();
         for (role, media) in provider_person.related.clone() {
             let title = media.title.clone();
             let pm = self.create_partial_metadata(media).await?;
@@ -7225,6 +7236,16 @@ impl MiscellaneousService {
                 .one(&self.db)
                 .await?;
             if already_intermediate.is_none() {
+                let intermediate = metadata_to_person::ActiveModel {
+                    person_id: ActiveValue::Set(person.id),
+                    metadata_id: ActiveValue::Set(pm.id),
+                    role: ActiveValue::Set(role.clone()),
+                    ..Default::default()
+                };
+                intermediate.insert(&self.db).await.unwrap();
+            }
+            let search_for = (pm.id, role.clone());
+            if !default_state_changes.media_associated.contains(&search_for) {
                 notifications.push((
                     format!(
                         "{} has been associated with {} as {}",
@@ -7232,15 +7253,11 @@ impl MiscellaneousService {
                     ),
                     MediaStateChanged::PersonMediaAssociated,
                 ));
-                let intermediate = metadata_to_person::ActiveModel {
-                    person_id: ActiveValue::Set(person.id),
-                    metadata_id: ActiveValue::Set(pm.id),
-                    role: ActiveValue::Set(role),
-                    ..Default::default()
-                };
-                intermediate.insert(&self.db).await.unwrap();
+                default_state_changes.media_associated.insert(search_for);
             }
         }
+        to_update_person.state_changes = ActiveValue::Set(Some(default_state_changes));
+        to_update_person.update(&self.db).await.unwrap();
         Ok(notifications)
     }
 
@@ -7415,6 +7432,14 @@ GROUP BY m.id;
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
+    }
+
+    pub async fn perform_user_jobs(&self) -> Result<()> {
+        tracing::trace!("Cleaning up user and metadata association");
+        self.cleanup_user_and_metadata_association().await?;
+        tracing::trace!("Removing old user summaries and regenerating them");
+        self.regenerate_user_summaries().await?;
+        Ok(())
     }
 
     #[cfg(debug_assertions)]

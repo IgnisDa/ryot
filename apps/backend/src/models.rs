@@ -41,6 +41,7 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     RecalculateCalendarEvents,
     YankIntegrationsData,
+    PerformUserBackgroundTasks,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
@@ -1381,6 +1382,14 @@ pub mod media {
         pub identifier: String,
         #[graphql(skip_input)]
         pub force_update: Option<bool>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
+    pub struct MetadataStateChanges {}
+
+    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
+    pub struct PersonStateChanges {
+        pub media_associated: HashSet<(i32, String)>,
     }
 }
 
