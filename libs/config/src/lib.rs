@@ -261,7 +261,7 @@ pub struct FrontendUmamiConfig {
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.
-    #[setting(default = "https://ryot.fly.dev")]
+    #[setting(default = "https://demo.ryot.io")]
     pub url: String,
     /// Whether the cookies set are insecure.
     #[setting(default = false)]

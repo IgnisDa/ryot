@@ -23,7 +23,7 @@
 <p align="center">
     <a href="https://docs.ryot.io" target="_blank">Installation</a> •
     <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
-    <a href="https://ryot.fly.dev" target="_blank">Demo</a>
+    <a href="https://demo.ryot.io" target="_blank">Demo</a>
 </p>
 
 <br/>
@@ -38,7 +38,7 @@ guide](https://docs.ryot.io/migration.html#from-v4-to-v5) for instructions.
 
 ## 💻 Demo
 
-You can use the demo account on [Fly.io](https://ryot.fly.dev). Login with the username
+You can use the demo account on [Fly.io](https://demo.ryot.io). Login with the username
 `demo` and password `demo-password`. This instance is automatically deployed from the
 latest release.
 
