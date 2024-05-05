@@ -6,7 +6,7 @@ use database::MediaSource;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::media::{MetadataImage, PersonSourceSpecifics};
+use crate::models::media::{MetadataImage, PersonSourceSpecifics, PersonStateChanges};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Person")]
@@ -33,6 +33,8 @@ pub struct Model {
     pub website: Option<String>,
     #[graphql(skip)]
     pub source_specifics: Option<PersonSourceSpecifics>,
+    #[graphql(skip)]
+    pub state_changes: Option<PersonStateChanges>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

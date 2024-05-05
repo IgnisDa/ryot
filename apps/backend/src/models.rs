@@ -1383,6 +1383,14 @@ pub mod media {
         #[graphql(skip_input)]
         pub force_update: Option<bool>,
     }
+
+    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
+    pub struct MetadataStateChanges {}
+
+    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq)]
+    pub struct PersonStateChanges {
+        media_associated: HashSet<i32>,
+    }
 }
 
 pub mod fitness {
