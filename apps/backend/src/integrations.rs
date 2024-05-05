@@ -165,6 +165,8 @@ impl IntegrationService {
             }
         }
 
+        tracing::debug!("Processing Plex payload {:#?}", payload);
+
         let payload_regex = Regex::new(r"\{.*\}").unwrap();
         let json_payload = payload_regex
             .find(payload)
