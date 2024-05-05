@@ -31,16 +31,10 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
-## IMPORTANT NOTE FOR `v4.*` USERS
-
-If you were using `v4.*` of Ryot, please read the [migration
-guide](https://docs.ryot.io/migration.html#from-v4-to-v5) for instructions.
-
 ## 💻 Demo
 
-You can use the demo account on [Fly.io](https://demo.ryot.io). Login with the username
-`demo` and password `demo-password`. This instance is automatically deployed from the
-latest release.
+You can use the demo account on the Ryot website. Login with the username `demo` and
+password `demo-password`. This instance is automatically deployed from the latest release.
 
 **NOTE**: The data in this demo account is not recommended to be used for any production
 usage. Please create a new account for that.
