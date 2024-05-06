@@ -22,6 +22,8 @@ mod m20240416_change_json_to_generic_json;
 mod m20240425_add_created_by_user_id_column_to_execise;
 mod m20240503_update_user_to_entity_to_recalculate;
 mod m20240504_add_columns_for_state_changes;
+mod m20240506_0_add_done_collection_for_existing_users;
+mod m20240506_1_add_entities_to_done_collection_for_existing_users;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -61,6 +63,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240425_add_created_by_user_id_column_to_execise::Migration),
             Box::new(m20240503_update_user_to_entity_to_recalculate::Migration),
             Box::new(m20240504_add_columns_for_state_changes::Migration),
+            Box::new(m20240506_0_add_done_collection_for_existing_users::Migration),
+            Box::new(m20240506_1_add_entities_to_done_collection_for_existing_users::Migration),
         ]
     }
 }
