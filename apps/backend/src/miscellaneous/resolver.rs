@@ -2777,7 +2777,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
+    async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
         let all_users = User::find()
             .select_only()
             .column(user::Column::Id)
@@ -5033,7 +5033,7 @@ impl MiscellaneousService {
         Ok(IdObject { id: user_obj.id })
     }
 
-    pub async fn regenerate_user_summaries(&self) -> Result<()> {
+    async fn regenerate_user_summaries(&self) -> Result<()> {
         let all_users = User::find()
             .select_only()
             .column(user::Column::Id)
@@ -7302,11 +7302,17 @@ GROUP BY m.id;
         }
     }
 
+    async fn cleanup_useless_date(&self) -> Result<()> {
+        Ok(())
+    }
+
     pub async fn perform_user_jobs(&self) -> Result<()> {
         tracing::trace!("Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association().await?;
         tracing::trace!("Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await?;
+        tracing::trace!("Cleaning up useless data");
+        self.cleanup_useless_date().await?;
         Ok(())
     }
 
