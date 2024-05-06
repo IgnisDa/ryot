@@ -23,7 +23,7 @@ BEGIN
       FOR seen_rec IN (
         SELECT metadata_id FROM seen s
         JOIN metadata m ON s.metadata_id = m.id
-        WHERE m.lot NOT IN ('SH', 'PO') AND s.user_id = user_rec.id AND s.progress = 100
+        WHERE s.user_id = user_rec.id AND s.progress = 100
       )
       LOOP
           INSERT INTO collection_to_entity (collection_id, metadata_id)
