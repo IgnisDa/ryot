@@ -147,14 +147,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			: undefined,
 	];
 
-	const collectionLinks = [
-		{ label: "Yours", link: $path("/collections/list/yours") },
-		{
-			label: "Public",
-			link: $path("/collections/list/public"),
-		},
-	];
-
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
@@ -173,7 +165,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		fitnessLinks,
 		settingsLinks,
 		shouldHaveUmami,
-		collectionLinks,
 		currentColorScheme,
 		userPreferences: {
 			media: userPreferences.featuresEnabled.media,
@@ -288,16 +279,10 @@ export default function Layout() {
 							<LinksGroup
 								label="Collections"
 								icon={IconArchive}
-								opened={openedLinkGroups?.collection || false}
+								href={$path("/collections/list")}
+								opened={false}
 								toggle={toggle}
-								setOpened={(k) => {
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
-											if (draft) draft.collection = k;
-										}),
-									);
-								}}
-								links={loaderData.collectionLinks}
+								setOpened={() => {}}
 							/>
 						) : null}
 						<LinksGroup

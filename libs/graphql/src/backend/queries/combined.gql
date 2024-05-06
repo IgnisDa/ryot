@@ -42,7 +42,6 @@ query UserCollectionsList($name: String) {
     id
     name
     description
-    visibility
     numItems
   }
 }

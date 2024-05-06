@@ -22,7 +22,6 @@ query CollectionContents($input: CollectionContentsInput!) {
     details {
       name
       description
-      visibility
       createdOn
     }
   }

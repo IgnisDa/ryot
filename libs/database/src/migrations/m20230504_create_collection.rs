@@ -1,7 +1,5 @@
 use sea_orm_migration::prelude::*;
 
-use crate::Visibility;
-
 use super::m20230417_create_user::User;
 
 pub static COLLECTION_NAME_INDEX: &str = "collection__name__index";
@@ -18,7 +16,6 @@ pub enum Collection {
     Name,
     UserId,
     Description,
-    Visibility,
 }
 
 #[async_trait::async_trait]
@@ -44,12 +41,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Collection::Name).text().not_null())
                     .col(ColumnDef::new(Collection::UserId).integer().not_null())
                     .col(ColumnDef::new(Collection::Description).text())
-                    .col(
-                        ColumnDef::new(Collection::Visibility)
-                            .text()
-                            .not_null()
-                            .default(Visibility::Private),
-                    )
                     .col(
                         ColumnDef::new(Collection::LastUpdatedOn)
                             .timestamp_with_time_zone()

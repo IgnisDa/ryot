@@ -94,11 +94,10 @@ use crate::{
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
             PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, PublicCollectionItem, ReviewPostedEvent,
-            SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-            SeenShowExtraInformation, ShowSpecifics, UserMediaOwnership, UserMediaReminder,
-            UserSummary, UserToMediaReason, VideoGameSpecifics, VisualNovelSpecifics,
-            WatchProvider,
+            ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
+            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -369,7 +368,6 @@ struct CollectionItem {
     name: String,
     num_items: u64,
     description: Option<String>,
-    visibility: Visibility,
 }
 
 #[derive(SimpleObject)]
@@ -817,16 +815,6 @@ impl MiscellaneousQuery {
         service.user_collections_list(user_id, name).await
     }
 
-    /// Get a list of publicly visible collections.
-    async fn public_collections_list(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: SearchInput,
-    ) -> Result<SearchResults<PublicCollectionItem>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.public_collections_list(input).await
-    }
-
     /// Get the contents of a collection and respect visibility.
     async fn collection_contents(
         &self,
@@ -834,8 +822,7 @@ impl MiscellaneousQuery {
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await.ok();
-        service.collection_contents(user_id, input).await
+        service.collection_contents(input).await
     }
 
     /// Get details about a media present in the database.
@@ -4068,68 +4055,14 @@ impl MiscellaneousService {
                 id: collection.id,
                 name: collection.name,
                 description: collection.description,
-                visibility: collection.visibility,
                 num_items,
             });
         }
         Ok(data)
     }
 
-    async fn public_collections_list(
-        &self,
-        input: SearchInput,
-    ) -> Result<SearchResults<PublicCollectionItem>> {
-        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
-        let c_alias = Alias::new("collection");
-        let u_alias = Alias::new("user");
-        let paginator = Collection::find()
-            .select_only()
-            .column_as(Expr::col((c_alias.clone(), collection::Column::Id)), "id")
-            .column_as(Expr::col((u_alias, user::Column::Name)), "username")
-            .column(collection::Column::Name)
-            .filter(collection::Column::Visibility.eq(Visibility::Public))
-            .apply_if(input.query, |query, v| {
-                query.filter(
-                    Condition::any()
-                        .add(
-                            Expr::col((c_alias.clone(), collection::Column::Name))
-                                .ilike(ilike_sql(&v)),
-                        )
-                        .add(
-                            Expr::col((c_alias.clone(), collection::Column::Description))
-                                .ilike(ilike_sql(&v)),
-                        ),
-                )
-            })
-            .left_join(User)
-            .order_by_desc(collection::Column::LastUpdatedOn)
-            .into_model::<PublicCollectionItem>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
-        let mut data = vec![];
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        for collection in paginator.fetch_page(page - 1).await? {
-            data.push(collection);
-        }
-        let results = SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
-            },
-            items: data,
-        };
-        Ok(results)
-    }
-
     async fn collection_contents(
         &self,
-        user_id: Option<i32>,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
         let search = input.search.unwrap_or_default();
@@ -4144,20 +4077,6 @@ impl MiscellaneousService {
             Some(c) => c,
             None => return Err(Error::new("Collection not found".to_owned())),
         };
-        if collection.visibility != Visibility::Public {
-            match user_id {
-                None => {
-                    return Err(Error::new(
-                        "Need to be logged in to view a private collection".to_owned(),
-                    ));
-                }
-                Some(u) => {
-                    if u != collection.user_id {
-                        return Err(Error::new("This collection is not public".to_owned()));
-                    }
-                }
-            }
-        }
 
         let take = input
             .take
@@ -4422,16 +4341,13 @@ impl MiscellaneousService {
             } else if let Some(ci) = insert.collection_id.unwrap() {
                 (
                     ci,
-                    self.collection_contents(
-                        Some(user_id),
-                        CollectionContentsInput {
-                            collection_id: ci,
-                            filter: None,
-                            search: None,
-                            take: None,
-                            sort: None,
-                        },
-                    )
+                    self.collection_contents(CollectionContentsInput {
+                        collection_id: ci,
+                        filter: None,
+                        search: None,
+                        take: None,
+                        sort: None,
+                    })
                     .await?
                     .details
                     .name,
@@ -4525,10 +4441,6 @@ impl MiscellaneousService {
                     name: ActiveValue::Set(new_name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
-                    visibility: match input.visibility {
-                        None => ActiveValue::NotSet,
-                        Some(v) => ActiveValue::Set(v),
-                    },
                     ..Default::default()
                 };
                 let inserted = col.save(&self.db).await.map_err(|_| {
