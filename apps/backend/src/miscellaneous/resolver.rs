@@ -6193,12 +6193,18 @@ impl MiscellaneousService {
                         remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
                             .await
                             .ok();
+                        add_entity_to_collection(&DefaultCollection::Completed.to_string())
+                            .await
+                            .ok();
                     } else {
                         for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
                             add_entity_to_collection(&col.to_string()).await.ok();
                         }
                     }
                 } else {
+                    add_entity_to_collection(&DefaultCollection::Completed.to_string())
+                        .await
+                        .ok();
                     for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
                         remove_entity_from_collection(&col.to_string()).await.ok();
                     }
