@@ -368,7 +368,6 @@ struct CollectionItem {
     name: String,
     num_items: u64,
     description: Option<String>,
-    visibility: Visibility,
 }
 
 #[derive(SimpleObject)]
@@ -823,8 +822,7 @@ impl MiscellaneousQuery {
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await.ok();
-        service.collection_contents(user_id, input).await
+        service.collection_contents(input).await
     }
 
     /// Get details about a media present in the database.
@@ -4057,7 +4055,6 @@ impl MiscellaneousService {
                 id: collection.id,
                 name: collection.name,
                 description: collection.description,
-                visibility: collection.visibility,
                 num_items,
             });
         }
@@ -4066,7 +4063,6 @@ impl MiscellaneousService {
 
     async fn collection_contents(
         &self,
-        user_id: Option<i32>,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
         let search = input.search.unwrap_or_default();
@@ -4081,20 +4077,6 @@ impl MiscellaneousService {
             Some(c) => c,
             None => return Err(Error::new("Collection not found".to_owned())),
         };
-        if collection.visibility != Visibility::Public {
-            match user_id {
-                None => {
-                    return Err(Error::new(
-                        "Need to be logged in to view a private collection".to_owned(),
-                    ));
-                }
-                Some(u) => {
-                    if u != collection.user_id {
-                        return Err(Error::new("This collection is not public".to_owned()));
-                    }
-                }
-            }
-        }
 
         let take = input
             .take
@@ -4359,16 +4341,13 @@ impl MiscellaneousService {
             } else if let Some(ci) = insert.collection_id.unwrap() {
                 (
                     ci,
-                    self.collection_contents(
-                        Some(user_id),
-                        CollectionContentsInput {
-                            collection_id: ci,
-                            filter: None,
-                            search: None,
-                            take: None,
-                            sort: None,
-                        },
-                    )
+                    self.collection_contents(CollectionContentsInput {
+                        collection_id: ci,
+                        filter: None,
+                        search: None,
+                        take: None,
+                        sort: None,
+                    })
                     .await?
                     .details
                     .name,
@@ -4462,10 +4441,6 @@ impl MiscellaneousService {
                     name: ActiveValue::Set(new_name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
-                    visibility: match input.visibility {
-                        None => ActiveValue::NotSet,
-                        Some(v) => ActiveValue::Set(v),
-                    },
                     ..Default::default()
                 };
                 let inserted = col.save(&self.db).await.map_err(|_| {

@@ -243,7 +243,6 @@ pub mod media {
     pub struct CreateOrUpdateCollectionInput {
         pub name: String,
         pub description: Option<String>,
-        pub visibility: Option<Visibility>,
         pub update_id: Option<i32>,
     }
 

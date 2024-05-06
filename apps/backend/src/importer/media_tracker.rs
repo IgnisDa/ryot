@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use database::{ImportSource, MediaLot, MediaSource, Visibility};
+use database::{ImportSource, MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
@@ -169,10 +169,6 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
             description: l.description.as_ref().and_then(|s| match s.as_str() {
                 "" => None,
                 x => Some(x.to_owned()),
-            }),
-            visibility: Some(match l.privacy {
-                ListPrivacy::Private => Visibility::Private,
-                ListPrivacy::Public => Visibility::Public,
             }),
             update_id: None,
         })
