@@ -20,7 +20,11 @@ BEGIN
       SELECT id INTO done_collection_id FROM collection
       WHERE user_id = user_rec.id AND name = 'Done' LIMIT 1;
 
-      FOR seen_rec IN SELECT metadata_id FROM seen WHERE user_id = user_rec.id AND progress = 100
+      FOR seen_rec IN (
+        SELECT metadata_id FROM seen s
+        JOIN metadata m ON s.metadata_id = m.id
+        WHERE m.lot NOT IN ('SH', 'PO') AND s.user_id = user_rec.id AND s.progress = 100
+      )
       LOOP
           INSERT INTO collection_to_entity (collection_id, metadata_id)
           VALUES (done_collection_id, seen_rec.metadata_id)
