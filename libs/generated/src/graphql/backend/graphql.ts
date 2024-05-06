@@ -760,7 +760,6 @@ export type MediaFilter = {
 
 export enum MediaGeneralFilter {
   All = 'ALL',
-  Completed = 'COMPLETED',
   Dropped = 'DROPPED',
   InProgress = 'IN_PROGRESS',
   OnAHold = 'ON_A_HOLD',

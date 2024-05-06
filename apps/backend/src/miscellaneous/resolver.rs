@@ -539,7 +539,6 @@ enum MediaGeneralFilter {
     InProgress,
     Dropped,
     OnAHold,
-    Completed,
     Unseen,
     Owned,
 }
@@ -2360,12 +2359,10 @@ impl MiscellaneousService {
                     }
                     MediaGeneralFilter::Dropped
                     | MediaGeneralFilter::InProgress
-                    | MediaGeneralFilter::Completed
                     | MediaGeneralFilter::OnAHold => {
                         let state = match s {
                             MediaGeneralFilter::Dropped => SeenState::Dropped,
                             MediaGeneralFilter::InProgress => SeenState::InProgress,
-                            MediaGeneralFilter::Completed => SeenState::Completed,
                             MediaGeneralFilter::OnAHold => SeenState::OnAHold,
                             _ => unreachable!(),
                         };
