@@ -15,7 +15,8 @@ BEGIN
     FOR aUser IN SELECT id FROM "user"
     LOOP
         INSERT INTO collection (name, description, user_id, visibility, created_on, last_updated_on)
-        VALUES ('Done', 'Media items that I have completed.', aUser.id, 'PR', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        VALUES ('Done', 'Media items that I have completed.', aUser.id, 'PR', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT DO NOTHING;
     END LOOP;
 END $$;
         "#)
