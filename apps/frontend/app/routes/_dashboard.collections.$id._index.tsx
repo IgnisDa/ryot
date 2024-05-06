@@ -304,7 +304,7 @@ export default function Page() {
 										))}
 									</ApplicationGrid>
 								) : (
-									<Text>You have not added any media to this collection</Text>
+									<Text>You have not added anything this collection</Text>
 								)}
 								{loaderData.contents.details ? (
 									<Center>
