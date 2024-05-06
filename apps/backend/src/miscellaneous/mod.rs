@@ -10,6 +10,7 @@ pub enum DefaultCollection {
     Watchlist,
     #[strum(serialize = "In Progress")]
     InProgress,
+    Done,
     Monitoring,
     Custom,
 }
@@ -18,6 +19,7 @@ meta! {
     DefaultCollection, &'static str;
     Watchlist, "Things I want to watch in the future.";
     InProgress, "Media items that I am currently watching.";
+    Done, "Media items that I have completed.";
     Monitoring, "Items that I am keeping an eye on.";
     Custom, "Items that I have created manually.";
 }
