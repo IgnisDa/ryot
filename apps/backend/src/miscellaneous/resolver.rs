@@ -7293,7 +7293,7 @@ GROUP BY m.id;
         }
     }
 
-    async fn cleanup_useless_date(&self) -> Result<()> {
+    pub async fn remove_useless_data(&self) -> Result<()> {
         Ok(())
     }
 
@@ -7302,8 +7302,6 @@ GROUP BY m.id;
         self.cleanup_user_and_metadata_association().await?;
         tracing::trace!("Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await?;
-        tracing::trace!("Cleaning up useless data");
-        self.cleanup_useless_date().await?;
         Ok(())
     }
 
