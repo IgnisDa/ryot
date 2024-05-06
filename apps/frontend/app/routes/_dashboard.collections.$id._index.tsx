@@ -29,7 +29,7 @@ import {
 	GraphqlSortOrder,
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -162,9 +162,6 @@ export default function Page() {
 			<Container>
 				<Stack>
 					<Box>
-						<Text c="dimmed" size="xs" mb={-10}>
-							{changeCase(loaderData.info.details.visibility)}
-						</Text>
 						<Title>{loaderData.info.details.name}</Title>{" "}
 						<Text size="sm">
 							{loaderData.contents.details.total} items, created by{" "}

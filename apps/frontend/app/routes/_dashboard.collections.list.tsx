@@ -6,9 +6,7 @@ import {
 	Button,
 	Container,
 	Flex,
-	Input,
 	Modal,
-	SegmentedControl,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -34,9 +32,7 @@ import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
 	type UserCollectionsListQuery,
-	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
@@ -133,7 +129,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const createOrUpdateSchema = z.object({
 	name: z.string(),
 	description: z.string().optional(),
-	visibility: z.nativeEnum(Visibility),
 	updateId: zx.IntAsString.optional(),
 });
 
@@ -141,7 +136,6 @@ type UpdateCollectionInput = {
 	name: string;
 	id: number;
 	description?: string | null;
-	visibility: Visibility;
 };
 
 export default function Page() {
@@ -209,28 +203,6 @@ export default function Page() {
 								toUpdateCollection ? toUpdateCollection.name : undefined
 							}
 						/>
-						<Box>
-							<Input.Label>Visibility</Input.Label>
-							<SegmentedControl
-								fullWidth
-								data={[
-									{
-										label: Visibility.Private,
-										value: Visibility.Private,
-									},
-									{
-										label: Visibility.Public,
-										value: Visibility.Public,
-									},
-								]}
-								name="visibility"
-								defaultValue={
-									toUpdateCollection
-										? toUpdateCollection.visibility
-										: Visibility.Private
-								}
-							/>
-						</Box>
 						<Textarea
 							label="Description"
 							name="description"
@@ -277,7 +249,6 @@ const DisplayCollection = (props: {
 					</Anchor>
 					<Text c="dimmed" size="xs">
 						{props.collection.numItems} items,{" "}
-						{changeCase(props.collection.visibility || "")}
 					</Text>
 				</Flex>
 				{props.collection.description ? (
@@ -293,7 +264,6 @@ const DisplayCollection = (props: {
 							name: props.collection.name,
 							id: props.collection.id,
 							description: props.collection.description,
-							visibility: props.collection.visibility,
 						});
 						props.openModal();
 					}}
