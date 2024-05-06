@@ -2263,16 +2263,6 @@ impl MiscellaneousService {
                                 Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                                     .equals((seen_alias.clone(), AliasedSeen::MetadataId)),
                             )
-                            .order_by_expr(
-                                Expr::case(
-                                    Expr::col((AliasedSeen::Table, AliasedSeen::State))
-                                        .eq(SeenState::InProgress),
-                                    0,
-                                )
-                                .finally(1)
-                                .into(),
-                                Order::Asc,
-                            )
                             .order_by_with_nulls(
                                 (seen_alias.clone(), last_seen),
                                 order_by.clone(),
