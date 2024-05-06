@@ -7294,6 +7294,14 @@ GROUP BY m.id;
     }
 
     pub async fn remove_useless_data(&self) -> Result<()> {
+        let mut metadata_stream = Metadata::find()
+            .left_join(UserToEntity)
+            .filter(user_to_entity::Column::MetadataId.is_null())
+            .stream(&self.db)
+            .await?;
+        while let Some(meta) = metadata_stream.try_next().await? {
+            dbg!(meta.title);
+        }
         Ok(())
     }
 
@@ -7302,6 +7310,8 @@ GROUP BY m.id;
         self.cleanup_user_and_metadata_association().await?;
         tracing::trace!("Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await?;
+        tracing::trace!("Removing useless data");
+        self.remove_useless_data().await?;
         Ok(())
     }
 

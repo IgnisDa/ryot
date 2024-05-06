@@ -69,10 +69,6 @@ pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(
             .await
             .unwrap();
     }
-    if env::var("DISABLE_REMOVE_USELESS_DATA").is_err() {
-        tracing::trace!("Removing useless data");
-        misc_service.remove_useless_data().await.unwrap();
-    }
     Ok(())
 }
 
