@@ -7295,12 +7295,39 @@ GROUP BY m.id;
 
     pub async fn remove_useless_data(&self) -> Result<()> {
         let mut metadata_stream = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::MetadataId.is_null())
+            .into_tuple::<i32>()
             .stream(&self.db)
             .await?;
         while let Some(meta) = metadata_stream.try_next().await? {
-            dbg!(meta.title);
+            Metadata::delete_by_id(meta).exec(&self.db).await?;
+        }
+        let mut people_stream = Person::find()
+            .select_only()
+            .column(person::Column::Id)
+            .left_join(UserToEntity)
+            .filter(user_to_entity::Column::PersonId.is_null())
+            .into_tuple::<i32>()
+            .stream(&self.db)
+            .await?;
+        while let Some(person) = people_stream.try_next().await? {
+            Person::delete_by_id(person).exec(&self.db).await?;
+        }
+        let mut metadata_group_stream = MetadataGroup::find()
+            .select_only()
+            .column(metadata_group::Column::Id)
+            .left_join(UserToEntity)
+            .filter(user_to_entity::Column::MetadataGroupId.is_null())
+            .into_tuple::<i32>()
+            .stream(&self.db)
+            .await?;
+        while let Some(meta_group) = metadata_group_stream.try_next().await? {
+            MetadataGroup::delete_by_id(meta_group)
+                .exec(&self.db)
+                .await?;
         }
         Ok(())
     }
