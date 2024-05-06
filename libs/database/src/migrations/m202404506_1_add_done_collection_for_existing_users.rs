@@ -18,7 +18,7 @@ BEGIN
     FOR user_rec IN SELECT id FROM "user"
     LOOP
       SELECT id INTO done_collection_id FROM collection
-      WHERE user_id = user_rec.id AND name = 'Done' LIMIT 1;
+      WHERE user_id = user_rec.id AND name = 'Completed' LIMIT 1;
 
       FOR seen_rec IN (
         SELECT metadata_id FROM seen s
