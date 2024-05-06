@@ -2686,7 +2686,7 @@ impl MiscellaneousService {
         Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
     }
 
-    pub async fn deploy_bulk_progress_update(
+    async fn deploy_bulk_progress_update(
         &self,
         user_id: i32,
         input: Vec<ProgressUpdateInput>,
@@ -2897,7 +2897,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn update_media(
+    async fn update_media(
         &self,
         metadata_id: i32,
         input: MediaDetails,
@@ -3109,7 +3109,7 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
-    pub async fn associate_person_with_metadata(
+    async fn associate_person_with_metadata(
         &self,
         metadata_id: i32,
         person: PartialMetadataPerson,
@@ -3395,7 +3395,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
+    async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
         let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -3409,7 +3409,7 @@ impl MiscellaneousService {
         Ok(job_id.to_string())
     }
 
-    pub async fn deploy_update_person_job(&self, person_id: i32) -> Result<String> {
+    async fn deploy_update_person_job(&self, person_id: i32) -> Result<String> {
         let person = Person::find_by_id(person_id)
             .one(&self.db)
             .await
@@ -3423,12 +3423,7 @@ impl MiscellaneousService {
         Ok(job_id.to_string())
     }
 
-    pub async fn merge_metadata(
-        &self,
-        user_id: i32,
-        merge_from: i32,
-        merge_into: i32,
-    ) -> Result<bool> {
+    async fn merge_metadata(&self, user_id: i32, merge_from: i32, merge_into: i32) -> Result<bool> {
         for old_seen in Seen::find()
             .filter(seen::Column::MetadataId.eq(merge_from))
             .filter(seen::Column::UserId.eq(user_id))
@@ -4376,7 +4371,7 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
+    async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
         let review = Review::find()
             .filter(review::Column::Id.eq(review_id))
             .one(&self.db)
@@ -4453,7 +4448,7 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn delete_collection(&self, user_id: i32, name: &str) -> Result<bool> {
+    async fn delete_collection(&self, user_id: i32, name: &str) -> Result<bool> {
         if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
             return Err(Error::new("Can not delete a default collection".to_owned()));
         }
@@ -4513,7 +4508,7 @@ impl MiscellaneousService {
         Ok(IdObject { id: collect.id })
     }
 
-    pub async fn delete_seen_item(&self, user_id: i32, seen_id: i32) -> Result<IdObject> {
+    async fn delete_seen_item(&self, user_id: i32, seen_id: i32) -> Result<IdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
             let (ssn, sen) = match &si.show_extra_information {
@@ -5998,7 +5993,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
+    async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
         let add_entity_to_collection = |collection_name: &str| {
             self.add_entity_to_collection(
                 seen.user_id,
@@ -6124,11 +6119,7 @@ impl MiscellaneousService {
     }
 
     #[tracing::instrument(skip(self, msg))]
-    pub async fn send_notifications_to_user_platforms(
-        &self,
-        user_id: i32,
-        msg: &str,
-    ) -> Result<bool> {
+    async fn send_notifications_to_user_platforms(&self, user_id: i32, msg: &str) -> Result<bool> {
         let user_details = user_by_id(&self.db, user_id).await?;
         let mut success = true;
         if user_details.preferences.notifications.enabled {
@@ -6185,7 +6176,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn send_media_state_changed_notification_for_user(
+    async fn send_media_state_changed_notification_for_user(
         &self,
         user_id: i32,
         notification: &(String, MediaStateChanged),
@@ -6200,7 +6191,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<GenreListItem>> {
+    async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<GenreListItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let num_items = "num_items";
         let query = Genre::find()
@@ -6245,7 +6236,7 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn metadata_groups_list(
+    async fn metadata_groups_list(
         &self,
         user_id: i32,
         input: SearchInput,
