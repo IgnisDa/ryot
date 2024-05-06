@@ -100,10 +100,6 @@ pub struct SearchDetails {
     params(media::MetadataGroupSearchItem)
 ))]
 #[graphql(concrete(
-    name = "PublicCollectionsListResults",
-    params(media::PublicCollectionItem)
-))]
-#[graphql(concrete(
     name = "MediaCreatorSearchResults",
     params(media::MediaCreatorSearchItem)
 ))]
@@ -183,13 +179,6 @@ pub enum MediaStateChanged {
 
 pub mod media {
     use super::*;
-
-    #[derive(Clone, Debug, PartialEq, Eq, FromQueryResult, SimpleObject)]
-    pub struct PublicCollectionItem {
-        pub id: i32,
-        pub name: String,
-        pub username: String,
-    }
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
     pub struct MetadataSearchItemWithLot {
