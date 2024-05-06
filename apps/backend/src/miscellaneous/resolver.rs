@@ -7303,6 +7303,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(meta) = metadata_stream.try_next().await? {
+            tracing::debug!("Removing metadata id = {:#?}", meta);
             Metadata::delete_by_id(meta).exec(&self.db).await?;
         }
         let mut people_stream = Person::find()
@@ -7314,6 +7315,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(person) = people_stream.try_next().await? {
+            tracing::debug!("Removing person id = {:#?}", person);
             Person::delete_by_id(person).exec(&self.db).await?;
         }
         let mut metadata_group_stream = MetadataGroup::find()
@@ -7325,6 +7327,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(meta_group) = metadata_group_stream.try_next().await? {
+            tracing::debug!("Removing metadata group id = {:#?}", meta_group);
             MetadataGroup::delete_by_id(meta_group)
                 .exec(&self.db)
                 .await?;
