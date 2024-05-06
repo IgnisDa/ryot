@@ -6090,50 +6090,39 @@ impl MiscellaneousService {
     }
 
     pub async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        self.remove_entity_from_collection(
-            seen.user_id,
-            ChangeCollectionToEntityInput {
-                collection_name: DefaultCollection::Watchlist.to_string(),
-                metadata_id: Some(seen.metadata_id),
-                ..Default::default()
-            },
-        )
-        .await
-        .ok();
+        let add_entity_to_collection = |collection_name: &str| {
+            self.add_entity_to_collection(
+                seen.user_id,
+                ChangeCollectionToEntityInput {
+                    collection_name: collection_name.to_string(),
+                    metadata_id: Some(seen.metadata_id),
+                    ..Default::default()
+                },
+            )
+        };
+        let remove_entity_from_collection = |collection_name: &str| {
+            self.remove_entity_from_collection(
+                seen.user_id,
+                ChangeCollectionToEntityInput {
+                    collection_name: collection_name.to_string(),
+                    metadata_id: Some(seen.metadata_id),
+                    ..Default::default()
+                },
+            )
+        };
+        remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
+            .await
+            .ok();
         match seen.state {
             SeenState::InProgress => {
-                self.add_entity_to_collection(
-                    seen.user_id,
-                    ChangeCollectionToEntityInput {
-                        collection_name: DefaultCollection::InProgress.to_string(),
-                        metadata_id: Some(seen.metadata_id),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .ok();
-                self.add_entity_to_collection(
-                    seen.user_id,
-                    ChangeCollectionToEntityInput {
-                        collection_name: DefaultCollection::Monitoring.to_string(),
-                        metadata_id: Some(seen.metadata_id),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .ok();
+                for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
+                    add_entity_to_collection(&col.to_string()).await.ok();
+                }
             }
             SeenState::Dropped | SeenState::OnAHold => {
-                self.remove_entity_from_collection(
-                    seen.user_id,
-                    ChangeCollectionToEntityInput {
-                        collection_name: DefaultCollection::InProgress.to_string(),
-                        metadata_id: Some(seen.metadata_id),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .ok();
+                remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
+                    .await
+                    .ok();
             }
             SeenState::Completed => {
                 let metadata = self.generic_metadata(seen.metadata_id).await?;
@@ -6201,54 +6190,18 @@ impl MiscellaneousService {
                         });
                     let is_complete = bag.values().all(|&e| e == 1);
                     if is_complete {
-                        self.remove_entity_from_collection(
-                            seen.user_id,
-                            ChangeCollectionToEntityInput {
-                                collection_name: DefaultCollection::InProgress.to_string(),
-                                metadata_id: Some(seen.metadata_id),
-                                ..Default::default()
-                            },
-                        )
-                        .await
-                        .ok();
-                    } else {
-                        for col in &[
-                            DefaultCollection::InProgress.to_string(),
-                            DefaultCollection::Monitoring.to_string(),
-                        ] {
-                            self.add_entity_to_collection(
-                                seen.user_id,
-                                ChangeCollectionToEntityInput {
-                                    collection_name: col.to_string(),
-                                    metadata_id: Some(seen.metadata_id),
-                                    ..Default::default()
-                                },
-                            )
+                        remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
                             .await
                             .ok();
+                    } else {
+                        for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
+                            add_entity_to_collection(&col.to_string()).await.ok();
                         }
                     }
                 } else {
-                    self.remove_entity_from_collection(
-                        seen.user_id,
-                        ChangeCollectionToEntityInput {
-                            collection_name: DefaultCollection::InProgress.to_string(),
-                            metadata_id: Some(seen.metadata_id),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
-                    self.remove_entity_from_collection(
-                        seen.user_id,
-                        ChangeCollectionToEntityInput {
-                            collection_name: DefaultCollection::Monitoring.to_string(),
-                            metadata_id: Some(seen.metadata_id),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
+                    for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
+                        remove_entity_from_collection(&col.to_string()).await.ok();
+                    }
                 };
             }
         };
