@@ -418,7 +418,9 @@ export default function Page() {
 										</>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
-									loaderData.latestUserSummary.fitness.workouts.duration +
+									Number(
+										loaderData.latestUserSummary.fitness.workouts.duration,
+									) +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
 										0 ? (
 										<UnstyledLink to={$path("/fitness/workouts/list")}>
