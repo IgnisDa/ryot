@@ -87,9 +87,10 @@ use crate::{
             CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            ImportOrExportPersonItem, MangaSpecifics, MediaAssociatedPersonStateChanges,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
+            MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
             PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
@@ -7103,15 +7104,15 @@ impl MiscellaneousService {
                 };
                 intermediate.insert(&self.db).await.unwrap();
             }
-            let search_for = (
-                CommitMediaInput {
+            let search_for = MediaAssociatedPersonStateChanges {
+                media: CommitMediaInput {
                     identifier: pm.identifier.clone(),
                     lot: pm.lot,
                     source: pm.source,
                     ..Default::default()
                 },
-                role.clone(),
-            );
+                role: role.clone(),
+            };
             if !default_state_changes.media_associated.contains(&search_for) {
                 notifications.push((
                     format!(

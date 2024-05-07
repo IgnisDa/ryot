@@ -1387,9 +1387,17 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
     pub struct MetadataStateChanges {}
 
+    #[derive(
+        Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, Hash,
+    )]
+    pub struct MediaAssociatedPersonStateChanges {
+        pub media: CommitMediaInput,
+        pub role: String,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
     pub struct PersonStateChanges {
-        pub media_associated: HashSet<(CommitMediaInput, String)>,
+        pub media_associated: HashSet<MediaAssociatedPersonStateChanges>,
     }
 }
 
