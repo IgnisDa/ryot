@@ -6183,11 +6183,13 @@ impl MiscellaneousService {
         notification: &(String, MediaStateChanged),
     ) -> Result<()> {
         let (notification, change) = notification;
-        let notif_prefs = self.user_preferences(user_id).await?.notifications.to_send;
-        if notif_prefs.contains(change) {
+        let notif_prefs = self.user_preferences(user_id).await?.notifications;
+        if notif_prefs.enabled && notif_prefs.to_send.contains(change) {
             self.send_notifications_to_user_platforms(user_id, notification)
                 .await
                 .ok();
+        } else {
+            tracing::debug!("User id = {user_id} has disabled notifications for {change}");
         }
         Ok(())
     }
