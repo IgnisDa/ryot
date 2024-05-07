@@ -15,7 +15,7 @@ pub struct Model {
     pub name: String,
     pub description: Option<String>,
     #[graphql(skip)]
-    pub user_id: i32,
+    pub created_by_user_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -26,7 +26,7 @@ pub enum Relation {
     Review,
     #[sea_orm(
         belongs_to = "super::user::Entity",
-        from = "Column::UserId",
+        from = "Column::CreatedByUserId",
         to = "super::user::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"

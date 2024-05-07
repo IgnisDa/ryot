@@ -2789,7 +2789,7 @@ impl MiscellaneousService {
         for user_id in all_users {
             let collections = Collection::find()
                 .column(collection::Column::Id)
-                .filter(collection::Column::UserId.eq(user_id))
+                .filter(collection::Column::CreatedByUserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
@@ -3458,7 +3458,7 @@ impl MiscellaneousService {
             old_review.delete(&self.db).await?;
         }
         let collections = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id))
+            .filter(collection::Column::CreatedByUserId.eq(user_id))
             .all(&self.db)
             .await
             .unwrap()
@@ -4033,7 +4033,7 @@ impl MiscellaneousService {
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
         let collections = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id))
+            .filter(collection::Column::CreatedByUserId.eq(user_id))
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
@@ -4235,7 +4235,7 @@ impl MiscellaneousService {
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
         let reviews = self
             .item_reviews(
-                collection.user_id,
+                collection.created_by_user_id,
                 None,
                 None,
                 None,
@@ -4407,7 +4407,7 @@ impl MiscellaneousService {
     ) -> Result<IdObject> {
         let meta = Collection::find()
             .filter(collection::Column::Name.eq(input.name.clone()))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .filter(collection::Column::CreatedByUserId.eq(user_id.to_owned()))
             .one(&self.db)
             .await
             .unwrap();
@@ -4435,7 +4435,7 @@ impl MiscellaneousService {
                     },
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     name: ActiveValue::Set(new_name),
-                    user_id: ActiveValue::Set(user_id.to_owned()),
+                    created_by_user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
                     ..Default::default()
                 };
@@ -4455,7 +4455,7 @@ impl MiscellaneousService {
         }
         let collection = Collection::find()
             .filter(collection::Column::Name.eq(name))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .filter(collection::Column::CreatedByUserId.eq(user_id.to_owned()))
             .one(&self.db)
             .await?;
         let resp = if let Some(c) = collection {
@@ -4481,7 +4481,7 @@ impl MiscellaneousService {
     ) -> Result<IdObject> {
         let collect = Collection::find()
             .filter(collection::Column::Name.eq(input.collection_name.to_owned()))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .filter(collection::Column::CreatedByUserId.eq(user_id.to_owned()))
             .one(&self.db)
             .await
             .unwrap()
