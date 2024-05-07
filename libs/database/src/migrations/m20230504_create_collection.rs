@@ -14,7 +14,7 @@ pub enum Collection {
     CreatedOn,
     LastUpdatedOn,
     Name,
-    UserId,
+    CreatedByUserId,
     Description,
 }
 
@@ -39,7 +39,11 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Collection::Name).text().not_null())
-                    .col(ColumnDef::new(Collection::UserId).integer().not_null())
+                    .col(
+                        ColumnDef::new(Collection::CreatedByUserId)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Collection::Description).text())
                     .col(
                         ColumnDef::new(Collection::LastUpdatedOn)
@@ -50,7 +54,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_user_foreign_key")
-                            .from(Collection::Table, Collection::UserId)
+                            .from(Collection::Table, Collection::CreatedByUserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
@@ -74,7 +78,7 @@ impl MigrationTrait for Migration {
                     .name("collection__name-user_id__index")
                     .table(Collection::Table)
                     .col(Collection::Name)
-                    .col(Collection::UserId)
+                    .col(Collection::CreatedByUserId)
                     .to_owned(),
             )
             .await?;
