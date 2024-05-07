@@ -392,28 +392,34 @@ export default function Page() {
 												]}
 											/>
 											{loaderData.userPreferences.media.people ? (
-												<ActualDisplayStat
-													icon={<IconFriends />}
-													lot="People stats"
-													color={theme.colors.red[9]}
-													data={[
-														{
-															label: "People",
-															value:
-																loaderData.latestUserSummary.media.peopleOverall
-																	.interactedWith,
-															type: "number",
-														},
-														{
-															label: "Reviews",
-															value:
-																loaderData.latestUserSummary.media.peopleOverall
-																	.reviewed,
-															type: "number",
-															hideIfZero: true,
-														},
-													]}
-												/>
+												<UnstyledLink
+													to={$path("/media/people/:action", {
+														action: "list",
+													})}
+												>
+													<ActualDisplayStat
+														icon={<IconFriends />}
+														lot="People stats"
+														color={theme.colors.red[9]}
+														data={[
+															{
+																label: "People",
+																value:
+																	loaderData.latestUserSummary.media
+																		.peopleOverall.interactedWith,
+																type: "number",
+															},
+															{
+																label: "Reviews",
+																value:
+																	loaderData.latestUserSummary.media
+																		.peopleOverall.reviewed,
+																type: "number",
+																hideIfZero: true,
+															},
+														]}
+													/>
+												</UnstyledLink>
 											) : null}
 										</>
 									) : null}
