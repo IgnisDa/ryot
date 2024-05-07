@@ -4647,9 +4647,6 @@ impl MiscellaneousService {
         let metadata_num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
             .filter(review::Column::MetadataId.is_not_null())
-            .apply_if(start_from, |query, v| {
-                query.filter(review::Column::PostedOn.gt(v))
-            })
             .count(&self.db)
             .await?;
 
@@ -4698,9 +4695,6 @@ impl MiscellaneousService {
         let num_metadata_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .apply_if(start_from, |query, v| {
-                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
-            })
             .count(&self.db)
             .await?;
 
@@ -4761,8 +4755,8 @@ impl MiscellaneousService {
             total_workout_time
         );
 
-        ls.media.metadata_overall.reviewed += metadata_num_reviews;
-        ls.media.metadata_overall.interacted_with += num_metadata_interacted_with;
+        ls.media.metadata_overall.reviewed = metadata_num_reviews;
+        ls.media.metadata_overall.interacted_with = num_metadata_interacted_with;
         ls.media.people_overall.reviewed += person_num_reviews;
         ls.media.people_overall.interacted_with += num_people_interacted_with;
         ls.fitness.measurements_recorded += num_measurements;
