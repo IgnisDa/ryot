@@ -4,7 +4,7 @@ You can specify configuration options via environment variables or via files (lo
 `config/ryot.json`, `config/ryot.toml`, `config/ryot.yaml`). They should be present in `/home/ryot/config/ryot.<ext>`.
 
 Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
-([example](https://demo.ryot.io/backend/config)). This can also be treated as a [health
+([example](https://app.ryot.io/backend/config)). This can also be treated as a [health
 endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
 
 !!! info

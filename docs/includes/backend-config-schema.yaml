@@ -79,7 +79,7 @@ file_storage:
 frontend:
   # Used as the base URL when generating item links for the frontend.
   # @envvar FRONTEND_URL
-  url: "https://demo.ryot.io"
+  url: "https://app.ryot.io"
 
   # Whether the cookies set are insecure.
   # @envvar FRONTEND_INSECURE_COOKIES
