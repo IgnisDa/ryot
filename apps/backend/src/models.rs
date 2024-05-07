@@ -1384,9 +1384,6 @@ pub mod media {
         pub force_update: Option<bool>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
-    pub struct MetadataStateChanges {}
-
     #[derive(
         Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, Hash,
     )]
