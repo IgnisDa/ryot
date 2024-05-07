@@ -87,9 +87,10 @@ use crate::{
             CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaCreatorSearchItem, MediaDetails,
-            MediaListItem, MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem,
-            MetadataImage, MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            ImportOrExportPersonItem, MangaSpecifics, MediaAssociatedPersonStateChanges,
+            MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
+            MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
             PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
@@ -6181,12 +6182,14 @@ impl MiscellaneousService {
         user_id: i32,
         notification: &(String, MediaStateChanged),
     ) -> Result<()> {
-        let (notification, change) = notification;
-        let notif_prefs = self.user_preferences(user_id).await?.notifications.to_send;
-        if notif_prefs.contains(change) {
-            self.send_notifications_to_user_platforms(user_id, notification)
+        let (msg, change) = notification;
+        let notif_prefs = self.user_preferences(user_id).await?.notifications;
+        if notif_prefs.enabled && notif_prefs.to_send.contains(change) {
+            self.send_notifications_to_user_platforms(user_id, msg)
                 .await
                 .ok();
+        } else {
+            tracing::debug!("User id = {user_id} has disabled notifications for {change}");
         }
         Ok(())
     }
@@ -7103,7 +7106,15 @@ impl MiscellaneousService {
                 };
                 intermediate.insert(&self.db).await.unwrap();
             }
-            let search_for = (pm.id, role.clone());
+            let search_for = MediaAssociatedPersonStateChanges {
+                media: CommitMediaInput {
+                    identifier: pm.identifier.clone(),
+                    lot: pm.lot,
+                    source: pm.source,
+                    ..Default::default()
+                },
+                role: role.clone(),
+            };
             if !default_state_changes.media_associated.contains(&search_for) {
                 notifications.push((
                     format!(

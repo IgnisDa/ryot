@@ -25,6 +25,7 @@ mod m20240504_add_columns_for_state_changes;
 mod m20240506_0_add_done_collection_for_existing_users;
 mod m20240506_1_add_entities_to_done_collection_for_existing_users;
 mod m20240507_0_remove_visibility_from_collection;
+mod m20240508_set_state_changes_to_null;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -67,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240506_0_add_done_collection_for_existing_users::Migration),
             Box::new(m20240506_1_add_entities_to_done_collection_for_existing_users::Migration),
             Box::new(m20240507_0_remove_visibility_from_collection::Migration),
+            Box::new(m20240508_set_state_changes_to_null::Migration),
         ]
     }
 }
