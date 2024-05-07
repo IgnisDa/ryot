@@ -7103,7 +7103,15 @@ impl MiscellaneousService {
                 };
                 intermediate.insert(&self.db).await.unwrap();
             }
-            let search_for = (pm.id, role.clone());
+            let search_for = (
+                CommitMediaInput {
+                    identifier: pm.identifier.clone(),
+                    lot: pm.lot,
+                    source: pm.source,
+                    ..Default::default()
+                },
+                role.clone(),
+            );
             if !default_state_changes.media_associated.contains(&search_for) {
                 notifications.push((
                     format!(

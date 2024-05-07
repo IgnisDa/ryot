@@ -1363,7 +1363,19 @@ pub mod media {
         pub parts: Option<usize>,
     }
 
-    #[derive(Debug, InputObject)]
+    #[skip_serializing_none]
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        Clone,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Default,
+        InputObject,
+        Hash,
+    )]
     pub struct CommitMediaInput {
         pub lot: MediaLot,
         pub source: MediaSource,
@@ -1377,7 +1389,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
     pub struct PersonStateChanges {
-        pub media_associated: HashSet<(i32, String)>,
+        pub media_associated: HashSet<(CommitMediaInput, String)>,
     }
 }
 
