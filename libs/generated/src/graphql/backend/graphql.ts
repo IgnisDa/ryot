@@ -1953,7 +1953,7 @@ export type UserFitnessSummary = {
 };
 
 export type UserFitnessWorkoutSummary = {
-  duration: Scalars['Int']['output'];
+  duration: Scalars['Decimal']['output'];
   recorded: Scalars['Int']['output'];
   weight: Scalars['Decimal']['output'];
 };
@@ -2787,7 +2787,7 @@ export type ImportReportsQuery = { importReports: Array<{ id: number, source: Im
 export type LatestUserSummaryQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type LatestUserSummaryQuery = { latestUserSummary: { calculatedOn: string, fitness: { measurementsRecorded: number, exercisesInteractedWith: number, workouts: { recorded: number, duration: number, weight: string } }, media: { metadataOverall: { reviewed: number, interactedWith: number }, peopleOverall: { reviewed: number, interactedWith: number }, manga: { chapters: number, read: number }, books: { pages: number, read: number }, movies: { runtime: number, watched: number }, anime: { episodes: number, watched: number }, podcasts: { runtime: number, played: number, playedEpisodes: number }, visualNovels: { played: number, runtime: number }, videoGames: { played: number }, shows: { runtime: number, watchedEpisodes: number, watchedSeasons: number, watched: number }, audioBooks: { runtime: number, played: number } } } };
+export type LatestUserSummaryQuery = { latestUserSummary: { calculatedOn: string, fitness: { measurementsRecorded: number, exercisesInteractedWith: number, workouts: { recorded: number, duration: string, weight: string } }, media: { metadataOverall: { reviewed: number, interactedWith: number }, peopleOverall: { reviewed: number, interactedWith: number }, manga: { chapters: number, read: number }, books: { pages: number, read: number }, movies: { runtime: number, watched: number }, anime: { episodes: number, watched: number }, podcasts: { runtime: number, played: number, playedEpisodes: number }, visualNovels: { played: number, runtime: number }, videoGames: { played: number }, shows: { runtime: number, watchedEpisodes: number, watchedSeasons: number, watched: number }, audioBooks: { runtime: number, played: number } } } };
 
 export type MetadataAdditionalDetailsQueryVariables = Exact<{
   metadataId: Scalars['Int']['input'];

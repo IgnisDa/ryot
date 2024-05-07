@@ -36,10 +36,7 @@ use openidconnect::{
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
 use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::{
-    prelude::{FromPrimitive, ToPrimitive},
-    Decimal,
-};
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
@@ -4658,9 +4655,6 @@ impl MiscellaneousService {
         let person_num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
             .filter(review::Column::PersonId.is_not_null())
-            .apply_if(start_from, |query, v| {
-                query.filter(review::Column::PostedOn.gt(v))
-            })
             .count(&self.db)
             .await?;
 
@@ -4671,9 +4665,6 @@ impl MiscellaneousService {
 
         let num_measurements = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
-            .apply_if(start_from, |query, v| {
-                query.filter(user_measurement::Column::Timestamp.gt(v))
-            })
             .count(&self.db)
             .await?;
 
@@ -4684,9 +4675,6 @@ impl MiscellaneousService {
 
         let num_workouts = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
-            .apply_if(start_from, |query, v| {
-                query.filter(workout::Column::EndTime.gt(v))
-            })
             .count(&self.db)
             .await?;
 
@@ -4706,9 +4694,6 @@ impl MiscellaneousService {
         let num_people_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::PersonId.is_not_null())
-            .apply_if(start_from, |query, v| {
-                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
-            })
             .count(&self.db)
             .await?;
 
@@ -4720,9 +4705,6 @@ impl MiscellaneousService {
         let num_exercises_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .apply_if(start_from, |query, v| {
-                query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
-            })
             .count(&self.db)
             .await?;
 
@@ -4733,9 +4715,6 @@ impl MiscellaneousService {
 
         let (total_workout_time, total_workout_weight) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id.to_owned()))
-            .apply_if(start_from, |query, v| {
-                query.filter(workout::Column::EndTime.gt(v))
-            })
             .select_only()
             .column_as(
                 Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
@@ -4757,13 +4736,13 @@ impl MiscellaneousService {
 
         ls.media.metadata_overall.reviewed = metadata_num_reviews;
         ls.media.metadata_overall.interacted_with = num_metadata_interacted_with;
-        ls.media.people_overall.reviewed += person_num_reviews;
-        ls.media.people_overall.interacted_with += num_people_interacted_with;
-        ls.fitness.measurements_recorded += num_measurements;
-        ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
-        ls.fitness.workouts.recorded += num_workouts;
-        ls.fitness.workouts.weight += total_workout_weight;
-        ls.fitness.workouts.duration += total_workout_time.to_u64().unwrap();
+        ls.media.people_overall.reviewed = person_num_reviews;
+        ls.media.people_overall.interacted_with = num_people_interacted_with;
+        ls.fitness.measurements_recorded = num_measurements;
+        ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
+        ls.fitness.workouts.recorded = num_workouts;
+        ls.fitness.workouts.weight = total_workout_weight;
+        ls.fitness.workouts.duration = total_workout_time;
 
         tracing::debug!("Calculated numbers summary for user {:?}", ls);
 
