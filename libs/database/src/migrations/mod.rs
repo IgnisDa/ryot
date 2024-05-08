@@ -28,6 +28,7 @@ mod m20240507_0_remove_visibility_from_collection;
 mod m20240508_set_state_changes_to_null;
 mod m20240508_z_change_name_of_collection_field;
 mod m20240509_create_user_to_collection;
+mod m20240509_z_associate_collections_with_owners;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -73,6 +74,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240508_set_state_changes_to_null::Migration),
             Box::new(m20240508_z_change_name_of_collection_field::Migration),
             Box::new(m20240509_create_user_to_collection::Migration),
+            Box::new(m20240509_z_associate_collections_with_owners::Migration),
         ]
     }
 }
