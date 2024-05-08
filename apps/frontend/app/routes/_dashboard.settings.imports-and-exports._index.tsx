@@ -116,14 +116,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.Audiobookshelf, () => ({
 					audiobookshelf: processSubmission(
 						formData,
-						audiobookshelfImportFormSchema,
+						urlAndKeyImportFormSchema,
 					),
 				}))
 				.with(ImportSource.MediaTracker, () => ({
-					mediaTracker: processSubmission(
-						formData,
-						mediaTrackerImportFormSchema,
-					),
+					mediaTracker: processSubmission(formData, urlAndKeyImportFormSchema),
 				}))
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
@@ -173,12 +170,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const mediaTrackerImportFormSchema = z.object({
-	apiUrl: z.string().url(),
-	apiKey: z.string(),
-});
-
-const audiobookshelfImportFormSchema = z.object({
+const urlAndKeyImportFormSchema = z.object({
 	apiUrl: z.string().url(),
 	apiKey: z.string(),
 });
