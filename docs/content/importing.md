@@ -182,6 +182,8 @@ the input.
 
 ## Jellyfin
 
+You can import your watched movies and TV shows from [Jellyfin](https://jellyfin.org).
+
 !!! warning
 
       This will only import media that are already finished. Setup an
