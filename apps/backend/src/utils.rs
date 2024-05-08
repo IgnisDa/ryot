@@ -75,20 +75,31 @@ pub struct AppServices {
 async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
     match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
         Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
-            Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
-                .await
-                .ok()
-                .map(|provider| {
-                    CoreClient::from_provider_metadata(
-                        provider,
-                        ClientId::new(config.server.oidc.client_id.clone()),
-                        Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
-                    )
-                    .set_redirect_uri(redirect_url)
-                }),
-            _ => None,
+            Ok(issuer_url) => {
+                match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
+                    Ok(provider) => Some(
+                        CoreClient::from_provider_metadata(
+                            provider,
+                            ClientId::new(config.server.oidc.client_id.clone()),
+                            Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+                        )
+                        .set_redirect_uri(redirect_url),
+                    ),
+                    Err(e) => {
+                        tracing::warn!("Error while creating OIDC client: {:?}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Error while creating OIDC client: {:?}", e);
+                None
+            }
         },
-        _ => None,
+        Err(e) => {
+            tracing::warn!("Error while creating OIDC client: {:?}", e);
+            None
+        }
     }
 }
 
