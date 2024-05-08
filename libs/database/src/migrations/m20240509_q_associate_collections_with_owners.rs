@@ -10,14 +10,14 @@ impl MigrationTrait for Migration {
             let db = manager.get_connection();
             db.execute_unprepared(
                 r#"
-                DO $$
+DO $$
 DECLARE
     col RECORD;
 BEGIN
 FOR col IN SELECT id, user_id FROM "collection"
     LOOP
-        INSERT INTO "user_to_collection" (user_id, collection_id)
-        VALUES (col.user_id, col.id)
+        INSERT INTO "user_to_collection" (user_id, collection_id, creator)
+        VALUES (col.user_id, col.id, true)
         ON CONFLICT DO NOTHING;
     END LOOP;
 END $$;
