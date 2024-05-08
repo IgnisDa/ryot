@@ -250,6 +250,7 @@ export type DeployImportJobInput = {
   audiobookshelf?: InputMaybe<DeployUrlAndKeyImportInput>;
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
   genericJson?: InputMaybe<DeployJsonImportInput>;
+  jellyfin?: InputMaybe<DeployUrlAndKeyAndUsernameImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   mediaTracker?: InputMaybe<DeployUrlAndKeyImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
@@ -281,6 +282,12 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
+  username: Scalars['String']['input'];
+};
+
+export type DeployUrlAndKeyAndUsernameImportInput = {
+  apiKey: Scalars['String']['input'];
+  apiUrl: Scalars['String']['input'];
   username: Scalars['String']['input'];
 };
 
@@ -684,6 +691,7 @@ export enum ImportSource {
   GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
   Imdb = 'IMDB',
+  Jellyfin = 'JELLYFIN',
   Mal = 'MAL',
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',

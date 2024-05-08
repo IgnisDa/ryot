@@ -164,6 +164,8 @@ pub enum ImportSource {
     Goodreads,
     #[sea_orm(string_value = "IM")]
     Imdb,
+    #[sea_orm(string_value = "JE")]
+    Jellyfin,
     #[sea_orm(string_value = "MA")]
     Mal,
     #[sea_orm(string_value = "MO")]

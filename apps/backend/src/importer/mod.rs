@@ -39,6 +39,7 @@ mod audiobookshelf;
 mod generic_json;
 mod goodreads;
 mod imdb;
+mod jellyfin;
 mod mal;
 mod media_tracker;
 mod movary;
@@ -104,6 +105,13 @@ pub struct DeployUrlAndKeyImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployUrlAndKeyAndUsernameImportInput {
+    api_url: String,
+    api_key: String,
+    username: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: ImportSource,
     pub media_tracker: Option<DeployUrlAndKeyImportInput>,
@@ -114,6 +122,7 @@ pub struct DeployImportJobInput {
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub audiobookshelf: Option<DeployUrlAndKeyImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
+    pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
 }
 
 /// The various steps in which media importing can fail
@@ -318,6 +327,7 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
+            ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
         };
         for m in import.media.iter_mut() {
             m.seen_history.sort_by(|a, b| {
