@@ -8,10 +8,8 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         if manager.has_column("collection", "user_id").await? {
             let db = manager.get_connection();
-            db.execute_unprepared(
-                r#"alter table "collection" rename column "user_id" to "created_by_user_id""#,
-            )
-            .await?;
+            db.execute_unprepared(r#"alter table "collection" drop column "user_id""#)
+                .await?;
         }
         Ok(())
     }

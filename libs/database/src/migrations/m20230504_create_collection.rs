@@ -1,7 +1,5 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
-
 pub static COLLECTION_NAME_INDEX: &str = "collection__name__index";
 
 #[derive(DeriveMigrationName)]
@@ -14,7 +12,6 @@ pub enum Collection {
     CreatedOn,
     LastUpdatedOn,
     Name,
-    CreatedByUserId,
     Description,
 }
 
@@ -39,25 +36,12 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Collection::Name).text().not_null())
-                    .col(
-                        ColumnDef::new(Collection::CreatedByUserId)
-                            .integer()
-                            .not_null(),
-                    )
                     .col(ColumnDef::new(Collection::Description).text())
                     .col(
                         ColumnDef::new(Collection::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("collection_to_user_foreign_key")
-                            .from(Collection::Table, Collection::CreatedByUserId)
-                            .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -68,17 +52,6 @@ impl MigrationTrait for Migration {
                     .name(COLLECTION_NAME_INDEX)
                     .table(Collection::Table)
                     .col(Collection::Name)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name("collection__name-user_id__index")
-                    .table(Collection::Table)
-                    .col(Collection::Name)
-                    .col(Collection::CreatedByUserId)
                     .to_owned(),
             )
             .await?;
