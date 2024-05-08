@@ -15,7 +15,7 @@ use crate::{
     utils::get_base_http_client,
 };
 
-use super::DeployAudiobookshelfImportInput;
+use super::DeployUrlAndKeyImportInput;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Display)]
 #[serde(rename_all = "snake_case")]
@@ -51,7 +51,7 @@ pub struct ListResponse {
     pub results: Vec<LibraryListItem>,
 }
 
-pub async fn import(input: DeployAudiobookshelfImportInput) -> Result<ImportResult> {
+pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut media = vec![];
     let mut failed_items = vec![];
     let client = get_base_http_client(
