@@ -171,14 +171,6 @@ the "Watchlist" collection.
 All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
 tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
 
-## Generic Json
-
-The "Generic Json" can be used to import all possible data from a generic JSON file. The
-format of the JSON file should be `CompleteExport`. The import format required is described
-in the [exporting](guides/exporting.md#type-definition) documentation.
-
-You can use this to export all your data from one Ryot instance and import it into another.
-
 ## Open Scale
 
 You can import your measurements from [Open Scale](https://github.com/oliexdev/openScale)
@@ -187,3 +179,26 @@ app.
 This can be done by clicking on the three dots on the top right corner of the app, and then
 clicking on "Export". This will save a CSV file to your file system. Upload this file in
 the input.
+
+## Jellyfin
+
+!!! warning
+
+      This will only import media that are already finished. Setup an
+      [integration](./integrations.md#jellyfin) if you want to import media in progress.
+
+### Steps
+
+- Sign in as the admin of your Jellyfin server. Then go to Dashboard (under Administration)
+  and select API Keys (under Advanced).
+- Click on the plus icon and give it a name. Copy the API key.
+- Enter the correct details in the input. The username you enter should be the one whose
+  data you want to import.
+
+## Generic Json
+
+The "Generic Json" can be used to import all possible data from a generic JSON file. The
+format of the JSON file should be `CompleteExport`. The import format required is described
+in the [exporting](guides/exporting.md#type-definition) documentation.
+
+You can use this to export all your data from one Ryot instance and import it into another.
