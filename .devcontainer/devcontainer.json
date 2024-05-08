@@ -1,7 +1,7 @@
 {
 	"name": "ryot",
 	"dockerComposeFile": "docker-compose.yml",
-	"service": "app",
+	"service": "ryot-app",
 	"forwardPorts": [],
 	"workspaceFolder": "/workspaces/ryot",
 	"postCreateCommand": ". ${containerWorkspaceFolder}/.devcontainer/scripts/post-create.sh",
