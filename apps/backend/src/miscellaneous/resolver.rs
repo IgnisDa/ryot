@@ -17,9 +17,10 @@ use async_graphql::{
 use cached::{DiskCache, IOCached};
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
-    AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson,
-    AliasedReview, AliasedSeen, AliasedUserToEntity, MediaLot, MediaSource,
-    MetadataToMetadataRelation, SeenState, UserLot, Visibility,
+    AliasedCollectionToEntity, AliasedExercise, AliasedMetadata, AliasedMetadataGroup,
+    AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUserToCollection,
+    AliasedUserToEntity, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserLot,
+    Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -46,7 +47,7 @@ use sea_orm::{
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement,
+    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -361,12 +362,12 @@ struct ReviewItem {
     comments: Vec<ImportOrExportItemReviewComment>,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, FromQueryResult)]
 struct CollectionItem {
     id: i32,
     user_id: i32,
     name: String,
-    num_items: u64,
+    count: i64,
     description: Option<String>,
 }
 
@@ -4031,32 +4032,41 @@ impl MiscellaneousService {
         user_id: i32,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
+        let subquery = Query::select()
+            .expr(collection_to_entity::Column::Id.count())
+            .from(CollectionToEntity)
+            .and_where(
+                Expr::col((
+                    AliasedCollectionToEntity::Table,
+                    collection_to_entity::Column::CollectionId,
+                ))
+                .equals((
+                    AliasedUserToCollection::Table,
+                    user_to_collection::Column::CollectionId,
+                )),
+            )
+            .to_owned();
         let collections = UserToCollection::find()
+            .select_only()
+            .column_as(user_to_collection::Column::CollectionId, "id")
+            .column(user_to_collection::Column::UserId)
+            .column(collection::Column::Name)
+            .expr(SimpleExpr::SubQuery(
+                None,
+                Box::new(subquery.into_sub_query_statement()),
+            ))
+            .column(collection::Column::Description)
             .filter(user_to_collection::Column::UserId.eq(user_id))
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
             .order_by_desc(collection::Column::LastUpdatedOn)
-            .find_also_related(Collection)
+            .left_join(Collection)
+            .into_model::<CollectionItem>()
             .all(&self.db)
             .await
             .unwrap();
-        let mut data = vec![];
-        for (_, collection) in collections.into_iter() {
-            let collection = collection.unwrap();
-            let num_items = collection
-                .find_related(CollectionToEntity)
-                .count(&self.db)
-                .await?;
-            data.push(CollectionItem {
-                id: collection.id,
-                user_id: collection.user_id,
-                name: collection.name,
-                description: collection.description,
-                num_items,
-            });
-        }
-        Ok(data)
+        Ok(collections)
     }
 
     async fn collection_contents(

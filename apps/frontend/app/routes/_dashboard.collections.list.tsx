@@ -248,7 +248,7 @@ const DisplayCollection = (props: {
 						<Title order={4}>{props.collection.name}</Title>
 					</Anchor>
 					<Text c="dimmed" size="xs">
-						{props.collection.numItems} items
+						{props.collection.count} items
 					</Text>
 				</Flex>
 				{props.collection.description ? (
