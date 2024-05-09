@@ -30,8 +30,8 @@ use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
         collection, collection_to_entity,
-        prelude::{Collection, CollectionToEntity, User, UserToEntity},
-        user, user_to_entity,
+        prelude::{Collection, CollectionToEntity, User, UserToCollection, UserToEntity},
+        user, user_to_collection, user_to_entity,
     },
     exporter::ExporterService,
     file_storage::FileStorageService,
@@ -271,7 +271,8 @@ pub async fn entity_in_collections(
     exercise_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
-        .filter(collection::Column::UserId.eq(user_id))
+        .left_join(UserToCollection)
+        .filter(user_to_collection::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
