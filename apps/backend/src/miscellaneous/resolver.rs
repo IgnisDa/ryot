@@ -4501,8 +4501,9 @@ impl MiscellaneousService {
         input: ChangeCollectionToEntityInput,
     ) -> Result<IdObject> {
         let collect = Collection::find()
+            .left_join(UserToCollection)
+            .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
             .filter(collection::Column::Name.eq(input.collection_name.to_owned()))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
             .one(&self.db)
             .await
             .unwrap()

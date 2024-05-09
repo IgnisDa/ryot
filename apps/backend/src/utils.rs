@@ -301,7 +301,8 @@ pub async fn add_entity_to_collection(
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
     let collection = Collection::find()
-        .filter(collection::Column::UserId.eq(user_id.to_owned()))
+        .left_join(UserToCollection)
+        .filter(user_to_collection::Column::UserId.eq(user_id))
         .filter(collection::Column::Name.eq(input.collection_name))
         .one(db)
         .await
