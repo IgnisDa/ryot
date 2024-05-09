@@ -70,7 +70,7 @@ use crate::{
             self, UserWithOnlyIntegrationsAndNotifications, UserWithOnlyPreferences,
             UserWithOnlySummary,
         },
-        user_measurement, user_to_entity, workout,
+        user_measurement, user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
@@ -4439,9 +4439,16 @@ impl MiscellaneousService {
                 let inserted = col.save(&self.db).await.map_err(|_| {
                     Error::new("There was an error creating the collection".to_owned())
                 })?;
-                Ok(IdObject {
-                    id: inserted.id.unwrap(),
-                })
+                let id = inserted.id.unwrap();
+                user_to_collection::ActiveModel {
+                    user_id: ActiveValue::Set(user_id),
+                    collection_id: ActiveValue::Set(id),
+                    creator: ActiveValue::Set(Some(true)),
+                }
+                .insert(&self.db)
+                .await
+                .ok();
+                Ok(IdObject { id })
             }
         }
     }
