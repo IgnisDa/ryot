@@ -25,8 +25,8 @@ respectively and reverse proxied at `:8000`. To get them running, install
 I also recommend the following environment file:
 
 ```bash title=".env"
-DATABASE_URL="postgres://postgres:postgres@postgres:5432/postgres"
-RUST_LOG="ryot=trace,sea_orm=debug"
+DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
+RUST_LOG=ryot=trace,sea_orm=debug
 ```
 
 Your website would be available at `http://localhost:8000`.
