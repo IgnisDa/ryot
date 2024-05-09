@@ -92,12 +92,12 @@ async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
                 }
             }
             Err(e) => {
-                tracing::warn!("Error while creating OIDC client: {:?}", e);
+                tracing::warn!("Error while processing OIDC issuer url: {:?}", e);
                 None
             }
         },
         Err(e) => {
-            tracing::warn!("Error while creating OIDC client: {:?}", e);
+            tracing::warn!("Error while processing OIDC redirect url: {:?}", e);
             None
         }
     }
