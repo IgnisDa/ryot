@@ -583,10 +583,11 @@ export default function Page() {
 							<Group>
 								{userMetadataDetails.collections.map((col) => (
 									<DisplayCollection
+										key={col.id}
 										col={col}
+										userId={col.userId}
 										entityId={loaderData.metadataId.toString()}
 										entityLot={EntityLot.Media}
-										key={col.id}
 									/>
 								))}
 								{userMetadataDetails.ownership ? <DisplayMediaOwned /> : null}

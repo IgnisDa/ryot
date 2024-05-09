@@ -175,6 +175,7 @@ export default function Page() {
 							<DisplayCollection
 								key={col.id}
 								col={col}
+								userId={col.userId}
 								entityId={loaderData.metadataGroupId.toString()}
 								entityLot={EntityLot.MediaGroup}
 							/>

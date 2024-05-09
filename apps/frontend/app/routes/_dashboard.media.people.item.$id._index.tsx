@@ -214,10 +214,11 @@ export default function Page() {
 					<Group>
 						{loaderData.userPersonDetails.collections.map((col) => (
 							<DisplayCollection
+								key={col.id}
 								col={col}
+								userId={col.userId}
 								entityId={loaderData.personId.toString()}
 								entityLot={EntityLot.Person}
-								key={col.id}
 							/>
 						))}
 						{loaderData.personDetails.details.isPartial ? (
