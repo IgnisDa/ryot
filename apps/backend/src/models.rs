@@ -139,6 +139,7 @@ pub struct CompleteExport {
 
 #[derive(Debug, InputObject, Default)]
 pub struct ChangeCollectionToEntityInput {
+    pub creator_user_id: i32,
     pub collection_name: String,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,

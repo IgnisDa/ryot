@@ -4563,6 +4563,7 @@ impl MiscellaneousService {
                 self.remove_entity_from_collection(
                     user_id,
                     ChangeCollectionToEntityInput {
+                        creator_user_id: user_id,
                         collection_name: DefaultCollection::InProgress.to_string(),
                         metadata_id: Some(metadata_id),
                         ..Default::default()
@@ -5113,6 +5114,7 @@ impl MiscellaneousService {
         self.add_entity_to_collection(
             user_id,
             ChangeCollectionToEntityInput {
+                creator_user_id: user_id,
                 collection_name: DefaultCollection::Custom.to_string(),
                 metadata_id: Some(media.id),
                 ..Default::default()
@@ -5996,6 +5998,7 @@ impl MiscellaneousService {
             self.add_entity_to_collection(
                 seen.user_id,
                 ChangeCollectionToEntityInput {
+                    creator_user_id: seen.user_id,
                     collection_name: collection_name.to_string(),
                     metadata_id: Some(seen.metadata_id),
                     ..Default::default()
@@ -6006,6 +6009,7 @@ impl MiscellaneousService {
             self.remove_entity_from_collection(
                 seen.user_id,
                 ChangeCollectionToEntityInput {
+                    creator_user_id: seen.user_id,
                     collection_name: collection_name.to_string(),
                     metadata_id: Some(seen.metadata_id),
                     ..Default::default()
