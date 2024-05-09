@@ -455,7 +455,7 @@ struct GraphqlMediaAssets {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlMediaDetails {
+struct GraphqlMetadataDetails {
     id: i32,
     title: String,
     identifier: String,
@@ -613,7 +613,7 @@ struct UserMetadataGroupDetails {
 }
 
 #[derive(SimpleObject)]
-struct UserMediaDetails {
+struct UserMetadataDetails {
     /// The collections in which this media is present.
     collections: Vec<collection::Model>,
     /// The public reviews of this media.
@@ -832,7 +832,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
-    ) -> Result<GraphqlMediaDetails> {
+    ) -> Result<GraphqlMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.metadata_details(metadata_id).await
     }
@@ -994,7 +994,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
-    ) -> Result<UserMediaDetails> {
+    ) -> Result<UserMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_metadata_details(user_id, metadata_id).await
@@ -1665,7 +1665,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn metadata_details(&self, metadata_id: i32) -> Result<GraphqlMediaDetails> {
+    async fn metadata_details(&self, metadata_id: i32) -> Result<GraphqlMetadataDetails> {
         let MediaBaseData {
             model,
             creators,
@@ -1744,7 +1744,7 @@ impl MiscellaneousService {
         };
         let watch_providers = model.watch_providers.unwrap_or_default();
 
-        let resp = GraphqlMediaDetails {
+        let resp = GraphqlMetadataDetails {
             id: model.id,
             lot: model.lot,
             title: model.title,
@@ -1782,7 +1782,7 @@ impl MiscellaneousService {
         &self,
         user_id: i32,
         metadata_id: i32,
-    ) -> Result<UserMediaDetails> {
+    ) -> Result<UserMetadataDetails> {
         let media_details = self.metadata_details(metadata_id).await?;
         let collections =
             entity_in_collections(&self.db, user_id, Some(metadata_id), None, None, None).await?;
@@ -1901,7 +1901,7 @@ impl MiscellaneousService {
                 Some(sum / Decimal::from(total_rating.iter().len()))
             }
         };
-        Ok(UserMediaDetails {
+        Ok(UserMetadataDetails {
             collections,
             reviews,
             history,

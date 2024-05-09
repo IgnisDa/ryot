@@ -563,7 +563,13 @@ export type GraphqlMediaAssets = {
   videos: Array<GraphqlVideoAsset>;
 };
 
-export type GraphqlMediaDetails = {
+export type GraphqlMediaGroup = {
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  part: Scalars['Int']['output'];
+};
+
+export type GraphqlMetadataDetails = {
   animeSpecifics?: Maybe<AnimeSpecifics>;
   assets: GraphqlMediaAssets;
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
@@ -593,12 +599,6 @@ export type GraphqlMediaDetails = {
   videoGameSpecifics?: Maybe<VideoGameSpecifics>;
   visualNovelSpecifics?: Maybe<VisualNovelSpecifics>;
   watchProviders: Array<WatchProvider>;
-};
-
-export type GraphqlMediaGroup = {
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-  part: Scalars['Int']['output'];
 };
 
 export enum GraphqlSortOrder {
@@ -1495,7 +1495,7 @@ export type QueryRoot = {
   /** Get a summary of all the media items that have been consumed by this user. */
   latestUserSummary: UserSummary;
   /** Get details about a media present in the database. */
-  metadataDetails: GraphqlMediaDetails;
+  metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
@@ -1529,7 +1529,7 @@ export type QueryRoot = {
   /** Get all the measurements for a user. */
   userMeasurementsList: Array<UserMeasurement>;
   /** Get details that can be displayed to a user for a media. */
-  userMetadataDetails: UserMediaDetails;
+  userMetadataDetails: UserMetadataDetails;
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
   /** Get all the notification platforms for the currently logged in user. */
@@ -2105,29 +2105,6 @@ export type UserMeasurementsPreferences = {
   inbuilt: UserMeasurementsInBuiltPreferences;
 };
 
-export type UserMediaDetails = {
-  /** The average rating of this media in this service. */
-  averageRating?: Maybe<Scalars['Decimal']['output']>;
-  /** The collections in which this media is present. */
-  collections: Array<Collection>;
-  /** The seen history of this media. */
-  history: Array<Seen>;
-  /** The seen item if it is in progress. */
-  inProgress?: Maybe<Seen>;
-  /** The next episode/chapter of this media. */
-  nextEntry?: Maybe<UserMediaNextEntry>;
-  /** The ownership status of the media. */
-  ownership?: Maybe<UserMediaOwnership>;
-  /** The reminder that the user has set for this media. */
-  reminder?: Maybe<UserMediaReminder>;
-  /** The public reviews of this media. */
-  reviews: Array<ReviewItem>;
-  /** The number of users who have seen this media. */
-  seenBy: Scalars['Int']['output'];
-  /** The number of units of this media that were consumed. */
-  unitsConsumed?: Maybe<Scalars['Int']['output']>;
-};
-
 export type UserMediaFeaturesEnabledPreferences = {
   anime: Scalars['Boolean']['output'];
   audioBook: Scalars['Boolean']['output'];
@@ -2172,6 +2149,29 @@ export type UserMediaSummary = {
   shows: ShowsSummary;
   videoGames: VideoGamesSummary;
   visualNovels: VisualNovelsSummary;
+};
+
+export type UserMetadataDetails = {
+  /** The average rating of this media in this service. */
+  averageRating?: Maybe<Scalars['Decimal']['output']>;
+  /** The collections in which this media is present. */
+  collections: Array<Collection>;
+  /** The seen history of this media. */
+  history: Array<Seen>;
+  /** The seen item if it is in progress. */
+  inProgress?: Maybe<Seen>;
+  /** The next episode/chapter of this media. */
+  nextEntry?: Maybe<UserMediaNextEntry>;
+  /** The ownership status of the media. */
+  ownership?: Maybe<UserMediaOwnership>;
+  /** The reminder that the user has set for this media. */
+  reminder?: Maybe<UserMediaReminder>;
+  /** The public reviews of this media. */
+  reviews: Array<ReviewItem>;
+  /** The number of users who have seen this media. */
+  seenBy: Scalars['Int']['output'];
+  /** The number of units of this media that were consumed. */
+  unitsConsumed?: Maybe<Scalars['Int']['output']>;
 };
 
 export type UserMetadataGroupDetails = {
