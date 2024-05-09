@@ -9,7 +9,7 @@ import {
 	Flex,
 	Image,
 	Modal,
-	MultiSelect,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -150,7 +150,7 @@ export const AddEntityToCollectionModal = (props: {
 				<HiddenLocationInput />
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<MultiSelect
+					<Select
 						data={props.collections}
 						searchable
 						name="collectionName"

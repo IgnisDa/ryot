@@ -134,16 +134,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.with("addEntityToCollection", async () => {
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
-			for (const collectionName of submission.collectionName) {
-				const addTo = [collectionName];
-				if (collectionName === "Watchlist") addTo.push("Monitoring");
-				for (const co of addTo) {
-					await gqlClient.request(
-						AddEntityToCollectionDocument,
-						{ input: { ...input, collectionName: co } },
-						await getAuthorizationHeader(request),
-					);
-				}
+			const addTo = [submission.collectionName];
+			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
+			for (const co of addTo) {
+				await gqlClient.request(
+					AddEntityToCollectionDocument,
+					{
+						input: {
+							...input,
+							collectionName: co,
+							creatorUserId: submission.creatorUserId,
+						},
+					},
+					await getAuthorizationHeader(request),
+				);
 			}
 			headers = await createToastHeaders({
 				message: "Media added to collection successfully",
@@ -153,13 +157,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.with("removeEntityFromCollection", async () => {
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
-			for (const collectionName of submission.collectionName) {
-				await gqlClient.request(
-					RemoveEntityFromCollectionDocument,
-					{ input: { ...input, collectionName } },
-					await getAuthorizationHeader(request),
-				);
-			}
+			await gqlClient.request(
+				RemoveEntityFromCollectionDocument,
+				{
+					input: {
+						...input,
+						collectionName: submission.collectionName,
+						creatorUserId: submission.creatorUserId,
+					},
+				},
+				await getAuthorizationHeader(request),
+			);
 		})
 		.with("performReviewAction", async () => {
 			const submission = processSubmission(formData, reviewSchema);
@@ -259,7 +267,8 @@ const reviewCommentSchema = z.object({
 });
 
 const changeCollectionToEntitySchema = z.object({
-	collectionName: z.string().transform((v) => v.split(",")),
+	collectionName: z.string(),
+	creatorUserId: zx.IntAsString,
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
 });
@@ -312,6 +321,11 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 			: undefined;
 	return [
 		submission,
-		{ metadataId, metadataGroupId, exerciseId, personId },
+		{
+			metadataId,
+			metadataGroupId,
+			exerciseId,
+			personId,
+		},
 	] as const;
 };
