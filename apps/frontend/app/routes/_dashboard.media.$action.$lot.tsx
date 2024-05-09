@@ -576,7 +576,7 @@ const MediaSearchItem = (props: {
 									openIsAddMediaToCollectionModalOpened();
 								}}
 							>
-								Add to collections
+								Add to collection
 							</Menu.Item>
 						</Menu.Dropdown>
 					</Menu>
