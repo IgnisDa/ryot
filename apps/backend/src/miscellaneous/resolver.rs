@@ -368,8 +368,8 @@ struct CollectionItem {
     name: String,
     count: i64,
     description: Option<String>,
-    user_id: i32,
-    username: String,
+    creator_user_id: i32,
+    creator_username: String,
 }
 
 #[derive(SimpleObject)]
@@ -4059,8 +4059,8 @@ impl MiscellaneousService {
                 Box::new(subquery.into_sub_query_statement()),
             ))
             .column(collection::Column::Description)
-            .column_as(user::Column::Id, "user_id")
-            .column_as(user::Column::Name, "username")
+            .column_as(user::Column::Id, "creator_user_id")
+            .column_as(user::Column::Name, "creator_username")
             .order_by_desc(collection::Column::LastUpdatedOn)
             .left_join(User)
             .left_join(UserToCollection)
@@ -4461,7 +4461,6 @@ impl MiscellaneousService {
                 user_to_collection::ActiveModel {
                     user_id: ActiveValue::Set(user_id),
                     collection_id: ActiveValue::Set(id),
-                    creator: ActiveValue::Set(Some(true)),
                 }
                 .insert(&self.db)
                 .await

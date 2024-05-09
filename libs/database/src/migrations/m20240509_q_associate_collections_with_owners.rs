@@ -16,8 +16,8 @@ DECLARE
 BEGIN
 FOR col IN SELECT id, user_id FROM "collection"
     LOOP
-        INSERT INTO "user_to_collection" (user_id, collection_id, creator)
-        VALUES (col.user_id, col.id, true)
+        INSERT INTO "user_to_collection" (user_id, collection_id)
+        VALUES (col.user_id, col.id)
         ON CONFLICT DO NOTHING;
     END LOOP;
 END $$;

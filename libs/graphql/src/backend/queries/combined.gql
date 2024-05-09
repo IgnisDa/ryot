@@ -43,8 +43,8 @@ query UserCollectionsList($name: String) {
     name
     description
     count
-    userId
-    username
+    creatorUserId
+    creatorUsername
   }
 }
 
