@@ -245,7 +245,7 @@ const DisplayCollection = (props: {
 	const additionalDisplay = [`${props.collection.count} items`];
 
 	if (props.collection.creatorUserId !== loaderData.currentUserId)
-		additionalDisplay.push(props.collection.creatorUsername);
+		additionalDisplay.push(`By ${props.collection.creatorUsername}`);
 
 	return (
 		<Flex align="center" justify="space-between" gap="md" mr="lg">
