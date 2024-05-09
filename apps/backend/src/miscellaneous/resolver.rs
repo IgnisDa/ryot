@@ -63,7 +63,8 @@ use crate::{
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, Metadata,
             MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-            MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToEntity, Workout,
+            MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToCollection,
+            UserToEntity, Workout,
         },
         review, seen,
         user::{
@@ -363,6 +364,7 @@ struct ReviewItem {
 #[derive(Debug, SimpleObject)]
 struct CollectionItem {
     id: i32,
+    user_id: i32,
     name: String,
     num_items: u64,
     description: Option<String>,
@@ -4029,23 +4031,26 @@ impl MiscellaneousService {
         user_id: i32,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
-        let collections = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id))
+        let collections = UserToCollection::find()
+            .filter(user_to_collection::Column::UserId.eq(user_id))
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
             .order_by_desc(collection::Column::LastUpdatedOn)
+            .find_also_related(Collection)
             .all(&self.db)
             .await
             .unwrap();
         let mut data = vec![];
-        for collection in collections.into_iter() {
+        for (_, collection) in collections.into_iter() {
+            let collection = collection.unwrap();
             let num_items = collection
                 .find_related(CollectionToEntity)
                 .count(&self.db)
                 .await?;
             data.push(CollectionItem {
                 id: collection.id,
+                user_id: collection.user_id,
                 name: collection.name,
                 description: collection.description,
                 num_items,
