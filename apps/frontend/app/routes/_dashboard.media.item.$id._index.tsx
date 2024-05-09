@@ -1045,6 +1045,15 @@ export default function Page() {
 													{userMetadataDetails?.inProgress ? (
 														<>
 															<Menu.Label>In progress</Menu.Label>
+															<Menu.Item onClick={progressModalOpen}>
+																Set progress
+															</Menu.Item>
+															{loaderData.mediaMainDetails.lot !==
+																MediaLot.Show &&
+															loaderData.mediaMainDetails.lot !==
+																MediaLot.Podcast ? (
+																<StateChangeButtons />
+															) : null}
 															<Form
 																action="?intent=individualProgressUpdate"
 																method="post"
@@ -1072,23 +1081,9 @@ export default function Page() {
 																	name="metadataId"
 																	value={loaderData.metadataId}
 																>
-																	I finished{" "}
-																	{getVerb(
-																		Verb.Read,
-																		loaderData.mediaMainDetails.lot,
-																	)}
-																	ing it
+																	I finished it
 																</Menu.Item>
 															</Form>
-															<Menu.Item onClick={progressModalOpen}>
-																Set progress
-															</Menu.Item>
-															{loaderData.mediaMainDetails.lot !==
-																MediaLot.Show &&
-															loaderData.mediaMainDetails.lot !==
-																MediaLot.Podcast ? (
-																<StateChangeButtons />
-															) : null}
 														</>
 													) : loaderData.mediaMainDetails.lot !==
 															MediaLot.Show &&
