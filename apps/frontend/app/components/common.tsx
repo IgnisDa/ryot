@@ -131,11 +131,12 @@ export const MediaDetailsLayout = (props: {
 };
 
 export const AddEntityToCollectionModal = (props: {
+	userId: number;
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
-	collections: string[];
+	collections: { id: number; name: string; creatorUserId: number }[];
 }) => {
 	return (
 		<Modal
@@ -151,7 +152,7 @@ export const AddEntityToCollectionModal = (props: {
 				<Stack>
 					<Title order={3}>Select collection</Title>
 					<Select
-						data={props.collections}
+						data={props.collections.map((c) => c.name)}
 						searchable
 						name="collectionName"
 						nothingFoundMessage="Nothing found..."

@@ -237,11 +237,12 @@ export default function Page() {
 										Add to collection
 									</Button>
 									<AddEntityToCollectionModal
+										userId={loaderData.userDetails.id}
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.metadataGroupId.toString()}
 										entityLot={EntityLot.MediaGroup}
-										collections={loaderData.collections.map((c) => c.name)}
+										collections={loaderData.collections}
 									/>
 									<Menu shadow="md">
 										<Menu.Target>

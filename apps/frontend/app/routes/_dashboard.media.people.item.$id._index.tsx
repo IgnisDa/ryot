@@ -390,11 +390,12 @@ export default function Page() {
 										</Menu.Dropdown>
 									</Menu>
 									<AddEntityToCollectionModal
+										userId={loaderData.userDetails.id}
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.personId.toString()}
 										entityLot={EntityLot.Person}
-										collections={loaderData.collections.map((c) => c.name)}
+										collections={loaderData.collections}
 									/>
 								</SimpleGrid>
 							</MediaScrollArea>
