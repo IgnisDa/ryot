@@ -74,8 +74,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::collection::Entity")]
-    Collection,
+    #[sea_orm(has_many = "super::exercise::Entity")]
+    Exercise,
     #[sea_orm(has_many = "super::import_report::Entity")]
     ImportReport,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -84,15 +84,17 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::user_measurement::Entity")]
     UserMeasurement,
+    #[sea_orm(has_many = "super::user_to_collection::Entity")]
+    UserToCollection,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
     UserToEntity,
     #[sea_orm(has_many = "super::workout::Entity")]
     Workout,
 }
 
-impl Related<super::collection::Entity> for Entity {
+impl Related<super::exercise::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Collection.def()
+        Relation::Exercise.def()
     }
 }
 
@@ -117,6 +119,12 @@ impl Related<super::seen::Entity> for Entity {
 impl Related<super::user_measurement::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserMeasurement.def()
+    }
+}
+
+impl Related<super::user_to_collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserToCollection.def()
     }
 }
 
