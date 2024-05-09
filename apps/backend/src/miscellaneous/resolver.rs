@@ -4993,7 +4993,7 @@ impl MiscellaneousService {
     }
 
     // this job is run when a user is created for the first time
-    pub async fn user_created_job(&self, user_id: i32) -> Result<()> {
+    async fn user_created_job(&self, user_id: i32) -> Result<()> {
         for col in DefaultCollection::iter() {
             self.create_or_update_collection(
                 user_id,
