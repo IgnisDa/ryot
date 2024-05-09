@@ -4047,24 +4047,24 @@ impl MiscellaneousService {
                 )),
             )
             .to_owned();
-        let collections = UserToCollection::find()
+        let collections = Collection::find()
+            .apply_if(name, |query, v| {
+                query.filter(collection::Column::Name.eq(v))
+            })
             .select_only()
-            .column_as(user_to_collection::Column::CollectionId, "id")
+            .column(collection::Column::Id)
             .column(collection::Column::Name)
             .expr(SimpleExpr::SubQuery(
                 None,
                 Box::new(subquery.into_sub_query_statement()),
             ))
             .column(collection::Column::Description)
-            .column(user_to_collection::Column::UserId)
+            .column_as(user::Column::Id, "user_id")
             .column_as(user::Column::Name, "username")
-            .filter(user_to_collection::Column::UserId.eq(user_id))
-            .apply_if(name, |query, v| {
-                query.filter(collection::Column::Name.eq(v))
-            })
             .order_by_desc(collection::Column::LastUpdatedOn)
-            .left_join(Collection)
             .left_join(User)
+            .left_join(UserToCollection)
+            .filter(user_to_collection::Column::UserId.eq(user_id))
             .into_model::<CollectionItem>()
             .all(&self.db)
             .await
