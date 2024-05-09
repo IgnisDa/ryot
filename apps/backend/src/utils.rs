@@ -334,8 +334,20 @@ pub async fn add_entity_to_collection(
         created_collection.metadata_id = ActiveValue::Set(input.metadata_id);
         created_collection.person_id = ActiveValue::Set(input.person_id);
         created_collection.metadata_group_id = ActiveValue::Set(input.metadata_group_id);
-        created_collection.exercise_id = ActiveValue::Set(input.exercise_id);
-        created_collection.insert(db).await.is_ok()
+        created_collection.exercise_id = ActiveValue::Set(input.exercise_id.clone());
+        if created_collection.insert(db).await.is_ok() {
+            associate_user_with_entity(
+                &user_id,
+                input.metadata_id,
+                input.person_id,
+                input.exercise_id,
+                input.metadata_group_id,
+                db,
+            )
+            .await
+            .ok();
+        };
+        true
     };
     Ok(resp)
 }
