@@ -115,6 +115,7 @@ fragment WorkoutSummaryPart on WorkoutSummary {
 fragment CollectionPart on Collection {
   id
   name
+  userId
 }
 
 fragment ReviewItemPart on ReviewItem {

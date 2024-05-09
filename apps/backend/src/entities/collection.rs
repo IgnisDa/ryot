@@ -14,7 +14,6 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub name: String,
     pub description: Option<String>,
-    #[graphql(skip)]
     pub user_id: i32,
 }
 
