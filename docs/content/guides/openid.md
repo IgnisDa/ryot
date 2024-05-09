@@ -14,7 +14,7 @@ In your OIDC provider, you will need to set the redirect URL to
 `<FRONTEND_URL>/api/auth`. The scopes required are `openid email`.
 
 Once these are set, restart your Ryot instance and you should be able to see the button to
-Continue with OpenID Connect on the authentication pages. New users will have their
+"Continue with OpenID Connect" on the authentication pages. New users will have their
 username set to their email address. This can be changed later in the profile settings.
 
 !!! warning
