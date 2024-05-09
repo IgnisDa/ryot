@@ -2534,7 +2534,7 @@ impl MiscellaneousService {
                         match input.date {
                             None => ProgressUpdateAction::InThePast,
                             Some(u) => {
-                                if Utc::now().date_naive() == u {
+                                if get_current_date(&self.timezone) == u {
                                     if all_prev_seen.is_empty() {
                                         ProgressUpdateAction::Now
                                     } else {
