@@ -14,6 +14,8 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub name: String,
     pub description: Option<String>,
+    #[graphql(skip)]
+    pub user_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -22,6 +24,14 @@ pub enum Relation {
     CollectionToEntity,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    User,
     #[sea_orm(has_many = "super::user_to_collection::Entity")]
     UserToCollection,
 }
@@ -35,6 +45,12 @@ impl Related<super::collection_to_entity::Entity> for Entity {
 impl Related<super::review::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Review.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
     }
 }
 

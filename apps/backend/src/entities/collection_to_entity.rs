@@ -107,7 +107,7 @@ impl ActiveModelBehavior for ActiveModel {
                 .await?
                 .unwrap();
             associate_user_with_entity(
-                &collection.created_by_user_id,
+                &collection.user_id,
                 model.metadata_id,
                 model.person_id,
                 model.exercise_id.clone(),

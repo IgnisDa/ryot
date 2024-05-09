@@ -271,7 +271,7 @@ pub async fn entity_in_collections(
     exercise_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
-        .filter(collection::Column::CreatedByUserId.eq(user_id))
+        .filter(collection::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
@@ -300,7 +300,7 @@ pub async fn add_entity_to_collection(
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
     let collection = Collection::find()
-        .filter(collection::Column::CreatedByUserId.eq(user_id.to_owned()))
+        .filter(collection::Column::UserId.eq(user_id.to_owned()))
         .filter(collection::Column::Name.eq(input.collection_name))
         .one(db)
         .await
