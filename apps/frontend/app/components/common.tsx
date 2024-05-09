@@ -140,12 +140,12 @@ export const AddEntityToCollectionModal = (props: {
 		id: number;
 		name: string;
 		creatorUserId: number;
-		creatorName: string;
+		creatorUsername: string;
 	}[];
 }) => {
 	const selectData = Object.entries(
 		groupBy(props.collections, (c) =>
-			c.creatorUserId === props.userId ? "You" : c.creatorName,
+			c.creatorUserId === props.userId ? "You" : c.creatorUsername,
 		),
 	).map(([g, items]) => ({
 		group: g,
