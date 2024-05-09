@@ -3477,15 +3477,25 @@ impl MiscellaneousService {
             .all(&txn)
             .await
             .unwrap();
-        CollectionToEntity::update_many()
+        for item in CollectionToEntity::find()
             .filter(collection_to_entity::Column::MetadataId.eq(merge_from))
             .filter(collection_to_entity::Column::CollectionId.is_in(collections))
-            .set(collection_to_entity::ActiveModel {
-                metadata_id: ActiveValue::Set(Some(merge_into)),
-                ..Default::default()
-            })
-            .exec(&txn)
-            .await?;
+            .all(&txn)
+            .await?
+            .into_iter()
+        {
+            if CollectionToEntity::find()
+                .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id))
+                .filter(collection_to_entity::Column::MetadataId.eq(merge_into))
+                .count(&txn)
+                .await?
+                == 0
+            {
+                let mut item_active: collection_to_entity::ActiveModel = item.into();
+                item_active.metadata_id = ActiveValue::Set(Some(merge_into));
+                item_active.update(&txn).await?;
+            }
+        }
         if let Some(association) =
             get_user_to_entity_association(&user_id, Some(merge_into), None, None, None, &txn).await
         {
