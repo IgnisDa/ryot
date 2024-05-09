@@ -40,10 +40,11 @@ query UserExports {
 query UserCollectionsList($name: String) {
   userCollectionsList(name: $name) {
     id
-    userId
     name
     description
     count
+    userId
+    username
   }
 }
 

@@ -365,10 +365,11 @@ struct ReviewItem {
 #[derive(Debug, SimpleObject, FromQueryResult)]
 struct CollectionItem {
     id: i32,
-    user_id: i32,
     name: String,
     count: i64,
     description: Option<String>,
+    user_id: i32,
+    username: String,
 }
 
 #[derive(SimpleObject)]
@@ -4049,19 +4050,21 @@ impl MiscellaneousService {
         let collections = UserToCollection::find()
             .select_only()
             .column_as(user_to_collection::Column::CollectionId, "id")
-            .column(user_to_collection::Column::UserId)
             .column(collection::Column::Name)
             .expr(SimpleExpr::SubQuery(
                 None,
                 Box::new(subquery.into_sub_query_statement()),
             ))
             .column(collection::Column::Description)
+            .column(user_to_collection::Column::UserId)
+            .column_as(user::Column::Name, "username")
             .filter(user_to_collection::Column::UserId.eq(user_id))
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
             .order_by_desc(collection::Column::LastUpdatedOn)
             .left_join(Collection)
+            .left_join(User)
             .into_model::<CollectionItem>()
             .all(&self.db)
             .await
