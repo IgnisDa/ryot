@@ -1200,19 +1200,22 @@ export default function Page() {
 															/>
 														)}
 													</UserMetadataDetailsSuspenseLoader>
-													<Form
-														action="?intent=deployUpdateMetadataJob"
-														method="post"
-														replace
-													>
-														<Menu.Item
-															type="submit"
-															name="metadataId"
-															value={loaderData.metadataId}
+													{loaderData.mediaMainDetails.source !==
+													MediaSource.Custom ? (
+														<Form
+															action="?intent=deployUpdateMetadataJob"
+															method="post"
+															replace
 														>
-															Update metadata
-														</Menu.Item>
-													</Form>
+															<Menu.Item
+																type="submit"
+																name="metadataId"
+																value={loaderData.metadataId}
+															>
+																Update metadata
+															</Menu.Item>
+														</Form>
+													) : null}
 													{userMetadataDetails.reminder ? (
 														<Form
 															action="/actions?intent=deleteMediaReminder"
