@@ -1138,6 +1138,7 @@ export const CreateOwnershipModal = (props: {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
+	userId: number;
 	entityLot: EntityLot;
 	inCollections: string[];
 	formValue: number;
@@ -1150,8 +1151,9 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	return (
 		<Form action={`/actions?intent=${action}`} method="post" replace>
 			<HiddenLocationInput />
-			<input hidden name="collectionName" value="Monitoring" />
-			<input hidden name="entityLot" value={props.entityLot} />
+			<input hidden name="collectionName" defaultValue="Monitoring" />
+			<input readOnly hidden name="entityLot" value={props.entityLot} />
+			<input readOnly hidden name="creatorUserId" value={props.userId} />
 			<Menu.Item
 				type="submit"
 				color={isMonitored ? "red" : undefined}

@@ -248,6 +248,7 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
+												userId={loaderData.userDetails.id}
 												inCollections={loaderData.userMetadataGroupDetails.collections.map(
 													(c) => c.name,
 												)}

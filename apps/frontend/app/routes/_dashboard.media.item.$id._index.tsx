@@ -1192,6 +1192,7 @@ export default function Page() {
 													<UserMetadataDetailsSuspenseLoader>
 														{(userMetadataDetails) => (
 															<ToggleMediaMonitorMenuItem
+																userId={loaderData.userDetails.id}
 																inCollections={userMetadataDetails.collections.map(
 																	(c) => c.name,
 																)}
