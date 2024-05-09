@@ -43,7 +43,7 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
     DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering,
@@ -2790,18 +2790,24 @@ impl MiscellaneousService {
         for user_id in all_users {
             let collections = Collection::find()
                 .column(collection::Column::Id)
-                .filter(collection::Column::UserId.eq(user_id))
+                .column(collection::Column::UserId)
+                .left_join(UserToCollection)
+                .filter(user_to_collection::Column::UserId.eq(user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
             let monitoring_collection_id = collections
                 .iter()
-                .find(|c| c.name == DefaultCollection::Monitoring.to_string())
+                .find(|c| {
+                    c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id
+                })
                 .map(|c| c.id)
                 .unwrap();
             let watchlist_collection_id = collections
                 .iter()
-                .find(|c| c.name == DefaultCollection::Watchlist.to_string())
+                .find(|c| {
+                    c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id
+                })
                 .map(|c| c.id)
                 .unwrap();
             let all_user_to_entities = UserToEntity::find()
@@ -3426,26 +3432,30 @@ impl MiscellaneousService {
     }
 
     async fn merge_metadata(&self, user_id: i32, merge_from: i32, merge_into: i32) -> Result<bool> {
+        let txn = self.db.begin().await?;
         for old_seen in Seen::find()
             .filter(seen::Column::MetadataId.eq(merge_from))
             .filter(seen::Column::UserId.eq(user_id))
-            .all(&self.db)
+            .all(&txn)
             .await
             .unwrap()
         {
             let old_seen_active: seen::ActiveModel = old_seen.clone().into();
             let new_seen = seen::ActiveModel {
                 id: ActiveValue::NotSet,
+                last_updated_on: ActiveValue::NotSet,
+                total_time_spent: ActiveValue::NotSet,
+                num_times_updated: ActiveValue::NotSet,
                 metadata_id: ActiveValue::Set(merge_into),
                 ..old_seen_active
             };
-            new_seen.insert(&self.db).await?;
-            old_seen.delete(&self.db).await?;
+            new_seen.insert(&txn).await?;
+            old_seen.delete(&txn).await?;
         }
         for old_review in Review::find()
             .filter(review::Column::MetadataId.eq(merge_from))
             .filter(review::Column::UserId.eq(user_id))
-            .all(&self.db)
+            .all(&txn)
             .await
             .unwrap()
         {
@@ -3455,17 +3465,18 @@ impl MiscellaneousService {
                 metadata_id: ActiveValue::Set(Some(merge_into)),
                 ..old_review_active
             };
-            new_review.insert(&self.db).await?;
-            old_review.delete(&self.db).await?;
+            new_review.insert(&txn).await?;
+            old_review.delete(&txn).await?;
         }
         let collections = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id))
-            .all(&self.db)
+            .select_only()
+            .column(collection::Column::Id)
+            .left_join(UserToCollection)
+            .filter(user_to_collection::Column::UserId.eq(user_id))
+            .into_tuple::<i32>()
+            .all(&txn)
             .await
-            .unwrap()
-            .iter()
-            .map(|c| c.id)
-            .collect_vec();
+            .unwrap();
         CollectionToEntity::update_many()
             .filter(collection_to_entity::Column::MetadataId.eq(merge_from))
             .filter(collection_to_entity::Column::CollectionId.is_in(collections))
@@ -3473,22 +3484,15 @@ impl MiscellaneousService {
                 metadata_id: ActiveValue::Set(Some(merge_into)),
                 ..Default::default()
             })
-            .exec(&self.db)
+            .exec(&txn)
             .await?;
         if let Some(association) =
-            get_user_to_entity_association(&user_id, Some(merge_into), None, None, None, &self.db)
-                .await
+            get_user_to_entity_association(&user_id, Some(merge_into), None, None, None, &txn).await
         {
-            let old_association = get_user_to_entity_association(
-                &user_id,
-                Some(merge_from),
-                None,
-                None,
-                None,
-                &self.db,
-            )
-            .await
-            .unwrap();
+            let old_association =
+                get_user_to_entity_association(&user_id, Some(merge_from), None, None, None, &txn)
+                    .await
+                    .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
             if old_association.media_reminder.is_none() {
                 cloned.media_reminder = ActiveValue::Set(association.media_reminder);
@@ -3497,7 +3501,7 @@ impl MiscellaneousService {
                 cloned.media_ownership = ActiveValue::Set(association.media_ownership);
             }
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
-            cloned.update(&self.db).await?;
+            cloned.update(&txn).await?;
         } else {
             UserToEntity::update_many()
                 .filter(user_to_entity::Column::MetadataId.eq(merge_from))
@@ -3506,9 +3510,10 @@ impl MiscellaneousService {
                     metadata_id: ActiveValue::Set(Some(merge_into)),
                     ..Default::default()
                 })
-                .exec(&self.db)
+                .exec(&txn)
                 .await?;
         }
+        txn.commit().await?;
         Ok(true)
     }
 
