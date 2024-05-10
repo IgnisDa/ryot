@@ -10,7 +10,6 @@ pub enum UserToCollection {
     Table,
     CollectionId,
     UserId,
-    Information,
 }
 
 #[async_trait::async_trait]
@@ -48,7 +47,6 @@ impl MigrationTrait for Migration {
                             .col(UserToCollection::UserId)
                             .col(UserToCollection::CollectionId),
                     )
-                    .col(ColumnDef::new(UserToCollection::Information).json_binary())
                     .to_owned(),
             )
             .await?;
