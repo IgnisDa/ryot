@@ -40,13 +40,13 @@ DECLARE
 BEGIN
     FOR aUser IN SELECT id FROM "user"
     LOOP
-        FOR ute IN SELECT metadata_id FROM "user_to_entity" where media_ownership is not null and user_id = aUser.id
+        FOR ute IN SELECT metadata_id, media_ownership FROM "user_to_entity" where media_ownership is not null and user_id = aUser.id
         LOOP
             SELECT id INTO owned_collection_id FROM collection
             WHERE user_id = aUser.id AND name = 'Owned' LIMIT 1;
 
-            INSERT INTO collection_to_entity (collection_id, metadata_id)
-            VALUES (owned_collection_id, ute.metadata_id);
+            INSERT INTO collection_to_entity (collection_id, metadata_id, information)
+            VALUES (owned_collection_id, ute.metadata_id, JSONB_BUILD_OBJECT('owned_on', ute.media_ownership -> 'owned_on'));
         END LOOP;
     END LOOP;
 END $$;
