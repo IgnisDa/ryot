@@ -1690,25 +1690,29 @@ const ProgressUpdateModal = (props: {
 					{loaderData.mediaMainDetails.lot === MediaLot.Manga ? (
 						<>
 							<Box>
-								<NumberInput
-									label="Chapter"
-									name="mangaChapterNumber"
-									description="Leaving this empty will mark the whole manga as watched"
-									hideControls
-									value={mangaChapterNumber}
-									onChange={(e) => setMangaChapterNumber(e.toString())}
-								/>
-								<Text ta="center" fw="bold" mt="sm">
-									OR
+								<Text c="dimmed" size="sm">
+									Leaving the following empty will mark the whole manga as
+									watched
 								</Text>
-								<NumberInput
-									label="Volume"
-									name="mangaVolumeNumber"
-									description="Leaving this empty will mark the whole manga as watched"
-									hideControls
-									value={mangaVolumeNumber}
-									onChange={(e) => setMangaVolumeNumber(e.toString())}
-								/>
+								<Group wrap="nowrap">
+									<NumberInput
+										label="Chapter"
+										name="mangaChapterNumber"
+										hideControls
+										value={mangaChapterNumber}
+										onChange={(e) => setMangaChapterNumber(e.toString())}
+									/>
+									<Text ta="center" fw="bold" mt="sm">
+										OR
+									</Text>
+									<NumberInput
+										label="Volume"
+										name="mangaVolumeNumber"
+										hideControls
+										value={mangaVolumeNumber}
+										onChange={(e) => setMangaVolumeNumber(e.toString())}
+									/>
+								</Group>
 							</Box>
 							{mangaChapterNumber ? (
 								<Checkbox
