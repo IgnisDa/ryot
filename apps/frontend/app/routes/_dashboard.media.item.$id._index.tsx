@@ -279,6 +279,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				podcastEpisodeNumber: submission.podcastEpisodeNumber,
 				animeEpisodeNumber: submission.animeEpisodeNumber,
 				mangaChapterNumber: submission.mangaChapterNumber,
+				mangaVolumeNumber: submission.mangaVolumeNumber,
 				providerWatchedOn: submission.providerWatchedOn,
 			};
 			let needsFinalUpdate = true;
@@ -1628,6 +1629,9 @@ const ProgressUpdateModal = (props: {
 	const [mangaChapterNumber, setMangaChapterNumber] = useState<
 		string | undefined
 	>(undefined);
+	const [mangaVolumeNumber, setMangaVolumeNumber] = useState<
+		string | undefined
+	>(undefined);
 
 	if (!props.data) return <></>;
 	return (
@@ -1692,6 +1696,17 @@ const ProgressUpdateModal = (props: {
 								hideControls
 								value={mangaChapterNumber}
 								onChange={(e) => setMangaChapterNumber(e.toString())}
+							/>
+							<Text ta="center" fw="bold">
+								OR
+							</Text>
+							<NumberInput
+								label="Volume"
+								name="mangaVolumeNumber"
+								description="Leaving this empty will mark the whole manga as watched"
+								hideControls
+								value={mangaVolumeNumber}
+								onChange={(e) => setMangaVolumeNumber(e.toString())}
 							/>
 							{mangaChapterNumber ? (
 								<Checkbox
