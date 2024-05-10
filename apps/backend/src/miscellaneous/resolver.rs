@@ -5023,11 +5023,12 @@ impl MiscellaneousService {
     // this job is run when a user is created for the first time
     async fn user_created_job(&self, user_id: i32) -> Result<()> {
         for col in DefaultCollection::iter() {
+            let meta = col.meta().to_owned();
             self.create_or_update_collection(
                 user_id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
-                    description: Some(col.meta().to_owned()),
+                    description: Some(meta.1.to_owned()),
                     ..Default::default()
                 },
             )
