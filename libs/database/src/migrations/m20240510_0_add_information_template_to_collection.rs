@@ -8,7 +8,10 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         db.execute_unprepared(
-            r#"alter table "collection" add column if not exists "information_template" jsonb"#,
+            r#"
+alter table "collection" add column if not exists "information_template" jsonb;
+alter table "user_to_collection" add column if not exists "information" jsonb;
+"#,
         )
         .await?;
         Ok(())
