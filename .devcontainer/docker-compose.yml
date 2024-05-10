@@ -1,7 +1,5 @@
-version: "3.9"
-
 services:
-  app:
+  ryot-app:
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,7 +12,7 @@ services:
       - "5000:5000"
     user: archlinux
 
-  minio:
+  ryot-minio:
     image: minio/minio
     ports:
       - "9000:9000"
@@ -23,7 +21,7 @@ services:
       - minio_storage:/data
     command: server --console-address ":9001" /data
 
-  postgres:
+  ryot-postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     volumes:

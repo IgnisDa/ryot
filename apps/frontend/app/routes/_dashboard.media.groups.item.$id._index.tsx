@@ -175,6 +175,7 @@ export default function Page() {
 							<DisplayCollection
 								key={col.id}
 								col={col}
+								userId={col.userId}
 								entityId={loaderData.metadataGroupId.toString()}
 								entityLot={EntityLot.MediaGroup}
 							/>
@@ -236,11 +237,12 @@ export default function Page() {
 										Add to collection
 									</Button>
 									<AddEntityToCollectionModal
+										userId={loaderData.userDetails.id}
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.metadataGroupId.toString()}
 										entityLot={EntityLot.MediaGroup}
-										collections={loaderData.collections.map((c) => c.name)}
+										collections={loaderData.collections}
 									/>
 									<Menu shadow="md">
 										<Menu.Target>
@@ -248,6 +250,7 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
+												userId={loaderData.userDetails.id}
 												inCollections={loaderData.userMetadataGroupDetails.collections.map(
 													(c) => c.name,
 												)}

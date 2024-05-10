@@ -214,10 +214,11 @@ export default function Page() {
 					<Group>
 						{loaderData.userPersonDetails.collections.map((col) => (
 							<DisplayCollection
+								key={col.id}
 								col={col}
+								userId={col.userId}
 								entityId={loaderData.personId.toString()}
 								entityLot={EntityLot.Person}
-								key={col.id}
 							/>
 						))}
 						{loaderData.personDetails.details.isPartial ? (
@@ -333,6 +334,7 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
+												userId={loaderData.userDetails.id}
 												inCollections={loaderData.userPersonDetails.collections.map(
 													(c) => c.name,
 												)}
@@ -388,11 +390,12 @@ export default function Page() {
 										</Menu.Dropdown>
 									</Menu>
 									<AddEntityToCollectionModal
+										userId={loaderData.userDetails.id}
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.personId.toString()}
 										entityLot={EntityLot.Person}
-										collections={loaderData.collections.map((c) => c.name)}
+										collections={loaderData.collections}
 									/>
 								</SimpleGrid>
 							</MediaScrollArea>

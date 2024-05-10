@@ -76,6 +76,7 @@ import {
 	getAuthorizationHeader,
 	getCoreDetails,
 	getUserCollectionsList,
+	getUserDetails,
 	getUserPreferences,
 	gqlClient,
 } from "~/lib/utilities.server";
@@ -114,11 +115,13 @@ const metadataMapping = {
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [
+		userDetails,
 		coreDetails,
 		userPreferences,
 		{ latestUserSummary },
 		userCollectionsList,
 	] = await Promise.all([
+		getUserDetails(request),
 		getCoreDetails(request),
 		getUserPreferences(request),
 		gqlClient.request(
@@ -203,8 +206,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		numPage,
 		mediaList,
 		mediaSearch,
-		url: withoutHost(url.href),
+		userId: userDetails.id,
 		collections: userCollectionsList,
+		url: withoutHost(url.href),
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
@@ -572,17 +576,18 @@ const MediaSearchItem = (props: {
 									openIsAddMediaToCollectionModalOpened();
 								}}
 							>
-								Add to collections
+								Add to collection
 							</Menu.Item>
 						</Menu.Dropdown>
 					</Menu>
 					{appItemId ? (
 						<AddEntityToCollectionModal
+							userId={loaderData.userId}
 							opened={isAddMediaToCollectionModalOpened}
 							onClose={closeIsAddMediaToCollectionModalOpened}
 							entityId={appItemId.toString()}
 							entityLot={EntityLot.Media}
-							collections={loaderData.collections.map((c) => c.name)}
+							collections={loaderData.collections}
 						/>
 					) : null}
 				</>

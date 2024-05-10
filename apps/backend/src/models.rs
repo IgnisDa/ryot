@@ -139,6 +139,7 @@ pub struct CompleteExport {
 
 #[derive(Debug, InputObject, Default)]
 pub struct ChangeCollectionToEntityInput {
+    pub creator_user_id: i32,
     pub collection_name: String,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
@@ -781,7 +782,7 @@ pub mod media {
     )]
     pub struct UserFitnessWorkoutSummary {
         pub recorded: u64,
-        pub duration: u64,
+        pub duration: Decimal,
         pub weight: Decimal,
     }
 
@@ -807,6 +808,8 @@ pub mod media {
         pub audio_books: HashSet<i32>,
         pub anime_episodes: HashSet<(i32, i32)>,
         pub anime: HashSet<i32>,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub manga_volumes: HashSet<(i32, i32)>,
         pub manga_chapters: HashSet<(i32, i32)>,
         pub manga: HashSet<i32>,
         pub books: HashSet<i32>,
@@ -859,6 +862,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
+        pub manga_volume_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -871,6 +875,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
+        pub manga_volume_number: Option<i32>,
         pub change_state: Option<SeenState>,
         pub provider_watched_on: Option<String>,
     }
@@ -1058,6 +1063,8 @@ pub mod media {
         pub anime_episode_number: Option<i32>,
         /// If for a manga, the chapter which was seen.
         pub manga_chapter_number: Option<i32>,
+        /// If for a manga, the volume which was seen.
+        pub manga_volume_number: Option<i32>,
         /// The provider this item was watched on.
         pub provider_watched_on: Option<String>,
     }
@@ -1320,6 +1327,7 @@ pub mod media {
     )]
     pub struct SeenMangaExtraInformation {
         pub chapter: Option<i32>,
+        pub volume: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

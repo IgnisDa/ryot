@@ -796,6 +796,7 @@ impl ExerciseService {
             &self.db,
             user_id,
             ChangeCollectionToEntityInput {
+                creator_user_id: user_id,
                 collection_name: DefaultCollection::Custom.to_string(),
                 exercise_id: Some(exercise.id.clone()),
                 ..Default::default()

@@ -14,7 +14,6 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub name: String,
     pub description: Option<String>,
-    #[graphql(skip)]
     pub user_id: i32,
 }
 
@@ -32,6 +31,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(has_many = "super::user_to_collection::Entity")]
+    UserToCollection,
 }
 
 impl Related<super::collection_to_entity::Entity> for Entity {
@@ -49,6 +50,12 @@ impl Related<super::review::Entity> for Entity {
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::user_to_collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserToCollection.def()
     }
 }
 

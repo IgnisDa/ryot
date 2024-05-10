@@ -396,6 +396,7 @@ impl ImporterService {
                             podcast_episode_number: seen.podcast_episode_number,
                             anime_episode_number: seen.anime_episode_number,
                             manga_chapter_number: seen.manga_chapter_number,
+                            manga_volume_number:seen.manga_volume_number,
                             provider_watched_on: seen.provider_watched_on.clone(),
                             change_state: None,
                         },
@@ -440,6 +441,7 @@ impl ImporterService {
                     .add_entity_to_collection(
                         user_id,
                         ChangeCollectionToEntityInput {
+                            creator_user_id: user_id,
                             collection_name: col.to_string(),
                             metadata_id: Some(metadata.id),
                             ..Default::default()
@@ -509,6 +511,7 @@ impl ImporterService {
                     .add_entity_to_collection(
                         user_id,
                         ChangeCollectionToEntityInput {
+                            creator_user_id: user_id,
                             collection_name: col.to_string(),
                             metadata_id: Some(metadata_id),
                             ..Default::default()
@@ -564,6 +567,7 @@ impl ImporterService {
                     .add_entity_to_collection(
                         user_id,
                         ChangeCollectionToEntityInput {
+                            creator_user_id: user_id,
                             collection_name: col.to_string(),
                             person_id: Some(person.id),
                             ..Default::default()

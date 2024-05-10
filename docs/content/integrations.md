@@ -41,7 +41,7 @@ All webhook URLs follow this format:
 ```txt
 https://<instance_url>/backend/webhooks/integrations/<name>/<slug>
 # example
-https://demo.ryot.io/backend/webhooks/integrations/plex/nBrLZdk53g--5V6T1
+https://app.ryot.io/backend/webhooks/integrations/plex/nBrLZdk53g--5V6T1
 ```
 
 !!! warning

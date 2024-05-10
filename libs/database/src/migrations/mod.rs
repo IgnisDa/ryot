@@ -26,6 +26,8 @@ mod m20240506_0_add_done_collection_for_existing_users;
 mod m20240506_1_add_entities_to_done_collection_for_existing_users;
 mod m20240507_0_remove_visibility_from_collection;
 mod m20240508_set_state_changes_to_null;
+mod m20240509_create_user_to_collection;
+mod m20240509_q_associate_collections_with_owners;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -36,7 +38,9 @@ pub use m20230502_create_genre::{
 };
 pub use m20230505_create_review::Review as AliasedReview;
 pub use m20230622_create_exercise::Exercise as AliasedExercise;
+pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
+pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
 
 pub struct Migrator;
 
@@ -69,6 +73,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240506_1_add_entities_to_done_collection_for_existing_users::Migration),
             Box::new(m20240507_0_remove_visibility_from_collection::Migration),
             Box::new(m20240508_set_state_changes_to_null::Migration),
+            Box::new(m20240509_create_user_to_collection::Migration),
+            Box::new(m20240509_q_associate_collections_with_owners::Migration),
         ]
     }
 }

@@ -217,6 +217,8 @@ export const ReviewItemDisplay = (props: {
 											props.review.animeExtraInformation?.episode,
 										mangaChapterNumber:
 											props.review.mangaExtraInformation?.chapter,
+										mangaVolumeNumber:
+											props.review.mangaExtraInformation?.volume,
 									});
 								}}
 							>
@@ -273,6 +275,11 @@ export const ReviewItemDisplay = (props: {
 					{typeof props.review.mangaExtraInformation?.chapter === "number" ? (
 						<Text c="dimmed">
 							Ch-{props.review.mangaExtraInformation.chapter}
+						</Text>
+					) : null}
+					{typeof props.review.mangaExtraInformation?.volume === "number" ? (
+						<Text c="dimmed">
+							VOL-{props.review.mangaExtraInformation.volume}
 						</Text>
 					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
@@ -704,6 +711,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 };
 
 export const DisplayCollection = (props: {
+	userId: number;
 	col: { id: number; name: string };
 	entityId: string;
 	entityLot: EntityLot;
@@ -725,9 +733,10 @@ export const DisplayCollection = (props: {
 					>
 						{props.col.name}
 					</Anchor>
-					<input hidden name="entityId" defaultValue={props.entityId} />
-					<input hidden name="entityLot" defaultValue={props.entityLot} />
-					<input hidden name="collectionName" defaultValue={props.col.name} />
+					<input readOnly hidden name="entityId" value={props.entityId} />
+					<input readOnly hidden name="entityLot" value={props.entityLot} />
+					<input readOnly hidden name="collectionName" value={props.col.name} />
+					<input readOnly hidden name="creatorUserId" value={props.userId} />
 					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
@@ -754,6 +763,7 @@ export type PostReview = {
 	showEpisodeNumber?: number | null;
 	animeEpisodeNumber?: number | null;
 	mangaChapterNumber?: number | null;
+	mangaVolumeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
 	existingReview?: DeepPartial<ReviewItem>;
 };
@@ -896,16 +906,33 @@ export const PostReviewModal = (props: {
 						/>
 					) : null}
 					{props.lot === MediaLot.Manga ? (
-						<NumberInput
-							label="Chapter"
-							name="mangaChapterNumber"
-							hideControls
-							defaultValue={
-								props.data?.existingReview?.mangaExtraInformation?.chapter
-									? props.data.existingReview.mangaExtraInformation?.chapter
-									: props.data.mangaChapterNumber || undefined
-							}
-						/>
+						<>
+							<Group wrap="nowrap">
+								<NumberInput
+									label="Chapter"
+									name="mangaChapterNumber"
+									hideControls
+									defaultValue={
+										props.data?.existingReview?.mangaExtraInformation?.chapter
+											? props.data.existingReview.mangaExtraInformation?.chapter
+											: props.data.mangaChapterNumber || undefined
+									}
+								/>
+								<Text ta="center" fw="bold" mt="sm">
+									OR
+								</Text>
+								<NumberInput
+									label="Volume"
+									name="mangaVolumeNumber"
+									hideControls
+									defaultValue={
+										props.data?.existingReview?.mangaExtraInformation?.volume
+											? props.data.existingReview.mangaExtraInformation?.volume
+											: props.data.mangaVolumeNumber || undefined
+									}
+								/>
+							</Group>
+						</>
 					) : null}
 					<Textarea
 						label="Review"
@@ -1138,6 +1165,7 @@ export const CreateOwnershipModal = (props: {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
+	userId: number;
 	entityLot: EntityLot;
 	inCollections: string[];
 	formValue: number;
@@ -1150,8 +1178,9 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	return (
 		<Form action={`/actions?intent=${action}`} method="post" replace>
 			<HiddenLocationInput />
-			<input hidden name="collectionName" value="Monitoring" />
-			<input hidden name="entityLot" value={props.entityLot} />
+			<input hidden name="collectionName" defaultValue="Monitoring" />
+			<input readOnly hidden name="entityLot" value={props.entityLot} />
+			<input readOnly hidden name="creatorUserId" value={props.userId} />
 			<Menu.Item
 				type="submit"
 				color={isMonitored ? "red" : undefined}

@@ -8,6 +8,7 @@ import {
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
+import groupBy  from "lodash/groupBy";
 import snakeCase from "lodash/snakeCase";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
@@ -94,4 +95,4 @@ export const randomString = (length: number) => {
 	return s;
 };
 
-export { cloneDeep, camelCase, isEqual, snakeCase, startCase, sum };
+export { cloneDeep, camelCase, groupBy, isEqual, snakeCase, startCase, sum };

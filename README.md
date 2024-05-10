@@ -23,7 +23,7 @@
 <p align="center">
     <a href="https://docs.ryot.io" target="_blank">Installation</a> •
     <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
-    <a href="https://demo.ryot.io" target="_blank">Demo</a>
+    <a href="https://app.ryot.io" target="_blank">Hosted version</a>
 </p>
 
 <br/>

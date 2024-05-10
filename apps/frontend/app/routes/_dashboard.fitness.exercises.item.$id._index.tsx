@@ -100,6 +100,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === exerciseDetails.createdByUserId;
 	return json({
+		userId: userDetails.id,
 		query,
 		exerciseDetails,
 		userExerciseDetails,
@@ -133,11 +134,12 @@ export default function Page() {
 	return (
 		<>
 			<AddEntityToCollectionModal
+				userId={loaderData.userId}
 				onClose={collectionModalClose}
 				opened={collectionModalOpened}
 				entityId={loaderData.exerciseDetails.id}
 				entityLot={EntityLot.Exercise}
-				collections={loaderData.collections.map((c) => c.name)}
+				collections={loaderData.collections}
 			/>
 			<Container size="xs" px="lg">
 				<Stack>
@@ -146,10 +148,11 @@ export default function Page() {
 						<Group id="entity-collections">
 							{loaderData.userExerciseDetails.collections.map((col) => (
 								<DisplayCollection
+									key={col.id}
 									col={col}
+									userId={col.userId}
 									entityId={loaderData.exerciseDetails.id}
 									entityLot={EntityLot.Exercise}
-									key={col.id}
 								/>
 							))}
 						</Group>

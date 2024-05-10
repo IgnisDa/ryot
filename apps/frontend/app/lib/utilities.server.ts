@@ -132,6 +132,7 @@ export const MetadataSpecificsSchema = z.object({
 	podcastEpisodeNumber: emptyNumberString,
 	animeEpisodeNumber: emptyNumberString,
 	mangaChapterNumber: emptyNumberString,
+	mangaVolumeNumber: emptyNumberString,
 });
 
 export const processSubmission = <Schema extends ZodTypeAny>(

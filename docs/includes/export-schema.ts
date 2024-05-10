@@ -105,6 +105,8 @@ export interface ImportOrExportMediaItemSeen {
 	ended_on: string | null;
 	/** If for a manga, the chapter which was seen. */
 	manga_chapter_number: number | null;
+	/** If for a manga, the volume which was seen. */
+	manga_volume_number: number | null;
 	/** If for a podcast, the episode which was seen. */
 	podcast_episode_number: number | null;
 	/** The progress of media done. If none, it is considered as done. */

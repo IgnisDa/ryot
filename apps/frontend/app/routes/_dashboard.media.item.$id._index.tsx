@@ -279,6 +279,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				podcastEpisodeNumber: submission.podcastEpisodeNumber,
 				animeEpisodeNumber: submission.animeEpisodeNumber,
 				mangaChapterNumber: submission.mangaChapterNumber,
+				mangaVolumeNumber: submission.mangaVolumeNumber,
 				providerWatchedOn: submission.providerWatchedOn,
 			};
 			let needsFinalUpdate = true;
@@ -583,10 +584,11 @@ export default function Page() {
 							<Group>
 								{userMetadataDetails.collections.map((col) => (
 									<DisplayCollection
+										key={col.id}
 										col={col}
+										userId={col.userId}
 										entityId={loaderData.metadataId.toString()}
 										entityLot={EntityLot.Media}
-										key={col.id}
 									/>
 								))}
 								{userMetadataDetails.ownership ? <DisplayMediaOwned /> : null}
@@ -1044,6 +1046,15 @@ export default function Page() {
 													{userMetadataDetails?.inProgress ? (
 														<>
 															<Menu.Label>In progress</Menu.Label>
+															<Menu.Item onClick={progressModalOpen}>
+																Set progress
+															</Menu.Item>
+															{loaderData.mediaMainDetails.lot !==
+																MediaLot.Show &&
+															loaderData.mediaMainDetails.lot !==
+																MediaLot.Podcast ? (
+																<StateChangeButtons />
+															) : null}
 															<Form
 																action="?intent=individualProgressUpdate"
 																method="post"
@@ -1071,23 +1082,9 @@ export default function Page() {
 																	name="metadataId"
 																	value={loaderData.metadataId}
 																>
-																	I finished{" "}
-																	{getVerb(
-																		Verb.Read,
-																		loaderData.mediaMainDetails.lot,
-																	)}
-																	ing it
+																	I finished it
 																</Menu.Item>
 															</Form>
-															<Menu.Item onClick={progressModalOpen}>
-																Set progress
-															</Menu.Item>
-															{loaderData.mediaMainDetails.lot !==
-																MediaLot.Show &&
-															loaderData.mediaMainDetails.lot !==
-																MediaLot.Podcast ? (
-																<StateChangeButtons />
-															) : null}
 														</>
 													) : loaderData.mediaMainDetails.lot !==
 															MediaLot.Show &&
@@ -1175,13 +1172,12 @@ export default function Page() {
 													Add to collection
 												</Button>
 												<AddEntityToCollectionModal
+													userId={loaderData.userDetails.id}
 													onClose={collectionModalClose}
 													opened={collectionModalOpened}
 													entityId={loaderData.metadataId.toString()}
 													entityLot={EntityLot.Media}
-													collections={loaderData.collections.map(
-														(c) => c.name,
-													)}
+													collections={loaderData.collections}
 												/>
 											</>
 											<Menu shadow="md">
@@ -1192,6 +1188,7 @@ export default function Page() {
 													<UserMetadataDetailsSuspenseLoader>
 														{(userMetadataDetails) => (
 															<ToggleMediaMonitorMenuItem
+																userId={loaderData.userDetails.id}
 																inCollections={userMetadataDetails.collections.map(
 																	(c) => c.name,
 																)}
@@ -1200,19 +1197,22 @@ export default function Page() {
 															/>
 														)}
 													</UserMetadataDetailsSuspenseLoader>
-													<Form
-														action="?intent=deployUpdateMetadataJob"
-														method="post"
-														replace
-													>
-														<Menu.Item
-															type="submit"
-															name="metadataId"
-															value={loaderData.metadataId}
+													{loaderData.mediaMainDetails.source !==
+													MediaSource.Custom ? (
+														<Form
+															action="?intent=deployUpdateMetadataJob"
+															method="post"
+															replace
 														>
-															Update metadata
-														</Menu.Item>
-													</Form>
+															<Menu.Item
+																type="submit"
+																name="metadataId"
+																value={loaderData.metadataId}
+															>
+																Update metadata
+															</Menu.Item>
+														</Form>
+													) : null}
 													{userMetadataDetails.reminder ? (
 														<Form
 															action="/actions?intent=deleteMediaReminder"
@@ -1629,6 +1629,9 @@ const ProgressUpdateModal = (props: {
 	const [mangaChapterNumber, setMangaChapterNumber] = useState<
 		string | undefined
 	>(undefined);
+	const [mangaVolumeNumber, setMangaVolumeNumber] = useState<
+		string | undefined
+	>(undefined);
 
 	if (!props.data) return <></>;
 	return (
@@ -1686,14 +1689,31 @@ const ProgressUpdateModal = (props: {
 					) : null}
 					{loaderData.mediaMainDetails.lot === MediaLot.Manga ? (
 						<>
-							<NumberInput
-								label="Chapter"
-								name="mangaChapterNumber"
-								description="Leaving this empty will mark the whole manga as watched"
-								hideControls
-								value={mangaChapterNumber}
-								onChange={(e) => setMangaChapterNumber(e.toString())}
-							/>
+							<Box>
+								<Text c="dimmed" size="sm">
+									Leaving the following empty will mark the whole manga as
+									watched
+								</Text>
+								<Group wrap="nowrap">
+									<NumberInput
+										label="Chapter"
+										name="mangaChapterNumber"
+										hideControls
+										value={mangaChapterNumber}
+										onChange={(e) => setMangaChapterNumber(e.toString())}
+									/>
+									<Text ta="center" fw="bold" mt="sm">
+										OR
+									</Text>
+									<NumberInput
+										label="Volume"
+										name="mangaVolumeNumber"
+										hideControls
+										value={mangaVolumeNumber}
+										onChange={(e) => setMangaVolumeNumber(e.toString())}
+									/>
+								</Group>
+							</Box>
 							{mangaChapterNumber ? (
 								<Checkbox
 									label="Mark all chapters before this as watched"
@@ -2199,8 +2219,10 @@ const SeenItem = (props: {
 		: null;
 	const displayMangaExtraInformation = props.history.mangaExtraInformation
 		?.chapter
-		? `CH-${props.history.mangaExtraInformation?.chapter}`
-		: null;
+		? `CH-${props.history.mangaExtraInformation.chapter}`
+		: props.history.mangaExtraInformation?.volume
+			? `VOL-${props.history.mangaExtraInformation.volume}`
+			: null;
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const displayAllInformation = [

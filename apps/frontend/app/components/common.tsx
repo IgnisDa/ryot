@@ -9,7 +9,7 @@ import {
 	Flex,
 	Image,
 	Modal,
-	MultiSelect,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -24,7 +24,7 @@ import type {
 	MediaLot,
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot/ts-utils";
+import { groupBy, snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
 import { type ReactNode, useRef } from "react";
 import { useState } from "react";
@@ -131,12 +131,35 @@ export const MediaDetailsLayout = (props: {
 };
 
 export const AddEntityToCollectionModal = (props: {
+	userId: number;
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
-	collections: string[];
+	collections: {
+		id: number;
+		name: string;
+		creatorUserId: number;
+		creatorUsername: string;
+	}[];
 }) => {
+	const selectData = Object.entries(
+		groupBy(props.collections, (c) =>
+			c.creatorUserId === props.userId ? "You" : c.creatorUsername,
+		),
+	).map(([g, items]) => ({
+		group: g,
+		items: items.map((c) => ({
+			label: c.name,
+			value: c.id.toString(),
+		})),
+	}));
+	const [selectedCollection, setSelectedCollection] = useState<{
+		id: string;
+		name: string;
+		creatorId: number;
+	} | null>(null);
+
 	return (
 		<Modal
 			opened={props.opened}
@@ -145,19 +168,49 @@ export const AddEntityToCollectionModal = (props: {
 			centered
 		>
 			<Form action="/actions?intent=addEntityToCollection" method="post">
-				<input hidden name="entityId" defaultValue={props.entityId} />
-				<input hidden name="entityLot" defaultValue={props.entityLot} />
+				<input readOnly hidden name="entityId" value={props.entityId} />
+				<input readOnly hidden name="entityLot" value={props.entityLot} />
+				{selectedCollection ? (
+					<>
+						<input
+							readOnly
+							hidden
+							name="collectionName"
+							value={selectedCollection.name}
+						/>
+						<input
+							readOnly
+							hidden
+							name="creatorUserId"
+							value={selectedCollection.creatorId}
+						/>
+					</>
+				) : null}
 				<HiddenLocationInput />
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<MultiSelect
-						data={props.collections}
+					<Select
 						searchable
-						name="collectionName"
+						data={selectData}
 						nothingFoundMessage="Nothing found..."
+						value={selectedCollection?.id}
+						onChange={(v) => {
+							if (v) {
+								const collection = props.collections.find(
+									(c) => c.id === Number(v),
+								);
+								if (collection) {
+									setSelectedCollection({
+										id: v,
+										name: collection.name,
+										creatorId: collection.creatorUserId,
+									});
+								}
+							}
+						}}
 					/>
 					<Button
-						data-autofocus
+						disabled={!selectedCollection}
 						variant="outline"
 						type="submit"
 						onClick={() => {
