@@ -4836,9 +4836,12 @@ impl MiscellaneousService {
             } else if let Some(item) = meta.manga_specifics {
                 ls.unique_items.manga.insert(meta.id);
                 if let Some(s) = seen.manga_extra_information.to_owned() {
+                    units_consumed = Some(1);
                     if let (Some(_), Some(chapter)) = (item.chapters, s.chapter) {
                         ls.unique_items.manga_chapters.insert((meta.id, chapter));
-                        units_consumed = Some(1);
+                    }
+                    if let Some(volume) = s.volume {
+                        ls.unique_items.manga_volumes.insert((meta.id, volume));
                     }
                 }
             } else if let Some(item) = meta.show_specifics {
