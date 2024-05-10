@@ -170,7 +170,7 @@ pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult
                 "" => None,
                 x => Some(x.to_owned()),
             }),
-            update_id: None,
+            ..Default::default()
         })
         .collect();
     for list in lists.iter_mut() {

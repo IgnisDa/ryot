@@ -102,6 +102,7 @@ export type Collection = {
   createdOn: Scalars['DateTime']['output'];
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
+  informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
   lastUpdatedOn: Scalars['DateTime']['output'];
   name: Scalars['String']['output'];
   userId: Scalars['Int']['output'];
@@ -137,6 +138,27 @@ export type CollectionContentsSortInput = {
   by?: CollectionContentsSortBy;
   order?: GraphqlSortOrder;
 };
+
+export type CollectionExtraInformation = {
+  description: Scalars['String']['output'];
+  lot: CollectionExtraInformationLot;
+  name: Scalars['String']['output'];
+  required?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type CollectionExtraInformationInput = {
+  description: Scalars['String']['input'];
+  lot: CollectionExtraInformationLot;
+  name: Scalars['String']['input'];
+  required?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export enum CollectionExtraInformationLot {
+  Date = 'DATE',
+  DateTime = 'DATE_TIME',
+  Number = 'NUMBER',
+  String = 'STRING'
+}
 
 export type CollectionItem = {
   count: Scalars['Int']['output'];
@@ -201,6 +223,7 @@ export type CreateMediaReminderInput = {
 
 export type CreateOrUpdateCollectionInput = {
   description?: InputMaybe<Scalars['String']['input']>;
+  informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['Int']['input']>;
 };

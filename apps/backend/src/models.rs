@@ -179,6 +179,8 @@ pub enum MediaStateChanged {
 }
 
 pub mod media {
+    use crate::miscellaneous::CollectionExtraInformation;
+
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -245,6 +247,7 @@ pub mod media {
         pub name: String,
         pub description: Option<String>,
         pub update_id: Option<i32>,
+        pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

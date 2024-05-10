@@ -1,4 +1,6 @@
+use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
+use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
 
@@ -6,7 +8,7 @@ use crate::traits::MediaProviderLanguages;
 
 pub mod resolver;
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum)]
 pub enum CollectionExtraInformationLot {
     String,
     Number,
@@ -14,7 +16,18 @@ pub enum CollectionExtraInformationLot {
     DateTime,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Clone,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "CollectionExtraInformationInput")]
 pub struct CollectionExtraInformation {
     pub name: String,
     pub description: String,

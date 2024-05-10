@@ -4473,6 +4473,7 @@ impl MiscellaneousService {
                     name: ActiveValue::Set(new_name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
+                    information_template: ActiveValue::Set(input.information_template),
                     ..Default::default()
                 };
                 let inserted = col.save(&self.db).await.map_err(|_| {
@@ -5029,6 +5030,7 @@ impl MiscellaneousService {
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
                     description: Some(meta.1.to_owned()),
+                    information_template: meta.0,
                     ..Default::default()
                 },
             )
