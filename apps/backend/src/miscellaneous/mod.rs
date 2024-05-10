@@ -32,7 +32,6 @@ pub struct CollectionExtraInformation {
     pub name: String,
     pub description: String,
     pub lot: CollectionExtraInformationLot,
-    pub required: Option<bool>,
 }
 
 #[derive(Display, EnumIter)]
@@ -58,7 +57,6 @@ meta! {
                 name: "owned_on".to_string(),
                 description: "When did you get this media?".to_string(),
                 lot: CollectionExtraInformationLot::Date,
-                required: Some(true),
             }
         ]
     ), "Items that I have in my inventory.");

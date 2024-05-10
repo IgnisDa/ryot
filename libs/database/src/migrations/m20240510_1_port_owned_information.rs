@@ -18,7 +18,7 @@ BEGIN
         INSERT INTO collection (name, description, user_id, created_on, last_updated_on, information_template)
         VALUES (
             'Owned', 'Items that I have in my inventory.', aUser.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-            '[{"name": "owned_on", "description": "When did you get this media?", "lot": "Date", "required": true}]'
+            '[{"name": "owned_on", "description": "When did you get this media?", "lot": "Date"}]'
         )
         ON CONFLICT DO NOTHING;
 
