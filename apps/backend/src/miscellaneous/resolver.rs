@@ -7377,12 +7377,16 @@ GROUP BY m.id;
     }
 
     pub async fn perform_user_jobs(&self) -> Result<()> {
+        tracing::debug!("Starting user jobs...");
+
         tracing::trace!("Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association().await?;
         tracing::trace!("Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await?;
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
+
+        tracing::debug!("Completed user jobs...");
         Ok(())
     }
 
