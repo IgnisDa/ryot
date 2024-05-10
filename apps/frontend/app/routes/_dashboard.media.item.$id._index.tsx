@@ -2215,8 +2215,10 @@ const SeenItem = (props: {
 		: null;
 	const displayMangaExtraInformation = props.history.mangaExtraInformation
 		?.chapter
-		? `CH-${props.history.mangaExtraInformation?.chapter}`
-		: null;
+		? `CH-${props.history.mangaExtraInformation.chapter}`
+		: props.history.mangaExtraInformation?.volume
+			? `VOL-${props.history.mangaExtraInformation.volume}`
+			: null;
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const displayAllInformation = [
