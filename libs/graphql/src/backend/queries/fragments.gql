@@ -13,6 +13,7 @@ fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
 
 fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
   chapter
+  volume
 }
 
 fragment CalendarEventPart on GraphqlCalendarEvent {
