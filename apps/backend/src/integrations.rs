@@ -26,6 +26,7 @@ pub struct IntegrationMedia {
     pub podcast_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
     pub manga_chapter_number: Option<i32>,
+    pub manga_volume_number: Option<i32>,
     pub provider_watched_on: Option<String>,
 }
 
@@ -115,6 +116,7 @@ impl IntegrationService {
             podcast_episode_number: None,
             manga_chapter_number: None,
             anime_episode_number: None,
+            manga_volume_number: None,
         })
     }
 
@@ -244,6 +246,7 @@ impl IntegrationService {
             podcast_episode_number: None,
             anime_episode_number: None,
             manga_chapter_number: None,
+            manga_volume_number: None,
         })
     }
 
@@ -324,6 +327,7 @@ impl IntegrationService {
                     podcast_episode_number: None,
                     anime_episode_number: None,
                     manga_chapter_number: None,
+                    manga_volume_number: None,
                 });
             }
         }

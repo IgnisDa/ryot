@@ -860,6 +860,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
+        pub manga_volume_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -872,6 +873,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
+        pub manga_volume_number: Option<i32>,
         pub change_state: Option<SeenState>,
         pub provider_watched_on: Option<String>,
     }
@@ -1059,6 +1061,8 @@ pub mod media {
         pub anime_episode_number: Option<i32>,
         /// If for a manga, the chapter which was seen.
         pub manga_chapter_number: Option<i32>,
+        /// If for a manga, the volume which was seen.
+        pub manga_volume_number: Option<i32>,
         /// The provider this item was watched on.
         pub provider_watched_on: Option<String>,
     }
@@ -1321,6 +1325,7 @@ pub mod media {
     )]
     pub struct SeenMangaExtraInformation {
         pub chapter: Option<i32>,
+        pub volume: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1412,6 +1412,7 @@ export type PostReviewInput = {
   collectionId?: InputMaybe<Scalars['Int']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   metadataGroupId?: InputMaybe<Scalars['Int']['input']>;
   metadataId?: InputMaybe<Scalars['Int']['input']>;
   personId?: InputMaybe<Scalars['Int']['input']>;
@@ -1454,6 +1455,7 @@ export type ProgressUpdateInput = {
   changeState?: InputMaybe<SeenState>;
   date?: InputMaybe<Scalars['NaiveDate']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   metadataId: Scalars['Int']['input'];
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   progress?: InputMaybe<Scalars['Decimal']['input']>;
@@ -1740,6 +1742,7 @@ export type SeenAnimeExtraInformation = {
 
 export type SeenMangaExtraInformation = {
   chapter?: Maybe<Scalars['Int']['output']>;
+  volume?: Maybe<Scalars['Int']['output']>;
 };
 
 export type SeenPodcastExtraInformation = {

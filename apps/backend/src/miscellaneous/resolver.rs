@@ -2645,6 +2645,7 @@ impl MiscellaneousService {
                 let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
                     Some(SeenMangaExtraInformation {
                         chapter: input.manga_chapter_number,
+                        volume: input.manga_volume_number,
                     })
                 } else {
                     None
@@ -4306,11 +4307,16 @@ impl MiscellaneousService {
             .map(|episode| SeenAnimeExtraInformation {
                 episode: Some(episode),
             });
-        let manga_ei = input
-            .manga_chapter_number
-            .map(|chapter| SeenMangaExtraInformation {
-                chapter: Some(chapter),
-            });
+        let manga_ei =
+            if input.manga_chapter_number.is_none() && input.manga_volume_number.is_none() {
+                None
+            } else {
+                Some(SeenMangaExtraInformation {
+                    chapter: input.manga_chapter_number,
+                    volume: input.manga_volume_number,
+                })
+            };
+
         if input.rating.is_none() && input.text.is_none() {
             return Err(Error::new("At-least one of rating or review is required."));
         }
@@ -5998,6 +6004,7 @@ impl MiscellaneousService {
                 podcast_episode_number: pu.podcast_episode_number,
                 anime_episode_number: pu.anime_episode_number,
                 manga_chapter_number: pu.manga_chapter_number,
+                manga_volume_number: pu.manga_volume_number,
                 provider_watched_on: pu.provider_watched_on,
                 change_state: None,
             },
@@ -6709,7 +6716,9 @@ impl MiscellaneousService {
                     };
                     let podcast_episode_number = s.podcast_extra_information.map(|d| d.episode);
                     let anime_episode_number = s.anime_extra_information.and_then(|d| d.episode);
-                    let manga_chapter_number = s.manga_extra_information.and_then(|d| d.chapter);
+                    let manga_chapter_number =
+                        s.manga_extra_information.clone().and_then(|d| d.chapter);
+                    let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
                     ImportOrExportMediaItemSeen {
                         progress: Some(s.progress),
                         started_on: s.started_on.map(convert_naive_to_utc),
@@ -6720,6 +6729,7 @@ impl MiscellaneousService {
                         podcast_episode_number,
                         anime_episode_number,
                         manga_chapter_number,
+                        manga_volume_number,
                     }
                 })
                 .collect();
