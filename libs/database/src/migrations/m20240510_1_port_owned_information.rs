@@ -40,7 +40,10 @@ DECLARE
 BEGIN
     FOR aUser IN SELECT id FROM "user"
     LOOP
-        FOR ute IN SELECT metadata_id, media_ownership FROM "user_to_entity" where media_ownership is not null and user_id = aUser.id
+        FOR ute IN (
+            SELECT metadata_id, media_ownership FROM "user_to_entity" WHERE media_ownership
+            IS NOT NULL AND user_id = aUser.id ORDER BY last_updated_on DESC
+        )
         LOOP
             SELECT id INTO owned_collection_id FROM collection
             WHERE user_id = aUser.id AND name = 'Owned' LIMIT 1;
