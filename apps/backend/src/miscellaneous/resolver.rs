@@ -2693,7 +2693,7 @@ impl MiscellaneousService {
             BackgroundJob::UpdateAllMetadata
             | BackgroundJob::UpdateAllExercises
             | BackgroundJob::RecalculateCalendarEvents
-            | BackgroundJob::PerformUserBackgroundTasks => {
+            | BackgroundJob::PerformBackgroundTasks => {
                 self.admin_account_guard(user_id).await?;
             }
             _ => {}
@@ -2726,7 +2726,7 @@ impl MiscellaneousService {
                     .push(ApplicationJob::RecalculateCalendarEvents)
                     .await?;
             }
-            BackgroundJob::PerformUserBackgroundTasks => {
+            BackgroundJob::PerformBackgroundTasks => {
                 sqlite_storage
                     .push(ApplicationJob::PerformBackgroundTasks)
                     .await?;

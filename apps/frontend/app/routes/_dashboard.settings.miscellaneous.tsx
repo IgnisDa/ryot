@@ -120,18 +120,19 @@ export default function Page() {
 								</Stack>
 								<Stack>
 									<Box>
-										<Title order={4}>Jobs for all users</Title>
+										<Title order={4}>Perform all background tasks</Title>
 										<Text>
-											Update the user summaries. Also recalculate the media
-											associations for all users. The more users you have, the
-											longer this will take.
+											Update the user summaries, recalculate media associations
+											for all users, update all monitored entities and remove
+											useless data. The more users you have, the longer this
+											will take.
 										</Text>
 									</Box>
 									<Button
 										{...btnProps}
-										value={BackgroundJob.PerformUserBackgroundTasks}
+										value={BackgroundJob.PerformBackgroundTasks}
 									>
-										Perform user tasks
+										Perform background tasks
 									</Button>
 								</Stack>
 							</>
