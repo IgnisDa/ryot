@@ -6515,7 +6515,7 @@ impl MiscellaneousService {
     }
 
     async fn send_pending_reminders(&self) -> Result<()> {
-        #[derive(Serialize, Deserialize)]
+        #[derive(Debug, Serialize, Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct UserMediaReminder {
             reminder: NaiveDate,
@@ -6528,10 +6528,10 @@ impl MiscellaneousService {
             .await?
         {
             if let Some(reminder) = cte.information {
-                let col = col.unwrap();
-                let related_users = col.find_related(UserToCollection).all(&self.db).await?;
                 let reminder: UserMediaReminder =
                     serde_json::from_str(&serde_json::to_string(&reminder)?)?;
+                let col = col.unwrap();
+                let related_users = col.find_related(UserToCollection).all(&self.db).await?;
                 if get_current_date(self.timezone.as_ref()) == reminder.reminder {
                     for user in related_users {
                         self.send_notifications_to_user_platforms(user.user_id, &reminder.text)
