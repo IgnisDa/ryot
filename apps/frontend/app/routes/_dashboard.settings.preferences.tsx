@@ -639,7 +639,10 @@ const EditDashboardElement = (props: {
 	);
 };
 
-function reorder<T>(array: Array<T>, { from, to }: { from: number; to: number }) {
+function reorder<T>(
+	array: Array<T>,
+	{ from, to }: { from: number; to: number },
+) {
 	const cloned = [...array];
 	const item = array[from];
 	cloned.splice(from, 1);

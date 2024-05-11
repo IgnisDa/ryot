@@ -30,7 +30,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatDateToNaiveDate, groupBy, snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { type ReactNode, useRef, Fragment } from "react";
+import { Fragment, type ReactNode, useRef } from "react";
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
