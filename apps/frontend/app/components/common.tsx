@@ -170,7 +170,13 @@ export const AddEntityToCollectionModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form action="/actions?intent=addEntityToCollection" method="post">
+			<Form
+				action="/actions?intent=addEntityToCollection"
+				method="post"
+				onSubmit={() => {
+					props.onClose();
+				}}
+			>
 				<input readOnly hidden name="entityId" value={props.entityId} />
 				<input readOnly hidden name="entityLot" value={props.entityLot} />
 				<HiddenLocationInput />
@@ -261,7 +267,6 @@ export const AddEntityToCollectionModal = (props: {
 						type="submit"
 						onClick={() => {
 							events.addToCollection(props.entityLot);
-							props.onClose();
 						}}
 					>
 						Set
