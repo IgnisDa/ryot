@@ -41,7 +41,7 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     RecalculateCalendarEvents,
     YankIntegrationsData,
-    PerformUserBackgroundTasks,
+    PerformBackgroundTasks,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
@@ -145,6 +145,7 @@ pub struct ChangeCollectionToEntityInput {
     pub person_id: Option<i32>,
     pub metadata_group_id: Option<i32>,
     pub exercise_id: Option<String>,
+    pub information: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
@@ -179,6 +180,8 @@ pub enum MediaStateChanged {
 }
 
 pub mod media {
+    use crate::miscellaneous::CollectionExtraInformation;
+
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -215,23 +218,6 @@ pub mod media {
         pub message: String,
     }
 
-    #[derive(
-        Clone,
-        FromJsonQueryResult,
-        Debug,
-        Serialize,
-        Deserialize,
-        SimpleObject,
-        PartialOrd,
-        Ord,
-        Eq,
-        PartialEq,
-    )]
-    pub struct UserMediaOwnership {
-        pub marked_on: DateTimeUtc,
-        pub owned_on: Option<NaiveDate>,
-    }
-
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
         pub id: i32,
@@ -245,6 +231,7 @@ pub mod media {
         pub name: String,
         pub description: Option<String>,
         pub update_id: Option<i32>,
+        pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

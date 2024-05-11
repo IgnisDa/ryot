@@ -23,7 +23,6 @@ import {
 	Rating,
 	ScrollArea,
 	SegmentedControl,
-	SimpleGrid,
 	Stack,
 	type StyleProp,
 	Text,
@@ -475,7 +474,7 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[] | null;
+	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -500,11 +499,15 @@ export const BaseDisplayItem = (props: {
 		);
 
 	const reasons = props.mediaReason?.filter((r) =>
-		[UserToMediaReason.Seen, UserToMediaReason.Watchlist].includes(r),
+		[
+			UserToMediaReason.Seen,
+			UserToMediaReason.Watchlist,
+			UserToMediaReason.Owned,
+		].includes(r),
 	);
 
-	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
-		<ThemeIcon variant="transparent" size="sm" color="lime" key={idx}>
+	const themeIconSurround = (idx: number, icon?: JSX.Element) => (
+		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
 			{icon}
 		</ThemeIcon>
 	);
@@ -558,9 +561,10 @@ export const BaseDisplayItem = (props: {
 										<IconRosetteDiscountCheck />
 									))
 									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
+									.with(UserToMediaReason.Owned, () => <IconBackpack />)
 									.run(),
 							)
-							.map((icon, idx) => themeIconSurrounder(idx, icon))}
+							.map((icon, idx) => themeIconSurround(idx, icon))}
 					</Group>
 				) : null}
 			</SurroundingElement>
@@ -615,7 +619,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[] | null;
+	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const navigate = useNavigate();
 	const id = props.item.identifier;
@@ -1084,90 +1088,10 @@ export const DisplayMediaReminder = (props: {
 	);
 };
 
-export const DisplayMediaOwned = () => {
-	return (
-		<Flex align="center" gap={2}>
-			<IconBackpack size={20} />
-			<Text size="xs">You own this media</Text>
-		</Flex>
-	);
-};
-
-export const CreateOwnershipModal = (props: {
-	opened: boolean;
-	metadataId?: number;
-	metadataGroupId?: number;
-	onClose: () => void;
-}) => {
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form
-				method="post"
-				action="/actions?intent=toggleMediaOwnership"
-				replace
-				onSubmit={() => events.markAsOwned()}
-			>
-				<HiddenLocationInput />
-				<Stack>
-					<Title order={3}>Mark media as owned</Title>
-					<DateInput
-						label="When did you get this media?"
-						clearable
-						popoverProps={{ withinPortal: true }}
-						onChange={setOwnedOn}
-						value={ownedOn}
-					/>
-					{props.metadataId ? (
-						<input hidden name="metadataId" defaultValue={props.metadataId} />
-					) : null}
-					{props.metadataGroupId ? (
-						<input
-							hidden
-							name="metadataGroupId"
-							defaultValue={props.metadataGroupId}
-						/>
-					) : null}
-					<input
-						hidden
-						name="ownedOn"
-						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
-					/>
-					<SimpleGrid cols={2}>
-						<Button
-							variant="outline"
-							onClick={props.onClose}
-							disabled={!!ownedOn}
-							data-autofocus
-							type="submit"
-						>
-							I don't remember
-						</Button>
-						<Button
-							disabled={!ownedOn}
-							variant="outline"
-							type="submit"
-							onClick={props.onClose}
-						>
-							Submit
-						</Button>
-					</SimpleGrid>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
 export const ToggleMediaMonitorMenuItem = (props: {
 	userId: number;
 	entityLot: EntityLot;
-	inCollections: string[];
+	inCollections: Array<string>;
 	formValue: number;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");

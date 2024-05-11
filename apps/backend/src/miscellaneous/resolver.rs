@@ -58,11 +58,11 @@ use uuid::Uuid;
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
-        calendar_event, collection, collection_to_entity, exercise, genre, metadata,
+        calendar_event, collection, collection_to_entity, exercise, genre, import_report, metadata,
         metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
         metadata_to_person, person,
         prelude::{
-            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, Metadata,
+            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Metadata,
             MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
             MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToCollection,
             UserToEntity, Workout,
@@ -96,8 +96,8 @@ use crate::{
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaOwnership, UserMediaReminder, UserSummary, UserToMediaReason,
-            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            ShowSpecifics, UserMediaReminder, UserSummary, UserToMediaReason, VideoGameSpecifics,
+            VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
@@ -133,6 +133,8 @@ use crate::{
         partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR,
     },
 };
+
+use super::CollectionExtraInformation;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -370,6 +372,7 @@ struct CollectionItem {
     description: Option<String>,
     creator_user_id: i32,
     creator_username: String,
+    information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
 #[derive(SimpleObject)]
@@ -540,7 +543,6 @@ enum MediaGeneralFilter {
     Dropped,
     OnAHold,
     Unseen,
-    Owned,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -609,7 +611,6 @@ struct UserMetadataGroupDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
     reminder: Option<UserMediaReminder>,
-    ownership: Option<UserMediaOwnership>,
 }
 
 #[derive(SimpleObject)]
@@ -630,8 +631,6 @@ struct UserMetadataDetails {
     seen_by: i32,
     /// The average rating of this media in this service.
     average_rating: Option<Decimal>,
-    /// The ownership status of the media.
-    ownership: Option<UserMediaOwnership>,
     /// The number of units of this media that were consumed.
     units_consumed: Option<i32>,
 }
@@ -657,13 +656,6 @@ struct DeleteMediaReminderInput {
     metadata_id: Option<i32>,
     metadata_group_id: Option<i32>,
     person_id: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct ToggleMediaOwnershipInput {
-    owned_on: Option<NaiveDate>,
-    metadata_id: Option<i32>,
-    metadata_group_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1372,17 +1364,6 @@ impl MiscellaneousMutation {
         service.delete_media_reminder(user_id, input).await
     }
 
-    /// Mark media as owned or remove ownership.
-    async fn toggle_media_ownership(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: ToggleMediaOwnershipInput,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.toggle_media_ownership(user_id, input).await
-    }
-
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
     async fn presigned_put_s3_url(
         &self,
@@ -1888,7 +1869,6 @@ impl MiscellaneousService {
                 .await;
         let reminder = user_to_meta.clone().and_then(|n| n.media_reminder);
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
-        let ownership = user_to_meta.and_then(|n| n.media_ownership);
 
         let average_rating = if reviews.is_empty() {
             None
@@ -1910,7 +1890,6 @@ impl MiscellaneousService {
             seen_by,
             reminder,
             average_rating,
-            ownership,
             units_consumed,
         })
     }
@@ -1958,7 +1937,6 @@ impl MiscellaneousService {
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
-            ownership: association.clone().and_then(|n| n.media_ownership),
             reminder: association.and_then(|n| n.media_reminder),
         })
     }
@@ -2140,13 +2118,6 @@ impl MiscellaneousService {
             .column(user_to_entity::Column::MetadataId)
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .apply_if(
-                match input.filter.as_ref().and_then(|f| f.general) {
-                    Some(MediaGeneralFilter::Owned) => Some(true),
-                    _ => None,
-                },
-                |query, _v| query.filter(user_to_entity::Column::MediaOwnership.is_not_null()),
-            )
             .into_tuple::<i32>()
             .all(&self.db)
             .await?;
@@ -2329,7 +2300,6 @@ impl MiscellaneousService {
                 };
                 match s {
                     MediaGeneralFilter::All => {}
-                    MediaGeneralFilter::Owned => {}
                     MediaGeneralFilter::Rated => {
                         main_select = main_select
                             .and_where(
@@ -2723,7 +2693,7 @@ impl MiscellaneousService {
             BackgroundJob::UpdateAllMetadata
             | BackgroundJob::UpdateAllExercises
             | BackgroundJob::RecalculateCalendarEvents
-            | BackgroundJob::PerformUserBackgroundTasks => {
+            | BackgroundJob::PerformBackgroundTasks => {
                 self.admin_account_guard(user_id).await?;
             }
             _ => {}
@@ -2756,9 +2726,9 @@ impl MiscellaneousService {
                     .push(ApplicationJob::RecalculateCalendarEvents)
                     .await?;
             }
-            BackgroundJob::PerformUserBackgroundTasks => {
+            BackgroundJob::PerformBackgroundTasks => {
                 sqlite_storage
-                    .push(ApplicationJob::PerformUserBackgroundTasks)
+                    .push(ApplicationJob::PerformBackgroundTasks)
                     .await?;
             }
             BackgroundJob::YankIntegrationsData => {
@@ -2809,6 +2779,11 @@ impl MiscellaneousService {
                 .find(|c| {
                     c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id
                 })
+                .map(|c| c.id)
+                .unwrap();
+            let owned_collection_id = collections
+                .iter()
+                .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
                 .map(|c| c.id)
                 .unwrap();
             let all_user_to_entities = UserToEntity::find()
@@ -2867,24 +2842,24 @@ impl MiscellaneousService {
                     new_reasons.insert(UserToMediaReason::Reviewed);
                 }
                 let is_in_collection = !collections_part_of.is_empty();
-                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_reminder_active = ute.media_reminder.is_some();
-                let is_owned = ute.media_ownership.is_some();
+                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_watchlist = collections_part_of.contains(&watchlist_collection_id);
+                let is_owned = collections_part_of.contains(&owned_collection_id);
                 if is_in_collection {
                     new_reasons.insert(UserToMediaReason::Collection);
                 }
                 if is_reminder_active {
                     new_reasons.insert(UserToMediaReason::Reminder);
                 }
-                if is_owned {
-                    new_reasons.insert(UserToMediaReason::Owned);
-                }
                 if is_monitoring {
                     new_reasons.insert(UserToMediaReason::Monitoring);
                 }
                 if is_watchlist {
                     new_reasons.insert(UserToMediaReason::Watchlist);
+                }
+                if is_owned {
+                    new_reasons.insert(UserToMediaReason::Owned);
                 }
                 let previous_reasons =
                     HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
@@ -3508,9 +3483,6 @@ impl MiscellaneousService {
             if old_association.media_reminder.is_none() {
                 cloned.media_reminder = ActiveValue::Set(association.media_reminder);
             }
-            if old_association.media_ownership.is_none() {
-                cloned.media_ownership = ActiveValue::Set(association.media_ownership);
-            }
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&txn).await?;
         } else {
@@ -4070,6 +4042,7 @@ impl MiscellaneousService {
             .select_only()
             .column(collection::Column::Id)
             .column(collection::Column::Name)
+            .column(collection::Column::InformationTemplate)
             .expr(SimpleExpr::SubQuery(
                 None,
                 Box::new(subquery.into_sub_query_statement()),
@@ -4473,6 +4446,7 @@ impl MiscellaneousService {
                     name: ActiveValue::Set(new_name),
                     user_id: ActiveValue::Set(user_id.to_owned()),
                     description: ActiveValue::Set(input.description),
+                    information_template: ActiveValue::Set(input.information_template),
                     ..Default::default()
                 };
                 let inserted = col.save(&self.db).await.map_err(|_| {
@@ -5023,11 +4997,13 @@ impl MiscellaneousService {
     // this job is run when a user is created for the first time
     async fn user_created_job(&self, user_id: i32) -> Result<()> {
         for col in DefaultCollection::iter() {
+            let meta = col.meta().to_owned();
             self.create_or_update_collection(
                 user_id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
-                    description: Some(col.meta().to_owned()),
+                    description: Some(meta.1.to_owned()),
+                    information_template: meta.0,
                     ..Default::default()
                 },
             )
@@ -6168,7 +6144,7 @@ impl MiscellaneousService {
         Ok(success)
     }
 
-    pub async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
+    async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
         let (meta_map, _, _) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for metadata state changes: {:?}",
@@ -6186,7 +6162,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
+    async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
         let (_, _, person_map) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for people state changes: {:?}",
@@ -6633,35 +6609,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn toggle_media_ownership(
-        &self,
-        user_id: i32,
-        input: ToggleMediaOwnershipInput,
-    ) -> Result<bool> {
-        let utm = associate_user_with_entity(
-            &user_id,
-            input.metadata_id,
-            None,
-            None,
-            input.metadata_group_id,
-            &self.db,
-        )
-        .await?;
-        let has_ownership = utm.media_ownership.is_some();
-        let mut utm: user_to_entity::ActiveModel = utm.into();
-        if has_ownership {
-            utm.media_ownership = ActiveValue::Set(None);
-        } else {
-            utm.media_ownership = ActiveValue::Set(Some(UserMediaOwnership {
-                marked_on: Utc::now(),
-                owned_on: input.owned_on,
-            }));
-        }
-        utm.update(&self.db).await?;
-        Ok(true)
-    }
-
-    pub async fn send_pending_media_reminders(&self) -> Result<()> {
+    async fn send_pending_media_reminders(&self) -> Result<()> {
         for utm in UserToEntity::find()
             .filter(user_to_entity::Column::MediaReminder.is_not_null())
             .all(&self.db)
@@ -7048,7 +6996,7 @@ impl MiscellaneousService {
     }
 
     #[instrument(skip(self))]
-    pub async fn send_notifications_for_released_media(&self) -> Result<()> {
+    async fn send_notifications_for_released_media(&self) -> Result<()> {
         let today = get_current_date(self.timezone.as_ref());
         let calendar_events = CalendarEvent::find()
             .filter(calendar_event::Column::Date.eq(today))
@@ -7334,6 +7282,22 @@ GROUP BY m.id;
         }
     }
 
+    async fn invalidate_import_jobs(&self) -> Result<()> {
+        let all_jobs = ImportReport::find()
+            .filter(import_report::Column::Success.is_null())
+            .all(&self.db)
+            .await?;
+        for job in all_jobs {
+            if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
+                tracing::debug!("Invalidating job with id = {id}", id = job.id);
+                let mut job: import_report::ActiveModel = job.into();
+                job.success = ActiveValue::Set(Some(false));
+                job.save(&self.db).await?;
+            }
+        }
+        Ok(())
+    }
+
     pub async fn remove_useless_data(&self) -> Result<()> {
         let mut metadata_stream = Metadata::find()
             .select_only()
@@ -7383,10 +7347,34 @@ GROUP BY m.id;
         self.cleanup_user_and_metadata_association().await?;
         tracing::trace!("Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await?;
+
+        tracing::debug!("Completed user jobs...");
+        Ok(())
+    }
+
+    pub async fn perform_media_jobs(&self) -> Result<()> {
+        tracing::debug!("Starting media jobs...");
+
+        tracing::trace!("Invalidating invalid media import jobs");
+        self.invalidate_import_jobs().await.unwrap();
+        tracing::trace!("Checking for updates for media in Watchlist");
+        self.update_watchlist_metadata_and_send_notifications()
+            .await
+            .unwrap();
+        tracing::trace!("Checking for updates for monitored people");
+        self.update_monitored_people_and_send_notifications()
+            .await
+            .unwrap();
+        tracing::trace!("Checking and sending any pending reminders");
+        self.send_pending_media_reminders().await.unwrap();
+        tracing::trace!("Recalculating calendar events");
+        self.recalculate_calendar_events().await.unwrap();
+        tracing::trace!("Sending notifications for released media");
+        self.send_notifications_for_released_media().await.unwrap();
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
 
-        tracing::debug!("Completed user jobs...");
+        tracing::debug!("Completed media jobs...");
         Ok(())
     }
 

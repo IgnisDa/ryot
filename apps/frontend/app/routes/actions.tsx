@@ -20,9 +20,9 @@ import {
 	MediaSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
-	ToggleMediaOwnershipDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { isEmpty, omitBy } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -144,6 +144,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							...input,
 							collectionName: co,
 							creatorUserId: submission.creatorUserId,
+							information: omitBy(submission.information || {}, isEmpty),
 						},
 					},
 					await getAuthorizationHeader(request),
@@ -223,21 +224,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				message: "Reminder deleted successfully",
 			});
 		})
-		.with("toggleMediaOwnership", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
-			await gqlClient.request(
-				ToggleMediaOwnershipDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: "success",
-				message: "Ownership toggled successfully",
-			});
-		})
 		.run();
 	if (Object.keys(returnData).length > 0) return json(returnData, { headers });
 	return redirect(redirectTo, { headers });
@@ -301,7 +287,7 @@ const createMediaReminderSchema = z
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(
 		formData,
-		changeCollectionToEntitySchema,
+		changeCollectionToEntitySchema.passthrough(),
 	);
 	const metadataId =
 		submission.entityLot === EntityLot.Media

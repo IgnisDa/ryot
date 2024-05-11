@@ -176,10 +176,6 @@ mutation TestUserNotificationPlatforms {
   testUserNotificationPlatforms
 }
 
-mutation ToggleMediaOwnership($input: ToggleMediaOwnershipInput!) {
-  toggleMediaOwnership(input: $input)
-}
-
 mutation UpdateUser($input: UpdateUserInput!) {
   updateUser(input: $input) {
     id

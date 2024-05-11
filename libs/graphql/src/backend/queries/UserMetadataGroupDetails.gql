@@ -6,9 +6,6 @@ query UserMetadataGroupDetails($metadataGroupId: Int!) {
     collections {
       ...CollectionPart
     }
-    ownership {
-      ...UserMediaOwnershipPart
-    }
     reminder {
       ...UserMediaReminderPart
     }

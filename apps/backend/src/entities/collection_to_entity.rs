@@ -14,6 +14,7 @@ pub struct Model {
     pub person_id: Option<i32>,
     pub metadata_group_id: Option<i32>,
     pub exercise_id: Option<String>,
+    pub information: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

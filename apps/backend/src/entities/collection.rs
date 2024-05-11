@@ -4,6 +4,8 @@ use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::miscellaneous::CollectionExtraInformation;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "collection")]
 #[graphql(name = "Collection")]
@@ -15,6 +17,8 @@ pub struct Model {
     pub name: String,
     pub description: Option<String>,
     pub user_id: i32,
+    #[sea_orm(column_type = "Json")]
+    pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
