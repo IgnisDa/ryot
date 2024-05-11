@@ -49,6 +49,7 @@ query UserCollectionsList($name: String) {
       name
       description
       lot
+      required
     }
   }
 }

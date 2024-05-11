@@ -212,6 +212,7 @@ export const AddEntityToCollectionModal = (props: {
 												name={`information.${template.name}`}
 												label={template.name}
 												description={template.description}
+												required={!!template.required}
 											/>
 										))
 										.with(CollectionExtraInformationLot.Number, () => (
@@ -219,6 +220,7 @@ export const AddEntityToCollectionModal = (props: {
 												name={`information.${template.name}`}
 												label={template.name}
 												description={template.description}
+												required={!!template.required}
 											/>
 										))
 										.with(CollectionExtraInformationLot.Date, () => (
@@ -226,8 +228,7 @@ export const AddEntityToCollectionModal = (props: {
 												<DateInput
 													label={template.name}
 													description={template.description}
-													clearable
-													popoverProps={{ withinPortal: true }}
+													required={!!template.required}
 													onChange={setOwnedOn}
 													value={ownedOn}
 												/>
@@ -246,6 +247,7 @@ export const AddEntityToCollectionModal = (props: {
 												name={`information.${template.name}`}
 												label={template.name}
 												description={template.description}
+												required={!!template.required}
 											/>
 										))
 										.exhaustive()}
