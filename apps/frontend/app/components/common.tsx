@@ -17,18 +17,21 @@ import {
 	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { Form } from "@remix-run/react";
-import type {
-	EntityLot,
-	MediaLot,
-	MediaSource,
-	UserCollectionsListQuery,
+import {
+	CollectionExtraInformationLot,
+	type EntityLot,
+	type MediaLot,
+	type MediaSource,
+	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { groupBy, snakeCase } from "@ryot/ts-utils";
+import { formatDateToNaiveDate, groupBy, snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useRef, Fragment } from "react";
 import { useState } from "react";
+import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
@@ -45,7 +48,10 @@ export const ApplicationGrid = (props: {
 	);
 };
 
-function getSurroundingElements<T>(array: Array<T>, element: number): Array<number> {
+function getSurroundingElements<T>(
+	array: Array<T>,
+	element: number,
+): Array<number> {
 	if (array.length === 1) return [0];
 	const lastIndex = array.length - 1;
 	if (element === 0) return [lastIndex, element, element + 1];
@@ -154,6 +160,7 @@ export const AddEntityToCollectionModal = (props: {
 	}));
 	const [selectedCollection, setSelectedCollection] =
 		useState<Collection | null>(null);
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
 
 	return (
 		<Modal
@@ -165,22 +172,6 @@ export const AddEntityToCollectionModal = (props: {
 			<Form action="/actions?intent=addEntityToCollection" method="post">
 				<input readOnly hidden name="entityId" value={props.entityId} />
 				<input readOnly hidden name="entityLot" value={props.entityLot} />
-				{selectedCollection ? (
-					<>
-						<input
-							readOnly
-							hidden
-							name="collectionName"
-							value={selectedCollection.name}
-						/>
-						<input
-							readOnly
-							hidden
-							name="creatorUserId"
-							value={selectedCollection.creatorUserId}
-						/>
-					</>
-				) : null}
 				<HiddenLocationInput />
 				<Stack>
 					<Title order={3}>Select collection</Title>
@@ -198,6 +189,47 @@ export const AddEntityToCollectionModal = (props: {
 							}
 						}}
 					/>
+					{selectedCollection ? (
+						<>
+							<input
+								readOnly
+								hidden
+								name="collectionName"
+								value={selectedCollection.name}
+							/>
+							<input
+								readOnly
+								hidden
+								name="creatorUserId"
+								value={selectedCollection.creatorUserId}
+							/>
+							{selectedCollection.informationTemplate?.map((template) => (
+								<Fragment key={template.name}>
+									{match(template.lot)
+										.with(CollectionExtraInformationLot.Date, () => (
+											<>
+												<DateInput
+													label={template.name}
+													description={template.description}
+													clearable
+													popoverProps={{ withinPortal: true }}
+													onChange={setOwnedOn}
+													value={ownedOn}
+												/>
+												<input
+													hidden
+													name={template.name}
+													value={
+														ownedOn ? formatDateToNaiveDate(ownedOn) : undefined
+													}
+												/>
+											</>
+										))
+										.run()}
+								</Fragment>
+							))}
+						</>
+					) : null}
 					<Button
 						disabled={!selectedCollection}
 						variant="outline"
