@@ -22,6 +22,7 @@ import {
 	RemoveEntityFromCollectionDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { isEmpty, omitBy } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -143,7 +144,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							...input,
 							collectionName: co,
 							creatorUserId: submission.creatorUserId,
-							information: submission.information,
+							information: submission.information
+								? omitBy(submission.information, isEmpty)
+								: undefined,
 						},
 					},
 					await getAuthorizationHeader(request),

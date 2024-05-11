@@ -506,7 +506,7 @@ export const BaseDisplayItem = (props: {
 		].includes(r),
 	);
 
-	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
+	const themeIconSurround = (idx: number, icon?: JSX.Element) => (
 		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
 			{icon}
 		</ThemeIcon>
@@ -564,7 +564,7 @@ export const BaseDisplayItem = (props: {
 									.with(UserToMediaReason.Owned, () => <IconBackpack />)
 									.run(),
 							)
-							.map((icon, idx) => themeIconSurrounder(idx, icon))}
+							.map((icon, idx) => themeIconSurround(idx, icon))}
 					</Group>
 				) : null}
 			</SurroundingElement>
