@@ -6,8 +6,5 @@ query UserMetadataGroupDetails($metadataGroupId: Int!) {
     collections {
       ...CollectionPart
     }
-    reminder {
-      ...UserMediaReminderPart
-    }
   }
 }
