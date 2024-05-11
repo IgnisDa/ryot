@@ -23,6 +23,7 @@ import type {
 	EntityLot,
 	MediaLot,
 	MediaSource,
+	UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy, snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
@@ -136,12 +137,7 @@ export const AddEntityToCollectionModal = (props: {
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
-	collections: {
-		id: number;
-		name: string;
-		creatorUserId: number;
-		creatorUsername: string;
-	}[];
+	collections: UserCollectionsListQuery["userCollectionsList"];
 }) => {
 	const selectData = Object.entries(
 		groupBy(props.collections, (c) =>
