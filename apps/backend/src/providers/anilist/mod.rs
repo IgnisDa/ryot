@@ -622,19 +622,20 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         .nodes
         .unwrap()
         .into_iter()
-        .map(|r| {
-            let data = r.unwrap().media_recommendation.unwrap();
-            PartialMetadataWithoutId {
-                title: data.title.unwrap().user_preferred.unwrap(),
-                identifier: data.id.to_string(),
-                source: MediaSource::Anilist,
-                lot: match data.type_.unwrap() {
-                    media_details_query::MediaType::ANIME => MediaLot::Anime,
-                    media_details_query::MediaType::MANGA => MediaLot::Manga,
-                    media_details_query::MediaType::Other(_) => unreachable!(),
-                },
-                image: data.cover_image.unwrap().extra_large,
-            }
+        .flat_map(|r| {
+            r.unwrap()
+                .media_recommendation
+                .map(|data| PartialMetadataWithoutId {
+                    title: data.title.unwrap().user_preferred.unwrap(),
+                    identifier: data.id.to_string(),
+                    source: MediaSource::Anilist,
+                    lot: match data.type_.unwrap() {
+                        media_details_query::MediaType::ANIME => MediaLot::Anime,
+                        media_details_query::MediaType::MANGA => MediaLot::Manga,
+                        media_details_query::MediaType::Other(_) => unreachable!(),
+                    },
+                    image: data.cover_image.unwrap().extra_large,
+                })
         })
         .collect();
     let score = details.average_score.map(Decimal::from);
