@@ -507,7 +507,7 @@ export const BaseDisplayItem = (props: {
 	);
 
 	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
-		<ThemeIcon variant="transparent" size="sm" color="lime" key={idx}>
+		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
 			{icon}
 		</ThemeIcon>
 	);
