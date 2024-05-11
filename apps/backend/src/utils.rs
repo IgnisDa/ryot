@@ -327,14 +327,14 @@ pub async fn add_entity_to_collection(
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
         to_update.update(db).await.is_ok()
     } else {
-        let mut created_collection = collection_to_entity::ActiveModel {
+        let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
+            metadata_id: ActiveValue::Set(input.metadata_id),
+            person_id: ActiveValue::Set(input.person_id),
+            metadata_group_id: ActiveValue::Set(input.metadata_group_id),
+            exercise_id: ActiveValue::Set(input.exercise_id.clone()),
             ..Default::default()
         };
-        created_collection.metadata_id = ActiveValue::Set(input.metadata_id);
-        created_collection.person_id = ActiveValue::Set(input.person_id);
-        created_collection.metadata_group_id = ActiveValue::Set(input.metadata_group_id);
-        created_collection.exercise_id = ActiveValue::Set(input.exercise_id.clone());
         if created_collection.insert(db).await.is_ok() {
             associate_user_with_entity(
                 &user_id,
