@@ -18,7 +18,7 @@ import {
 	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { Form } from "@remix-run/react";
 import {
@@ -241,7 +241,14 @@ export const AddEntityToCollectionModal = (props: {
 												/>
 											</>
 										))
-										.run()}
+										.with(CollectionExtraInformationLot.DateTime, () => (
+											<DateTimePicker
+												name={`information.${template.name}`}
+												label={template.name}
+												description={template.description}
+											/>
+										))
+										.exhaustive()}
 								</Fragment>
 							))}
 						</>
