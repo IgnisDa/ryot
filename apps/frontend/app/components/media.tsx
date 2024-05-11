@@ -474,7 +474,7 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[] | null;
+	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -614,7 +614,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[] | null;
+	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const navigate = useNavigate();
 	const id = props.item.identifier;
@@ -1157,7 +1157,7 @@ export const CreateOwnershipModal = (props: {
 export const ToggleMediaMonitorMenuItem = (props: {
 	userId: number;
 	entityLot: EntityLot;
-	inCollections: string[];
+	inCollections: Array<string>;
 	formValue: number;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");

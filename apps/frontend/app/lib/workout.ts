@@ -34,8 +34,8 @@ export type Exercise = {
 	sets: Array<ExerciseSet>;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 	restTimer?: { enabled: boolean; duration: number } | null;
-	videos: Media[];
-	images: Media[];
+	videos: Array<Media>;
+	images: Array<Media>;
 	supersetWith: Array<string>;
 	isShowDetailsOpen: boolean;
 };
@@ -139,7 +139,7 @@ export const duplicateOldWorkout = async (
 export const addExerciseToWorkout = async (
 	currentWorkout: InProgressWorkout,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
-	selectedExercises: { name: string; lot: ExerciseLot }[],
+	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 	navigate: (path: string) => void,
 	defaultTimer?: number | null,
 ) => {

@@ -36,7 +36,7 @@ import { useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
-	children: ReactNode | ReactNode[];
+	children: ReactNode | Array<ReactNode>;
 }) => {
 	return (
 		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
@@ -45,7 +45,7 @@ export const ApplicationGrid = (props: {
 	);
 };
 
-function getSurroundingElements<T>(array: T[], element: number): number[] {
+function getSurroundingElements<T>(array: Array<T>, element: number): Array<number> {
 	if (array.length === 1) return [0];
 	const lastIndex = array.length - 1;
 	if (element === 0) return [lastIndex, element, element + 1];
@@ -54,8 +54,8 @@ function getSurroundingElements<T>(array: T[], element: number): number[] {
 }
 
 export const MediaDetailsLayout = (props: {
-	children: ReactNode | (ReactNode | undefined)[];
-	images: (string | null | undefined)[];
+	children: Array<ReactNode | (ReactNode | undefined)>;
+	images: Array<string | null | undefined>;
 	externalLink?: {
 		source: MediaSource;
 		lot?: MediaLot;
@@ -139,7 +139,7 @@ export const AddEntityToCollectionModal = (props: {
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
-	collections: Collection[];
+	collections: Array<Collection>;
 }) => {
 	const selectData = Object.entries(
 		groupBy(props.collections, (c) =>

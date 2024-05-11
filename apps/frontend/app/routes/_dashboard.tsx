@@ -412,7 +412,7 @@ interface LinksGroupProps {
 	opened: boolean;
 	setOpened: (v: boolean) => void;
 	toggle: () => void;
-	links?: { label: string; link: string }[];
+	links?: Array<{ label: string; link: string }>;
 }
 
 function LinksGroup({

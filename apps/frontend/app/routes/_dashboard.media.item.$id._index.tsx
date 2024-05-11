@@ -1252,7 +1252,7 @@ export default function Page() {
 											<Tabs.Panel value="history">
 												{userMetadataDetails.seenBy > 0 ||
 												userMetadataDetails.history.length > 0 ||
-												userMetadataDetails.unitsConsumed  ? (
+												userMetadataDetails.unitsConsumed ? (
 													<MediaScrollArea>
 														<Stack>
 															<Box>
@@ -2061,7 +2061,7 @@ const AccordionLabel = (props: {
 	name: string;
 	id?: number | string | null;
 	numEpisodes?: number | null;
-	posterImages: string[];
+	posterImages: Array<string>;
 	overview?: string | null;
 	children: ReactNode;
 	displayIndicator: number;

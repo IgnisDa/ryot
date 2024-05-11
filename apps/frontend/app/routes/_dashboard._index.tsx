@@ -542,12 +542,12 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 const ActualDisplayStat = (props: {
 	icon: ReactNode;
 	lot: string;
-	data: {
+	data: Array<{
 		type: "duration" | "number" | "string";
 		label: string;
 		value: number | string;
 		hideIfZero?: true;
-	}[];
+	}>;
 	color?: string;
 }) => {
 	const theme = useMantineTheme();
@@ -607,7 +607,7 @@ const ActualDisplayStat = (props: {
 
 const DisplayStatForMediaType = (props: {
 	lot: MediaLot;
-	data: { type: "duration" | "number"; label: string; value: number }[];
+	data: Array<{ type: "duration" | "number"; label: string; value: number }>;
 	media: UserMediaFeaturesEnabledPreferences;
 }) => {
 	const getMantineColor = useGetMantineColor();
@@ -634,7 +634,7 @@ const DisplayStatForMediaType = (props: {
 	) : null;
 };
 
-const Section = (props: { children: ReactNode[] }) => {
+const Section = (props: { children: Array<ReactNode> }) => {
 	return <Stack gap="sm">{props.children}</Stack>;
 };
 
