@@ -6,8 +6,12 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let db = manager.get_connection();
-        db.execute_unprepared(
+        if manager
+            .has_column("user_to_entity", "media_ownership")
+            .await?
+        {
+            let db = manager.get_connection();
+            db.execute_unprepared(
             r#"
 DO $$
 DECLARE
@@ -30,7 +34,7 @@ END $$;
             "#,
         )
         .await?;
-        db.execute_unprepared(
+            db.execute_unprepared(
             r#"
 DO $$
 DECLARE
@@ -56,6 +60,13 @@ END $$;
             "#,
         )
         .await?;
+            db.execute_unprepared(
+                r#"
+ALTER TABLE "user_to_entity" DROP COLUMN media_ownership;
+            "#,
+            )
+            .await?;
+        }
         Ok(())
     }
 

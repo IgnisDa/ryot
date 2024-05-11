@@ -51,7 +51,6 @@ pub enum UserToEntity {
     ExerciseExtraInformation,
     ExerciseNumTimesInteracted,
     MediaReason,
-    MediaOwnership,
 }
 
 #[async_trait::async_trait]
@@ -80,7 +79,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
                     .col(ColumnDef::new(UserToEntity::MetadataId).integer())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())
-                    .col(ColumnDef::new(UserToEntity::MediaOwnership).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
                     .col(ColumnDef::new(UserToEntity::MediaReason).array(ColumnType::Text))
