@@ -15,51 +15,55 @@ impl MigrationTrait for Migration {
             r#"
 DO $$
 DECLARE
-    aUser RECORD;
+    user_rec RECORD;
 BEGIN
-    FOR aUser IN SELECT id FROM "user"
+    FOR user_rec IN SELECT id FROM "user"
     LOOP
         INSERT INTO collection (name, description, user_id, created_on, last_updated_on, information_template)
         VALUES (
-            'Owned', 'Items that I have in my inventory.', aUser.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+            'Owned', 'Items that I have in my inventory.', user_rec.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
             '[{"name": "Owned on", "description": "When did you get this media?", "lot": "Date"}]'
         )
         ON CONFLICT DO NOTHING;
 
         INSERT INTO user_to_collection (user_id, collection_id)
-        SELECT aUser.id, id FROM collection
-        WHERE user_id = aUser.id AND name = 'Owned' LIMIT 1;
+        SELECT user_rec.id, id FROM collection
+        WHERE user_id = user_rec.id AND name = 'Owned' LIMIT 1;
     END LOOP;
 END $$;
             "#,
         )
         .await?;
             db.execute_unprepared(
-            r#"
+                r#"
 DO $$
 DECLARE
-    aUser RECORD;
+    user_rec RECORD;
     ute RECORD;
     owned_collection_id INTEGER;
 BEGIN
-    FOR aUser IN SELECT id FROM "user"
+    FOR user_rec IN SELECT id FROM "user"
     LOOP
         FOR ute IN (
             SELECT metadata_id, media_ownership FROM "user_to_entity" WHERE media_ownership
-            IS NOT NULL AND user_id = aUser.id ORDER BY last_updated_on DESC
+            IS NOT NULL AND user_id = user_rec.id ORDER BY last_updated_on DESC
         )
         LOOP
             SELECT id INTO owned_collection_id FROM collection
-            WHERE user_id = aUser.id AND name = 'Owned' LIMIT 1;
+            WHERE user_id = user_rec.id AND name = 'Owned' LIMIT 1;
 
             INSERT INTO collection_to_entity (collection_id, metadata_id, information)
-            VALUES (owned_collection_id, ute.metadata_id, JSONB_BUILD_OBJECT('Owned on', ute.media_ownership -> 'owned_on'));
+            VALUES (
+                owned_collection_id, ute.metadata_id,
+                CASE WHEN ute.media_ownership ->> 'owned_on' IS NULL THEN '{}'::jsonb ELSE
+                JSONB_BUILD_OBJECT('Owned on', ute.media_ownership -> 'owned_on') END
+            );
         END LOOP;
     END LOOP;
 END $$;
             "#,
-        )
-        .await?;
+            )
+            .await?;
             db.execute_unprepared(
                 r#"
 ALTER TABLE "user_to_entity" DROP COLUMN media_ownership;
