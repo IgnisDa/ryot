@@ -10,9 +10,7 @@ import {
 	CommitMetadataDocument,
 	CommitMetadataGroupDocument,
 	CommitPersonDocument,
-	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
-	DeleteMediaReminderDocument,
 	DeleteReviewDocument,
 	DeleteS3ObjectDocument,
 	EntityLot,
@@ -195,35 +193,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				});
 			}
 		})
-		.with("createMediaReminder", async () => {
-			const submission = processSubmission(formData, createMediaReminderSchema);
-			const { createMediaReminder } = await gqlClient.request(
-				CreateMediaReminderDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: !createMediaReminder ? "error" : undefined,
-				message: !createMediaReminder
-					? "Reminder was not created"
-					: "Reminder created successfully",
-			});
-		})
-		.with("deleteMediaReminder", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
-			await gqlClient.request(
-				DeleteMediaReminderDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: "success",
-				message: "Reminder deleted successfully",
-			});
-		})
 		.run();
 	if (Object.keys(returnData).length > 0) return json(returnData, { headers });
 	return redirect(redirectTo, { headers });
@@ -273,16 +242,6 @@ const reviewSchema = z
 		reviewId: zx.IntAsString.optional(),
 	})
 	.merge(MetadataSpecificsSchema);
-
-const metadataOrPersonOrMetadataGroupIdSchema = z.object({
-	metadataId: zx.IntAsString.optional(),
-	metadataGroupId: zx.IntAsString.optional(),
-	personId: zx.IntAsString.optional(),
-});
-
-const createMediaReminderSchema = z
-	.object({ message: z.string(), remindOn: z.string() })
-	.merge(metadataOrPersonOrMetadataGroupIdSchema);
 
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(
