@@ -54,7 +54,7 @@ meta! {
     Owned, (Some(
         vec![
             CollectionExtraInformation {
-                name: "owned_on".to_string(),
+                name: "Owned on".to_string(),
                 description: "When did you get this media?".to_string(),
                 lot: CollectionExtraInformationLot::Date,
             }

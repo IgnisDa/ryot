@@ -22,7 +22,7 @@ BEGIN
         INSERT INTO collection (name, description, user_id, created_on, last_updated_on, information_template)
         VALUES (
             'Owned', 'Items that I have in my inventory.', aUser.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-            '[{"name": "owned_on", "description": "When did you get this media?", "lot": "Date"}]'
+            '[{"name": "Owned on", "description": "When did you get this media?", "lot": "Date"}]'
         )
         ON CONFLICT DO NOTHING;
 
@@ -53,7 +53,7 @@ BEGIN
             WHERE user_id = aUser.id AND name = 'Owned' LIMIT 1;
 
             INSERT INTO collection_to_entity (collection_id, metadata_id, information)
-            VALUES (owned_collection_id, ute.metadata_id, JSONB_BUILD_OBJECT('owned_on', ute.media_ownership -> 'owned_on'));
+            VALUES (owned_collection_id, ute.metadata_id, JSONB_BUILD_OBJECT('Owned on', ute.media_ownership -> 'owned_on'));
         END LOOP;
     END LOOP;
 END $$;
