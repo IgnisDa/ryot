@@ -1,4 +1,4 @@
-use std::{env, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::*;
 use chrono::DateTime;
@@ -36,39 +36,27 @@ impl Job for ScheduledJob {
 pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
     let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
-    if env::var("DISABLE_INVALIDATE_IMPORT_JOBS").is_err() {
-        tracing::trace!("Invalidating invalid media import jobs");
-        importer_service.invalidate_import_jobs().await.unwrap();
-    }
-    if env::var("DISABLE_UPDATE_WATCHLIST_MEDIA").is_err() {
-        tracing::trace!("Checking for updates for media in Watchlist");
-        misc_service
-            .update_watchlist_metadata_and_send_notifications()
-            .await
-            .unwrap();
-    }
-    if env::var("DISABLE_UPDATE_MONITORED_PEOPLE").is_err() {
-        tracing::trace!("Checking for updates for monitored people");
-        misc_service
-            .update_monitored_people_and_send_notifications()
-            .await
-            .unwrap();
-    }
-    if env::var("DISABLE_SEND_PENDING_REMINDERS").is_err() {
-        tracing::trace!("Checking and sending any pending reminders");
-        misc_service.send_pending_media_reminders().await.unwrap();
-    }
-    if env::var("DISABLE_RECALCULATE_CALENDAR_EVENTS").is_err() {
-        tracing::trace!("Recalculating calendar events");
-        misc_service.recalculate_calendar_events().await.unwrap();
-    }
-    if env::var("DISABLE_SEND_NOTIFICATIONS_FOR_RELEASED_MEDIA").is_err() {
-        tracing::trace!("Sending notifications for released media");
-        misc_service
-            .send_notifications_for_released_media()
-            .await
-            .unwrap();
-    }
+    tracing::trace!("Invalidating invalid media import jobs");
+    importer_service.invalidate_import_jobs().await.unwrap();
+    tracing::trace!("Checking for updates for media in Watchlist");
+    misc_service
+        .update_watchlist_metadata_and_send_notifications()
+        .await
+        .unwrap();
+    tracing::trace!("Checking for updates for monitored people");
+    misc_service
+        .update_monitored_people_and_send_notifications()
+        .await
+        .unwrap();
+    tracing::trace!("Checking and sending any pending reminders");
+    misc_service.send_pending_media_reminders().await.unwrap();
+    tracing::trace!("Recalculating calendar events");
+    misc_service.recalculate_calendar_events().await.unwrap();
+    tracing::trace!("Sending notifications for released media");
+    misc_service
+        .send_notifications_for_released_media()
+        .await
+        .unwrap();
     Ok(())
 }
 
