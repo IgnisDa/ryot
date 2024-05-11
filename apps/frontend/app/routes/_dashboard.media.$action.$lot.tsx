@@ -630,6 +630,7 @@ const MediaSearchItem = (props: {
 						const form = new FormData();
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
+						form.append("creatorUserId", loaderData.userId.toString());
 						form.append("collectionName", "Watchlist");
 						await fetch(
 							$path("/actions", { intent: "addEntityToCollection" }),
