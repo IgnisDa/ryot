@@ -59,6 +59,7 @@ import {
 	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
+	IconBackpack,
 	IconBookmarks,
 	IconCheck,
 	IconCloudDownload,
@@ -498,7 +499,11 @@ export const BaseDisplayItem = (props: {
 		);
 
 	const reasons = props.mediaReason?.filter((r) =>
-		[UserToMediaReason.Seen, UserToMediaReason.Watchlist].includes(r),
+		[
+			UserToMediaReason.Seen,
+			UserToMediaReason.Watchlist,
+			UserToMediaReason.Owned,
+		].includes(r),
 	);
 
 	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
@@ -556,6 +561,7 @@ export const BaseDisplayItem = (props: {
 										<IconRosetteDiscountCheck />
 									))
 									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
+									.with(UserToMediaReason.Owned, () => <IconBackpack />)
 									.run(),
 							)
 							.map((icon, idx) => themeIconSurrounder(idx, icon))}
