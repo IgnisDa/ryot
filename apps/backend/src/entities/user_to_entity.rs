@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{
     fitness::UserToExerciseExtraInformation,
-    media::{UserMediaOwnership, UserMediaReminder, UserToMediaReason},
+    media::{UserMediaReminder, UserToMediaReason},
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
@@ -21,7 +21,6 @@ pub struct Model {
     pub person_id: Option<i32>,
     pub metadata_id: Option<i32>,
     pub exercise_id: Option<String>,
-    pub media_ownership: Option<UserMediaOwnership>,
     pub metadata_units_consumed: Option<i32>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
     pub exercise_num_times_interacted: Option<i32>,
