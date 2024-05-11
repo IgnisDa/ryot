@@ -34,7 +34,7 @@ import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, set, snakeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, isEmpty, set, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -116,7 +116,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
 			const input: any = {};
 			for (const [name, value] of formData.entries()) {
-				if (value !== "" && name !== redirectToQueryParam)
+				if (!isEmpty(value) && name !== redirectToQueryParam)
 					set(input, name, value);
 			}
 			await gqlClient.request(
