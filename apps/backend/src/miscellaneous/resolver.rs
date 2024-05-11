@@ -2728,7 +2728,7 @@ impl MiscellaneousService {
             }
             BackgroundJob::PerformUserBackgroundTasks => {
                 sqlite_storage
-                    .push(ApplicationJob::PerformUserBackgroundTasks)
+                    .push(ApplicationJob::PerformBackgroundTasks)
                     .await?;
             }
             BackgroundJob::YankIntegrationsData => {
@@ -6135,7 +6135,7 @@ impl MiscellaneousService {
         Ok(success)
     }
 
-    pub async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
+    async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
         let (meta_map, _, _) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for metadata state changes: {:?}",
@@ -6153,7 +6153,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
+    async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
         let (_, _, person_map) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for people state changes: {:?}",
@@ -6600,7 +6600,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn send_pending_media_reminders(&self) -> Result<()> {
+    async fn send_pending_media_reminders(&self) -> Result<()> {
         for utm in UserToEntity::find()
             .filter(user_to_entity::Column::MediaReminder.is_not_null())
             .all(&self.db)
@@ -6987,7 +6987,7 @@ impl MiscellaneousService {
     }
 
     #[instrument(skip(self))]
-    pub async fn send_notifications_for_released_media(&self) -> Result<()> {
+    async fn send_notifications_for_released_media(&self) -> Result<()> {
         let today = get_current_date(self.timezone.as_ref());
         let calendar_events = CalendarEvent::find()
             .filter(calendar_event::Column::Date.eq(today))
@@ -7273,7 +7273,7 @@ GROUP BY m.id;
         }
     }
 
-    pub async fn invalidate_import_jobs(&self) -> Result<()> {
+    async fn invalidate_import_jobs(&self) -> Result<()> {
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::Success.is_null())
             .all(&self.db)
@@ -7338,10 +7338,34 @@ GROUP BY m.id;
         self.cleanup_user_and_metadata_association().await?;
         tracing::trace!("Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await?;
+
+        tracing::debug!("Completed user jobs...");
+        Ok(())
+    }
+
+    pub async fn perform_media_jobs(&self) -> Result<()> {
+        tracing::debug!("Starting media jobs...");
+
+        tracing::trace!("Invalidating invalid media import jobs");
+        self.invalidate_import_jobs().await.unwrap();
+        tracing::trace!("Checking for updates for media in Watchlist");
+        self.update_watchlist_metadata_and_send_notifications()
+            .await
+            .unwrap();
+        tracing::trace!("Checking for updates for monitored people");
+        self.update_monitored_people_and_send_notifications()
+            .await
+            .unwrap();
+        tracing::trace!("Checking and sending any pending reminders");
+        self.send_pending_media_reminders().await.unwrap();
+        tracing::trace!("Recalculating calendar events");
+        self.recalculate_calendar_events().await.unwrap();
+        tracing::trace!("Sending notifications for released media");
+        self.send_notifications_for_released_media().await.unwrap();
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
 
-        tracing::debug!("Completed user jobs...");
+        tracing::debug!("Completed media jobs...");
         Ok(())
     }
 
