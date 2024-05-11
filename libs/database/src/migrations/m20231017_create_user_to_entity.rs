@@ -15,15 +15,15 @@ pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
 pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
 pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
-ALTER TABLE "user_to_entity"
-ADD CONSTRAINT "user_to_entity__ensure_one_entity"
-CHECK (
-    (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
-    (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
-    (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END) +
-    (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END)
-    = 1
-);
+    ALTER TABLE "user_to_entity"
+    ADD CONSTRAINT "user_to_entity__ensure_one_entity"
+    CHECK (
+        (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END)
+        = 1
+    );
 "# };
 
 /// A media is related to a user if at least one of the following hold:
