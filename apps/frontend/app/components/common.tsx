@@ -9,6 +9,7 @@ import {
 	Flex,
 	Image,
 	Modal,
+	NumberInput,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -206,6 +207,20 @@ export const AddEntityToCollectionModal = (props: {
 							{selectedCollection.informationTemplate?.map((template) => (
 								<Fragment key={template.name}>
 									{match(template.lot)
+										.with(CollectionExtraInformationLot.String, () => (
+											<TextInput
+												name={`information.${template.name}`}
+												label={template.name}
+												description={template.description}
+											/>
+										))
+										.with(CollectionExtraInformationLot.Number, () => (
+											<NumberInput
+												name={`information.${template.name}`}
+												label={template.name}
+												description={template.description}
+											/>
+										))
 										.with(CollectionExtraInformationLot.Date, () => (
 											<>
 												<DateInput
@@ -217,6 +232,7 @@ export const AddEntityToCollectionModal = (props: {
 													value={ownedOn}
 												/>
 												<input
+													readOnly
 													hidden
 													name={`information.${template.name}`}
 													value={
