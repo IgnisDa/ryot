@@ -199,25 +199,6 @@ pub mod media {
         pub database_id: Option<i32>,
     }
 
-    #[derive(
-        Clone,
-        FromJsonQueryResult,
-        Debug,
-        Serialize,
-        Deserialize,
-        SimpleObject,
-        PartialOrd,
-        Ord,
-        Eq,
-        PartialEq,
-        InputObject,
-    )]
-    #[graphql(input_name = "UserMediaReminderInput")]
-    pub struct UserMediaReminder {
-        pub remind_on: NaiveDate,
-        pub message: String,
-    }
-
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
         pub id: i32,

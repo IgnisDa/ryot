@@ -4,10 +4,7 @@ use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::models::{
-    fitness::UserToExerciseExtraInformation,
-    media::{UserMediaReminder, UserToMediaReason},
-};
+use crate::models::{fitness::UserToExerciseExtraInformation, media::UserToMediaReason};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "user_to_entity")]
@@ -26,7 +23,6 @@ pub struct Model {
     pub exercise_num_times_interacted: Option<i32>,
     #[graphql(skip)]
     pub media_reason: Option<Vec<UserToMediaReason>>,
-    pub media_reminder: Option<UserMediaReminder>,
     #[graphql(skip)]
     pub needs_to_be_updated: Option<bool>,
     pub metadata_group_id: Option<i32>,
