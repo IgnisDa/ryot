@@ -2781,6 +2781,11 @@ impl MiscellaneousService {
                 })
                 .map(|c| c.id)
                 .unwrap();
+            let owned_collection_id = collections
+                .iter()
+                .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
+                .map(|c| c.id)
+                .unwrap();
             let all_user_to_entities = UserToEntity::find()
                 .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
                 .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -2837,9 +2842,10 @@ impl MiscellaneousService {
                     new_reasons.insert(UserToMediaReason::Reviewed);
                 }
                 let is_in_collection = !collections_part_of.is_empty();
-                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_reminder_active = ute.media_reminder.is_some();
+                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_watchlist = collections_part_of.contains(&watchlist_collection_id);
+                let is_owned = collections_part_of.contains(&owned_collection_id);
                 if is_in_collection {
                     new_reasons.insert(UserToMediaReason::Collection);
                 }
@@ -2851,6 +2857,9 @@ impl MiscellaneousService {
                 }
                 if is_watchlist {
                     new_reasons.insert(UserToMediaReason::Watchlist);
+                }
+                if is_owned {
+                    new_reasons.insert(UserToMediaReason::Owned);
                 }
                 let previous_reasons =
                     HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
