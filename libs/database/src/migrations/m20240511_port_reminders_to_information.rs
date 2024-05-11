@@ -53,7 +53,7 @@ BEGIN
         )
         LOOP
             SELECT id INTO reminder_collection_id FROM collection
-            WHERE user_id = user_rec.id AND name = 'Reminder' LIMIT 1;
+            WHERE user_id = user_rec.id AND name = 'Reminders' LIMIT 1;
 
             INSERT INTO collection_to_entity (collection_id, metadata_id, information)
             VALUES (
