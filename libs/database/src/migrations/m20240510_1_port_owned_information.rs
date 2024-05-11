@@ -53,7 +53,10 @@ BEGIN
             WHERE user_id = aUser.id AND name = 'Owned' LIMIT 1;
 
             INSERT INTO collection_to_entity (collection_id, metadata_id, information)
-            VALUES (owned_collection_id, ute.metadata_id, JSONB_BUILD_OBJECT('Owned on', ute.media_ownership -> 'owned_on'));
+            VALUES (
+                owned_collection_id, ute.metadata_id,
+                JSONB_BUILD_OBJECT('Owned on', COALESCE(ute.media_ownership -> 'owned_on', ''))
+            );
         END LOOP;
     END LOOP;
 END $$;
