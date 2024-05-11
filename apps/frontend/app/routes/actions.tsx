@@ -20,7 +20,6 @@ import {
 	MediaSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
-	ToggleMediaOwnershipDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import invariant from "tiny-invariant";
@@ -221,21 +220,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			headers = await createToastHeaders({
 				type: "success",
 				message: "Reminder deleted successfully",
-			});
-		})
-		.with("toggleMediaOwnership", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
-			await gqlClient.request(
-				ToggleMediaOwnershipDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: "success",
-				message: "Ownership toggled successfully",
 			});
 		})
 		.run();

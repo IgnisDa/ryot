@@ -60,7 +60,6 @@ import {
 	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
-	IconBackpack,
 	IconBookmarks,
 	IconCheck,
 	IconCloudDownload,
@@ -1081,15 +1080,6 @@ export const DisplayMediaReminder = (props: {
 			Reminder for {props.reminderData.remindOn}
 			<Text c="green">{props.reminderData.message}</Text>
 		</Alert>
-	);
-};
-
-export const DisplayMediaOwned = () => {
-	return (
-		<Flex align="center" gap={2}>
-			<IconBackpack size={20} />
-			<Text size="xs">You own this media</Text>
-		</Flex>
 	);
 };
 

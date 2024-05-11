@@ -98,10 +98,8 @@ import {
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
-	CreateOwnershipModal,
 	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaOwned,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -465,10 +463,6 @@ export default function Page() {
 		},
 	] = useDisclosure(false);
 	const [
-		mediaOwnershipModalOpened,
-		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
-	] = useDisclosure(false);
-	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
@@ -526,11 +520,6 @@ export default function Page() {
 				onClose={createMediaReminderModalClose}
 				opened={createMediaReminderModalOpened}
 				defaultText={`Complete '${loaderData.mediaMainDetails.title}'`}
-				metadataId={loaderData.metadataId}
-			/>
-			<CreateOwnershipModal
-				onClose={mediaOwnershipModalClose}
-				opened={mediaOwnershipModalOpened}
 				metadataId={loaderData.metadataId}
 			/>
 			<MergeMetadataModal
@@ -591,7 +580,6 @@ export default function Page() {
 										entityLot={EntityLot.Media}
 									/>
 								))}
-								{userMetadataDetails.ownership ? <DisplayMediaOwned /> : null}
 								{loaderData.mediaMainDetails.isPartial ? (
 									<MediaIsPartial mediaType="media" />
 								) : null}
@@ -1246,35 +1234,6 @@ export default function Page() {
 															Create reminder
 														</Menu.Item>
 													)}
-													{userMetadataDetails.ownership ? (
-														<Form
-															action="/actions?intent=toggleMediaOwnership"
-															method="post"
-															replace
-														>
-															<HiddenLocationInput />
-															<Menu.Item
-																type="submit"
-																color="red"
-																name="metadataId"
-																value={loaderData.metadataId}
-																onClick={(e) => {
-																	if (
-																		!confirm(
-																			"Are you sure you want to remove ownership of this media?",
-																		)
-																	)
-																		e.preventDefault();
-																}}
-															>
-																Remove ownership
-															</Menu.Item>
-														</Form>
-													) : (
-														<Menu.Item onClick={mediaOwnershipModalOpen}>
-															Mark as owned
-														</Menu.Item>
-													)}
 													<Menu.Item onClick={mergeMetadataModalOpen}>
 														Merge media
 													</Menu.Item>
@@ -1293,8 +1252,7 @@ export default function Page() {
 											<Tabs.Panel value="history">
 												{userMetadataDetails.seenBy > 0 ||
 												userMetadataDetails.history.length > 0 ||
-												userMetadataDetails.unitsConsumed ||
-												userMetadataDetails.ownership ? (
+												userMetadataDetails.unitsConsumed  ? (
 													<MediaScrollArea>
 														<Stack>
 															<Box>

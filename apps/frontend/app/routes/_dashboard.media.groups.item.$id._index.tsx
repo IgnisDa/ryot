@@ -37,10 +37,8 @@ import {
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
-	CreateOwnershipModal,
 	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaOwned,
 	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
@@ -116,10 +114,6 @@ export default function Page() {
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
-	const [
-		mediaOwnershipModalOpened,
-		{ open: mediaOwnershipModalOpen, close: mediaOwnershipModalClose },
-	] = useDisclosure(false);
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
@@ -148,11 +142,6 @@ export default function Page() {
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
 			/>
-			<CreateOwnershipModal
-				onClose={mediaOwnershipModalClose}
-				opened={mediaOwnershipModalOpened}
-				metadataGroupId={loaderData.metadataGroupId}
-			/>
 			<Container>
 				<MediaDetailsLayout
 					images={loaderData.metadataGroupDetails.details.displayImages}
@@ -180,9 +169,6 @@ export default function Page() {
 								entityLot={EntityLot.MediaGroup}
 							/>
 						))}
-						{loaderData.userMetadataGroupDetails.ownership ? (
-							<DisplayMediaOwned />
-						) : null}
 						{loaderData.metadataGroupDetails.details.isPartial ? (
 							<MediaIsPartial mediaType="group" />
 						) : null}
@@ -257,35 +243,6 @@ export default function Page() {
 												formValue={loaderData.metadataGroupId}
 												entityLot={EntityLot.MediaGroup}
 											/>
-											{loaderData.userMetadataGroupDetails.ownership ? (
-												<Form
-													action="/actions?intent=toggleMediaOwnership"
-													method="post"
-													replace
-												>
-													<HiddenLocationInput />
-													<Menu.Item
-														type="submit"
-														color="red"
-														name="metadataGroupId"
-														value={loaderData.metadataGroupId}
-														onClick={(e) => {
-															if (
-																!confirm(
-																	"Are you sure you want to remove ownership of this media?",
-																)
-															)
-																e.preventDefault();
-														}}
-													>
-														Remove ownership
-													</Menu.Item>
-												</Form>
-											) : (
-												<Menu.Item onClick={mediaOwnershipModalOpen}>
-													Mark as owned
-												</Menu.Item>
-											)}
 											{loaderData.userMetadataGroupDetails.reminder ? (
 												<Form
 													action="/actions?intent=deleteMediaReminder"
