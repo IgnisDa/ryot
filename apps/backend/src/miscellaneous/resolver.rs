@@ -6514,28 +6514,45 @@ impl MiscellaneousService {
         })
     }
 
-    async fn send_pending_media_reminders(&self) -> Result<()> {
-        // for utm in UserToEntity::find()
-        //     .filter(user_to_entity::Column::MediaReminder.is_not_null())
-        //     .all(&self.db)
-        //     .await?
-        // {
-        //     if let Some(reminder) = utm.media_reminder {
-        //         if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
-        //             self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
-        //                 .await?;
-        //             self.delete_media_reminder(
-        //                 utm.user_id,
-        //                 DeleteMediaReminderInput {
-        //                     metadata_group_id: utm.metadata_group_id,
-        //                     metadata_id: utm.metadata_id,
-        //                     person_id: utm.person_id,
-        //                 },
-        //             )
-        //             .await?;
-        //         }
-        //     }
-        // }
+    async fn send_pending_reminders(&self) -> Result<()> {
+        #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct UserMediaReminder {
+            reminder: NaiveDate,
+            text: String,
+        }
+        for (cte, col) in CollectionToEntity::find()
+            .find_also_related(Collection)
+            .filter(collection::Column::Name.eq(DefaultCollection::Reminders.to_string()))
+            .all(&self.db)
+            .await?
+        {
+            if let Some(reminder) = cte.information {
+                let col = col.unwrap();
+                let related_users = col.find_related(UserToCollection).all(&self.db).await?;
+                let reminder: UserMediaReminder =
+                    serde_json::from_str(&serde_json::to_string(&reminder)?)?;
+                if get_current_date(self.timezone.as_ref()) == reminder.reminder {
+                    for user in related_users {
+                        self.send_notifications_to_user_platforms(user.user_id, &reminder.text)
+                            .await?;
+                        self.remove_entity_from_collection(
+                            user.user_id,
+                            ChangeCollectionToEntityInput {
+                                creator_user_id: col.user_id,
+                                collection_name: DefaultCollection::Reminders.to_string(),
+                                metadata_id: cte.metadata_id,
+                                exercise_id: cte.exercise_id.clone(),
+                                metadata_group_id: cte.metadata_group_id,
+                                person_id: cte.person_id,
+                                ..Default::default()
+                            },
+                        )
+                        .await?;
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -7271,7 +7288,7 @@ GROUP BY m.id;
             .await
             .unwrap();
         tracing::trace!("Checking and sending any pending reminders");
-        self.send_pending_media_reminders().await.unwrap();
+        self.send_pending_reminders().await.unwrap();
         tracing::trace!("Recalculating calendar events");
         self.recalculate_calendar_events().await.unwrap();
         tracing::trace!("Sending notifications for released media");
