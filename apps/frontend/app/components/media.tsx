@@ -23,7 +23,6 @@ import {
 	Rating,
 	ScrollArea,
 	SegmentedControl,
-	SimpleGrid,
 	Stack,
 	type StyleProp,
 	Text,
@@ -1080,77 +1079,6 @@ export const DisplayMediaReminder = (props: {
 			Reminder for {props.reminderData.remindOn}
 			<Text c="green">{props.reminderData.message}</Text>
 		</Alert>
-	);
-};
-
-export const CreateOwnershipModal = (props: {
-	opened: boolean;
-	metadataId?: number;
-	metadataGroupId?: number;
-	onClose: () => void;
-}) => {
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form
-				method="post"
-				action="/actions?intent=toggleMediaOwnership"
-				replace
-				onSubmit={() => events.markAsOwned()}
-			>
-				<HiddenLocationInput />
-				<Stack>
-					<Title order={3}>Mark media as owned</Title>
-					<DateInput
-						label="When did you get this media?"
-						clearable
-						popoverProps={{ withinPortal: true }}
-						onChange={setOwnedOn}
-						value={ownedOn}
-					/>
-					{props.metadataId ? (
-						<input hidden name="metadataId" defaultValue={props.metadataId} />
-					) : null}
-					{props.metadataGroupId ? (
-						<input
-							hidden
-							name="metadataGroupId"
-							defaultValue={props.metadataGroupId}
-						/>
-					) : null}
-					<input
-						hidden
-						name="ownedOn"
-						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
-					/>
-					<SimpleGrid cols={2}>
-						<Button
-							variant="outline"
-							onClick={props.onClose}
-							disabled={!!ownedOn}
-							data-autofocus
-							type="submit"
-						>
-							I don't remember
-						</Button>
-						<Button
-							disabled={!ownedOn}
-							variant="outline"
-							type="submit"
-							onClick={props.onClose}
-						>
-							Submit
-						</Button>
-					</SimpleGrid>
-				</Stack>
-			</Form>
-		</Modal>
 	);
 };
 
