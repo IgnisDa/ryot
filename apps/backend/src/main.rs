@@ -246,7 +246,6 @@ async fn main() -> Result<()> {
     tracing::info!("Listening on: {}", listener.local_addr()?);
 
     let importer_service_1 = app_services.importer_service.clone();
-    let importer_service_2 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
     let media_service_1 = app_services.media_service.clone();
     let media_service_2 = app_services.media_service.clone();
@@ -281,7 +280,6 @@ async fn main() -> Result<()> {
                             .to_stream_with_timezone(tz),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(importer_service_2.clone()))
                     .layer(ApalisExtension(media_service_2.clone()))
                     .build_fn(media_jobs)
             })

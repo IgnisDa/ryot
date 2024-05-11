@@ -35,9 +35,8 @@ impl Job for ScheduledJob {
 
 pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
     let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
     tracing::trace!("Invalidating invalid media import jobs");
-    importer_service.invalidate_import_jobs().await.unwrap();
+    misc_service.invalidate_import_jobs().await.unwrap();
     tracing::trace!("Checking for updates for media in Watchlist");
     misc_service
         .update_watchlist_metadata_and_send_notifications()

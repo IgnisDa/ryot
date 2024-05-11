@@ -58,11 +58,11 @@ use uuid::Uuid;
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
-        calendar_event, collection, collection_to_entity, exercise, genre, metadata,
+        calendar_event, collection, collection_to_entity, exercise, genre, import_report, metadata,
         metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
         metadata_to_person, person,
         prelude::{
-            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, Metadata,
+            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Metadata,
             MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
             MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToCollection,
             UserToEntity, Workout,
@@ -7271,6 +7271,22 @@ GROUP BY m.id;
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
+    }
+
+    pub async fn invalidate_import_jobs(&self) -> Result<()> {
+        let all_jobs = ImportReport::find()
+            .filter(import_report::Column::Success.is_null())
+            .all(&self.db)
+            .await?;
+        for job in all_jobs {
+            if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
+                tracing::debug!("Invalidating job with id = {id}", id = job.id);
+                let mut job: import_report::ActiveModel = job.into();
+                job.success = ActiveValue::Set(Some(false));
+                job.save(&self.db).await?;
+            }
+        }
+        Ok(())
     }
 
     pub async fn remove_useless_data(&self) -> Result<()> {

@@ -242,22 +242,6 @@ impl ImporterService {
         Ok(job_id)
     }
 
-    pub async fn invalidate_import_jobs(&self) -> Result<()> {
-        let all_jobs = ImportReport::find()
-            .filter(import_report::Column::Success.is_null())
-            .all(&self.media_service.db)
-            .await?;
-        for job in all_jobs {
-            if Utc::now() - job.started_on > Duration::try_hours(24).unwrap() {
-                tracing::debug!("Invalidating job with id = {id}", id = job.id);
-                let mut job: import_report::ActiveModel = job.into();
-                job.success = ActiveValue::Set(Some(false));
-                job.save(&self.media_service.db).await?;
-            }
-        }
-        Ok(())
-    }
-
     pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
@@ -396,7 +380,7 @@ impl ImporterService {
                             podcast_episode_number: seen.podcast_episode_number,
                             anime_episode_number: seen.anime_episode_number,
                             manga_chapter_number: seen.manga_chapter_number,
-                            manga_volume_number:seen.manga_volume_number,
+                            manga_volume_number: seen.manga_volume_number,
                             provider_watched_on: seen.provider_watched_on.clone(),
                             change_state: None,
                         },
