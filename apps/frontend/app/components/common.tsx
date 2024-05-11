@@ -173,9 +173,7 @@ export const AddEntityToCollectionModal = (props: {
 			<Form
 				action="/actions?intent=addEntityToCollection"
 				method="post"
-				onSubmit={() => {
-					props.onClose();
-				}}
+				onSubmit={() => props.onClose()}
 			>
 				<input readOnly hidden name="entityId" value={props.entityId} />
 				<input readOnly hidden name="entityLot" value={props.entityLot} />
@@ -265,9 +263,7 @@ export const AddEntityToCollectionModal = (props: {
 						disabled={!selectedCollection}
 						variant="outline"
 						type="submit"
-						onClick={() => {
-							events.addToCollection(props.entityLot);
-						}}
+						onClick={() => events.addToCollection(props.entityLot)}
 					>
 						Set
 					</Button>
