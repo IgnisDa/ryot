@@ -16,7 +16,7 @@ import {
 	type MetaFunction,
 	json,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
 	MetadataGroupDetailsDocument,
@@ -33,13 +33,10 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
-	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
-	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
@@ -117,22 +114,9 @@ export default function Page() {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-	const [
-		createMediaReminderModalOpened,
-		{
-			open: createMediaReminderModalOpen,
-			close: createMediaReminderModalClose,
-		},
-	] = useDisclosure(false);
 
 	return (
 		<>
-			<CreateReminderModal
-				onClose={createMediaReminderModalClose}
-				opened={createMediaReminderModalOpened}
-				defaultText={`Check out new releases in '${loaderData.metadataGroupDetails.details.title}'`}
-				metadataGroupId={loaderData.metadataGroupId}
-			/>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -173,11 +157,6 @@ export default function Page() {
 							<MediaIsPartial mediaType="group" />
 						) : null}
 					</Group>
-					{loaderData.userMetadataGroupDetails.reminder ? (
-						<DisplayMediaReminder
-							reminderData={loaderData.userMetadataGroupDetails.reminder}
-						/>
-					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
@@ -243,39 +222,6 @@ export default function Page() {
 												formValue={loaderData.metadataGroupId}
 												entityLot={EntityLot.MediaGroup}
 											/>
-											{loaderData.userMetadataGroupDetails.reminder ? (
-												<Form
-													action="/actions?intent=deleteMediaReminder"
-													method="post"
-													replace
-												>
-													<input
-														hidden
-														name="metadataGroupId"
-														value={loaderData.metadataGroupId}
-														readOnly
-													/>
-													<HiddenLocationInput />
-													<Menu.Item
-														type="submit"
-														color="red"
-														onClick={(e) => {
-															if (
-																!confirm(
-																	"Are you sure you want to delete this reminder?",
-																)
-															)
-																e.preventDefault();
-														}}
-													>
-														Remove reminder
-													</Menu.Item>
-												</Form>
-											) : (
-												<Menu.Item onClick={createMediaReminderModalOpen}>
-													Create reminder
-												</Menu.Item>
-											)}
 										</Menu.Dropdown>
 									</Menu>
 								</SimpleGrid>

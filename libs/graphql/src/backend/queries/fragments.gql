@@ -154,8 +154,3 @@ fragment ReviewItemPart on ReviewItem {
     ...SeenMangaExtraInformationPart
   }
 }
-
-fragment UserMediaReminderPart on UserMediaReminder {
-  remindOn
-  message
-}

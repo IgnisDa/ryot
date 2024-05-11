@@ -40,13 +40,10 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
-	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
-	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	type PostReview,
@@ -147,22 +144,9 @@ export default function Page() {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-	const [
-		createMediaReminderModalOpened,
-		{
-			open: createMediaReminderModalOpen,
-			close: createMediaReminderModalClose,
-		},
-	] = useDisclosure(false);
 
 	return (
 		<>
-			<CreateReminderModal
-				onClose={createMediaReminderModalClose}
-				opened={createMediaReminderModalOpened}
-				defaultText={`Check out new releases by '${loaderData.personDetails.details.name}'`}
-				personId={loaderData.personId}
-			/>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -225,11 +209,6 @@ export default function Page() {
 							<MediaIsPartial mediaType="person" />
 						) : null}
 					</Group>
-					{loaderData.userPersonDetails.reminder ? (
-						<DisplayMediaReminder
-							reminderData={loaderData.userPersonDetails.reminder}
-						/>
-					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
@@ -341,39 +320,6 @@ export default function Page() {
 												formValue={loaderData.personId}
 												entityLot={EntityLot.Person}
 											/>
-											{loaderData.userPersonDetails.reminder ? (
-												<Form
-													action="/actions?intent=deleteMediaReminder"
-													method="post"
-													replace
-												>
-													<input
-														hidden
-														name="personId"
-														value={loaderData.personId}
-														readOnly
-													/>
-													<HiddenLocationInput />
-													<Menu.Item
-														type="submit"
-														color="red"
-														onClick={(e) => {
-															if (
-																!confirm(
-																	"Are you sure you want to delete this reminder?",
-																)
-															)
-																e.preventDefault();
-														}}
-													>
-														Remove reminder
-													</Menu.Item>
-												</Form>
-											) : (
-												<Menu.Item onClick={createMediaReminderModalOpen}>
-													Create reminder
-												</Menu.Item>
-											)}
 											<Form
 												action="?intent=deployUpdatePersonJob"
 												method="post"

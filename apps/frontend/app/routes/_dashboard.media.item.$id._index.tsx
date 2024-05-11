@@ -94,13 +94,10 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
-	HiddenLocationInput,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
-	CreateReminderModal,
 	DisplayCollection,
-	DisplayMediaReminder,
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
@@ -456,13 +453,6 @@ export default function Page() {
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
 	const [
-		createMediaReminderModalOpened,
-		{
-			open: createMediaReminderModalOpen,
-			close: createMediaReminderModalClose,
-		},
-	] = useDisclosure(false);
-	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
@@ -516,12 +506,6 @@ export default function Page() {
 
 	return (
 		<>
-			<CreateReminderModal
-				onClose={createMediaReminderModalClose}
-				opened={createMediaReminderModalOpened}
-				defaultText={`Complete '${loaderData.mediaMainDetails.title}'`}
-				metadataId={loaderData.metadataId}
-			/>
 			<MergeMetadataModal
 				onClose={mergeMetadataModalClose}
 				opened={mergeMetadataModalOpened}
@@ -737,11 +721,6 @@ export default function Page() {
 											</Paper>
 										) : null}
 									</Group>
-								) : null}
-								{userMetadataDetails?.reminder ? (
-									<DisplayMediaReminder
-										reminderData={userMetadataDetails.reminder}
-									/>
 								) : null}
 								{userMetadataDetails?.inProgress ? (
 									<Alert icon={<IconAlertCircle />} variant="outline">
@@ -1201,39 +1180,6 @@ export default function Page() {
 															</Menu.Item>
 														</Form>
 													) : null}
-													{userMetadataDetails.reminder ? (
-														<Form
-															action="/actions?intent=deleteMediaReminder"
-															method="post"
-															replace
-														>
-															<input
-																hidden
-																name="metadataId"
-																value={loaderData.metadataId}
-																readOnly
-															/>
-															<HiddenLocationInput />
-															<Menu.Item
-																type="submit"
-																color="red"
-																onClick={(e) => {
-																	if (
-																		!confirm(
-																			"Are you sure you want to delete this reminder?",
-																		)
-																	)
-																		e.preventDefault();
-																}}
-															>
-																Remove reminder
-															</Menu.Item>
-														</Form>
-													) : (
-														<Menu.Item onClick={createMediaReminderModalOpen}>
-															Create reminder
-														</Menu.Item>
-													)}
 													<Menu.Item onClick={mergeMetadataModalOpen}>
 														Merge media
 													</Menu.Item>
@@ -1267,7 +1213,6 @@ export default function Page() {
 																		: ""}{" "}
 																	by you.
 																</Text>
-
 																{userMetadataDetails.unitsConsumed ? (
 																	<Text fz={{ base: "sm", md: "md" }}>
 																		Consumed{" "}

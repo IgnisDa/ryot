@@ -96,7 +96,7 @@ use crate::{
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserMediaReminder, UserSummary, UserToMediaReason, VideoGameSpecifics,
+            ShowSpecifics, UserSummary, UserToMediaReason, VideoGameSpecifics,
             VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
@@ -603,14 +603,12 @@ impl fmt::Display for ProgressUpdateCache {
 struct UserPersonDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
-    reminder: Option<UserMediaReminder>,
 }
 
 #[derive(SimpleObject)]
 struct UserMetadataGroupDetails {
     reviews: Vec<ReviewItem>,
     collections: Vec<collection::Model>,
-    reminder: Option<UserMediaReminder>,
 }
 
 #[derive(SimpleObject)]
@@ -625,8 +623,6 @@ struct UserMetadataDetails {
     in_progress: Option<seen::Model>,
     /// The next episode/chapter of this media.
     next_entry: Option<UserMediaNextEntry>,
-    /// The reminder that the user has set for this media.
-    reminder: Option<UserMediaReminder>,
     /// The number of users who have seen this media.
     seen_by: i32,
     /// The average rating of this media in this service.
@@ -1342,28 +1338,6 @@ impl MiscellaneousMutation {
         service.delete_user(to_delete_user_id).await
     }
 
-    /// Create or update a reminder on a media for a user.
-    async fn create_media_reminder(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateMediaReminderInput,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_media_reminder(user_id, input).await
-    }
-
-    /// Delete a reminder on a media for a user if it exists.
-    async fn delete_media_reminder(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: DeleteMediaReminderInput,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_media_reminder(user_id, input).await
-    }
-
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
     async fn presigned_put_s3_url(
         &self,
@@ -1867,7 +1841,6 @@ impl MiscellaneousService {
         let user_to_meta =
             get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
                 .await;
-        let reminder = user_to_meta.clone().and_then(|n| n.media_reminder);
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
 
         let average_rating = if reviews.is_empty() {
@@ -1888,7 +1861,6 @@ impl MiscellaneousService {
             in_progress,
             next_entry: next_episode,
             seen_by,
-            reminder,
             average_rating,
             units_consumed,
         })
@@ -1904,13 +1876,9 @@ impl MiscellaneousService {
             .await?;
         let collections =
             entity_in_collections(&self.db, user_id, None, Some(creator_id), None, None).await?;
-        let association =
-            get_user_to_entity_association(&user_id, None, Some(creator_id), None, None, &self.db)
-                .await;
         Ok(UserPersonDetails {
             reviews,
             collections,
-            reminder: association.and_then(|n| n.media_reminder),
         })
     }
 
@@ -1925,19 +1893,9 @@ impl MiscellaneousService {
         let reviews = self
             .item_reviews(user_id, None, None, Some(metadata_group_id), None)
             .await?;
-        let association = get_user_to_entity_association(
-            &user_id,
-            None,
-            None,
-            None,
-            Some(metadata_group_id),
-            &self.db,
-        )
-        .await;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
-            reminder: association.and_then(|n| n.media_reminder),
         })
     }
 
@@ -2786,6 +2744,13 @@ impl MiscellaneousService {
                 .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
                 .map(|c| c.id)
                 .unwrap();
+            let reminder_collection_id = collections
+                .iter()
+                .find(|c| {
+                    c.name == DefaultCollection::Reminders.to_string() && c.user_id == user_id
+                })
+                .map(|c| c.id)
+                .unwrap();
             let all_user_to_entities = UserToEntity::find()
                 .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
                 .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -2842,15 +2807,12 @@ impl MiscellaneousService {
                     new_reasons.insert(UserToMediaReason::Reviewed);
                 }
                 let is_in_collection = !collections_part_of.is_empty();
-                let is_reminder_active = ute.media_reminder.is_some();
                 let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
                 let is_watchlist = collections_part_of.contains(&watchlist_collection_id);
                 let is_owned = collections_part_of.contains(&owned_collection_id);
+                let has_reminder = collections_part_of.contains(&reminder_collection_id);
                 if is_in_collection {
                     new_reasons.insert(UserToMediaReason::Collection);
-                }
-                if is_reminder_active {
-                    new_reasons.insert(UserToMediaReason::Reminder);
                 }
                 if is_monitoring {
                     new_reasons.insert(UserToMediaReason::Monitoring);
@@ -2860,6 +2822,9 @@ impl MiscellaneousService {
                 }
                 if is_owned {
                     new_reasons.insert(UserToMediaReason::Owned);
+                }
+                if has_reminder {
+                    new_reasons.insert(UserToMediaReason::Reminder);
                 }
                 let previous_reasons =
                     HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
@@ -3472,7 +3437,7 @@ impl MiscellaneousService {
                 item_active.update(&txn).await?;
             }
         }
-        if let Some(association) =
+        if let Some(_association) =
             get_user_to_entity_association(&user_id, Some(merge_into), None, None, None, &txn).await
         {
             let old_association =
@@ -3480,9 +3445,6 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
-            if old_association.media_reminder.is_none() {
-                cloned.media_reminder = ActiveValue::Set(association.media_reminder);
-            }
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&txn).await?;
         } else {
@@ -6552,82 +6514,42 @@ impl MiscellaneousService {
         })
     }
 
-    async fn create_media_reminder(
-        &self,
-        user_id: i32,
-        input: CreateMediaReminderInput,
-    ) -> Result<bool> {
-        if input.remind_on < Utc::now().date_naive() {
-            return Ok(false);
+    async fn send_pending_reminders(&self) -> Result<()> {
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct UserMediaReminder {
+            reminder: NaiveDate,
+            text: String,
         }
-        let utm = associate_user_with_entity(
-            &user_id,
-            input.metadata_id,
-            input.person_id,
-            None,
-            input.metadata_group_id,
-            &self.db,
-        )
-        .await?;
-        if utm.media_reminder.is_some() {
-            self.delete_media_reminder(
-                user_id,
-                DeleteMediaReminderInput {
-                    metadata_id: input.metadata_id,
-                    person_id: input.person_id,
-                    metadata_group_id: input.metadata_group_id,
-                },
-            )
-            .await?;
-        }
-        let mut utm: user_to_entity::ActiveModel = utm.into();
-        utm.media_reminder = ActiveValue::Set(Some(UserMediaReminder {
-            remind_on: input.remind_on,
-            message: input.message,
-        }));
-        utm.update(&self.db).await?;
-        Ok(true)
-    }
-
-    async fn delete_media_reminder(
-        &self,
-        user_id: i32,
-        input: DeleteMediaReminderInput,
-    ) -> Result<bool> {
-        let utm = associate_user_with_entity(
-            &user_id,
-            input.metadata_id,
-            input.person_id,
-            None,
-            input.metadata_group_id,
-            &self.db,
-        )
-        .await?;
-        let mut utm: user_to_entity::ActiveModel = utm.into();
-        utm.media_reminder = ActiveValue::Set(None);
-        utm.update(&self.db).await?;
-        Ok(true)
-    }
-
-    async fn send_pending_media_reminders(&self) -> Result<()> {
-        for utm in UserToEntity::find()
-            .filter(user_to_entity::Column::MediaReminder.is_not_null())
+        for (cte, col) in CollectionToEntity::find()
+            .find_also_related(Collection)
+            .filter(collection::Column::Name.eq(DefaultCollection::Reminders.to_string()))
             .all(&self.db)
             .await?
         {
-            if let Some(reminder) = utm.media_reminder {
-                if get_current_date(self.timezone.as_ref()) == reminder.remind_on {
-                    self.send_notifications_to_user_platforms(utm.user_id, &reminder.message)
+            if let Some(reminder) = cte.information {
+                let reminder: UserMediaReminder =
+                    serde_json::from_str(&serde_json::to_string(&reminder)?)?;
+                let col = col.unwrap();
+                let related_users = col.find_related(UserToCollection).all(&self.db).await?;
+                if get_current_date(self.timezone.as_ref()) == reminder.reminder {
+                    for user in related_users {
+                        self.send_notifications_to_user_platforms(user.user_id, &reminder.text)
+                            .await?;
+                        self.remove_entity_from_collection(
+                            user.user_id,
+                            ChangeCollectionToEntityInput {
+                                creator_user_id: col.user_id,
+                                collection_name: DefaultCollection::Reminders.to_string(),
+                                metadata_id: cte.metadata_id,
+                                exercise_id: cte.exercise_id.clone(),
+                                metadata_group_id: cte.metadata_group_id,
+                                person_id: cte.person_id,
+                                ..Default::default()
+                            },
+                        )
                         .await?;
-                    self.delete_media_reminder(
-                        utm.user_id,
-                        DeleteMediaReminderInput {
-                            metadata_group_id: utm.metadata_group_id,
-                            metadata_id: utm.metadata_id,
-                            person_id: utm.person_id,
-                        },
-                    )
-                    .await?;
+                    }
                 }
             }
         }
@@ -7366,7 +7288,7 @@ GROUP BY m.id;
             .await
             .unwrap();
         tracing::trace!("Checking and sending any pending reminders");
-        self.send_pending_media_reminders().await.unwrap();
+        self.send_pending_reminders().await.unwrap();
         tracing::trace!("Recalculating calendar events");
         self.recalculate_calendar_events().await.unwrap();
         tracing::trace!("Sending notifications for released media");

@@ -42,8 +42,9 @@ pub enum DefaultCollection {
     InProgress,
     Completed,
     Monitoring,
-    Owned,
     Custom,
+    Owned,
+    Reminders,
 }
 
 meta! {
@@ -52,6 +53,7 @@ meta! {
     InProgress, (None, "Media items that I am currently watching.");
     Completed, (None, "Media items that I have completed.");
     Monitoring, (None, "Items that I am keeping an eye on.");
+    Custom, (None, "Items that I have created manually.");
     Owned, (Some(
         vec![
             CollectionExtraInformation {
@@ -62,7 +64,22 @@ meta! {
             }
         ]
     ), "Items that I have in my inventory.");
-    Custom, (None, "Items that I have created manually.");
+    Reminders, (Some(
+        vec![
+            CollectionExtraInformation {
+                name: "Reminder".to_string(),
+                description: "When do you want to be reminded?".to_string(),
+                lot: CollectionExtraInformationLot::Date,
+                required: Some(true),
+            },
+            CollectionExtraInformation {
+                name: "Text".to_string(),
+                description: "What do you want to be reminded about?".to_string(),
+                lot: CollectionExtraInformationLot::String,
+                required: Some(true),
+            }
+        ]
+    ), "Items that I want to be reminded about.");
 }
 
 #[derive(Debug, Clone)]

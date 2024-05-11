@@ -29,11 +29,9 @@ import {
 	TextInput,
 	Textarea,
 	ThemeIcon,
-	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -49,14 +47,12 @@ import {
 	type MediaSource,
 	type PartialMetadata,
 	type ReviewItem,
-	type UserMediaReminderPartFragment,
 	UserReviewScale,
 	UserToMediaReason,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
+import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
-	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconBackpack,
@@ -999,92 +995,6 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 				Details of this {props.mediaType} are being downloaded
 			</Text>
 		</Flex>
-	);
-};
-
-export const CreateReminderModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	defaultText: string;
-	metadataId?: number;
-	personId?: number;
-	metadataGroupId?: number;
-}) => {
-	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form method="post" action="/actions?intent=createMediaReminder">
-				<input
-					hidden
-					name="remindOn"
-					value={formatDateToNaiveDate(remindOn)}
-					readOnly
-				/>
-				<HiddenLocationInput />
-				<Stack>
-					<Title order={3}>Create a reminder</Title>
-					<Text>
-						A notification will be sent to all your configured{" "}
-						<Anchor to={$path("/settings/notifications")} component={Link}>
-							platforms
-						</Anchor>
-						.
-					</Text>
-					<TextInput
-						name="message"
-						label="Message"
-						required
-						defaultValue={props.defaultText}
-					/>
-					<DateInput
-						label="Remind on"
-						popoverProps={{ withinPortal: true }}
-						required
-						onChange={(v) => {
-							if (v) setRemindOn(v);
-						}}
-						value={remindOn}
-					/>
-					<input
-						hidden
-						name={
-							props.metadataId
-								? "metadataId"
-								: props.personId
-									? "personId"
-									: "metadataGroupId"
-						}
-						value={props.metadataId || props.personId || props.metadataGroupId}
-						readOnly
-					/>
-					<Button
-						data-autofocus
-						variant="outline"
-						onClick={() => props.onClose()}
-						type="submit"
-					>
-						Submit
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-export const DisplayMediaReminder = (props: {
-	reminderData: UserMediaReminderPartFragment;
-}) => {
-	return (
-		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-			Reminder for {props.reminderData.remindOn}
-			<Text c="green">{props.reminderData.message}</Text>
-		</Alert>
 	);
 };
 
