@@ -93,6 +93,7 @@ export type ChangeCollectionToEntityInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['Int']['input'];
   exerciseId?: InputMaybe<Scalars['String']['input']>;
+  information?: InputMaybe<Scalars['JSONObject']['input']>;
   metadataGroupId?: InputMaybe<Scalars['Int']['input']>;
   metadataId?: InputMaybe<Scalars['Int']['input']>;
   personId?: InputMaybe<Scalars['Int']['input']>;

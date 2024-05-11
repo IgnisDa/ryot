@@ -21,6 +21,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
+use serde_json::Value;
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -327,12 +328,16 @@ pub async fn add_entity_to_collection(
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
         to_update.update(db).await.is_ok()
     } else {
+        let information = input
+            .information
+            .map(|d| serde_json::from_str::<Value>(&serde_json::to_string(&d).unwrap()).unwrap());
         let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
             metadata_id: ActiveValue::Set(input.metadata_id),
             person_id: ActiveValue::Set(input.person_id),
             metadata_group_id: ActiveValue::Set(input.metadata_group_id),
             exercise_id: ActiveValue::Set(input.exercise_id.clone()),
+            information: ActiveValue::Set(information),
             ..Default::default()
         };
         if created_collection.insert(db).await.is_ok() {
