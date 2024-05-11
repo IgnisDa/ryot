@@ -144,9 +144,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							...input,
 							collectionName: co,
 							creatorUserId: submission.creatorUserId,
-							information: submission.information
-								? omitBy(submission.information, isEmpty)
-								: undefined,
+							information: omitBy(submission.information || {}, isEmpty),
 						},
 					},
 					await getAuthorizationHeader(request),
