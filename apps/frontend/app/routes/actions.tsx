@@ -143,6 +143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 							...input,
 							collectionName: co,
 							creatorUserId: submission.creatorUserId,
+							information: submission.information,
 						},
 					},
 					await getAuthorizationHeader(request),
@@ -285,7 +286,7 @@ const createMediaReminderSchema = z
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(
 		formData,
-		changeCollectionToEntitySchema,
+		changeCollectionToEntitySchema.passthrough(),
 	);
 	const metadataId =
 		submission.entityLot === EntityLot.Media

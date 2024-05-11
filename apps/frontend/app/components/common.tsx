@@ -218,7 +218,7 @@ export const AddEntityToCollectionModal = (props: {
 												/>
 												<input
 													hidden
-													name={template.name}
+													name={`information.${template.name}`}
 													value={
 														ownedOn ? formatDateToNaiveDate(ownedOn) : undefined
 													}
