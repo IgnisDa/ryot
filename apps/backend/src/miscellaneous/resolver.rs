@@ -134,6 +134,8 @@ use crate::{
     },
 };
 
+use super::CollectionExtraInformation;
+
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -370,6 +372,7 @@ struct CollectionItem {
     description: Option<String>,
     creator_user_id: i32,
     creator_username: String,
+    information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
 #[derive(SimpleObject)]
@@ -4070,6 +4073,7 @@ impl MiscellaneousService {
             .select_only()
             .column(collection::Column::Id)
             .column(collection::Column::Name)
+            .column(collection::Column::InformationTemplate)
             .expr(SimpleExpr::SubQuery(
                 None,
                 Box::new(subquery.into_sub_query_statement()),

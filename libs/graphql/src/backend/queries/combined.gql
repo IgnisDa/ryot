@@ -45,6 +45,11 @@ query UserCollectionsList($name: String) {
     count
     creatorUserId
     creatorUsername
+    informationTemplate {
+      name
+      description
+      lot
+    }
   }
 }
 
