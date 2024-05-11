@@ -131,13 +131,15 @@ export const MediaDetailsLayout = (props: {
 	);
 };
 
+type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+
 export const AddEntityToCollectionModal = (props: {
 	userId: number;
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
-	collections: UserCollectionsListQuery["userCollectionsList"];
+	collections: Collection[];
 }) => {
 	const selectData = Object.entries(
 		groupBy(props.collections, (c) =>
@@ -150,11 +152,8 @@ export const AddEntityToCollectionModal = (props: {
 			value: c.id.toString(),
 		})),
 	}));
-	const [selectedCollection, setSelectedCollection] = useState<{
-		id: string;
-		name: string;
-		creatorId: number;
-	} | null>(null);
+	const [selectedCollection, setSelectedCollection] =
+		useState<Collection | null>(null);
 
 	return (
 		<Modal
@@ -178,7 +177,7 @@ export const AddEntityToCollectionModal = (props: {
 							readOnly
 							hidden
 							name="creatorUserId"
-							value={selectedCollection.creatorId}
+							value={selectedCollection.creatorUserId}
 						/>
 					</>
 				) : null}
@@ -189,19 +188,13 @@ export const AddEntityToCollectionModal = (props: {
 						searchable
 						data={selectData}
 						nothingFoundMessage="Nothing found..."
-						value={selectedCollection?.id}
+						value={selectedCollection?.id.toString()}
 						onChange={(v) => {
 							if (v) {
 								const collection = props.collections.find(
 									(c) => c.id === Number(v),
 								);
-								if (collection) {
-									setSelectedCollection({
-										id: v,
-										name: collection.name,
-										creatorId: collection.creatorUserId,
-									});
-								}
+								if (collection) setSelectedCollection(collection);
 							}
 						}}
 					/>
