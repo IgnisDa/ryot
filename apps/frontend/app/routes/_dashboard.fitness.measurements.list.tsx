@@ -34,14 +34,13 @@ import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, set, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
 	IconTable,
 	IconTrash,
 } from "@tabler/icons-react";
-import set from "lodash/set";
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
