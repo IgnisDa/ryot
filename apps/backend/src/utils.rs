@@ -21,6 +21,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
+use serde_json::Value;
 use surf::{
     http::headers::{ToHeaderValues, USER_AGENT},
     Client, Config, Url,
@@ -30,8 +31,8 @@ use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
         collection, collection_to_entity,
-        prelude::{Collection, CollectionToEntity, User, UserToEntity},
-        user, user_to_entity,
+        prelude::{Collection, CollectionToEntity, User, UserToCollection, UserToEntity},
+        user, user_to_collection, user_to_entity,
     },
     exporter::ExporterService,
     file_storage::FileStorageService,
@@ -75,20 +76,31 @@ pub struct AppServices {
 async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
     match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
         Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
-            Ok(issuer_url) => CoreProviderMetadata::discover_async(issuer_url, &async_http_client)
-                .await
-                .ok()
-                .map(|provider| {
-                    CoreClient::from_provider_metadata(
-                        provider,
-                        ClientId::new(config.server.oidc.client_id.clone()),
-                        Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
-                    )
-                    .set_redirect_uri(redirect_url)
-                }),
-            _ => None,
+            Ok(issuer_url) => {
+                match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
+                    Ok(provider) => Some(
+                        CoreClient::from_provider_metadata(
+                            provider,
+                            ClientId::new(config.server.oidc.client_id.clone()),
+                            Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+                        )
+                        .set_redirect_uri(redirect_url),
+                    ),
+                    Err(e) => {
+                        tracing::warn!("Error while creating OIDC client: {:?}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Error while processing OIDC issuer url: {:?}", e);
+                None
+            }
         },
-        _ => None,
+        Err(e) => {
+            tracing::warn!("Error while processing OIDC redirect url: {:?}", e);
+            None
+        }
     }
 }
 
@@ -260,7 +272,8 @@ pub async fn entity_in_collections(
     exercise_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
-        .filter(collection::Column::UserId.eq(user_id))
+        .left_join(UserToCollection)
+        .filter(user_to_collection::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
@@ -289,7 +302,8 @@ pub async fn add_entity_to_collection(
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
     let collection = Collection::find()
-        .filter(collection::Column::UserId.eq(user_id.to_owned()))
+        .left_join(UserToCollection)
+        .filter(user_to_collection::Column::UserId.eq(user_id))
         .filter(collection::Column::Name.eq(input.collection_name))
         .one(db)
         .await
@@ -314,15 +328,31 @@ pub async fn add_entity_to_collection(
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
         to_update.update(db).await.is_ok()
     } else {
-        let mut created_collection = collection_to_entity::ActiveModel {
+        let information = input
+            .information
+            .map(|d| serde_json::from_str::<Value>(&serde_json::to_string(&d).unwrap()).unwrap());
+        let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
+            metadata_id: ActiveValue::Set(input.metadata_id),
+            person_id: ActiveValue::Set(input.person_id),
+            metadata_group_id: ActiveValue::Set(input.metadata_group_id),
+            exercise_id: ActiveValue::Set(input.exercise_id.clone()),
+            information: ActiveValue::Set(information),
             ..Default::default()
         };
-        created_collection.metadata_id = ActiveValue::Set(input.metadata_id);
-        created_collection.person_id = ActiveValue::Set(input.person_id);
-        created_collection.metadata_group_id = ActiveValue::Set(input.metadata_group_id);
-        created_collection.exercise_id = ActiveValue::Set(input.exercise_id);
-        created_collection.insert(db).await.is_ok()
+        if created_collection.insert(db).await.is_ok() {
+            associate_user_with_entity(
+                &user_id,
+                input.metadata_id,
+                input.person_id,
+                input.exercise_id,
+                input.metadata_group_id,
+                db,
+            )
+            .await
+            .ok();
+        };
+        true
     };
     Ok(resp)
 }

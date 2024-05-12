@@ -4,10 +4,10 @@ Ryot can be configured to use OpenID Connect (OIDC) for authentication. The foll
 environment variables need to be set:
 
 ```bash
-FRONTEND_URL="https://demo.ryot.io" # The URL of your Ryot instance
-SERVER_OIDC_CLIENT_ID="********"
-SERVER_OIDC_CLIENT_SECRET="********"
-SERVER_OIDC_ISSUER_URL="https://accounts.google.com" # The URL of your OIDC provider
+FRONTEND_URL=https://app.ryot.io # The URL of your Ryot instance
+SERVER_OIDC_CLIENT_ID=********
+SERVER_OIDC_CLIENT_SECRET=********
+SERVER_OIDC_ISSUER_URL=https://accounts.google.com # The URL of your OIDC provider
 ```
 
 In your OIDC provider, you will need to set the redirect URL to

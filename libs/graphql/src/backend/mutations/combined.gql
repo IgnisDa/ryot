@@ -40,10 +40,6 @@ mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
   }
 }
 
-mutation CreateMediaReminder($input: CreateMediaReminderInput!) {
-  createMediaReminder(input: $input)
-}
-
 mutation CreateReviewComment($input: CreateReviewCommentInput!) {
   createReviewComment(input: $input)
 }
@@ -70,10 +66,6 @@ mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {
 
 mutation DeleteCollection($collectionName: String!) {
   deleteCollection(collectionName: $collectionName)
-}
-
-mutation DeleteMediaReminder($input: DeleteMediaReminderInput!) {
-  deleteMediaReminder(input: $input)
 }
 
 mutation DeleteReview($reviewId: Int!) {
@@ -174,10 +166,6 @@ mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {
 
 mutation TestUserNotificationPlatforms {
   testUserNotificationPlatforms
-}
-
-mutation ToggleMediaOwnership($input: ToggleMediaOwnershipInput!) {
-  toggleMediaOwnership(input: $input)
 }
 
 mutation UpdateUser($input: UpdateUserInput!) {

@@ -34,14 +34,13 @@ import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, isEmpty, set, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
 	IconTable,
 	IconTrash,
 } from "@tabler/icons-react";
-import set from "lodash/set";
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -117,7 +116,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
 			const input: any = {};
 			for (const [name, value] of formData.entries()) {
-				if (value !== "" && name !== redirectToQueryParam)
+				if (!isEmpty(value) && name !== redirectToQueryParam)
 					set(input, name, value);
 			}
 			await gqlClient.request(

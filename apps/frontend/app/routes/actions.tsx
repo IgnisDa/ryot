@@ -10,9 +10,7 @@ import {
 	CommitMetadataDocument,
 	CommitMetadataGroupDocument,
 	CommitPersonDocument,
-	CreateMediaReminderDocument,
 	CreateReviewCommentDocument,
-	DeleteMediaReminderDocument,
 	DeleteReviewDocument,
 	DeleteS3ObjectDocument,
 	EntityLot,
@@ -20,9 +18,9 @@ import {
 	MediaSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
-	ToggleMediaOwnershipDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { isEmpty, omitBy } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -134,16 +132,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.with("addEntityToCollection", async () => {
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
-			for (const collectionName of submission.collectionName) {
-				const addTo = [collectionName];
-				if (collectionName === "Watchlist") addTo.push("Monitoring");
-				for (const co of addTo) {
-					await gqlClient.request(
-						AddEntityToCollectionDocument,
-						{ input: { ...input, collectionName: co } },
-						await getAuthorizationHeader(request),
-					);
-				}
+			const addTo = [submission.collectionName];
+			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
+			for (const co of addTo) {
+				await gqlClient.request(
+					AddEntityToCollectionDocument,
+					{
+						input: {
+							...input,
+							collectionName: co,
+							creatorUserId: submission.creatorUserId,
+							information: omitBy(submission.information || {}, isEmpty),
+						},
+					},
+					await getAuthorizationHeader(request),
+				);
 			}
 			headers = await createToastHeaders({
 				message: "Media added to collection successfully",
@@ -153,13 +156,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.with("removeEntityFromCollection", async () => {
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
-			for (const collectionName of submission.collectionName) {
-				await gqlClient.request(
-					RemoveEntityFromCollectionDocument,
-					{ input: { ...input, collectionName } },
-					await getAuthorizationHeader(request),
-				);
-			}
+			await gqlClient.request(
+				RemoveEntityFromCollectionDocument,
+				{
+					input: {
+						...input,
+						collectionName: submission.collectionName,
+						creatorUserId: submission.creatorUserId,
+					},
+				},
+				await getAuthorizationHeader(request),
+			);
 		})
 		.with("performReviewAction", async () => {
 			const submission = processSubmission(formData, reviewSchema);
@@ -185,50 +192,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					type: "success",
 				});
 			}
-		})
-		.with("createMediaReminder", async () => {
-			const submission = processSubmission(formData, createMediaReminderSchema);
-			const { createMediaReminder } = await gqlClient.request(
-				CreateMediaReminderDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: !createMediaReminder ? "error" : undefined,
-				message: !createMediaReminder
-					? "Reminder was not created"
-					: "Reminder created successfully",
-			});
-		})
-		.with("deleteMediaReminder", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
-			await gqlClient.request(
-				DeleteMediaReminderDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: "success",
-				message: "Reminder deleted successfully",
-			});
-		})
-		.with("toggleMediaOwnership", async () => {
-			const submission = processSubmission(
-				formData,
-				metadataOrPersonOrMetadataGroupIdSchema,
-			);
-			await gqlClient.request(
-				ToggleMediaOwnershipDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			headers = await createToastHeaders({
-				type: "success",
-				message: "Ownership toggled successfully",
-			});
 		})
 		.run();
 	if (Object.keys(returnData).length > 0) return json(returnData, { headers });
@@ -259,7 +222,8 @@ const reviewCommentSchema = z.object({
 });
 
 const changeCollectionToEntitySchema = z.object({
-	collectionName: z.string().transform((v) => v.split(",")),
+	collectionName: z.string(),
+	creatorUserId: zx.IntAsString,
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
 });
@@ -279,20 +243,10 @@ const reviewSchema = z
 	})
 	.merge(MetadataSpecificsSchema);
 
-const metadataOrPersonOrMetadataGroupIdSchema = z.object({
-	metadataId: zx.IntAsString.optional(),
-	metadataGroupId: zx.IntAsString.optional(),
-	personId: zx.IntAsString.optional(),
-});
-
-const createMediaReminderSchema = z
-	.object({ message: z.string(), remindOn: z.string() })
-	.merge(metadataOrPersonOrMetadataGroupIdSchema);
-
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(
 		formData,
-		changeCollectionToEntitySchema,
+		changeCollectionToEntitySchema.passthrough(),
 	);
 	const metadataId =
 		submission.entityLot === EntityLot.Media
@@ -312,6 +266,11 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 			: undefined;
 	return [
 		submission,
-		{ metadataId, metadataGroupId, exerciseId, personId },
+		{
+			metadataId,
+			metadataGroupId,
+			exerciseId,
+			personId,
+		},
 	] as const;
 };

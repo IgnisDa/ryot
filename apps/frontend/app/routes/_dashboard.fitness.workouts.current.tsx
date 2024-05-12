@@ -59,6 +59,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	displayWeightWithUnit,
+	isEmpty,
 	isEqual,
 	snakeCase,
 	startCase,
@@ -530,7 +531,7 @@ const StatInput = (props: {
 		if (currentWorkout)
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const val = value === "" ? undefined : Number(value);
+					const val = isEmpty(value) ? undefined : Number(value);
 					draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 						props.stat
 					] = val as unknown as null;

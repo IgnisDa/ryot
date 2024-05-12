@@ -14,12 +14,6 @@ query UserMetadataDetails($metadataId: Int!) {
     reviews {
       ...ReviewItemPart
     }
-    reminder {
-      ...UserMediaReminderPart
-    }
-    ownership {
-      ...UserMediaOwnershipPart
-    }
     seenBy
     nextEntry {
       season

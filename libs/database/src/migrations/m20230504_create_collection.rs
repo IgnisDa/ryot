@@ -16,6 +16,7 @@ pub enum Collection {
     Name,
     UserId,
     Description,
+    InformationTemplate,
 }
 
 #[async_trait::async_trait]
@@ -55,6 +56,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(Collection::InformationTemplate).json_binary())
                     .to_owned(),
             )
             .await?;

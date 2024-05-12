@@ -91,7 +91,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
-		? (submission.muscles.split(",") as ExerciseMuscle[])
+		? (submission.muscles.split(",") as Array<ExerciseMuscle>)
 		: [];
 	const instructions = submission.instructions;
 	const newInput = cloneDeep(submission);

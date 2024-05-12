@@ -41,7 +41,7 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     RecalculateCalendarEvents,
     YankIntegrationsData,
-    PerformUserBackgroundTasks,
+    PerformBackgroundTasks,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
@@ -139,11 +139,13 @@ pub struct CompleteExport {
 
 #[derive(Debug, InputObject, Default)]
 pub struct ChangeCollectionToEntityInput {
+    pub creator_user_id: i32,
     pub collection_name: String,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
     pub metadata_group_id: Option<i32>,
     pub exercise_id: Option<String>,
+    pub information: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
@@ -178,6 +180,8 @@ pub enum MediaStateChanged {
 }
 
 pub mod media {
+    use crate::miscellaneous::CollectionExtraInformation;
+
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -195,42 +199,6 @@ pub mod media {
         pub database_id: Option<i32>,
     }
 
-    #[derive(
-        Clone,
-        FromJsonQueryResult,
-        Debug,
-        Serialize,
-        Deserialize,
-        SimpleObject,
-        PartialOrd,
-        Ord,
-        Eq,
-        PartialEq,
-        InputObject,
-    )]
-    #[graphql(input_name = "UserMediaReminderInput")]
-    pub struct UserMediaReminder {
-        pub remind_on: NaiveDate,
-        pub message: String,
-    }
-
-    #[derive(
-        Clone,
-        FromJsonQueryResult,
-        Debug,
-        Serialize,
-        Deserialize,
-        SimpleObject,
-        PartialOrd,
-        Ord,
-        Eq,
-        PartialEq,
-    )]
-    pub struct UserMediaOwnership {
-        pub marked_on: DateTimeUtc,
-        pub owned_on: Option<NaiveDate>,
-    }
-
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
         pub id: i32,
@@ -244,6 +212,7 @@ pub mod media {
         pub name: String,
         pub description: Option<String>,
         pub update_id: Option<i32>,
+        pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -781,7 +750,7 @@ pub mod media {
     )]
     pub struct UserFitnessWorkoutSummary {
         pub recorded: u64,
-        pub duration: u64,
+        pub duration: Decimal,
         pub weight: Decimal,
     }
 
@@ -807,6 +776,8 @@ pub mod media {
         pub audio_books: HashSet<i32>,
         pub anime_episodes: HashSet<(i32, i32)>,
         pub anime: HashSet<i32>,
+        #[serde(default)] // FIXME: Remove in the next major release
+        pub manga_volumes: HashSet<(i32, i32)>,
         pub manga_chapters: HashSet<(i32, i32)>,
         pub manga: HashSet<i32>,
         pub books: HashSet<i32>,
@@ -859,6 +830,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
+        pub manga_volume_number: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -871,6 +843,7 @@ pub mod media {
         pub podcast_episode_number: Option<i32>,
         pub anime_episode_number: Option<i32>,
         pub manga_chapter_number: Option<i32>,
+        pub manga_volume_number: Option<i32>,
         pub change_state: Option<SeenState>,
         pub provider_watched_on: Option<String>,
     }
@@ -1058,6 +1031,8 @@ pub mod media {
         pub anime_episode_number: Option<i32>,
         /// If for a manga, the chapter which was seen.
         pub manga_chapter_number: Option<i32>,
+        /// If for a manga, the volume which was seen.
+        pub manga_volume_number: Option<i32>,
         /// The provider this item was watched on.
         pub provider_watched_on: Option<String>,
     }
@@ -1320,6 +1295,7 @@ pub mod media {
     )]
     pub struct SeenMangaExtraInformation {
         pub chapter: Option<i32>,
+        pub volume: Option<i32>,
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]

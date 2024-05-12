@@ -44,15 +44,20 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserCollectionsList,
+	getUserDetails,
 	gqlClient,
 	processSubmission,
 } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const [userCollectionsList] = await Promise.all([
+	const [userDetails, userCollectionsList] = await Promise.all([
+		getUserDetails(request),
 		getUserCollectionsList(request),
 	]);
-	return json({ collections: userCollectionsList });
+	return json({
+		collections: userCollectionsList,
+		currentUserId: userDetails.id,
+	});
 };
 
 export const meta: MetaFunction = () => {
@@ -234,8 +239,13 @@ const DisplayCollection = (props: {
 	setToUpdateCollection: (c: UpdateCollectionInput) => void;
 	openModal: () => void;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const fetcher = useFetcher();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
+	const additionalDisplay = [`${props.collection.count} items`];
+
+	if (props.collection.creatorUserId !== loaderData.currentUserId)
+		additionalDisplay.push(`By ${props.collection.creatorUsername}`);
 
 	return (
 		<Flex align="center" justify="space-between" gap="md" mr="lg">
@@ -245,14 +255,17 @@ const DisplayCollection = (props: {
 						component={Link}
 						to={$path("/collections/:id", { id: props.collection.id })}
 					>
-						<Title order={4}>{props.collection.name}</Title>
+						<Title order={4}>
+							{props.collection.name.slice(0, 20)}
+							{props.collection.name.length > 20 ? "..." : ""}
+						</Title>
 					</Anchor>
 					<Text c="dimmed" size="xs">
-						{props.collection.numItems} items
+						({additionalDisplay.join(", ")})
 					</Text>
 				</Flex>
 				{props.collection.description ? (
-					<Text lineClamp={3}>{props.collection.description}</Text>
+					<Text lineClamp={1}>{props.collection.description}</Text>
 				) : null}
 			</Box>
 			<Flex gap="sm" style={{ flex: 0 }}>

@@ -205,7 +205,7 @@ const malImportFormSchema = z.object({
 });
 
 const deployExportForm = z.object({
-	toExport: z.string().transform((v) => v.split(",") as ExportItem[]),
+	toExport: z.string().transform((v) => v.split(",") as Array<ExportItem>),
 });
 
 export default function Page() {
@@ -571,7 +571,7 @@ export default function Page() {
 }
 
 const ImportSourceElement = (props: {
-	children: ReactNode | ReactNode[];
+	children: ReactNode | Array<ReactNode>;
 	fetcher: FetcherWithComponents<unknown>;
 	formRef: RefObject<HTMLFormElement>;
 }) => {

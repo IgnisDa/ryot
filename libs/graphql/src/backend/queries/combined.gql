@@ -42,7 +42,15 @@ query UserCollectionsList($name: String) {
     id
     name
     description
-    numItems
+    count
+    creatorUserId
+    creatorUsername
+    informationTemplate {
+      name
+      description
+      lot
+      required
+    }
   }
 }
 

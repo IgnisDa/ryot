@@ -23,18 +23,15 @@ import {
 	Rating,
 	ScrollArea,
 	SegmentedControl,
-	SimpleGrid,
 	Stack,
 	type StyleProp,
 	Text,
 	TextInput,
 	Textarea,
 	ThemeIcon,
-	Title,
 	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -50,14 +47,12 @@ import {
 	type MediaSource,
 	type PartialMetadata,
 	type ReviewItem,
-	type UserMediaReminderPartFragment,
 	UserReviewScale,
 	UserToMediaReason,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate, getInitials } from "@ryot/ts-utils";
+import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
-	IconAlertCircle,
 	IconArrowBigUp,
 	IconArrowsRight,
 	IconBackpack,
@@ -217,6 +212,8 @@ export const ReviewItemDisplay = (props: {
 											props.review.animeExtraInformation?.episode,
 										mangaChapterNumber:
 											props.review.mangaExtraInformation?.chapter,
+										mangaVolumeNumber:
+											props.review.mangaExtraInformation?.volume,
 									});
 								}}
 							>
@@ -273,6 +270,11 @@ export const ReviewItemDisplay = (props: {
 					{typeof props.review.mangaExtraInformation?.chapter === "number" ? (
 						<Text c="dimmed">
 							Ch-{props.review.mangaExtraInformation.chapter}
+						</Text>
+					) : null}
+					{typeof props.review.mangaExtraInformation?.volume === "number" ? (
+						<Text c="dimmed">
+							VOL-{props.review.mangaExtraInformation.volume}
 						</Text>
 					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
@@ -468,7 +470,7 @@ export const BaseDisplayItem = (props: {
 	highlightRightText?: string;
 	children?: ReactNode;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[] | null;
+	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
 
@@ -493,11 +495,15 @@ export const BaseDisplayItem = (props: {
 		);
 
 	const reasons = props.mediaReason?.filter((r) =>
-		[UserToMediaReason.Seen, UserToMediaReason.Watchlist].includes(r),
+		[
+			UserToMediaReason.Seen,
+			UserToMediaReason.Watchlist,
+			UserToMediaReason.Owned,
+		].includes(r),
 	);
 
-	const themeIconSurrounder = (idx: number, icon?: JSX.Element) => (
-		<ThemeIcon variant="transparent" size="sm" color="lime" key={idx}>
+	const themeIconSurround = (idx: number, icon?: JSX.Element) => (
+		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
 			{icon}
 		</ThemeIcon>
 	);
@@ -551,9 +557,10 @@ export const BaseDisplayItem = (props: {
 										<IconRosetteDiscountCheck />
 									))
 									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
+									.with(UserToMediaReason.Owned, () => <IconBackpack />)
 									.run(),
 							)
-							.map((icon, idx) => themeIconSurrounder(idx, icon))}
+							.map((icon, idx) => themeIconSurround(idx, icon))}
 					</Group>
 				) : null}
 			</SurroundingElement>
@@ -608,7 +615,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: JSX.Element;
-	mediaReason?: UserToMediaReason[] | null;
+	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const navigate = useNavigate();
 	const id = props.item.identifier;
@@ -704,6 +711,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 };
 
 export const DisplayCollection = (props: {
+	userId: number;
 	col: { id: number; name: string };
 	entityId: string;
 	entityLot: EntityLot;
@@ -725,9 +733,10 @@ export const DisplayCollection = (props: {
 					>
 						{props.col.name}
 					</Anchor>
-					<input hidden name="entityId" defaultValue={props.entityId} />
-					<input hidden name="entityLot" defaultValue={props.entityLot} />
-					<input hidden name="collectionName" defaultValue={props.col.name} />
+					<input readOnly hidden name="entityId" value={props.entityId} />
+					<input readOnly hidden name="entityLot" value={props.entityLot} />
+					<input readOnly hidden name="collectionName" value={props.col.name} />
+					<input readOnly hidden name="creatorUserId" value={props.userId} />
 					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
@@ -754,6 +763,7 @@ export type PostReview = {
 	showEpisodeNumber?: number | null;
 	animeEpisodeNumber?: number | null;
 	mangaChapterNumber?: number | null;
+	mangaVolumeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
 	existingReview?: DeepPartial<ReviewItem>;
 };
@@ -896,16 +906,33 @@ export const PostReviewModal = (props: {
 						/>
 					) : null}
 					{props.lot === MediaLot.Manga ? (
-						<NumberInput
-							label="Chapter"
-							name="mangaChapterNumber"
-							hideControls
-							defaultValue={
-								props.data?.existingReview?.mangaExtraInformation?.chapter
-									? props.data.existingReview.mangaExtraInformation?.chapter
-									: props.data.mangaChapterNumber || undefined
-							}
-						/>
+						<>
+							<Group wrap="nowrap">
+								<NumberInput
+									label="Chapter"
+									name="mangaChapterNumber"
+									hideControls
+									defaultValue={
+										props.data?.existingReview?.mangaExtraInformation?.chapter
+											? props.data.existingReview.mangaExtraInformation?.chapter
+											: props.data.mangaChapterNumber || undefined
+									}
+								/>
+								<Text ta="center" fw="bold" mt="sm">
+									OR
+								</Text>
+								<NumberInput
+									label="Volume"
+									name="mangaVolumeNumber"
+									hideControls
+									defaultValue={
+										props.data?.existingReview?.mangaExtraInformation?.volume
+											? props.data.existingReview.mangaExtraInformation?.volume
+											: props.data.mangaVolumeNumber || undefined
+									}
+								/>
+							</Group>
+						</>
 					) : null}
 					<Textarea
 						label="Review"
@@ -971,175 +998,10 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 	);
 };
 
-export const CreateReminderModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	defaultText: string;
-	metadataId?: number;
-	personId?: number;
-	metadataGroupId?: number;
-}) => {
-	const [remindOn, setRemindOn] = useState(dayjsLib().add(1, "day").toDate());
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form method="post" action="/actions?intent=createMediaReminder">
-				<input
-					hidden
-					name="remindOn"
-					value={formatDateToNaiveDate(remindOn)}
-					readOnly
-				/>
-				<HiddenLocationInput />
-				<Stack>
-					<Title order={3}>Create a reminder</Title>
-					<Text>
-						A notification will be sent to all your configured{" "}
-						<Anchor to={$path("/settings/notifications")} component={Link}>
-							platforms
-						</Anchor>
-						.
-					</Text>
-					<TextInput
-						name="message"
-						label="Message"
-						required
-						defaultValue={props.defaultText}
-					/>
-					<DateInput
-						label="Remind on"
-						popoverProps={{ withinPortal: true }}
-						required
-						onChange={(v) => {
-							if (v) setRemindOn(v);
-						}}
-						value={remindOn}
-					/>
-					<input
-						hidden
-						name={
-							props.metadataId
-								? "metadataId"
-								: props.personId
-									? "personId"
-									: "metadataGroupId"
-						}
-						value={props.metadataId || props.personId || props.metadataGroupId}
-						readOnly
-					/>
-					<Button
-						data-autofocus
-						variant="outline"
-						onClick={() => props.onClose()}
-						type="submit"
-					>
-						Submit
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-export const DisplayMediaReminder = (props: {
-	reminderData: UserMediaReminderPartFragment;
-}) => {
-	return (
-		<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-			Reminder for {props.reminderData.remindOn}
-			<Text c="green">{props.reminderData.message}</Text>
-		</Alert>
-	);
-};
-
-export const DisplayMediaOwned = () => {
-	return (
-		<Flex align="center" gap={2}>
-			<IconBackpack size={20} />
-			<Text size="xs">You own this media</Text>
-		</Flex>
-	);
-};
-
-export const CreateOwnershipModal = (props: {
-	opened: boolean;
-	metadataId?: number;
-	metadataGroupId?: number;
-	onClose: () => void;
-}) => {
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form
-				method="post"
-				action="/actions?intent=toggleMediaOwnership"
-				replace
-				onSubmit={() => events.markAsOwned()}
-			>
-				<HiddenLocationInput />
-				<Stack>
-					<Title order={3}>Mark media as owned</Title>
-					<DateInput
-						label="When did you get this media?"
-						clearable
-						popoverProps={{ withinPortal: true }}
-						onChange={setOwnedOn}
-						value={ownedOn}
-					/>
-					{props.metadataId ? (
-						<input hidden name="metadataId" defaultValue={props.metadataId} />
-					) : null}
-					{props.metadataGroupId ? (
-						<input
-							hidden
-							name="metadataGroupId"
-							defaultValue={props.metadataGroupId}
-						/>
-					) : null}
-					<input
-						hidden
-						name="ownedOn"
-						value={ownedOn ? formatDateToNaiveDate(ownedOn) : undefined}
-					/>
-					<SimpleGrid cols={2}>
-						<Button
-							variant="outline"
-							onClick={props.onClose}
-							disabled={!!ownedOn}
-							data-autofocus
-							type="submit"
-						>
-							I don't remember
-						</Button>
-						<Button
-							disabled={!ownedOn}
-							variant="outline"
-							type="submit"
-							onClick={props.onClose}
-						>
-							Submit
-						</Button>
-					</SimpleGrid>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
 export const ToggleMediaMonitorMenuItem = (props: {
+	userId: number;
 	entityLot: EntityLot;
-	inCollections: string[];
+	inCollections: Array<string>;
 	formValue: number;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");
@@ -1150,8 +1012,9 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	return (
 		<Form action={`/actions?intent=${action}`} method="post" replace>
 			<HiddenLocationInput />
-			<input hidden name="collectionName" value="Monitoring" />
-			<input hidden name="entityLot" value={props.entityLot} />
+			<input hidden name="collectionName" defaultValue="Monitoring" />
+			<input readOnly hidden name="entityLot" value={props.entityLot} />
+			<input readOnly hidden name="creatorUserId" value={props.userId} />
 			<Menu.Item
 				type="submit"
 				color={isMonitored ? "red" : undefined}

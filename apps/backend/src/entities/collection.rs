@@ -4,6 +4,8 @@ use async_graphql::SimpleObject;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::miscellaneous::CollectionExtraInformation;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "collection")]
 #[graphql(name = "Collection")]
@@ -14,8 +16,9 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub name: String,
     pub description: Option<String>,
-    #[graphql(skip)]
     pub user_id: i32,
+    #[sea_orm(column_type = "Json")]
+    pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -32,6 +35,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(has_many = "super::user_to_collection::Entity")]
+    UserToCollection,
 }
 
 impl Related<super::collection_to_entity::Entity> for Entity {
@@ -49,6 +54,12 @@ impl Related<super::review::Entity> for Entity {
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::user_to_collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserToCollection.def()
     }
 }
 

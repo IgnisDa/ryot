@@ -4963,7 +4963,7 @@ checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
 
 [[package]]
 name = "ryot"
-version = "5.2.4"
+version = "5.3.1"
 dependencies = [
  "anyhow",
  "apalis",
@@ -5024,7 +5024,6 @@ dependencies = [
  "struson",
  "surf",
  "tokio",
- "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",

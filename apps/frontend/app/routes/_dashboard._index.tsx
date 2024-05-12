@@ -392,33 +392,41 @@ export default function Page() {
 												]}
 											/>
 											{loaderData.userPreferences.media.people ? (
-												<ActualDisplayStat
-													icon={<IconFriends />}
-													lot="People stats"
-													color={theme.colors.red[9]}
-													data={[
-														{
-															label: "People",
-															value:
-																loaderData.latestUserSummary.media.peopleOverall
-																	.interactedWith,
-															type: "number",
-														},
-														{
-															label: "Reviews",
-															value:
-																loaderData.latestUserSummary.media.peopleOverall
-																	.reviewed,
-															type: "number",
-															hideIfZero: true,
-														},
-													]}
-												/>
+												<UnstyledLink
+													to={$path("/media/people/:action", {
+														action: "list",
+													})}
+												>
+													<ActualDisplayStat
+														icon={<IconFriends />}
+														lot="People stats"
+														color={theme.colors.red[9]}
+														data={[
+															{
+																label: "People",
+																value:
+																	loaderData.latestUserSummary.media
+																		.peopleOverall.interactedWith,
+																type: "number",
+															},
+															{
+																label: "Reviews",
+																value:
+																	loaderData.latestUserSummary.media
+																		.peopleOverall.reviewed,
+																type: "number",
+																hideIfZero: true,
+															},
+														]}
+													/>
+												</UnstyledLink>
 											) : null}
 										</>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
-									loaderData.latestUserSummary.fitness.workouts.duration +
+									Number(
+										loaderData.latestUserSummary.fitness.workouts.duration,
+									) +
 										loaderData.latestUserSummary.fitness.workouts.recorded >
 										0 ? (
 										<UnstyledLink to={$path("/fitness/workouts/list")}>
@@ -534,12 +542,12 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 const ActualDisplayStat = (props: {
 	icon: ReactNode;
 	lot: string;
-	data: {
+	data: Array<{
 		type: "duration" | "number" | "string";
 		label: string;
 		value: number | string;
 		hideIfZero?: true;
-	}[];
+	}>;
 	color?: string;
 }) => {
 	const theme = useMantineTheme();
@@ -599,7 +607,7 @@ const ActualDisplayStat = (props: {
 
 const DisplayStatForMediaType = (props: {
 	lot: MediaLot;
-	data: { type: "duration" | "number"; label: string; value: number }[];
+	data: Array<{ type: "duration" | "number"; label: string; value: number }>;
 	media: UserMediaFeaturesEnabledPreferences;
 }) => {
 	const getMantineColor = useGetMantineColor();
@@ -626,7 +634,7 @@ const DisplayStatForMediaType = (props: {
 	) : null;
 };
 
-const Section = (props: { children: ReactNode[] }) => {
+const Section = (props: { children: Array<ReactNode> }) => {
 	return <Stack gap="sm">{props.children}</Stack>;
 };
 

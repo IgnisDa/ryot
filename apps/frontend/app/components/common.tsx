@@ -9,7 +9,8 @@ import {
 	Flex,
 	Image,
 	Modal,
-	MultiSelect,
+	NumberInput,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -17,17 +18,21 @@ import {
 	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { Form } from "@remix-run/react";
-import type {
-	EntityLot,
-	MediaLot,
-	MediaSource,
+import {
+	CollectionExtraInformationLot,
+	type EntityLot,
+	type MediaLot,
+	type MediaSource,
+	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot/ts-utils";
+import { formatDateToNaiveDate, groupBy, snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { type ReactNode, useRef } from "react";
+import { Fragment, type ReactNode, useRef } from "react";
 import { useState } from "react";
+import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
@@ -35,7 +40,7 @@ import { useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
-	children: ReactNode | ReactNode[];
+	children: ReactNode | Array<ReactNode>;
 }) => {
 	return (
 		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
@@ -44,7 +49,10 @@ export const ApplicationGrid = (props: {
 	);
 };
 
-function getSurroundingElements<T>(array: T[], element: number): number[] {
+function getSurroundingElements<T>(
+	array: Array<T>,
+	element: number,
+): Array<number> {
 	if (array.length === 1) return [0];
 	const lastIndex = array.length - 1;
 	if (element === 0) return [lastIndex, element, element + 1];
@@ -53,8 +61,8 @@ function getSurroundingElements<T>(array: T[], element: number): number[] {
 }
 
 export const MediaDetailsLayout = (props: {
-	children: ReactNode | (ReactNode | undefined)[];
-	images: (string | null | undefined)[];
+	children: Array<ReactNode | (ReactNode | undefined)>;
+	images: Array<string | null | undefined>;
 	externalLink?: {
 		source: MediaSource;
 		lot?: MediaLot;
@@ -130,13 +138,31 @@ export const MediaDetailsLayout = (props: {
 	);
 };
 
+type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+
 export const AddEntityToCollectionModal = (props: {
+	userId: number;
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
-	collections: string[];
+	collections: Array<Collection>;
 }) => {
+	const selectData = Object.entries(
+		groupBy(props.collections, (c) =>
+			c.creatorUserId === props.userId ? "You" : c.creatorUsername,
+		),
+	).map(([g, items]) => ({
+		group: g,
+		items: items.map((c) => ({
+			label: c.name,
+			value: c.id.toString(),
+		})),
+	}));
+	const [selectedCollection, setSelectedCollection] =
+		useState<Collection | null>(null);
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+
 	return (
 		<Modal
 			opened={props.opened}
@@ -144,26 +170,100 @@ export const AddEntityToCollectionModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form action="/actions?intent=addEntityToCollection" method="post">
-				<input hidden name="entityId" defaultValue={props.entityId} />
-				<input hidden name="entityLot" defaultValue={props.entityLot} />
+			<Form
+				action="/actions?intent=addEntityToCollection"
+				method="post"
+				onSubmit={() => props.onClose()}
+			>
+				<input readOnly hidden name="entityId" value={props.entityId} />
+				<input readOnly hidden name="entityLot" value={props.entityLot} />
 				<HiddenLocationInput />
 				<Stack>
 					<Title order={3}>Select collection</Title>
-					<MultiSelect
-						data={props.collections}
+					<Select
 						searchable
-						name="collectionName"
+						data={selectData}
 						nothingFoundMessage="Nothing found..."
+						value={selectedCollection?.id.toString()}
+						onChange={(v) => {
+							if (v) {
+								const collection = props.collections.find(
+									(c) => c.id === Number(v),
+								);
+								if (collection) setSelectedCollection(collection);
+							}
+						}}
 					/>
+					{selectedCollection ? (
+						<>
+							<input
+								readOnly
+								hidden
+								name="collectionName"
+								value={selectedCollection.name}
+							/>
+							<input
+								readOnly
+								hidden
+								name="creatorUserId"
+								value={selectedCollection.creatorUserId}
+							/>
+							{selectedCollection.informationTemplate?.map((template) => (
+								<Fragment key={template.name}>
+									{match(template.lot)
+										.with(CollectionExtraInformationLot.String, () => (
+											<TextInput
+												name={`information.${template.name}`}
+												label={template.name}
+												description={template.description}
+												required={!!template.required}
+											/>
+										))
+										.with(CollectionExtraInformationLot.Number, () => (
+											<NumberInput
+												name={`information.${template.name}`}
+												label={template.name}
+												description={template.description}
+												required={!!template.required}
+											/>
+										))
+										.with(CollectionExtraInformationLot.Date, () => (
+											<>
+												<DateInput
+													label={template.name}
+													description={template.description}
+													required={!!template.required}
+													onChange={setOwnedOn}
+													value={ownedOn}
+												/>
+												<input
+													readOnly
+													hidden
+													name={`information.${template.name}`}
+													value={
+														ownedOn ? formatDateToNaiveDate(ownedOn) : undefined
+													}
+												/>
+											</>
+										))
+										.with(CollectionExtraInformationLot.DateTime, () => (
+											<DateTimePicker
+												name={`information.${template.name}`}
+												label={template.name}
+												description={template.description}
+												required={!!template.required}
+											/>
+										))
+										.exhaustive()}
+								</Fragment>
+							))}
+						</>
+					) : null}
 					<Button
-						data-autofocus
+						disabled={!selectedCollection}
 						variant="outline"
 						type="submit"
-						onClick={() => {
-							events.addToCollection(props.entityLot);
-							props.onClose();
-						}}
+						onClick={() => events.addToCollection(props.entityLot)}
 					>
 						Set
 					</Button>

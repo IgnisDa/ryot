@@ -6,8 +6,5 @@ query UserPersonDetails($personId: Int!) {
     reviews {
       ...ReviewItemPart
     }
-    reminder {
-      ...UserMediaReminderPart
-    }
   }
 }
