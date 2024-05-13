@@ -2,7 +2,6 @@
 
 /* eslint-disable */
 
-/** The actual statistics that were logged in a user measurement. */
 export interface UserMeasurementStats {
 	abdominal_skinfold: string | null;
 	basal_metabolic_rate: string | null;
@@ -198,7 +197,6 @@ export interface ImportOrExportPersonItem {
 	source_specifics: PersonSourceSpecifics | null;
 }
 
-/** The assets that were uploaded for an entity. */
 export interface EntityAssets {
 	/** The keys of the S3 images. */
 	images: string[];
@@ -212,7 +210,6 @@ export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
 
 export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'Pace' | 'Reps';
 
-/** Details about the statistics of the set performed. */
 export interface WorkoutSetStatistic {
 	distance: string | null;
 	duration: string | null;
@@ -233,11 +230,11 @@ export interface WorkoutSetRecord {
 	confirmed_at: string | null;
 	lot: SetLot;
 	personal_bests: WorkoutSetPersonalBest[];
+	/** Details about the statistics of the set performed. */
 	statistic: WorkoutSetStatistic;
 	totals: WorkoutSetTotals;
 }
 
-/** The totals of a workout and the different bests achieved. */
 export interface WorkoutOrExerciseTotals {
 	distance: string;
 	duration: string;
@@ -251,6 +248,7 @@ export interface WorkoutOrExerciseTotals {
 
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
+	/** The assets that were uploaded for an entity. */
 	assets: EntityAssets;
 	lot: ExerciseLot;
 	name: string;
@@ -259,17 +257,19 @@ export interface ProcessedExercise {
 	sets: WorkoutSetRecord[];
 	/** The indices of the exercises with which this has been superset with. */
 	superset_with: number[];
+	/** The totals of a workout and the different bests achieved. */
 	total: WorkoutOrExerciseTotals;
 }
 
-/** Information about a workout done. */
 export interface WorkoutInformation {
+	/** The assets that were uploaded for an entity. */
 	assets: EntityAssets;
 	exercises: ProcessedExercise[];
 }
 
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
+	/** Details about the set performed. */
 	best_set: WorkoutSetRecord;
 	id: string;
 	lot: ExerciseLot;
@@ -278,6 +278,7 @@ export interface WorkoutSummaryExercise {
 
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
+	/** The totals of a workout and the different bests achieved. */
 	total: WorkoutOrExerciseTotals;
 }
 
@@ -286,6 +287,7 @@ export interface Workout {
 	comment: string | null;
 	end_time: string;
 	id: string;
+	/** Information about a workout done. */
 	information: WorkoutInformation;
 	name: string;
 	start_time: string;

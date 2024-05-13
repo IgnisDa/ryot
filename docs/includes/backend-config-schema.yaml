@@ -25,17 +25,17 @@ audio_books:
 
 # Settings related to books.
 books:
-  # Settings related to Openlibrary.
-  openlibrary:
-    # The image sizes to fetch from Openlibrary.
-    # @envvar BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE
-    cover_image_size: "M"
-
   # Settings related to Google Books.
   google_books:
     # Whether to pass the raw query string to the search API.
     # @envvar BOOKS_GOOGLE_BOOKS_PASS_RAW_QUERY
     pass_raw_query: false
+
+  # Settings related to Openlibrary.
+  openlibrary:
+    # The image sizes to fetch from Openlibrary.
+    # @envvar BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE
+    cover_image_size: "M"
 
 # The database related settings.
 database:
@@ -77,10 +77,6 @@ file_storage:
 
 # Settings related to frontend storage.
 frontend:
-  # Used as the base URL when generating item links for the frontend.
-  # @envvar FRONTEND_URL
-  url: "https://app.ryot.io"
-
   # Whether the cookies set are insecure.
   # @envvar FRONTEND_INSECURE_COOKIES
   insecure_cookies: false
@@ -91,6 +87,9 @@ frontend:
 
   # Settings related to Umami analytics.
   umami:
+    # @envvar FRONTEND_UMAMI_DOMAINS
+    domains: ""
+
     # For example: https://umami.is/script.js.
     # @envvar FRONTEND_UMAMI_SCRIPT_URL
     script_url: ""
@@ -98,27 +97,28 @@ frontend:
     # @envvar FRONTEND_UMAMI_WEBSITE_ID
     website_id: ""
 
-    # @envvar FRONTEND_UMAMI_DOMAINS
-    domains: ""
+  # Used as the base URL when generating item links for the frontend.
+  # @envvar FRONTEND_URL
+  url: "https://app.ryot.io"
 
 # Settings related to external integrations.
 integration:
-  # Sync data from [yank](/docs/guides/integrations.md) based integrations
-  # every `n` hours.
-  # @envvar INTEGRATION_PULL_EVERY
-  pull_every: 2
-
   # The salt used to hash user IDs.
   # @envvar INTEGRATION_HASHER_SALT
   hasher_salt: ""
+
+  # The maximum progress limit after which a media is considered to be completed.
+  # @envvar INTEGRATION_MAXIMUM_PROGRESS_LIMIT
+  maximum_progress_limit: 95
 
   # The minimum progress limit after which a media is considered to be started.
   # @envvar INTEGRATION_MINIMUM_PROGRESS_LIMIT
   minimum_progress_limit: 2
 
-  # The maximum progress limit after which a media is considered to be completed.
-  # @envvar INTEGRATION_MAXIMUM_PROGRESS_LIMIT
-  maximum_progress_limit: 95
+  # Sync data from [yank](/docs/guides/integrations.md) based integrations
+  # every `n` hours.
+  # @envvar INTEGRATION_PULL_EVERY
+  pull_every: 2
 
 # Settings related to media.
 media: {}
@@ -137,17 +137,17 @@ movies_and_shows:
 
 # Settings related to podcasts.
 podcasts:
-  # Settings related to Listennotes.
-  listennotes:
-    # The access token for the Listennotes API.
-    # @envvar PODCASTS_LISTENNOTES_API_TOKEN
-    api_token: ""
-
   # Settings related to iTunes.
   itunes:
     # The locale to use for making requests to iTunes API.
     # @envvar PODCASTS_ITUNES_LOCALE
     locale: "en_us"
+
+  # Settings related to Listennotes.
+  listennotes:
+    # The access token for the Listennotes API.
+    # @envvar PODCASTS_LISTENNOTES_API_TOKEN
+    api_token: ""
 
 # Settings related to scheduler.
 scheduler:
@@ -167,22 +167,25 @@ scheduler:
 
 # Settings related to server.
 server:
-  # The mailer related settings.
-  smtp:
-    # @envvar SERVER_SMTP_SERVER
-    server: ""
+  # The path where the config file will be written once the server boots up.
+  # @envvar SERVER_CONFIG_DUMP_PATH
+  config_dump_path: ""
 
-    # @envvar SERVER_SMTP_PORT
-    port: 587
+  # An array of URLs for CORS.
+  # @envvar SERVER_CORS_ORIGINS
+  cors_origins: []
 
-    # @envvar SERVER_SMTP_USER
-    user: ""
+  # Disable all background jobs.
+  # @envvar SERVER_DISABLE_BACKGROUND_JOBS
+  disable_background_jobs: false
 
-    # @envvar SERVER_SMTP_PASSWORD
-    password: ""
+  # Whether the graphql playground will be enabled.
+  # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
+  graphql_playground_enabled: true
 
-    # @envvar SERVER_SMTP_MAILBOX
-    mailbox: "Ryot <no-reply@mailer.io>"
+  # The maximum file size in MB for user uploads.
+  # @envvar SERVER_MAX_FILE_SIZE
+  max_file_size: 70
 
   # The OIDC related settings.
   oidc:
@@ -195,41 +198,38 @@ server:
     # @envvar SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
-  # The path where the config file will be written once the server boots up.
-  # @envvar SERVER_CONFIG_DUMP_PATH
-  config_dump_path: ""
-
-  # An array of URLs for CORS.
-  # @envvar SERVER_CORS_ORIGINS
-  cors_origins: []
-
   # The hours in which a media can be marked as seen again for a user. This
   # is used so that the same media can not be used marked as started when
   # it has been already marked as seen in the last `n` hours.
   # @envvar SERVER_PROGRESS_UPDATE_THRESHOLD
   progress_update_threshold: 2
 
-  # The maximum file size in MB for user uploads.
-  # @envvar SERVER_MAX_FILE_SIZE
-  max_file_size: 70
+  # The mailer related settings.
+  smtp:
+    # @envvar SERVER_SMTP_MAILBOX
+    mailbox: "Ryot <no-reply@mailer.io>"
 
-  # Whether the graphql playground will be enabled.
-  # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
-  graphql_playground_enabled: true
+    # @envvar SERVER_SMTP_PASSWORD
+    password: ""
 
-  # Disable all background jobs.
-  # @envvar SERVER_DISABLE_BACKGROUND_JOBS
-  disable_background_jobs: false
+    # @envvar SERVER_SMTP_PORT
+    port: 587
+
+    # @envvar SERVER_SMTP_SERVER
+    server: ""
+
+    # @envvar SERVER_SMTP_USER
+    user: ""
 
 # Settings related to users.
 users:
-  # The secret used for generating JWT tokens.
-  # @envvar USERS_JWT_SECRET
-  jwt_secret: ""
-
   # Whether new users will be allowed to sign up to this instance.
   # @envvar USERS_ALLOW_REGISTRATION
   allow_registration: true
+
+  # The secret used for generating JWT tokens.
+  # @envvar USERS_JWT_SECRET
+  jwt_secret: ""
 
   # The number of days till login auth token is valid.
   # @envvar USERS_TOKEN_VALID_FOR_DAYS
