@@ -67,6 +67,11 @@ special tool on your computer or phone that lets you keep track of all these dig
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
 
+## Community and support
+
+You can join the [Discord](https://discord.gg/D9XTg2a7R8) server for any help or questions.
+You can also open an issue on GitHub if you find any bugs or have feature requests.
+
 ## 🙏 Acknowledgements
 
 Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
