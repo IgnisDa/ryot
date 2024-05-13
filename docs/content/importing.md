@@ -182,7 +182,7 @@ the input.
 
 ## Jellyfin
 
-You can import your watched movies and TV shows from [Jellyfin](https://jellyfin.org).
+You can import your watched movies from [Jellyfin](https://jellyfin.org).
 
 !!! warning
 
