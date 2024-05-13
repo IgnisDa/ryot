@@ -110,17 +110,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
 				)
+				.with(ImportSource.Audiobookshelf, ImportSource.MediaTracker, () => ({
+					urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
+				}))
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, usernameImportFormSchema),
-				}))
-				.with(ImportSource.Audiobookshelf, () => ({
-					audiobookshelf: processSubmission(
-						formData,
-						urlAndKeyImportFormSchema,
-					),
-				}))
-				.with(ImportSource.MediaTracker, () => ({
-					mediaTracker: processSubmission(formData, urlAndKeyImportFormSchema),
 				}))
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
