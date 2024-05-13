@@ -1,6 +1,6 @@
 <h1 align="center">Ryot</h1>
 
-<img align="left" src="docs/logo.png" width="150">
+<img alt="Project logo" align="left" src="docs/logo.png" width="150">
 
 <h3 align="center">
   A self hosted platform for tracking various facets of your life - media, fitness etc.
@@ -66,6 +66,11 @@ special tool on your computer or phone that lets you keep track of all these dig
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
+
+## Community and support
+
+You can join the [Discord](https://discord.gg/D9XTg2a7R8) server for any help or questions.
+You can also open an issue on GitHub if you find any bugs or have feature requests.
 
 ## 🙏 Acknowledgements
 
