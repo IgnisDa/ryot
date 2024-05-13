@@ -114,14 +114,13 @@ pub struct DeployUrlAndKeyAndUsernameImportInput {
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: ImportSource,
-    pub media_tracker: Option<DeployUrlAndKeyImportInput>,
     pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub mal: Option<DeployMalImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
-    pub audiobookshelf: Option<DeployUrlAndKeyImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
+    pub url_and_key: Option<DeployUrlAndKeyImportInput>,
     pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
 }
 
@@ -270,7 +269,7 @@ impl ImporterService {
                     .await
                     .unwrap()
             }
-            ImportSource::MediaTracker => media_tracker::import(input.media_tracker.unwrap())
+            ImportSource::MediaTracker => media_tracker::import(input.url_and_key.unwrap())
                 .await
                 .unwrap(),
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
@@ -288,7 +287,7 @@ impl ImporterService {
             )
             .await
             .unwrap(),
-            ImportSource::Audiobookshelf => audiobookshelf::import(input.audiobookshelf.unwrap())
+            ImportSource::Audiobookshelf => audiobookshelf::import(input.url_and_key.unwrap())
                 .await
                 .unwrap(),
             ImportSource::Imdb => imdb::import(

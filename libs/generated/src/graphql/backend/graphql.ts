@@ -262,16 +262,15 @@ export type DeployGenericCsvImportInput = {
 };
 
 export type DeployImportJobInput = {
-  audiobookshelf?: InputMaybe<DeployUrlAndKeyImportInput>;
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
   genericJson?: InputMaybe<DeployJsonImportInput>;
   jellyfin?: InputMaybe<DeployUrlAndKeyAndUsernameImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
-  mediaTracker?: InputMaybe<DeployUrlAndKeyImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
+  urlAndKey?: InputMaybe<DeployUrlAndKeyImportInput>;
 };
 
 export type DeployJsonImportInput = {
