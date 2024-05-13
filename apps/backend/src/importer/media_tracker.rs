@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     importer::{
-        DeployMediaTrackerImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
+        DeployUrlAndKeyImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
     models::{
@@ -138,7 +138,7 @@ struct ItemDetails {
     number_of_pages: Option<ItemNumberOfPages>,
 }
 
-pub async fn import(input: DeployMediaTrackerImportInput) -> Result<ImportResult> {
+pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let api_url = input.api_url.trim_end_matches('/');
     let client: Client = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)

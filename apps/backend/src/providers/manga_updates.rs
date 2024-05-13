@@ -268,13 +268,15 @@ impl MediaProvider for MangaUpdatesService {
             .authors
             .unwrap_or_default()
             .into_iter()
-            .map(|a| PartialMetadataPerson {
-                identifier: a.author_id.unwrap().to_string(),
-                name: a.name.unwrap_or_default(),
-                role: a.lot.unwrap(),
-                source: MediaSource::MangaUpdates,
-                character: None,
-                source_specifics: None,
+            .flat_map(|a| {
+                a.author_id.map(|ai| PartialMetadataPerson {
+                    identifier: ai.to_string(),
+                    name: a.name.unwrap_or_default(),
+                    role: a.lot.unwrap(),
+                    source: MediaSource::MangaUpdates,
+                    character: None,
+                    source_specifics: None,
+                })
             })
             .collect_vec();
         let mut suggestions = vec![];

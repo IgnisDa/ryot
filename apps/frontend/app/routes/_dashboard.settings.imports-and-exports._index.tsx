@@ -110,20 +110,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
 				)
+				.with(ImportSource.Audiobookshelf, ImportSource.MediaTracker, () => ({
+					urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
+				}))
 				.with(ImportSource.Trakt, () => ({
-					trakt: processSubmission(formData, traktImportFormSchema),
-				}))
-				.with(ImportSource.Audiobookshelf, () => ({
-					audiobookshelf: processSubmission(
-						formData,
-						audiobookshelfImportFormSchema,
-					),
-				}))
-				.with(ImportSource.MediaTracker, () => ({
-					mediaTracker: processSubmission(
-						formData,
-						mediaTrackerImportFormSchema,
-					),
+					trakt: processSubmission(formData, usernameImportFormSchema),
 				}))
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
@@ -142,6 +133,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				})
 				.with(ImportSource.GenericJson, async () => ({
 					genericJson: processSubmission(formData, jsonImportFormSchema),
+				}))
+				.with(ImportSource.Jellyfin, async () => ({
+					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
 				}))
 				.exhaustive();
 			await gqlClient.request(
@@ -173,17 +167,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const mediaTrackerImportFormSchema = z.object({
+const urlAndKeyImportFormSchema = z.object({
 	apiUrl: z.string().url(),
 	apiKey: z.string(),
 });
 
-const audiobookshelfImportFormSchema = z.object({
-	apiUrl: z.string().url(),
-	apiKey: z.string(),
-});
+const usernameImportFormSchema = z.object({ username: z.string() });
 
-const traktImportFormSchema = z.object({ username: z.string() });
+const jellyfinImportFormSchema = urlAndKeyImportFormSchema.merge(
+	usernameImportFormSchema,
+);
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -255,6 +248,7 @@ export default function Page() {
 													() => "audiobookshelf",
 												)
 												.with(ImportSource.Imdb, () => "imdb")
+												.with(ImportSource.Jellyfin, () => "jellyfin")
 												.with(ImportSource.GenericJson, () => "generic-json")
 												.with(ImportSource.OpenScale, () => "open-scale")
 												.with(undefined, () => "")
@@ -280,36 +274,26 @@ export default function Page() {
 								{deployImportSource ? (
 									<ImportSourceElement fetcher={fetcher} formRef={formRef}>
 										{match(deployImportSource)
-											.with(ImportSource.MediaTracker, () => (
-												<>
-													<TextInput
-														label="Instance Url"
-														required
-														name="apiUrl"
-													/>
-													<PasswordInput
-														mt="sm"
-														label="API Key"
-														required
-														name="apiKey"
-													/>
-												</>
-											))
-											.with(ImportSource.Audiobookshelf, () => (
-												<>
-													<TextInput
-														label="Instance Url"
-														required
-														name="apiUrl"
-													/>
-													<PasswordInput
-														mt="sm"
-														label="API Key"
-														required
-														name="apiKey"
-													/>
-												</>
-											))
+											.with(
+												ImportSource.Audiobookshelf,
+												ImportSource.MediaTracker,
+												() => (
+													<>
+														<TextInput
+															label="Instance Url"
+															required
+															name="apiUrl"
+														/>
+														<PasswordInput
+															mt="sm"
+															label="API Key"
+															required
+															name="apiKey"
+														/>
+													</>
+												),
+											)
+
 											.with(
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
@@ -328,6 +312,26 @@ export default function Page() {
 											)
 											.with(ImportSource.Trakt, () => (
 												<>
+													<TextInput
+														label="Username"
+														required
+														name="username"
+													/>
+												</>
+											))
+											.with(ImportSource.Jellyfin, () => (
+												<>
+													<TextInput
+														label="Instance Url"
+														required
+														name="apiUrl"
+													/>
+													<PasswordInput
+														mt="sm"
+														label="API Key"
+														required
+														name="apiKey"
+													/>
 													<TextInput
 														label="Username"
 														required
