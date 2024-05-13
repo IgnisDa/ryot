@@ -8,7 +8,9 @@ use surf::{
 };
 
 use crate::{
-    importer::{DeployUrlAndKeyAndUsernameImportInput, ImportResult},
+    importer::{
+        DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
+    },
     models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
     utils::USER_AGENT_STR,
 };
@@ -55,6 +57,7 @@ struct ItemsResponse {
 
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
     let mut media = vec![];
+    let mut failed_items = vec![];
     let client: Client = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
         .unwrap()
@@ -89,6 +92,12 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
     for library in views_data.items {
         let collection_type = library.collection_type.unwrap();
         if matches!(collection_type, CollectionType::Unknown(_)) {
+            failed_items.push(ImportFailedItem {
+                step: ImportFailStep::ItemDetailsFromSource,
+                identifier: library.name,
+                error: Some(format!("Unknown collection type: {:?}", collection_type)),
+                lot: None,
+            });
             continue;
         }
         let mut query = json!({
@@ -108,7 +117,8 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             .await
             .unwrap();
         for item in library_data.items {
-            match item.typ.unwrap() {
+            let typ = item.typ.unwrap();
+            match typ.clone() {
                 MediaType::Movie => {
                     let tmdb_id = item.provider_ids.unwrap().tmdb.unwrap();
                     media.push(ImportOrExportMediaItem {
@@ -124,13 +134,22 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                         collections: vec![],
                     });
                 }
-                _ => continue,
+                _ => {
+                    failed_items.push(ImportFailedItem {
+                        step: ImportFailStep::ItemDetailsFromSource,
+                        identifier: item.name,
+                        error: Some(format!("Unknown media type: {:?}", typ)),
+                        lot: None,
+                    });
+                    continue;
+                }
             }
         }
     }
 
     Ok(ImportResult {
         media,
+        failed_items,
         ..Default::default()
     })
 }
