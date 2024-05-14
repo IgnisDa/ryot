@@ -381,11 +381,14 @@ pub struct UsersConfig {
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
-    /// The number of days till login auth token is valid.
+    /// The number of days till login authentication token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i64,
-    /// Whether to validate the password for users. Should be set to false only for testing.
-    #[setting(default = true)]
+    /// Whether to disable local user authentication completely.
+    #[setting(default = false)]
+    pub disable_local_auth: bool,
+    /// Whether to validate password for users.
+    #[setting(default = true, skip)]
     pub validate_password: bool,
 }
 

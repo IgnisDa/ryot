@@ -231,13 +231,13 @@ users:
   # @envvar USERS_ALLOW_REGISTRATION
   allow_registration: true
 
-  # The number of days till login auth token is valid.
+  # The number of days till login authentication token is valid.
   # @envvar USERS_TOKEN_VALID_FOR_DAYS
   token_valid_for_days: 90
 
-  # Whether to validate the password for users. Should be set to false only for testing.
-  # @envvar USERS_VALIDATE_PASSWORD
-  validate_password: true
+  # Whether to disable local user authentication completely.
+  # @envvar USERS_DISABLE_LOCAL_AUTH
+  disable_local_auth: false
 
 # Settings related to video games.
 video_games:
