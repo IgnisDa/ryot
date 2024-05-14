@@ -68,6 +68,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return json({
 		defaultForm: query.defaultForm || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
+		localAuthDisabled: coreDetails.localAuthDisabled,
 		tokenValidForDays: coreDetails.tokenValidForDays,
 		signupAllowed: enabledFeatures.signupAllowed,
 	});
@@ -206,54 +207,56 @@ export default function Page() {
 			m="auto"
 			w={{ base: "80%", sm: "60%", md: "50%", lg: "40%", xl: "30%" }}
 		>
-			<Form
-				method="post"
-				action={withQuery(".", { intent })}
-				{...getFormProps(form)}
-				ref={parent}
-			>
-				<input
-					type="hidden"
-					name="tokenValidForDays"
-					defaultValue={loaderData.tokenValidForDays}
-				/>
-				{redirectValue ? (
+			{!loaderData.localAuthDisabled ? (
+				<Form
+					method="post"
+					action={withQuery(".", { intent })}
+					{...getFormProps(form)}
+					ref={parent}
+				>
 					<input
 						type="hidden"
-						name={redirectToQueryParam}
-						defaultValue={redirectValue}
+						name="tokenValidForDays"
+						defaultValue={loaderData.tokenValidForDays}
 					/>
-				) : null}
-				<TextInput
-					{...getInputProps(fields.username, { type: "text" })}
-					label="Username"
-					autoFocus
-					required
-					error={fields.username.errors?.[0]}
-				/>
-				<PasswordInput
-					label="Password"
-					{...getInputProps(fields.password, { type: "password" })}
-					mt="md"
-					required
-					error={fields.password.errors?.[0]}
-				/>
-				{intent === "register" ? (
-					<PasswordInput
-						label="Confirm password"
-						mt="md"
-						{...getInputProps(fields.confirm, { type: "password" })}
+					{redirectValue ? (
+						<input
+							type="hidden"
+							name={redirectToQueryParam}
+							defaultValue={redirectValue}
+						/>
+					) : null}
+					<TextInput
+						{...getInputProps(fields.username, { type: "text" })}
+						label="Username"
+						autoFocus
 						required
-						error={fields.confirm.errors?.[0]}
+						error={fields.username.errors?.[0]}
 					/>
-				) : null}
-				<Button id="submit-button" mt="md" type="submit" w="100%">
-					{startCase(intent)}
-				</Button>
-			</Form>
+					<PasswordInput
+						label="Password"
+						{...getInputProps(fields.password, { type: "password" })}
+						mt="md"
+						required
+						error={fields.password.errors?.[0]}
+					/>
+					{intent === "register" ? (
+						<PasswordInput
+							label="Confirm password"
+							mt="md"
+							{...getInputProps(fields.confirm, { type: "password" })}
+							required
+							error={fields.confirm.errors?.[0]}
+						/>
+					) : null}
+					<Button id="submit-button" mt="md" type="submit" w="100%">
+						{startCase(intent)}
+					</Button>
+				</Form>
+			) : null}
 			{loaderData.oidcEnabled ? (
 				<>
-					<Divider label="OR" />
+					{!loaderData.localAuthDisabled ? <Divider label="OR" /> : null}
 					<Form method="post" action="?intent=getOauthRedirectUrl" replace>
 						<Button
 							variant="outline"
@@ -267,7 +270,7 @@ export default function Page() {
 					</Form>
 				</>
 			) : null}
-			{loaderData.signupAllowed ? (
+			{loaderData.signupAllowed && !loaderData.localAuthDisabled ? (
 				<Anchor
 					ta="right"
 					component={Link}

@@ -579,6 +579,7 @@ struct CoreDetails {
     page_limit: i32,
     timezone: String,
     token_valid_for_days: i64,
+    local_auth_disabled: bool,
     oidc_enabled: bool,
 }
 
@@ -1464,12 +1465,13 @@ impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
             timezone: self.timezone.to_string(),
-            author_name: AUTHOR.to_owned(),
             docs_link: "https://docs.ryot.io".to_owned(),
-            repository_link: "https://github.com/ignisda/ryot".to_owned(),
             page_limit: self.config.frontend.page_size,
-            token_valid_for_days: self.config.users.token_valid_for_days,
+            author_name: AUTHOR.to_owned(),
             oidc_enabled: self.oidc_client.is_some(),
+            repository_link: "https://github.com/ignisda/ryot".to_owned(),
+            local_auth_disabled: self.config.users.disable_local_auth,
+            token_valid_for_days: self.config.users.token_valid_for_days,
         })
     }
 
@@ -4761,19 +4763,19 @@ impl MiscellaneousService {
                     ls.media.movies.runtime += r;
                     units_consumed = Some(r);
                 }
-            } else if let Some(item) = meta.anime_specifics {
+            } else if let Some(_item) = meta.anime_specifics {
                 ls.unique_items.anime.insert(meta.id);
                 if let Some(s) = seen.anime_extra_information.to_owned() {
-                    if let (Some(_), Some(episode)) = (item.episodes, s.episode) {
+                    if let Some(episode) = s.episode {
                         ls.unique_items.anime_episodes.insert((meta.id, episode));
                         units_consumed = Some(1);
                     }
                 }
-            } else if let Some(item) = meta.manga_specifics {
+            } else if let Some(_item) = meta.manga_specifics {
                 ls.unique_items.manga.insert(meta.id);
                 if let Some(s) = seen.manga_extra_information.to_owned() {
                     units_consumed = Some(1);
-                    if let (Some(_), Some(chapter)) = (item.chapters, s.chapter) {
+                    if let Some(chapter) = s.chapter {
                         ls.unique_items.manga_chapters.insert((meta.id, chapter));
                     }
                     if let Some(volume) = s.volume {

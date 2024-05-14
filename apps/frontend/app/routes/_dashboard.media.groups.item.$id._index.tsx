@@ -143,20 +143,22 @@ export default function Page() {
 							{loaderData.metadataGroupDetails.details.parts} media items
 						</Text>
 					</Flex>
-					<Group>
-						{loaderData.userMetadataGroupDetails.collections.map((col) => (
-							<DisplayCollection
-								key={col.id}
-								col={col}
-								userId={col.userId}
-								entityId={loaderData.metadataGroupId.toString()}
-								entityLot={EntityLot.MediaGroup}
-							/>
-						))}
-						{loaderData.metadataGroupDetails.details.isPartial ? (
-							<MediaIsPartial mediaType="group" />
-						) : null}
-					</Group>
+					{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
+						<Group>
+							{loaderData.userMetadataGroupDetails.collections.map((col) => (
+								<DisplayCollection
+									key={col.id}
+									col={col}
+									userId={col.userId}
+									entityId={loaderData.metadataGroupId.toString()}
+									entityLot={EntityLot.MediaGroup}
+								/>
+							))}
+						</Group>
+					) : null}
+					{loaderData.metadataGroupDetails.details.isPartial ? (
+						<MediaIsPartial mediaType="group" />
+					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
