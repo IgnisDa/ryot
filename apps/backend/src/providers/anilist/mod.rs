@@ -594,23 +594,25 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
             }),
     );
     let people = people.into_iter().unique().collect_vec();
-    let lot = match details.type_.unwrap() {
-        media_details_query::MediaType::ANIME => MediaLot::Anime,
-        media_details_query::MediaType::MANGA => MediaLot::Manga,
+    let (lot, anime_specifics, manga_specifics) = match details.type_.unwrap() {
+        media_details_query::MediaType::ANIME => (
+            MediaLot::Anime,
+            Some(AnimeSpecifics {
+                episodes: details.episodes.and_then(|c| c.try_into().ok()),
+            }),
+            None,
+        ),
+        media_details_query::MediaType::MANGA => (
+            MediaLot::Manga,
+            None,
+            Some(MangaSpecifics {
+                chapters: details.chapters.and_then(|c| c.try_into().ok()),
+                volumes: details.volumes.and_then(|v| v.try_into().ok()),
+                url: None,
+            }),
+        ),
         media_details_query::MediaType::Other(_) => unreachable!(),
     };
-
-    let anime_specifics = details.episodes.map(|c| AnimeSpecifics {
-        episodes: c.try_into().ok(),
-    });
-    let manga_specifics = details
-        .chapters
-        .zip(details.volumes)
-        .map(|(c, v)| MangaSpecifics {
-            chapters: c.try_into().ok(),
-            volumes: v.try_into().ok(),
-            url: None,
-        });
 
     let year = details
         .start_date
