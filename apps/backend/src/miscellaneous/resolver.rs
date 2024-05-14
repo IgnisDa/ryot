@@ -4763,10 +4763,10 @@ impl MiscellaneousService {
                     ls.media.movies.runtime += r;
                     units_consumed = Some(r);
                 }
-            } else if let Some(item) = meta.anime_specifics {
+            } else if let Some(_item) = meta.anime_specifics {
                 ls.unique_items.anime.insert(meta.id);
                 if let Some(s) = seen.anime_extra_information.to_owned() {
-                    if let (Some(_), Some(episode)) = (item.episodes, s.episode) {
+                    if let Some(episode) = s.episode {
                         ls.unique_items.anime_episodes.insert((meta.id, episode));
                         units_consumed = Some(1);
                     }
