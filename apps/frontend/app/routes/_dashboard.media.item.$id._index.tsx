@@ -553,23 +553,25 @@ export default function Page() {
 						<Title id="media-title">{loaderData.mediaMainDetails.title}</Title>
 					</Box>
 					<UserMetadataDetailsSuspenseLoader>
-						{(userMetadataDetails) => (
-							<Group>
-								{userMetadataDetails.collections.map((col) => (
-									<DisplayCollection
-										key={col.id}
-										col={col}
-										userId={col.userId}
-										entityId={loaderData.metadataId.toString()}
-										entityLot={EntityLot.Media}
-									/>
-								))}
-								{loaderData.mediaMainDetails.isPartial ? (
-									<MediaIsPartial mediaType="media" />
-								) : null}
-							</Group>
-						)}
+						{(userMetadataDetails) =>
+							userMetadataDetails.collections.length > 0 ? (
+								<Group>
+									{userMetadataDetails.collections.map((col) => (
+										<DisplayCollection
+											key={col.id}
+											col={col}
+											userId={col.userId}
+											entityId={loaderData.metadataId.toString()}
+											entityLot={EntityLot.Media}
+										/>
+									))}
+								</Group>
+							) : null
+						}
 					</UserMetadataDetailsSuspenseLoader>
+					{loaderData.mediaMainDetails.isPartial ? (
+						<MediaIsPartial mediaType="media" />
+					) : null}
 					<MediaAdditionalDetailsSuspenseLoader>
 						{(mediaAdditionalDetails) => (
 							<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>

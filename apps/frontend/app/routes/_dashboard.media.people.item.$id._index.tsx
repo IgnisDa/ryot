@@ -195,20 +195,22 @@ export default function Page() {
 							</>
 						) : null}
 					</Text>
-					<Group>
-						{loaderData.userPersonDetails.collections.map((col) => (
-							<DisplayCollection
-								key={col.id}
-								col={col}
-								userId={col.userId}
-								entityId={loaderData.personId.toString()}
-								entityLot={EntityLot.Person}
-							/>
-						))}
-						{loaderData.personDetails.details.isPartial ? (
-							<MediaIsPartial mediaType="person" />
-						) : null}
-					</Group>
+					{loaderData.userPersonDetails.collections.length > 0 ? (
+						<Group>
+							{loaderData.userPersonDetails.collections.map((col) => (
+								<DisplayCollection
+									key={col.id}
+									col={col}
+									userId={col.userId}
+									entityId={loaderData.personId.toString()}
+									entityLot={EntityLot.Person}
+								/>
+							))}
+						</Group>
+					) : null}
+					{loaderData.personDetails.details.isPartial ? (
+						<MediaIsPartial mediaType="person" />
+					) : null}
 					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
