@@ -52,7 +52,6 @@ use sea_query::{
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use struson::writer::{JsonStreamWriter, JsonWriter};
-use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -6798,7 +6797,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
         let date_to_calculate_from = get_current_date(self.timezone.as_ref()).pred_opt().unwrap();
 
@@ -6919,7 +6918,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     async fn send_notifications_for_released_media(&self) -> Result<()> {
         let today = get_current_date(self.timezone.as_ref());
         let calendar_events = CalendarEvent::find()

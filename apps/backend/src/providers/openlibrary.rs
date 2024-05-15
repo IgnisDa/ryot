@@ -9,7 +9,6 @@ use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{http::headers::ACCEPT, Client};
-use tracing::instrument;
 
 use crate::{
     models::{
@@ -221,7 +220,7 @@ impl MediaProvider for OpenlibraryService {
         Ok(data)
     }
 
-    #[instrument(skip(self, _source_specifics))]
+    #[tracing::instrument(skip(self, _source_specifics))]
     async fn person_details(
         &self,
         identity: &str,
@@ -299,7 +298,7 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
             .client
