@@ -9,6 +9,7 @@ import {
 	Modal,
 	SimpleGrid,
 	Stack,
+	Tabs,
 	Text,
 	TextInput,
 	Textarea,
@@ -33,7 +34,13 @@ import {
 	DeleteCollectionDocument,
 	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
+import {
+	IconAssembly,
+	IconEdit,
+	IconPlus,
+	IconTrashFilled,
+	IconUserCog,
+} from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
@@ -177,16 +184,50 @@ export default function Page() {
 							<IconPlus size={20} />
 						</ActionIcon>
 					</Flex>
-					<SimpleGrid cols={{ base: 1, md: 2 }}>
-						{loaderData.collections.map((c) => (
-							<DisplayCollection
-								key={c.id}
-								collection={c}
-								setToUpdateCollection={setToUpdateCollection}
-								openModal={createOrUpdateModalOpen}
-							/>
-						))}
-					</SimpleGrid>
+					<Tabs defaultValue="userCreated" variant="outline">
+						<Tabs.List mb="xs">
+							<Tabs.Tab
+								value="userCreated"
+								leftSection={<IconUserCog size={16} />}
+							>
+								User created
+							</Tabs.Tab>
+							<Tabs.Tab
+								value="systemCreated"
+								leftSection={<IconAssembly size={16} />}
+							>
+								System created
+							</Tabs.Tab>
+						</Tabs.List>
+						<Tabs.Panel value="userCreated">
+							<SimpleGrid cols={{ base: 1, md: 2 }}>
+								{loaderData.collections
+									.filter((c) => !c.isDefault)
+									.map((c) => (
+										<DisplayCollection
+											key={c.id}
+											collection={c}
+											setToUpdateCollection={setToUpdateCollection}
+											openModal={createOrUpdateModalOpen}
+										/>
+									))}
+							</SimpleGrid>
+						</Tabs.Panel>
+						<Tabs.Panel value="systemCreated">
+							<SimpleGrid cols={{ base: 1, md: 2 }}>
+								{loaderData.collections
+									.filter((c) => c.isDefault)
+									.map((c) => (
+										<DisplayCollection
+											key={c.id}
+											collection={c}
+											setToUpdateCollection={setToUpdateCollection}
+											openModal={createOrUpdateModalOpen}
+										/>
+									))}
+							</SimpleGrid>
+						</Tabs.Panel>
+					</Tabs>
 				</Stack>
 			</Container>
 			<Modal
