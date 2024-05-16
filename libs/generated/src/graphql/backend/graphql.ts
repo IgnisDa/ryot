@@ -916,7 +916,7 @@ export type MetadataGroupSearchResults = {
 
 export type MetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
-  lot: MediaLot;
+  lot?: InputMaybe<MediaLot>;
   search: SearchInput;
   sort?: InputMaybe<MediaSortInput>;
 };

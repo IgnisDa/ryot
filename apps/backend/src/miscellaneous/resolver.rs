@@ -553,7 +553,7 @@ struct MediaFilter {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MetadataListInput {
     search: SearchInput,
-    lot: MediaLot,
+    lot: Option<MediaLot>,
     filter: Option<MediaFilter>,
     sort: Option<SortInput<MediaSortBy>>,
 }
@@ -2112,7 +2112,9 @@ impl MiscellaneousService {
             .group_by(metadata::Column::Id)
             .group_by(user_to_entity::Column::MediaReason)
             .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(metadata::Column::Lot.eq(input.lot))
+            .apply_if(input.lot, |query, v| {
+                query.filter(metadata::Column::Lot.eq(v))
+            })
             .join(JoinType::Join, metadata::Relation::UserToEntity.def())
             .join(
                 JoinType::LeftJoin,
