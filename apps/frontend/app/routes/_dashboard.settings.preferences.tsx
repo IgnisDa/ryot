@@ -454,7 +454,7 @@ export default function Page() {
 							>
 								<NumberInput
 									size="xs"
-									label="The number of elements to save in your exercise history."
+									label="Elements to save in exercise history"
 									defaultValue={
 										loaderData.userPreferences.fitness.exercises.saveHistory
 									}
@@ -462,6 +462,19 @@ export default function Page() {
 									onChange={(num) => {
 										if (num)
 											appendPref("fitness.exercises.save_history", String(num));
+									}}
+								/>
+								<Select
+									size="xs"
+									label="Unit system to use for measurements"
+									data={Object.values(UserUnitSystem).map((c) => ({
+										value: c.toLowerCase(),
+										label: startCase(c.toLowerCase()),
+									}))}
+									defaultValue={loaderData.userPreferences.fitness.exercises.unitSystem.toLowerCase()}
+									disabled={!!loaderData.userDetails.isDemo}
+									onChange={(val) => {
+										if (val) appendPref("fitness.exercises.unit_system", val);
 									}}
 								/>
 								<Group wrap="nowrap">
@@ -483,19 +496,6 @@ export default function Page() {
 										Show me notifications related to the current workout
 									</Text>
 								</Group>
-								<Select
-									size="xs"
-									label="Unit system to use for measurements"
-									data={Object.values(UserUnitSystem).map((c) => ({
-										value: c.toLowerCase(),
-										label: startCase(c.toLowerCase()),
-									}))}
-									defaultValue={loaderData.userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(val) => {
-										if (val) appendPref("fitness.exercises.unit_system", val);
-									}}
-								/>
 							</SimpleGrid>
 							<Text>The default measurements you want to keep track of.</Text>
 							<SimpleGrid cols={2}>
