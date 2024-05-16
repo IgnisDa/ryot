@@ -147,6 +147,7 @@ const createOrUpdateSchema = z.object({
 type UpdateCollectionInput = {
 	name: string;
 	id: number;
+	isDefault: boolean;
 	description?: string | null;
 };
 
@@ -318,32 +319,39 @@ const DisplayCollection = (props: {
 							name: props.collection.name,
 							id: props.collection.id,
 							description: props.collection.description,
+							isDefault: props.collection.isDefault,
 						});
 						props.openModal();
 					}}
 				>
 					<IconEdit size={18} />
 				</ActionIcon>
-				<fetcher.Form action="?intent=delete" method="post" ref={deleteFormRef}>
-					<input
-						hidden
-						name="collectionName"
-						defaultValue={props.collection.name}
-					/>
-					<ActionIcon
-						color="red"
-						variant="outline"
-						onClick={async () => {
-							const conf = await confirmWrapper({
-								confirmation:
-									"Are you sure you want to delete this collection?",
-							});
-							if (conf) fetcher.submit(deleteFormRef.current);
-						}}
+				{!props.collection.isDefault ? (
+					<fetcher.Form
+						action="?intent=delete"
+						method="post"
+						ref={deleteFormRef}
 					>
-						<IconTrashFilled size={18} />
-					</ActionIcon>
-				</fetcher.Form>
+						<input
+							hidden
+							name="collectionName"
+							defaultValue={props.collection.name}
+						/>
+						<ActionIcon
+							color="red"
+							variant="outline"
+							onClick={async () => {
+								const conf = await confirmWrapper({
+									confirmation:
+										"Are you sure you want to delete this collection?",
+								});
+								if (conf) fetcher.submit(deleteFormRef.current);
+							}}
+						>
+							<IconTrashFilled size={18} />
+						</ActionIcon>
+					</fetcher.Form>
+				) : null}
 			</Flex>
 		</Flex>
 	);
