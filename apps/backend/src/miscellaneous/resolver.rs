@@ -7015,6 +7015,10 @@ GROUP BY m.id;
         Ok(())
     }
 
+    async fn remove_stale_media_from_monitoring_collection(&self) -> Result<()> {
+        Ok(())
+    }
+
     pub async fn remove_useless_data(&self) -> Result<()> {
         let mut metadata_stream = Metadata::find()
             .select_only()
@@ -7074,6 +7078,10 @@ GROUP BY m.id;
 
         tracing::trace!("Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.unwrap();
+        tracing::trace!("Removing stale media from Monitoring collection");
+        self.remove_stale_media_from_monitoring_collection()
+            .await
+            .unwrap();
         tracing::trace!("Checking for updates for media in Watchlist");
         self.update_watchlist_metadata_and_send_notifications()
             .await
