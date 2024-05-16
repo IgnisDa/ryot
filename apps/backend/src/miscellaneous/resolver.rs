@@ -368,6 +368,7 @@ struct CollectionItem {
     id: i32,
     name: String,
     count: i64,
+    is_default: bool,
     description: Option<String>,
     creator_user_id: i32,
     creator_username: String,
@@ -3793,6 +3794,10 @@ impl MiscellaneousService {
             .select_only()
             .column(collection::Column::Id)
             .column(collection::Column::Name)
+            .column_as(
+                collection::Column::Name.is_in(DefaultCollection::iter().map(|s| s.to_string())),
+                "is_default",
+            )
             .column(collection::Column::InformationTemplate)
             .expr(SimpleExpr::SubQuery(
                 None,
