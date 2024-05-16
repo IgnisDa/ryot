@@ -2150,14 +2150,11 @@ impl MiscellaneousService {
                     MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
                     MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
                     MediaGeneralFilter::Unseen => query.filter(seen::Column::Id.is_null()),
-                    s => {
-                        let state = match s {
-                            MediaGeneralFilter::Dropped => SeenState::Dropped,
-                            MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                            _ => unreachable!(),
-                        };
-                        query.filter(seen::Column::State.eq(state))
-                    }
+                    s => query.filter(seen::Column::State.eq(match s {
+                        MediaGeneralFilter::Dropped => SeenState::Dropped,
+                        MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                        _ => unreachable!(),
+                    })),
                 },
             );
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
