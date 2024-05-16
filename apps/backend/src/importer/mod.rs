@@ -11,7 +11,6 @@ use sea_orm::{
     QueryOrder,
 };
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
@@ -252,7 +251,7 @@ impl ImporterService {
         Ok(reports)
     }
 
-    #[instrument(skip(self, input))]
+    #[tracing::instrument(skip(self, input))]
     pub async fn start_importing(
         &self,
         user_id: i32,
