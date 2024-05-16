@@ -2158,12 +2158,13 @@ impl MiscellaneousService {
             .apply_if(input.sort.map(|s| s.by), |query, v| match v {
                 MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
                 MediaSortBy::ReleaseDate => query.order_by(metadata::Column::PublishYear, order_by),
+                // FIXME: nulls last when https://github.com/SeaQL/sea-orm/issues/2227 is resolved
                 MediaSortBy::Rating => {
                     query.order_by(Expr::col(Alias::new(avg_rating_col)), order_by)
                 }
-                MediaSortBy::LastUpdated => {
-                    query.order_by(user_to_entity::Column::LastUpdatedOn, order_by)
-                }
+                MediaSortBy::LastUpdated => query
+                    .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
+                    .group_by(user_to_entity::Column::LastUpdatedOn),
                 MediaSortBy::LastSeen => query.order_by(seen::Column::FinishedOn.max(), order_by),
             });
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
