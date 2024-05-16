@@ -1,11 +1,12 @@
 query CoreDetails {
   coreDetails {
     timezone
-    authorName
-    repositoryLink
     docsLink
     pageLimit
-    tokenValidForDays
+    authorName
     oidcEnabled
+    repositoryLink
+    localAuthDisabled
+    tokenValidForDays
   }
 }

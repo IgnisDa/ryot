@@ -18,7 +18,6 @@ use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinT
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use struson::writer::{JsonStreamWriter, JsonWriter};
-use tracing::instrument;
 
 use crate::{
     background::ApplicationJob,
@@ -588,7 +587,7 @@ impl ExerciseService {
         })
     }
 
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     pub async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
         let exercises = self.get_all_exercises_from_dataset().await?;
         let mut job_ids = vec![];
@@ -603,7 +602,7 @@ impl ExerciseService {
         Ok(job_ids.len().try_into().unwrap())
     }
 
-    #[instrument(skip(self, ex))]
+    #[tracing::instrument(skip(self, ex))]
     pub async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
@@ -723,7 +722,7 @@ impl ExerciseService {
         }
     }
 
-    #[instrument(skip(self, input))]
+    #[tracing::instrument(skip(self, input))]
     pub async fn create_user_workout(
         &self,
         user_id: i32,

@@ -23,7 +23,7 @@ schematic = { git = "https://github.com/moonrepo/schematic.git", features = [
     "url",
     "renderer_template",
     "yaml",
-], default-features = false, branch = "v0.16" }
+], default-features = false, rev = "643812da37a2072b43b9525e1f872eb4cb090b3b" }
 sea-orm = { version = "0.12.15", features = [
     "debug-print",
     "postgres-array",
@@ -36,7 +36,7 @@ sea-orm = { version = "0.12.15", features = [
     "with-uuid",
 ], default-features = false }
 sea-orm-migration = "0.12.15"
-serde = { version = "1.0.201", features = ["derive"] }
+serde = { version = "1.0.202", features = ["derive"] }
 serde_json = "1.0.116"
 strum = { version = "0.26.2", features = ["derive"] }
 tracing = { version = "0.1.40", features = ["attributes"] }

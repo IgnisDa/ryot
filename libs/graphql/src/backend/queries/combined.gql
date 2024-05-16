@@ -41,8 +41,9 @@ query UserCollectionsList($name: String) {
   userCollectionsList(name: $name) {
     id
     name
-    description
     count
+    isDefault
+    description
     creatorUserId
     creatorUsername
     informationTemplate {

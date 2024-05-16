@@ -356,7 +356,10 @@ where id = {id};
             .map_err(|e| anyhow!(e))?;
         let mut details: Vec<IgdbInvolvedCompany> =
             rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        let detail = details.pop().map(|ic| ic.company).unwrap();
+        let detail = details
+            .pop()
+            .map(|ic| ic.company)
+            .ok_or_else(|| anyhow!("No data"))?;
         let mut related = detail
             .published
             .unwrap_or_default()

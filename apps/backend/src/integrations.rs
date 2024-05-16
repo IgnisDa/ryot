@@ -7,7 +7,6 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 use surf::{http::headers::AUTHORIZATION, Client};
-use tracing::instrument;
 
 use crate::{
     entities::{metadata, prelude::Metadata},
@@ -260,7 +259,7 @@ impl IntegrationService {
         Ok(payload)
     }
 
-    #[instrument(skip(self, access_token))]
+    #[tracing::instrument(skip(self, access_token))]
     pub async fn audiobookshelf_progress(
         &self,
         base_url: &str,

@@ -20,3 +20,6 @@ username set to their email address. This can be changed later in the profile se
 !!! warning
 
       A user can authenticate using only one provider at a time.
+
+You can set `USERS_DISABLE_LOCAL_AUTH=true` to disable local authentication and only allow
+users to authenticate using OIDC.
