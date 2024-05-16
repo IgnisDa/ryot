@@ -249,7 +249,7 @@ export default function Page() {
 							defaultValue={
 								toUpdateCollection ? toUpdateCollection.name : undefined
 							}
-							disabled={toUpdateCollection?.isDefault}
+							readOnly={toUpdateCollection?.isDefault}
 						/>
 						<Textarea
 							label="Description"
