@@ -538,7 +538,6 @@ enum MediaGeneralFilter {
     All,
     Rated,
     Unrated,
-    InProgress,
     Dropped,
     OnAHold,
     Unseen,
@@ -2145,6 +2144,7 @@ impl MiscellaneousService {
             .apply_if(
                 input.filter.clone().and_then(|f| f.general),
                 |query, v| match v {
+                    MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
                     MediaGeneralFilter::Rated => query.join(
                         JoinType::Join,
                         metadata::Relation::Review
@@ -2154,8 +2154,16 @@ impl MiscellaneousService {
                                     .add(Expr::col((right, review::Column::UserId)).eq(user_id))
                             }),
                     ),
+                    MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
                     MediaGeneralFilter::Unseen => query.filter(seen::Column::Id.is_null()),
-                    _ => query.filter(metadata::Column::Id.is_not_null()),
+                    s => {
+                        let state = match s {
+                            MediaGeneralFilter::Dropped => SeenState::Dropped,
+                            MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                            _ => unreachable!(),
+                        };
+                        query.filter(seen::Column::State.eq(state))
+                    }
                 },
             );
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
