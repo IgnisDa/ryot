@@ -123,7 +123,11 @@ pub struct ExerciseConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
-pub struct MediaConfig {}
+pub struct MediaConfig {
+    /// Number of days after which a media should be removed from the Monitoring collection.
+    #[setting(default = 30)]
+    pub monitoring_remove_after_days: i64,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
