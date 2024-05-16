@@ -454,7 +454,7 @@ export default function Page() {
 							>
 								<NumberInput
 									size="xs"
-									label="Elements to save in exercise history"
+									label="Number of elements in exercise history"
 									defaultValue={
 										loaderData.userPreferences.fitness.exercises.saveHistory
 									}
