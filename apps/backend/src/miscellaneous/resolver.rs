@@ -7016,6 +7016,31 @@ GROUP BY m.id;
     }
 
     async fn remove_stale_media_from_monitoring_collection(&self) -> Result<()> {
+        let older_than = Utc::now()
+            - ChronoDuration::try_days(self.config.media.monitoring_remove_after_days).unwrap();
+        self.db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
+DELETE FROM collection_to_entity
+WHERE id IN (
+    SELECT cte.id
+    FROM collection_to_entity cte
+    JOIN collection c ON cte.collection_id = c.id AND c.name = $1
+    JOIN user_to_entity ute ON (
+        cte.metadata_id = ute.metadata_id OR
+        cte.metadata_group_id = ute.metadata_group_id OR
+        cte.person_id = ute.person_id
+    )
+    WHERE ute.last_updated_on < $2
+);
+       "#,
+                [
+                    DefaultCollection::Monitoring.to_string().into(),
+                    older_than.into(),
+                ],
+            ))
+            .await?;
         Ok(())
     }
 
