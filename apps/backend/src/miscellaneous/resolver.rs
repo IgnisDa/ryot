@@ -46,7 +46,7 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, NullOrdering,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func,
     PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
@@ -2063,6 +2063,7 @@ impl MiscellaneousService {
         user_id: i32,
         input: MetadataListInput,
     ) -> Result<SearchResults<MediaListItem>> {
+        let avg_rating_col = "average_rating";
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
@@ -2105,7 +2106,7 @@ impl MiscellaneousService {
                         UserReviewScale::OutOfHundred => 0,
                     },
                 ),
-                "average_rating",
+                avg_rating_col,
             )
             .group_by(metadata::Column::Id)
             .group_by(user_to_entity::Column::MediaReason)
@@ -2156,7 +2157,18 @@ impl MiscellaneousService {
                         _ => unreachable!(),
                     })),
                 },
-            );
+            )
+            .apply_if(input.sort.clone().map(|s| s.by), |query, v| match v {
+                MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+                MediaSortBy::ReleaseDate => query.order_by(metadata::Column::PublishYear, order_by),
+                MediaSortBy::Rating => {
+                    query.order_by(Expr::col(Alias::new(avg_rating_col)), order_by)
+                }
+                MediaSortBy::LastUpdated => {
+                    query.order_by(user_to_entity::Column::LastUpdatedOn, order_by)
+                }
+                MediaSortBy::LastSeen => query.order_by(seen::Column::FinishedOn.max(), order_by),
+            });
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
 
         let m_items = select
