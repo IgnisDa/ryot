@@ -1945,7 +1945,7 @@ impl MiscellaneousService {
             .filter(
                 Expr::col((AliasedUserToEntity::Table, user_to_entity::Column::UserId)).eq(user_id),
             )
-            .join(JoinType::Join, calendar_event::Relation::Metadata.def())
+            .inner_join(Metadata)
             .join_rev(
                 JoinType::Join,
                 UserToEntity::belongs_to(CalendarEvent)
@@ -2115,7 +2115,7 @@ impl MiscellaneousService {
             .apply_if(input.lot, |query, v| {
                 query.filter(metadata::Column::Lot.eq(v))
             })
-            .join(JoinType::Join, metadata::Relation::UserToEntity.def())
+            .inner_join(UserToEntity)
             .join(
                 JoinType::LeftJoin,
                 metadata::Relation::Review
@@ -2143,7 +2143,7 @@ impl MiscellaneousService {
                 input.filter.clone().and_then(|f| f.collection),
                 |query, v| {
                     query
-                        .join(JoinType::Join, metadata::Relation::CollectionToEntity.def())
+                        .inner_join(CollectionToEntity)
                         .filter(collection_to_entity::Column::CollectionId.eq(v))
                 },
             )
@@ -5971,7 +5971,7 @@ impl MiscellaneousService {
                 )
             })
             .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
-            // fuck it. we ball. (extremely unsafe, guaranteed to fail if names change)
+            // fuck it. we ball. (extremely unsafe, guaranteed to fail if table names change)
             .group_by(Expr::cust("genre.id, genre.name"))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
         let paginator = query
@@ -6013,7 +6013,7 @@ impl MiscellaneousService {
                 )
             })
             .filter(user_to_entity::Column::UserId.eq(user_id))
-            .join(JoinType::Join, metadata_group::Relation::UserToEntity.def())
+            .inner_join(UserToEntity)
             .order_by_asc(metadata_group::Column::Title);
         let paginator = query
             .clone()
@@ -6085,8 +6085,8 @@ impl MiscellaneousService {
                 )))),
                 alias,
             )
-            .join(JoinType::LeftJoin, person::Relation::MetadataToPerson.def())
-            .join(JoinType::Join, person::Relation::UserToEntity.def())
+            .left_join(MetadataToPerson)
+            .inner_join(UserToEntity)
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
             .order_by(order_by, sort_order);

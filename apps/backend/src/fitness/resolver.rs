@@ -24,7 +24,7 @@ use crate::{
     entities::{
         collection, collection_to_entity,
         exercise::{self, ExerciseListItem},
-        prelude::{Exercise, UserMeasurement, UserToEntity, Workout},
+        prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
         user::UserWithOnlyPreferences,
         user_measurement, user_to_entity, workout,
     },
@@ -533,11 +533,8 @@ impl ExerciseService {
                         q.filter(exercise::Column::Equipment.eq(v))
                     })
                     .apply_if(q.collection, |q, v| {
-                        q.join(
-                            JoinType::LeftJoin,
-                            exercise::Relation::CollectionToEntity.def(),
-                        )
-                        .filter(collection_to_entity::Column::CollectionId.eq(v))
+                        q.left_join(CollectionToEntity)
+                            .filter(collection_to_entity::Column::CollectionId.eq(v))
                     })
             })
             .apply_if(input.search.query, |query, v| {
