@@ -3795,7 +3795,9 @@ impl MiscellaneousService {
             .column(collection::Column::Id)
             .column(collection::Column::Name)
             .column_as(
-                collection::Column::Name.is_in(DefaultCollection::iter().map(|s| s.to_string())),
+                collection::Column::Name
+                    .is_in(DefaultCollection::iter().map(|s| s.to_string()))
+                    .and(collection::Column::UserId.eq(user_id)),
                 "is_default",
             )
             .column(collection::Column::InformationTemplate)
