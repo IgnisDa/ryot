@@ -454,18 +454,6 @@ export default function Page() {
 							>
 								<NumberInput
 									size="xs"
-									label="The default rest timer to use during exercises. Leave empty for no default."
-									defaultValue={
-										loaderData.userPreferences.fitness.exercises.defaultTimer ||
-										undefined
-									}
-									disabled={!!loaderData.userDetails.isDemo}
-									onChange={(num) => {
-										appendPref("fitness.exercises.default_timer", String(num));
-									}}
-								/>
-								<NumberInput
-									size="xs"
 									label="The number of elements to save in your exercise history."
 									defaultValue={
 										loaderData.userPreferences.fitness.exercises.saveHistory
