@@ -2090,21 +2090,23 @@ impl MiscellaneousService {
             .column(metadata::Column::PublishYear)
             .column(metadata::Column::Images)
             .column(user_to_entity::Column::MediaReason)
-            .expr(Func::round_with_precision(
-                Func::avg(
-                    Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(match preferences
-                        .general
-                        .review_scale
-                    {
-                        UserReviewScale::OutOfFive => 20,
-                        UserReviewScale::OutOfHundred => 1,
-                    }),
+            .expr_as_(
+                Func::round_with_precision(
+                    Func::avg(
+                        Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(
+                            match preferences.general.review_scale {
+                                UserReviewScale::OutOfFive => 20,
+                                UserReviewScale::OutOfHundred => 1,
+                            },
+                        ),
+                    ),
+                    match preferences.general.review_scale {
+                        UserReviewScale::OutOfFive => 1,
+                        UserReviewScale::OutOfHundred => 0,
+                    },
                 ),
-                match preferences.general.review_scale {
-                    UserReviewScale::OutOfFive => 1,
-                    UserReviewScale::OutOfHundred => 0,
-                },
-            ))
+                "average_rating",
+            )
             .group_by(metadata::Column::Id)
             .group_by(user_to_entity::Column::MediaReason)
             .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -2145,15 +2147,7 @@ impl MiscellaneousService {
                 input.filter.clone().and_then(|f| f.general),
                 |query, v| match v {
                     MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
-                    MediaGeneralFilter::Rated => query.join(
-                        JoinType::Join,
-                        metadata::Relation::Review
-                            .def()
-                            .on_condition(move |_left, right| {
-                                Condition::all()
-                                    .add(Expr::col((right, review::Column::UserId)).eq(user_id))
-                            }),
-                    ),
+                    MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
                     MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
                     MediaGeneralFilter::Unseen => query.filter(seen::Column::Id.is_null()),
                     s => {
