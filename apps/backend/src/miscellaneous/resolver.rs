@@ -46,8 +46,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -2144,21 +2144,18 @@ impl MiscellaneousService {
                         .filter(collection_to_entity::Column::CollectionId.eq(v))
                 },
             )
-            .apply_if(
-                input.filter.clone().and_then(|f| f.general),
-                |query, v| match v {
-                    MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
-                    MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
-                    MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
-                    MediaGeneralFilter::Unseen => query.filter(seen::Column::Id.is_null()),
-                    s => query.filter(seen::Column::State.eq(match s {
-                        MediaGeneralFilter::Dropped => SeenState::Dropped,
-                        MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                        _ => unreachable!(),
-                    })),
-                },
-            )
-            .apply_if(input.sort.clone().map(|s| s.by), |query, v| match v {
+            .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
+                MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
+                MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
+                MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
+                MediaGeneralFilter::Unseen => query.filter(seen::Column::Id.is_null()),
+                s => query.filter(seen::Column::State.eq(match s {
+                    MediaGeneralFilter::Dropped => SeenState::Dropped,
+                    MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                    _ => unreachable!(),
+                })),
+            })
+            .apply_if(input.sort.map(|s| s.by), |query, v| match v {
                 MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
                 MediaSortBy::ReleaseDate => query.order_by(metadata::Column::PublishYear, order_by),
                 MediaSortBy::Rating => {
