@@ -508,11 +508,11 @@ impl From<GraphqlSortOrder> for Order {
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 enum MediaSortBy {
+    LastUpdated,
     Title,
     #[default]
     ReleaseDate,
     LastSeen,
-    LastUpdated,
     Rating,
 }
 
@@ -541,6 +541,7 @@ enum MediaGeneralFilter {
     Unrated,
     Dropped,
     OnAHold,
+    Completed,
     Unseen,
 }
 
@@ -553,7 +554,7 @@ struct MediaFilter {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MetadataListInput {
     search: SearchInput,
-    lot: MediaLot,
+    lot: Option<MediaLot>,
     filter: Option<MediaFilter>,
     sort: Option<SortInput<MediaSortBy>>,
 }
@@ -1945,7 +1946,7 @@ impl MiscellaneousService {
             .filter(
                 Expr::col((AliasedUserToEntity::Table, user_to_entity::Column::UserId)).eq(user_id),
             )
-            .join(JoinType::Join, calendar_event::Relation::Metadata.def())
+            .inner_join(Metadata)
             .join_rev(
                 JoinType::Join,
                 UserToEntity::belongs_to(CalendarEvent)
@@ -2112,8 +2113,10 @@ impl MiscellaneousService {
             .group_by(metadata::Column::Id)
             .group_by(user_to_entity::Column::MediaReason)
             .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(metadata::Column::Lot.eq(input.lot))
-            .join(JoinType::Join, metadata::Relation::UserToEntity.def())
+            .apply_if(input.lot, |query, v| {
+                query.filter(metadata::Column::Lot.eq(v))
+            })
+            .inner_join(UserToEntity)
             .join(
                 JoinType::LeftJoin,
                 metadata::Relation::Review
@@ -2141,7 +2144,7 @@ impl MiscellaneousService {
                 input.filter.clone().and_then(|f| f.collection),
                 |query, v| {
                     query
-                        .join(JoinType::Join, metadata::Relation::CollectionToEntity.def())
+                        .inner_join(CollectionToEntity)
                         .filter(collection_to_entity::Column::CollectionId.eq(v))
                 },
             )
@@ -2153,6 +2156,7 @@ impl MiscellaneousService {
                 s => query.filter(seen::Column::State.eq(match s {
                     MediaGeneralFilter::Dropped => SeenState::Dropped,
                     MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                    MediaGeneralFilter::Completed => SeenState::InProgress,
                     _ => unreachable!(),
                 })),
             })
@@ -5969,7 +5973,7 @@ impl MiscellaneousService {
                 )
             })
             .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
-            // fuck it. we ball. (extremely unsafe, guaranteed to fail if names change)
+            // fuck it. we ball. (extremely unsafe, guaranteed to fail if table names change)
             .group_by(Expr::cust("genre.id, genre.name"))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
         let paginator = query
@@ -6011,7 +6015,7 @@ impl MiscellaneousService {
                 )
             })
             .filter(user_to_entity::Column::UserId.eq(user_id))
-            .join(JoinType::Join, metadata_group::Relation::UserToEntity.def())
+            .inner_join(UserToEntity)
             .order_by_asc(metadata_group::Column::Title);
         let paginator = query
             .clone()
@@ -6083,8 +6087,8 @@ impl MiscellaneousService {
                 )))),
                 alias,
             )
-            .join(JoinType::LeftJoin, person::Relation::MetadataToPerson.def())
-            .join(JoinType::Join, person::Relation::UserToEntity.def())
+            .left_join(MetadataToPerson)
+            .inner_join(UserToEntity)
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
             .order_by(order_by, sort_order);
@@ -7013,6 +7017,31 @@ GROUP BY m.id;
         Ok(())
     }
 
+    async fn remove_old_metadata_from_monitoring_collection(&self) -> Result<()> {
+        let older_than = Utc::now()
+            - ChronoDuration::try_days(self.config.media.monitoring_remove_after_days).unwrap();
+        self.db
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"
+DELETE FROM collection_to_entity
+WHERE id IN (
+    SELECT cte.id
+    FROM collection_to_entity cte
+    JOIN collection c ON cte.collection_id = c.id AND c.name = $1
+    JOIN user_to_entity ute ON cte.metadata_id = ute.metadata_id
+    WHERE ute.metadata_id IS NOT NULL AND ute.last_updated_on < $2
+);
+       "#,
+                [
+                    DefaultCollection::Monitoring.to_string().into(),
+                    older_than.into(),
+                ],
+            ))
+            .await?;
+        Ok(())
+    }
+
     pub async fn remove_useless_data(&self) -> Result<()> {
         let mut metadata_stream = Metadata::find()
             .select_only()
@@ -7072,6 +7101,10 @@ GROUP BY m.id;
 
         tracing::trace!("Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.unwrap();
+        tracing::trace!("Removing stale media from Monitoring collection");
+        self.remove_old_metadata_from_monitoring_collection()
+            .await
+            .unwrap();
         tracing::trace!("Checking for updates for media in Watchlist");
         self.update_watchlist_metadata_and_send_notifications()
             .await

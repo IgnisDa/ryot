@@ -2,15 +2,15 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use rs_utils::{IsFeatureEnabled, PROJECT_NAME};
-use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader};
+use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
 use serde::{Deserialize, Serialize};
 
-fn default_tmdb_access_token(_ctx: &()) -> Option<String> {
-    Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned())
+fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
+    Ok(Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned()))
 }
 
-fn default_mal_client_id(_ctx: &()) -> Option<String> {
-    Some("3879694bbe52ac3204be9ff68af8f027".to_owned())
+fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
+    Ok(Some("3879694bbe52ac3204be9ff68af8f027".to_owned()))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -123,7 +123,11 @@ pub struct ExerciseConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
-pub struct MediaConfig {}
+pub struct MediaConfig {
+    /// Number of days after which a media should be removed from the Monitoring collection.
+    #[setting(default = 30)]
+    pub monitoring_remove_after_days: i64,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]

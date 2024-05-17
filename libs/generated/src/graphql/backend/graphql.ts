@@ -774,6 +774,7 @@ export type MediaFilter = {
 
 export enum MediaGeneralFilter {
   All = 'ALL',
+  Completed = 'COMPLETED',
   Dropped = 'DROPPED',
   OnAHold = 'ON_A_HOLD',
   Rated = 'RATED',
@@ -916,7 +917,7 @@ export type MetadataGroupSearchResults = {
 
 export type MetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
-  lot: MediaLot;
+  lot?: InputMaybe<MediaLot>;
   search: SearchInput;
   sort?: InputMaybe<MediaSortInput>;
 };
