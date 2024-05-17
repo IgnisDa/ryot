@@ -7017,7 +7017,7 @@ GROUP BY m.id;
         Ok(())
     }
 
-    async fn remove_stale_media_from_monitoring_collection(&self) -> Result<()> {
+    async fn remove_old_metadata_from_monitoring_collection(&self) -> Result<()> {
         let older_than = Utc::now()
             - ChronoDuration::try_days(self.config.media.monitoring_remove_after_days).unwrap();
         self.db
@@ -7029,12 +7029,8 @@ WHERE id IN (
     SELECT cte.id
     FROM collection_to_entity cte
     JOIN collection c ON cte.collection_id = c.id AND c.name = $1
-    JOIN user_to_entity ute ON (
-        cte.metadata_id = ute.metadata_id OR
-        cte.metadata_group_id = ute.metadata_group_id OR
-        cte.person_id = ute.person_id
-    )
-    WHERE ute.last_updated_on < $2
+    JOIN user_to_entity ute ON cte.metadata_id = ute.metadata_id
+    WHERE ute.metadata_id IS NOT NULL AND ute.last_updated_on < $2
 );
        "#,
                 [
@@ -7106,7 +7102,7 @@ WHERE id IN (
         tracing::trace!("Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.unwrap();
         tracing::trace!("Removing stale media from Monitoring collection");
-        self.remove_stale_media_from_monitoring_collection()
+        self.remove_old_metadata_from_monitoring_collection()
             .await
             .unwrap();
         tracing::trace!("Checking for updates for media in Watchlist");
