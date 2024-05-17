@@ -508,11 +508,11 @@ impl From<GraphqlSortOrder> for Order {
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 enum MediaSortBy {
+    LastUpdated,
     Title,
     #[default]
     ReleaseDate,
     LastSeen,
-    LastUpdated,
     Rating,
 }
 
@@ -541,6 +541,7 @@ enum MediaGeneralFilter {
     Unrated,
     Dropped,
     OnAHold,
+    Completed,
     Unseen,
 }
 
@@ -2155,6 +2156,7 @@ impl MiscellaneousService {
                 s => query.filter(seen::Column::State.eq(match s {
                     MediaGeneralFilter::Dropped => SeenState::Dropped,
                     MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                    MediaGeneralFilter::Completed => SeenState::InProgress,
                     _ => unreachable!(),
                 })),
             })
