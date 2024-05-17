@@ -12,7 +12,7 @@ async-graphql = { version = "7.0.3", features = [
     "uuid",
 ] }
 chrono = "0.4.38"
-schematic = { git = "https://github.com/moonrepo/schematic.git", features = [
+schematic = { version = "0.16", features = [
     "config",
     "json",
     "schema",
@@ -23,7 +23,7 @@ schematic = { git = "https://github.com/moonrepo/schematic.git", features = [
     "url",
     "renderer_template",
     "yaml",
-], default-features = false, rev = "643812da37a2072b43b9525e1f872eb4cb090b3b" }
+], default-features = false }
 sea-orm = { version = "0.12.15", features = [
     "debug-print",
     "postgres-array",
