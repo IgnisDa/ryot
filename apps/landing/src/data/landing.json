@@ -27,9 +27,9 @@
 		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		"links": [
 			{ "label": "Docs", "href": "https://docs.ryot.io" },
-			{ "label": "Terms", "href": "/terms" },
-			{ "label": "Prices", "href": "#" },
-			{ "label": "Contact", "href": "/#contact-section" }
+			{ "label": "Prices", "href": "/#pricing-section" },
+			{ "label": "Contact", "href": "/#contact-section" },
+			{ "label": "Terms", "href": "/terms" }
 		]
 	},
 	"heroData": {
@@ -113,53 +113,29 @@
 		]
 	},
 	"pricingData": {
-		"title": "Our Pricing",
+		"title": "Ryot Pro Pricing",
 		"tiers": [
 			{
-				"title": "Starter",
-				"description": "Best option for personal use & for your next project.",
+				"title": "Monthly",
 				"price": {
-					"amount": "Free"
+					"amount": "$5",
+					"period": "/month"
 				},
-				"features": [
-					"feature 1",
-					"feature 2",
-					"feature 3",
-					"feature 4",
-					"feature 5"
-				],
 				"cta": "Get started"
 			},
 			{
-				"title": "Professional",
-				"description": "Relevant for multiple users, extended & premium support.",
+				"title": "Yearly",
 				"price": {
-					"amount": "$29",
-					"period": "/month"
+					"amount": "$49",
+					"period": "/year"
 				},
-				"features": [
-					"feature 1",
-					"feature 2",
-					"feature 3",
-					"feature 4",
-					"feature 5"
-				],
 				"cta": "Get started"
 			},
 			{
-				"title": "Enterprise",
-				"description": "Best for large scale uses and extended redistribution rights.",
+				"title": "Lifetime",
 				"price": {
-					"amount": "$59",
-					"period": "/month"
+					"amount": "$119"
 				},
-				"features": [
-					"feature 1",
-					"feature 2",
-					"feature 3",
-					"feature 4",
-					"feature 5"
-				],
 				"cta": "Get started"
 			}
 		]

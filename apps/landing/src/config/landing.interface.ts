@@ -84,9 +84,7 @@ export interface PricingData {
 
 export interface Tier {
 	title: string;
-	description: string;
 	price: Price;
-	features: string[];
 	cta: string;
 }
 
