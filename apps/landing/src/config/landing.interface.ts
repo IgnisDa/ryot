@@ -98,19 +98,4 @@ export interface LdJson {
 	sameAs: string[];
 }
 
-export type Icon =
-	| "DevIcon"
-	| "FileIcon"
-	| "PlanetIcon"
-	| "ConfigIcon"
-	| "CheckIcon"
-	| "InstagramIcon"
-	| "GithubIcon"
-	| "TwitterIcon"
-	| "FacebookIcon"
-	| "ReactIcon"
-	| "SvelteIcon"
-	| "SolidIcon"
-	| "VueIcon"
-	| "VercelIcon"
-	| "NetlifyIcon";
+export type Icon = "GithubIcon" | "TwitterIcon";
