@@ -1,0 +1,14 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/sections/Header.astro";
+import { getLandingData } from "@/services/data.service";
+
+const data = await getLandingData();
+---
+
+<Layout meta={data.meta}>
+  <Header data={data.headerData} />
+  <main class="flex flex-col justify-center items-center">
+    <div class="mt-48">Hello world!</div>
+  </main>
+</Layout>
