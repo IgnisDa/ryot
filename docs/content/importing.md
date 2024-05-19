@@ -6,7 +6,7 @@ before starting an import. To start, click on "Imports and Exports" link under t
 "Settings" section in the sidebar.
 
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
-You can go to the reports page by clicking on "Reports" link on the imports page.
+You can see the reports under "Import History" of the imports page.
 
 ## Notes
 
@@ -146,15 +146,13 @@ the "Watchlist" collection.
 
 ## Audiobookshelf
 
+The Audiobookshelf importer supports only audio books. If also need to import podcasts,
+please open an issue and wait till podcast support is added.
+
 !!! warning
 
       This will only import media that are already finished. Setup an
       [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
-
-!!! warning
-
-      The Audiobookshelf importer supports only audio books. If also need to import
-      podcasts, please open an issue and wait till podcast support is added.
 
 ### Steps
 
@@ -200,7 +198,8 @@ You can import your watched movies from [Jellyfin](https://jellyfin.org).
 ## Generic Json
 
 The "Generic Json" can be used to import all possible data from a generic JSON file. The
-format of the JSON file should be `CompleteExport`. The import format required is described
-in the [exporting](guides/exporting.md#type-definition) documentation.
+format of the JSON file should be `CompleteExport` as described in the
+[exporting](guides/exporting.md#type-definition) documentation.
 
-You can use this to export all your data from one Ryot instance and import it into another.
+You can use this to export all your data from one Ryot instance and import it into another,
+or from a source that is not supported by Ryot.

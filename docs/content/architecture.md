@@ -31,7 +31,7 @@ RUST_LOG=ryot=trace,sea_orm=debug
 
 Your website would be available at `http://localhost:8000`.
 
-### Testing webhooks
+### Miscellaneous
 
 You can use [Serveo](https://serveo.net/) to test webhooks.
 
