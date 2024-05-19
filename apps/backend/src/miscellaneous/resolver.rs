@@ -573,14 +573,15 @@ struct MediaConsumedInput {
 
 #[derive(SimpleObject)]
 struct CoreDetails {
-    docs_link: String,
-    author_name: String,
-    repository_link: String,
+    is_pro: bool,
     page_limit: i32,
     timezone: String,
+    docs_link: String,
+    oidc_enabled: bool,
+    author_name: String,
+    repository_link: String,
     token_valid_for_days: i64,
     local_auth_disabled: bool,
-    oidc_enabled: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
@@ -1464,6 +1465,7 @@ type EntityToMonitoredByMap = HashMap<i32, Vec<i32>>;
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
+            is_pro: false,
             timezone: self.timezone.to_string(),
             docs_link: "https://docs.ryot.io".to_owned(),
             page_limit: self.config.frontend.page_size,
