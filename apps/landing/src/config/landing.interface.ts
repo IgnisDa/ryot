@@ -2,9 +2,6 @@ export interface LandingPageData {
 	meta: Meta;
 	headerData: HeaderData;
 	heroData: HeroData;
-	servicesData: ServicesData;
-	advantagesData: AdvantagesData;
-	brandsData: BrandsData;
 	pricingData: PricingData;
 	footerData: FooterData;
 }
@@ -17,27 +14,18 @@ export interface HeaderData {
 
 export interface HeroData {
 	title: string;
-	subTitle: string;
 	ctaLink: string;
+	subTitle: string;
 	primaryCta: string;
+	pricingLink: string;
 	secondaryCta: string;
 	highlightedTitle: string;
-}
-
-export interface ServicesData {
-	title: string;
-	services: Service[];
 }
 
 export interface Service {
 	title: string;
 	icon: string;
 	description: string;
-}
-
-export interface AdvantagesData {
-	title: string;
-	adventajes: Adventaje[];
 }
 
 export interface Adventaje {
@@ -65,12 +53,6 @@ export interface Social {
 	href: string;
 }
 
-export interface BrandsData {
-	title: string;
-	description: string;
-	brands: Brand[];
-}
-
 export interface Brand {
 	label: string;
 	icon: string;
@@ -84,9 +66,7 @@ export interface PricingData {
 
 export interface Tier {
 	title: string;
-	description: string;
 	price: Price;
-	features: string[];
 	cta: string;
 }
 
@@ -118,19 +98,4 @@ export interface LdJson {
 	sameAs: string[];
 }
 
-export type Icon =
-	| "DevIcon"
-	| "FileIcon"
-	| "PlanetIcon"
-	| "ConfigIcon"
-	| "CheckIcon"
-	| "InstagramIcon"
-	| "GithubIcon"
-	| "TwitterIcon"
-	| "FacebookIcon"
-	| "ReactIcon"
-	| "SvelteIcon"
-	| "SolidIcon"
-	| "VueIcon"
-	| "VercelIcon"
-	| "NetlifyIcon";
+export type Icon = "GithubIcon" | "TwitterIcon";

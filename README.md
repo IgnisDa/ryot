@@ -46,6 +46,11 @@ consumed, like books you've read, shows you have watched, video games you have p
 workouts you have done. Now, imagine that instead of a physical notebook, you have a
 special tool on your computer or phone that lets you keep track of all these digitally.
 
+## Community and support
+
+You can join the [Discord](https://discord.gg/D9XTg2a7R8) server for any help or questions.
+You can also open an issue on GitHub if you find any bugs or have feature requests.
+
 ## 💡 Why?
 
 - Existing solutions do not have very good UI.
@@ -66,11 +71,6 @@ special tool on your computer or phone that lets you keep track of all these dig
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source
-
-## Community and support
-
-You can join the [Discord](https://discord.gg/D9XTg2a7R8) server for any help or questions.
-You can also open an issue on GitHub if you find any bugs or have feature requests.
 
 ## 🙏 Acknowledgements
 

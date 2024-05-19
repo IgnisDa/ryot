@@ -3,10 +3,10 @@
 You need to have S3 configured in order to export your data. You can find the necessary
 configuration parameters under the
 [`FileStorageConfig`](../configuration.md#all-parameters) section. The export will be made
-in JSON format and always follow the schema (`CompleteExport`) described below.
+in JSON format and always follows the schema (`CompleteExport`) described below.
 
-You can export your data from the app by going to the "You data" page under settings and
-then selecting the data you want to export under the "Export" tab.
+You can export your data from the app by going to the "Imports and Exports" settings page
+and then selecting the data you want to export under the "Export" tab.
 
 Once the export is complete, it will appear along with a button to download it.
 
@@ -20,12 +20,12 @@ S3 instance offered by [Minio](https://play.min.io).
     The Minio team resets this instance every 24 hours, hence this method is not suitable
     if you want to store the data for a long time.
 
-- Go to the [Minio playground](https://play.min.io).
-- The username is `minioadmin` and password is `minioadmin`.
+- Go to the [Minio playground](https://play.min.io). The username is `minioadmin` and
+  password is `minioadmin`.
 - Click on "Buckets" under the "Administrator" section and then on "Create Bucket".
 - Set a name and click on "Create Bucket".
 - Click on "Access Keys" under the "User" section and then on "Create access key".
-- Leave everything as is and click on "Create". Copy both the values displayed.
+- Leave everything as it is and click on "Create". Copy both the values displayed.
 - On your Ryot instance, set the following environment variables:
     ```sh
     FILE_STORAGE_S3_URL=https://play.min.io

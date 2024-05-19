@@ -3,6 +3,7 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
+		"@tailwindcss/typography": "0.5.13",
 		"tailwind-scrollbar": "3.1.0"
 	},
 	"dependencies": {

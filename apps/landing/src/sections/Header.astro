@@ -3,7 +3,7 @@ import Action from "@/components/Action.astro";
 import type { HeaderData } from "@/config/landing.interface";
 
 interface Props {
-	data: HeaderData;
+  data: HeaderData;
 }
 
 const { data } = Astro.props;
@@ -15,8 +15,10 @@ const { data } = Astro.props;
 >
   <nav aria-label="Main Navigation" class="flex flex-row items-center w-3/4">
     <div class="flex items-center gap-x-2 text-nowrap">
-      <img src={data.logoPath} alt={data.logo} class="w-fit h-9 w-9" />
-      <Action as="a" class="text-xl" href="#">{data.logo}</Action>
+      <Action as="a" class="text-xl flex items-center gap-x-2" href="/">
+        <img src={data.logoPath} alt={data.logo} class="h-9 w-9" />
+        <span>{data.logo}</span>
+      </Action>
     </div>
     <ul class="flex flex-row w-full justify-center gap-x-14">
       {

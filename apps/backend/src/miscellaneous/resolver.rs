@@ -573,14 +573,15 @@ struct MediaConsumedInput {
 
 #[derive(SimpleObject)]
 struct CoreDetails {
-    docs_link: String,
-    author_name: String,
-    repository_link: String,
+    is_pro: bool,
     page_limit: i32,
     timezone: String,
+    docs_link: String,
+    oidc_enabled: bool,
+    author_name: String,
+    repository_link: String,
     token_valid_for_days: i64,
     local_auth_disabled: bool,
-    oidc_enabled: bool,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
@@ -1464,6 +1465,7 @@ type EntityToMonitoredByMap = HashMap<i32, Vec<i32>>;
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
+            is_pro: false,
             timezone: self.timezone.to_string(),
             docs_link: "https://docs.ryot.io".to_owned(),
             page_limit: self.config.frontend.page_size,
@@ -5928,7 +5930,7 @@ impl MiscellaneousService {
             person_map
         );
         for (person_id, to_notify) in person_map {
-            let notifications = self.update_person(person_id).await?;
+            let notifications = self.update_person(person_id).await.unwrap_or_default();
             for user in to_notify {
                 for notification in notifications.iter() {
                     self.send_media_state_changed_notification_for_user(user, notification)
@@ -6829,7 +6831,7 @@ impl MiscellaneousService {
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: i32) -> Result<()> {
-        let notifications = self.update_person(person_id).await.unwrap();
+        let notifications = self.update_person(person_id).await.unwrap_or_default();
         if !notifications.is_empty() {
             let (_, _, person_map) = self.get_entities_monitored_by().await.unwrap();
             let users_to_notify = person_map.get(&person_id).cloned().unwrap_or_default();
