@@ -79,10 +79,8 @@
 			{ "label": "Terms of Service", "href": "/terms" }
 		],
 		"socials": [
-			{ "icon": "FacebookIcon", "href": "/" },
-			{ "icon": "InstagramIcon", "href": "/" },
-			{ "icon": "TwitterIcon", "href": "/" },
-			{ "icon": "GithubIcon", "href": "/" }
+			{ "icon": "TwitterIcon", "href": "https://x.com/IgnisDa" },
+			{ "icon": "GithubIcon", "href": "https://github.com/IgnisDa/ryot" }
 		]
 	}
 }
