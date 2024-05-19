@@ -26,10 +26,10 @@
 		"logo": "Ryot",
 		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		"links": [
-			{ "label": "Docs", "href": "https://docs.ryot.io" },
 			{ "label": "Prices", "href": "/#pricing-section" },
 			{ "label": "Contact", "href": "/#contact-section" },
-			{ "label": "Terms", "href": "/terms" }
+			{ "label": "Documentation", "href": "https://docs.ryot.io" },
+			{ "label": "Terms of Service", "href": "/terms" }
 		]
 	},
 	"heroData": {
