@@ -38,7 +38,8 @@
 		"primaryCta": "Github Repo",
 		"secondaryCta": "See our pricing",
 		"highlightedTitle": "Ryot",
-		"ctaLink": "https://github.com/IgnisDa/ryot"
+		"ctaLink": "https://github.com/IgnisDa/ryot",
+		"pricingLink": "/#pricing-section"
 	},
 	"servicesData": {
 		"title": "Everything you need to build a website",

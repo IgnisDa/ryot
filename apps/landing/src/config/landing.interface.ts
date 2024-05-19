@@ -17,9 +17,10 @@ export interface HeaderData {
 
 export interface HeroData {
 	title: string;
-	subTitle: string;
 	ctaLink: string;
+	subTitle: string;
 	primaryCta: string;
+	pricingLink: string;
 	secondaryCta: string;
 	highlightedTitle: string;
 }
