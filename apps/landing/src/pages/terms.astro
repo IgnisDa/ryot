@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import Footer from "@/sections/Footer.astro";
 import Header from "@/sections/Header.astro";
 import { getLandingData } from "@/services/data.service";
 
@@ -119,5 +120,6 @@ const email = data.meta.ldJson.contactPoint.email;
         not use the Service.
       </p>
     </div>
+    <Footer data={data.footerData} />
   </main>
 </Layout>
