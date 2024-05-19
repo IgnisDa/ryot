@@ -2,9 +2,6 @@ export interface LandingPageData {
 	meta: Meta;
 	headerData: HeaderData;
 	heroData: HeroData;
-	servicesData: ServicesData;
-	advantagesData: AdvantagesData;
-	brandsData: BrandsData;
 	pricingData: PricingData;
 	footerData: FooterData;
 }
@@ -25,20 +22,10 @@ export interface HeroData {
 	highlightedTitle: string;
 }
 
-export interface ServicesData {
-	title: string;
-	services: Service[];
-}
-
 export interface Service {
 	title: string;
 	icon: string;
 	description: string;
-}
-
-export interface AdvantagesData {
-	title: string;
-	adventajes: Adventaje[];
 }
 
 export interface Adventaje {
@@ -64,12 +51,6 @@ export interface Link {
 export interface Social {
 	icon: string;
 	href: string;
-}
-
-export interface BrandsData {
-	title: string;
-	description: string;
-	brands: Brand[];
 }
 
 export interface Brand {
