@@ -70,14 +70,13 @@
 		]
 	},
 	"footerData": {
-		"logo": "Luna Landing",
-		"description": "Discover the Beauty of the Cosmos: Explore the Infinite Wonders of Space with Us",
+		"logo": "Ryot",
+		"description": "A self hosted platform for tracking various facets of your life - media, fitness and much more!",
 		"links": [
-			{ "label": "About", "href": "/" },
-			{ "label": "Services", "href": "/" },
-			{ "label": "Blog", "href": "/" },
-			{ "label": "FAQs", "href": "/" },
-			{ "label": "Contact", "href": "/" }
+			{ "label": "Prices", "href": "/#pricing-section" },
+			{ "label": "Contact", "href": "/#contact-section" },
+			{ "label": "Documentation", "href": "https://docs.ryot.io" },
+			{ "label": "Terms of Service", "href": "/terms" }
 		],
 		"socials": [
 			{ "icon": "FacebookIcon", "href": "/" },
