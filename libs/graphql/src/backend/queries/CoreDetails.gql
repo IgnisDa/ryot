@@ -4,6 +4,7 @@ query CoreDetails {
     timezone
     docsLink
     pageLimit
+    websiteUrl
     authorName
     oidcEnabled
     repositoryLink

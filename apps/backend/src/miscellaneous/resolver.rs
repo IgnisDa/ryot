@@ -578,6 +578,7 @@ struct CoreDetails {
     timezone: String,
     docs_link: String,
     oidc_enabled: bool,
+    website_url: String,
     author_name: String,
     repository_link: String,
     token_valid_for_days: i64,
@@ -1466,14 +1467,15 @@ impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
             is_pro: false,
-            timezone: self.timezone.to_string(),
-            docs_link: "https://docs.ryot.io".to_owned(),
-            page_limit: self.config.frontend.page_size,
             author_name: AUTHOR.to_owned(),
+            timezone: self.timezone.to_string(),
             oidc_enabled: self.oidc_client.is_some(),
-            repository_link: "https://github.com/ignisda/ryot".to_owned(),
+            website_url: "https://ryot.io".to_owned(),
+            page_limit: self.config.frontend.page_size,
+            docs_link: "https://docs.ryot.io".to_owned(),
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
+            repository_link: "https://github.com/ignisda/ryot".to_owned(),
         })
     }
 
