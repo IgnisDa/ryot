@@ -16,9 +16,6 @@ import snakeCase from "lodash/snakeCase";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
 
-const service = new HumanizeDurationLanguage();
-const humanizer = new HumanizeDuration(service);
-
 /**
  * Humanize a duration.
  */
@@ -26,6 +23,8 @@ export const humanizeDuration = (
 	duration: number,
 	options?: HumanizeDurationOptions,
 ) => {
+	const service = new HumanizeDurationLanguage();
+	const humanizer = new HumanizeDuration(service);
 	return humanizer.humanize(duration, options);
 };
 
