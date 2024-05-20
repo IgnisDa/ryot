@@ -47,3 +47,4 @@ markdown_extensions:
 
 extra:
   file_path: https://github.com/ignisda/ryot/tree/main
+  main_website_url: https://ryot.io
