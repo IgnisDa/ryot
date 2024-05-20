@@ -485,6 +485,13 @@ const Footer = (props: { coreDetails: CoreDetails }) => {
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
+				{!props.coreDetails.isPro ? (
+					<Anchor href={props.coreDetails.websiteUrl} target="_blank">
+						<Text c="lime" fw="bold">
+							Ryot Pro
+						</Text>
+					</Anchor>
+				) : null}
 				<Anchor href="https://diptesh.me" target="_blank">
 					<Text c="indigo" fw="bold">
 						{props.coreDetails.authorName}
