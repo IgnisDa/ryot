@@ -13,8 +13,9 @@ use apalis::{
     layers::{
         limit::RateLimitLayer as ApalisRateLimitLayer, tracing::TraceLayer as ApalisTraceLayer,
     },
-    prelude::{Job as ApalisJob, *},
+    prelude::{Job as ApalisJob, Monitor, WorkerBuilder, WorkerFactoryFn},
     sqlite::SqliteStorage,
+    utils::TokioExecutor,
 };
 use aws_sdk_s3::config::Region;
 use axum::{
