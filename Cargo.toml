@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.82"
-async-graphql = { version = "7.0.3", features = [
+async-graphql = { version = "7.0.5", features = [
     "chrono",
     "decimal",
     "log",
