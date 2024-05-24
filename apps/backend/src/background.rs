@@ -33,23 +33,26 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+pub async fn media_jobs(
+    _information: ScheduledJob,
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     misc_service.perform_media_jobs().await.unwrap();
     Ok(())
 }
 
-pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+pub async fn user_jobs(
+    _information: ScheduledJob,
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     misc_service.perform_user_jobs().await.unwrap();
     Ok(())
 }
 
 pub async fn yank_integrations_data(
     _information: ScheduledJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     tracing::trace!("Getting data from yanked integrations for all users");
     misc_service.yank_integrations_data().await.unwrap();
     Ok(())
@@ -70,9 +73,8 @@ impl Job for CoreApplicationJob {
 
 pub async fn perform_core_application_job(
     information: CoreApplicationJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();
@@ -117,12 +119,11 @@ impl Job for ApplicationJob {
 
 pub async fn perform_application_job(
     information: ApplicationJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
-    let exporter_service = ctx.data::<Arc<ExporterService>>().unwrap();
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
+    misc_service: Data<Arc<MiscellaneousService>>,
+    importer_service: Data<Arc<ImporterService>>,
+    exporter_service: Data<Arc<ExporterService>>,
+    exercise_service: Data<Arc<ExerciseService>>,
+) -> Result<(), Error> {
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();
