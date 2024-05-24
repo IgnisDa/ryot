@@ -7,7 +7,6 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
-# TODO: Upgrade when https://github.com/geofmureithi/apalis/issues/301 is fixed
 apalis = { git = "https://github.com/geofmureithi/apalis.git", features = [
     "cron",
     "limit",
