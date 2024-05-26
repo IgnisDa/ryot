@@ -562,7 +562,7 @@ export type GenreListResults = {
 };
 
 export type GraphqlCalendarEvent = {
-  calendarEventId: Scalars['Int']['output'];
+  calendarEventId: Scalars['String']['output'];
   date: Scalars['NaiveDate']['output'];
   metadataId: Scalars['Int']['output'];
   metadataImage?: Maybe<Scalars['String']['output']>;
@@ -2935,14 +2935,14 @@ export type UserUpcomingCalendarEventsQueryVariables = Exact<{
 }>;
 
 
-export type UserUpcomingCalendarEventsQuery = { userUpcomingCalendarEvents: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> };
+export type UserUpcomingCalendarEventsQuery = { userUpcomingCalendarEvents: Array<{ calendarEventId: string, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> };
 
 export type UserCalendarEventsQueryVariables = Exact<{
   input: UserCalendarEventInput;
 }>;
 
 
-export type UserCalendarEventsQuery = { userCalendarEvents: Array<{ date: string, events: Array<{ calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> }> };
+export type UserCalendarEventsQuery = { userCalendarEvents: Array<{ date: string, events: Array<{ calendarEventId: string, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null }> }> };
 
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
@@ -2952,7 +2952,7 @@ export type SeenAnimeExtraInformationPartFragment = { episode?: number | null };
 
 export type SeenMangaExtraInformationPartFragment = { chapter?: number | null, volume?: number | null };
 
-export type CalendarEventPartFragment = { calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null };
+export type CalendarEventPartFragment = { calendarEventId: string, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null };
 
 export type SeenPartFragment = { id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, totalTimeSpent?: number | null, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null };
 

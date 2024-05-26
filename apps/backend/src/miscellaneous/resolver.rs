@@ -682,7 +682,7 @@ struct CreateReviewCommentInput {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 struct GraphqlCalendarEvent {
-    calendar_event_id: i32,
+    calendar_event_id: String,
     date: NaiveDate,
     metadata_id: i32,
     metadata_title: String,
@@ -1921,7 +1921,7 @@ impl MiscellaneousService {
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
-            id: i32,
+            id: String,
             date: NaiveDate,
             metadata_id: i32,
             metadata_show_extra_information: Option<SeenShowExtraInformation>,
