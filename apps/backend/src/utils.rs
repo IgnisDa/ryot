@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::sqlite::SqliteStorage;
+use apalis::prelude::MemoryStorage;
 use async_graphql::{Error, Result};
 use axum::{
     async_trait,
@@ -109,8 +109,8 @@ pub async fn create_app_services(
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
-    perform_application_job: &SqliteStorage<ApplicationJob>,
-    perform_core_application_job: &SqliteStorage<CoreApplicationJob>,
+    perform_application_job: &MemoryStorage<ApplicationJob>,
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
     let timezone = Arc::new(timezone);

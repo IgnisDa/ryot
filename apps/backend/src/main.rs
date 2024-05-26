@@ -13,8 +13,7 @@ use apalis::{
     layers::{
         limit::RateLimitLayer as ApalisRateLimitLayer, tracing::TraceLayer as ApalisTraceLayer,
     },
-    prelude::{Job as ApalisJob, Monitor, WorkerBuilder, WorkerFactoryFn},
-    sqlite::SqliteStorage,
+    prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
     utils::TokioExecutor,
 };
 use aws_sdk_s3::config::Region;
@@ -32,8 +31,6 @@ use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
 use sea_orm_migration::MigratorTrait;
-use serde::{de::DeserializeOwned, Serialize};
-use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::{join, net::TcpListener};
 use tower::buffer::BufferLayer;
 use tower_http::{
@@ -144,14 +141,8 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let pool = PoolOptions::new()
-        .max_lifetime(None)
-        .idle_timeout(None)
-        .connect(&config.scheduler.database_url)
-        .await?;
-
-    let perform_application_job_storage = create_storage(pool.clone()).await;
-    let perform_core_application_job_storage = create_storage(pool.clone()).await;
+    let perform_application_job_storage = MemoryStorage::new();
+    let perform_core_application_job_storage = MemoryStorage::new();
 
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
@@ -308,7 +299,7 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new("perform_core_application_job")
                     .layer(ApalisTraceLayer::new())
                     .data(media_service_5.clone())
-                    .with_storage(perform_core_application_job_storage.clone())
+                    .source(perform_core_application_job_storage)
                     .build_fn(perform_core_application_job),
             )
             .register_with_count(
@@ -318,7 +309,7 @@ async fn main() -> Result<()> {
                     .data(exporter_service_1.clone())
                     .data(media_service_4.clone())
                     .data(exercise_service_1.clone())
-                    .with_storage(perform_application_job_storage.clone())
+                    .source(perform_application_job_storage)
                     // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
                     .chain(|s| {
                         s.layer(BufferLayer::new(1024))
@@ -348,13 +339,6 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-async fn create_storage<T: ApalisJob + DeserializeOwned + Serialize>(
-    pool: SqlitePool,
-) -> SqliteStorage<T> {
-    SqliteStorage::setup(&pool).await.unwrap();
-    SqliteStorage::new(pool)
 }
 
 fn init_tracing() -> Result<()> {

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::prelude::Storage;
+use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use database::{ImportSource, MediaLot};
@@ -195,7 +195,7 @@ impl ImporterMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: DeployImportJobInput,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.deploy_import_job(user_id, input).await
@@ -227,18 +227,16 @@ impl ImporterService {
         &self,
         user_id: i32,
         input: DeployImportJobInput,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-        let task = self
-            .media_service
+        self.media_service
             .perform_application_job
             .clone()
-            .push(job)
+            .enqueue(job)
             .await
             .unwrap();
-        let job_id = task.to_string();
-        tracing::debug!("Deployed import job with id = {id}", id = job_id);
-        Ok(job_id)
+        tracing::debug!("Deployed import job");
+        Ok(true)
     }
 
     pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {

@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
@@ -1166,7 +1166,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: i32,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.deploy_update_metadata_job(metadata_id).await
     }
@@ -1176,7 +1176,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         person_id: i32,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.deploy_update_person_job(person_id).await
     }
@@ -1412,8 +1412,8 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-    pub perform_application_job: SqliteStorage<ApplicationJob>,
-    pub perform_core_application_job: SqliteStorage<CoreApplicationJob>,
+    pub perform_application_job: MemoryStorage<ApplicationJob>,
+    pub perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     timezone: Arc<chrono_tz::Tz>,
     file_storage_service: Arc<FileStorageService>,
     config: Arc<config::AppConfig>,
@@ -1428,8 +1428,8 @@ impl MiscellaneousService {
         db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &SqliteStorage<ApplicationJob>,
-        perform_core_application_job: &SqliteStorage<CoreApplicationJob>,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
+        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
         timezone: Arc<chrono_tz::Tz>,
         oidc_client: Arc<Option<CoreClient>>,
     ) -> Self {
@@ -2420,8 +2420,9 @@ impl MiscellaneousService {
     ) -> Result<bool> {
         self.perform_core_application_job
             .clone()
-            .push(CoreApplicationJob::BulkProgressUpdate(user_id, input))
-            .await?;
+            .enqueue(CoreApplicationJob::BulkProgressUpdate(user_id, input))
+            .await
+            .unwrap();
         Ok(true)
     }
 
@@ -2477,28 +2478,33 @@ impl MiscellaneousService {
             }
             BackgroundJob::RecalculateCalendarEvents => {
                 sqlite_storage
-                    .push(ApplicationJob::RecalculateCalendarEvents)
-                    .await?;
+                    .enqueue(ApplicationJob::RecalculateCalendarEvents)
+                    .await
+                    .unwrap();
             }
             BackgroundJob::PerformBackgroundTasks => {
                 sqlite_storage
-                    .push(ApplicationJob::PerformBackgroundTasks)
-                    .await?;
+                    .enqueue(ApplicationJob::PerformBackgroundTasks)
+                    .await
+                    .unwrap();
             }
             BackgroundJob::YankIntegrationsData => {
                 core_sqlite_storage
-                    .push(CoreApplicationJob::YankIntegrationsData(user_id))
-                    .await?;
+                    .enqueue(CoreApplicationJob::YankIntegrationsData(user_id))
+                    .await
+                    .unwrap();
             }
             BackgroundJob::CalculateSummary => {
                 sqlite_storage
-                    .push(ApplicationJob::RecalculateUserSummary(user_id))
-                    .await?;
+                    .enqueue(ApplicationJob::RecalculateUserSummary(user_id))
+                    .await
+                    .unwrap();
             }
             BackgroundJob::EvaluateWorkouts => {
                 sqlite_storage
-                    .push(ApplicationJob::ReEvaluateUserWorkouts(user_id))
-                    .await?;
+                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id))
+                    .await
+                    .unwrap();
             }
         };
         Ok(true)
@@ -2888,10 +2894,11 @@ impl MiscellaneousService {
     ) -> Result<()> {
         self.perform_application_job
             .clone()
-            .push(ApplicationJob::AssociateGroupWithMetadata(
+            .enqueue(ApplicationJob::AssociateGroupWithMetadata(
                 lot, source, identifier,
             ))
-            .await?;
+            .await
+            .unwrap();
         Ok(())
     }
 
@@ -3140,32 +3147,32 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
+    async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<bool> {
         let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let job_id = self
-            .perform_application_job
+        self.perform_application_job
             .clone()
-            .push(ApplicationJob::UpdateMetadata(metadata.id))
-            .await?;
-        Ok(job_id.to_string())
+            .enqueue(ApplicationJob::UpdateMetadata(metadata.id))
+            .await
+            .unwrap();
+        Ok(true)
     }
 
-    async fn deploy_update_person_job(&self, person_id: i32) -> Result<String> {
+    async fn deploy_update_person_job(&self, person_id: i32) -> Result<bool> {
         let person = Person::find_by_id(person_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let job_id = self
-            .perform_application_job
+        self.perform_application_job
             .clone()
-            .push(ApplicationJob::UpdatePerson(person.id))
-            .await?;
-        Ok(job_id.to_string())
+            .enqueue(ApplicationJob::UpdatePerson(person.id))
+            .await
+            .unwrap();
+        Ok(true)
     }
 
     async fn merge_metadata(&self, user_id: i32, merge_from: i32, merge_into: i32) -> Result<bool> {
@@ -4130,14 +4137,15 @@ impl MiscellaneousService {
             if input.review_id.is_none() {
                 self.perform_application_job
                     .clone()
-                    .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                    .enqueue(ApplicationJob::ReviewPosted(ReviewPostedEvent {
                         obj_id,
                         obj_title,
                         entity_lot,
                         username: user.name,
                         review_id: insert.id.clone().unwrap(),
                     }))
-                    .await?;
+                    .await
+                    .unwrap();
             }
         }
         Ok(IdObject {

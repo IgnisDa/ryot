@@ -1,6 +1,6 @@
 use std::{fs::File, sync::Arc};
 
-use apalis::{prelude::Storage, sqlite::SqliteStorage};
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use database::{
     AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
@@ -295,7 +295,7 @@ pub struct ExerciseService {
     db: DatabaseConnection,
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
-    perform_application_job: SqliteStorage<ApplicationJob>,
+    perform_application_job: MemoryStorage<ApplicationJob>,
 }
 
 impl AuthProvider for ExerciseService {}
@@ -305,7 +305,7 @@ impl ExerciseService {
         db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &SqliteStorage<ApplicationJob>,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
@@ -592,9 +592,10 @@ impl ExerciseService {
             let job = self
                 .perform_application_job
                 .clone()
-                .push(ApplicationJob::UpdateGithubExerciseJob(exercise))
-                .await?;
-            job_ids.push(job.to_string());
+                .enqueue(ApplicationJob::UpdateGithubExerciseJob(exercise))
+                .await
+                .unwrap();
+            job_ids.push(job);
         }
         Ok(job_ids.len().try_into().unwrap())
     }

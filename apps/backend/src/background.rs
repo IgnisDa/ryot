@@ -67,7 +67,7 @@ pub enum CoreApplicationJob {
     BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
 }
 
-impl Job for CoreApplicationJob {
+impl Message for CoreApplicationJob {
     const NAME: &'static str = "apalis::CoreApplicationJob";
 }
 
@@ -113,7 +113,7 @@ pub enum ApplicationJob {
     PerformBackgroundTasks,
 }
 
-impl Job for ApplicationJob {
+impl Message for ApplicationJob {
     const NAME: &'static str = "apalis::ApplicationJob";
 }
 
