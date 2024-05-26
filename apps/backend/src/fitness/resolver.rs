@@ -585,19 +585,16 @@ impl ExerciseService {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
+    pub async fn deploy_update_exercise_library_job(&self) -> Result<bool> {
         let exercises = self.get_all_exercises_from_dataset().await?;
-        let mut job_ids = vec![];
         for exercise in exercises {
-            let job = self
-                .perform_application_job
+            self.perform_application_job
                 .clone()
                 .enqueue(ApplicationJob::UpdateGithubExerciseJob(exercise))
                 .await
                 .unwrap();
-            job_ids.push(job);
         }
-        Ok(job_ids.len().try_into().unwrap())
+        Ok(true)
     }
 
     #[tracing::instrument(skip(self, ex))]
