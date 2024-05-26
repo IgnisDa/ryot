@@ -1086,7 +1086,7 @@ impl MiscellaneousMutation {
     }
 
     /// Delete a review if it belongs to the currently logged in user.
-    async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
+    async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_review(user_id, review_id).await
@@ -4161,7 +4161,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
+    async fn delete_review(&self, user_id: i32, review_id: String) -> Result<bool> {
         let review = Review::find()
             .filter(review::Column::Id.eq(review_id))
             .one(&self.db)

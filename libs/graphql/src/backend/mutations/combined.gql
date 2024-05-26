@@ -68,7 +68,7 @@ mutation DeleteCollection($collectionName: String!) {
   deleteCollection(collectionName: $collectionName)
 }
 
-mutation DeleteReview($reviewId: Int!) {
+mutation DeleteReview($reviewId: String!) {
   deleteReview(reviewId: $reviewId)
 }
 

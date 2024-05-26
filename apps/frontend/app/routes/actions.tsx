@@ -213,7 +213,7 @@ const commitPersonSchema = z.object({
 });
 
 const reviewCommentSchema = z.object({
-	reviewId: zx.IntAsString,
+	reviewId: z.string(),
 	commentId: z.string().optional(),
 	text: z.string().optional(),
 	decrementLikes: zx.BoolAsString.optional(),
@@ -239,7 +239,7 @@ const reviewSchema = z
 		metadataGroupId: zx.IntAsString.optional(),
 		collectionId: z.string().optional(),
 		personId: zx.IntAsString.optional(),
-		reviewId: zx.IntAsString.optional(),
+		reviewId: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
