@@ -50,7 +50,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(CollectionToEntity::CollectionId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .foreign_key(

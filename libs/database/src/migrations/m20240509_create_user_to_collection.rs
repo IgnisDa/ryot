@@ -21,7 +21,7 @@ impl MigrationTrait for Migration {
                     .table(UserToCollection::Table)
                     .col(
                         ColumnDef::new(UserToCollection::CollectionId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .foreign_key(
