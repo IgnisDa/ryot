@@ -33,6 +33,7 @@ mod m20240510_1_port_owned_information;
 mod m20240511_port_reminders_to_information;
 mod m20240526_0_change_collection_primary_key;
 mod m20240526_1_change_review_primary_key;
+mod m20240526_2_change_seen_primary_key;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -85,6 +86,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240511_port_reminders_to_information::Migration),
             Box::new(m20240526_0_change_collection_primary_key::Migration),
             Box::new(m20240526_1_change_review_primary_key::Migration),
+            Box::new(m20240526_2_change_seen_primary_key::Migration),
         ]
     }
 }
