@@ -311,7 +311,7 @@ struct UpdateUserPreferenceInput {
 
 #[derive(Debug, InputObject)]
 struct GenreDetailsInput {
-    genre_id: i32,
+    genre_id: String,
     page: Option<u64>,
 }
 
@@ -6221,7 +6221,7 @@ impl MiscellaneousService {
 
     async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
         let page = input.page.unwrap_or(1);
-        let genre = Genre::find_by_id(input.genre_id)
+        let genre = Genre::find_by_id(input.genre_id.clone())
             .one(&self.db)
             .await?
             .unwrap();

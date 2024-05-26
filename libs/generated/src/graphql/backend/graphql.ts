@@ -546,12 +546,12 @@ export type GenreDetails = {
 };
 
 export type GenreDetailsInput = {
-  genreId: Scalars['Int']['input'];
+  genreId: Scalars['String']['input'];
   page?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type GenreListItem = {
-  id: Scalars['Int']['output'];
+  id: Scalars['String']['output'];
   name: Scalars['String']['output'];
   numItems?: Maybe<Scalars['Int']['output']>;
 };
@@ -2726,14 +2726,14 @@ export type GenreDetailsQueryVariables = Exact<{
 }>;
 
 
-export type GenreDetailsQuery = { genreDetails: { details: { id: number, name: string, numItems?: number | null }, contents: { details: { total: number, nextPage?: number | null }, items: Array<{ metadataLot?: MediaLot | null, details: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } } };
+export type GenreDetailsQuery = { genreDetails: { details: { id: string, name: string, numItems?: number | null }, contents: { details: { total: number, nextPage?: number | null }, items: Array<{ metadataLot?: MediaLot | null, details: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } } };
 
 export type GenresListQueryVariables = Exact<{
   input: SearchInput;
 }>;
 
 
-export type GenresListQuery = { genresList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: number, name: string, numItems?: number | null }> } };
+export type GenresListQuery = { genresList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: string, name: string, numItems?: number | null }> } };
 
 export type ImportReportsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2785,7 +2785,7 @@ export type MetadataMainDetailsQueryVariables = Exact<{
 }>;
 
 
-export type MetadataMainDetailsQuery = { metadataDetails: { title: string, lot: MediaLot, source: MediaSource, isNsfw?: boolean | null, isPartial?: boolean | null, sourceUrl?: string | null, identifier: string, description?: string | null, publishYear?: number | null, publishDate?: string | null, providerRating?: string | null, productionStatus?: string | null, originalLanguage?: string | null, genres: Array<{ id: number, name: string }>, group?: { id: number, name: string, part: number } | null, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> } } };
+export type MetadataMainDetailsQuery = { metadataDetails: { title: string, lot: MediaLot, source: MediaSource, isNsfw?: boolean | null, isPartial?: boolean | null, sourceUrl?: string | null, identifier: string, description?: string | null, publishYear?: number | null, publishDate?: string | null, providerRating?: string | null, productionStatus?: string | null, originalLanguage?: string | null, genres: Array<{ id: string, name: string }>, group?: { id: number, name: string, part: number } | null, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> } } };
 
 export type MetadataSearchQueryVariables = Exact<{
   input: MetadataSearchInput;

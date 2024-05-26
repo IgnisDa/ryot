@@ -229,7 +229,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
     pub struct GenreListItem {
-        pub id: i32,
+        pub id: String,
         pub name: String,
         pub num_items: Option<i64>,
     }
