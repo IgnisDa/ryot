@@ -1830,6 +1830,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "indoc",
+ "nanoid",
  "schematic",
  "sea-orm",
  "sea-orm-migration",

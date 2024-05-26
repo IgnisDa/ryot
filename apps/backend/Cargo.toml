@@ -52,7 +52,7 @@ lettre = { version = "0.11.6", features = [
     "builder",
 ], default-features = false }
 markdown = "1.0.0-alpha.15"
-nanoid = "0.4.0"
+nanoid = { workspace = true }
 openidconnect = "3.5.0"
 paginate = "1.1.11"
 rand = "0.8.5"
