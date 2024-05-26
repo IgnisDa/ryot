@@ -9,8 +9,8 @@ pub struct Migration;
 #[sea_orm(table_name = "collection")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
-    pub new_id: String,
+    pub id: String,
+    pub temp_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -23,17 +23,70 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         db.execute_unprepared(
-            r#"ALTER TABLE "collection" ADD COLUMN "new_id" text NOT NULL DEFAULT ''"#,
+            r#"
+ALTER TABLE "collection" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
+UPDATE "collection" SET "new_id" = 'new_prefix_' || "id";
+            "#,
+        )
+        .await?;
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "collection_to_entity" ADD COLUMN "new_collection_id" text;
+ALTER TABLE "review" ADD COLUMN "new_collection_id" text;
+ALTER TABLE "user_to_collection" ADD COLUMN "new_collection_id" text;
+
+UPDATE "collection_to_entity" SET "new_collection_id" = 'new_prefix_' || "collection_id";
+UPDATE "review" SET "new_collection_id" = 'new_prefix_' || "collection_id";
+UPDATE "user_to_collection" SET "new_collection_id" = 'new_prefix_' || "collection_id";
+
+ALTER TABLE "collection_to_entity" DROP CONSTRAINT "collection_to_entity-fk1";
+ALTER TABLE "review" DROP CONSTRAINT "review_to_collection_foreign_key";
+ALTER TABLE "user_to_collection" DROP CONSTRAINT "user_to_collection-fk1";
+
+ALTER TABLE "collection" DROP CONSTRAINT "collection_pkey";
+ALTER TABLE "collection" DROP COLUMN "id";
+ALTER TABLE "collection" RENAME COLUMN "new_id" TO "id";
+ALTER TABLE "collection" ADD PRIMARY KEY ("id");
+
+ALTER TABLE "collection" ADD COLUMN "temp_id" text;
+UPDATE "collection" SET "temp_id" = "id";
+
+ALTER TABLE "collection_to_entity" DROP COLUMN "collection_id";
+ALTER TABLE "collection_to_entity" RENAME COLUMN "new_collection_id" TO "collection_id";
+
+ALTER TABLE "review" DROP COLUMN "collection_id";
+ALTER TABLE "review" RENAME COLUMN "new_collection_id" TO "collection_id";
+
+ALTER TABLE "user_to_collection" DROP COLUMN "collection_id";
+ALTER TABLE "user_to_collection" RENAME COLUMN "new_collection_id" TO "collection_id";
+
+ALTER TABLE "collection_to_entity" ADD CONSTRAINT "collection_to_entity-fk1" FOREIGN KEY ("collection_id") REFERENCES "collection"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE "review" ADD CONSTRAINT "review_to_collection_foreign_key" FOREIGN KEY ("collection_id") REFERENCES "collection"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE "user_to_collection" ADD CONSTRAINT "user_to_collection-fk1" FOREIGN KEY ("collection_id") REFERENCES "collection"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+"#,
         )
         .await?;
         for col in Entity::find().all(db).await? {
             let new_id = format!("col_{}", nanoid!(12));
             let mut col: ActiveModel = col.into();
-            col.new_id = ActiveValue::Set(new_id);
+            col.temp_id = ActiveValue::Set(new_id);
             col.update(db).await?;
         }
-        db.execute_unprepared(r#"ALTER TABLE "collection" ALTER COLUMN "new_id" DROP DEFAULT"#)
-            .await?;
+        db.execute_unprepared(
+            r#"
+UPDATE "collection" SET "id" = "temp_id";
+
+ALTER TABLE "user_to_collection"
+ALTER COLUMN "collection_id" SET NOT NULL;
+
+ALTER TABLE "collection_to_entity"
+ALTER COLUMN "collection_id" SET NOT NULL;
+
+ALTER TABLE "collection" DROP COLUMN "temp_id";
+ALTER TABLE "collection" ALTER COLUMN "id" DROP DEFAULT;
+"#,
+        )
+        .await?;
         Ok(())
     }
 
