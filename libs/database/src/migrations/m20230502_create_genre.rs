@@ -26,13 +26,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Genre::Table)
-                    .col(
-                        ColumnDef::new(Genre::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Genre::Id).text().not_null().primary_key())
                     .col(ColumnDef::new(Genre::Name).text().not_null())
                     .to_owned(),
             )
@@ -56,11 +50,7 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(MetadataToGenre::GenreId)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(MetadataToGenre::GenreId).text().not_null())
                     .primary_key(
                         Index::create()
                             .name("pk-metadata_genre")

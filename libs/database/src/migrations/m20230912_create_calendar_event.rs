@@ -26,9 +26,8 @@ impl MigrationTrait for Migration {
                     .table(CalendarEvent::Table)
                     .col(
                         ColumnDef::new(CalendarEvent::Id)
-                            .integer()
+                            .text()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
