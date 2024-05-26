@@ -27,4 +27,10 @@ impl Related<super::metadata::Entity> for Entity {
     }
 }
 
+impl Related<super::metadata_to_genre::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToGenre.def()
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}

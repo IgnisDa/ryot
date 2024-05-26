@@ -1863,7 +1863,7 @@ const IndividualProgressModal = (props: {
 							</Text>
 							<Flex align="center" gap="xs">
 								<NumberInput
-									value={((props.total || 1) * (value || 1)) / 100}
+									defaultValue={((props.total || 1) * (value || 1)) / 100}
 									onChange={(v) => {
 										const newVal = (Number(v) / (props.total || 1)) * 100;
 										setValue(newVal);

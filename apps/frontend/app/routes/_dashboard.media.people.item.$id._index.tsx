@@ -351,19 +351,23 @@ export default function Page() {
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
-									<Stack>
-										{loaderData.userPersonDetails.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												personId={loaderData.personId}
-												title={loaderData.personDetails.details.name}
-												user={loaderData.userDetails}
-												reviewScale={loaderData.userPreferences.reviewScale}
-												entityType="person"
-											/>
-										))}
-									</Stack>
+									{loaderData.userPersonDetails.reviews.length > 0 ? (
+										<Stack>
+											{loaderData.userPersonDetails.reviews.map((r) => (
+												<ReviewItemDisplay
+													review={r}
+													key={r.id}
+													personId={loaderData.personId}
+													title={loaderData.personDetails.details.name}
+													user={loaderData.userDetails}
+													reviewScale={loaderData.userPreferences.reviewScale}
+													entityType="person"
+												/>
+											))}
+										</Stack>
+									) : (
+										<Text>No reviews</Text>
+									)}
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}

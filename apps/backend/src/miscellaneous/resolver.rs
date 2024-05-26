@@ -7083,6 +7083,18 @@ WHERE id IN (
                 .exec(&self.db)
                 .await?;
         }
+        let mut genre_stream = Genre::find()
+            .select_only()
+            .column(genre::Column::Id)
+            .left_join(MetadataToGenre)
+            .filter(metadata_to_genre::Column::MetadataId.is_null())
+            .into_tuple::<i32>()
+            .stream(&self.db)
+            .await?;
+        while let Some(genre) = genre_stream.try_next().await? {
+            tracing::debug!("Removing genre id = {:#?}", genre);
+            Genre::delete_by_id(genre).exec(&self.db).await?;
+        }
         Ok(())
     }
 
