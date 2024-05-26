@@ -18,7 +18,7 @@ use crate::{
 #[sea_orm(table_name = "review")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: String,
     pub posted_on: DateTimeUtc,
     pub rating: Option<Decimal>,
     pub text: Option<String>,

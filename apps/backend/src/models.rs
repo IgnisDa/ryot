@@ -829,7 +829,7 @@ pub mod media {
         pub collection_id: Option<String>,
         pub date: Option<DateTimeUtc>,
         /// ID of the review if this is an update to an existing review
-        pub review_id: Option<i32>,
+        pub review_id: Option<String>,
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
@@ -1308,7 +1308,7 @@ pub mod media {
         pub obj_id: String,
         pub obj_title: String,
         pub username: String,
-        pub review_id: i32,
+        pub review_id: String,
         pub entity_lot: EntityLot,
     }
 

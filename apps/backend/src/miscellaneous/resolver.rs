@@ -348,7 +348,7 @@ struct CollectionContents {
 
 #[derive(Debug, SimpleObject)]
 struct ReviewItem {
-    id: i32,
+    id: String,
     posted_on: DateTimeUtc,
     rating: Option<Decimal>,
     text_original: Option<String>,
@@ -672,7 +672,7 @@ struct PresignedPutUrlResponse {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateReviewCommentInput {
     /// The review this comment belongs to.
-    review_id: i32,
+    review_id: String,
     comment_id: Option<String>,
     text: Option<String>,
     increment_likes: Option<bool>,
@@ -1075,7 +1075,11 @@ pub struct MiscellaneousMutation;
 #[Object]
 impl MiscellaneousMutation {
     /// Create or update a review.
-    async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
+    async fn post_review(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: PostReviewInput,
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.post_review(user_id, input).await
@@ -3691,7 +3695,7 @@ impl MiscellaneousService {
 
     async fn review_by_id(
         &self,
-        review_id: i32,
+        review_id: String,
         user_id: i32,
         respect_preferences: bool,
     ) -> Result<ReviewItem> {
@@ -3763,7 +3767,7 @@ impl MiscellaneousService {
             .apply_if(collection_id, |query, v| {
                 query.filter(review::Column::CollectionId.eq(v))
             })
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await
             .unwrap();
@@ -4025,14 +4029,18 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn post_review(&self, user_id: i32, input: PostReviewInput) -> Result<IdObject> {
+    pub async fn post_review(
+        &self,
+        user_id: i32,
+        input: PostReviewInput,
+    ) -> Result<StringIdObject> {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
         if preferences.general.disable_reviews {
             return Err(Error::new("Reviews are disabled"));
         }
-        let review_id = match input.review_id {
+        let review_id = match input.review_id.clone() {
             Some(i) => ActiveValue::Set(i),
             None => ActiveValue::NotSet,
         };
@@ -4148,7 +4156,7 @@ impl MiscellaneousService {
                     .unwrap();
             }
         }
-        Ok(IdObject {
+        Ok(StringIdObject {
             id: insert.id.unwrap(),
         })
     }
