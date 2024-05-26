@@ -4040,10 +4040,6 @@ impl MiscellaneousService {
         if preferences.general.disable_reviews {
             return Err(Error::new("Reviews are disabled"));
         }
-        let review_id = match input.review_id.clone() {
-            Some(i) => ActiveValue::Set(i),
-            None => ActiveValue::NotSet,
-        };
         let show_ei = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
@@ -4073,7 +4069,10 @@ impl MiscellaneousService {
             return Err(Error::new("At-least one of rating or review is required."));
         }
         let mut review_obj = review::ActiveModel {
-            id: review_id,
+            id: match input.review_id.clone() {
+                Some(i) => ActiveValue::Unchanged(i),
+                None => ActiveValue::Set(format!("rev_{}", nanoid!(12))),
+            },
             rating: ActiveValue::Set(input.rating.map(
                 |r| match preferences.general.review_scale {
                     UserReviewScale::OutOfFive => r * dec!(20),
