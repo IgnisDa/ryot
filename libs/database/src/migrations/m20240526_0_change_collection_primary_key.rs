@@ -25,7 +25,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 ALTER TABLE "collection" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
-UPDATE "collection" SET "new_id" = 'new_prefix_' || "id";
+UPDATE "collection" SET "new_id" = 'col_' || "id";
             "#,
         )
         .await?;
