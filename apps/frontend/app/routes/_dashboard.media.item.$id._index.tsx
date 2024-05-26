@@ -396,7 +396,7 @@ const bulkUpdateSchema = z
 	.merge(MetadataSpecificsSchema)
 	.merge(metadataIdSchema);
 
-const seenIdSchema = z.object({ seenId: zx.IntAsString });
+const seenIdSchema = z.object({ seenId: z.string() });
 
 const mergeMetadataSchema = z.object({
 	mergeFrom: zx.IntAsString,
@@ -408,7 +408,7 @@ const dateString = z
 	.transform((v) => formatDateToNaiveDate(new Date(v)));
 
 const editSeenItem = z.object({
-	seenId: zx.IntAsString,
+	seenId: z.string(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 });
@@ -1927,7 +1927,7 @@ const MetadataCreator = (props: {
 const AdjustSeenTimesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	seenId: number;
+	seenId: string;
 	startedAt?: string | null;
 	endedAt?: string | null;
 }) => {
