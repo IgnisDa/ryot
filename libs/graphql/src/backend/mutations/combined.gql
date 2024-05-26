@@ -76,7 +76,7 @@ mutation DeleteS3Object($key: String!) {
   deleteS3Object(key: $key)
 }
 
-mutation DeleteSeenItem($seenId: Int!) {
+mutation DeleteSeenItem($seenId: String!) {
   deleteSeenItem(seenId: $seenId) {
     id
   }

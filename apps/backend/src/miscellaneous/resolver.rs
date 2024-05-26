@@ -658,7 +658,7 @@ struct DeleteMediaReminderInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct EditSeenItemInput {
-    seen_id: i32,
+    seen_id: String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
 }
@@ -1137,7 +1137,11 @@ impl MiscellaneousMutation {
     }
 
     /// Delete a seen item from a user's history.
-    async fn delete_seen_item(&self, gql_ctx: &Context<'_>, seen_id: i32) -> Result<IdObject> {
+    async fn delete_seen_item(
+        &self,
+        gql_ctx: &Context<'_>,
+        seen_id: String,
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_seen_item(user_id, seen_id).await
@@ -2409,12 +2413,12 @@ impl MiscellaneousService {
             }
         };
         tracing::debug!("Progress update = {:?}", seen);
-        let id = seen.id;
+        let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache.cache_set(cache, ()).unwrap();
         }
         self.after_media_seen_tasks(seen).await?;
-        Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
+        Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
     }
 
     async fn deploy_bulk_progress_update(
@@ -4305,7 +4309,7 @@ impl MiscellaneousService {
         Ok(StringIdObject { id: collect.id })
     }
 
-    async fn delete_seen_item(&self, user_id: i32, seen_id: i32) -> Result<IdObject> {
+    async fn delete_seen_item(&self, user_id: i32, seen_id: String) -> Result<StringIdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
             let (ssn, sen) = match &si.show_extra_information {
@@ -4325,7 +4329,7 @@ impl MiscellaneousService {
                 manga_chapter_number: mcn,
             };
             self.seen_progress_cache.cache_remove(&cache).unwrap();
-            let seen_id = si.id;
+            let seen_id = si.id.clone();
             let progress = si.progress;
             let metadata_id = si.metadata_id;
             if si.user_id != user_id {
@@ -4349,7 +4353,7 @@ impl MiscellaneousService {
             }
             associate_user_with_entity(&user_id, Some(metadata_id), None, None, None, &self.db)
                 .await?;
-            Ok(IdObject { id: seen_id })
+            Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }

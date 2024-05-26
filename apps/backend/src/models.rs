@@ -897,7 +897,7 @@ pub mod media {
 
     #[derive(Union)]
     pub enum ProgressUpdateResultUnion {
-        Ok(IdObject),
+        Ok(StringIdObject),
         Error(ProgressUpdateError),
     }
 

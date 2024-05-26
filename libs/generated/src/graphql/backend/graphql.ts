@@ -328,7 +328,7 @@ export type EditCustomExerciseInput = {
 
 export type EditSeenItemInput = {
   finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
-  seenId: Scalars['Int']['input'];
+  seenId: Scalars['String']['input'];
   startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
 };
 
@@ -1007,7 +1007,7 @@ export type MutationRoot = {
   /** Delete an S3 object by the given key. */
   deleteS3Object: Scalars['Boolean']['output'];
   /** Delete a seen item from a user's history. */
-  deleteSeenItem: IdObject;
+  deleteSeenItem: StringIdObject;
   /** Delete a user. The account making the user must an `Admin`. */
   deleteUser: Scalars['Boolean']['output'];
   /** Delete an integration for the currently logged in user. */
@@ -1151,7 +1151,7 @@ export type MutationRootDeleteS3ObjectArgs = {
 
 
 export type MutationRootDeleteSeenItemArgs = {
-  seenId: Scalars['Int']['input'];
+  seenId: Scalars['String']['input'];
 };
 
 
@@ -1713,7 +1713,7 @@ export type SearchInput = {
 export type Seen = {
   animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
   finishedOn?: Maybe<Scalars['NaiveDate']['output']>;
-  id: Scalars['Int']['output'];
+  id: Scalars['String']['output'];
   lastUpdatedOn: Scalars['DateTime']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
   metadataId: Scalars['Int']['output'];
@@ -2539,11 +2539,11 @@ export type DeleteS3ObjectMutationVariables = Exact<{
 export type DeleteS3ObjectMutation = { deleteS3Object: boolean };
 
 export type DeleteSeenItemMutationVariables = Exact<{
-  seenId: Scalars['Int']['input'];
+  seenId: Scalars['String']['input'];
 }>;
 
 
-export type DeleteSeenItemMutation = { deleteSeenItem: { id: number } };
+export type DeleteSeenItemMutation = { deleteSeenItem: { id: string } };
 
 export type DeleteUserMutationVariables = Exact<{
   toDeleteUserId: Scalars['Int']['input'];
@@ -2839,7 +2839,7 @@ export type UserMetadataDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserMetadataDetailsQuery = { userMetadataDetails: { averageRating?: string | null, unitsConsumed?: number | null, seenBy: number, collections: Array<{ id: string, name: string, userId: number }>, inProgress?: { id: number, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, totalTimeSpent?: number | null, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null } | null, history: Array<{ id: number, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, totalTimeSpent?: number | null, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, spoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, nextEntry?: { season?: number | null, episode?: number | null, chapter?: number | null } | null } };
+export type UserMetadataDetailsQuery = { userMetadataDetails: { averageRating?: string | null, unitsConsumed?: number | null, seenBy: number, collections: Array<{ id: string, name: string, userId: number }>, inProgress?: { id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, totalTimeSpent?: number | null, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null } | null, history: Array<{ id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, totalTimeSpent?: number | null, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, spoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: number, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<number>, user: { id: number, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, nextEntry?: { season?: number | null, episode?: number | null, chapter?: number | null } | null } };
 
 export type UserMetadataGroupDetailsQueryVariables = Exact<{
   metadataGroupId: Scalars['Int']['input'];
@@ -2954,7 +2954,7 @@ export type SeenMangaExtraInformationPartFragment = { chapter?: number | null, v
 
 export type CalendarEventPartFragment = { calendarEventId: number, metadataId: number, metadataTitle: string, metadataLot: MediaLot, metadataImage?: string | null, date: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null };
 
-export type SeenPartFragment = { id: number, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, totalTimeSpent?: number | null, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null };
+export type SeenPartFragment = { id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, totalTimeSpent?: number | null, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null };
 
 export type MetadataSearchItemPartFragment = { identifier: string, title: string, image?: string | null, publishYear?: number | null };
 
@@ -3005,7 +3005,7 @@ export const CreateUserYankIntegrationDocument = {"kind":"Document","definitions
 export const DeleteCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"collectionName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}}}]}]}}]} as unknown as DocumentNode<DeleteCollectionMutation, DeleteCollectionMutationVariables>;
 export const DeleteReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"reviewId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"reviewId"}}}]}]}}]} as unknown as DocumentNode<DeleteReviewMutation, DeleteReviewMutationVariables>;
 export const DeleteS3ObjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteS3Object"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteS3Object"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}]}]}}]} as unknown as DocumentNode<DeleteS3ObjectMutation, DeleteS3ObjectMutationVariables>;
-export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
+export const DeleteSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"seenId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"seenId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteSeenItemMutation, DeleteSeenItemMutationVariables>;
 export const DeleteUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"toDeleteUserId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"toDeleteUserId"}}}]}]}}]} as unknown as DocumentNode<DeleteUserMutation, DeleteUserMutationVariables>;
 export const DeleteUserIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"integrationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"integrationLot"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserIntegrationLot"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"integrationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"integrationId"}}},{"kind":"Argument","name":{"kind":"Name","value":"integrationLot"},"value":{"kind":"Variable","name":{"kind":"Name","value":"integrationLot"}}}]}]}}]} as unknown as DocumentNode<DeleteUserIntegrationMutation, DeleteUserIntegrationMutationVariables>;
 export const DeleteUserMeasurementDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteUserMeasurement"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"timestamp"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteUserMeasurement"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"timestamp"},"value":{"kind":"Variable","name":{"kind":"Name","value":"timestamp"}}}]}]}}]} as unknown as DocumentNode<DeleteUserMeasurementMutation, DeleteUserMeasurementMutationVariables>;
