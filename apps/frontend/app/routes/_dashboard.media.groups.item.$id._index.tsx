@@ -122,7 +122,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="metadataGroup"
-				objectId={loaderData.metadataGroupId}
+				objectId={loaderData.metadataGroupId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
 			/>

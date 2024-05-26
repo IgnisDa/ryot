@@ -157,7 +157,7 @@ export const ReviewItemDisplay = (props: {
 	metadataId?: number;
 	metadataGroupId?: number;
 	personId?: number;
-	collectionId?: number;
+	collectionId?: string;
 	lot?: MediaLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -178,11 +178,11 @@ export const ReviewItemDisplay = (props: {
 				data={postReviewModalData}
 				entityType={props.entityType}
 				objectId={
-					props.metadataId ||
-					props.metadataGroupId ||
-					props.collectionId ||
-					props.personId ||
-					-1
+					props.metadataId?.toString() ||
+					props.metadataGroupId?.toString() ||
+					props.collectionId?.toString() ||
+					props.personId?.toString() ||
+					""
 				}
 				reviewScale={props.reviewScale}
 				title={props.title}
@@ -712,7 +712,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 
 export const DisplayCollection = (props: {
 	userId: number;
-	col: { id: number; name: string };
+	col: { id: string; name: string };
 	entityId: string;
 	entityLot: EntityLot;
 }) => {
@@ -773,7 +773,7 @@ type EntityType = "metadata" | "metadataGroup" | "collection" | "person";
 export const PostReviewModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	objectId: number;
+	objectId: string;
 	entityType: EntityType;
 	title: string;
 	reviewScale: UserReviewScale;

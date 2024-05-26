@@ -45,7 +45,6 @@ import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
-import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
@@ -141,12 +140,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const createOrUpdateSchema = z.object({
 	name: z.string(),
 	description: z.string().optional(),
-	updateId: zx.IntAsString.optional(),
+	updateId: z.string().optional(),
 });
 
 type UpdateCollectionInput = {
 	name: string;
-	id: number;
+	id: string;
 	isDefault: boolean;
 	description?: string | null;
 };

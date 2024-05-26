@@ -237,7 +237,7 @@ const reviewSchema = z
 		spoiler: zx.CheckboxAsString.optional(),
 		metadataId: zx.IntAsString.optional(),
 		metadataGroupId: zx.IntAsString.optional(),
-		collectionId: zx.IntAsString.optional(),
+		collectionId: z.string().optional(),
 		personId: zx.IntAsString.optional(),
 		reviewId: zx.IntAsString.optional(),
 	})

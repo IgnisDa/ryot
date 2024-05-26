@@ -152,7 +152,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="person"
-				objectId={loaderData.personId}
+				objectId={loaderData.personId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.personDetails.details.name}
 			/>
