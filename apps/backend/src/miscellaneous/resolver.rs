@@ -4071,7 +4071,7 @@ impl MiscellaneousService {
         let mut review_obj = review::ActiveModel {
             id: match input.review_id.clone() {
                 Some(i) => ActiveValue::Unchanged(i),
-                None => ActiveValue::Set(format!("rev_{}", nanoid!(12))),
+                None => ActiveValue::NotSet,
             },
             rating: ActiveValue::Set(input.rating.map(
                 |r| match preferences.general.review_scale {
@@ -4219,7 +4219,7 @@ impl MiscellaneousService {
                             }
                             ActiveValue::Unchanged(i.clone())
                         }
-                        None => ActiveValue::Set(format!("col_{}", nanoid!(12))),
+                        None => ActiveValue::NotSet,
                     },
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     name: ActiveValue::Set(new_name),
