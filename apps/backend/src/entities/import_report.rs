@@ -48,7 +48,7 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         if insert {
-            self.id = ActiveValue::Set(format!("rev_{}", nanoid!(12)));
+            self.id = ActiveValue::Set(format!("imp_{}", nanoid!(12)));
         }
         Ok(self)
     }
