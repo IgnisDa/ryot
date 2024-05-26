@@ -691,7 +691,7 @@ export type ImportOrExportItemReviewComment = {
 export type ImportReport = {
   details?: Maybe<ImportResultResponse>;
   finishedOn?: Maybe<Scalars['DateTime']['output']>;
-  id: Scalars['Int']['output'];
+  id: Scalars['String']['output'];
   source: ImportSource;
   startedOn: Scalars['DateTime']['output'];
   success?: Maybe<Scalars['Boolean']['output']>;
@@ -2738,7 +2738,7 @@ export type GenresListQuery = { genresList: { details: { total: number, nextPage
 export type ImportReportsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ImportReportsQuery = { importReports: Array<{ id: number, source: ImportSource, startedOn: string, finishedOn?: string | null, success?: boolean | null, details?: { import: { total: number }, failedItems: Array<{ lot?: MediaLot | null, step: ImportFailStep, identifier: string, error?: string | null }> } | null }> };
+export type ImportReportsQuery = { importReports: Array<{ id: string, source: ImportSource, startedOn: string, finishedOn?: string | null, success?: boolean | null, details?: { import: { total: number }, failedItems: Array<{ lot?: MediaLot | null, step: ImportFailStep, identifier: string, error?: string | null }> } | null }> };
 
 export type LatestUserSummaryQueryVariables = Exact<{ [key: string]: never; }>;
 
