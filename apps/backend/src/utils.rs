@@ -197,6 +197,13 @@ pub async fn associate_user_with_entity<C>(
 where
     C: ConnectionTrait,
 {
+    if metadata_id.is_none()
+        && person_id.is_none()
+        && exercise_id.is_none()
+        && metadata_group_id.is_none()
+    {
+        return Err(Error::new("No entity to associate to."));
+    }
     let user_to_meta = get_user_to_entity_association(
         user_id,
         metadata_id,
