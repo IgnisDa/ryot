@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 ALTER TABLE "seen" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
-UPDATE "seen" SET "new_id" = 'see_' || "id";
+UPDATE "seen" SET "new_id" = 'rev_' || "id";
             "#,
         )
         .await?;
