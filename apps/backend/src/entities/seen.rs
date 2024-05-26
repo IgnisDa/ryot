@@ -25,7 +25,7 @@ use crate::{
 #[graphql(name = "Seen")]
 #[sea_orm(table_name = "seen")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub progress: Decimal,
     pub started_on: Option<NaiveDate>,

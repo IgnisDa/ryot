@@ -13,7 +13,7 @@ use crate::miscellaneous::CollectionExtraInformation;
 #[sea_orm(table_name = "collection")]
 #[graphql(name = "Collection")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,

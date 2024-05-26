@@ -13,7 +13,7 @@ use crate::importer::ImportResultResponse;
 #[sea_orm(table_name = "import_report")]
 #[graphql(name = "ImportReport")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub user_id: i32,
     pub source: ImportSource,

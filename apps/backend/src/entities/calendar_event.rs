@@ -11,7 +11,7 @@ use crate::models::media::{SeenPodcastExtraInformation, SeenShowExtraInformation
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "calendar_event")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub date: NaiveDate,
     pub metadata_id: Option<i32>,
