@@ -313,7 +313,7 @@ pub async fn add_entity_to_collection(
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(db).await.unwrap();
     let resp = if let Some(etc) = CollectionToEntity::find()
-        .filter(CteCol::CollectionId.eq(collection.id))
+        .filter(CteCol::CollectionId.eq(collection.id.clone()))
         .filter(
             CteCol::MetadataId
                 .eq(input.metadata_id)

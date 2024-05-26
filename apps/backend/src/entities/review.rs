@@ -28,7 +28,7 @@ pub struct Model {
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
     pub metadata_group_id: Option<i32>,
-    pub collection_id: Option<i32>,
+    pub collection_id: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,

@@ -11,7 +11,7 @@ use crate::miscellaneous::CollectionExtraInformation;
 #[graphql(name = "Collection")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: String,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub name: String,

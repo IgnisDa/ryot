@@ -120,6 +120,11 @@ pub struct IdObject {
     pub id: i32,
 }
 
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
+pub struct StringIdObject {
+    pub id: String,
+}
+
 /// Complete export of the user.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
@@ -211,7 +216,7 @@ pub mod media {
     pub struct CreateOrUpdateCollectionInput {
         pub name: String,
         pub description: Option<String>,
-        pub update_id: Option<i32>,
+        pub update_id: Option<String>,
         pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 
@@ -821,7 +826,7 @@ pub mod media {
         pub metadata_id: Option<i32>,
         pub person_id: Option<i32>,
         pub metadata_group_id: Option<i32>,
-        pub collection_id: Option<i32>,
+        pub collection_id: Option<String>,
         pub date: Option<DateTimeUtc>,
         /// ID of the review if this is an update to an existing review
         pub review_id: Option<i32>,
@@ -1300,7 +1305,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ReviewPostedEvent {
-        pub obj_id: i32,
+        pub obj_id: String,
         pub obj_title: String,
         pub username: String,
         pub review_id: i32,
