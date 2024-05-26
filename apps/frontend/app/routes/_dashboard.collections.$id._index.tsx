@@ -336,19 +336,23 @@ export default function Page() {
 						</Tabs.Panel>
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
-								<Stack>
-									{loaderData.info.reviews.map((r) => (
-										<ReviewItemDisplay
-											title={loaderData.info.details.name}
-											review={r}
-											key={r.id}
-											collectionId={loaderData.id}
-											reviewScale={loaderData.userPreferences.reviewScale}
-											user={loaderData.userDetails}
-											entityType="collection"
-										/>
-									))}
-								</Stack>
+								{loaderData.info.reviews.length > 0 ? (
+									<Stack>
+										{loaderData.info.reviews.map((r) => (
+											<ReviewItemDisplay
+												title={loaderData.info.details.name}
+												review={r}
+												key={r.id}
+												collectionId={loaderData.id}
+												reviewScale={loaderData.userPreferences.reviewScale}
+												user={loaderData.userDetails}
+												entityType="collection"
+											/>
+										))}
+									</Stack>
+								) : (
+									<Text>No reviews</Text>
+								)}
 							</Tabs.Panel>
 						) : null}
 					</Tabs>

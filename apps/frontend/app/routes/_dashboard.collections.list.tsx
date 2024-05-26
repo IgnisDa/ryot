@@ -153,6 +153,9 @@ type UpdateCollectionInput = {
 export default function Page() {
 	const transition = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
+	const userCreatedCollections = loaderData.collections.filter(
+		(c) => !c.isDefault,
+	);
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
@@ -200,10 +203,9 @@ export default function Page() {
 							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="userCreated">
-							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								{loaderData.collections
-									.filter((c) => !c.isDefault)
-									.map((c) => (
+							{userCreatedCollections.length > 0 ? (
+								<SimpleGrid cols={{ base: 1, md: 2 }}>
+									{userCreatedCollections.map((c) => (
 										<DisplayCollection
 											key={c.id}
 											collection={c}
@@ -211,7 +213,10 @@ export default function Page() {
 											openModal={createOrUpdateModalOpen}
 										/>
 									))}
-							</SimpleGrid>
+								</SimpleGrid>
+							) : (
+								<Text>You have not created any collections yet</Text>
+							)}
 						</Tabs.Panel>
 						<Tabs.Panel value="systemCreated">
 							<SimpleGrid cols={{ base: 1, md: 2 }}>

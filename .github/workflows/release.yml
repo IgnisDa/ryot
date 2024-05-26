@@ -80,14 +80,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get docker image name and build args
+      - name: Get docker image names
         id: required_args
-        run: |
-          image_name="${{ env.REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}"
-          image_names="$image_name:${{ github.ref_name }},$image_name:latest"
-          # lowercase the name
-          image_names=$(echo "$image_names" | tr '[:upper:]' '[:lower:]')
-          echo "image_names=$image_names" >> $GITHUB_OUTPUT
+        uses: actions/github-script@v7
+        with:
+          script: |
+            function generateVersionArray(version) {
+            	const parts = version.split(".");
+            	let versionArray = [];
+            	for (let i = 0; i < parts.length; i++)
+            		versionArray.push(parts.slice(0, i + 1).join("."));
+            	return versionArray;
+            }
+
+            const registry = process.env.REGISTRY;
+            const actor = context.actor;
+            const repoName = context.payload.repository.name;
+            const refName = context.ref.replace('refs/tags/', '');
+            const imageName = `${registry}/${actor}/${repoName}`;
+            const versionTags = generateVersionArray(refName);
+            const tags = versionTags.map(tag => `${imageName}:${tag}`);
+            const imageNames = tags.join(',').toLowerCase();
+            core.setOutput('image_names', imageNames);
 
       - name: Build and push to ghcr
         uses: docker/build-push-action@v5
