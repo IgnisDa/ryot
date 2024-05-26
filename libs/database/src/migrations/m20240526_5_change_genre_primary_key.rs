@@ -35,7 +35,7 @@ ALTER TABLE "metadata_to_genre" ADD COLUMN "new_genre_id" text;
 
 UPDATE "metadata_to_genre" SET "new_genre_id" = 'new_prefix_' || "genre_id";
 
-ALTER TABLE "metadata_to_genre" DROP CONSTRAINT "metadata_to_genre";
+ALTER TABLE "metadata_to_genre" DROP CONSTRAINT "fk-genre_id-metadata_id";
 
 ALTER TABLE "genre" DROP CONSTRAINT "genre_pkey";
 ALTER TABLE "genre" DROP COLUMN "id";
@@ -48,7 +48,7 @@ UPDATE "genre" SET "temp_id" = "id";
 ALTER TABLE "metadata_to_genre" DROP COLUMN "genre_id";
 ALTER TABLE "metadata_to_genre" RENAME COLUMN "new_genre_id" TO "genre_id";
 
-ALTER TABLE "metadata_to_genre" ADD CONSTRAINT "metadata_to_genre" FOREIGN KEY ("genre_id") REFERENCES "genre"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE "metadata_to_genre" ADD CONSTRAINT "fk-genre_id-metadata_id" FOREIGN KEY ("genre_id") REFERENCES "genre"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 
 ALTER TABLE "metadata_to_genre"
 ADD CONSTRAINT "pk-metadata_genre" PRIMARY KEY (metadata_id, genre_id);
