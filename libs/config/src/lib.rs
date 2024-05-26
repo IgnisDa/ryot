@@ -312,9 +312,6 @@ impl IsFeatureEnabled for FileStorageConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
-    /// The url to the SQLite database where job related data needs to be stored.
-    #[setting(default = "sqlite::memory:")]
-    pub database_url: String,
     /// The number of jobs to process every 5 seconds when updating metadata in
     /// the background.
     #[setting(default = 5)]
@@ -469,7 +466,6 @@ impl AppConfig {
         cl.integration.hasher_salt = gt();
         cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
-        cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
         cl.server.config_dump_path = gt();

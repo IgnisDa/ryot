@@ -1025,11 +1025,11 @@ export type MutationRoot = {
   /** Deploy a job to export data for a user. */
   deployExportJob: Scalars['Boolean']['output'];
   /** Add job to import data from various sources. */
-  deployImportJob: Scalars['String']['output'];
+  deployImportJob: Scalars['Boolean']['output'];
   /** Deploy a job to update a media item's metadata. */
-  deployUpdateMetadataJob: Scalars['String']['output'];
+  deployUpdateMetadataJob: Scalars['Boolean']['output'];
   /** Deploy a job to update a person's metadata. */
-  deployUpdatePersonJob: Scalars['String']['output'];
+  deployUpdatePersonJob: Scalars['Boolean']['output'];
   /**
    * Use this mutation to call a function that needs to be tested for implementation.
    * It is only available in development mode.
@@ -2603,21 +2603,21 @@ export type DeployImportJobMutationVariables = Exact<{
 }>;
 
 
-export type DeployImportJobMutation = { deployImportJob: string };
+export type DeployImportJobMutation = { deployImportJob: boolean };
 
 export type DeployUpdateMetadataJobMutationVariables = Exact<{
   metadataId: Scalars['Int']['input'];
 }>;
 
 
-export type DeployUpdateMetadataJobMutation = { deployUpdateMetadataJob: string };
+export type DeployUpdateMetadataJobMutation = { deployUpdateMetadataJob: boolean };
 
 export type DeployUpdatePersonJobMutationVariables = Exact<{
   personId: Scalars['Int']['input'];
 }>;
 
 
-export type DeployUpdatePersonJobMutation = { deployUpdatePersonJob: string };
+export type DeployUpdatePersonJobMutation = { deployUpdatePersonJob: boolean };
 
 export type EditSeenItemMutationVariables = Exact<{
   input: EditSeenItemInput;
