@@ -63,6 +63,14 @@ ALTER TABLE "user_to_collection" RENAME COLUMN "new_collection_id" TO "collectio
 ALTER TABLE "collection_to_entity" ADD CONSTRAINT "collection_to_entity-fk1" FOREIGN KEY ("collection_id") REFERENCES "collection"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE "review" ADD CONSTRAINT "review_to_collection_foreign_key" FOREIGN KEY ("collection_id") REFERENCES "collection"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE "user_to_collection" ADD CONSTRAINT "user_to_collection-fk1" FOREIGN KEY ("collection_id") REFERENCES "collection"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+
+ALTER TABLE "user_to_collection"
+ADD CONSTRAINT "pk-user_to_collection" PRIMARY KEY (user_id, collection_id);
+
+CREATE UNIQUE INDEX "collection_to_entity_uqi1" ON "collection_to_entity" ("collection_id", "metadata_id");
+CREATE UNIQUE INDEX "collection_to_entity_uqi2" ON "collection_to_entity" ("collection_id", "person_id");
+CREATE UNIQUE INDEX "collection_to_entity_uqi3" ON "collection_to_entity" ("collection_id", "metadata_group_id");
+CREATE UNIQUE INDEX "collection_to_entity_uqi4" ON "collection_to_entity" ("collection_id", "exercise_id");
 "#,
         )
         .await?;
