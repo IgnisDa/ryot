@@ -3225,7 +3225,7 @@ impl MiscellaneousService {
             .column(collection::Column::Id)
             .left_join(UserToCollection)
             .filter(user_to_collection::Column::UserId.eq(user_id))
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&txn)
             .await
             .unwrap();
