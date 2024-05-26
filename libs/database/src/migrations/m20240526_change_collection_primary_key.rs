@@ -72,18 +72,22 @@ ALTER TABLE "user_to_collection" ADD CONSTRAINT "user_to_collection-fk1" FOREIGN
             col.temp_id = ActiveValue::Set(new_id);
             col.update(db).await?;
         }
+        db.execute_unprepared(r#"UPDATE "collection" SET "id" = "temp_id""#)
+            .await?;
         db.execute_unprepared(
             r#"
-UPDATE "collection" SET "id" = "temp_id";
-
 ALTER TABLE "user_to_collection"
 ALTER COLUMN "collection_id" SET NOT NULL;
 
 ALTER TABLE "collection_to_entity"
 ALTER COLUMN "collection_id" SET NOT NULL;
-
-ALTER TABLE "collection" DROP COLUMN "temp_id";
+"#,
+        )
+        .await?;
+        db.execute_unprepared(
+            r#"
 ALTER TABLE "collection" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE "collection" DROP COLUMN "temp_id";
 "#,
         )
         .await?;
