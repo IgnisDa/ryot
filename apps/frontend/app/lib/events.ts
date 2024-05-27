@@ -28,7 +28,4 @@ export default {
 	addToCollection: (entityLot: EntityLot) => {
 		window.umami?.track("Add To Collection", { entityLot });
 	},
-	markAsOwned: () => {
-		window.umami?.track("Mark As Owned", {});
-	},
 };
