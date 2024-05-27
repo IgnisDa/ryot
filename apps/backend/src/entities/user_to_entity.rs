@@ -25,7 +25,7 @@ pub struct Model {
     pub media_reason: Option<Vec<UserToMediaReason>>,
     #[graphql(skip)]
     pub needs_to_be_updated: Option<bool>,
-    pub metadata_group_id: Option<i32>,
+    pub metadata_group_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

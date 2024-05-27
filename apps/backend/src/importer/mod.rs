@@ -452,7 +452,7 @@ impl ImporterService {
                 .media_service
                 .commit_metadata_group_internal(&item.identifier, item.lot, item.source)
                 .await;
-            let metadata_id = match data {
+            let metadata_group_id = match data {
                 Ok(r) => r.0,
                 Err(e) => {
                     tracing::error!("{e:?}");
@@ -466,9 +466,13 @@ impl ImporterService {
                 }
             };
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, None, None, Some(metadata_id))
-                {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    None,
+                    None,
+                    Some(metadata_group_id.clone()),
+                ) {
                     if let Err(e) = self.media_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
@@ -495,7 +499,7 @@ impl ImporterService {
                         ChangeCollectionToEntityInput {
                             creator_user_id: user_id,
                             collection_name: col.to_string(),
-                            metadata_id: Some(metadata_id),
+                            metadata_group_id: Some(metadata_group_id.clone()),
                             ..Default::default()
                         },
                     )
@@ -647,7 +651,7 @@ fn convert_review_into_input(
     preferences: &UserPreferences,
     metadata_id: Option<i32>,
     person_id: Option<i32>,
-    metadata_group_id: Option<i32>,
+    metadata_group_id: Option<String>,
 ) -> Option<PostReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
         tracing::debug!("Skipping review since it has no content");

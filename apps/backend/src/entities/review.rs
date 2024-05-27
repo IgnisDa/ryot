@@ -28,7 +28,7 @@ pub struct Model {
     pub user_id: i32,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
-    pub metadata_group_id: Option<i32>,
+    pub metadata_group_id: Option<String>,
     pub collection_id: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
@@ -134,7 +134,7 @@ impl ActiveModelBehavior for ActiveModel {
                 model.metadata_id,
                 model.person_id,
                 None,
-                model.metadata_group_id,
+                model.metadata_group_id.clone(),
                 db,
             )
             .await

@@ -12,7 +12,7 @@ pub struct Model {
     pub collection_id: String,
     pub metadata_id: Option<i32>,
     pub person_id: Option<i32>,
-    pub metadata_group_id: Option<i32>,
+    pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
     pub information: Option<serde_json::Value>,
 }
