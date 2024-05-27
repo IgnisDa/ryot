@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub person_id: i32,
+    pub person_id: String,
     #[sea_orm(primary_key, auto_increment = false)]
     pub role: String,
     pub index: Option<i32>,

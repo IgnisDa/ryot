@@ -1,4 +1,4 @@
-query UserPersonDetails($personId: Int!) {
+query UserPersonDetails($personId: String!) {
   userPersonDetails(personId: $personId) {
     collections {
       ...CollectionPart

@@ -104,7 +104,7 @@ pub enum ApplicationJob {
     ReEvaluateUserWorkouts(i32),
     UpdateMetadata(i32),
     UpdateGithubExerciseJob(Exercise),
-    UpdatePerson(i32),
+    UpdatePerson(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ReviewPosted(ReviewPostedEvent),

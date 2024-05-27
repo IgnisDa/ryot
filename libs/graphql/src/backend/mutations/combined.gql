@@ -125,7 +125,7 @@ mutation DeployUpdateMetadataJob($metadataId: Int!) {
   deployUpdateMetadataJob(metadataId: $metadataId)
 }
 
-mutation DeployUpdatePersonJob($personId: Int!) {
+mutation DeployUpdatePersonJob($personId: String!) {
   deployUpdatePersonJob(personId: $personId)
 }
 
