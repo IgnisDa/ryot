@@ -147,8 +147,8 @@ pub struct ChangeCollectionToEntityInput {
     pub creator_user_id: i32,
     pub collection_name: String,
     pub metadata_id: Option<i32>,
-    pub person_id: Option<i32>,
-    pub metadata_group_id: Option<i32>,
+    pub person_id: Option<String>,
+    pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
     pub information: Option<HashMap<String, String>>,
 }
@@ -206,7 +206,7 @@ pub mod media {
 
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
-        pub id: i32,
+        pub id: String,
         pub name: String,
         pub image: Option<String>,
         pub media_count: i64,
@@ -236,7 +236,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
     pub struct MetadataGroupListItem {
-        pub id: i32,
+        pub id: String,
         pub title: String,
         pub description: Option<String>,
         pub lot: MediaLot,
@@ -824,8 +824,8 @@ pub mod media {
         pub visibility: Option<Visibility>,
         pub spoiler: Option<bool>,
         pub metadata_id: Option<i32>,
-        pub person_id: Option<i32>,
-        pub metadata_group_id: Option<i32>,
+        pub person_id: Option<String>,
+        pub metadata_group_id: Option<String>,
         pub collection_id: Option<String>,
         pub date: Option<DateTimeUtc>,
         /// ID of the review if this is an update to an existing review

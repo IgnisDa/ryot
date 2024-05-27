@@ -155,8 +155,8 @@ export const ReviewItemDisplay = (props: {
 	reviewScale: UserReviewScale;
 	title: string;
 	metadataId?: number;
-	metadataGroupId?: number;
-	personId?: number;
+	metadataGroupId?: string;
+	personId?: string;
 	collectionId?: string;
 	lot?: MediaLot;
 }) => {
@@ -1002,7 +1002,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	userId: number;
 	entityLot: EntityLot;
 	inCollections: Array<string>;
-	formValue: number;
+	formValue: string;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");
 	const action = isMonitored

@@ -15,7 +15,7 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
-    pub person_id: Option<i32>,
+    pub person_id: Option<String>,
     pub metadata_id: Option<i32>,
     pub exercise_id: Option<String>,
     pub metadata_units_consumed: Option<i32>,
@@ -25,7 +25,7 @@ pub struct Model {
     pub media_reason: Option<Vec<UserToMediaReason>>,
     #[graphql(skip)]
     pub needs_to_be_updated: Option<bool>,
-    pub metadata_group_id: Option<i32>,
+    pub metadata_group_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

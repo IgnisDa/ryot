@@ -37,6 +37,8 @@ mod m20240526_2_change_calendar_event_primary_key;
 mod m20240526_3_change_seen_primary_key;
 mod m20240526_4_change_import_report_primary_key;
 mod m20240526_5_change_genre_primary_key;
+mod m20240526_6_change_metadata_group_primary_key;
+mod m20240526_7_change_person_primary_key;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -93,6 +95,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240526_3_change_seen_primary_key::Migration),
             Box::new(m20240526_4_change_import_report_primary_key::Migration),
             Box::new(m20240526_5_change_genre_primary_key::Migration),
+            Box::new(m20240526_6_change_metadata_group_primary_key::Migration),
+            Box::new(m20240526_7_change_person_primary_key::Migration),
         ]
     }
 }

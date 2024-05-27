@@ -236,9 +236,9 @@ const reviewSchema = z
 		visibility: z.nativeEnum(Visibility).optional(),
 		spoiler: zx.CheckboxAsString.optional(),
 		metadataId: zx.IntAsString.optional(),
-		metadataGroupId: zx.IntAsString.optional(),
+		metadataGroupId: z.string().optional(),
 		collectionId: z.string().optional(),
-		personId: zx.IntAsString.optional(),
+		personId: z.string().optional(),
 		reviewId: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
@@ -254,12 +254,10 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 			: undefined;
 	const metadataGroupId =
 		submission.entityLot === EntityLot.MediaGroup
-			? Number(submission.entityId)
+			? submission.entityId
 			: undefined;
 	const personId =
-		submission.entityLot === EntityLot.Person
-			? Number(submission.entityId)
-			: undefined;
+		submission.entityLot === EntityLot.Person ? submission.entityId : undefined;
 	const exerciseId =
 		submission.entityLot === EntityLot.Exercise
 			? submission.entityId

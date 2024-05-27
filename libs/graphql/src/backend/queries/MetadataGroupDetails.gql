@@ -1,4 +1,4 @@
-query MetadataGroupDetails($metadataGroupId: Int!) {
+query MetadataGroupDetails($metadataGroupId: String!) {
   metadataGroupDetails(metadataGroupId: $metadataGroupId) {
     details {
       id

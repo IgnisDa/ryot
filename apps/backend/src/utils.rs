@@ -162,9 +162,9 @@ pub async fn create_app_services(
 pub async fn get_user_to_entity_association<C>(
     user_id: &i32,
     metadata_id: Option<i32>,
-    person_id: Option<i32>,
+    person_id: Option<String>,
     exercise_id: Option<String>,
-    metadata_group_id: Option<i32>,
+    metadata_group_id: Option<String>,
     db: &C,
 ) -> Option<user_to_entity::Model>
 where
@@ -189,9 +189,9 @@ where
 pub async fn associate_user_with_entity<C>(
     user_id: &i32,
     metadata_id: Option<i32>,
-    person_id: Option<i32>,
+    person_id: Option<String>,
     exercise_id: Option<String>,
-    metadata_group_id: Option<i32>,
+    metadata_group_id: Option<String>,
     db: &C,
 ) -> Result<user_to_entity::Model>
 where
@@ -207,9 +207,9 @@ where
     let user_to_meta = get_user_to_entity_association(
         user_id,
         metadata_id,
-        person_id,
+        person_id.clone(),
         exercise_id.clone(),
-        metadata_group_id,
+        metadata_group_id.clone(),
         db,
     )
     .await;
@@ -274,8 +274,8 @@ pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: i32,
     metadata_id: Option<i32>,
-    person_id: Option<i32>,
-    media_group_id: Option<i32>,
+    person_id: Option<String>,
+    metadata_group_id: Option<String>,
     exercise_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
@@ -292,7 +292,7 @@ pub async fn entity_in_collections(
             CteCol::MetadataId
                 .eq(metadata_id)
                 .or(CteCol::PersonId.eq(person_id))
-                .or(CteCol::MetadataGroupId.eq(media_group_id))
+                .or(CteCol::MetadataGroupId.eq(metadata_group_id))
                 .or(CteCol::ExerciseId.eq(exercise_id)),
         )
         .find_also_related(Collection)
@@ -324,8 +324,8 @@ pub async fn add_entity_to_collection(
         .filter(
             CteCol::MetadataId
                 .eq(input.metadata_id)
-                .or(CteCol::PersonId.eq(input.person_id))
-                .or(CteCol::MetadataGroupId.eq(input.metadata_group_id))
+                .or(CteCol::PersonId.eq(input.person_id.clone()))
+                .or(CteCol::MetadataGroupId.eq(input.metadata_group_id.clone()))
                 .or(CteCol::ExerciseId.eq(input.exercise_id.clone())),
         )
         .one(db)
@@ -341,8 +341,8 @@ pub async fn add_entity_to_collection(
         let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
             metadata_id: ActiveValue::Set(input.metadata_id),
-            person_id: ActiveValue::Set(input.person_id),
-            metadata_group_id: ActiveValue::Set(input.metadata_group_id),
+            person_id: ActiveValue::Set(input.person_id.clone()),
+            metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
             exercise_id: ActiveValue::Set(input.exercise_id.clone()),
             information: ActiveValue::Set(information),
             ..Default::default()
