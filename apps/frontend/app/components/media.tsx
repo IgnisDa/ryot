@@ -156,7 +156,7 @@ export const ReviewItemDisplay = (props: {
 	title: string;
 	metadataId?: number;
 	metadataGroupId?: string;
-	personId?: number;
+	personId?: string;
 	collectionId?: string;
 	lot?: MediaLot;
 }) => {
