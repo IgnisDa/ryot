@@ -1,3 +1,5 @@
+// FIXME: Change this be after `m20230819_create_workout`
+
 use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;
