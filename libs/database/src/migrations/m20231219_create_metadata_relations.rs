@@ -92,13 +92,13 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MetadataToMetadataGroup::MetadataGroupId)
-                            .text()
+                        ColumnDef::new(MetadataToMetadataGroup::MetadataId)
+                            .integer()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MetadataToMetadataGroup::MetadataId)
-                            .integer()
+                        ColumnDef::new(MetadataToMetadataGroup::MetadataGroupId)
+                            .text()
                             .not_null(),
                     )
                     .foreign_key(
