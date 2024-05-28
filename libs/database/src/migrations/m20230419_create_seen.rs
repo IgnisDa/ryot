@@ -37,13 +37,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Seen::Table)
-                    .col(
-                        ColumnDef::new(Seen::Id)
-                            .primary_key()
-                            .auto_increment()
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Seen::Id).primary_key().text().not_null())
                     .col(
                         ColumnDef::new(Seen::Progress)
                             .decimal()

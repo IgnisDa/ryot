@@ -26,9 +26,8 @@ impl MigrationTrait for Migration {
                     .table(MetadataGroup::Table)
                     .col(
                         ColumnDef::new(MetadataGroup::Id)
-                            .integer()
+                            .text()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(MetadataGroup::Identifier).text().not_null())
