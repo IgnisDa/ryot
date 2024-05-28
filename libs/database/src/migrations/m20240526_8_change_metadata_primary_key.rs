@@ -120,8 +120,17 @@ ALTER TABLE "review" ADD CONSTRAINT "review_to_metadata_foreign_key" FOREIGN KEY
 ALTER TABLE "seen" ADD CONSTRAINT "metadata_to_seen_foreign_key" FOREIGN KEY ("metadata_id") REFERENCES "metadata"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE "user_to_entity" ADD CONSTRAINT "user_to_entity-fk2" FOREIGN KEY ("metadata_id") REFERENCES "metadata"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 
+ALTER TABLE ONLY "metadata_to_metadata_group"
+ADD CONSTRAINT "metadata_to_metadata_group_pkey" PRIMARY KEY ("metadata_id", "metadata_group_id");
+ALTER TABLE ONLY "metadata_to_person"
+ADD CONSTRAINT "pk-media-item_person" PRIMARY KEY ("metadata_id", "person_id", "role");
+ALTER TABLE ONLY "metadata_to_genre"
+ADD CONSTRAINT "pk-metadata_genre" PRIMARY KEY ("metadata_id", "genre_id");
+
 CREATE UNIQUE INDEX "metadata_to_metadata_from_metadata_id_relation_to_metadata__idx" ON "metadata_to_metadata" ("from_metadata_id", "relation", "to_metadata_id");
 CREATE UNIQUE INDEX "user_to_entity-uqi1" ON "user_to_entity" ("user_id", "metadata_id");
+CREATE UNIQUE INDEX "calendar_event-date-metadataid-info__uq-idx" ON "calendar_event" ("date", "metadata_id", "metadata_show_extra_information", "metadata_podcast_extra_information") NULLS NOT DISTINCT;
+CREATE UNIQUE INDEX "collection_to_entity_uqi1" ON "collection_to_entity" ("collection_id", "metadata_id");
             "#,
         )
         .await?;
@@ -294,6 +303,7 @@ ALTER TABLE "metadata" RENAME COLUMN "temp__state_changes" TO "state_changes";
 
 -- Step 6: Recreate indexes
 CREATE UNIQUE INDEX "metadata-identifier-source-lot__unique-index" ON "metadata" ("identifier", "source", "lot");
+CREATE INDEX "metadata__title__index" ON "metadata" (title);
             "#,
         )
         .await?;
