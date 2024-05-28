@@ -88,7 +88,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(UserToEntity::PersonId).integer())
+                    .col(ColumnDef::new(UserToEntity::PersonId).text())
                     .col(ColumnDef::new(UserToEntity::NeedsToBeUpdated).boolean())
                     .foreign_key(
                         ForeignKey::create()
@@ -122,7 +122,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserToEntity::MetadataGroupId).integer())
+                    .col(ColumnDef::new(UserToEntity::MetadataGroupId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_GROUP_FK_NAME)
