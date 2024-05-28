@@ -63,12 +63,12 @@ ALTER TABLE "seen" ALTER COLUMN "id" DROP DEFAULT;
         db.execute_unprepared(
             r#"
 -- Step 1: Add temporary columns
-ALTER TABLE "seen" ADD COLUMN "temp__progress" numeric;
+ALTER TABLE "seen" ADD COLUMN "temp__progress" numeric DEFAULT 0;
 ALTER TABLE "seen" ADD COLUMN "temp__started_on" date;
 ALTER TABLE "seen" ADD COLUMN "temp__finished_on" date;
 ALTER TABLE "seen" ADD COLUMN "temp__user_id" integer;
 ALTER TABLE "seen" ADD COLUMN "temp__metadata_id" integer;
-ALTER TABLE "seen" ADD COLUMN "temp__state" text;
+ALTER TABLE "seen" ADD COLUMN "temp__state" text DEFAULT 'IP';
 ALTER TABLE "seen" ADD COLUMN "temp__updated_at" timestamp with time zone[] DEFAULT ARRAY[CURRENT_TIMESTAMP];
 ALTER TABLE "seen" ADD COLUMN "temp__show_extra_information" jsonb;
 ALTER TABLE "seen" ADD COLUMN "temp__podcast_extra_information" jsonb;
