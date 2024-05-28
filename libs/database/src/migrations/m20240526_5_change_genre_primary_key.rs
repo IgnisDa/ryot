@@ -83,6 +83,28 @@ ALTER TABLE "genre" DROP COLUMN "temp_id";
 "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+-- Step 1: Add temporary columns
+ALTER TABLE "genre" ADD COLUMN "temp__name" text;
+
+-- Step 2: Update temporary columns with the values from original columns
+UPDATE "genre" SET "temp__name" = "name";
+
+-- Step 3: Set temporary columns to not null if the original columns were not null
+ALTER TABLE "genre" ALTER COLUMN "temp__name" SET NOT NULL;
+
+-- Step 4: Drop original columns with CASCADE
+ALTER TABLE "genre" DROP COLUMN "name" CASCADE;
+
+-- Step 5: Rename temporary columns back to original column names
+ALTER TABLE "genre" RENAME COLUMN "temp__name" TO "name";
+
+-- Step 6: Recreate any necessary indexes
+CREATE UNIQUE INDEX "genre_name_index" ON "genre" ("name");
+"#,
+        )
+        .await?;
         Ok(())
     }
 

@@ -60,6 +60,54 @@ ALTER TABLE "import_report" ALTER COLUMN "id" DROP DEFAULT;
         )
         .await?;
 
+        db.execute_unprepared(
+            r#"
+-- Step 1: Add temporary columns
+ALTER TABLE "import_report" ADD COLUMN "temp__source" text;
+ALTER TABLE "import_report" ADD COLUMN "temp__user_id" integer;
+ALTER TABLE "import_report" ADD COLUMN "temp__started_on" timestamp with time zone DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "import_report" ADD COLUMN "temp__finished_on" timestamp with time zone;
+ALTER TABLE "import_report" ADD COLUMN "temp__success" boolean;
+ALTER TABLE "import_report" ADD COLUMN "temp__details" jsonb;
+
+-- Step 2: Update temporary columns with the values from original columns
+UPDATE "import_report" SET
+    "temp__source" = "source",
+    "temp__user_id" = "user_id",
+    "temp__started_on" = "started_on",
+    "temp__finished_on" = "finished_on",
+    "temp__success" = "success",
+    "temp__details" = "details";
+
+-- Step 3: Set temporary columns to not null if the original columns were not null
+ALTER TABLE "import_report" ALTER COLUMN "temp__source" SET NOT NULL;
+ALTER TABLE "import_report" ALTER COLUMN "temp__user_id" SET NOT NULL;
+ALTER TABLE "import_report" ALTER COLUMN "temp__started_on" SET NOT NULL;
+
+-- Step 4: Drop original columns with CASCADE
+ALTER TABLE "import_report" DROP COLUMN "source" CASCADE;
+ALTER TABLE "import_report" DROP COLUMN "user_id" CASCADE;
+ALTER TABLE "import_report" DROP COLUMN "started_on" CASCADE;
+ALTER TABLE "import_report" DROP COLUMN "finished_on" CASCADE;
+ALTER TABLE "import_report" DROP COLUMN "success" CASCADE;
+ALTER TABLE "import_report" DROP COLUMN "details" CASCADE;
+
+-- Step 5: Rename temporary columns back to original column names
+ALTER TABLE "import_report" RENAME COLUMN "temp__source" TO "source";
+ALTER TABLE "import_report" RENAME COLUMN "temp__user_id" TO "user_id";
+ALTER TABLE "import_report" RENAME COLUMN "temp__started_on" TO "started_on";
+ALTER TABLE "import_report" RENAME COLUMN "temp__finished_on" TO "finished_on";
+ALTER TABLE "import_report" RENAME COLUMN "temp__success" TO "success";
+ALTER TABLE "import_report" RENAME COLUMN "temp__details" TO "details";
+
+-- Step 6: Recreate indexes
+-- No additional indexes to recreate as the primary key index remains unchanged
+
+-- Step 7: Recreate foreign keys
+ALTER TABLE "import_report" ADD CONSTRAINT "media_import_report_to_user_foreign_key" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+"#,
+        )
+        .await?;
         Ok(())
     }
 

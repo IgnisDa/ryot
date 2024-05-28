@@ -60,6 +60,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra("DEFAULT ARRAY[CURRENT_TIMESTAMP]"),
                     )
+                    .col(ColumnDef::new(Seen::ShowExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::PodcastExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::AnimeExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::MangaExtraInformation).json_binary())
+                    .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()
@@ -72,10 +77,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra("GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED")
                     )
-                    .col(ColumnDef::new(Seen::ShowExtraInformation).json_binary())
-                    .col(ColumnDef::new(Seen::PodcastExtraInformation).json_binary())
-                    .col(ColumnDef::new(Seen::AnimeExtraInformation).json_binary())
-                    .col(ColumnDef::new(Seen::MangaExtraInformation).json_binary())
+                    .col(
+                        ColumnDef::new(Seen::TotalTimeSpent)
+                        .integer()
+                        .extra(TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL)
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")
@@ -91,12 +97,6 @@ impl MigrationTrait for Migration {
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
-                    .col(
-                        ColumnDef::new(Seen::TotalTimeSpent)
-                            .integer()
-                            .extra(TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL)
                     )
                     .to_owned(),
             )

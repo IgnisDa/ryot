@@ -60,6 +60,44 @@ ALTER TABLE "calendar_event" ALTER COLUMN "id" DROP DEFAULT;
         )
         .await?;
 
+        db.execute_unprepared(
+            r#"
+-- Step 1: Add temporary columns
+ALTER TABLE "calendar_event" ADD COLUMN "temp__date" date;
+ALTER TABLE "calendar_event" ADD COLUMN "temp__metadata_id" integer;
+ALTER TABLE "calendar_event" ADD COLUMN "temp__metadata_show_extra_information" jsonb;
+ALTER TABLE "calendar_event" ADD COLUMN "temp__metadata_podcast_extra_information" jsonb;
+
+-- Step 2: Update temporary columns with the values from original columns
+UPDATE "calendar_event" SET
+    "temp__date" = "date",
+    "temp__metadata_id" = "metadata_id",
+    "temp__metadata_show_extra_information" = "metadata_show_extra_information",
+    "temp__metadata_podcast_extra_information" = "metadata_podcast_extra_information";
+
+-- Step 3: Set temporary columns to not null if the original columns were not null
+ALTER TABLE "calendar_event" ALTER COLUMN "temp__date" SET NOT NULL;
+
+-- Step 4: Drop original columns with CASCADE
+ALTER TABLE "calendar_event" DROP COLUMN "date" CASCADE;
+ALTER TABLE "calendar_event" DROP COLUMN "metadata_id" CASCADE;
+ALTER TABLE "calendar_event" DROP COLUMN "metadata_show_extra_information" CASCADE;
+ALTER TABLE "calendar_event" DROP COLUMN "metadata_podcast_extra_information" CASCADE;
+
+-- Step 5: Rename temporary columns back to original column names
+ALTER TABLE "calendar_event" RENAME COLUMN "temp__date" TO "date";
+ALTER TABLE "calendar_event" RENAME COLUMN "temp__metadata_id" TO "metadata_id";
+ALTER TABLE "calendar_event" RENAME COLUMN "temp__metadata_show_extra_information" TO "metadata_show_extra_information";
+ALTER TABLE "calendar_event" RENAME COLUMN "temp__metadata_podcast_extra_information" TO "metadata_podcast_extra_information";
+
+-- Step 6: Recreate indexes
+CREATE UNIQUE INDEX "calendar_event-date-metadataid-info__uq-idx" ON "calendar_event" ("date", "metadata_id", "metadata_show_extra_information", "metadata_podcast_extra_information") NULLS NOT DISTINCT;
+
+-- Step 7: Recreate foreign keys
+ALTER TABLE "calendar_event" ADD CONSTRAINT "fk-calendar_event_to_metadata" FOREIGN KEY ("metadata_id") REFERENCES "metadata"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+"#,
+        )
+        .await?;
         Ok(())
     }
 

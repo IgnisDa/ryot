@@ -118,6 +118,56 @@ ALTER TABLE "collection" DROP COLUMN "temp_id";
 "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+-- Step 1: Add temporary columns
+ALTER TABLE "collection" ADD COLUMN "temp__created_on" timestamp with time zone DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "collection" ADD COLUMN "temp__name" text;
+ALTER TABLE "collection" ADD COLUMN "temp__user_id" integer;
+ALTER TABLE "collection" ADD COLUMN "temp__description" text;
+ALTER TABLE "collection" ADD COLUMN "temp__last_updated_on" timestamp with time zone DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "collection" ADD COLUMN "temp__information_template" jsonb;
+
+-- Step 2: Update temporary columns with the values from original columns
+UPDATE "collection" SET
+    "temp__created_on" = "created_on",
+    "temp__name" = "name",
+    "temp__user_id" = "user_id",
+    "temp__description" = "description",
+    "temp__last_updated_on" = "last_updated_on",
+    "temp__information_template" = "information_template";
+
+-- Step 3: Set temporary columns to not null if the original columns were not null
+ALTER TABLE "collection" ALTER COLUMN "temp__created_on" SET NOT NULL;
+ALTER TABLE "collection" ALTER COLUMN "temp__name" SET NOT NULL;
+ALTER TABLE "collection" ALTER COLUMN "temp__user_id" SET NOT NULL;
+ALTER TABLE "collection" ALTER COLUMN "temp__last_updated_on" SET NOT NULL;
+
+-- Step 4: Drop original columns with CASCADE
+ALTER TABLE "collection" DROP COLUMN "created_on" CASCADE;
+ALTER TABLE "collection" DROP COLUMN "name" CASCADE;
+ALTER TABLE "collection" DROP COLUMN "user_id" CASCADE;
+ALTER TABLE "collection" DROP COLUMN "description" CASCADE;
+ALTER TABLE "collection" DROP COLUMN "last_updated_on" CASCADE;
+ALTER TABLE "collection" DROP COLUMN "information_template" CASCADE;
+
+-- Step 5: Rename temporary columns back to original column names
+ALTER TABLE "collection" RENAME COLUMN "temp__created_on" TO "created_on";
+ALTER TABLE "collection" RENAME COLUMN "temp__name" TO "name";
+ALTER TABLE "collection" RENAME COLUMN "temp__user_id" TO "user_id";
+ALTER TABLE "collection" RENAME COLUMN "temp__description" TO "description";
+ALTER TABLE "collection" RENAME COLUMN "temp__last_updated_on" TO "last_updated_on";
+ALTER TABLE "collection" RENAME COLUMN "temp__information_template" TO "information_template";
+
+-- Step 6: Recreate indexes
+CREATE UNIQUE INDEX "collection__name-user_id__index" ON "collection" ("name", "user_id");
+CREATE INDEX "collection__name__index" ON "collection" ("name");
+
+-- Step 7: Recreate foreign keys
+ALTER TABLE "collection" ADD CONSTRAINT "collection_to_user_foreign_key" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON UPDATE CASCADE ON DELETE CASCADE;
+            "#,
+        )
+        .await?;
         Ok(())
     }
 
