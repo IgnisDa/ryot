@@ -139,8 +139,6 @@ CREATE UNIQUE INDEX "user_to_entity-uqi1" ON "user_to_entity" ("user_id", "metad
             r#"
 ALTER TABLE "calendar_event"
 ALTER COLUMN "metadata_id" SET NOT NULL;
-ALTER TABLE "collection_to_entity"
-ALTER COLUMN "metadata_id" SET NOT NULL;
 ALTER TABLE "metadata_to_genre"
 ALTER COLUMN "metadata_id" SET NOT NULL;
 ALTER TABLE "metadata_to_metadata"
@@ -151,11 +149,7 @@ ALTER TABLE "metadata_to_metadata_group"
 ALTER COLUMN "metadata_id" SET NOT NULL;
 ALTER TABLE "metadata_to_person"
 ALTER COLUMN "metadata_id" SET NOT NULL;
-ALTER TABLE "review"
-ALTER COLUMN "metadata_id" SET NOT NULL;
 ALTER TABLE "seen"
-ALTER COLUMN "metadata_id" SET NOT NULL;
-ALTER TABLE "user_to_entity"
 ALTER COLUMN "metadata_id" SET NOT NULL;
             "#,
         )
