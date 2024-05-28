@@ -31,7 +31,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
-                    .col(ColumnDef::new(CalendarEvent::MetadataId).integer())
+                    .col(ColumnDef::new(CalendarEvent::MetadataId).text())
                     .col(ColumnDef::new(CalendarEvent::MetadataShowExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(CalendarEvent::MetadataPodcastExtraInformation)

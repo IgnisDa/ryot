@@ -47,7 +47,7 @@ impl MigrationTrait for Migration {
                     .table(MetadataToGenre::Table)
                     .col(
                         ColumnDef::new(MetadataToGenre::MetadataId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .col(ColumnDef::new(MetadataToGenre::GenreId).text().not_null())

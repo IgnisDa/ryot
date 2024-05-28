@@ -48,7 +48,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::MetadataId).integer())
+                    .col(ColumnDef::new(CollectionToEntity::MetadataId).text())
                     .col(ColumnDef::new(CollectionToEntity::ExerciseId).text())
                     .col(ColumnDef::new(CollectionToEntity::Information).json_binary())
                     .col(

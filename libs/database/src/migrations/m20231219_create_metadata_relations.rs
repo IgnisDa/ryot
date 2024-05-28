@@ -38,7 +38,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MetadataToMetadata::FromMetadataId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .col(
@@ -48,7 +48,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MetadataToMetadata::ToMetadataId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .foreign_key(
@@ -93,7 +93,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MetadataToMetadataGroup::MetadataId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .col(

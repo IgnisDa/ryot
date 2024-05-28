@@ -62,13 +62,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Metadata::Table)
-                    .col(
-                        ColumnDef::new(Metadata::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Metadata::Id).text().not_null().primary_key())
                     .col(
                         ColumnDef::new(Metadata::CreatedOn)
                             .timestamp_with_time_zone()

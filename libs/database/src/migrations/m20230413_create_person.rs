@@ -96,7 +96,7 @@ impl MigrationTrait for Migration {
                     .table(MetadataToPerson::Table)
                     .col(
                         ColumnDef::new(MetadataToPerson::MetadataId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .col(ColumnDef::new(MetadataToPerson::Index).integer())
