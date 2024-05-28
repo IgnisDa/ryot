@@ -2,6 +2,8 @@ use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_orm_migration::prelude::*;
 
+use super::m20240526_0_change_collection_primary_key::get_whether_column_is_text;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -22,6 +24,9 @@ impl ActiveModelBehavior for ActiveModel {}
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+        if get_whether_column_is_text("import_report", "id", db).await? {
+            return Ok(());
+        }
 
         db.execute_unprepared(
             r#"
