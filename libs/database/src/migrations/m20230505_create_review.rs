@@ -71,9 +71,9 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::PodcastExtraInformation).json_binary())
                     .col(ColumnDef::new(Review::AnimeExtraInformation).json_binary())
                     .col(ColumnDef::new(Review::MangaExtraInformation).json_binary())
-                    .col(ColumnDef::new(Review::PersonId).text())
-                    .col(ColumnDef::new(Review::MetadataGroupId).text())
                     .col(ColumnDef::new(Review::CollectionId).text())
+                    .col(ColumnDef::new(Review::MetadataGroupId).text())
+                    .col(ColumnDef::new(Review::PersonId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_user_foreign_key")

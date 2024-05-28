@@ -49,8 +49,6 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(CollectionToEntity::MetadataId).integer())
-                    .col(ColumnDef::new(CollectionToEntity::PersonId).text())
-                    .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).text())
                     .col(ColumnDef::new(CollectionToEntity::ExerciseId).text())
                     .col(ColumnDef::new(CollectionToEntity::Information).json_binary())
                     .col(
@@ -58,6 +56,8 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).text())
+                    .col(ColumnDef::new(CollectionToEntity::PersonId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk1")
