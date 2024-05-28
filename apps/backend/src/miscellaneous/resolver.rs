@@ -6901,7 +6901,7 @@ impl MiscellaneousService {
             format!(
                 r#"
 SELECT
-    m.id::text as entity_id,
+    m.id as entity_id,
     array_agg(DISTINCT u.id) as to_notify
 FROM {entity_type} m
 JOIN collection_to_entity cte ON m.id = cte.{entity_type}_id
