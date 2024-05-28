@@ -81,6 +81,7 @@ ALTER TABLE "user_to_entity" ADD CONSTRAINT "user_to_entity-fk4" FOREIGN KEY ("p
 ALTER TABLE "metadata_to_person"
 ADD CONSTRAINT "pk-media-item_person" PRIMARY KEY (metadata_id, person_id, role);
 CREATE UNIQUE INDEX "collection_to_entity_uqi2" ON "collection_to_entity" ("collection_id", "person_id");
+CREATE UNIQUE INDEX "user_to_entity-uqi3" ON "user_to_entity" ("user_id", "person_id");
             "#,
         )
         .await?;

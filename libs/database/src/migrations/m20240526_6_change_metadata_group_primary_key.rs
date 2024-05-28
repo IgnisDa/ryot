@@ -80,6 +80,7 @@ ALTER TABLE "user_to_entity" ADD CONSTRAINT "user_to_entity-fk5" FOREIGN KEY ("m
 ALTER TABLE "metadata_to_metadata_group"
 ADD CONSTRAINT "metadata_to_metadata_group_pkey" PRIMARY KEY (metadata_id, metadata_group_id);
 CREATE UNIQUE INDEX "collection_to_entity_uqi3" ON "collection_to_entity" ("collection_id", "metadata_group_id");
+CREATE UNIQUE INDEX "user_to_entity-uqi4" ON "user_to_entity" ("user_id", "metadata_group_id");
             "#,
         )
         .await?;
