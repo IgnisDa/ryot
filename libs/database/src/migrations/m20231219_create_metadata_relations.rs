@@ -37,12 +37,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(MetadataToMetadata::FromMetadataId)
+                        ColumnDef::new(MetadataToMetadata::Relation)
                             .text()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(MetadataToMetadata::Relation)
+                        ColumnDef::new(MetadataToMetadata::FromMetadataId)
                             .text()
                             .not_null(),
                     )

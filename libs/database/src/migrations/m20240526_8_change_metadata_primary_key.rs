@@ -120,7 +120,7 @@ ALTER TABLE "review" ADD CONSTRAINT "review_to_metadata_foreign_key" FOREIGN KEY
 ALTER TABLE "seen" ADD CONSTRAINT "metadata_to_seen_foreign_key" FOREIGN KEY ("metadata_id") REFERENCES "metadata"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE "user_to_entity" ADD CONSTRAINT "user_to_entity-fk2" FOREIGN KEY ("metadata_id") REFERENCES "metadata"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 
-CREATE UNIQUE INDEX "metadata_to_metadata_from_metadata_id_relation_to_metadata__idx" ON "metadata_to_metadata" ("from_metadata_id", "to_metadata_id");
+CREATE UNIQUE INDEX "metadata_to_metadata_from_metadata_id_relation_to_metadata__idx" ON "metadata_to_metadata" ("from_metadata_id", "relation", "to_metadata_id");
 CREATE UNIQUE INDEX "user_to_entity-uqi1" ON "user_to_entity" ("user_id", "metadata_id");
             "#,
         )
@@ -137,8 +137,6 @@ CREATE UNIQUE INDEX "user_to_entity-uqi1" ON "user_to_entity" ("user_id", "metad
 
         db.execute_unprepared(
             r#"
-ALTER TABLE "calendar_event"
-ALTER COLUMN "metadata_id" SET NOT NULL;
 ALTER TABLE "metadata_to_genre"
 ALTER COLUMN "metadata_id" SET NOT NULL;
 ALTER TABLE "metadata_to_metadata"
@@ -166,6 +164,8 @@ ALTER TABLE "metadata" DROP COLUMN "temp_id";
         db.execute_unprepared(
             r#"
 -- Step 1: Add temporary columns
+ALTER TABLE "metadata" ADD COLUMN "temp__lot" text;
+ALTER TABLE "metadata" ADD COLUMN "temp__production_status" text;
 ALTER TABLE "metadata" ADD COLUMN "temp__identifier" text;
 ALTER TABLE "metadata" ADD COLUMN "temp__source" text;
 ALTER TABLE "metadata" ADD COLUMN "temp__created_on" timestamp with time zone DEFAULT CURRENT_TIMESTAMP;
@@ -195,6 +195,8 @@ ALTER TABLE "metadata" ADD COLUMN "temp__state_changes" jsonb;
 
 -- Step 2: Update temporary columns with the values from original columns
 UPDATE "metadata" SET
+    "temp__lot" = "lot",
+    "temp__production_status" = "production_status",
     "temp__identifier" = "identifier",
     "temp__source" = "source",
     "temp__created_on" = "created_on",
@@ -223,6 +225,7 @@ UPDATE "metadata" SET
     "temp__state_changes" = "state_changes";
 
 -- Step 3: Set temporary columns to not null if the original columns were not null
+ALTER TABLE "metadata" ALTER COLUMN "temp__lot" SET NOT NULL;
 ALTER TABLE "metadata" ALTER COLUMN "temp__identifier" SET NOT NULL;
 ALTER TABLE "metadata" ALTER COLUMN "temp__source" SET NOT NULL;
 ALTER TABLE "metadata" ALTER COLUMN "temp__created_on" SET NOT NULL;
@@ -230,6 +233,8 @@ ALTER TABLE "metadata" ALTER COLUMN "temp__last_updated_on" SET NOT NULL;
 ALTER TABLE "metadata" ALTER COLUMN "temp__title" SET NOT NULL;
 
 -- Step 4: Drop original columns with CASCADE
+ALTER TABLE "metadata" DROP COLUMN "lot" CASCADE;
+ALTER TABLE "metadata" DROP COLUMN "production_status" CASCADE;
 ALTER TABLE "metadata" DROP COLUMN "identifier" CASCADE;
 ALTER TABLE "metadata" DROP COLUMN "source" CASCADE;
 ALTER TABLE "metadata" DROP COLUMN "created_on" CASCADE;
@@ -258,6 +263,8 @@ ALTER TABLE "metadata" DROP COLUMN "watch_providers" CASCADE;
 ALTER TABLE "metadata" DROP COLUMN "state_changes" CASCADE;
 
 -- Step 5: Rename temporary columns back to original column names
+ALTER TABLE "metadata" RENAME COLUMN "temp__lot" TO "lot";
+ALTER TABLE "metadata" RENAME COLUMN "temp__production_status" TO "production_status";
 ALTER TABLE "metadata" RENAME COLUMN "temp__identifier" TO "identifier";
 ALTER TABLE "metadata" RENAME COLUMN "temp__source" TO "source";
 ALTER TABLE "metadata" RENAME COLUMN "temp__created_on" TO "created_on";
