@@ -2,6 +2,8 @@ use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use sea_orm_migration::prelude::*;
 
+use super::m20240526_0_change_collection_primary_key::get_whether_column_is_text;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -22,8 +24,10 @@ impl ActiveModelBehavior for ActiveModel {}
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+        if get_whether_column_is_text("person", "id", db).await? {
+            return Ok(());
+        }
 
-        // Step 1: Add a new text column to person
         db.execute_unprepared(
             r#"
 ALTER TABLE "person" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -32,7 +36,6 @@ UPDATE "person" SET "new_id" = 'per_' || "id";
         )
         .await?;
 
-        // Step 2: Add new temporary columns to related tables and update them
         db.execute_unprepared(
             r#"
 ALTER TABLE "collection_to_entity" ADD COLUMN "new_person_id" text;
@@ -82,7 +85,6 @@ CREATE UNIQUE INDEX "collection_to_entity_uqi2" ON "collection_to_entity" ("coll
         )
         .await?;
 
-        // Step 3: Update the new IDs in person table
         for person in Entity::find().all(db).await? {
             let new_id = format!("per_{}", nanoid!(12));
             let mut person: ActiveModel = person.into();
@@ -92,7 +94,6 @@ CREATE UNIQUE INDEX "collection_to_entity_uqi2" ON "collection_to_entity" ("coll
         db.execute_unprepared(r#"UPDATE "person" SET "id" = "temp_id""#)
             .await?;
 
-        // Step 4: Set person_id columns to NOT NULL in related tables
         db.execute_unprepared(
             r#"
 ALTER TABLE "metadata_to_person"
@@ -101,7 +102,6 @@ ALTER COLUMN "person_id" SET NOT NULL;
         )
         .await?;
 
-        // Step 5: Clean up
         db.execute_unprepared(
             r#"
 ALTER TABLE "person" ALTER COLUMN "id" DROP DEFAULT;
