@@ -48,13 +48,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Person::Table)
-                    .col(
-                        ColumnDef::new(Person::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Person::Id).text().not_null().primary_key())
                     .col(ColumnDef::new(Person::Identifier).text().not_null())
                     .col(ColumnDef::new(Person::Source).text().not_null())
                     .col(
