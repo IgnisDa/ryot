@@ -1,6 +1,22 @@
 use nanoid::nanoid;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{entity::prelude::*, ActiveValue, DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
+
+pub async fn get_whether_column_is_text<'a>(
+    table_name: &str,
+    column_name: &str,
+    db: &SchemaManagerConnection<'a>,
+) -> Result<bool, DbErr> {
+    let resp = db.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        r#"SELECT data_type = 'text' as is_text FROM information_schema.columns WHERE table_name = $1 AND column_name = $2"#,
+        [table_name.into(), column_name.into()]
+    ))
+    .await?
+    .unwrap();
+    let is_text: bool = resp.try_get("", "is_text")?;
+    Ok(is_text)
+}
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -22,6 +38,9 @@ impl ActiveModelBehavior for ActiveModel {}
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+        if get_whether_column_is_text("collection", "id", db).await? {
+            return Ok(());
+        }
         db.execute_unprepared(
             r#"
 ALTER TABLE "collection" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
