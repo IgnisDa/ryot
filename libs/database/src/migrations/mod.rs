@@ -1,4 +1,5 @@
 use sea_orm::entity::prelude::*;
+use sea_orm::{DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
 
 mod m20230410_create_metadata;
@@ -103,4 +104,20 @@ impl MigratorTrait for Migrator {
             Box::new(m20240526_9_complete_cleanup::Migration),
         ]
     }
+}
+
+pub async fn get_whether_column_is_text<'a>(
+    table_name: &str,
+    column_name: &str,
+    db: &SchemaManagerConnection<'a>,
+) -> Result<bool, DbErr> {
+    let resp = db.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        r#"SELECT data_type = 'text' as is_text FROM information_schema.columns WHERE table_name = $1 AND column_name = $2"#,
+        [table_name.into(), column_name.into()]
+    ))
+    .await?
+    .unwrap();
+    let is_text: bool = resp.try_get("", "is_text")?;
+    Ok(is_text)
 }
