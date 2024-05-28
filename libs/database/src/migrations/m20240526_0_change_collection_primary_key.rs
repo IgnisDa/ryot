@@ -121,11 +121,11 @@ ALTER TABLE "collection" DROP COLUMN "temp_id";
         db.execute_unprepared(
             r#"
 -- Step 1: Add temporary columns
-ALTER TABLE "collection" ADD COLUMN "temp__created_on" timestamp with time zone;
+ALTER TABLE "collection" ADD COLUMN "temp__created_on" timestamp with time zone DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE "collection" ADD COLUMN "temp__name" text;
 ALTER TABLE "collection" ADD COLUMN "temp__user_id" integer;
 ALTER TABLE "collection" ADD COLUMN "temp__description" text;
-ALTER TABLE "collection" ADD COLUMN "temp__last_updated_on" timestamp with time zone;
+ALTER TABLE "collection" ADD COLUMN "temp__last_updated_on" timestamp with time zone DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE "collection" ADD COLUMN "temp__information_template" jsonb;
 
 -- Step 2: Update temporary columns with the values from original columns

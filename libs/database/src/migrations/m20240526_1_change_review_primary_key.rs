@@ -63,11 +63,11 @@ ALTER TABLE "review" ALTER COLUMN "id" DROP DEFAULT;
         db.execute_unprepared(
             r#"
 -- Step 1: Add temporary columns
-ALTER TABLE "review" ADD COLUMN "temp__posted_on" timestamp with time zone;
+ALTER TABLE "review" ADD COLUMN "temp__posted_on" timestamp with time zone DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE "review" ADD COLUMN "temp__rating" numeric;
 ALTER TABLE "review" ADD COLUMN "temp__text" text;
-ALTER TABLE "review" ADD COLUMN "temp__spoiler" boolean;
-ALTER TABLE "review" ADD COLUMN "temp__visibility" text;
+ALTER TABLE "review" ADD COLUMN "temp__spoiler" boolean DEFAULT false;
+ALTER TABLE "review" ADD COLUMN "temp__visibility" text DEFAULT 'PR';
 ALTER TABLE "review" ADD COLUMN "temp__user_id" integer;
 ALTER TABLE "review" ADD COLUMN "temp__metadata_id" integer;
 ALTER TABLE "review" ADD COLUMN "temp__person_id" integer;
