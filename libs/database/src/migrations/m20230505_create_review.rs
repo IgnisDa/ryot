@@ -65,7 +65,6 @@ impl MigrationTrait for Migration {
                             .default(Visibility::Private),
                     )
                     .col(ColumnDef::new(Review::UserId).integer().not_null())
-                    .col(ColumnDef::new(Review::MetadataId).text())
                     .col(ColumnDef::new(Review::Comments).json_binary().not_null())
                     .col(ColumnDef::new(Review::ShowExtraInformation).json_binary())
                     .col(ColumnDef::new(Review::PodcastExtraInformation).json_binary())
@@ -74,6 +73,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::CollectionId).text())
                     .col(ColumnDef::new(Review::MetadataGroupId).text())
                     .col(ColumnDef::new(Review::PersonId).text())
+                    .col(ColumnDef::new(Review::MetadataId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_user_foreign_key")

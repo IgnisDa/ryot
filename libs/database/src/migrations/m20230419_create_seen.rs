@@ -47,13 +47,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::StartedOn).date())
                     .col(ColumnDef::new(Seen::FinishedOn).date())
                     .col(ColumnDef::new(Seen::UserId).integer().not_null())
-                    .col(ColumnDef::new(Seen::MetadataId).text().not_null())
                     .col(
                         ColumnDef::new(Seen::State)
                             .text()
                             .not_null()
                             .default(SeenState::InProgress),
-                    )
+                        )
                     .col(
                         ColumnDef::new(Seen::UpdatedAt)
                             .array(ColumnType::TimestampWithTimeZone)
@@ -67,7 +66,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
-                            .timestamp_with_time_zone()
+                        .timestamp_with_time_zone()
                             .not_null()
                             .extra("GENERATED ALWAYS AS (updated_at[array_length(updated_at, 1)]) STORED")
                     )
@@ -82,6 +81,7 @@ impl MigrationTrait for Migration {
                         .integer()
                         .extra(TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL)
                     )
+                    .col(ColumnDef::new(Seen::MetadataId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")

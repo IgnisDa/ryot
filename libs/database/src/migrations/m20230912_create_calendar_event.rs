@@ -31,12 +31,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
-                    .col(ColumnDef::new(CalendarEvent::MetadataId).text())
                     .col(ColumnDef::new(CalendarEvent::MetadataShowExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(CalendarEvent::MetadataPodcastExtraInformation)
                             .json_binary(),
                     )
+                    .col(ColumnDef::new(CalendarEvent::MetadataId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-calendar_event_to_metadata")

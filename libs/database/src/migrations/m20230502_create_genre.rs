@@ -45,12 +45,12 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(MetadataToGenre::Table)
+                    .col(ColumnDef::new(MetadataToGenre::GenreId).text().not_null())
                     .col(
                         ColumnDef::new(MetadataToGenre::MetadataId)
                             .text()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(MetadataToGenre::GenreId).text().not_null())
                     .primary_key(
                         Index::create()
                             .name("pk-metadata_genre")

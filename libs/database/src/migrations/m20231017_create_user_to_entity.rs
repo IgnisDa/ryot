@@ -78,7 +78,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
                     .col(ColumnDef::new(UserToEntity::MediaReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
-                    .col(ColumnDef::new(UserToEntity::MetadataId).text())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
@@ -92,6 +91,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::NeedsToBeUpdated).boolean())
                     .col(ColumnDef::new(UserToEntity::MetadataGroupId).text())
                     .col(ColumnDef::new(UserToEntity::PersonId).text())
+                    .col(ColumnDef::new(UserToEntity::MetadataId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")

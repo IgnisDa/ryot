@@ -94,11 +94,6 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(MetadataToPerson::Table)
-                    .col(
-                        ColumnDef::new(MetadataToPerson::MetadataId)
-                            .text()
-                            .not_null(),
-                    )
                     .col(ColumnDef::new(MetadataToPerson::Index).integer())
                     .primary_key(
                         Index::create()
@@ -110,6 +105,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(MetadataToPerson::Role).text().not_null())
                     .col(ColumnDef::new(MetadataToPerson::Character).text())
                     .col(ColumnDef::new(MetadataToPerson::PersonId).text().not_null())
+                    .col(
+                        ColumnDef::new(MetadataToPerson::MetadataId)
+                            .text()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-media-item_media-person_id")
