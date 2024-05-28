@@ -93,7 +93,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(MetadataToMetadataGroup::MetadataGroupId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
                     .col(

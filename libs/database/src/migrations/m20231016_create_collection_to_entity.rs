@@ -70,7 +70,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::PersonId).integer())
+                    .col(ColumnDef::new(CollectionToEntity::PersonId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk3")
@@ -79,7 +79,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).integer())
+                    .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk4")
