@@ -15,6 +15,7 @@ pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
 pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
 pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
+    ALTER TABLE "user_to_entity" DROP CONSTRAINT IF EXISTS "user_to_entity__ensure_one_entity";
     ALTER TABLE "user_to_entity"
     ADD CONSTRAINT "user_to_entity__ensure_one_entity"
     CHECK (
