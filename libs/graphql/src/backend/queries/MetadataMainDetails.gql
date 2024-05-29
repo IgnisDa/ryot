@@ -1,4 +1,4 @@
-query MetadataMainDetails($metadataId: Int!) {
+query MetadataMainDetails($metadataId: String!) {
   metadataDetails(metadataId: $metadataId) {
     title
     lot

@@ -121,7 +121,7 @@ mutation DeployImportJob($input: DeployImportJobInput!) {
   deployImportJob(input: $input)
 }
 
-mutation DeployUpdateMetadataJob($metadataId: Int!) {
+mutation DeployUpdateMetadataJob($metadataId: String!) {
   deployUpdateMetadataJob(metadataId: $metadataId)
 }
 
@@ -141,7 +141,7 @@ mutation GenerateAuthToken {
   generateAuthToken
 }
 
-mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {
+mutation MergeMetadata($mergeFrom: String!, $mergeInto: String!) {
   mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 
