@@ -27,6 +27,7 @@ import {
 	Stack,
 	Tabs,
 	Text,
+	TextInput,
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
@@ -1993,7 +1994,7 @@ const MergeMetadataModal = (props: {
 						This will move all your history, reviews, and collections from the
 						source media to the destination media. This action is irreversible.
 					</Text>
-					<NumberInput label="Destination media ID" name="mergeInto" required />
+					<TextInput label="Destination media ID" name="mergeInto" required />
 					<Button type="submit" onClick={props.onClose}>
 						Submit
 					</Button>
