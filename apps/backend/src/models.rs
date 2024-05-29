@@ -781,7 +781,6 @@ pub mod media {
         pub audio_books: HashSet<String>,
         pub anime_episodes: HashSet<(String, i32)>,
         pub anime: HashSet<String>,
-        #[serde(default)] // FIXME: Remove in the next major release
         pub manga_volumes: HashSet<(String, i32)>,
         pub manga_chapters: HashSet<(String, i32)>,
         pub manga: HashSet<String>,
