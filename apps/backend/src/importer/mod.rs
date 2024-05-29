@@ -27,7 +27,7 @@ use crate::{
             ImportOrExportMediaItem, ImportOrExportPersonItem, PostReviewInput,
             ProgressUpdateInput,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, IdObject,
+        BackgroundJob, ChangeCollectionToEntityInput, StringIdObject,
     },
     traits::AuthProvider,
     users::{UserPreferences, UserReviewScale},
@@ -339,7 +339,7 @@ impl ImporterService {
                             force_update: Some(true),
                         })
                         .await;
-                    resp.map(|r| IdObject { id: r.id })
+                    resp.map(|r| StringIdObject { id: r.id })
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service
@@ -370,7 +370,7 @@ impl ImporterService {
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
-                            metadata_id: metadata.id,
+                            metadata_id: metadata.id.clone(),
                             progress,
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
@@ -396,9 +396,13 @@ impl ImporterService {
                 };
             }
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, Some(metadata.id), None, None)
-                {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    Some(metadata.id.clone()),
+                    None,
+                    None,
+                ) {
                     if let Err(e) = self.media_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
@@ -425,7 +429,7 @@ impl ImporterService {
                         ChangeCollectionToEntityInput {
                             creator_user_id: user_id,
                             collection_name: col.to_string(),
-                            metadata_id: Some(metadata.id),
+                            metadata_id: Some(metadata.id.clone()),
                             ..Default::default()
                         },
                     )
@@ -653,7 +657,7 @@ impl ImporterService {
 fn convert_review_into_input(
     review: &ImportOrExportItemRating,
     preferences: &UserPreferences,
-    metadata_id: Option<i32>,
+    metadata_id: Option<String>,
     person_id: Option<String>,
     metadata_group_id: Option<String>,
 ) -> Option<PostReviewInput> {

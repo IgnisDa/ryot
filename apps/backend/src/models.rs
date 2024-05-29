@@ -146,7 +146,7 @@ pub struct CompleteExport {
 pub struct ChangeCollectionToEntityInput {
     pub creator_user_id: i32,
     pub collection_name: String,
-    pub metadata_id: Option<i32>,
+    pub metadata_id: Option<String>,
     pub person_id: Option<String>,
     pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
@@ -778,22 +778,22 @@ pub mod media {
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
     pub struct UserSummaryUniqueItems {
-        pub audio_books: HashSet<i32>,
-        pub anime_episodes: HashSet<(i32, i32)>,
-        pub anime: HashSet<i32>,
+        pub audio_books: HashSet<String>,
+        pub anime_episodes: HashSet<(String, i32)>,
+        pub anime: HashSet<String>,
         #[serde(default)] // FIXME: Remove in the next major release
-        pub manga_volumes: HashSet<(i32, i32)>,
-        pub manga_chapters: HashSet<(i32, i32)>,
-        pub manga: HashSet<i32>,
-        pub books: HashSet<i32>,
-        pub movies: HashSet<i32>,
-        pub visual_novels: HashSet<i32>,
-        pub video_games: HashSet<i32>,
-        pub show_episodes: HashSet<(i32, i32, i32)>,
-        pub show_seasons: HashSet<(i32, i32)>,
-        pub shows: HashSet<i32>,
-        pub podcast_episodes: HashSet<(i32, i32)>,
-        pub podcasts: HashSet<i32>,
+        pub manga_volumes: HashSet<(String, i32)>,
+        pub manga_chapters: HashSet<(String, i32)>,
+        pub manga: HashSet<String>,
+        pub books: HashSet<String>,
+        pub movies: HashSet<String>,
+        pub visual_novels: HashSet<String>,
+        pub video_games: HashSet<String>,
+        pub show_episodes: HashSet<(String, i32, i32)>,
+        pub show_seasons: HashSet<(String, i32)>,
+        pub shows: HashSet<String>,
+        pub podcast_episodes: HashSet<(String, i32)>,
+        pub podcasts: HashSet<String>,
     }
 
     #[derive(
@@ -823,7 +823,7 @@ pub mod media {
         pub text: Option<String>,
         pub visibility: Option<Visibility>,
         pub spoiler: Option<bool>,
-        pub metadata_id: Option<i32>,
+        pub metadata_id: Option<String>,
         pub person_id: Option<String>,
         pub metadata_group_id: Option<String>,
         pub collection_id: Option<String>,
@@ -840,7 +840,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
     pub struct ProgressUpdateInput {
-        pub metadata_id: i32,
+        pub metadata_id: String,
         pub progress: Option<Decimal>,
         pub date: Option<NaiveDate>,
         pub show_season_number: Option<i32>,
@@ -1320,7 +1320,7 @@ pub mod media {
     #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]
     pub struct PartialMetadata {
         #[boilermates(not_in("PartialMetadataWithoutId"))]
-        pub id: i32,
+        pub id: String,
         pub identifier: String,
         pub title: String,
         pub image: Option<String>,

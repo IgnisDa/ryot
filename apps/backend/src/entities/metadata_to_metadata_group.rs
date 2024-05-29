@@ -10,7 +10,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub metadata_group_id: String,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub metadata_id: i32,
+    pub metadata_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

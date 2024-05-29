@@ -161,7 +161,7 @@ pub async fn create_app_services(
 
 pub async fn get_user_to_entity_association<C>(
     user_id: &i32,
-    metadata_id: Option<i32>,
+    metadata_id: Option<String>,
     person_id: Option<String>,
     exercise_id: Option<String>,
     metadata_group_id: Option<String>,
@@ -188,7 +188,7 @@ where
 
 pub async fn associate_user_with_entity<C>(
     user_id: &i32,
-    metadata_id: Option<i32>,
+    metadata_id: Option<String>,
     person_id: Option<String>,
     exercise_id: Option<String>,
     metadata_group_id: Option<String>,
@@ -206,7 +206,7 @@ where
     }
     let user_to_meta = get_user_to_entity_association(
         user_id,
-        metadata_id,
+        metadata_id.clone(),
         person_id.clone(),
         exercise_id.clone(),
         metadata_group_id.clone(),
@@ -273,7 +273,7 @@ type CteCol = collection_to_entity::Column;
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: i32,
-    metadata_id: Option<i32>,
+    metadata_id: Option<String>,
     person_id: Option<String>,
     metadata_group_id: Option<String>,
     exercise_id: Option<String>,
@@ -323,7 +323,7 @@ pub async fn add_entity_to_collection(
         .filter(CteCol::CollectionId.eq(collection.id.clone()))
         .filter(
             CteCol::MetadataId
-                .eq(input.metadata_id)
+                .eq(input.metadata_id.clone())
                 .or(CteCol::PersonId.eq(input.person_id.clone()))
                 .or(CteCol::MetadataGroupId.eq(input.metadata_group_id.clone()))
                 .or(CteCol::ExerciseId.eq(input.exercise_id.clone())),
@@ -340,7 +340,7 @@ pub async fn add_entity_to_collection(
             .map(|d| serde_json::from_str::<Value>(&serde_json::to_string(&d).unwrap()).unwrap());
         let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
-            metadata_id: ActiveValue::Set(input.metadata_id),
+            metadata_id: ActiveValue::Set(input.metadata_id.clone()),
             person_id: ActiveValue::Set(input.person_id.clone()),
             metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
             exercise_id: ActiveValue::Set(input.exercise_id.clone()),

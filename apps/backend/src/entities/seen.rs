@@ -31,7 +31,7 @@ pub struct Model {
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
     pub user_id: i32,
-    pub metadata_id: i32,
+    pub metadata_id: String,
     pub state: SeenState,
     pub provider_watched_on: Option<String>,
     #[graphql(skip)]
@@ -103,7 +103,7 @@ impl ActiveModelBehavior for ActiveModel {
         if insert {
             associate_user_with_entity(
                 &model.user_id,
-                Some(model.metadata_id),
+                Some(model.metadata_id.clone()),
                 None,
                 None,
                 None,

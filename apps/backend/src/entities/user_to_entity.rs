@@ -16,7 +16,7 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub user_id: i32,
     pub person_id: Option<String>,
-    pub metadata_id: Option<i32>,
+    pub metadata_id: Option<String>,
     pub exercise_id: Option<String>,
     pub metadata_units_consumed: Option<i32>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,

@@ -14,7 +14,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub date: NaiveDate,
-    pub metadata_id: Option<i32>,
+    pub metadata_id: Option<String>,
     pub metadata_show_extra_information: Option<SeenShowExtraInformation>,
     pub metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }

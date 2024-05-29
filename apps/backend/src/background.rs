@@ -102,7 +102,7 @@ pub async fn perform_core_application_job(
 pub enum ApplicationJob {
     ImportFromExternalSource(i32, Box<DeployImportJobInput>),
     ReEvaluateUserWorkouts(i32),
-    UpdateMetadata(i32),
+    UpdateMetadata(String),
     UpdateGithubExerciseJob(Exercise),
     UpdatePerson(String),
     RecalculateCalendarEvents,
@@ -141,7 +141,7 @@ pub async fn perform_application_job(
             .await
             .is_ok(),
         ApplicationJob::UpdateMetadata(metadata_id) => misc_service
-            .update_metadata_and_notify_users(metadata_id)
+            .update_metadata_and_notify_users(&metadata_id)
             .await
             .is_ok(),
         ApplicationJob::UpdatePerson(person_id) => misc_service
