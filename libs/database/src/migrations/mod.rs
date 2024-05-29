@@ -33,6 +33,7 @@ mod m20240510_0_add_information_template_to_collection;
 mod m20240510_1_port_owned_information;
 mod m20240511_port_reminders_to_information;
 mod m20240526_0_change_collection_primary_key;
+mod m20240526_10_is_last_v5_migration;
 mod m20240526_1_change_review_primary_key;
 mod m20240526_2_change_calendar_event_primary_key;
 mod m20240526_3_change_seen_primary_key;
@@ -102,6 +103,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240526_7_change_person_primary_key::Migration),
             Box::new(m20240526_8_change_metadata_primary_key::Migration),
             Box::new(m20240526_9_complete_cleanup::Migration),
+            Box::new(m20240526_10_is_last_v5_migration::Migration),
         ]
     }
 }
