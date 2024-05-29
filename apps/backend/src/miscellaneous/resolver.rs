@@ -1591,7 +1591,7 @@ impl MiscellaneousService {
             .filter(
                 metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
             )
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await?;
         let suggestions_temp = Metadata::find()
@@ -2996,11 +2996,7 @@ impl MiscellaneousService {
         Ok(model)
     }
 
-    async fn associate_genre_with_metadata(
-        &self,
-        name: String,
-        metadata_id: &str,
-    ) -> Result<()> {
+    async fn associate_genre_with_metadata(&self, name: String, metadata_id: &str) -> Result<()> {
         let db_genre = if let Some(c) = Genre::find()
             .filter(genre::Column::Name.eq(&name))
             .one(&self.db)
@@ -6345,7 +6341,7 @@ impl MiscellaneousService {
             .column(metadata_to_metadata_group::Column::MetadataId)
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id.clone()))
             .order_by_asc(metadata_to_metadata_group::Column::Part)
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await?;
         let contents_temp = Metadata::find()
