@@ -57,6 +57,22 @@ pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedColl
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
 pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
 
+pub async fn get_whether_column_is_text<'a>(
+    table_name: &str,
+    column_name: &str,
+    db: &SchemaManagerConnection<'a>,
+) -> Result<bool, DbErr> {
+    let resp = db.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        r#"SELECT data_type = 'text' as is_text FROM information_schema.columns WHERE table_name = $1 AND column_name = $2"#,
+        [table_name.into(), column_name.into()]
+    ))
+    .await?
+    .unwrap();
+    let is_text: bool = resp.try_get("", "is_text")?;
+    Ok(is_text)
+}
+
 pub struct Migrator;
 
 #[async_trait::async_trait]
@@ -106,20 +122,4 @@ impl MigratorTrait for Migrator {
             Box::new(m20240526_10_is_last_v5_migration::Migration),
         ]
     }
-}
-
-pub async fn get_whether_column_is_text<'a>(
-    table_name: &str,
-    column_name: &str,
-    db: &SchemaManagerConnection<'a>,
-) -> Result<bool, DbErr> {
-    let resp = db.query_one(Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        r#"SELECT data_type = 'text' as is_text FROM information_schema.columns WHERE table_name = $1 AND column_name = $2"#,
-        [table_name.into(), column_name.into()]
-    ))
-    .await?
-    .unwrap();
-    let is_text: bool = resp.try_get("", "is_text")?;
-    Ok(is_text)
 }
