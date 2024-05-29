@@ -5,10 +5,6 @@ order.
 
 ## From `v4.*` to `v5.*`
 
-!!! warning "New upgrade strategy"
-
-    Starting from `v5`, the server can be updated without any complicated steps.
-
 1. Upgrade the server to `v4.4.3` to make sure all `v4` migrations are applied. For
    example, you can make this change: `image: "ghcr.io/ignisda/ryot:v4.4.3"` in your
    docker-compose file.
