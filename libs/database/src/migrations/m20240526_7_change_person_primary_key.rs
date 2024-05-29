@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change person primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "person" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -195,6 +196,7 @@ CREATE UNIQUE INDEX "person-identifier-source__unique_index" ON "person" ("ident
         )
         .await?;
 
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

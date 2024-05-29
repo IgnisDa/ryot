@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change review primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "review" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -151,6 +152,7 @@ ALTER TABLE "review" ADD CONSTRAINT "review_to_user_foreign_key" FOREIGN KEY ("u
         )
         .await?;
 
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

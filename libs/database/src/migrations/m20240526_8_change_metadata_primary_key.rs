@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change metadata primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "metadata" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -308,6 +309,7 @@ CREATE INDEX "metadata__title__index" ON "metadata" (title);
         )
         .await?;
 
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

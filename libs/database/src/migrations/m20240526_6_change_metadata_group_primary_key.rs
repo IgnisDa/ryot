@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change metadata_group primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "metadata_group" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -169,6 +170,7 @@ CREATE UNIQUE INDEX "metadata_group-identifier-source-lot__unique-index" ON "met
         )
         .await?;
 
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

@@ -27,6 +27,8 @@ impl MigrationTrait for Migration {
         if get_whether_column_is_text("collection", "id", db).await? {
             return Ok(());
         }
+
+        tracing::warn!("Starting to change collection primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "collection" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -34,6 +36,7 @@ UPDATE "collection" SET "new_id" = 'new_prefix_' || "id";
             "#,
         )
         .await?;
+
         db.execute_unprepared(
             r#"
 ALTER TABLE "collection_to_entity" ADD COLUMN "new_collection_id" text;
@@ -79,14 +82,17 @@ CREATE UNIQUE INDEX "collection_to_entity_uqi4" ON "collection_to_entity" ("coll
 "#,
         )
         .await?;
+
         for col in Entity::find().all(db).await? {
             let new_id = format!("col_{}", nanoid!(12));
             let mut col: ActiveModel = col.into();
             col.temp_id = ActiveValue::Set(new_id);
             col.update(db).await?;
         }
+
         db.execute_unprepared(r#"UPDATE "collection" SET "id" = "temp_id""#)
             .await?;
+
         db.execute_unprepared(
             r#"
 ALTER TABLE "user_to_collection"
@@ -97,6 +103,7 @@ ALTER COLUMN "collection_id" SET NOT NULL;
 "#,
         )
         .await?;
+
         db.execute_unprepared(
             r#"
 ALTER TABLE "collection" ALTER COLUMN "id" DROP DEFAULT;
@@ -104,6 +111,7 @@ ALTER TABLE "collection" DROP COLUMN "temp_id";
 "#,
         )
         .await?;
+
         db.execute_unprepared(
             r#"
 -- Step 1: Add temporary columns
@@ -154,6 +162,8 @@ ALTER TABLE "collection" ADD CONSTRAINT "collection_to_user_foreign_key" FOREIGN
             "#,
         )
         .await?;
+
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

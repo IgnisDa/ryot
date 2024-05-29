@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change calendar_event primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "calendar_event" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -98,6 +99,8 @@ ALTER TABLE "calendar_event" ADD CONSTRAINT "fk-calendar_event_to_metadata" FORE
 "#,
         )
         .await?;
+
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change seen primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "seen" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -141,6 +142,7 @@ ALTER TABLE "seen" ADD COLUMN "total_time_spent" integer GENERATED ALWAYS AS (CA
         )
         .await?;
 
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

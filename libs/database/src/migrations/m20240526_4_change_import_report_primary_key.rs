@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change import_report primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "import_report" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -108,6 +109,8 @@ ALTER TABLE "import_report" ADD CONSTRAINT "media_import_report_to_user_foreign_
 "#,
         )
         .await?;
+
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 

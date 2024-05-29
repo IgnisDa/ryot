@@ -28,6 +28,7 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
+        tracing::warn!("Starting to change genre primary key to text");
         db.execute_unprepared(
             r#"
 ALTER TABLE "genre" ADD COLUMN "new_id" text NOT NULL DEFAULT '';
@@ -105,6 +106,8 @@ CREATE UNIQUE INDEX "genre_name_index" ON "genre" ("name");
 "#,
         )
         .await?;
+
+        tracing::info!("Complete...\n\n");
         Ok(())
     }
 
