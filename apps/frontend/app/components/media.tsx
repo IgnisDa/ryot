@@ -154,7 +154,7 @@ export const ReviewItemDisplay = (props: {
 	user: ApplicationUser;
 	reviewScale: UserReviewScale;
 	title: string;
-	metadataId?: number;
+	metadataId?: string;
 	metadataGroupId?: string;
 	personId?: string;
 	collectionId?: string;

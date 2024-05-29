@@ -138,9 +138,8 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const id = params.id;
-	invariant(id, "No ID provided");
-	const metadataId = Number.parseInt(id);
+	const metadataId = params.id;
+	invariant(metadataId, "No ID provided");
 	const headers = await getAuthorizationHeader(request);
 	const [
 		userPreferences,
@@ -384,7 +383,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const metadataIdSchema = z.object({ metadataId: zx.IntAsString });
+const metadataIdSchema = z.object({ metadataId: z.string() });
 
 const bulkUpdateSchema = z
 	.object({
@@ -399,8 +398,8 @@ const bulkUpdateSchema = z
 const seenIdSchema = z.object({ seenId: z.string() });
 
 const mergeMetadataSchema = z.object({
-	mergeFrom: zx.IntAsString,
-	mergeInto: zx.IntAsString,
+	mergeFrom: z.string(),
+	mergeInto: z.string(),
 });
 
 const dateString = z
@@ -1785,7 +1784,7 @@ const IndividualProgressModal = (props: {
 	title: string;
 	opened: boolean;
 	onClose: () => void;
-	metadataId: number;
+	metadataId: string;
 	progress: number;
 	inProgress: AllUserHistory[number];
 	total?: number | null;
@@ -1976,7 +1975,7 @@ const AdjustSeenTimesModal = (props: {
 
 const MergeMetadataModal = (props: {
 	opened: boolean;
-	metadataId: number;
+	metadataId: string;
 	onClose: () => void;
 }) => {
 	return (
