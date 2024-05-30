@@ -95,7 +95,7 @@ impl UserWorkoutInput {
         save_history: usize,
     ) -> Result<String> {
         let mut input = self;
-        let id = input.id.unwrap_or_else(|| nanoid!(12));
+        let id = input.id.unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
         tracing::trace!("Creating new workout with id = {}", id);
         let mut exercises = vec![];
         let mut workout_totals = vec![];
@@ -157,7 +157,8 @@ impl UserWorkoutInput {
                     let mut up: user_to_entity::ActiveModel = e.into();
                     up.exercise_num_times_interacted = ActiveValue::Set(Some(performed + 1));
                     up.exercise_extra_information = ActiveValue::Set(Some(extra_info));
-                    up.last_updated_on = ActiveValue::Set(Utc::now());
+                    up.last_updated_on =
+                        ActiveValue::Set(set_confirmed_at.unwrap_or_else(Utc::now));
                     up.update(db).await?
                 }
             };
