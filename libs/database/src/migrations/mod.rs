@@ -41,8 +41,8 @@ mod m20240526_05_change_genre_primary_key;
 mod m20240526_06_change_metadata_group_primary_key;
 mod m20240526_07_change_person_primary_key;
 mod m20240526_08_change_metadata_primary_key;
-mod m20240526_09_change_enums;
-mod m20240526_10_complete_cleanup_of_primary_keys;
+mod m20240526_09_complete_cleanup_of_primary_keys;
+mod m20240526_10_change_enums_to_snake_case;
 mod m20240526_11_workout_table_changes;
 mod m20240606_is_last_v5_migration;
 
@@ -120,8 +120,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240526_06_change_metadata_group_primary_key::Migration),
             Box::new(m20240526_07_change_person_primary_key::Migration),
             Box::new(m20240526_08_change_metadata_primary_key::Migration),
-            Box::new(m20240526_09_change_enums::Migration),
-            Box::new(m20240526_10_complete_cleanup_of_primary_keys::Migration),
+            Box::new(m20240526_09_complete_cleanup_of_primary_keys::Migration),
+            Box::new(m20240526_10_change_enums_to_snake_case::Migration),
             Box::new(m20240526_11_workout_table_changes::Migration),
             Box::new(m20240606_is_last_v5_migration::Migration),
         ]
