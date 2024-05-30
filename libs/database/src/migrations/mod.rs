@@ -32,17 +32,17 @@ mod m20240509_q_associate_collections_with_owners;
 mod m20240510_0_add_information_template_to_collection;
 mod m20240510_1_port_owned_information;
 mod m20240511_port_reminders_to_information;
-mod m20240526_0_change_collection_primary_key;
+mod m20240526_00_change_collection_primary_key;
+mod m20240526_01_change_review_primary_key;
+mod m20240526_02_change_calendar_event_primary_key;
+mod m20240526_03_change_seen_primary_key;
+mod m20240526_04_change_import_report_primary_key;
+mod m20240526_05_change_genre_primary_key;
+mod m20240526_06_change_metadata_group_primary_key;
+mod m20240526_07_change_person_primary_key;
+mod m20240526_08_change_metadata_primary_key;
+mod m20240526_09_change_enums;
 mod m20240526_10_complete_cleanup;
-mod m20240526_1_change_review_primary_key;
-mod m20240526_2_change_calendar_event_primary_key;
-mod m20240526_3_change_seen_primary_key;
-mod m20240526_4_change_import_report_primary_key;
-mod m20240526_5_change_genre_primary_key;
-mod m20240526_6_change_metadata_group_primary_key;
-mod m20240526_7_change_person_primary_key;
-mod m20240526_8_change_metadata_primary_key;
-mod m20240526_9_change_enums;
 mod m20240606_is_last_v5_migration;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -110,16 +110,16 @@ impl MigratorTrait for Migrator {
             Box::new(m20240510_0_add_information_template_to_collection::Migration),
             Box::new(m20240510_1_port_owned_information::Migration),
             Box::new(m20240511_port_reminders_to_information::Migration),
-            Box::new(m20240526_0_change_collection_primary_key::Migration),
-            Box::new(m20240526_1_change_review_primary_key::Migration),
-            Box::new(m20240526_2_change_calendar_event_primary_key::Migration),
-            Box::new(m20240526_3_change_seen_primary_key::Migration),
-            Box::new(m20240526_4_change_import_report_primary_key::Migration),
-            Box::new(m20240526_5_change_genre_primary_key::Migration),
-            Box::new(m20240526_6_change_metadata_group_primary_key::Migration),
-            Box::new(m20240526_7_change_person_primary_key::Migration),
-            Box::new(m20240526_8_change_metadata_primary_key::Migration),
-            Box::new(m20240526_9_change_enums::Migration),
+            Box::new(m20240526_00_change_collection_primary_key::Migration),
+            Box::new(m20240526_01_change_review_primary_key::Migration),
+            Box::new(m20240526_02_change_calendar_event_primary_key::Migration),
+            Box::new(m20240526_03_change_seen_primary_key::Migration),
+            Box::new(m20240526_04_change_import_report_primary_key::Migration),
+            Box::new(m20240526_05_change_genre_primary_key::Migration),
+            Box::new(m20240526_06_change_metadata_group_primary_key::Migration),
+            Box::new(m20240526_07_change_person_primary_key::Migration),
+            Box::new(m20240526_08_change_metadata_primary_key::Migration),
+            Box::new(m20240526_09_change_enums::Migration),
             Box::new(m20240526_10_complete_cleanup::Migration),
             Box::new(m20240606_is_last_v5_migration::Migration),
         ]
