@@ -354,3 +354,34 @@ pub enum MetadataToMetadataRelation {
     #[sea_orm(string_value = "SU")]
     Suggestion,
 }
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Enum,
+    PartialEq,
+    Eq,
+    DeriveActiveEnum,
+    EnumIter,
+    Serialize,
+    Deserialize,
+    Hash,
+)]
+#[sea_orm(rs_type = "String", db_type = "String(None)")]
+pub enum UserToMediaReason {
+    #[sea_orm(string_value = "Seen")]
+    Seen,
+    #[sea_orm(string_value = "Reviewed")]
+    Reviewed,
+    #[sea_orm(string_value = "Collection")]
+    Collection,
+    #[sea_orm(string_value = "Reminder")]
+    Reminder,
+    #[sea_orm(string_value = "Owned")]
+    Owned,
+    #[sea_orm(string_value = "Monitoring")]
+    Monitoring,
+    #[sea_orm(string_value = "Watchlist")]
+    Watchlist,
+}

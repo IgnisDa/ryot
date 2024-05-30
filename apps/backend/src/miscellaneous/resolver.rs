@@ -20,7 +20,7 @@ use database::{
     AliasedCollectionToEntity, AliasedExercise, AliasedMetadata, AliasedMetadataGroup,
     AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUserToCollection,
     AliasedUserToEntity, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserLot,
-    Visibility,
+    UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -95,8 +95,7 @@ use crate::{
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserSummary, UserToMediaReason, VideoGameSpecifics,
-            VisualNovelSpecifics, WatchProvider,
+            ShowSpecifics, UserSummary, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,

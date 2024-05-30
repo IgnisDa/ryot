@@ -10,7 +10,7 @@ use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaLot, MediaSource, SeenState, Visibility,
+    MediaLot, MediaSource, SeenState, UserToMediaReason, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
@@ -19,8 +19,7 @@ use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
-    FromQueryResult,
+    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -856,37 +855,6 @@ pub mod media {
     pub enum ProgressUpdateErrorVariant {
         AlreadySeen,
         NoSeenInProgress,
-    }
-
-    #[derive(
-        Copy,
-        Clone,
-        Debug,
-        Enum,
-        PartialEq,
-        Eq,
-        DeriveActiveEnum,
-        EnumIter,
-        Serialize,
-        Deserialize,
-        Hash,
-    )]
-    #[sea_orm(rs_type = "String", db_type = "String(None)")]
-    pub enum UserToMediaReason {
-        #[sea_orm(string_value = "Seen")]
-        Seen,
-        #[sea_orm(string_value = "Reviewed")]
-        Reviewed,
-        #[sea_orm(string_value = "Collection")]
-        Collection,
-        #[sea_orm(string_value = "Reminder")]
-        Reminder,
-        #[sea_orm(string_value = "Owned")]
-        Owned,
-        #[sea_orm(string_value = "Monitoring")]
-        Monitoring,
-        #[sea_orm(string_value = "Watchlist")]
-        Watchlist,
     }
 
     #[derive(Debug, SimpleObject)]
