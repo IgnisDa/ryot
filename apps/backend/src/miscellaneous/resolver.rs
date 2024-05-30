@@ -2165,7 +2165,7 @@ impl MiscellaneousService {
                 s => query.filter(seen::Column::State.eq(match s {
                     MediaGeneralFilter::Dropped => SeenState::Dropped,
                     MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                    MediaGeneralFilter::Completed => SeenState::InProgress,
+                    MediaGeneralFilter::Completed => SeenState::Completed,
                     _ => unreachable!(),
                 })),
             })
