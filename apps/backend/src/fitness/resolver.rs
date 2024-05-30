@@ -6,7 +6,6 @@ use database::{
     AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
     ExerciseMechanic, ExerciseMuscle, ExerciseSource,
 };
-use futures::TryStreamExt;
 use itertools::Itertools;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -848,57 +847,6 @@ impl ExerciseService {
             let workout_input = self.db_workout_to_workout_input(workout);
             self.create_user_workout(user_id, workout_input).await?;
             tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
-        }
-        let mut all_associations = UserToEntity::find()
-            .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .stream(&self.db)
-            .await?;
-        while let Some(association) = all_associations.try_next().await? {
-            let workout_date = Workout::find_by_id(
-                association
-                    .exercise_extra_information
-                    .clone()
-                    .unwrap_or_default()
-                    .history
-                    .first()
-                    .cloned()
-                    .unwrap_or_default()
-                    .workout_id,
-            )
-            .one(&self.db)
-            .await?
-            .unwrap()
-            .start_time;
-            let mut association: user_to_entity::ActiveModel = association.into();
-            association.last_updated_on = ActiveValue::Set(workout_date);
-            association.update(&self.db).await?;
-        }
-        let mut all_user_to_entity = UserToEntity::find()
-            .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .stream(&self.db)
-            .await?;
-        while let Some(association) = all_user_to_entity.try_next().await? {
-            let first_workout_in_history = association
-                .exercise_extra_information
-                .clone()
-                .unwrap()
-                .history
-                .last()
-                .cloned()
-                .unwrap()
-                .workout_id;
-            let time_performed = Workout::find()
-                .select_only()
-                .column(workout::Column::StartTime)
-                .filter(workout::Column::Id.eq(first_workout_in_history))
-                .into_tuple::<DateTimeUtc>()
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let mut association: user_to_entity::ActiveModel = association.into();
-            association.created_on = ActiveValue::Set(time_performed);
-            association.update(&self.db).await?;
         }
         Ok(())
     }
