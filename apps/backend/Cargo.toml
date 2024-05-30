@@ -7,10 +7,7 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
-apalis = { git = "https://github.com/geofmureithi/apalis.git", features = [
-    "cron",
-    "limit",
-], branch = "bug/remove-async-timer" }
+apalis = { version = "0.5.3", features = ["cron", "limit"] }
 argon2 = "0.5.3"
 async-graphql = { workspace = true }
 async-graphql-axum = "7.0.3"
