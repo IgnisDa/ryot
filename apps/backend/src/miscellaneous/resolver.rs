@@ -40,8 +40,8 @@ use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureE
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
+    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
+    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
@@ -50,7 +50,6 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use uuid::Uuid;
 
@@ -1964,7 +1963,7 @@ impl MiscellaneousService {
                     .to(calendar_event::Column::MetadataId)
                     .on_condition(move |left, _right| {
                         Condition::all().add_option(match only_monitored {
-                            true => Some(Expr::val(DefaultCollection::Monitoring.to_string()).eq(
+                            true => Some(Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
                                 PgFunc::any(Expr::col((left, user_to_entity::Column::MediaReason))),
                             )),
                             false => None,
@@ -2171,16 +2170,25 @@ impl MiscellaneousService {
                 })),
             })
             .apply_if(input.sort.map(|s| s.by), |query, v| match v {
-                MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
-                // FIXME: nulls last when https://github.com/SeaQL/sea-orm/issues/2227 is resolved
-                MediaSortBy::ReleaseDate => query.order_by(metadata::Column::PublishYear, order_by),
-                MediaSortBy::Rating => {
-                    query.order_by(Expr::col(Alias::new(avg_rating_col)), order_by)
-                }
                 MediaSortBy::LastUpdated => query
                     .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
                     .group_by(user_to_entity::Column::LastUpdatedOn),
-                MediaSortBy::LastSeen => query.order_by(seen::Column::FinishedOn.max(), order_by),
+                MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+                MediaSortBy::ReleaseDate => query.order_by_with_nulls(
+                    metadata::Column::PublishYear,
+                    order_by,
+                    NullOrdering::Last,
+                ),
+                MediaSortBy::Rating => query.order_by_with_nulls(
+                    Expr::col(Alias::new(avg_rating_col)),
+                    order_by,
+                    NullOrdering::Last,
+                ),
+                MediaSortBy::LastSeen => query.order_by_with_nulls(
+                    seen::Column::FinishedOn.max(),
+                    order_by,
+                    NullOrdering::Last,
+                ),
             });
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
 

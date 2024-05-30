@@ -41,7 +41,7 @@ export interface UserMeasurement {
 	timestamp: string;
 }
 
-export type MediaLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
+export type MediaLot = 'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel';
 
 export interface IdAndNamedObject {
 	id: number;
@@ -120,7 +120,7 @@ export interface ImportOrExportMediaItemSeen {
 	started_on: string | null;
 }
 
-export type MediaSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
+export type MediaSource = 'anilist' | 'audible' | 'custom' | 'google_books' | 'igdb' | 'itunes' | 'listennotes' | 'manga_updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMediaItem {
@@ -131,7 +131,7 @@ export interface ImportOrExportMediaItem {
 	/**
 	 * The type of media.
 	 *
-	 * @default 'Book'
+	 * @default 'book'
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -141,7 +141,7 @@ export interface ImportOrExportMediaItem {
 	/**
 	 * The source of media.
 	 *
-	 * @default 'Audible'
+	 * @default 'audible'
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
@@ -157,7 +157,7 @@ export interface ImportOrExportMediaGroupItem {
 	/**
 	 * The type of media.
 	 *
-	 * @default 'Book'
+	 * @default 'book'
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -165,7 +165,7 @@ export interface ImportOrExportMediaGroupItem {
 	/**
 	 * The source of media.
 	 *
-	 * @default 'Audible'
+	 * @default 'audible'
 	 */
 	source: MediaSource;
 	/** Name of the group. */
@@ -190,7 +190,7 @@ export interface ImportOrExportPersonItem {
 	/**
 	 * The source of data.
 	 *
-	 * @default 'Audible'
+	 * @default 'audible'
 	 */
 	source: MediaSource;
 	/** The source specific data. */
@@ -204,7 +204,7 @@ export interface EntityAssets {
 	videos: string[];
 }
 
-export type ExerciseLot = 'Duration' | 'DistanceAndDuration' | 'Reps' | 'RepsAndWeight';
+export type ExerciseLot = 'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight';
 
 export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
 
