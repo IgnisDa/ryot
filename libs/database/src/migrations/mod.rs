@@ -42,7 +42,8 @@ mod m20240526_06_change_metadata_group_primary_key;
 mod m20240526_07_change_person_primary_key;
 mod m20240526_08_change_metadata_primary_key;
 mod m20240526_09_change_enums;
-mod m20240526_10_complete_cleanup;
+mod m20240526_10_complete_cleanup_of_primary_keys;
+mod m20240526_11_add_prefix_to_workout_ids;
 mod m20240606_is_last_v5_migration;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -120,7 +121,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240526_07_change_person_primary_key::Migration),
             Box::new(m20240526_08_change_metadata_primary_key::Migration),
             Box::new(m20240526_09_change_enums::Migration),
-            Box::new(m20240526_10_complete_cleanup::Migration),
+            Box::new(m20240526_10_complete_cleanup_of_primary_keys::Migration),
+            Box::new(m20240526_11_add_prefix_to_workout_ids::Migration),
             Box::new(m20240606_is_last_v5_migration::Migration),
         ]
     }
