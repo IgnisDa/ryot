@@ -272,7 +272,6 @@ pub enum ExerciseEquipment {
     FoamRoll,
     #[serde(alias = "body only")]
     Kettlebells,
-    #[sea_orm(string_value = "MA")]
     Machine,
     #[serde(alias = "medicine ball")]
     MedicineBall,
