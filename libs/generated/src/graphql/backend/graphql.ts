@@ -441,7 +441,7 @@ export enum ExerciseLevel {
 }
 
 export type ExerciseListFilter = {
-  collection?: InputMaybe<Scalars['Int']['input']>;
+  collection?: InputMaybe<Scalars['String']['input']>;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
   level?: InputMaybe<ExerciseLevel>;
@@ -769,7 +769,7 @@ export type MediaCreatorSearchResults = {
 };
 
 export type MediaFilter = {
-  collection?: InputMaybe<Scalars['Int']['input']>;
+  collection?: InputMaybe<Scalars['String']['input']>;
   general?: InputMaybe<MediaGeneralFilter>;
 };
 

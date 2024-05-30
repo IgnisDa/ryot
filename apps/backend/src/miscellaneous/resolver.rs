@@ -546,7 +546,7 @@ enum MediaGeneralFilter {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaFilter {
     general: Option<MediaGeneralFilter>,
-    collection: Option<i32>,
+    collection: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
