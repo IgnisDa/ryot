@@ -4,9 +4,8 @@ use std::sync::Arc;
 
 use async_graphql::{Result, SimpleObject};
 use async_trait::async_trait;
-use nanoid::nanoid;
 use schematic::Schematic;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -86,15 +85,4 @@ impl Related<super::user::Entity> for Entity {
     }
 }
 
-#[async_trait]
-impl ActiveModelBehavior for ActiveModel {
-    async fn before_save<C>(mut self, _db: &C, insert: bool) -> Result<Self, DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        if insert {
-            self.id = ActiveValue::Set(format!("wor_{}", nanoid!(12)));
-        }
-        Ok(self)
-    }
-}
+impl ActiveModelBehavior for ActiveModel {}

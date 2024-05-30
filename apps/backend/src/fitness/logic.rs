@@ -96,6 +96,7 @@ impl UserWorkoutInput {
     ) -> Result<String> {
         let mut input = self;
         let id = input.id.unwrap_or_else(|| nanoid!(12));
+        tracing::trace!("Creating new workout with id = {}", id);
         let mut exercises = vec![];
         let mut workout_totals = vec![];
         if input.exercises.is_empty() {

@@ -8,7 +8,6 @@ use database::{
 };
 use futures::TryStreamExt;
 use itertools::Itertools;
-use nanoid::nanoid;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
@@ -724,8 +723,6 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
-        let id = nanoid!(12);
-        tracing::debug!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(
                 user_id,
