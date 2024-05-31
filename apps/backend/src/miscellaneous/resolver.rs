@@ -66,7 +66,7 @@ use crate::{
             MetadataToPerson, Person, QueuedNotification, Review, Seen, User, UserMeasurement,
             UserToCollection, UserToEntity, Workout,
         },
-        review, seen,
+        queued_notification, review, seen,
         user::{
             self, UserWithOnlyIntegrationsAndNotifications, UserWithOnlyPreferences,
             UserWithOnlySummary,
@@ -5883,27 +5883,30 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    // FIXME: Add to the notification table instead of actually sending it
-    #[tracing::instrument(skip(self, msg))]
     async fn queue_notifications_to_user_platforms(&self, user_id: i32, msg: &str) -> Result<bool> {
         let user_details = user_by_id(&self.db, user_id).await?;
-        let mut success = true;
         if user_details.preferences.notifications.enabled {
-            tracing::debug!("Sending notification to user: {:?}", msg);
-            for notification in user_details.notifications {
-                if notification
-                    .settings
-                    .send_message(&self.config, msg)
-                    .await
-                    .is_err()
-                {
-                    success = false;
-                }
-            }
+            // tracing::debug!("Sending notification to user: {:?}", msg);
+            // for notification in user_details.notifications {
+            let insert_data = queued_notification::ActiveModel {
+                user_id: ActiveValue::Set(user_id),
+                message: ActiveValue::Set(msg.to_owned()),
+                ..Default::default()
+            };
+            insert_data.insert(&self.db).await?;
+            // if notification
+            //     .settings
+            //     .send_message(&self.config, msg)
+            //     .await
+            //     .is_err()
+            // {
+            //     success = false;
+            // }
+            // }
         } else {
             tracing::debug!("User has disabled notifications");
         }
-        Ok(success)
+        Ok(true)
     }
 
     async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
@@ -7101,6 +7104,7 @@ WHERE id IN (
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
         Ok(())
     }
