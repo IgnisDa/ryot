@@ -6,7 +6,7 @@ use super::m20230417_create_user::User;
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum Notification {
+pub enum QueuedNotification {
     Table,
     Id,
     UserId,
@@ -19,19 +19,27 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Notification::Table)
+                    .table(QueuedNotification::Table)
                     .col(
-                        ColumnDef::new(Notification::Id)
+                        ColumnDef::new(QueuedNotification::Id)
                             .text()
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Notification::Message).text().not_null())
-                    .col(ColumnDef::new(Notification::UserId).integer().not_null())
+                    .col(
+                        ColumnDef::new(QueuedNotification::Message)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(QueuedNotification::UserId)
+                            .integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("notification_to_user_foreign_key")
-                            .from(Notification::Table, Notification::UserId)
+                            .name("queued_notification_to_user_foreign_key")
+                            .from(QueuedNotification::Table, QueuedNotification::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
@@ -43,9 +51,9 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name("user_id__index")
-                    .table(Notification::Table)
-                    .col(Notification::UserId)
+                    .name("queued_notification__user_id__index")
+                    .table(QueuedNotification::Table)
+                    .col(QueuedNotification::UserId)
                     .to_owned(),
             )
             .await?;
