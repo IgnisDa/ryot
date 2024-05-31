@@ -72,7 +72,8 @@ BEGIN
                         WHEN set_element->>'lot' = 'Failure' THEN 'failure'
                         ELSE set_element->>'lot'
                     END)
-                ) || jsonb_set(set_element, '{personal_bests}', '[]');
+                );
+                set_element := jsonb_set(set_element, '{personal_bests}', '[]');
                 new_sets := new_sets || set_element;
             END LOOP;
 
