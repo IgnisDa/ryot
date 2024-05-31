@@ -32,6 +32,7 @@ pub struct UserWithOnlyPreferences {
 )]
 #[sea_orm(entity = "Entity")]
 pub struct UserWithOnlyIntegrationsAndNotifications {
+    pub id: i32,
     pub yank_integrations: Option<Vec<UserYankIntegration>>,
     pub sink_integrations: Vec<UserSinkIntegration>,
     pub notifications: Vec<UserNotification>,
@@ -80,6 +81,8 @@ pub enum Relation {
     Exercise,
     #[sea_orm(has_many = "super::import_report::Entity")]
     ImportReport,
+    #[sea_orm(has_many = "super::queued_notification::Entity")]
+    QueuedNotification,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
@@ -109,6 +112,12 @@ impl Related<super::exercise::Entity> for Entity {
 impl Related<super::import_report::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ImportReport.def()
+    }
+}
+
+impl Related<super::queued_notification::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::QueuedNotification.def()
     }
 }
 
