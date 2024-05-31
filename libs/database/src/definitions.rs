@@ -298,6 +298,7 @@ pub enum ExerciseEquipment {
     rename_all = "snake_case"
 )]
 #[config(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum ExerciseLot {
     Duration,
     DistanceAndDuration,
